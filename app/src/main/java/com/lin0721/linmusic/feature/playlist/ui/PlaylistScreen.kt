@@ -57,6 +57,8 @@ fun PlaylistScreen(
     var showCommentsSheet by remember { mutableStateOf(false) }
     var showMoreMenuSheet by remember { mutableStateOf(false) }
     var showImportTargetSheet by remember { mutableStateOf(false) }
+    var showEditInfoDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var selectedHistoryDate by remember { mutableStateOf("今天") }
 
     LaunchedEffect(historyRecommendState.selectedDate) {
@@ -248,88 +250,119 @@ fun PlaylistScreen(
                     val artistName = firstArtist?.name ?: "未知歌手"
                     val resourceLabel = if (isAlbum) "专辑" else "歌单"
 
-                    val menuItems = listOf(
-                        PlaylistMenuItem(
-                            icon = if (successState.isSubscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel",
-                            subtitle = "收藏${resourceLabel}到我的音乐库"
-                        ) {
-                            showMoreMenuSheet = false
-                            if (userProfile == null) {
-                                showLoginSheet = true
-                            } else {
-                                viewModel.toggleSubscribePlaylist()
+                    val isManageable = !isAlbum && userProfile != null &&
+                        playlist.creator?.userId == userProfile?.uid &&
+                        playlist.id > 0L &&
+                        playlist.id != userProfile?.uid
+
+                    val menuItems = buildList {
+                        add(
+                            PlaylistMenuItem(
+                                icon = if (successState.isSubscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel"
+                            ) {
+                                showMoreMenuSheet = false
+                                if (userProfile == null) {
+                                    showLoginSheet = true
+                                } else {
+                                    viewModel.toggleSubscribePlaylist()
+                                }
                             }
-                        },
-                        PlaylistMenuItem(
-                            icon = Icons.Default.Person,
-                            title = "跳转至艺人",
-                            subtitle = "查看歌手: $artistName"
-                        ) {
-                            showMoreMenuSheet = false
-                            if (firstArtist != null) {
-                                onArtistClick(firstArtist.id)
-                            } else {
-                                com.lin0721.linmusic.core.ui.components.ToastManager.showToast("未找到关联艺人信息")
+                        )
+                        add(
+                            PlaylistMenuItem(
+                                icon = Icons.Default.Person,
+                                title = "跳转至艺人"
+                            ) {
+                                showMoreMenuSheet = false
+                                if (firstArtist != null) {
+                                    onArtistClick(firstArtist.id)
+                                } else {
+                                    com.lin0721.linmusic.core.ui.components.ToastManager.showToast("未找到关联艺人信息")
+                                }
                             }
-                        },
-                        PlaylistMenuItem(
-                            icon = Icons.AutoMirrored.Filled.QueueMusic,
-                            title = "加入播放队列",
-                            subtitle = "添加 ${playlist.tracks.size} 首歌曲至播放队列"
-                        ) {
-                            showMoreMenuSheet = false
-                            viewModel.addTracksToPlayNext(playlist.tracks)
-                        },
-                        PlaylistMenuItem(
-                            icon = Icons.AutoMirrored.Filled.PlaylistAdd,
-                            title = "添加到歌单",
-                            subtitle = "将全部歌曲导入到其他歌单"
-                        ) {
-                            showMoreMenuSheet = false
-                            if (userProfile == null) {
-                                showLoginSheet = true
-                            } else {
-                                viewModel.prepareImportTargets(playlist.id)
-                                showImportTargetSheet = true
+                        )
+                        add(
+                            PlaylistMenuItem(
+                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                title = "加入播放队列"
+                            ) {
+                                showMoreMenuSheet = false
+                                viewModel.addTracksToPlayNext(playlist.tracks)
                             }
+                        )
+                        add(
+                            PlaylistMenuItem(
+                                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                title = "添加到歌单"
+                            ) {
+                                showMoreMenuSheet = false
+                                if (userProfile == null) {
+                                    showLoginSheet = true
+                                } else {
+                                    viewModel.prepareImportTargets(playlist.id)
+                                    showImportTargetSheet = true
+                                }
+                            }
+                        )
+                        if (isManageable) {
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Edit,
+                                    title = "编辑歌单信息"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    showEditInfoDialog = true
+                                }
+                            )
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Delete,
+                                    title = "删除歌单",
+                                    isDestructive = true
+                                ) {
+                                    showMoreMenuSheet = false
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
                         }
-                    )
+                    }
 
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(menuItems, key = { it.title }) { item ->
+                            val iconColor = if (item.isDestructive) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                Color.White.copy(alpha = 0.8f)
+                            }
+                            val titleColor = if (item.isDestructive) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable(onClick = item.onClick)
-                                    .padding(vertical = MelodiaSpacing.sm),
+                                    .padding(vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = item.title,
-                                    tint = Color.White.copy(alpha = 0.8f),
+                                    tint = iconColor,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(MelodiaSpacing.md))
-                                Column {
-                                    Text(
-                                        text = item.title,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    if (item.subtitle != null) {
-                                        Text(
-                                            text = item.subtitle,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = item.title,
+                                    color = titleColor,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -352,12 +385,75 @@ fun PlaylistScreen(
             )
         }
 
+        if (showEditInfoDialog && successState != null) {
+            val playlist = successState.playlist
+            EditPlaylistInfoDialog(
+                initialName = playlist.name,
+                initialDescription = playlist.description.orEmpty(),
+                onDismiss = { showEditInfoDialog = false },
+                onConfirm = { newName, newDesc ->
+                    viewModel.updatePlaylistInfo(
+                        id = playlist.id,
+                        originalName = playlist.name,
+                        newName = newName,
+                        originalDesc = playlist.description,
+                        newDesc = newDesc
+                    ) { success ->
+                        if (success) {
+                            showEditInfoDialog = false
+                        }
+                    }
+                }
+            )
+        }
+
+        if (showDeleteConfirmDialog && successState != null) {
+            val playlist = successState.playlist
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                title = {
+                    Text(
+                        text = "删除歌单",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "确定要删除歌单「${playlist.name}」吗？删除后将无法恢复。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    MelodiaTextButton(
+                        onClick = {
+                            showDeleteConfirmDialog = false
+                            viewModel.deletePlaylist(playlist.id) {
+                                onBack()
+                            }
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("删除", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    MelodiaTextButton(onClick = { showDeleteConfirmDialog = false }) {
+                        Text("取消", color = MaterialTheme.colorScheme.onSurface)
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = MaterialTheme.shapes.medium
+            )
+        }
+
     }
 }
 
 private data class PlaylistMenuItem(
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val title: String,
-    val subtitle: String? = null,
+    val isDestructive: Boolean = false,
     val onClick: () -> Unit
 )

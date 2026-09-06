@@ -80,4 +80,40 @@ class PlaylistRepositoryImpl(
         transform = { Unit }
     )
 
+    override fun renamePlaylist(playlistId: Long, name: String): Flow<Result<Unit>> = apiFlow(
+        request = {
+            apiService.updatePlaylistName(
+                PlaylistUpdateNameRequest(id = playlistId, name = name)
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { Unit }
+    )
+
+    override fun updateDescription(playlistId: Long, desc: String): Flow<Result<Unit>> = apiFlow(
+        request = {
+            apiService.updatePlaylistDesc(
+                PlaylistUpdateDescRequest(id = playlistId, desc = desc)
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { Unit }
+    )
+
+    override fun deletePlaylist(playlistId: Long): Flow<Result<Unit>> = apiFlow(
+        request = {
+            apiService.deletePlaylist(
+                PlaylistDeleteRequest(ids = "[$playlistId]")
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { Unit }
+    )
+
 }

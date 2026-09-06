@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.feature.home.data.DailySong
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -46,7 +48,8 @@ class PlaylistViewModel(
     private val createPlaylistAndAddSongUseCase: CreatePlaylistAndAddSongUseCase,
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val playlistMutationBus: PlaylistMutationBus
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -595,6 +598,91 @@ class PlaylistViewModel(
                     },
                     onFailure = { e ->
                         _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    }
+                )
+            }
+        }
+    }
+
+    // 更新歌单信息（名称与简介）
+    fun updatePlaylistInfo(
+        id: Long,
+        originalName: String,
+        newName: String,
+        originalDesc: String?,
+        newDesc: String,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val nameChanged = newName.isNotBlank() && newName != originalName
+        val descChanged = newDesc != (originalDesc ?: "")
+
+        if (!nameChanged && !descChanged) {
+            onComplete(true)
+            return
+        }
+
+        viewModelScope.launch {
+            val nameDeferred = if (nameChanged) {
+                async { playlistRepository.renamePlaylist(id, newName).first() }
+            } else null
+
+            val descDeferred = if (descChanged) {
+                async { playlistRepository.updateDescription(id, newDesc).first() }
+            } else null
+
+            val nameResult = nameDeferred?.await()
+            val descResult = descDeferred?.await()
+
+            val nameSuccess = nameResult == null || nameResult.isSuccess
+            val descSuccess = descResult == null || descResult.isSuccess
+
+            val currentState = _uiState.value as? PlaylistUiState.Success
+            if (currentState != null && (nameSuccess || descSuccess)) {
+                val updatedPlaylist = currentState.playlist.copy(
+                    name = if (nameSuccess && nameChanged) newName else currentState.playlist.name,
+                    description = if (descSuccess && descChanged) newDesc else currentState.playlist.description
+                )
+                _uiState.value = currentState.copy(playlist = updatedPlaylist)
+            }
+
+            if (nameSuccess && nameChanged) {
+                playlistMutationBus.emit(PlaylistMutationEvent.Renamed(id, newName))
+            }
+            if (descSuccess && descChanged) {
+                playlistMutationBus.emit(PlaylistMutationEvent.DescriptionUpdated(id, newDesc))
+            }
+
+            if (nameSuccess && descSuccess) {
+                _toastEvent.emit("歌单信息已更新")
+                onComplete(true)
+            } else if (nameSuccess && !descSuccess) {
+                val descMsg = descResult?.exceptionOrNull()?.toUserMessage(resourceProvider) ?: "未知错误"
+                _toastEvent.emit("歌单名称已更新，简介修改失败: $descMsg")
+                onComplete(false)
+            } else if (!nameSuccess && descSuccess) {
+                val nameMsg = nameResult?.exceptionOrNull()?.toUserMessage(resourceProvider) ?: "未知错误"
+                _toastEvent.emit("简介已更新，歌单名称修改失败: $nameMsg")
+                onComplete(false)
+            } else {
+                val err = nameResult?.exceptionOrNull() ?: descResult?.exceptionOrNull()
+                _toastEvent.emit(err?.toUserMessage(resourceProvider) ?: "修改失败")
+                onComplete(false)
+            }
+        }
+    }
+
+    // 删除歌单
+    fun deletePlaylist(id: Long, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            playlistRepository.deletePlaylist(id).collect { result ->
+                result.fold(
+                    onSuccess = {
+                        playlistMutationBus.emit(PlaylistMutationEvent.Deleted(id))
+                        _toastEvent.emit("歌单已删除")
+                        onSuccess()
+                    },
+                    onFailure = { error ->
+                        _toastEvent.emit(error.toUserMessage(resourceProvider))
                     }
                 )
             }

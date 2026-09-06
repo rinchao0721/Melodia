@@ -43,6 +43,22 @@ interface PlaylistApi {
         @Path("op") op: String,
         @Body body: AlbumSubscribeRequest
     ): AlbumSubscribeResponse
+
+    // ================== 歌单管理操作 (重命名/编辑简介/删除) ==================
+    @POST("/eapi/playlist/update/name")
+    suspend fun updatePlaylistName(
+        @Body body: PlaylistUpdateNameRequest
+    ): PlaylistUpdateNameResponse
+
+    @POST("/eapi/playlist/desc/update")
+    suspend fun updatePlaylistDesc(
+        @Body body: PlaylistUpdateDescRequest
+    ): PlaylistUpdateDescResponse
+
+    @POST("/weapi/playlist/remove")
+    suspend fun deletePlaylist(
+        @Body body: PlaylistDeleteRequest
+    ): PlaylistDeleteResponse
 }
 
 // ======================= 歌单详情 =======================
@@ -130,3 +146,47 @@ data class AlbumInfo(
     val picUrl: String = "",
     val description: String? = null
 )
+
+// ======================= 歌单管理 DTO =======================
+
+@Serializable
+data class PlaylistUpdateNameRequest(
+    val id: Long,
+    val name: String
+)
+
+@Serializable
+data class PlaylistUpdateNameResponse(
+    val code: Int = 0,
+    val message: String? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class PlaylistUpdateDescRequest(
+    val id: Long,
+    val desc: String
+)
+
+@Serializable
+data class PlaylistUpdateDescResponse(
+    val code: Int = 0,
+    val message: String? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class PlaylistDeleteRequest(
+    val ids: String
+)
+
+@Serializable
+data class PlaylistDeleteResponse(
+    val code: Int = 0,
+    val message: String? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+

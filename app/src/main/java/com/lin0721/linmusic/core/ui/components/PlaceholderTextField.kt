@@ -17,23 +17,38 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 带占位符的单行输入框，替代各处手写的 BasicTextField + 条件 Text 组合
+// 带占位符的输入框，支持单行与多行，替代各处手写的 BasicTextField + 条件 Text 组合
 @Composable
 fun PlaceholderTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.small
 ) {
-    Box(
-        modifier = modifier
+    val boxModifier = if (singleLine) {
+        modifier
             .fillMaxWidth()
             .height(44.dp)
             .clip(shape)
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart
+            .padding(horizontal = 12.dp)
+    } else {
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    }
+
+    val contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart
+
+    Box(
+        modifier = boxModifier,
+        contentAlignment = contentAlignment
     ) {
         if (value.isEmpty()) {
             Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
@@ -44,7 +59,9 @@ fun PlaceholderTextField(
             textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines
         )
     }
 }
