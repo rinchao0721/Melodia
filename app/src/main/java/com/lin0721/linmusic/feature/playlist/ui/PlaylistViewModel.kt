@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
+import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import com.lin0721.linmusic.feature.home.data.HomeRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -51,6 +52,7 @@ class PlaylistViewModel(
     private val playbackRepository: PlaybackRepository,
     private val userPlaylistRepository: UserPlaylistRepository,
     private val createPlaylistAndAddSongUseCase: CreatePlaylistAndAddSongUseCase,
+    private val updatePlaylistCoverUseCase: UpdatePlaylistCoverUseCase,
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
@@ -91,6 +93,10 @@ class PlaylistViewModel(
     // "添加到歌单"批量导入目标选择状态
     private val _importState = MutableStateFlow(PlaylistImportState())
     val importState: StateFlow<PlaylistImportState> = _importState.asStateFlow()
+
+    // 编辑歌单信息（名称/简介/封面）整体保存中的状态，供弹窗禁用保存按钮并显示进度
+    private val _isSavingInfo = MutableStateFlow(false)
+    val isSavingInfo: StateFlow<Boolean> = _isSavingInfo.asStateFlow()
 
     init {
         loadLikedSongIds()
@@ -646,17 +652,42 @@ class PlaylistViewModel(
         newName: String,
         originalDesc: String?,
         newDesc: String,
+        coverBytes: ByteArray?,
         onComplete: (Boolean) -> Unit
     ) {
+        if (_isSavingInfo.value) return
         val nameChanged = newName.isNotBlank() && newName != originalName
         val descChanged = newDesc != (originalDesc ?: "")
 
-        if (!nameChanged && !descChanged) {
+        if (!nameChanged && !descChanged && coverBytes == null) {
             onComplete(true)
             return
         }
 
         viewModelScope.launch {
+            _isSavingInfo.value = true
+            try {
+            // 封面排在最前且失败即中止
+            if (coverBytes != null) {
+                val newCoverUrl = updatePlaylistCoverUseCase(id, coverBytes).getOrElse { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    onComplete(false)
+                    return@launch
+                }
+                _uiState.update { state ->
+                    if (state is PlaylistUiState.Success && state.playlist.id == id) {
+                        state.copy(playlist = state.playlist.copy(coverImgUrl = newCoverUrl))
+                    } else state
+                }
+                playlistMutationBus.emit(PlaylistMutationEvent.CoverUpdated(id, newCoverUrl))
+
+                if (!nameChanged && !descChanged) {
+                    _toastEvent.emit("封面已更新")
+                    onComplete(true)
+                    return@launch
+                }
+            }
+
             val nameDeferred = if (nameChanged) {
                 async { playlistRepository.renamePlaylist(id, newName).first() }
             } else null
@@ -702,6 +733,9 @@ class PlaylistViewModel(
                 val err = nameResult?.exceptionOrNull() ?: descResult?.exceptionOrNull()
                 _toastEvent.emit(err?.toUserMessage(resourceProvider) ?: "修改失败")
                 onComplete(false)
+            }
+            } finally {
+                _isSavingInfo.value = false
             }
         }
     }

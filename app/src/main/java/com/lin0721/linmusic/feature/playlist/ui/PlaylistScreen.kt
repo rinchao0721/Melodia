@@ -28,7 +28,9 @@ import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.comment.ui.CommentsBottomSheet
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -36,9 +38,14 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.zIndex
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
@@ -46,8 +53,10 @@ import com.lin0721.linmusic.core.ui.components.SongRowData
 import java.util.Collections
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,6 +82,47 @@ fun PlaylistScreen(
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val addMusicSearchQuery by viewModel.addMusicSearchQuery.collectAsStateWithLifecycle()
     val addMusicSearchState by viewModel.addMusicSearchState.collectAsStateWithLifecycle()
+    val isSavingInfo by viewModel.isSavingInfo.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    // 裁剪结果只暂存本地 uri 做预览，等用户点「保存」才读字节上传，
+    // 与名称/简介保持同一套提交时机
+    var pendingCoverUri by remember { mutableStateOf<Uri?>(null) }
+    val coverCropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (!result.isSuccessful) {
+            result.error?.message?.let { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
+            return@rememberLauncherForActivityResult
+        }
+        pendingCoverUri = result.uriContent
+    }
+    val launchCoverCropper = {
+        coverCropLauncher.launch(
+            CropImageContractOptions(
+                uri = null,
+                cropImageOptions = CropImageOptions(
+                    imageSourceIncludeCamera = false,
+                    imageSourceIncludeGallery = true,
+                    cropShape = CropImageView.CropShape.RECTANGLE,
+                    fixAspectRatio = true,
+                    aspectRatioX = 1,
+                    aspectRatioY = 1,
+                    outputCompressFormat = android.graphics.Bitmap.CompressFormat.JPEG,
+                    outputCompressQuality = 90,
+                    outputRequestWidth = 1024,
+                    outputRequestHeight = 1024,
+                    outputRequestSizeOptions = CropImageView.RequestSizeOptions.RESIZE_INSIDE,
+                    // 默认工具栏是浅色主题、图标色跟未设置的深色背景撞色，看起来像没有确认按钮，这里强制统一成深色+白图标
+                    activityBackgroundColor = android.graphics.Color.BLACK,
+                    toolbarColor = android.graphics.Color.BLACK,
+                    toolbarTintColor = android.graphics.Color.WHITE,
+                    toolbarTitleColor = android.graphics.Color.WHITE,
+                    toolbarBackButtonColor = android.graphics.Color.WHITE,
+                    activityMenuIconColor = android.graphics.Color.WHITE
+                )
+            )
+        )
+    }
 
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
@@ -712,17 +762,38 @@ fun PlaylistScreen(
             EditPlaylistInfoDialog(
                 initialName = playlist.name,
                 initialDescription = playlist.description.orEmpty(),
-                onDismiss = { showEditInfoDialog = false },
+                coverImgUrl = playlist.coverImgUrl,
+                pendingCoverUri = pendingCoverUri,
+                isSaving = isSavingInfo,
+                onEditCoverClick = launchCoverCropper,
+                onDismiss = {
+                    showEditInfoDialog = false
+                    pendingCoverUri = null
+                },
                 onConfirm = { newName, newDesc ->
-                    viewModel.updatePlaylistInfo(
-                        id = playlist.id,
-                        originalName = playlist.name,
-                        newName = newName,
-                        originalDesc = playlist.description,
-                        newDesc = newDesc
-                    ) { success ->
-                        if (success) {
-                            showEditInfoDialog = false
+                    coroutineScope.launch {
+                        val stagedUri = pendingCoverUri
+                        val coverBytes = stagedUri?.let { uri ->
+                            withContext(Dispatchers.IO) {
+                                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            }
+                        }
+                        if (stagedUri != null && coverBytes == null) {
+                            com.lin0721.linmusic.core.ui.components.ToastManager.showToast("读取裁剪后的图片失败")
+                            return@launch
+                        }
+                        viewModel.updatePlaylistInfo(
+                            id = playlist.id,
+                            originalName = playlist.name,
+                            newName = newName,
+                            originalDesc = playlist.description,
+                            newDesc = newDesc,
+                            coverBytes = coverBytes
+                        ) { success ->
+                            if (success) {
+                                showEditInfoDialog = false
+                                pendingCoverUri = null
+                            }
                         }
                     }
                 }

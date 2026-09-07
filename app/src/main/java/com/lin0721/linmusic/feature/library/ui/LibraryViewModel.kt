@@ -141,6 +141,9 @@ class LibraryViewModel(
                     is PlaylistMutationEvent.DescriptionUpdated -> {
                         loadLibraryData()
                     }
+                    is PlaylistMutationEvent.CoverUpdated -> {
+                        loadLibraryData()
+                    }
                 }
             }
         }

@@ -116,4 +116,16 @@ class PlaylistRepositoryImpl(
         transform = { Unit }
     )
 
+    override fun updatePlaylistCover(playlistId: Long, coverImgId: Long): Flow<Result<String>> = apiFlow(
+        request = {
+            apiService.updatePlaylistCover(
+                PlaylistUpdateCoverRequest(id = playlistId, coverImgId = coverImgId)
+            )
+        },
+        isSuccess = { it.isSuccess && !it.url.isNullOrBlank() },
+        code = { it.code },
+        msg = { it.message },
+        transform = { it.url.orEmpty() }
+    )
+
 }

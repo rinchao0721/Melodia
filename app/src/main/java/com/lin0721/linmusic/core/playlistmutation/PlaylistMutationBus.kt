@@ -9,6 +9,7 @@ sealed interface PlaylistMutationEvent {
     data class Renamed(val playlistId: Long, val newName: String) : PlaylistMutationEvent
     data class DescriptionUpdated(val playlistId: Long, val newDesc: String) : PlaylistMutationEvent
     data class Deleted(val playlistId: Long) : PlaylistMutationEvent
+    data class CoverUpdated(val playlistId: Long, val newCoverUrl: String) : PlaylistMutationEvent
 }
 
 // 跨模块歌单变更事件总线

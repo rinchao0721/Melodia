@@ -128,6 +128,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.haze)
     implementation(libs.androidx.palette)
+    implementation(libs.android.image.cropper)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

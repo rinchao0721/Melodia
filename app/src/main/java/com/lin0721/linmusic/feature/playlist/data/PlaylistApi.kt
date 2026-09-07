@@ -59,6 +59,12 @@ interface PlaylistApi {
     suspend fun deletePlaylist(
         @Body body: PlaylistDeleteRequest
     ): PlaylistDeleteResponse
+
+    // 更新歌单封面：图片字节需先经 core NOS 直传拿到 coverImgId，再调用本接口登记
+    @POST("/weapi/playlist/cover/update")
+    suspend fun updatePlaylistCover(
+        @Body body: PlaylistUpdateCoverRequest
+    ): PlaylistUpdateCoverResponse
 }
 
 // ======================= 歌单详情 =======================
@@ -186,6 +192,22 @@ data class PlaylistDeleteRequest(
 data class PlaylistDeleteResponse(
     val code: Int = 0,
     val message: String? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class PlaylistUpdateCoverRequest(
+    val id: Long,
+    val coverImgId: Long
+)
+
+@Serializable
+data class PlaylistUpdateCoverResponse(
+    val code: Int = 0,
+    val message: String? = null,
+    // 服务端直接下发带扩展名的封面地址，必须用它；拿 objectKey 自行拼接会少 .jpg 后缀导致图片取不到
+    val url: String? = null
 ) {
     val isSuccess: Boolean get() = code == 200
 }
