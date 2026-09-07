@@ -34,6 +34,11 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 
+import com.lin0721.linmusic.feature.search.data.SearchRepository
+import com.lin0721.linmusic.feature.search.domain.SearchResultItem
+import com.lin0721.linmusic.feature.search.domain.SearchType
+import kotlinx.coroutines.delay
+
 class PlaylistViewModel(
     private val songCollectDelegate: SongCollectDelegate,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
@@ -49,7 +54,8 @@ class PlaylistViewModel(
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
-    private val playlistMutationBus: PlaylistMutationBus
+    private val playlistMutationBus: PlaylistMutationBus,
+    private val searchRepository: SearchRepository
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -151,7 +157,7 @@ class PlaylistViewModel(
                         val baseSong = detail.tracks.firstOrNull()
 
                         if (baseSong != null && !isAlbum) {
-                            loadRecommendations(detail.id, baseSong.id, detail.tracks)
+                            loadRecommendations(detail.tracks)
                         } else {
                             allRecommendedTracks = emptyList()
                         }
@@ -245,23 +251,52 @@ class PlaylistViewModel(
         }
     }
 
-    fun loadRecommendations(playlistId: Long, baseSongId: Long, existingTracks: List<Track>) {
-        viewModelScope.launch {
-            playbackRepository.getIntelligenceSongs(baseSongId, playlistId).collect { result ->
-                result.onSuccess { recommendedList ->
-                    val filteredList = recommendedList.filter { recTrack ->
-                        existingTracks.none { it.id == recTrack.id }
-                    }
-                    allRecommendedTracks = filteredList
-                    currentRecIndex = 0
-                    updateCurrentRecommendations()
-                }.onFailure { e ->
-                    allRecommendedTracks = emptyList()
-                    setRecommendedSongs(emptyList())
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+    // 网易没有「给歌单、出推荐歌曲」的接口：playlist/detail/rcmd/get 一类返回的是歌单而非歌曲，
+    // 心动模式则只认「我喜欢的音乐」这类红心歌单，其余歌单一律回 400「不支持该歌单类型」。
+    // 因此改为从歌单里采样几首各取相似歌曲再合并，比只拿首曲更能代表整张歌单的风格
+    fun loadRecommendations(tracks: List<Track>) {
+        val seedIds = pickRecommendSeedIds(tracks)
+        if (seedIds.isEmpty()) {
+            allRecommendedTracks = emptyList()
+            setRecommendedSongs(emptyList())
+            return
         }
+        viewModelScope.launch {
+            val results = seedIds.map { seedId ->
+                async {
+                    runCatching { playbackRepository.getSimilarSongs(seedId).first() }
+                        .getOrElse { Result.failure(it) }
+                }
+            }.awaitAll()
+
+            // 单个种子失败不影响整体，只有全部落空才当作失败提示
+            val succeeded = results.filter { it.isSuccess }
+            if (succeeded.isEmpty()) {
+                allRecommendedTracks = emptyList()
+                setRecommendedSongs(emptyList())
+                results.firstNotNullOfOrNull { it.exceptionOrNull() }?.let {
+                    _toastEvent.emit(it.toUserMessage(resourceProvider))
+                }
+                return@launch
+            }
+
+            val existingIds = tracks.mapTo(mutableSetOf()) { it.id }
+            allRecommendedTracks = succeeded
+                .flatMap { it.getOrDefault(emptyList()) }
+                .distinctBy { it.id }
+                .filterNot { it.id in existingIds }
+            currentRecIndex = 0
+            updateCurrentRecommendations()
+        }
+    }
+
+    // 取首、中、尾三首当种子，兼顾歌单前后风格；短歌单去重后不足三首也照常工作
+    private fun pickRecommendSeedIds(tracks: List<Track>): List<Long> {
+        if (tracks.isEmpty()) return emptyList()
+        return listOf(0, tracks.size / 2, tracks.lastIndex)
+            .distinct()
+            .map { tracks[it].id }
+            .distinct()
     }
 
     private fun setRecommendedSongs(songs: List<Track>) {
@@ -688,4 +723,103 @@ class PlaylistViewModel(
             }
         }
     }
+
+    // ==================== 半屏添加音乐搜索与添加 ====================
+
+    private val _addMusicSearchQuery = MutableStateFlow("")
+    val addMusicSearchQuery: StateFlow<String> = _addMusicSearchQuery.asStateFlow()
+
+    private val _addMusicSearchState = MutableStateFlow<AddMusicSearchState>(AddMusicSearchState.Idle)
+    val addMusicSearchState: StateFlow<AddMusicSearchState> = _addMusicSearchState.asStateFlow()
+
+    private var addMusicSearchJob: Job? = null
+
+    fun updateAddMusicSearchQuery(query: String) {
+        _addMusicSearchQuery.value = query
+        addMusicSearchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _addMusicSearchState.value = AddMusicSearchState.Idle
+            return
+        }
+        addMusicSearchJob = viewModelScope.launch {
+            delay(300)
+            _addMusicSearchState.value = AddMusicSearchState.Loading
+            searchRepository.search(trimmed, SearchType.SONG, offset = 0, limit = 30).collect { result ->
+                result.fold(
+                    onSuccess = { pageResult ->
+                        val tracks = pageResult.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                        _addMusicSearchState.value = AddMusicSearchState.Success(tracks)
+                    },
+                    onFailure = { error ->
+                        _addMusicSearchState.value = AddMusicSearchState.Error(error.toUserMessage(resourceProvider))
+                    }
+                )
+            }
+        }
+    }
+
+    fun clearAddMusicSearch() {
+        addMusicSearchJob?.cancel()
+        _addMusicSearchQuery.value = ""
+        _addMusicSearchState.value = AddMusicSearchState.Idle
+    }
+
+    fun addTrackToPlaylist(playlistId: Long, track: Track, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            playlistRepository.manipulatePlaylistTracks("add", playlistId, listOf(track.id)).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("已添加到歌单")
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                            val updatedTracks = state.playlist.tracks.toMutableList().apply {
+                                if (none { it.id == track.id }) {
+                                    add(track)
+                                }
+                            }
+                            state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackCount = updatedTracks.size))
+                        } else state
+                    }
+                    onComplete(true)
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    onComplete(false)
+                }
+            }
+        }
+    }
+
+    // ==================== 拖拽排序保存 ====================
+
+    fun updateTrackOrder(playlistId: Long, newTracks: List<Track>, onComplete: (Boolean) -> Unit) {
+        // op=update 是全量覆盖，空列表会把整个歌单清空
+        if (newTracks.isEmpty()) {
+            onComplete(false)
+            return
+        }
+        viewModelScope.launch {
+            playlistRepository.manipulatePlaylistTracks("update", playlistId, newTracks.map { it.id }).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("歌曲顺序已更新")
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                            state.copy(playlist = state.playlist.copy(tracks = newTracks))
+                        } else state
+                    }
+                    onComplete(true)
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    onComplete(false)
+                }
+            }
+        }
+    }
+}
+
+// 半屏添加音乐搜索状态
+sealed interface AddMusicSearchState {
+    data object Idle : AddMusicSearchState
+    data object Loading : AddMusicSearchState
+    data class Success(val tracks: List<Track>) : AddMusicSearchState
+    data class Error(val message: String) : AddMusicSearchState
 }
