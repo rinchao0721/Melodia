@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -16,9 +18,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 // 首页信息流骨架：单个 LazyColumn 承载服务端下发的货架序列，顶栏由 HomeScreen 统一渲染。
 // 货架内部两列是手写 Row，不能换成懒加载网格，嵌进 LazyColumn 会因无界高度约束崩溃。
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeContent(
     uiState: HomeUiState,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onPlaylistClick: (Long, Boolean) -> Unit,
     onSongClick: (HomeCard.Song) -> Unit,
     onVoiceClick: (HomeCard.Voice) -> Unit,
@@ -30,60 +35,66 @@ fun HomeContent(
     val listState = rememberLazyListState()
     val feed = (uiState as? HomeUiState.Success)?.data
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
     ) {
-        when (uiState) {
-            is HomeUiState.Loading -> item { LoadingIndicator() }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+        ) {
+            when (uiState) {
+                is HomeUiState.Loading -> item { LoadingIndicator() }
 
-            is HomeUiState.Error -> item {
-                ErrorContent(message = uiState.message, onRetry = onRetry)
-            }
-
-            is HomeUiState.Success -> {
-                val data = uiState.data
-
-                item {
-                    RecentPlaySection(
-                        items = data.recentPlaylists,
-                        onClick = { item -> onPlaylistClick(item.id, false) }
-                    )
+                is HomeUiState.Error -> item {
+                    ErrorContent(message = uiState.message, onRetry = onRetry)
                 }
 
-                item {
-                    ForYouSection(
-                        dailySongs = data.dailySongs,
-                        toplists = data.toplistItems,
-                        recommendPlaylists = data.recommendPlaylists,
-                        onDailyRecommendClick = { onPlaylistClick(-1L, false) },
-                        onHotlistClick = { onPlaylistClick(it, false) },
-                        onIntelligenceClick = onIntelligenceClick,
-                        onRadarClick = { onPlaylistClick(it, false) },
-                        onRoamingClick = onRoamingClick
-                    )
-                }
+                is HomeUiState.Success -> {
+                    val data = uiState.data
 
-                items(
-                    items = data.shelves,
-                    key = { it.blockCode }
-                ) { shelf ->
-                    HomeShelfSection(
-                        shelf = shelf,
-                        onCardClick = { card ->
-                            when (card) {
-                                is HomeCard.Playlist -> onPlaylistClick(card.id, false)
-                                is HomeCard.Album -> onPlaylistClick(card.id, true)
-                                is HomeCard.Song -> onSongClick(card)
-                                is HomeCard.Voice -> onVoiceClick(card)
+                    item {
+                        RecentPlaySection(
+                            items = data.recentPlaylists,
+                            onClick = { item -> onPlaylistClick(item.id, false) }
+                        )
+                    }
+
+                    item {
+                        ForYouSection(
+                            dailySongs = data.dailySongs,
+                            toplists = data.toplistItems,
+                            recommendPlaylists = data.recommendPlaylists,
+                            onDailyRecommendClick = { onPlaylistClick(-1L, false) },
+                            onHotlistClick = { onPlaylistClick(it, false) },
+                            onIntelligenceClick = onIntelligenceClick,
+                            onRadarClick = { onPlaylistClick(it, false) },
+                            onRoamingClick = onRoamingClick
+                        )
+                    }
+
+                    items(
+                        items = data.shelves,
+                        key = { it.blockCode }
+                    ) { shelf ->
+                        HomeShelfSection(
+                            shelf = shelf,
+                            onCardClick = { card ->
+                                when (card) {
+                                    is HomeCard.Playlist -> onPlaylistClick(card.id, false)
+                                    is HomeCard.Album -> onPlaylistClick(card.id, true)
+                                    is HomeCard.Song -> onSongClick(card)
+                                    is HomeCard.Voice -> onVoiceClick(card)
+                                }
                             }
-                        }
-                    )
-                }
+                        )
+                    }
 
-                if (data.isLoadingMore) {
-                    item { HomeShelfLoadingMore() }
+                    if (data.isLoadingMore) {
+                        item { HomeShelfLoadingMore() }
+                    }
                 }
             }
         }

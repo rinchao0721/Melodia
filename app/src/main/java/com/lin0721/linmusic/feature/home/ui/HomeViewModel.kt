@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.player.PlayerManager
@@ -53,6 +54,9 @@ class HomeViewModel(
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
         loadHomeData()
         viewModelScope.launch {
@@ -64,61 +68,83 @@ class HomeViewModel(
         _uiState.value = HomeUiState.Loading
 
         viewModelScope.launch {
-            try {
-                // 货架序列是整页主数据源，它失败才算整页失败；其余几项各自兜底不影响渲染
-                val blockPageDeferred = async {
-                    homeRepository.getHomeBlockPage(refresh = refresh).first()
-                }
+            val result = fetchHomeFeedData(refresh)
+            _uiState.value = result.fold(
+                onSuccess = { HomeUiState.Success(it) },
+                onFailure = { HomeUiState.Error(it.toUserMessage(resourceProvider)) }
+            )
+        }
+    }
 
-                val playlistsDeferred = async {
-                    runCatching { homeRepository.getPersonalizedPlaylists().first() }
-                        .getOrDefault(Result.success(PersonalizedData()))
-                }
+    // 下拉刷新：保留当前已渲染内容不被清空，成功后整体替换，失败仅提示、不打断原有展示
+    fun refreshHomeData() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
 
-                val recentDeferred = async {
-                    runCatching { recentRepository.getRecentPlaylists().first() }
-                        .getOrDefault(Result.success(emptyList()))
-                }
+        viewModelScope.launch {
+            fetchHomeFeedData(refresh = true).fold(
+                onSuccess = { _uiState.value = HomeUiState.Success(it) },
+                onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+            )
+            _isRefreshing.value = false
+        }
+    }
 
-                val dailySongsDeferred = async {
-                    runCatching { homeRepository.getDailyRecommendSongs().first() }
-                        .getOrDefault(Result.success(emptyList()))
-                }
+    // 货架序列是整页主数据源，它失败才算整页失败；其余几项各自兜底不影响渲染
+    private suspend fun fetchHomeFeedData(refresh: Boolean): Result<HomeFeedData> = try {
+        coroutineScope {
+            val blockPageDeferred = async {
+                homeRepository.getHomeBlockPage(refresh = refresh).first()
+            }
 
-                val toplistDeferred = async {
-                    runCatching { homeRepository.getToplistDetail().first() }
-                        .getOrDefault(Result.success(emptyList<ToplistInfo>()))
-                }
+            val playlistsDeferred = async {
+                runCatching { homeRepository.getPersonalizedPlaylists().first() }
+                    .getOrDefault(Result.success(PersonalizedData()))
+            }
 
-                val blockPageResult = blockPageDeferred.await()
-                val playlistsResult = playlistsDeferred.await()
-                val recentResult = recentDeferred.await()
-                val dailySongsResult = dailySongsDeferred.await()
-                val toplistResult = toplistDeferred.await()
+            val recentDeferred = async {
+                runCatching { recentRepository.getRecentPlaylists().first() }
+                    .getOrDefault(Result.success(emptyList()))
+            }
 
-                val blockPage = blockPageResult.getOrNull()
-                if (blockPage != null) {
-                    _uiState.value = HomeUiState.Success(
-                        HomeFeedData(
-                            shelves = blockPage.shelves,
-                            recommendPlaylists = playlistsResult.getOrNull()?.playlists.orEmpty(),
-                            recentPlaylists = recentResult.getOrDefault(emptyList()),
-                            dailySongs = dailySongsResult.getOrDefault(emptyList()),
-                            toplistItems = toplistResult.getOrDefault(emptyList()),
-                            nextCursor = blockPage.nextCursor,
-                            hasMore = blockPage.hasMore
-                        )
+            val dailySongsDeferred = async {
+                runCatching { homeRepository.getDailyRecommendSongs().first() }
+                    .getOrDefault(Result.success(emptyList()))
+            }
+
+            val toplistDeferred = async {
+                runCatching { homeRepository.getToplistDetail().first() }
+                    .getOrDefault(Result.success(emptyList<ToplistInfo>()))
+            }
+
+            val blockPageResult = blockPageDeferred.await()
+            val playlistsResult = playlistsDeferred.await()
+            val recentResult = recentDeferred.await()
+            val dailySongsResult = dailySongsDeferred.await()
+            val toplistResult = toplistDeferred.await()
+
+            val blockPage = blockPageResult.getOrNull()
+            if (blockPage != null) {
+                Result.success(
+                    HomeFeedData(
+                        shelves = blockPage.shelves,
+                        recommendPlaylists = playlistsResult.getOrNull()?.playlists.orEmpty(),
+                        recentPlaylists = recentResult.getOrDefault(emptyList()),
+                        dailySongs = dailySongsResult.getOrDefault(emptyList()),
+                        toplistItems = toplistResult.getOrDefault(emptyList()),
+                        nextCursor = blockPage.nextCursor,
+                        hasMore = blockPage.hasMore
                     )
-                } else {
-                    _uiState.value = HomeUiState.Error(
-                        blockPageResult.exceptionOrNull()?.toUserMessage(resourceProvider)
-                            ?: resourceProvider.getString(R.string.app_error_biz_default)
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = HomeUiState.Error(e.toUserMessage(resourceProvider))
+                )
+            } else {
+                Result.failure(
+                    blockPageResult.exceptionOrNull()
+                        ?: RuntimeException(resourceProvider.getString(R.string.app_error_biz_default))
+                )
             }
         }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     // 滚到底时追加下一页货架。服务端目前只有两页，翻完 hasMore 即为 false
