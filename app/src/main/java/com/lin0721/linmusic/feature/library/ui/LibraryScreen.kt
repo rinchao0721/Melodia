@@ -60,8 +60,19 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
+import java.util.Collections
+import kotlin.math.max
+import kotlin.math.min
+import android.content.Intent
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -102,6 +113,30 @@ fun LibraryScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
 
+    var activeOptionsItem by remember { mutableStateOf<LibraryItem?>(null) }
+    var deletePlaylistTarget by remember { mutableStateOf<LibraryItem?>(null) }
+    var isReorderMode by remember { mutableStateOf(false) }
+    val reorderedPlaylists = remember { mutableStateListOf<LibraryItem>() }
+
+    BackHandler(enabled = isReorderMode) {
+        isReorderMode = false
+    }
+
+    fun shareItem(item: LibraryItem) {
+        val (typeLabel, path) = when (item.type) {
+            LibraryItemType.PLAYLIST -> "歌单" to "playlist"
+            LibraryItemType.ALBUM -> "专辑" to "album"
+            LibraryItemType.ARTIST -> "歌手" to "artist"
+            LibraryItemType.MV -> "MV" to "mv"
+        }
+        val shareText = "${item.title} https://music.163.com/$path?id=${item.id}"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareText)
+        }
+        context.startActivity(Intent.createChooser(intent, "分享$typeLabel"))
+    }
+
     val scope = rememberCoroutineScope()
 
     val onAvatarClick: () -> Unit = {
@@ -117,7 +152,40 @@ fun LibraryScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        AnimatedContent(
+            targetState = isReorderMode,
+            transitionSpec = {
+                val forward = targetState
+                val offsetY = 40
+                if (forward) {
+                    (fadeIn(tween(300, delayMillis = 100, easing = FastOutSlowInEasing))
+                            + slideInVertically(tween(300, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
+                        .togetherWith(
+                            fadeOut(tween(200, easing = FastOutSlowInEasing))
+                                    + slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -offsetY }
+                        )
+                } else {
+                    (fadeIn(tween(300, delayMillis = 100, easing = FastOutSlowInEasing))
+                            + slideInVertically(tween(300, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
+                        .togetherWith(
+                            fadeOut(tween(200, easing = FastOutSlowInEasing))
+                                    + slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { offsetY }
+                        )
+                }.using(SizeTransform(clip = false))
+            },
+            label = "library_reorder_transition"
+        ) { reordering ->
+            if (reordering) {
+                LibraryReorderView(
+                    playlists = reorderedPlaylists,
+                    onCancel = { isReorderMode = false },
+                    onDone = {
+                        viewModel.savePlaylistOrder(reorderedPlaylists.toList())
+                        isReorderMode = false
+                    }
+                )
+            } else {
+                Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             // 1. 顶部栏 (支持搜索展开)
             AnimatedContent(
                 targetState = isSearchActive,
@@ -365,6 +433,11 @@ fun LibraryScreen(
                                                     } else {
                                                         onAlbumClick(item.id.toLong())
                                                     }
+                                                },
+                                                onLongClick = {
+                                                    if (item.id != "-2") {
+                                                        activeOptionsItem = item
+                                                    }
                                                 }
                                             )
                                         }
@@ -393,7 +466,9 @@ fun LibraryScreen(
                                             }
                                         },
                                         onLongClick = {
-                                            viewModel.togglePin(item.id)
+                                            if (item.id != "-2") {
+                                                activeOptionsItem = item
+                                            }
                                         }
                                     )
                                 }
@@ -402,6 +477,9 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
+    }
+}
 
         // 创建歌单对话框
         if (showCreateDialog) {
@@ -453,7 +531,286 @@ fun LibraryScreen(
                 onDismiss = { showSortMenu = false }
             )
         }
+
+        // 快速编辑底部弹层
+        if (activeOptionsItem != null) {
+            LibraryItemOptionsSheet(
+                item = activeOptionsItem!!,
+                onDismiss = { activeOptionsItem = null },
+                onTogglePin = { viewModel.togglePin(it) },
+                onEditOrder = {
+                    val successState = uiState as? LibraryUiState.Success
+                    if (successState != null) {
+                        val playlistsToSort = successState.allItems.filter {
+                            it.type == LibraryItemType.PLAYLIST && it.id != "-2" && !it.isLikedSongs
+                        }
+                        reorderedPlaylists.clear()
+                        reorderedPlaylists.addAll(playlistsToSort)
+                        isReorderMode = true
+                    }
+                },
+                onShare = { shareItem(it) },
+                onDownload = {
+                    com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
+                },
+                onDeletePlaylist = { playlistId ->
+                    val target = (uiState as? LibraryUiState.Success)?.allItems?.find { it.id == playlistId.toString() }
+                    if (target != null) {
+                        deletePlaylistTarget = target
+                    }
+                },
+                onUnsubscribePlaylist = { playlistId ->
+                    viewModel.unsubscribePlaylist(playlistId)
+                },
+                onUnsubscribeAlbum = { albumId ->
+                    viewModel.unsubscribeAlbum(albumId)
+                },
+                onUnsubscribeArtist = { artistId ->
+                    viewModel.unsubscribeArtist(artistId)
+                }
+            )
+        }
+
+        // 删除自建歌单二次确认对话框
+        if (deletePlaylistTarget != null) {
+            val target = deletePlaylistTarget!!
+            AlertDialog(
+                onDismissRequest = { deletePlaylistTarget = null },
+                title = { Text("删除歌单", fontWeight = FontWeight.Bold) },
+                text = { Text("确定要删除歌单「${target.title}」吗？删除后不可恢复。") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            target.id.toLongOrNull()?.let { viewModel.deletePlaylist(it) }
+                            deletePlaylistTarget = null
+                        }
+                    ) {
+                        Text("删除", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deletePlaylistTarget = null }) {
+                        Text("取消")
+                    }
+                }
+            )
+        }
     }
 }
+
+// 歌单拖拽重排视图
+@Composable
+private fun LibraryReorderView(
+    playlists: MutableList<LibraryItem>,
+    onCancel: () -> Unit,
+    onDone: () -> Unit
+) {
+    val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val reorderListState = rememberLazyListState()
+
+    val fallbackItemHeightPx = with(density) { 76.dp.toPx() }
+    var itemHeightPx by remember { mutableFloatStateOf(fallbackItemHeightPx) }
+    LaunchedEffect(reorderListState) {
+        snapshotFlow { reorderListState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 0 }
+            .collect { if (it > 0) itemHeightPx = it.toFloat() }
+    }
+
+    val topEdgeThreshold = with(density) { 80.dp.toPx() }
+    val bottomEdgeThreshold = with(density) { 100.dp.toPx() }
+
+    var draggedIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val isDraggingActive = draggedIndex >= 0
+
+    var settlingIndex by remember { mutableIntStateOf(-1) }
+    val settleOffset = remember { Animatable(0f) }
+
+    fun maxComposedIndex(): Int =
+        reorderListState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: playlists.lastIndex
+    fun minComposedIndex(): Int =
+        reorderListState.layoutInfo.visibleItemsInfo.minOfOrNull { it.index } ?: 0
+
+    fun clampDragOffset(offset: Float): Float = when {
+        (draggedIndex <= 0 || draggedIndex <= minComposedIndex()) && offset < 0f -> max(offset, -itemHeightPx)
+        (draggedIndex >= playlists.lastIndex || draggedIndex >= maxComposedIndex()) && offset > 0f -> min(offset, itemHeightPx)
+        else -> offset
+    }
+
+    fun neutralizeAnchorShift(from: Int, to: Int) {
+        val anchor = reorderListState.firstVisibleItemIndex
+        if (from != anchor && to != anchor) return
+        reorderListState.requestScrollToItem(anchor, reorderListState.firstVisibleItemScrollOffset)
+    }
+
+    fun advanceSwaps() {
+        var swapped = false
+        while (dragOffset > itemHeightPx && draggedIndex < playlists.lastIndex && draggedIndex < maxComposedIndex()) {
+            neutralizeAnchorShift(draggedIndex, draggedIndex + 1)
+            Collections.swap(playlists, draggedIndex, draggedIndex + 1)
+            draggedIndex += 1
+            dragOffset = clampDragOffset(dragOffset - itemHeightPx)
+            swapped = true
+        }
+        while (dragOffset < -itemHeightPx && draggedIndex > 0 && draggedIndex > minComposedIndex()) {
+            neutralizeAnchorShift(draggedIndex, draggedIndex - 1)
+            Collections.swap(playlists, draggedIndex, draggedIndex - 1)
+            draggedIndex -= 1
+            dragOffset = clampDragOffset(dragOffset + itemHeightPx)
+            swapped = true
+        }
+        if (swapped) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    // 拖拽边缘自动滚屏
+    LaunchedEffect(isDraggingActive) {
+        if (!isDraggingActive) return@LaunchedEffect
+        var lastFrameTimeNs = 0L
+        var edgeDurationMs = 0L
+        while (isActive && draggedIndex >= 0) {
+            val frameTimeNs = withFrameNanos { it }
+            if (lastFrameTimeNs == 0L) {
+                lastFrameTimeNs = frameTimeNs
+                continue
+            }
+            val deltaMs = ((frameTimeNs - lastFrameTimeNs) / 1_000_000L).coerceIn(1L, 32L)
+            lastFrameTimeNs = frameTimeNs
+
+            val layoutInfo = reorderListState.layoutInfo
+            val draggingItem = layoutInfo.visibleItemsInfo.firstOrNull { it.index == draggedIndex }
+            if (draggingItem == null) continue
+
+            val currentTop = draggingItem.offset + dragOffset
+            val currentBottom = currentTop + itemHeightPx
+            val viewportEnd = layoutInfo.viewportEndOffset.toFloat()
+
+            val isNearTop = currentTop < topEdgeThreshold && draggedIndex > 0
+            val isNearBottom = currentBottom > (viewportEnd - bottomEdgeThreshold) &&
+                draggedIndex < playlists.lastIndex
+
+            if (!isNearTop && !isNearBottom) {
+                edgeDurationMs = 0L
+                continue
+            }
+            edgeDurationMs += deltaMs
+
+            val timeMultiplier = 1f + (edgeDurationMs / 600f).coerceAtMost(2.5f)
+            val depthRatio = if (isNearTop) {
+                ((topEdgeThreshold - currentTop) / topEdgeThreshold).coerceIn(0f, 1f)
+            } else {
+                ((currentBottom - (viewportEnd - bottomEdgeThreshold)) / bottomEdgeThreshold).coerceIn(0f, 1f)
+            }
+            val speedPxPerSec = (depthRatio * 1000f + 300f) * timeMultiplier
+            val stepPx = speedPxPerSec * deltaMs / 1000f
+
+            val scrolled = reorderListState.scrollBy(if (isNearTop) -stepPx else stepPx)
+            dragOffset = clampDragOffset(dragOffset + scrolled)
+            advanceSwaps()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = MelodiaSpacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MelodiaIconButton(onClick = onCancel) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "取消",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = "调整歌单顺序",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = MelodiaSpacing.sm)
+            )
+            MelodiaButton(
+                onClick = onDone,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "完成",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        LazyColumn(
+            state = reorderListState,
+            userScrollEnabled = !isDraggingActive,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = MelodiaSpacing.xs)
+        ) {
+            itemsIndexed(
+                items = playlists,
+                key = { _, item -> item.id }
+            ) { idx, item ->
+                val isDragging = draggedIndex == idx
+                val isSettling = settlingIndex == idx
+                Box(
+                    modifier = if (isDragging || isSettling) Modifier.zIndex(1f) else Modifier.animateItem()
+                ) {
+                    DraggablePlaylistRow(
+                        item = item,
+                        isDragging = isDragging,
+                        dragOffsetY = when {
+                            isDragging -> dragOffset
+                            isSettling -> settleOffset.value
+                            else -> 0f
+                        },
+                        enabled = true,
+                        onDragStart = {
+                            if (draggedIndex < 0) {
+                                settlingIndex = -1
+                                draggedIndex = idx
+                                dragOffset = 0f
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                        },
+                        onDrag = { delta ->
+                            if (draggedIndex == idx) {
+                                dragOffset = clampDragOffset(dragOffset + delta)
+                                advanceSwaps()
+                            }
+                        },
+                        onDragEnd = {
+                            if (draggedIndex == idx) {
+                                val releasedOffset = dragOffset
+                                draggedIndex = -1
+                                dragOffset = 0f
+                                if (releasedOffset != 0f) {
+                                    settlingIndex = idx
+                                    scope.launch {
+                                        settleOffset.snapTo(releasedOffset)
+                                        settleOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                                        settlingIndex = -1
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 

@@ -656,7 +656,7 @@ fun PlaylistScreen(
             val playlist = successState.playlist
             ModalBottomSheet(
                 onDismissRequest = { showMoreMenuSheet = false },
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.background,
                 shape = BottomSheetShape,
                 dragHandle = { MelodiaDragHandle() }
             ) {
@@ -664,7 +664,7 @@ fun PlaylistScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.md)
+                        .padding(bottom = MelodiaSpacing.md)
                 ) {
                     val firstArtist = playlist.tracks.firstOrNull()?.ar?.firstOrNull()
                     val artistName = firstArtist?.name ?: "未知歌手"
@@ -685,7 +685,7 @@ fun PlaylistScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = MelodiaSpacing.sm),
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SubcomposeAsyncImage(
@@ -723,7 +723,7 @@ fun PlaylistScreen(
 
                     HorizontalDivider(
                         color = Color.White.copy(alpha = 0.08f),
-                        modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
                     )
 
                     val isManageable = !isAlbum && userProfile != null &&
@@ -823,14 +823,13 @@ fun PlaylistScreen(
                     }
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         items(menuItems, key = { it.title }) { item ->
                             val iconColor = if (item.isDestructive) {
                                 MaterialTheme.colorScheme.error
                             } else {
-                                Color.White.copy(alpha = 0.8f)
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             }
                             val titleColor = if (item.isDestructive) {
                                 MaterialTheme.colorScheme.error
@@ -841,7 +840,7 @@ fun PlaylistScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable(onClick = item.onClick)
-                                    .padding(vertical = 12.dp),
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -855,7 +854,8 @@ fun PlaylistScreen(
                                     text = item.title,
                                     color = titleColor,
                                     fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }

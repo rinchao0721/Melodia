@@ -16,6 +16,8 @@ import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
+import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -57,6 +59,8 @@ class LibraryViewModel(
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
     private val createRepository: CreateRepository,
     private val libraryRepository: LibraryRepository,
+    private val playlistRepository: PlaylistRepository,
+    private val artistRepository: ArtistRepository,
     private val userPlaylistRepository: UserPlaylistRepository,
     private val userArtistRepository: UserArtistRepository,
     private val userPreferences: UserPreferences,
@@ -155,6 +159,15 @@ class LibraryViewModel(
 
     private fun savePinnedIdsToPrefs(ids: Set<String>) {
         sharedPrefs.edit().putStringSet("pinned_ids", ids).apply()
+    }
+
+    private fun getCustomPlaylistOrderFromPrefs(): List<String> {
+        val raw = sharedPrefs.getString("custom_playlist_order", "") ?: ""
+        return if (raw.isBlank()) emptyList() else raw.split(",")
+    }
+
+    private fun saveCustomPlaylistOrderToPrefs(order: List<String>) {
+        sharedPrefs.edit().putString("custom_playlist_order", order.joinToString(",")).apply()
     }
 
     private fun getGridViewFromPrefs(): Boolean {
@@ -329,9 +342,22 @@ class LibraryViewModel(
         val pinnedItems = list.filter { it.isPinned }
         val unpinnedItems = list.filter { !it.isPinned }
 
+        val customPlaylistOrder = getCustomPlaylistOrderFromPrefs()
+        val customOrderMap = customPlaylistOrder.mapIndexed { index, id -> id to index }.toMap()
+
         val sortedUnpinned = when (sort) {
             LibrarySortOrder.RECENTLY_PLAYED -> {
-                unpinnedItems.sortedByDescending { it.updateTime }
+                if (customOrderMap.isNotEmpty()) {
+                    unpinnedItems.sortedWith(compareBy<LibraryItem> { item ->
+                        if (item.type == LibraryItemType.PLAYLIST) {
+                            customOrderMap[item.id] ?: Int.MAX_VALUE
+                        } else {
+                            Int.MAX_VALUE
+                        }
+                    }.thenByDescending { it.updateTime })
+                } else {
+                    unpinnedItems.sortedByDescending { it.updateTime }
+                }
             }
             LibrarySortOrder.CREATE_TIME -> {
                 unpinnedItems.sortedByDescending { it.updateTime }
@@ -428,6 +454,68 @@ class LibraryViewModel(
             _toastEvent.emit("登录成功，正在同步乐库...")
             val profile = syncProfileAfterLoginUseCase(cookies) ?: return@launch
             loadLibraryData(profile)
+        }
+    }
+
+    fun savePlaylistOrder(orderedItems: List<LibraryItem>) {
+        val playlistIds = orderedItems.filter { it.type == LibraryItemType.PLAYLIST && it.id != "-2" && !it.isLikedSongs }.map { it.id }
+        saveCustomPlaylistOrderToPrefs(playlistIds)
+        applyFilterAndSort()
+        viewModelScope.launch {
+            _toastEvent.emit("歌单排序已保存")
+        }
+    }
+
+    fun deletePlaylist(playlistId: Long) {
+        viewModelScope.launch {
+            playlistRepository.deletePlaylist(playlistId).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("歌单已删除")
+                    playlistMutationBus.emit(PlaylistMutationEvent.Deleted(playlistId))
+                    loadLibraryData()
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun unsubscribePlaylist(playlistId: Long) {
+        viewModelScope.launch {
+            playlistRepository.subscribePlaylist(playlistId, subscribe = false).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("已取消收藏歌单")
+                    loadLibraryData()
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun unsubscribeAlbum(albumId: Long) {
+        viewModelScope.launch {
+            playlistRepository.subscribeAlbum(albumId, subscribe = false).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("已取消收藏专辑")
+                    loadLibraryData()
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun unsubscribeArtist(artistId: Long) {
+        viewModelScope.launch {
+            artistRepository.subscribeArtist(artistId, subscribe = false).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("已取消关注歌手")
+                    loadLibraryData()
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
         }
     }
 }

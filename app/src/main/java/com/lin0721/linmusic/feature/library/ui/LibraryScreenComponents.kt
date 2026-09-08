@@ -11,11 +11,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.rounded.Lock
@@ -25,21 +30,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LibraryVioletGradient
@@ -356,16 +369,26 @@ fun LibraryItemRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryGridItem(
     item: LibraryItem,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     val shape = if (item.type == LibraryItemType.ARTIST) CircleShape else RoundedCornerShape(RadiusCompact)
+    val interactionSource = remember { MutableInteractionSource() }
 
     Column(
-        modifier = modifier.pressable(MelodiaPress.Card, onClick = onClick),
+        modifier = modifier
+            .pressScale(MelodiaPress.Card, interactionSource)
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (item.isLikedSongs) {
@@ -431,13 +454,143 @@ fun LibraryGridItem(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth()
         )
-        Text(
-            text = item.subtitle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (item.isPinned) {
+                Icon(
+                    imageVector = Icons.Default.PushPin,
+                    contentDescription = "已置顶",
+                    tint = DownloadedGreen,
+                    modifier = Modifier
+                        .size(11.dp)
+                        .padding(end = MelodiaSpacing.xxs)
+                )
+            }
+            Text(
+                text = item.subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// 可拖拽排序的歌单行
+@Composable
+fun DraggablePlaylistRow(
+    item: LibraryItem,
+    isDragging: Boolean,
+    dragOffsetY: Float,
+    onDragStart: () -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    enabled: Boolean = true
+) {
+    val liftSpec = remember { spring<Dp>(stiffness = Spring.StiffnessMediumLow) }
+    val elevation by animateDpAsState(
+        targetValue = if (isDragging) 8.dp else 0.dp,
+        animationSpec = liftSpec,
+        label = "drag_playlist_elev"
+    )
+    val isLifted = isDragging || dragOffsetY != 0f
+    val bgColor by animateColorAsState(
+        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+        label = "playlist_row_bg"
+    )
+
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isLifted) Modifier
+                    .zIndex(1f)
+                    .graphicsLayer { translationY = dragOffsetY }
+                    .shadow(elevation, RoundedCornerShape(8.dp))
+                else Modifier
+            )
+            .background(bgColor)
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SubcomposeAsyncImage(
+            model = "${item.coverUrl}?param=150y150",
+            contentDescription = item.title,
+            modifier = Modifier
+                .size(60.dp)
+                .clip(RoundedCornerShape(RadiusCompact)),
+            contentScale = ContentScale.Crop,
+            loading = { CoverPlaceholder() },
+            error = { CoverPlaceholder() }
+        )
+
+        Spacer(modifier = Modifier.width(MelodiaSpacing.md))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (item.isPinned) {
+                    Icon(
+                        imageVector = Icons.Default.PushPin,
+                        contentDescription = "已置顶",
+                        tint = DownloadedGreen,
+                        modifier = Modifier
+                            .size(13.dp)
+                            .padding(end = MelodiaSpacing.xs)
+                    )
+                }
+                Text(
+                    text = if (item.trackCount > 0) "${item.subtitle} • ${item.trackCount}首" else item.subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = "拖拽调整顺序",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(44.dp)
+                .then(
+                    if (enabled) {
+                        Modifier.pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { currentOnDragStart() },
+                                onDrag = { change, offset ->
+                                    change.consume()
+                                    currentOnDrag(offset.y)
+                                },
+                                onDragEnd = { currentOnDragEnd() },
+                                onDragCancel = { currentOnDragEnd() }
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(10.dp)
         )
     }
 }
+
