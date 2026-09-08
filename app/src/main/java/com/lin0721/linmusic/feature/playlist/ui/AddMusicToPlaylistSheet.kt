@@ -70,6 +70,9 @@ fun AddMusicToPlaylistSheet(
     searchQuery: String,
     searchState: AddMusicSearchState,
     existingTrackIds: Set<Long>,
+    // 复用歌单详情页"推荐歌曲"的同一份数据源，本身已过滤掉歌单已有曲目；
+    // 只在未输入关键词时展示，与搜索结果互斥，本次打开取的是固定一批，不带刷新
+    recommendedSongs: List<Track>,
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     onAddTrack: (Track, onComplete: () -> Unit) -> Unit,
@@ -174,17 +177,55 @@ fun AddMusicToPlaylistSheet(
             // 搜索内容展示区
             when (searchState) {
                 is AddMusicSearchState.Idle -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "输入关键词搜索歌曲",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp
-                        )
+                    if (recommendedSongs.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "输入关键词搜索歌曲",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentPadding = PaddingValues(bottom = MelodiaSpacing.md)
+                        ) {
+                            item(key = "recommend_header") {
+                                Text(
+                                    text = "推荐歌曲",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(
+                                        horizontal = MelodiaSpacing.md,
+                                        vertical = MelodiaSpacing.sm
+                                    )
+                                )
+                            }
+                            items(items = recommendedSongs, key = { "rec_${it.id}" }) { track ->
+                                val isAdded = existingTrackIds.contains(track.id)
+                                val isAdding = addingTrackIds.contains(track.id)
+
+                                AddTrackRow(
+                                    track = track,
+                                    isAdded = isAdded,
+                                    isAdding = isAdding,
+                                    onAdd = {
+                                        addingTrackIds = addingTrackIds + track.id
+                                        onAddTrack(track) {
+                                            addingTrackIds = addingTrackIds - track.id
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
                 is AddMusicSearchState.Loading -> {

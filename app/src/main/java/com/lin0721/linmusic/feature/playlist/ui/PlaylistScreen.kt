@@ -745,6 +745,7 @@ fun PlaylistScreen(
                 existingTrackIds = remember(playlist.tracks) {
                     playlist.tracks.map { it.id }.toSet()
                 },
+                recommendedSongs = successState.recommendedSongs,
                 onQueryChange = viewModel::updateAddMusicSearchQuery,
                 onClearQuery = viewModel::clearAddMusicSearch,
                 onAddTrack = { track, onComplete ->

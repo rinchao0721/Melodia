@@ -25,8 +25,8 @@ fun HomeContent(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onPlaylistClick: (Long, Boolean) -> Unit,
-    onSongClick: (List<HomeCard.Song>, HomeCard.Song) -> Unit,
-    onVoiceClick: (List<HomeCard.Voice>, HomeCard.Voice) -> Unit,
+    onSongClick: (shelfTitle: String, List<HomeCard.Song>, HomeCard.Song) -> Unit,
+    onVoiceClick: (shelfTitle: String, List<HomeCard.Voice>, HomeCard.Voice) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onIntelligenceClick: () -> Unit,
@@ -86,8 +86,8 @@ fun HomeContent(
                                     is HomeCard.Playlist -> onPlaylistClick(card.id, false)
                                     is HomeCard.Album -> onPlaylistClick(card.id, true)
                                     // 同货架的其余歌曲/单集卡片一起入队，播完才能自动接续
-                                    is HomeCard.Song -> onSongClick(shelf.cards.filterIsInstance<HomeCard.Song>(), card)
-                                    is HomeCard.Voice -> onVoiceClick(shelf.cards.filterIsInstance<HomeCard.Voice>(), card)
+                                    is HomeCard.Song -> onSongClick(shelf.title, shelf.cards.filterIsInstance<HomeCard.Song>(), card)
+                                    is HomeCard.Voice -> onVoiceClick(shelf.title, shelf.cards.filterIsInstance<HomeCard.Voice>(), card)
                                 }
                             }
                         )

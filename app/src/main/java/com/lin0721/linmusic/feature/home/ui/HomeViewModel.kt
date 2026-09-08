@@ -191,16 +191,16 @@ class HomeViewModel(
     }
 
     // 播放货架里的单曲，队列取同一货架内的全部歌曲卡片，播完能自动接续下一首
-    fun playShelfSong(songs: List<HomeCard.Song>, song: HomeCard.Song) {
+    fun playShelfSong(shelfTitle: String, songs: List<HomeCard.Song>, song: HomeCard.Song) {
         val queueItems = songs.map { QueueItem(it.id, it.title, "", it.coverUrl) }
         val startIndex = songs.indexOf(song).coerceAtLeast(0)
-        playerManager.playQueue(queueItems, startIndex, playContext = "home_shelf")
+        playerManager.playQueue(queueItems, startIndex, playContext = shelfTitle)
     }
 
-    fun playShelfVoice(voices: List<HomeCard.Voice>, voice: HomeCard.Voice) {
+    fun playShelfVoice(shelfTitle: String, voices: List<HomeCard.Voice>, voice: HomeCard.Voice) {
         val queueItems = voices.map { QueueItem(it.songId, it.title, it.caption, it.coverUrl) }
         val startIndex = voices.indexOf(voice).coerceAtLeast(0)
-        playerManager.playQueue(queueItems, startIndex, playContext = "home_voice")
+        playerManager.playQueue(queueItems, startIndex, playContext = shelfTitle)
     }
 
     fun togglePlayPause() {
