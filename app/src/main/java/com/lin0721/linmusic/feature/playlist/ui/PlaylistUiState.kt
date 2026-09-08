@@ -12,7 +12,9 @@ sealed interface PlaylistUiState {
     data class Success(
         val playlist: PlaylistDetail,
         val recommendedSongs: List<Track> = emptyList(),
-        val isSubscribed: Boolean = false
+        val isSubscribed: Boolean = false,
+        val hasMoreTracks: Boolean = false,
+        val isLoadingMoreTracks: Boolean = false
     ) : PlaylistUiState
     data class Error(val message: String) : PlaylistUiState
 }

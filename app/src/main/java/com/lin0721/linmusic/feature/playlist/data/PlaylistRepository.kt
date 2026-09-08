@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.playlist.data
 
 import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.model.Track
 import kotlinx.coroutines.flow.Flow
 
 // 歌单/专辑数据仓储（playlist 业务域）
@@ -8,6 +9,9 @@ interface PlaylistRepository {
 
     // 获取歌单详情
     fun getPlaylistDetail(id: Long): Flow<Result<PlaylistDetail>>
+
+    // 按 trackIds 分页补全歌单曲目（服务端 playlist/detail 的 tracks 字段截断在约1000首之后使用）
+    fun loadMoreTracks(trackIds: List<Long>): Flow<Result<List<Track>>>
 
     // 获取专辑详情，映射至统一领域模型 PlaylistDetail
     fun getAlbumDetail(id: Long): Flow<Result<PlaylistDetail>>

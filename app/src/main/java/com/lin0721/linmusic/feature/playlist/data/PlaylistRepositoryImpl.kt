@@ -2,12 +2,16 @@ package com.lin0721.linmusic.feature.playlist.data
 
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.apiFlow
+import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class PlaylistRepositoryImpl(
     private val apiService: PlaylistApi,
-    private val contentFilter: ContentFilter
+    private val contentFilter: ContentFilter,
+    private val playerRepository: PlayerRepository
 ) : PlaylistRepository {
 
     override fun getPlaylistDetail(id: Long): Flow<Result<PlaylistDetail>> = apiFlow(
@@ -19,6 +23,11 @@ class PlaylistRepositoryImpl(
             response.playlist.copy(tracks = filteredTracks)
         }
     )
+
+    override fun loadMoreTracks(trackIds: List<Long>): Flow<Result<List<Track>>> =
+        playerRepository.getSongDetails(trackIds).map { result ->
+            result.map { tracks -> contentFilter.filterBlockedArtists(tracks) { it.ar.map { a -> a.id } } }
+        }
 
     override fun getAlbumDetail(id: Long): Flow<Result<PlaylistDetail>> = apiFlow(
         // 专辑 ID 需作为 URL 路径参数传入，不使用 AlbumDetailRequest 请求体

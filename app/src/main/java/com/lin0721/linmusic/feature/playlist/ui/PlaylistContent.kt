@@ -21,6 +21,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.max
 
 // TopBar 操作区高度（不含状态栏）
@@ -76,13 +77,29 @@ fun PlaylistContent(
     onRemoveFromPlaylist: (Long) -> Unit = {},
     onAddMusicClick: () -> Unit = {},
     onEditOrderClick: () -> Unit = {},
-    onEditInfoClick: () -> Unit = {}
+    onEditInfoClick: () -> Unit = {},
+    hasMoreTracks: Boolean = false,
+    isLoadingMoreTracks: Boolean = false,
+    onLoadMoreTracks: () -> Unit = {}
 ) {
     val density = LocalDensity.current
 
     val isDailyRecommend = playlist.id == -1L || playlist.id == -2L
     // 搜索栏统一为 item 0，无需按是否每日推荐区分初始位置
     val listState = rememberLazyListState()
+
+    val canLoadMoreTracks = hasMoreTracks && !isLoadingMoreTracks
+    LaunchedEffect(listState, canLoadMoreTracks) {
+        if (!canLoadMoreTracks) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= info.totalItemsCount - 3
+        }
+            .distinctUntilChanged()
+            .collect { if (it) onLoadMoreTracks() }
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(PlaylistSortOption.DEFAULT) }
     var showSortSheet by remember { mutableStateOf(false) }
@@ -236,6 +253,17 @@ fun PlaylistContent(
                     onOpenCollectSheet = { collectSongId = it },
                     onMoreClick        = { activeSongMoreOptions = it }
                 )
+
+                if (isLoadingMoreTracks) {
+                    item(key = "track_load_more") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
 
             // 推荐歌曲板块

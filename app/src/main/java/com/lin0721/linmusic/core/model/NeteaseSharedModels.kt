@@ -63,8 +63,13 @@ data class PlaylistDetail(
     val creator: PlaylistCreator? = null,
     val tracks: List<Track> = emptyList(),
     // 仅歌单搜索结果（cloudsearch type=1000）下发，详情接口里 tracks 本身已能反映曲目数，此字段该场景不下发，已真机核实
-    val trackCount: Int = 0
+    val trackCount: Int = 0,
+    // 完整曲目 id 顺序表；playlist/detail 的 tracks 字段服务端会截断（约1000首），超出部分需按此列表分批用 song/detail 补全
+    val trackIds: List<PlaylistTrackId> = emptyList()
 )
+
+@Serializable
+data class PlaylistTrackId(val id: Long = 0)
 
 // "我喜欢的音乐"是网易云的系统歌单，不能改名/改简介/换封面/删除/手动调整曲目顺序。
 fun isLikedSongsPlaylist(name: String, playlistId: Long, uid: Long?): Boolean =

@@ -40,6 +40,9 @@ import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import kotlinx.coroutines.delay
 
+// 歌单曲目分页补全每批数量，对齐服务端 song/detail 单次上限
+private const val TRACK_PAGE_SIZE = 1000
+
 class PlaylistViewModel(
     private val songCollectDelegate: SongCollectDelegate,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
@@ -159,7 +162,11 @@ class PlaylistViewModel(
             flow.collect { result ->
                 result.fold(
                     onSuccess = { detail ->
-                        _uiState.value = PlaylistUiState.Success(detail, isSubscribed = detail.subscribed)
+                        _uiState.value = PlaylistUiState.Success(
+                            detail,
+                            isSubscribed = detail.subscribed,
+                            hasMoreTracks = detail.trackIds.size > detail.tracks.size
+                        )
                         val baseSong = detail.tracks.firstOrNull()
 
                         if (baseSong != null && !isAlbum) {
@@ -191,6 +198,83 @@ class PlaylistViewModel(
                         } else state
                     }
                 }
+            }
+        }
+    }
+
+    // 歌单曲目超过服务端截断阈值时，滚动到底部触发分批补全
+    fun loadMoreTracks() {
+        val current = _uiState.value as? PlaylistUiState.Success ?: return
+        if (!current.hasMoreTracks || current.isLoadingMoreTracks) return
+        val allIds = current.playlist.trackIds.map { it.id }
+        val nextIds = allIds.drop(current.playlist.tracks.size).take(TRACK_PAGE_SIZE)
+        if (nextIds.isEmpty()) {
+            _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(hasMoreTracks = false) else state }
+            return
+        }
+        val playlistId = current.playlist.id
+        _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
+        viewModelScope.launch {
+            playlistRepository.loadMoreTracks(nextIds).collect { result ->
+                result.fold(
+                    onSuccess = { newTracks ->
+                        _uiState.update { state ->
+                            if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                                val updatedTracks = state.playlist.tracks + newTracks
+                                state.copy(
+                                    playlist = state.playlist.copy(tracks = updatedTracks),
+                                    hasMoreTracks = updatedTracks.size < allIds.size,
+                                    isLoadingMoreTracks = false
+                                )
+                            } else state
+                        }
+                    },
+                    onFailure = { e ->
+                        _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    }
+                )
+            }
+        }
+    }
+
+    // 补全歌单全部曲目后再执行回调：拖拽排序（全量覆盖会删掉未加载部分）、导入全部歌曲等场景都必须先拿到完整列表，
+    // 否则只会处理已加载的这一批，超过1000首的歌单会悄悄漏掉后面的曲目
+    fun ensureAllTracksLoaded(onReady: (List<Track>) -> Unit) {
+        val current = _uiState.value as? PlaylistUiState.Success ?: return
+        if (!current.hasMoreTracks) {
+            onReady(current.playlist.tracks)
+            return
+        }
+        if (current.isLoadingMoreTracks) return
+        val playlistId = current.playlist.id
+        val allIds = current.playlist.trackIds.map { it.id }
+        _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
+        viewModelScope.launch {
+            val loadedTracks = mutableListOf<Track>().apply { addAll(current.playlist.tracks) }
+            var failure: Throwable? = null
+            for (chunk in allIds.drop(loadedTracks.size).chunked(TRACK_PAGE_SIZE)) {
+                val result = playlistRepository.loadMoreTracks(chunk).first()
+                result.fold(
+                    onSuccess = { loadedTracks.addAll(it) },
+                    onFailure = { e -> failure = e }
+                )
+                if (failure != null) break
+            }
+            if (failure == null) {
+                _uiState.update { state ->
+                    if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                        state.copy(
+                            playlist = state.playlist.copy(tracks = loadedTracks),
+                            hasMoreTracks = false,
+                            isLoadingMoreTracks = false
+                        )
+                    } else state
+                }
+                onReady(loadedTracks)
+            } else {
+                _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
+                _toastEvent.emit(failure?.toUserMessage(resourceProvider) ?: "加载全部曲目失败，无法进入排序")
             }
         }
     }
@@ -406,14 +490,15 @@ class PlaylistViewModel(
 
     // 把当前歌单全部歌曲一次性导入到已有的目标歌单
     fun importAllTracksTo(targetPlaylistId: Long) {
-        val tracks = (_uiState.value as? PlaylistUiState.Success)?.playlist?.tracks.orEmpty()
-        if (tracks.isEmpty()) return
-        viewModelScope.launch {
-            playlistRepository.manipulatePlaylistTracks("add", targetPlaylistId, tracks.map { it.id }).collect { result ->
-                result.onSuccess {
-                    _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
-                }.onFailure { e ->
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+        ensureAllTracksLoaded { tracks ->
+            if (tracks.isEmpty()) return@ensureAllTracksLoaded
+            viewModelScope.launch {
+                playlistRepository.manipulatePlaylistTracks("add", targetPlaylistId, tracks.map { it.id }).collect { result ->
+                    result.onSuccess {
+                        _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
+                    }.onFailure { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    }
                 }
             }
         }
@@ -421,13 +506,14 @@ class PlaylistViewModel(
 
     // 新建歌单并把当前歌单全部歌曲导入进去
     fun createPlaylistAndImportAll(name: String) {
-        val tracks = (_uiState.value as? PlaylistUiState.Success)?.playlist?.tracks.orEmpty()
-        viewModelScope.launch {
-            createPlaylistAndAddSongUseCase(name, tracks.map { it.id }).collect { result ->
-                result.onSuccess {
-                    _toastEvent.emit("已创建歌单并导入 ${tracks.size} 首歌曲")
-                }.onFailure { e ->
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+        ensureAllTracksLoaded { tracks ->
+            viewModelScope.launch {
+                createPlaylistAndAddSongUseCase(name, tracks.map { it.id }).collect { result ->
+                    result.onSuccess {
+                        _toastEvent.emit("已创建歌单并导入 ${tracks.size} 首歌曲")
+                    }.onFailure { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    }
                 }
             }
         }

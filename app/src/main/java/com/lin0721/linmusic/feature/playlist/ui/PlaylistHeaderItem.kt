@@ -173,7 +173,9 @@ fun PlaylistHeaderItem(
                     }
                     Spacer(Modifier.height(MelodiaSpacing.xs))
                     val playCountText = if (playlist.playCount > 0) " • 播放 ${formatPlayCount(playlist.playCount)} 次" else ""
-                    Text("${playlist.tracks.size} 首歌曲$playCountText", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    // trackIds 是完整曲目表，tracks 分页加载中可能少于真实总数；trackIds 为空（专辑/日推等场景）才退回 tracks.size
+                    val totalTrackCount = if (playlist.trackIds.isNotEmpty()) playlist.trackIds.size else playlist.tracks.size
+                    Text("$totalTrackCount 首歌曲$playCountText", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
 
                 if (playlist.id != -1L && playlist.id != -2L) {

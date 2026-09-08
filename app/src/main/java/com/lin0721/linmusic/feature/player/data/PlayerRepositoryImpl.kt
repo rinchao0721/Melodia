@@ -28,6 +28,16 @@ class PlayerRepositoryImpl(
         transform = { it.songs[0] }
     )
 
+    override fun getSongDetails(songIds: List<Long>): Flow<Result<List<Track>>> = apiFlow(
+        request = {
+            val c = songIds.joinToString(prefix = "[", postfix = "]") { """{"id":$it}""" }
+            apiService.getSongDetail(SongDetailRequest(c = c))
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { it.songs }
+    )
+
     // 获取合并后的歌曲详情与百科信息
     override fun getSongWiki(songId: Long): Flow<Result<SongWikiData>> = flow {
         coroutineScope {

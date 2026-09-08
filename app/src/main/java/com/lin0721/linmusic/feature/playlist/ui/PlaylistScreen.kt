@@ -511,11 +511,17 @@ fun PlaylistScreen(
                         },
                         onAddMusicClick = { showAddMusicSheet = true },
                         onEditOrderClick = {
-                            reorderedTracks.clear()
-                            reorderedTracks.addAll(state.playlist.tracks)
-                            isReorderMode = true
+                            // 排序保存是全量覆盖，必须先补全未加载的曲目，否则会把服务端剩余部分删掉
+                            viewModel.ensureAllTracksLoaded { allTracks ->
+                                reorderedTracks.clear()
+                                reorderedTracks.addAll(allTracks)
+                                isReorderMode = true
+                            }
                         },
                         onEditInfoClick = { showEditInfoDialog = true },
+                        hasMoreTracks = state.hasMoreTracks,
+                        isLoadingMoreTracks = state.isLoadingMoreTracks,
+                        onLoadMoreTracks = { viewModel.loadMoreTracks() },
                         currentTrackId = currentTrack?.mediaId,
                     isPlaying      = isPlaying,
                     likedSongIds   = likedSongIds,
@@ -658,9 +664,10 @@ fun PlaylistScreen(
                         if (!author.isNullOrBlank()) {
                             append(author)
                         }
-                        if (playlist.tracks.isNotEmpty()) {
+                        val totalTrackCount = if (playlist.trackIds.isNotEmpty()) playlist.trackIds.size else playlist.tracks.size
+                        if (totalTrackCount > 0) {
                             if (isNotEmpty()) append(" · ")
-                            append("${playlist.tracks.size}首")
+                            append("${totalTrackCount}首")
                         }
                     }
 
