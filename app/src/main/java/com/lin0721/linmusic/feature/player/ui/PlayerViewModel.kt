@@ -498,6 +498,33 @@ class PlayerViewModel(
         }
     }
 
+    // 开启心动模式，以当前播放歌曲为种子
+    fun startIntelligenceMode(songId: Long, currentTitle: String, currentArtist: String, currentCoverUrl: String) {
+        viewModelScope.launch {
+            playbackRepository.getIntelligenceSongs(songId, 0).collect { result ->
+                result.onSuccess { tracks ->
+                    if (tracks.isNotEmpty()) {
+                        val currentItem = QueueItem(songId, currentTitle, currentArtist, currentCoverUrl)
+                        val items = listOf(currentItem) + tracks.map { track ->
+                            QueueItem(
+                                songId = track.id,
+                                title = track.name,
+                                artist = track.ar.joinToString("/") { it.name },
+                                coverUrl = track.al.picUrl
+                            )
+                        }
+                        playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
+                        _toastEvent.emit("已开启心动模式")
+                    } else {
+                        _toastEvent.emit("获取心动推荐失败")
+                    }
+                }.onFailure {
+                    _toastEvent.emit(it.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
     // 插播一首相似歌曲到下一首位置
     fun insertSimilarSongs(songId: Long) {
         viewModelScope.launch {

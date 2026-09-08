@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.network.mapToAppError
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -23,6 +24,7 @@ class PlaybackRepositoryImpl(
     private val apiService: PlaybackApi,
     private val settingsPreferences: SettingsPreferences,
     private val userPreferences: UserPreferences,
+    private val userPlaylistRepository: UserPlaylistRepository,
     private val contentFilter: ContentFilter,
     private val context: android.content.Context,
     private val json: Json
@@ -110,63 +112,33 @@ class PlaybackRepositoryImpl(
         transform = { contentFilter.filterBlockedArtists(it.songs) { song -> song.ar.map { a -> a.id } } }
     )
 
-    // 含降级逻辑（心动模式失败自动回退相似歌曲），复杂度超出 apiFlow 模板范围，保留手写 flow
-    override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = flow {
-        var success = false
-        var tracksList = emptyList<Track>()
-
-        val finalPlaylistId = if (playlistId == 0L) {
-            userPreferences.userProfile.first()?.uid ?: 0L
-        } else {
-            playlistId
-        }
-
-        if (finalPlaylistId != 0L) {
-            try {
-                val response = apiService.getIntelligenceSongs(
-                    IntelligenceSongsRequest(
-                        songId = songId.toString(),
-                        playlistId = finalPlaylistId.toString(),
-                        startMusicId = songId.toString(),
-                        count = 20
-                    )
+    // 未指定歌单上下文时（如首页心动模式入口），取当前歌单列表首位
+    override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = apiFlow(
+        request = {
+            val finalPlaylistId = if (playlistId != 0L) {
+                playlistId
+            } else {
+                val uid = userPreferences.userProfile.first()?.uid
+                    ?: throw AppError.BizError(-1, null)
+                userPlaylistRepository.getUserPlaylists(uid, limit = 1).first().getOrThrow()
+                    .firstOrNull()?.id
+                    ?: throw AppError.BizError(-1, null)
+            }
+            apiService.getIntelligenceSongs(
+                IntelligenceSongsRequest(
+                    songId = songId.toString(),
+                    playlistId = finalPlaylistId.toString(),
+                    startMusicId = songId.toString(),
+                    count = 20
                 )
-                if (response.isSuccess) {
-                    val tracks = response.data.mapNotNull { it.songInfo }
-                    if (tracks.isNotEmpty()) {
-                        tracksList = tracks
-                        success = true
-                    }
-                }
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "心动模式接口失败，songId=$songId，自动降级为相似歌曲", e)
-            }
+            )
+        },
+        isSuccess = { response -> response.isSuccess && response.data.any { it.songInfo != null } },
+        code = { it.code },
+        transform = { response ->
+            contentFilter.filterBlockedArtists(response.data.mapNotNull { it.songInfo }) { it.ar.map { a -> a.id } }
         }
-
-        if (success) {
-            val filteredTracks = contentFilter.filterBlockedArtists(tracksList) { it.ar.map { a -> a.id } }
-            emit(Result.success(filteredTracks))
-        } else {
-            // 若心动模式报错或不支持，自动通过相似歌曲接口获取推荐
-            // 注意：emit 必须放在 try/catch 之外，原因同上（避免误捕获 .first() 的内部取消信号）
-            val fallbackResult = try {
-                val simiResponse = apiService.getSimiSongs(SimiSongRequest(songid = songId.toString()))
-                if (simiResponse.isSuccess) {
-                    val filteredSimi = contentFilter.filterBlockedArtists(simiResponse.songs) { it.ar.map { a -> a.id } }
-                    Result.success(filteredSimi)
-                } else {
-                    Result.failure(AppError.BizError(simiResponse.code, null))
-                }
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "心动模式与相似歌曲兜底均失败，songId=$songId", e)
-                Result.failure(e)
-            }
-            emit(fallbackResult)
-        }
-    }.catch { e ->
-        AppLogger.e(TAG, "getIntelligenceSongs 请求异常", e)
-        emit(Result.failure(mapToAppError(e)))
-    }
+    )
 
     // 歌曲开始播放时立即上报，进「最近播放」；sourceId 暂用 songId 本身代替（缺少真实来源容器映射）
     override fun reportStartPlay(songId: Long): Flow<Result<Unit>> = flow {
