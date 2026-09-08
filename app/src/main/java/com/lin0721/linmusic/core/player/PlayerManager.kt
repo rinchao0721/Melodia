@@ -29,6 +29,9 @@ private val NETWORK_RETRY_DELAYS_MS = longArrayOf(2000L, 5000L, 10000L)
 // 距当前曲目结束的下一首链接预取阈值，用于消除播完到起播下一首之间的网络等待间隙
 private const val PREFETCH_URL_WINDOW_MS = 8000L
 
+// 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
+private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
+
 // 预取到的下一首播放链接，按 songId 校验有效性
 private data class PrefetchedUrl(val songId: Long, val url: String)
 
@@ -39,6 +42,10 @@ class PlayerManager(
     private val repository: PlaybackRepository,
     private val settingsPreferences: SettingsPreferences
 ) : Player.Listener {
+
+    companion object {
+        const val CONTEXT_INTELLIGENCE = "intelligence"
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -77,6 +84,7 @@ class PlayerManager(
     val queue: StateFlow<List<QueueItem>> = playbackQueue.items
 
     private var activePlayJob: Job? = null
+    private var moveSaveJob: Job? = null
     private var consecutiveErrors = 0
 
     private var prefetchJob: Job? = null
@@ -160,6 +168,9 @@ class PlayerManager(
 
         if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
             roaming.prepare()
+        } else if (playContext == CONTEXT_INTELLIGENCE) {
+            // 备份进入心动模式前的队列，供关闭时还原
+            playbackQueue.takeSnapshot()
         }
 
         playbackQueue.setPlayContext(playContext)
@@ -223,7 +234,11 @@ class PlayerManager(
 
     fun moveInQueue(from: Int, to: Int) {
         if (!playbackQueue.move(from, to)) return
-        saveQueueState()
+        moveSaveJob?.cancel()
+        moveSaveJob = scope.launch {
+            delay(QUEUE_MOVE_SAVE_DEBOUNCE_MS)
+            saveQueueState()
+        }
     }
 
     fun toggleShuffle() {
@@ -524,6 +539,14 @@ class PlayerManager(
     // 关闭漫游并还原备份的队列数据
     fun disableRoaming() {
         roaming.disable()
+    }
+
+    // 关闭心动模式并还原进入前备份的队列数据
+    fun disableIntelligence() {
+        if (playbackQueue.playContext.value != CONTEXT_INTELLIGENCE) return
+        playbackQueue.setPlayContext(null)
+        playbackQueue.restoreSnapshot()
+        saveQueueState()
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {

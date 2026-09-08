@@ -39,12 +39,14 @@ fun FullPlayerSheets(
     onToggleShuffle: () -> Unit,
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
+    onDisableIntelligence: () -> Unit,
     onQueueDismiss: () -> Unit,
     onToggleLike: () -> Unit,
     onAlbumClick: () -> Unit,
     onArtistClick: () -> Unit,
     onShowTimerClick: () -> Unit,
     onQualitySelected: (String) -> Unit,
+    onToggleIntelligence: (Boolean) -> Unit,
     onStartSimilarRoaming: () -> Unit,
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
@@ -74,6 +76,7 @@ fun FullPlayerSheets(
             onToggleShuffle = onToggleShuffle,
             onClearQueue = onClearQueue,
             onDisableRoaming = onDisableRoaming,
+            onDisableIntelligence = onDisableIntelligence,
             onDismiss = onQueueDismiss
         )
     }
@@ -93,6 +96,8 @@ fun FullPlayerSheets(
             onArtistClick = onArtistClick,
             onShowTimerClick = onShowTimerClick,
             onQualitySelected = onQualitySelected,
+            isIntelligence = playContext == "intelligence",
+            onToggleIntelligence = onToggleIntelligence,
             onStartSimilarRoaming = onStartSimilarRoaming,
             onInsertSimilarSongs = onInsertSimilarSongs,
             onCollectClick = onCollectClick,

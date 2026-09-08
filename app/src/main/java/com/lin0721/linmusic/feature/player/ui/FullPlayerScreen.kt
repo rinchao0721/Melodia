@@ -261,6 +261,7 @@ fun FullPlayerScreen(
                 onToggleShuffle = viewModel.playerManager::toggleShuffle,
                 onToggleRepeat = viewModel.playerManager::toggleRepeat,
                 onDisableRoaming = { viewModel.playerManager.disableRoaming() },
+                onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
                 onOutputDeviceClick = { showOutputDeviceSheet = true },
                 onQueueClick = { showQueueSheet = true },
                 onShareClick = { shareCurrentSong() },
@@ -363,6 +364,7 @@ fun FullPlayerScreen(
                 showQueueSheet = false
             },
             onDisableRoaming = { viewModel.playerManager.disableRoaming() },
+            onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
             onQueueDismiss = { showQueueSheet = false },
             onToggleLike = viewModel::toggleLike,
             onAlbumClick = {
@@ -387,6 +389,14 @@ fun FullPlayerScreen(
                 showTimerSheet = true
             },
             onQualitySelected = viewModel::updateQuality,
+            onToggleIntelligence = { checked ->
+                if (checked) {
+                    val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
+                    viewModel.startIntelligenceMode(songId, title, artist, coverUrl)
+                } else {
+                    viewModel.playerManager.disableIntelligence()
+                }
+            },
             onStartSimilarRoaming = {
                 val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
                 viewModel.startSimilarSongsRoaming(songId, title, artist, coverUrl)

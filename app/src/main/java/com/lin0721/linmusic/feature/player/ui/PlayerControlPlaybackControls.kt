@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FloatingActionButton
@@ -41,7 +42,9 @@ fun PlaybackControls(
     onToggleRepeat: () -> Unit,
     playMode: PlayMode,
     isRoaming: Boolean = false,
-    onDisableRoaming: () -> Unit = {}
+    onDisableRoaming: () -> Unit = {},
+    isIntelligence: Boolean = false,
+    onDisableIntelligence: () -> Unit = {}
 ) {
     val bounceScale = remember { Animatable(1f) }
     LaunchedEffect(isPlaying) {
@@ -61,6 +64,8 @@ fun PlaybackControls(
             onClick = {
                 if (isRoaming) {
                     onDisableRoaming()
+                } else if (isIntelligence) {
+                    onDisableIntelligence()
                 } else {
                     onToggleShuffle()
                 }
@@ -68,9 +73,13 @@ fun PlaybackControls(
             modifier = Modifier.offset(x = (-10).dp)
         ) {
             Icon(
-                imageVector = if (isRoaming) Icons.Rounded.AllInclusive else Icons.Default.Shuffle,
+                imageVector = when {
+                    isRoaming -> Icons.Rounded.AllInclusive
+                    isIntelligence -> Icons.Rounded.AutoAwesome
+                    else -> Icons.Default.Shuffle
+                },
                 contentDescription = null,
-                tint = if (isRoaming || playMode == PlayMode.SHUFFLE) Color.White else TextGray,
+                tint = if (isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE) Color.White else TextGray,
                 modifier = Modifier.size(28.dp)
             )
         }

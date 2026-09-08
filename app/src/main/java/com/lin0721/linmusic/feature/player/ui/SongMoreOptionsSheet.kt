@@ -58,6 +58,8 @@ fun SongMoreOptionsSheet(
     onArtistClick: () -> Unit,
     onShowTimerClick: () -> Unit,
     onQualitySelected: (String) -> Unit,
+    isIntelligence: Boolean,
+    onToggleIntelligence: (Boolean) -> Unit,
     onStartSimilarRoaming: () -> Unit,
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
@@ -181,7 +183,20 @@ fun SongMoreOptionsSheet(
                     }
                 )
 
-                // 4. 开始相似歌曲漫游
+                // 4. 心动模式：开=以当前歌曲为种子开启，关=恢复开启前的队列
+                OptionRow(
+                    icon = Icons.Rounded.AutoAwesome,
+                    text = if (isIntelligence) "关闭心动模式" else "打开心动模式",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onToggleIntelligence(!isIntelligence)
+                        }
+                    }
+                )
+
+                // 5. 开始相似歌曲漫游
                 OptionRow(
                     icon = Icons.Rounded.Explore,
                     text = "开始相似歌曲漫游",
