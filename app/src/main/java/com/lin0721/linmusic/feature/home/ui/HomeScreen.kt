@@ -52,6 +52,7 @@ fun HomeScreen(
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val musicUiState by musicViewModel.uiState.collectAsStateWithLifecycle()
     val podcastUiState by podcastViewModel.uiState.collectAsStateWithLifecycle()
@@ -150,6 +151,8 @@ fun HomeScreen(
 
                     else -> HomeContent(
                         uiState = uiState,
+                        isRefreshing = isRefreshing,
+                        onRefresh = { viewModel.refreshHomeData() },
                         onPlaylistClick = onPlaylistClick,
                         onSongClick = { songs, song -> viewModel.playShelfSong(songs, song) },
                         onVoiceClick = { voices, voice -> viewModel.playShelfVoice(voices, voice) },
