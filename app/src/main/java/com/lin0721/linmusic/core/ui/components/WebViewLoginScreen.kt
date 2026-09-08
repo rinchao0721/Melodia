@@ -29,6 +29,10 @@ import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.WebLoginBackground
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
+import com.lin0721.linmusic.core.network.RealIpProvider
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.flow.first
+import org.koin.compose.koinInject
 
 /**
  * 网页授权登录界面
@@ -42,15 +46,27 @@ fun WebViewLoginScreen(
     modifier: Modifier = Modifier
 ) {
     var isLoading by remember { mutableStateOf(true) }
-    
+
     // 净化 UA（剔除 wv/WebView 关键字）
     val baseUA = "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
-    
+
     val loginUrl = NeteaseEndpoints.LOGIN_URL
-    val extraHeaders = mapOf(
-        "X-Real-IP" to "116.25.250.66",
-        "X-Forwarded-For" to "116.25.250.66"
-    )
+
+    // IP 伪装头受设置里的"使用真实IP"开关控制，与其余接口共用同一个 RealIpProvider 保持会话内一致
+    val settingsPreferences: SettingsPreferences = koinInject()
+    val realIpProvider: RealIpProvider = koinInject()
+    var extraHeaders by remember { mutableStateOf<Map<String, String>?>(null) }
+    LaunchedEffect(Unit) {
+        val useRealIp = settingsPreferences.useRealIp.first()
+        val realIpValue = settingsPreferences.realIpValue.first()
+        val ip = realIpProvider.resolveIp(useRealIp, realIpValue)
+        extraHeaders = if (ip != null) {
+            mapOf("X-Real-IP" to ip, "X-Forwarded-For" to ip)
+        } else {
+            emptyMap()
+        }
+    }
+    val resolvedHeaders = extraHeaders
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -86,6 +102,7 @@ fun WebViewLoginScreen(
 				.padding(paddingValues)
                 .background(WebLoginBackground) // 外层容器底色一致
 		) {
+			if (resolvedHeaders != null) {
 			AndroidView(
 				factory = { context ->
 					WebView(context).apply {
@@ -128,11 +145,12 @@ fun WebViewLoginScreen(
 							}
 						}
 						
-						loadUrl(loginUrl, extraHeaders)
+						loadUrl(loginUrl, resolvedHeaders)
 					}
 				},
 				modifier = Modifier.fillMaxSize()
 			)
+			}
 
 			// 加载过渡
 			AnimatedVisibility(

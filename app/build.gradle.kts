@@ -129,6 +129,7 @@ dependencies {
     implementation(libs.haze)
     implementation(libs.androidx.palette)
     implementation(libs.android.image.cropper)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

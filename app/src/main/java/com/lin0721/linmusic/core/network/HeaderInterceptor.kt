@@ -13,27 +13,9 @@ private const val TAG = "HeaderInterceptor"
 // 网易云反风控拦截器。UA、Referer、海外 IP 伪装及用户 Cookie。
 class HeaderInterceptor(
     private val userPreferences: UserPreferences,
-    private val settingsPreferences: SettingsPreferences
+    private val settingsPreferences: SettingsPreferences,
+    private val realIpProvider: RealIpProvider
 ) : Interceptor {
-
-    // 严格的 IPv4 校验正则表达式
-    private val ipv4Pattern = Regex(
-        "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$"
-    )
-
-    // 单次会话锁定的随机国内 IP 地址
-    private val sessionIpAddress: String by lazy {
-        val ipPrefixes = listOf(
-            "116.25", "218.17", "113.88", "121.14", "119.137",
-            "58.60", "124.127", "223.73", "116.228", "180.168"
-        )
-        val prefix = ipPrefixes.random()
-        "$prefix.${(1..254).random()}.${(1..254).random()}"
-    }
-
-    private fun isValidIpv4(ip: String): Boolean {
-        return ipv4Pattern.matches(ip.trim())
-    }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -62,12 +44,8 @@ class HeaderInterceptor(
         }
 
         // 域名白名单控制
-        if (useRealIp && url.host.contains(NeteaseEndpoints.DOMAIN_SUFFIX)) {
-            val ipAddress = if (realIpValue.isNotBlank() && isValidIpv4(realIpValue)) {
-                realIpValue.trim()
-            } else {
-                sessionIpAddress
-            }
+        val ipAddress = realIpProvider.resolveIp(useRealIp, realIpValue)
+        if (ipAddress != null && url.host.contains(NeteaseEndpoints.DOMAIN_SUFFIX)) {
             newRequestBuilder.header("X-Real-IP", ipAddress)
             newRequestBuilder.header("X-Forwarded-For", ipAddress)
         }

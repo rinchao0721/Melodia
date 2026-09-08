@@ -430,10 +430,4 @@ class LibraryViewModel(
             loadLibraryData(profile)
         }
     }
-
-    fun logout() {
-        viewModelScope.launch {
-            userPreferences.clearUserProfile()
-        }
-    }
 }

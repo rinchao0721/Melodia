@@ -615,6 +615,10 @@ fun PlaylistScreen(
                 onWebLogin = {
                     showLoginSheet = false
                     showWebViewLogin = true
+                },
+                onLoginSuccess = { cookies ->
+                    showLoginSheet = false
+                    viewModel.handleLoginSuccess(cookies)
                 }
             )
         }

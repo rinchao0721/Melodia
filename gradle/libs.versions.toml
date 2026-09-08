@@ -20,6 +20,7 @@ palette = "1.0.0"
 # 与 Kotlin 2.2.x 捆绑的协程版本保持一致，仅测试期使用
 coroutinesTest = "1.9.0"
 imageCropper = "4.7.0"
+zxing = "3.5.3"
 
 
 [libraries]
@@ -75,6 +76,9 @@ androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.r
 
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
+
+# 二维码生成（登录二维码）
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

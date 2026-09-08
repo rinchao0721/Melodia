@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.home.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.api.AccountInfoResponse
@@ -42,6 +43,7 @@ class HomeViewModel(
     private val recentRepository: RecentRepository,
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
+    private val authRepository: AuthRepository,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {
 
@@ -217,6 +219,7 @@ class HomeViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            authRepository.logout().collect { }
             userPreferences.clearUserProfile()
             _toastEvent.emit("已退出登录")
             loadHomeData()

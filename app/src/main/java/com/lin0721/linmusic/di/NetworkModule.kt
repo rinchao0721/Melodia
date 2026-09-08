@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.network.CryptoInterceptor
 import com.lin0721.linmusic.core.network.EmptyBodyInterceptor
 import com.lin0721.linmusic.core.network.HeaderInterceptor
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
+import com.lin0721.linmusic.core.network.RealIpProvider
 import com.lin0721.linmusic.feature.artist.data.ArtistApi
 import com.lin0721.linmusic.feature.cloud.data.CloudApi
 import com.lin0721.linmusic.feature.cloud.data.CloudUploadApi
@@ -73,8 +74,11 @@ val networkModule = module {
     // ─── 空响应体拦截器 ───
     single { EmptyBodyInterceptor() }
 
+    // ─── IP 伪装选取（HeaderInterceptor 与网页登录共用，保证同一会话内伪装一致） ───
+    single { RealIpProvider() }
+
     // ─── 请求头拦截器 ───
-    single { HeaderInterceptor(get(), get()) }
+    single { HeaderInterceptor(get(), get(), get()) }
 
     // ─── OkHttpClient ───
     single {
