@@ -152,18 +152,6 @@ class HomeViewModel(
         }
     }
 
-    fun playSong(songId: Long, title: String, artist: String, coverUrl: String, startPosition: Long = 0, playContext: String? = null) {
-        viewModelScope.launch {
-            playbackRepository.getSongUrl(songId).collect { result ->
-                result.onSuccess { url ->
-                    playerManager.playAudio(songId, url, title, artist, coverUrl, startPosition, playContext)
-                }.onFailure { error ->
-                    _toastEvent.emit(error.toUserMessage(resourceProvider))
-                }
-            }
-        }
-    }
-
     fun playDailySong(index: Int = 0) {
         val state = uiState.value
         if (state is HomeUiState.Success && state.data.dailySongs.isNotEmpty()) {
@@ -176,27 +164,17 @@ class HomeViewModel(
         }
     }
 
-    // 播放货架里的单曲。区块页的 song 资源不含艺人字段，卡片描述行是「热门」「单曲上线」这类
-    // 榜单标签，拿它冒充艺人名会在播放条上显示错误信息，故宁可留空。
-    fun playShelfSong(song: HomeCard.Song) {
-        playSong(
-            songId = song.id,
-            title = song.title,
-            artist = "",
-            coverUrl = song.coverUrl,
-            playContext = "home_shelf"
-        )
+    // 播放货架里的单曲，队列取同一货架内的全部歌曲卡片，播完能自动接续下一首
+    fun playShelfSong(songs: List<HomeCard.Song>, song: HomeCard.Song) {
+        val queueItems = songs.map { QueueItem(it.id, it.title, "", it.coverUrl) }
+        val startIndex = songs.indexOf(song).coerceAtLeast(0)
+        playerManager.playQueue(queueItems, startIndex, playContext = "home_shelf")
     }
 
-    // 播放货架里的播客单集。播放要用 mainSong 换来的 songId，节目自身 id 播不了
-    fun playShelfVoice(voice: HomeCard.Voice) {
-        playSong(
-            songId = voice.songId,
-            title = voice.title,
-            artist = voice.caption,
-            coverUrl = voice.coverUrl,
-            playContext = "home_voice"
-        )
+    fun playShelfVoice(voices: List<HomeCard.Voice>, voice: HomeCard.Voice) {
+        val queueItems = voices.map { QueueItem(it.songId, it.title, it.caption, it.coverUrl) }
+        val startIndex = voices.indexOf(voice).coerceAtLeast(0)
+        playerManager.playQueue(queueItems, startIndex, playContext = "home_voice")
     }
 
     fun togglePlayPause() {

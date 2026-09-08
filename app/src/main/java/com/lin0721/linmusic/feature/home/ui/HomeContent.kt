@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 fun HomeContent(
     uiState: HomeUiState,
     onPlaylistClick: (Long, Boolean) -> Unit,
-    onSongClick: (HomeCard.Song) -> Unit,
-    onVoiceClick: (HomeCard.Voice) -> Unit,
+    onSongClick: (List<HomeCard.Song>, HomeCard.Song) -> Unit,
+    onVoiceClick: (List<HomeCard.Voice>, HomeCard.Voice) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onIntelligenceClick: () -> Unit,
@@ -75,8 +75,9 @@ fun HomeContent(
                             when (card) {
                                 is HomeCard.Playlist -> onPlaylistClick(card.id, false)
                                 is HomeCard.Album -> onPlaylistClick(card.id, true)
-                                is HomeCard.Song -> onSongClick(card)
-                                is HomeCard.Voice -> onVoiceClick(card)
+                                // 同货架的其余歌曲/单集卡片一起入队，播完才能自动接续
+                                is HomeCard.Song -> onSongClick(shelf.cards.filterIsInstance<HomeCard.Song>(), card)
+                                is HomeCard.Voice -> onVoiceClick(shelf.cards.filterIsInstance<HomeCard.Voice>(), card)
                             }
                         }
                     )
