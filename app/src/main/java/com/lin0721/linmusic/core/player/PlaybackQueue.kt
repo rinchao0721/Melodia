@@ -39,6 +39,14 @@ class PlaybackQueue {
 
     fun currentItem(): QueueItem? = playItems.getOrNull(_currentIndex.value)
 
+    // 当前曲目在原始（未打乱）顺序中的下标，供持久化使用：随机模式下 currentIndex 是打乱后 playItems 里的下标，
+    // 跟 original 的顺序对不上，必须转换成 original 里的下标才能在下次恢复时精确定位回同一首歌
+    fun currentIndexInOriginal(): Int {
+        val current = currentItem() ?: return _currentIndex.value
+        val idx = originalItems.indexOfFirst { it.songId == current.songId }
+        return if (idx >= 0) idx else _currentIndex.value
+    }
+
     fun setPlayMode(mode: PlayMode) {
         _playMode.value = mode
     }
@@ -72,12 +80,19 @@ class PlaybackQueue {
         return playItems.getOrNull(nextIdx)
     }
 
-    // 从持久化数据恢复队列
+    // 从持久化数据恢复队列；index 是当前曲目在 items（原始顺序）里的下标。
+    // 随机模式下要按当前 playMode 重新打乱，否则 playItems 会是未打乱的原始顺序，跟随机模式的语义不符
     fun restore(items: List<QueueItem>, index: Int, context: String?) {
         if (items.isEmpty()) return
         originalItems = items
-        playItems = items
-        _currentIndex.value = index.coerceIn(0, items.size - 1)
+        val safeIndex = index.coerceIn(0, items.size - 1)
+        if (_playMode.value == PlayMode.SHUFFLE) {
+            playItems = shufflePreservingCurrent(items, safeIndex)
+            _currentIndex.value = 0
+        } else {
+            playItems = items
+            _currentIndex.value = safeIndex
+        }
         _items.value = playItems
         _playContext.value = context
     }

@@ -294,4 +294,24 @@ class PlaybackQueueTest {
         assertEquals(listOf(9L), queue.original.map { it.songId })
         assertEquals(0, queue.currentIndex.value)
     }
+
+    // 随机模式下的持久化与恢复
+    @Test
+    fun `随机模式下保存与恢复的组合应精确复原正在播放的曲目`() {
+        val queue = queueOf(1, 2, 3, 4, 5, startIndex = 0)
+        queue.applyMode(PlayMode.SHUFFLE, queue.currentItem())
+        // 模拟随机模式下已经切到了打乱队列里的第4首
+        queue.setCurrentIndex(3)
+        val playingSongId = queue.currentItem()!!.songId
+
+        val savedOriginal = queue.original
+        val savedIndex = queue.currentIndexInOriginal()
+
+        // 模拟应用重启后新建实例恢复
+        val restored = PlaybackQueue()
+        restored.setPlayMode(PlayMode.SHUFFLE)
+        restored.restore(savedOriginal, savedIndex, context = null)
+
+        assertEquals(playingSongId, restored.currentItem()?.songId)
+    }
 }
