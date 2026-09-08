@@ -157,6 +157,7 @@ fun PlaylistContent(
                     onCommentsClick     = onCommentsClick,
                     onMoreClick         = onMoreClick,
                     isLikedSongsPlaylistView = isLikedSongsPlaylistView,
+                    isOwnedPlaylist     = canRemoveFromPlaylist,
                     onShareClick        = onShareClick,
                     onDownloadClick     = onDownloadClick,
                     onHistoryClick      = onHistoryClick,

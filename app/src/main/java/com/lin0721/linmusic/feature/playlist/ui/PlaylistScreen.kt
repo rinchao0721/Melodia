@@ -31,17 +31,31 @@ import com.lin0721.linmusic.core.comment.ui.CommentsBottomSheet
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.zIndex
+import coil.compose.SubcomposeAsyncImage
+import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
@@ -87,6 +101,16 @@ fun PlaylistScreen(
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    fun sharePlaylistOrAlbum(name: String, id: Long) {
+        val resourceLabel = if (isAlbum) "专辑" else "歌单"
+        val urlPath = if (isAlbum) "album" else "playlist"
+        val shareText = "$name https://music.163.com/$urlPath?id=$id"
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "分享$resourceLabel"))
+    }
     // 裁剪结果只暂存本地 uri 做预览，等用户点「保存」才读字节上传，
     // 与名称/简介保持同一套提交时机
     var pendingCoverUri by remember { mutableStateOf<Uri?>(null) }
@@ -204,7 +228,33 @@ fun PlaylistScreen(
                 val isThisPlaylistContext = playContext == state.playlist.name
                 val isCurrentlyPlayingThis = isThisPlaylistContext && isPlaying
 
-                if (isReorderMode) {
+                // 进入/退出重排模式复用 MelodiaNavHost 的整屏切换动效（滑入+淡入/滑出+淡出），
+                // 不改动内部结构：分支条件从外层 isReorderMode 换成 lambda 参数 reordering，
+                // 避免过渡途中退场那份内容跟着外层状态提前跳变
+                AnimatedContent(
+                    targetState = isReorderMode,
+                    transitionSpec = {
+                        val forward = targetState
+                        val offsetY = 40
+                        if (forward) {
+                            (fadeIn(tween(300, delayMillis = 100, easing = FastOutSlowInEasing))
+                                    + slideInVertically(tween(300, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
+                                .togetherWith(
+                                    fadeOut(tween(200, easing = FastOutSlowInEasing))
+                                            + slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -offsetY }
+                                )
+                        } else {
+                            (fadeIn(tween(300, delayMillis = 100, easing = FastOutSlowInEasing))
+                                    + slideInVertically(tween(300, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
+                                .togetherWith(
+                                    fadeOut(tween(200, easing = FastOutSlowInEasing))
+                                            + slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { offsetY }
+                                )
+                        }.using(SizeTransform(clip = false))
+                    },
+                    label = "playlist_reorder_transition"
+                ) { reordering ->
+                if (reordering) {
                     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                     val overlayHeight = 56.dp + statusBarHeight
                     val density = LocalDensity.current
@@ -535,14 +585,7 @@ fun PlaylistScreen(
                         showMoreMenuSheet = true
                     },
                     isLikedSongsPlaylistView = isLikedSongsPlaylistView,
-                    onShareClick = {
-                        val shareText = "${state.playlist.name} https://music.163.com/playlist?id=${state.playlist.id}"
-                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                        }
-                        context.startActivity(android.content.Intent.createChooser(intent, "分享歌单"))
-                    },
+                    onShareClick = { sharePlaylistOrAlbum(state.playlist.name, state.playlist.id) },
                     onDownloadClick = {
                         com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中nya、")
                     },
@@ -555,6 +598,7 @@ fun PlaylistScreen(
                     onLoadHistoryDetail = { viewModel.loadHistoryDetail(it) },
                     onLoadDailyRecommend = { viewModel.loadPlaylist(-1L) }
                 )
+            }
             }
         }
     }
@@ -605,17 +649,64 @@ fun PlaylistScreen(
                         .navigationBarsPadding()
                         .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.md)
                 ) {
-                    Text(
-                        text = "歌单操作",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(bottom = MelodiaSpacing.md)
-                    )
-
                     val firstArtist = playlist.tracks.firstOrNull()?.ar?.firstOrNull()
                     val artistName = firstArtist?.name ?: "未知歌手"
                     val resourceLabel = if (isAlbum) "专辑" else "歌单"
+
+                    val subtitleText = buildString {
+                        val author = if (isAlbum) artistName else playlist.creator?.nickname
+                        if (!author.isNullOrBlank()) {
+                            append(author)
+                        }
+                        if (playlist.tracks.isNotEmpty()) {
+                            if (isNotEmpty()) append(" · ")
+                            append("${playlist.tracks.size}首")
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = MelodiaSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SubcomposeAsyncImage(
+                            model = if (playlist.coverImgUrl.isNotEmpty()) "${playlist.coverImgUrl}?param=150y150" else null,
+                            contentDescription = playlist.name,
+                            contentScale = ContentScale.Crop,
+                            loading = { CoverPlaceholder() },
+                            error = { CoverPlaceholder() },
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(MaterialTheme.shapes.small)
+                        )
+                        Spacer(modifier = Modifier.width(MelodiaSpacing.md))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = playlist.name,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (subtitleText.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
+                                Text(
+                                    text = subtitleText,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
+                    )
 
                     val isManageable = !isAlbum && userProfile != null &&
                         playlist.creator?.userId == userProfile?.uid &&
@@ -670,6 +761,24 @@ fun PlaylistScreen(
                                     viewModel.prepareImportTargets(playlist.id)
                                     showImportTargetSheet = true
                                 }
+                            }
+                        )
+                        add(
+                            PlaylistMenuItem(
+                                icon = Icons.Default.Share,
+                                title = "分享$resourceLabel"
+                            ) {
+                                showMoreMenuSheet = false
+                                sharePlaylistOrAlbum(playlist.name, playlist.id)
+                            }
+                        )
+                        add(
+                            PlaylistMenuItem(
+                                icon = Icons.Default.Download,
+                                title = "下载$resourceLabel"
+                            ) {
+                                showMoreMenuSheet = false
+                                com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
                             }
                         )
                         if (isManageable) {

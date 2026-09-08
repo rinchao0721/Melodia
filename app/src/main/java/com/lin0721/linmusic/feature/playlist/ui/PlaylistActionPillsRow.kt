@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -98,17 +101,14 @@ private fun ActionPill(
     onClick: () -> Unit
 ) {
     Box(
+        // pressable 必须排在 clip/background 之前，靠它内部的 graphicsLayer 做缩放；
         modifier = Modifier
             .alpha(if (enabled) 1f else 0.4f)
+            .pressable(MelodiaPress.Pill, enabled = enabled) { onClick() }
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .then(
-                if (enabled) {
-                    Modifier.pressable(MelodiaPress.Pill) { onClick() }
-                } else {
-                    Modifier
-                }
-            )
+            // 排序胶囊的 label 会随选中项切换（"排序"/"歌曲名"/"歌手名"…），宽度跟着变；
+            .animateContentSize(spring(stiffness = Spring.StiffnessMedium))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Row(

@@ -57,7 +57,7 @@ fun PlaylistTopBar(
             onClick  = onBack,
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = MelodiaSpacing.xs)
+                .padding(start = 12.dp)
         ) {
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Back",
                 tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))

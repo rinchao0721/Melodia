@@ -68,6 +68,8 @@ fun PlaylistHeaderItem(
     onMoreClick: () -> Unit,
     // "我喜欢的音乐"是系统歌单，收藏/更多这两项对它没有意义，改成分享+下载
     isLikedSongsPlaylistView: Boolean = false,
+    // 自建歌单不能收藏自己，隐藏收藏按钮；分享/下载对自建、订阅他人的歌单都通用
+    isOwnedPlaylist: Boolean = false,
     onShareClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
@@ -178,37 +180,15 @@ fun PlaylistHeaderItem(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = MelodiaSpacing.md, vertical = 14.dp),
+                            .padding(start = MelodiaSpacing.sm, end = MelodiaSpacing.md)
+                            .padding(vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                            if (isLikedSongsPlaylistView) {
-                                MelodiaIconButton(onClick = onCommentsClick) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
-                                        contentDescription = "评论",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                MelodiaIconButton(onClick = onShareClick) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "分享",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                MelodiaIconButton(onClick = onDownloadClick) {
-                                    Icon(
-                                        imageVector = Icons.Default.Download,
-                                        contentDescription = "下载",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            } else {
+                            // 收藏对系统歌单和自建歌单都没有意义：前者本来就是自己的红心集合，
+                            // 后者不能收藏自己创建的东西
+                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
                                         imageVector = if (isSubscribed) Icons.Default.Check else Icons.Default.Add,
@@ -217,14 +197,36 @@ fun PlaylistHeaderItem(
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                MelodiaIconButton(onClick = onCommentsClick) {
+                            }
+                            MelodiaIconButton(onClick = onCommentsClick) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                    contentDescription = "评论",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            MelodiaIconButton(onClick = onShareClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "分享",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            // 订阅他人的歌单不在顶部放下载入口，收进"更多"里；系统歌单和自建歌单顶部保留
+                            if (isLikedSongsPlaylistView || isOwnedPlaylist) {
+                                MelodiaIconButton(onClick = onDownloadClick) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
-                                        contentDescription = "评论",
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = "下载",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
+                            }
+                            // "更多"固定放最右侧
+                            if (!isLikedSongsPlaylistView) {
                                 MelodiaIconButton(onClick = onMoreClick) {
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
