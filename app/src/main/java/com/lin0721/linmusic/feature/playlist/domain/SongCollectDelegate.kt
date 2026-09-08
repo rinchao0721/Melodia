@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.playlist.domain
 
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -69,7 +70,7 @@ class SongCollectDelegate(
 
         // 立即渲染歌单列表，已缓存或“我喜欢的音乐”即时打勾，未缓存项先显式呈开展现
         val initialItems = playlists.map { playlist ->
-            val contains = if (isLikedPlaylist(playlist.name, playlist.id, profile.uid)) {
+            val contains = if (isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid)) {
                 likedSongIds.contains(songId)
             } else {
                 playlistTrackIdsCache[playlist.id]?.contains(songId) ?: false
@@ -86,7 +87,7 @@ class SongCollectDelegate(
 
         // 仅对未缓存歌曲 ID 集合的歌单在后台轻量并发拉取，并动态回填勾选态
         val unvisitedPlaylists = playlists.filter { playlist ->
-            !isLikedPlaylist(playlist.name, playlist.id, profile.uid) && !playlistTrackIdsCache.containsKey(playlist.id)
+            !isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid) && !playlistTrackIdsCache.containsKey(playlist.id)
         }
         if (unvisitedPlaylists.isEmpty()) return
 
@@ -131,7 +132,7 @@ class SongCollectDelegate(
         items.forEach { item ->
             if (item.isContains == item.isInitiallyContains) return@forEach
 
-            if (profile != null && isLikedPlaylist(item.playlistName, item.playlistId, profile.uid)) {
+            if (profile != null && isLikedSongsPlaylist(item.playlistName, item.playlistId, profile.uid)) {
                 songLikeRepository.likeSong(songId, item.isContains).firstOrNull()
                     ?.onSuccess {
                         liked = if (item.isContains) liked + songId else liked - songId
@@ -171,8 +172,4 @@ class SongCollectDelegate(
             }
             ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }
     }
-
-    // 网易云的“我喜欢的音乐”歌单 ID 等于用户 uid，部分场景只能靠歌单名判断
-    private fun isLikedPlaylist(name: String, playlistId: Long, uid: Long): Boolean =
-        name.contains("喜欢的音乐") || playlistId == uid
 }

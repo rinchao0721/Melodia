@@ -48,6 +48,7 @@ import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import java.util.Collections
@@ -192,10 +193,12 @@ fun PlaylistScreen(
                 }
             is PlaylistUiState.Success -> {
                 val profile = userProfile
+                val isLikedSongsPlaylistView = profile != null &&
+                    isLikedSongsPlaylist(state.playlist.name, state.playlist.id, profile.uid)
                 val isOwnedPlaylist = profile != null &&
                     state.playlist.id > 0L &&
-                    state.playlist.id != profile.uid &&
-                    state.playlist.creator?.userId == profile.uid
+                    state.playlist.creator?.userId == profile.uid &&
+                    !isLikedSongsPlaylistView
                 val isShuffleActive = playMode == PlayMode.SHUFFLE
                 // 当前播放队列的来源是否就是这个歌单（playContext 存的是歌单名）
                 val isThisPlaylistContext = playContext == state.playlist.name
@@ -530,6 +533,18 @@ fun PlaylistScreen(
                     },
                     onMoreClick = {
                         showMoreMenuSheet = true
+                    },
+                    isLikedSongsPlaylistView = isLikedSongsPlaylistView,
+                    onShareClick = {
+                        val shareText = "${state.playlist.name} https://music.163.com/playlist?id=${state.playlist.id}"
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(intent, "分享歌单"))
+                    },
+                    onDownloadClick = {
+                        com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中nya、")
                     },
                     onHistoryClick = {},
                     historyDates = historyRecommendState.dates,

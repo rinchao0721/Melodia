@@ -66,6 +66,10 @@ data class PlaylistDetail(
     val trackCount: Int = 0
 )
 
+// "我喜欢的音乐"是网易云的系统歌单，不能改名/改简介/换封面/删除/手动调整曲目顺序。
+fun isLikedSongsPlaylist(name: String, playlistId: Long, uid: Long?): Boolean =
+    name.contains("喜欢的音乐") || (uid != null && playlistId == uid)
+
 // 歌手领域模型，artist/player/home 等多域共用
 data class ArtistInfo(
     val id: Long,

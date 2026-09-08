@@ -9,9 +9,11 @@ import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -64,6 +66,10 @@ fun PlaylistHeaderItem(
     onSubscribeClick: () -> Unit,
     onCommentsClick: () -> Unit,
     onMoreClick: () -> Unit,
+    // "我喜欢的音乐"是系统歌单，收藏/更多这两项对它没有意义，改成分享+下载
+    isLikedSongsPlaylistView: Boolean = false,
+    onShareClick: () -> Unit = {},
+    onDownloadClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     selectedHistoryDate: String = "今天",
     // 播放按钮在根坐标系下的实时位置（用于顶层叠加的按钮跟手滑动、到位后锁停）
@@ -177,29 +183,56 @@ fun PlaylistHeaderItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                            MelodiaIconButton(onClick = onSubscribeClick) {
-                                Icon(
-                                    imageVector = if (isSubscribed) Icons.Default.Check else Icons.Default.Add,
-                                    contentDescription = if (isSubscribed) "已收藏" else "收藏",
-                                    tint = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            MelodiaIconButton(onClick = onCommentsClick) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Comment,
-                                    contentDescription = "评论",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            MelodiaIconButton(onClick = onMoreClick) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "更多",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            if (isLikedSongsPlaylistView) {
+                                MelodiaIconButton(onClick = onCommentsClick) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        contentDescription = "评论",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onShareClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "分享",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onDownloadClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = "下载",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            } else {
+                                MelodiaIconButton(onClick = onSubscribeClick) {
+                                    Icon(
+                                        imageVector = if (isSubscribed) Icons.Default.Check else Icons.Default.Add,
+                                        contentDescription = if (isSubscribed) "已收藏" else "收藏",
+                                        tint = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onCommentsClick) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        contentDescription = "评论",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onMoreClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "更多",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
