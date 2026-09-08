@@ -29,12 +29,11 @@ private val trackPlacementSpec = spring<IntOffset>(
 private val trackFadeInSpec = spring<Float>(stiffness = Spring.StiffnessMedium)
 private val trackFadeOutSpec = spring<Float>(stiffness = Spring.StiffnessMedium)
 
-// ────────────────────────────────────────────────────────────────────────────
-// 歌曲列表（支持搜索过滤）
-// ────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+// 歌曲列表：调用方需要按搜索关键字过滤好再传进来
+// ────────────────────────────────────────────────
 fun LazyListScope.playlistTrackItems(
     tracks: List<Track>,
-    searchQuery: String,
     currentTrackId: String?,
     isPlaying: Boolean,
     likedSongIds: Set<Long> = emptySet(),
@@ -44,12 +43,7 @@ fun LazyListScope.playlistTrackItems(
     onOpenCollectSheet: (Long) -> Unit = {},
     onMoreClick: (Track) -> Unit
 ) {
-    val filtered = if (searchQuery.isBlank()) tracks
-                   else tracks.filter {
-                       it.name.contains(searchQuery, true) ||
-                       it.ar.any { a -> a.name.contains(searchQuery, true) }
-                   }
-    items(filtered, key = { it.id }) { track ->
+    items(tracks, key = { it.id }) { track ->
         // SongRow 本身不接受外部 modifier，外层套 Box 挂 animateItem：
         // 切排序方式时 key 不变、位置变了，行会顺着新位置滑过去
         Box(modifier = Modifier.animateItem(trackFadeInSpec, trackPlacementSpec, trackFadeOutSpec)) {

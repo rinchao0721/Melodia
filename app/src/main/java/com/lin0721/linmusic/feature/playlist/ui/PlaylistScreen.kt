@@ -524,6 +524,7 @@ fun PlaylistScreen(
                         hasMoreTracks = state.hasMoreTracks,
                         isLoadingMoreTracks = state.isLoadingMoreTracks,
                         onLoadMoreTracks = { viewModel.loadMoreTracks() },
+                        onLocateTrack = { trackId -> viewModel.ensureTrackLoaded(trackId) },
                         currentTrackId = currentTrack?.mediaId,
                     isPlaying      = isPlaying,
                     likedSongIds   = likedSongIds,

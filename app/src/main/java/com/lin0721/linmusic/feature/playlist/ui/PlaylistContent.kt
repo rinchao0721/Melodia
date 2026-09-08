@@ -1,8 +1,12 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,7 +84,8 @@ fun PlaylistContent(
     onEditInfoClick: () -> Unit = {},
     hasMoreTracks: Boolean = false,
     isLoadingMoreTracks: Boolean = false,
-    onLoadMoreTracks: () -> Unit = {}
+    onLoadMoreTracks: () -> Unit = {},
+    onLocateTrack: (Long) -> Unit = {}
 ) {
     val density = LocalDensity.current
 
@@ -104,6 +109,34 @@ fun PlaylistContent(
     var sortOption by remember { mutableStateOf(PlaylistSortOption.DEFAULT) }
     var showSortSheet by remember { mutableStateOf(false) }
     val sortedTracks = remember(playlist.tracks, sortOption) { sortOption.sort(playlist.tracks) }
+    val filteredTracks = remember(sortedTracks, searchQuery) {
+        if (searchQuery.isBlank()) sortedTracks
+        else sortedTracks.filter {
+            it.name.contains(searchQuery, true) || it.ar.any { a -> a.name.contains(searchQuery, true) }
+        }
+    }
+
+    // ── 定位当前播放歌曲：目标不在已加载/未过滤出的范围内时展示悬浮按钮
+    val targetTrackId = currentTrackId?.toLongOrNull()
+    val belongsToPlaylist = targetTrackId != null && if (playlist.trackIds.isNotEmpty()) {
+        playlist.trackIds.any { it.id == targetTrackId }
+    } else {
+        playlist.tracks.any { it.id == targetTrackId }
+    }
+    // 曲目行在 LazyColumn 里的起始下标：header + 视条件出现的胶囊行/日期行
+    val trackListStartIndex = 1 +
+        (if (canRemoveFromPlaylist && !isDailyRecommend) 1 else 0) +
+        (if (playlist.id == -1L && showHistoryDatePicker) 1 else 0) +
+        (if (playlist.id == -2L) 1 else 0)
+    val targetIndexInFiltered = if (targetTrackId == null) -1 else filteredTracks.indexOfFirst { it.id == targetTrackId }
+    val isTargetVisibleOnScreen by remember(targetIndexInFiltered, trackListStartIndex, historySongsLoading) {
+        derivedStateOf {
+            if (targetIndexInFiltered < 0 || historySongsLoading) return@derivedStateOf false
+            val itemIndex = trackListStartIndex + targetIndexInFiltered
+            listState.layoutInfo.visibleItemsInfo.any { it.index == itemIndex }
+        }
+    }
+    val showLocateButton = belongsToPlaylist && !historySongsLoading && !isTargetVisibleOnScreen
 
     // 从封面提取的主色调，默认为深灰色
     var dominantColor by remember { mutableStateOf(FallbackBase) }
@@ -112,6 +145,28 @@ fun PlaylistContent(
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     // Overlay 总高度：状态栏 + 操作区(56dp)
     val overlayHeight = TOP_BAR_HEIGHT + statusBarHeight
+
+    var pendingLocateTrackId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(pendingLocateTrackId, filteredTracks) {
+        val id = pendingLocateTrackId ?: return@LaunchedEffect
+        val index = filteredTracks.indexOfFirst { it.id == id }
+        if (index < 0) return@LaunchedEffect
+        val itemIndex = trackListStartIndex + index
+        // 先粗定位让目标行进入可测量范围，再用真实测量结果二次校正，使其停在屏幕正中央
+        listState.animateScrollToItem(itemIndex)
+        val info = listState.layoutInfo
+        val itemInfo = info.visibleItemsInfo.find { it.index == itemIndex }
+        if (itemInfo != null) {
+            //可视区域要从 overlayHeight 之后算起，否则会偏上
+            val overlayHeightPx = with(density) { overlayHeight.toPx() }
+            val visibleTop = info.viewportStartOffset + overlayHeightPx
+            val visibleCenter = (visibleTop + info.viewportEndOffset) / 2f
+            val itemCenter = itemInfo.offset + itemInfo.size / 2f
+            val delta = itemCenter - visibleCenter
+            if (kotlin.math.abs(delta) > 1f) listState.animateScrollBy(delta)
+        }
+        pendingLocateTrackId = null
+    }
 
     // 折叠进度 0f→1f（从封面完整显示到完全折叠）；header 恒为 item 0，两种歌单共用同一套计算
     val collapseThresholdPx = with(density) { 300.dp.toPx() }
@@ -242,8 +297,7 @@ fun PlaylistContent(
                 }
             } else {
                 playlistTrackItems(
-                    tracks             = sortedTracks,
-                    searchQuery        = searchQuery,
+                    tracks             = filteredTracks,
                     currentTrackId     = currentTrackId,
                     isPlaying          = isPlaying,
                     likedSongIds       = likedSongIds,
@@ -320,6 +374,40 @@ fun PlaylistContent(
                 isCurrentlyPlayingThis = isCurrentlyPlayingThis,
                 onPlayAll              = onPlayAll
             )
+        }
+
+        // 定位到正在播放的歌曲，只有目标属于本歌单且不在可见范围内才出现
+        if (showLocateButton) {
+            FloatingActionButton(
+                onClick = {
+                    val id = targetTrackId ?: return@FloatingActionButton
+                    if (searchQuery.isNotEmpty()) searchQuery = ""
+                    pendingLocateTrackId = id
+                    if (sortedTracks.none { it.id == id }) {
+                        onLocateTrack(id)
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                shape = CircleShape,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
+                    .size(48.dp)
+            ) {
+                if (isLoadingMoreTracks) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.CenterFocusStrong,
+                        contentDescription = "定位到正在播放的歌曲",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
     }
 

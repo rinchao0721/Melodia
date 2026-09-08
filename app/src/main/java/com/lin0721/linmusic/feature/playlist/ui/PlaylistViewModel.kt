@@ -238,6 +238,39 @@ class PlaylistViewModel(
         }
     }
 
+    // 按批追加曲目直到 stopWhen 满足或者已加载全部；成功则把结果写回 uiState 并返回完整列表，失败返回 null 并提示 toast
+    private suspend fun loadTracksUntil(stopWhen: (List<Track>) -> Boolean): List<Track>? {
+        val current = _uiState.value as? PlaylistUiState.Success ?: return null
+        val playlistId = current.playlist.id
+        val allIds = current.playlist.trackIds.map { it.id }
+        val loadedTracks = mutableListOf<Track>().apply { addAll(current.playlist.tracks) }
+        var failure: Throwable? = null
+        if (!stopWhen(loadedTracks)) {
+            for (chunk in allIds.drop(loadedTracks.size).chunked(TRACK_PAGE_SIZE)) {
+                val result = playlistRepository.loadMoreTracks(chunk).first()
+                result.fold(
+                    onSuccess = { loadedTracks.addAll(it) },
+                    onFailure = { e -> failure = e }
+                )
+                if (failure != null || stopWhen(loadedTracks)) break
+            }
+        }
+        if (failure != null) {
+            _toastEvent.emit(failure.toUserMessage(resourceProvider))
+            return null
+        }
+        _uiState.update { state ->
+            if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                state.copy(
+                    playlist = state.playlist.copy(tracks = loadedTracks),
+                    hasMoreTracks = loadedTracks.size < allIds.size,
+                    isLoadingMoreTracks = false
+                )
+            } else state
+        }
+        return loadedTracks
+    }
+
     // 补全歌单全部曲目后再执行回调：拖拽排序（全量覆盖会删掉未加载部分）、导入全部歌曲等场景都必须先拿到完整列表，
     // 否则只会处理已加载的这一批，超过1000首的歌单会悄悄漏掉后面的曲目
     fun ensureAllTracksLoaded(onReady: (List<Track>) -> Unit) {
@@ -247,34 +280,32 @@ class PlaylistViewModel(
             return
         }
         if (current.isLoadingMoreTracks) return
-        val playlistId = current.playlist.id
-        val allIds = current.playlist.trackIds.map { it.id }
         _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
         viewModelScope.launch {
-            val loadedTracks = mutableListOf<Track>().apply { addAll(current.playlist.tracks) }
-            var failure: Throwable? = null
-            for (chunk in allIds.drop(loadedTracks.size).chunked(TRACK_PAGE_SIZE)) {
-                val result = playlistRepository.loadMoreTracks(chunk).first()
-                result.fold(
-                    onSuccess = { loadedTracks.addAll(it) },
-                    onFailure = { e -> failure = e }
-                )
-                if (failure != null) break
-            }
-            if (failure == null) {
-                _uiState.update { state ->
-                    if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
-                        state.copy(
-                            playlist = state.playlist.copy(tracks = loadedTracks),
-                            hasMoreTracks = false,
-                            isLoadingMoreTracks = false
-                        )
-                    } else state
-                }
-                onReady(loadedTracks)
+            val result = loadTracksUntil { false }
+            if (result != null) {
+                onReady(result)
             } else {
                 _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
-                _toastEvent.emit(failure?.toUserMessage(resourceProvider) ?: "加载全部曲目失败，无法进入排序")
+            }
+        }
+    }
+
+    // 补全到目标曲目出现为止再执行回调：定位当前播放歌曲用，靠前的歌不用像 ensureAllTracksLoaded 那样拉完
+    fun ensureTrackLoaded(trackId: Long, onReady: (List<Track>) -> Unit = {}) {
+        val current = _uiState.value as? PlaylistUiState.Success ?: return
+        if (current.playlist.tracks.any { it.id == trackId }) {
+            onReady(current.playlist.tracks)
+            return
+        }
+        if (current.isLoadingMoreTracks) return
+        _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
+        viewModelScope.launch {
+            val result = loadTracksUntil { tracks -> tracks.any { it.id == trackId } }
+            if (result != null) {
+                onReady(result)
+            } else {
+                _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
             }
         }
     }
