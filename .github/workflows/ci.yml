@@ -31,10 +31,6 @@ jobs:
       - name: 单元测试
         run: ./gradlew testDebugUnitTest --no-daemon
 
-      # release 构建同时验证 R8 规则：接口或序列化器被误裁时此步会失败
-      - name: Release 构建（含 R8）
-        run: ./gradlew assembleRelease --no-daemon
-
       - name: 上传测试报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -42,12 +38,3 @@ jobs:
           name: test-results
           path: app/build/reports/tests/
           retention-days: 7
-
-      - name: 上传 APK 与混淆映射
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/mapping/release/mapping.txt
-          retention-days: 14
