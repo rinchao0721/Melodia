@@ -54,6 +54,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.foundation.gestures.*
 import androidx.compose.animation.core.*
@@ -428,7 +429,11 @@ fun LibraryScreen(
             )
         }
 
-        if (showWebViewLogin) {
+        AnimatedVisibility(
+            visible = showWebViewLogin,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
             WebViewLoginScreen(
                 onClose = { showWebViewLogin = false },
                 onLoginSuccess = { cookies ->

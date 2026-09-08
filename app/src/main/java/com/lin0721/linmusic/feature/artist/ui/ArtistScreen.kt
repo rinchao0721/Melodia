@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.feature.artist.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -19,6 +25,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -148,7 +155,11 @@ fun ArtistScreen(
             )
         }
 
-        if (showWebViewLogin) {
+        AnimatedVisibility(
+            visible = showWebViewLogin,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
             WebViewLoginScreen(
                 onClose = { showWebViewLogin = false },
                 onLoginSuccess = { cookies ->

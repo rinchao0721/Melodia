@@ -1,5 +1,17 @@
 package com.lin0721.linmusic.core.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -25,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.QrLoginState
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.SurfaceLight
@@ -32,6 +45,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
 
 private enum class LoginMode { CHOICE, QR, COOKIE }
+
+// CHOICE 为根，QR/COOKIE 为其子内容，用于 AnimatedContent 判定滑动方向
+private fun LoginMode.depth(): Int = if (this == LoginMode.CHOICE) 0 else 1
 
 /**
  * 登录方式选择底部弹窗
@@ -68,7 +84,15 @@ fun LoginBottomSheet(
                 .padding(bottom = 64.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (mode != LoginMode.CHOICE) {
+            AnimatedVisibility(
+                visible = mode != LoginMode.CHOICE,
+                // 只淡入淡出会导致这一行的高度在退场时一直占位，到组件真正移除才瞬间塌陷；
+                // 叠加 expand/shrink 让高度也跟着动画走，避免收尾那一下顿挫
+                enter = fadeIn(tween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)) +
+                    expandVertically(tween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)) +
+                    shrinkVertically(tween(ContentSwitchDurationMs, easing = FastOutSlowInEasing))
+            ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     MelodiaIconButton(onClick = {
                         viewModel.resetQrState()
@@ -79,19 +103,46 @@ fun LoginBottomSheet(
                 }
             }
 
-            when (mode) {
-                LoginMode.CHOICE -> LoginChoiceContent(
-                    onWebLogin = onWebLogin,
-                    onQrLogin = {
-                        mode = LoginMode.QR
-                        viewModel.startQrLogin(onLoginSuccess)
-                    },
-                    onCookieLogin = { mode = LoginMode.COOKIE }
-                )
-                LoginMode.QR -> QrLoginContent(viewModel = viewModel, onLoginSuccess = onLoginSuccess)
-                LoginMode.COOKIE -> CookieLoginContent(
-                    onSubmit = { raw -> viewModel.submitCookieLogin(raw, onLoginSuccess) }
-                )
+            AnimatedContent(
+                targetState = mode,
+                transitionSpec = {
+                    val offsetSpec = tween<androidx.compose.ui.unit.IntOffset>(ContentSwitchDurationMs, easing = FastOutSlowInEasing)
+                    val alphaSpec = tween<Float>(ContentSwitchDurationMs, easing = FastOutSlowInEasing)
+                    val transform = if (targetState.depth() > initialState.depth()) {
+                        // 前进：新内容从右滑入，旧内容向左滑出
+                        (slideInHorizontally(offsetSpec) { it } + fadeIn(alphaSpec)) togetherWith
+                            (slideOutHorizontally(offsetSpec) { -it } + fadeOut(alphaSpec))
+                    } else {
+                        // 返回：方向相反
+                        (slideInHorizontally(offsetSpec) { -it } + fadeIn(alphaSpec)) togetherWith
+                            (slideOutHorizontally(offsetSpec) { it } + fadeOut(alphaSpec))
+                    }
+                    // 裁剪到动画中的实际尺寸，否则收缩方向（QR/COOKIE → CHOICE）旧内容按原尺寸绘制，
+                    // 跟弹窗实际高度对不上，切换完成瞬间会有一次纠正造成的顿挫
+                    transform.using(SizeTransform(clip = true))
+                },
+                label = "LoginModeContent"
+            ) { targetMode ->
+                // AnimatedContent 的内容槽本身是 Box，各态内容需要各自的 Column 才能纵向排列
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when (targetMode) {
+                        LoginMode.CHOICE -> LoginChoiceContent(
+                            onWebLogin = onWebLogin,
+                            onQrLogin = {
+                                mode = LoginMode.QR
+                                viewModel.startQrLogin(onLoginSuccess)
+                            },
+                            onCookieLogin = { mode = LoginMode.COOKIE }
+                        )
+                        LoginMode.QR -> QrLoginContent(viewModel = viewModel, onLoginSuccess = onLoginSuccess)
+                        LoginMode.COOKIE -> CookieLoginContent(
+                            onSubmit = { raw -> viewModel.submitCookieLogin(raw, onLoginSuccess) }
+                        )
+                    }
+                }
             }
         }
     }

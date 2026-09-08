@@ -20,6 +20,12 @@ const val DataEnterStaggerFraction = 0.4f
 
 val DataEnterSpec = tween<Float>(DataEnterDurationMs, easing = FastOutSlowInEasing)
 
+// 弹窗内容态横向切换（如登录方式选择 二维码/Cookie 子内容）
+const val ContentSwitchDurationMs = 300
+
+// 全屏页滑入滑出（如网页登录页覆盖/退出）
+const val ScreenSlideDurationMs = 320
+
 // scale 为按下时的缩放比；highlightAlpha 为垫在内容之下的纯黑层透明度（1f 即底色完全熄灭），
 // 该层只在长按超过系统阈值后才出现，轻点不触发
 @Immutable

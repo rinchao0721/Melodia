@@ -31,6 +31,8 @@ import com.lin0721.linmusic.core.ui.theme.WebLoginBackground
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
 import com.lin0721.linmusic.core.network.RealIpProvider
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
@@ -68,6 +70,14 @@ fun WebViewLoginScreen(
     }
     val resolvedHeaders = extraHeaders
 
+    // WebView 原生视图创建较重，先等外层滑入动画播完再创建，避免和动画抢主线程帧时间造成卡顿
+    var slideInFinished by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(ScreenSlideDurationMs.toLong())
+        slideInFinished = true
+    }
+    val readyToLoadWebView = resolvedHeaders != null && slideInFinished
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -102,7 +112,7 @@ fun WebViewLoginScreen(
 				.padding(paddingValues)
                 .background(WebLoginBackground) // 外层容器底色一致
 		) {
-			if (resolvedHeaders != null) {
+			if (readyToLoadWebView) {
 			AndroidView(
 				factory = { context ->
 					WebView(context).apply {

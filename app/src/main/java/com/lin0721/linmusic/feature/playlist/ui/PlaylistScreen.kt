@@ -27,11 +27,13 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.comment.ui.CommentsBottomSheet
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -623,14 +625,18 @@ fun PlaylistScreen(
             )
         }
 
-        if (showWebViewLogin) {
-                    WebViewLoginScreen(
-                        onClose = { showWebViewLogin = false },
-                        onLoginSuccess = { cookies ->
-                            showWebViewLogin = false
-                            viewModel.handleLoginSuccess(cookies)
-                        }
-                    )
+        AnimatedVisibility(
+            visible = showWebViewLogin,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            WebViewLoginScreen(
+                onClose = { showWebViewLogin = false },
+                onLoginSuccess = { cookies ->
+                    showWebViewLogin = false
+                    viewModel.handleLoginSuccess(cookies)
+                }
+            )
         }
 
         if (showCommentsSheet) {

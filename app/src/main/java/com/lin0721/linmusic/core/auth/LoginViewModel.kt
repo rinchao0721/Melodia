@@ -8,6 +8,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
 import com.lin0721.linmusic.core.log.AppLogger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "LoginViewModel"
 private const val QR_LOGIN_URL_PREFIX = "https://music.163.com/login?codekey="
@@ -52,7 +54,7 @@ class LoginViewModel(
                 return@launch
             }
             val bitmap = try {
-                generateQrBitmap(QR_LOGIN_URL_PREFIX + key)
+                withContext(Dispatchers.Default) { generateQrBitmap(QR_LOGIN_URL_PREFIX + key) }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "二维码图片生成失败", e)
                 _qrState.value = QrLoginState.Error("二维码生成失败，请重试")
@@ -125,16 +127,20 @@ class LoginViewModel(
         return true
     }
 
+    // 一次性 setPixels 批量写入
     private fun generateQrBitmap(content: String): Bitmap {
         val matrix: BitMatrix = MultiFormatWriter().encode(
             content, BarcodeFormat.QR_CODE, QR_SIZE_PX, QR_SIZE_PX
         )
-        val bitmap = Bitmap.createBitmap(QR_SIZE_PX, QR_SIZE_PX, Bitmap.Config.RGB_565)
-        for (x in 0 until QR_SIZE_PX) {
-            for (y in 0 until QR_SIZE_PX) {
-                bitmap.setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
+        val pixels = IntArray(QR_SIZE_PX * QR_SIZE_PX)
+        for (y in 0 until QR_SIZE_PX) {
+            val rowOffset = y * QR_SIZE_PX
+            for (x in 0 until QR_SIZE_PX) {
+                pixels[rowOffset + x] = if (matrix.get(x, y)) Color.BLACK else Color.WHITE
             }
         }
+        val bitmap = Bitmap.createBitmap(QR_SIZE_PX, QR_SIZE_PX, Bitmap.Config.RGB_565)
+        bitmap.setPixels(pixels, 0, QR_SIZE_PX, 0, 0, QR_SIZE_PX, QR_SIZE_PX)
         return bitmap
     }
 
