@@ -52,7 +52,9 @@ class NosUploadClient {
         bucket: String,
         objectKey: String,
         token: String,
-        md5: String,
+        // 传 null 则不发 Content-MD5，上传图片只带 x-nos-token 与 Content-Type，
+        // 且该头按标准要求的是 Base64 摘要而非十六进制串，图片场景带上会被服务端拒掉
+        md5: String?,
         mimeType: String,
         contentLength: Long,
         openStream: () -> InputStream,
@@ -85,7 +87,7 @@ class NosUploadClient {
             .url(url)
             .post(body)
             .header("x-nos-token", token)
-            .header("Content-MD5", md5)
+            .apply { if (!md5.isNullOrBlank()) header("Content-MD5", md5) }
             .build()
 
         client.newCall(request).execute().use { response ->

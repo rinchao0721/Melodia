@@ -67,7 +67,12 @@ data class NosTokenRequest(
     @SerialName("nos_product")
     val nosProduct: Int = 3,
     val type: String = "audio",
-    val md5: String
+    // 音频场景查重必需；图片场景（type="other"）参考实现整个不带该字段，
+    // 传 null 时配合 explicitNulls=false 会被整条跳过，传空串则会发出 "md5":""，两者不等价
+    val md5: String? = null,
+    // 参考实现里图片场景会传，音频场景没有该字段，二者均已验证可正常工作，因此设为可选
+    @SerialName("return_body")
+    val returnBody: String? = null
 )
 
 @Serializable
@@ -83,7 +88,8 @@ data class NosTokenResult(
     val bucket: String = "",
     val token: String = "",
     val objectKey: String = "",
-    val resourceId: Long = 0
+    val resourceId: Long = 0,
+    val docId: Long = 0
 )
 
 // ======================= Stage 4：登记 =======================
@@ -103,7 +109,6 @@ data class CloudInfoRequest(
 @Serializable
 data class CloudInfoResponse(
     val code: Int = 0,
-    // 未做真实上传测试，字段命名照抄参考实现里唯一被用到的返回值，其余细节留待真实链路验证
     val songId: String = ""
 ) {
     val isSuccess: Boolean get() = code == 200

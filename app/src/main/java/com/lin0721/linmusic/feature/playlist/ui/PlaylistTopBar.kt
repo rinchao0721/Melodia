@@ -113,3 +113,76 @@ fun BoxScope.PlaylistDockedPlayButton(
         )
     }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 拖拽调整歌曲顺序专属顶栏
+// ────────────────────────────────────────────────────────────────────────────
+@Composable
+fun PlaylistReorderTopBar(
+    overlayHeight: Dp,
+    statusBarHeight: Dp,
+    isSaving: Boolean,
+    onCancel: () -> Unit,
+    onDone: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(overlayHeight)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = statusBarHeight)
+            .zIndex(8f)
+    ) {
+        // 左侧取消
+        com.lin0721.linmusic.core.ui.components.MelodiaTextButton(
+            onClick = onCancel,
+            enabled = !isSaving,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = MelodiaSpacing.sm)
+        ) {
+            Text(
+                text = "取消",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 15.sp
+            )
+        }
+
+        // 中间标题
+        Text(
+            text = "调整歌曲顺序",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // 右侧完成 / 保存中指示器
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = MelodiaSpacing.sm),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                com.lin0721.linmusic.core.ui.components.MelodiaTextButton(
+                    onClick = onDone
+                ) {
+                    Text(
+                        text = "完成",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
+            }
+        }
+    }
+}
+

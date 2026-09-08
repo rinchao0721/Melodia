@@ -19,6 +19,7 @@ datastore = "1.1.2"
 palette = "1.0.0"
 # 与 Kotlin 2.2.x 捆绑的协程版本保持一致，仅测试期使用
 coroutinesTest = "1.9.0"
+imageCropper = "4.7.0"
 
 
 [libraries]
@@ -71,6 +72,9 @@ haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 
 # Palette（封面取色）
 androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
+
+# 图片裁剪（歌单封面裁正方形）
+android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

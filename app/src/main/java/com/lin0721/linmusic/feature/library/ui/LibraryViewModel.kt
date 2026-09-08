@@ -12,6 +12,8 @@ import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import kotlinx.coroutines.async
@@ -60,7 +62,8 @@ class LibraryViewModel(
     private val userPreferences: UserPreferences,
     val playerManager: PlayerManager,
     private val context: Context,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val playlistMutationBus: PlaylistMutationBus
 ) : ViewModel() {
 
     private val sharedPrefs = context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
@@ -102,6 +105,45 @@ class LibraryViewModel(
                     loadLibraryData(profile)
                 } else {
                     _uiState.value = LibraryUiState.Loading
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            playlistMutationBus.events.collect { event ->
+                when (event) {
+                    is PlaylistMutationEvent.Deleted -> {
+                        val current = _uiState.value
+                        if (current is LibraryUiState.Success) {
+                            val idStr = event.playlistId.toString()
+                            val updatedAll = current.allItems.filterNot { it.id == idStr && it.type == LibraryItemType.PLAYLIST }
+                            _uiState.value = current.copy(allItems = updatedAll)
+                            applyFilterAndSort()
+                        }
+                        loadLibraryData()
+                    }
+                    is PlaylistMutationEvent.Renamed -> {
+                        val current = _uiState.value
+                        if (current is LibraryUiState.Success) {
+                            val idStr = event.playlistId.toString()
+                            val updatedAll = current.allItems.map { item ->
+                                if (item.id == idStr && item.type == LibraryItemType.PLAYLIST) {
+                                    item.copy(title = event.newName)
+                                } else {
+                                    item
+                                }
+                            }
+                            _uiState.value = current.copy(allItems = updatedAll)
+                            applyFilterAndSort()
+                        }
+                        loadLibraryData()
+                    }
+                    is PlaylistMutationEvent.DescriptionUpdated -> {
+                        loadLibraryData()
+                    }
+                    is PlaylistMutationEvent.CoverUpdated -> {
+                        loadLibraryData()
+                    }
                 }
             }
         }

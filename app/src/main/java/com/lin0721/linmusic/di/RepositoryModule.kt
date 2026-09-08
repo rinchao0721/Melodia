@@ -3,6 +3,7 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepositoryImpl
@@ -35,6 +36,7 @@ import com.lin0721.linmusic.feature.player.data.PlayerRepositoryImpl
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
+import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import com.lin0721.linmusic.feature.settings.data.SettingsRepository
 import com.lin0721.linmusic.feature.settings.data.SettingsRepositoryImpl
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepositoryImpl
@@ -113,6 +115,9 @@ val repositoryModule = module {
     // 新建歌单并加入当前歌曲（跨 artist/library/playlist 域共用）
     singleOf(::CreatePlaylistAndAddSongUseCase)
 
+    // 更换歌单封面（复用 feature/cloud 的 NOS 直传基础设施）
+    singleOf(::UpdatePlaylistCoverUseCase)
+
     // “收藏到歌单”弹窗状态与操作，artist/playlist 各持有独立实例
     factoryOf(::SongCollectDelegate)
 
@@ -122,4 +127,6 @@ val repositoryModule = module {
     // 拉取已红心歌曲 ID（跨 artist/player/playlist 域共用）
     singleOf(::LoadLikedSongIdsUseCase)
 
+    // 跨模块歌单变更事件总线
+    singleOf(::PlaylistMutationBus)
 }

@@ -70,7 +70,10 @@ fun PlaylistContent(
     onLoadHistoryDetail: (String) -> Unit = {},
     onLoadDailyRecommend: () -> Unit = {},
     canRemoveFromPlaylist: Boolean = false,
-    onRemoveFromPlaylist: (Long) -> Unit = {}
+    onRemoveFromPlaylist: (Long) -> Unit = {},
+    onAddMusicClick: () -> Unit = {},
+    onEditOrderClick: () -> Unit = {},
+    onEditInfoClick: () -> Unit = {}
 ) {
     val density = LocalDensity.current
 
@@ -79,6 +82,7 @@ fun PlaylistContent(
     val listState = rememberLazyListState()
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(PlaylistSortOption.DEFAULT) }
+    var showSortSheet by remember { mutableStateOf(false) }
     val sortedTracks = remember(playlist.tracks, sortOption) { sortOption.sort(playlist.tracks) }
 
     // 从封面提取的主色调，默认为深灰色
@@ -157,6 +161,26 @@ fun PlaylistContent(
                         }
                     }
                 )
+            }
+
+            // 自建歌单快捷操作小胶囊行
+            if (canRemoveFromPlaylist && !isDailyRecommend) {
+                item(key = "action_pills") {
+                    PlaylistActionPillsRow(
+                        isOwnedPlaylist = canRemoveFromPlaylist,
+                        isTracksEmpty = playlist.tracks.isEmpty(),
+                        currentSortOption = sortOption,
+                        onAddMusicClick = onAddMusicClick,
+                        onEditOrderClick = {
+                            // 拖拽排的是歌单真实顺序。停留在本地排序视图时进入重排，列表会突然跳回默认序，
+                            // 保存后回来又被排序规则盖住看不到结果，因此进入前先把视图切回默认
+                            sortOption = PlaylistSortOption.DEFAULT
+                            onEditOrderClick()
+                        },
+                        onSortClick = { showSortSheet = true },
+                        onEditInfoClick = onEditInfoClick
+                    )
+                }
             }
 
             if (playlist.id == -1L && showHistoryDatePicker) {
@@ -294,4 +318,16 @@ fun PlaylistContent(
             onRemoveFromPlaylist = onRemoveFromPlaylist
         )
     }
+
+    if (showSortSheet) {
+        PlaylistSortSheet(
+            sortOption = sortOption,
+            onSortOptionChange = {
+                sortOption = it
+                showSortSheet = false
+            },
+            onDismiss = { showSortSheet = false }
+        )
+    }
 }
+

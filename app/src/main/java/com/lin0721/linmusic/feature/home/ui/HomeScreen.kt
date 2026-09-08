@@ -151,8 +151,8 @@ fun HomeScreen(
                     else -> HomeContent(
                         uiState = uiState,
                         onPlaylistClick = onPlaylistClick,
-                        onSongClick = { song -> viewModel.playShelfSong(song) },
-                        onVoiceClick = { voice -> viewModel.playShelfVoice(voice) },
+                        onSongClick = { songs, song -> viewModel.playShelfSong(songs, song) },
+                        onVoiceClick = { voices, voice -> viewModel.playShelfVoice(voices, voice) },
                         onRetry = { viewModel.loadHomeData() },
                         onLoadMore = { viewModel.loadMoreShelves() },
                         onIntelligenceClick = { viewModel.startIntelligenceMode() },

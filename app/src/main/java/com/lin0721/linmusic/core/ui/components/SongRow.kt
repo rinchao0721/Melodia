@@ -3,7 +3,9 @@ package com.lin0721.linmusic.core.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -34,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -231,7 +235,8 @@ private fun PlayingEqualizerBars(color: Color, animate: Boolean) {
     }
 }
 
-// 可拖拽排序的歌曲行，供播放队列使用；播放态遮罩、拖拽阴影/位移与普通 SongRow 差异较大，独立实现
+// 可拖拽排序的歌曲行，供播放队列与歌单重排使用；
+// enabled=false 时卸载手势，用于保存等不该再接受拖拽的时段
 @Composable
 fun DraggableSongRow(
     data: SongRowData,
@@ -243,9 +248,16 @@ fun DraggableSongRow(
     onClick: () -> Unit,
     onDragStart: () -> Unit,
     onDrag: (Float) -> Unit,
-    onDragEnd: () -> Unit
+    onDragEnd: () -> Unit,
+    enabled: Boolean = true
 ) {
-    val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "drag_elev")
+    val liftSpec = remember { spring<Dp>(stiffness = Spring.StiffnessMediumLow) }
+    val elevation by animateDpAsState(
+        targetValue = if (isDragging) 8.dp else 0.dp,
+        animationSpec = liftSpec,
+        label = "drag_elev"
+    )
+    val isLifted = isDragging || dragOffsetY != 0f
     val bgColor by animateColorAsState(
         when {
             isDragging -> MaterialTheme.colorScheme.surfaceVariant
@@ -255,11 +267,15 @@ fun DraggableSongRow(
         label = "row_bg"
     )
 
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isDragging) Modifier
+                if (isLifted) Modifier
                     .zIndex(1f)
                     .graphicsLayer { translationY = dragOffsetY }
                     .shadow(elevation, RoundedCornerShape(8.dp))
@@ -330,25 +346,32 @@ fun DraggableSongRow(
             )
         }
 
-        // 拖拽手柄（长按拖动排序）
+        // 拖拽手柄
+
         Icon(
             Icons.Default.Menu,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .size(36.dp)
-                .padding(MelodiaSpacing.sm)
-                .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { onDragStart() },
-                        onDrag = { change, offset ->
-                            change.consume()
-                            onDrag(offset.y)
-                        },
-                        onDragEnd = { onDragEnd() },
-                        onDragCancel = { onDragEnd() }
-                    )
-                }
+                .size(44.dp)
+                .then(
+                    if (enabled) {
+                        Modifier.pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { currentOnDragStart() },
+                                onDrag = { change, offset ->
+                                    change.consume()
+                                    currentOnDrag(offset.y)
+                                },
+                                onDragEnd = { currentOnDragEnd() },
+                                onDragCancel = { currentOnDragEnd() }
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(12.dp)
         )
     }
 }

@@ -58,6 +58,10 @@
             android:enabled="true"
             android:exported="false" />
 
+        <activity
+            android:name="com.canhub.cropper.CropImageActivity"
+            android:theme="@style/Theme.Melodia.Cropper" />
+
         <receiver
             android:name=".core.player.BluetoothReceiver"
             android:enabled="true"

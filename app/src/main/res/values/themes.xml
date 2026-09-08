@@ -2,4 +2,10 @@
 <resources>
 
     <style name="Theme.Melodia" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- 仅供 com.canhub.cropper.CropImageActivity 使用：该 Activity 继承 AppCompatActivity，
+         要求宿主主题在 AppCompat 体系内，跟 Theme.Melodia 无关，不要挪作他用。
+         不能带 NoActionBar：裁剪确认是 ActionBar 上的菜单项，没有 ActionBar 就没有确认入口，
+         CropImageOptions 里那组 toolbar* 配色也一并失效 -->
+    <style name="Theme.Melodia.Cropper" parent="Theme.AppCompat.DayNight" />
 </resources>
