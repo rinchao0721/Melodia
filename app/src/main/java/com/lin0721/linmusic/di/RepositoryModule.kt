@@ -15,6 +15,8 @@ import com.lin0721.linmusic.feature.home.data.HomeRepository
 import com.lin0721.linmusic.feature.home.data.HomeRepositoryImpl
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepositoryImpl
+import com.lin0721.linmusic.feature.profile.data.ProfileRepository
+import com.lin0721.linmusic.feature.profile.data.ProfileRepositoryImpl
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepositoryImpl
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -129,4 +131,7 @@ val repositoryModule = module {
 
     // 跨模块歌单变更事件总线
     singleOf(::PlaylistMutationBus)
+
+    // 个人主页数据仓储
+    singleOf(::ProfileRepositoryImpl) { bind<ProfileRepository>() }
 }

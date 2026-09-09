@@ -25,6 +25,7 @@ import com.lin0721.linmusic.feature.listendata.data.ListenDataApi
 import com.lin0721.linmusic.feature.newworks.data.NewWorksApi
 import com.lin0721.linmusic.feature.player.data.PlayerApi
 import com.lin0721.linmusic.feature.playlist.data.PlaylistApi
+import com.lin0721.linmusic.feature.profile.data.ProfileApi
 import com.lin0721.linmusic.feature.recent.data.RecentApi
 import com.lin0721.linmusic.feature.search.data.SearchApi
 import com.lin0721.linmusic.feature.settings.data.SettingsApi
@@ -164,6 +165,7 @@ val networkModule = module {
     single<UserPlaylistApi> { get<Retrofit>().create(UserPlaylistApi::class.java) }
     single<UserArtistApi> { get<Retrofit>().create(UserArtistApi::class.java) }
     single<SettingsApi> { get<Retrofit>().create(SettingsApi::class.java) }
+    single<ProfileApi> { get<Retrofit>().create(ProfileApi::class.java) }
 }
 
 object NetworkConfig {

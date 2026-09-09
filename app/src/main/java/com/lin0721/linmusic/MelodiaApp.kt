@@ -134,6 +134,10 @@ fun MelodiaApp() {
                         sidebar.close()
                     },
                     onDismiss = { sidebar.close() },
+                    onNavigateToProfile = { uid ->
+                        sidebar.close()
+                        navigation.openProfile(uid)
+                    },
                     onNavigateToRecentPlay = { navigation.openRecentPlay() },
                     onNavigateToListenData = { navigation.openListenData() },
                     onNavigateToCloud = { navigation.openCloud() },
@@ -172,6 +176,9 @@ fun MelodiaApp() {
                         activeMvId = navigation.activeMvId,
                         activeMvName = navigation.activeMvName,
                         activePlaylistCategory = navigation.activePlaylistCategory,
+                        activeProfileUid = navigation.activeProfileUid,
+                        activeFollowListUid = navigation.activeFollowListUid,
+                        activeFollowListMode = navigation.activeFollowListMode,
                         homeTab = navigation.homeTab,
                         showMusicNewWorks = navigation.showMusicNewWorks,
                         searchAutoFocus = navigation.searchAutoFocus,
@@ -183,6 +190,8 @@ fun MelodiaApp() {
                         onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
                         onMvFullscreenChanged = { isMvFullscreen = it },
                         onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
+                        onNavigateToProfile = { uid -> navigation.openProfile(uid) },
+                        onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
                         onHomeTabSelected = { navigation.selectHomeTab(it) },
                         onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                         onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
@@ -259,6 +268,10 @@ fun MelodiaApp() {
             onAlbumClick = { albumId ->
                 playerSheet.animateTo(false, 0f)
                 navigation.openPlaylist(albumId, isAlbum = true)
+            },
+            onNavigateToProfile = { uid ->
+                playerSheet.animateTo(false, 0f)
+                navigation.openProfile(uid)
             }
         )
 

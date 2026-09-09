@@ -159,7 +159,8 @@ fun MelodiaFullPlayerOverlay(
     onClose: () -> Unit,
     onDragClose: (Float, Float) -> Unit,
     onArtistClick: (Long) -> Unit,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    onNavigateToProfile: (Long) -> Unit = {}
 ) {
     // 仅在播放器打开或动画进行中时渲染，避免关闭后 nestedScroll 拦截触摸事件
     if (currentTrack != null && screenHeightPx > 0f && isPlayerOpen) {
@@ -185,7 +186,8 @@ fun MelodiaFullPlayerOverlay(
                 onDragClose = onDragClose,
                 isPlayerOpen = isPlayerOpen,
                 onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick
+                onAlbumClick = onAlbumClick,
+                onNavigateToProfile = onNavigateToProfile
             )
         }
     }

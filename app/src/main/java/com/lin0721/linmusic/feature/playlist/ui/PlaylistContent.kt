@@ -85,7 +85,8 @@ fun PlaylistContent(
     hasMoreTracks: Boolean = false,
     isLoadingMoreTracks: Boolean = false,
     onLoadMoreTracks: () -> Unit = {},
-    onLocateTrack: (Long) -> Unit = {}
+    onLocateTrack: (Long) -> Unit = {},
+    onCreatorClick: (Long) -> Unit = {}
 ) {
     val density = LocalDensity.current
 
@@ -234,6 +235,7 @@ fun PlaylistContent(
                     onDownloadClick     = onDownloadClick,
                     onHistoryClick      = onHistoryClick,
                     selectedHistoryDate = selectedHistoryDate,
+                    onCreatorClick      = onCreatorClick,
                     onPlayButtonPositioned = { y ->
                         if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
                             playButtonBaselineYPx = y

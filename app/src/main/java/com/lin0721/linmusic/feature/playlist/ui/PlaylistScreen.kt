@@ -84,7 +84,8 @@ fun PlaylistScreen(
     viewModel: PlaylistViewModel = koinViewModel(),
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
@@ -605,7 +606,8 @@ fun PlaylistScreen(
                     selectedHistoryDate = selectedHistoryDate,
                     onSelectedHistoryDateChange = { selectedHistoryDate = it },
                     onLoadHistoryDetail = { viewModel.loadHistoryDetail(it) },
-                    onLoadDailyRecommend = { viewModel.loadPlaylist(-1L) }
+                    onLoadDailyRecommend = { viewModel.loadPlaylist(-1L) },
+                    onCreatorClick = onNavigateToProfile
                 )
             }
             }
@@ -645,7 +647,8 @@ fun PlaylistScreen(
                 commentsState = commentsState,
                 onLikeComment = viewModel::likeComment,
                 onDismiss = { showCommentsSheet = false },
-                onRetry = { viewModel.loadPlaylistComments(playlistId) }
+                onRetry = { viewModel.loadPlaylistComments(playlistId) },
+                onUserClick = onNavigateToProfile
             )
         }
 

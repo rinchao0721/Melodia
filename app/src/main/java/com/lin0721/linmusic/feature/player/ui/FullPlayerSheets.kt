@@ -61,7 +61,8 @@ fun FullPlayerSheets(
     onRetryComments: () -> Unit,
     onCommentsDismiss: () -> Unit,
     onOutputDeviceSelected: (Int) -> Unit,
-    onOutputDeviceDismiss: () -> Unit
+    onOutputDeviceDismiss: () -> Unit,
+    onNavigateToProfile: (Long) -> Unit = {}
 ) {
     if (showQueueSheet) {
         PlayQueueSheet(
@@ -130,7 +131,8 @@ fun FullPlayerSheets(
             commentsState = commentsState,
             onLikeComment = onLikeComment,
             onDismiss = onCommentsDismiss,
-            onRetry = onRetryComments
+            onRetry = onRetryComments,
+            onUserClick = onNavigateToProfile
         )
     }
 

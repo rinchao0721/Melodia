@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
+import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
 // ────────────────────────────────────────────────────────────────────────────
 // 六个主屏幕之间的切换动画与路由分发
@@ -27,6 +28,9 @@ fun MelodiaNavHost(
     activeMvId: Long?,
     activeMvName: String,
     activePlaylistCategory: String?,
+    activeProfileUid: Long?,
+    activeFollowListUid: Long?,
+    activeFollowListMode: FollowListMode,
     homeTab: Int,
     showMusicNewWorks: Boolean,
     searchAutoFocus: Boolean,
@@ -38,6 +42,8 @@ fun MelodiaNavHost(
     onNavigateToMv: (Long, String) -> Unit,
     onMvFullscreenChanged: (Boolean) -> Unit,
     onNavigateToPlaylistCategory: (String) -> Unit,
+    onNavigateToProfile: (Long) -> Unit,
+    onNavigateToFollowList: (Long, FollowListMode) -> Unit,
     onHomeTabSelected: (Int) -> Unit,
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
@@ -90,7 +96,8 @@ fun MelodiaNavHost(
                         isAlbum = activePlaylistIsAlbum,
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
-                        onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) }
+                        onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                        onNavigateToProfile = onNavigateToProfile
                     )
                 }
             }
@@ -146,7 +153,8 @@ fun MelodiaNavHost(
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
                         onMvClick = onNavigateToMv,
-                        onFullscreenChanged = onMvFullscreenChanged
+                        onFullscreenChanged = onMvFullscreenChanged,
+                        onNavigateToProfile = onNavigateToProfile
                     )
                 }
             }
@@ -178,6 +186,26 @@ fun MelodiaNavHost(
                         category = category,
                         onBack = onBack,
                         onPlaylistClick = { id -> onNavigateToPlaylist(id, false) }
+                    )
+                }
+            }
+            Screen.Profile -> {
+                activeProfileUid?.let { uid ->
+                    com.lin0721.linmusic.feature.profile.ui.ProfileScreen(
+                        uid = uid,
+                        onBack = onBack,
+                        onNavigateToFollowList = onNavigateToFollowList,
+                        onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) }
+                    )
+                }
+            }
+            Screen.FollowList -> {
+                activeFollowListUid?.let { uid ->
+                    com.lin0721.linmusic.feature.profile.ui.FollowListScreen(
+                        uid = uid,
+                        mode = activeFollowListMode,
+                        onBack = onBack,
+                        onUserClick = onNavigateToProfile
                     )
                 }
             }
