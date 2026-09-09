@@ -14,7 +14,8 @@ sealed interface PlaylistUiState {
         val recommendedSongs: List<Track> = emptyList(),
         val isSubscribed: Boolean = false,
         val hasMoreTracks: Boolean = false,
-        val isLoadingMoreTracks: Boolean = false
+        val isLoadingMoreTracks: Boolean = false,
+        val trackPlayCounts: Map<Long, Int> = emptyMap()
     ) : PlaylistUiState
     data class Error(val message: String) : PlaylistUiState
 }

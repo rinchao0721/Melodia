@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.feature.library.data
 
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
-import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.apiFlow
 import kotlinx.coroutines.flow.Flow
 
@@ -10,17 +9,18 @@ class LibraryRepositoryImpl(
     private val contentFilter: ContentFilter
 ) : LibraryRepository {
 
-    override fun getUserRecord(uid: Long, type: Int): Flow<Result<List<Track>>> = apiFlow(
+    override fun getUserRecord(uid: Long, type: Int): Flow<Result<List<UserRecordTrack>>> = apiFlow(
         request = { apiService.getUserRecord(UserRecordRequest(uid = uid, type = type)) },
         isSuccess = { it.isSuccess },
         code = { it.code },
         transform = { response ->
             val list = if (type == 1) {
-                response.weekData?.map { it.song } ?: emptyList()
+                response.weekData ?: emptyList()
             } else {
-                response.allData?.map { it.song } ?: emptyList()
+                response.allData ?: emptyList()
             }
-            contentFilter.filterBlockedArtists(list) { it.ar.map { a -> a.id } }
+            val records = list.map { UserRecordTrack(track = it.song, playCount = it.playCount) }
+            contentFilter.filterBlockedArtists(records) { it.track.ar.map { a -> a.id } }
         }
     )
 

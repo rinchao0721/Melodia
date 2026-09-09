@@ -12,9 +12,11 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.SongRow
@@ -41,7 +43,8 @@ fun LazyListScope.playlistTrackItems(
     onPlaySong: (Track) -> Unit,
     onLikeClick: (Long) -> Unit = {},
     onOpenCollectSheet: (Long) -> Unit = {},
-    onMoreClick: (Track) -> Unit
+    onMoreClick: (Track) -> Unit,
+    trackPlayCounts: Map<Long, Int> = emptyMap()
 ) {
     items(tracks, key = { it.id }) { track ->
         // SongRow 本身不接受外部 modifier，外层套 Box 挂 animateItem：
@@ -59,7 +62,15 @@ fun LazyListScope.playlistTrackItems(
                 isPlaying = isPlaying,
                 onClick = { onPlaySong(track) },
                 trailingSlot = {
-                    if (isLoggedIn && track.id in likedSongIds) {
+                    val playCount = trackPlayCounts[track.id]
+                    if (playCount != null) {
+                        Text(
+                            text = "${playCount}次",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(end = MelodiaSpacing.xs)
+                        )
+                    } else if (isLoggedIn && track.id in likedSongIds) {
                         MelodiaIconButton(
                             onClick = {
                                 onOpenCollectSheet(track.id)

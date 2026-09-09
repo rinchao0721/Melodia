@@ -42,6 +42,7 @@ fun ProfileSidebar(
     userProfile: UserProfile,
     onLogout: () -> Unit,
     onDismiss: () -> Unit,
+    onNavigateToProfile: (uid: Long) -> Unit,
     onNavigateToRecentPlay: () -> Unit,
     onNavigateToListenData: () -> Unit,
     onNavigateToCloud: () -> Unit,
@@ -60,6 +61,9 @@ fun ProfileSidebar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .pressable(MelodiaPress.Row) {
+                    onNavigateToProfile(userProfile.uid)
+                }
                 .padding(horizontal = 20.dp, vertical = MelodiaSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {

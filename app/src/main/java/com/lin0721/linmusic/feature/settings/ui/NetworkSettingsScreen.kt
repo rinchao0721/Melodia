@@ -1,26 +1,20 @@
 package com.lin0721.linmusic.feature.settings.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @Composable
@@ -36,14 +30,14 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
         contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
     ) {
         item {
-            SettingsGroupCard("网络连接 parameters") {
+            SettingsGroupCard("网络连接") {
                 SettingsSwitchRow(
                     title = "仅 Wi-Fi 网络下联网播放",
                     subtitle = "开启后，在移动网络环境将无法播放在线曲目",
                     checked = wifiOnlyPlay,
                     onCheckedChange = { viewModel.updateWifiOnlyPlay(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsSwitchRow(
                     title = "流量播放警告提示",
                     subtitle = "从 Wi-Fi 切换为移动数据时弹出提醒",
@@ -63,7 +57,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (useRealIp) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -72,36 +66,22 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = MelodiaSpacing.md)) {
-                            Text("真实 IP 地址", color = Color.White, fontSize = 15.sp)
+                            Text("国内 IP 地址", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("可在此处输入国内 IP，不填写则为随机", color = TextGray, fontSize = 12.sp)
+                            Text("可在此处输入国内 IP，不填写则为随机", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .width(150.dp)
-                                .height(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(BackgroundDark)
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (realIpValue.isEmpty()) {
-                                Text("IP 127.0.0.1", color = TextGray, fontSize = 13.sp)
-                            }
-                            BasicTextField(
-                                value = realIpValue,
-                                onValueChange = { viewModel.updateRealIpValue(it) },
-                                textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
-                                cursorBrush = SolidColor(NeteaseRed),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
+                        PlaceholderTextField(
+                            value = realIpValue,
+                            onValueChange = { viewModel.updateRealIpValue(it) },
+                            placeholder = "IP 127.0.0.1",
+                            modifier = Modifier.width(150.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        )
                     }
                 }
 
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
                 SettingsSwitchRow(
                     title = "使用代理服务器",

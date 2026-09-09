@@ -47,6 +47,7 @@ fun FullPlayerScreen(
     isPlayerOpen: Boolean,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onNavigateToProfile: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> }
 ) {
     if (currentTrack == null) return
@@ -426,7 +427,11 @@ fun FullPlayerScreen(
             onRetryComments = { viewModel.retryComments() },
             onCommentsDismiss = { showCommentsSheet = false },
             onOutputDeviceSelected = { deviceId -> viewModel.playerManager.setPreferredAudioDevice(deviceId) },
-            onOutputDeviceDismiss = { showOutputDeviceSheet = false }
+            onOutputDeviceDismiss = { showOutputDeviceSheet = false },
+            onNavigateToProfile = { uid ->
+                onClose()
+                onNavigateToProfile(uid)
+            }
         )
     }
 }

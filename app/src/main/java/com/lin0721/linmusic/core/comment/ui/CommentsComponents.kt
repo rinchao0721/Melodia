@@ -178,8 +178,15 @@ fun CommentRowItem(
     modifier: Modifier = Modifier,
     contentMaxLines: Int = Int.MAX_VALUE,
     isLikeClickable: Boolean = true,
-    onLikeClick: () -> Unit = {}
+    onLikeClick: () -> Unit = {},
+    onUserClick: (Long) -> Unit = {}
 ) {
+    val userClickModifier = if (comment.user.userId > 0L) {
+        Modifier.clickable { onUserClick(comment.user.userId) }
+    } else {
+        Modifier
+    }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -191,6 +198,7 @@ fun CommentRowItem(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
+                .then(userClickModifier)
         )
 
         Column(modifier = Modifier.weight(1f)) {
@@ -199,7 +207,12 @@ fun CommentRowItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = MelodiaSpacing.sm)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = MelodiaSpacing.sm)
+                        .then(userClickModifier)
+                ) {
                     Text(
                         text = comment.user.nickname,
                         color = Color.White.copy(alpha = 0.9f),
@@ -283,7 +296,8 @@ fun CommentsBottomSheet(
     commentsState: CommentsState,
     onLikeComment: (CommentItem) -> Unit,
     onDismiss: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onUserClick: (Long) -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -374,7 +388,8 @@ fun CommentsBottomSheet(
                             items(allComments, key = { it.commentId }) { comment ->
                                 CommentRowItem(
                                     comment = comment,
-                                    onLikeClick = { onLikeComment(comment) }
+                                    onLikeClick = { onLikeComment(comment) },
+                                    onUserClick = onUserClick
                                 )
                             }
                         }

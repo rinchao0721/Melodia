@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,6 +75,7 @@ fun PlaylistHeaderItem(
     onDownloadClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     selectedHistoryDate: String = "今天",
+    onCreatorClick: (Long) -> Unit = {},
     // 播放按钮在根坐标系下的实时位置（用于顶层叠加的按钮跟手滑动、到位后锁停）
     onPlayButtonPositioned: (Float) -> Unit = {}
 ) {
@@ -148,7 +150,15 @@ fun PlaylistHeaderItem(
                     } else if (playlist.id == -2L) {
                         Text("网易云个人听歌记录统计", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        val creatorModifier = if (playlist.creator != null && playlist.creator.userId > 0L) {
+                            Modifier.clickable { onCreatorClick(playlist.creator.userId) }
+                        } else {
+                            Modifier
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = creatorModifier
+                        ) {
                             if (playlist.creator != null) {
                                 AsyncImage(
                                     model = "${playlist.creator.avatarUrl}?param=50y50",

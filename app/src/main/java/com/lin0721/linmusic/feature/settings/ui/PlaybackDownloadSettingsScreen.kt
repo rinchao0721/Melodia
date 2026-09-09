@@ -39,7 +39,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     checked = streamCacheEnabled,
                     onCheckedChange = { viewModel.updateStreamCacheEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsRow(
                     title = "下载目录",
                     subtitle = "/Android/data/com.lin0721.linmusic/files/Download",

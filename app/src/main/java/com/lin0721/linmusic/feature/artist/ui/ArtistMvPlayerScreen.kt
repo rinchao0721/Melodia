@@ -125,7 +125,8 @@ fun ArtistMvPlayerScreen(
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
     onMvClick: (Long, String) -> Unit,
-    onFullscreenChanged: (Boolean) -> Unit
+    onFullscreenChanged: (Boolean) -> Unit,
+    onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val mvDetail by viewModel.mvDetail.collectAsStateWithLifecycle()
@@ -942,7 +943,8 @@ fun ArtistMvPlayerScreen(
                     }
                 },
                 onDismiss = { showCommentsSheet = false },
-                onRetry = { viewModel.loadComments(mvId) }
+                onRetry = { viewModel.loadComments(mvId) },
+                onUserClick = onNavigateToProfile
             )
         }
     }

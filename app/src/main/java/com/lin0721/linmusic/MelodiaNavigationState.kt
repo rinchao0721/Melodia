@@ -8,10 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
+import com.lin0721.linmusic.feature.profile.ui.FollowListMode
+
 enum class Screen {
     Home, Playlist, Search, Library, Settings, Artist, Radio, MvPlayer, PlaylistCategory,
     // 侧边栏二级页
-    RecentPlay, ListenData, Cloud, Message, Account
+    RecentPlay, ListenData, Cloud, Message, Account,
+    // 个人主页与关注/粉丝列表
+    Profile, FollowList
 }
 
 // 应用级导航状态：回退栈与各页面所需的跳转参数
@@ -43,6 +47,15 @@ class MelodiaNavigationState {
         private set
 
     var activePlaylistCategory by mutableStateOf<String?>(null)
+        private set
+
+    var activeProfileUid by mutableStateOf<Long?>(null)
+        private set
+
+    var activeFollowListUid by mutableStateOf<Long?>(null)
+        private set
+
+    var activeFollowListMode by mutableStateOf(FollowListMode.FOLLOWS)
         private set
 
     // 主页三个 tab 的选中项。存在导航状态里而非 HomeScreen 内部——
@@ -137,6 +150,17 @@ class MelodiaNavigationState {
 
     fun openAccount() {
         navigateTo(Screen.Account)
+    }
+
+    fun openProfile(uid: Long) {
+        activeProfileUid = uid
+        navigateTo(Screen.Profile)
+    }
+
+    fun openFollowList(uid: Long, mode: FollowListMode) {
+        activeFollowListUid = uid
+        activeFollowListMode = mode
+        navigateTo(Screen.FollowList)
     }
 
     // 从主页搜索框进入时自动弹键盘，从底栏进入时展示发现内容
