@@ -109,6 +109,9 @@ object AppLogger {
         return existingLogFiles(dir)
     }
 
+    // 供储存空间页展示日志占用大小
+    fun getLogsSize(): Long = getLogFiles().sumOf { it.length() }
+
     // 清空本地已落盘的日志文件，供设置页手动清理使用
     fun clearLogs(): Boolean {
         val dir = logDir ?: return false

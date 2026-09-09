@@ -31,9 +31,21 @@ object AudioCacheManager {
         try {
             cache?.release()
             cache = null
-            getCache(context, newMaxSize)
+            val newCache = getCache(context, newMaxSize)
+            trimToSize(newCache, newMaxSize)
         } catch (e: Exception) {
             AppLogger.e(TAG, "音质切换缓存重建失败", e)
+        }
+    }
+
+    // 上限下调后主动淘汰超出部分，不必等下次播放时才被 LRU 逐步驱逐
+    private fun trimToSize(cache: SimpleCache, maxSize: Long) {
+        if (cache.cacheSpace <= maxSize) return
+        val spans = cache.keys.flatMap { key -> cache.getCachedSpans(key) }
+            .sortedBy { it.lastTouchTimestamp }
+        for (span in spans) {
+            if (cache.cacheSpace <= maxSize) break
+            runCatching { cache.removeSpan(span) }
         }
     }
 
@@ -49,5 +61,11 @@ object AudioCacheManager {
         } catch (e: Exception) {
             AppLogger.e(TAG, "清除音频缓存失败", e)
         }
+    }
+
+    // 供储存空间页展示占用大小，直接读磁盘目录
+    fun getCacheDirSize(context: Context): Long {
+        val cacheDir = File(context.cacheDir, "audio_cache")
+        return cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
     }
 }

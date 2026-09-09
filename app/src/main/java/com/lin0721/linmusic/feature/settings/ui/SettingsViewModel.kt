@@ -15,10 +15,12 @@ import com.lin0721.linmusic.core.player.AudioCacheManager
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 private const val TAG = "SettingsViewModel"
 
@@ -100,6 +102,27 @@ class SettingsViewModel(
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent = _toastEvent.asSharedFlow()
+
+    // ─── 储存空间分类占用统计 ───
+    private val _audioCacheSize = MutableStateFlow(0L)
+    val audioCacheSize = _audioCacheSize.asStateFlow()
+
+    private val _imageCacheSize = MutableStateFlow(0L)
+    val imageCacheSize = _imageCacheSize.asStateFlow()
+
+    private val _logCacheSize = MutableStateFlow(0L)
+    val logCacheSize = _logCacheSize.asStateFlow()
+
+    private val _updatePackageSize = MutableStateFlow(0L)
+    val updatePackageSize = _updatePackageSize.asStateFlow()
+
+    private val _otherCacheSize = MutableStateFlow(0L)
+    val otherCacheSize = _otherCacheSize.asStateFlow()
+
+    val totalCacheSize = combine(
+        _audioCacheSize, _imageCacheSize, _logCacheSize, _updatePackageSize, _otherCacheSize
+    ) { audio, image, log, update, other -> audio + image + log + update + other }
+        .asState(0L)
 
     // 昵称重名实时检查防抖状态
     private val _nicknameInput = MutableStateFlow("")
@@ -329,9 +352,98 @@ class SettingsViewModel(
                         file.deleteRecursively()
                     }
                 }
+
+                // 4. 清理 App 更新下载的旧安装包
+                context.getExternalFilesDir(null)?.let { dir ->
+                    File(dir, "updates").listFiles()?.forEach { it.deleteRecursively() }
+                }
             }.onFailure { AppLogger.e(TAG, "清理应用缓存失败", it) }
+            _audioCacheSize.value = 0L
+            _imageCacheSize.value = 0L
+            _logCacheSize.value = 0L
+            _updatePackageSize.value = 0L
+            _otherCacheSize.value = 0L
             _toastEvent.emit("应用临时数据与图片缓存已清理完成")
             _isLoading.value = false
+        }
+    }
+
+    // 储存空间页首次进入时调用，并发算出各分类占用大小
+    fun loadStorageStats(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _audioCacheSize.value = AudioCacheManager.getCacheDirSize(context)
+            _imageCacheSize.value = dirSize(File(context.cacheDir, "image_cache"))
+            _logCacheSize.value = AppLogger.getLogsSize()
+            _updatePackageSize.value = context.getExternalFilesDir(null)?.let { dirSize(File(it, "updates")) } ?: 0L
+            _otherCacheSize.value = otherTempFilesSize(context)
+        }
+    }
+
+    private fun dirSize(dir: File): Long =
+        if (dir.exists()) dir.walkTopDown().filter { it.isFile }.sumOf { it.length() } else 0L
+
+    // cacheDir/externalCacheDir 下排除已单独统计的 audio_cache/image_cache/logs 后剩余的临时文件大小
+    private fun otherTempFilesSize(context: Context): Long {
+        val excluded = setOf("audio_cache", "image_cache", "logs")
+        val cacheDirTotal = context.cacheDir.listFiles()
+            ?.filter { it.name !in excluded }
+            ?.sumOf { dirSize(it) } ?: 0L
+        val extCacheDirTotal = context.externalCacheDir?.listFiles()
+            ?.sumOf { dirSize(it) } ?: 0L
+        return cacheDirTotal + extCacheDirTotal
+    }
+
+    fun clearAudioCacheOnly(context: Context) {
+        viewModelScope.launch {
+            runCatching { AudioCacheManager.clearCache(context) }
+                .onFailure { AppLogger.e(TAG, "清理音频缓存失败", it) }
+            _audioCacheSize.value = 0L
+            _toastEvent.emit("音频缓存已清理")
+        }
+    }
+
+    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    fun clearImageCacheOnly(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val imageLoader = coil.Coil.imageLoader(context)
+                imageLoader.memoryCache?.clear()
+                imageLoader.diskCache?.clear()
+            }.onFailure { AppLogger.e(TAG, "清理图片缓存失败", it) }
+            _imageCacheSize.value = 0L
+            _toastEvent.emit("图片缓存已清理")
+        }
+    }
+
+    fun clearLogCacheOnly() {
+        viewModelScope.launch {
+            AppLogger.clearLogs()
+            _logCacheSize.value = 0L
+            _toastEvent.emit("日志文件已清理")
+        }
+    }
+
+    fun clearUpdatePackages(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                context.getExternalFilesDir(null)?.let { dir ->
+                    File(dir, "updates").listFiles()?.forEach { it.deleteRecursively() }
+                }
+            }.onFailure { AppLogger.e(TAG, "清理更新安装包失败", it) }
+            _updatePackageSize.value = 0L
+            _toastEvent.emit("更新安装包已清理")
+        }
+    }
+
+    fun clearOtherTempFiles(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val excluded = setOf("audio_cache", "image_cache", "logs")
+            runCatching {
+                context.cacheDir.listFiles()?.filter { it.name !in excluded }?.forEach { it.deleteRecursively() }
+                context.externalCacheDir?.listFiles()?.forEach { it.deleteRecursively() }
+            }.onFailure { AppLogger.e(TAG, "清理其他临时文件失败", it) }
+            _otherCacheSize.value = 0L
+            _toastEvent.emit("其他临时文件已清理")
         }
     }
 }
