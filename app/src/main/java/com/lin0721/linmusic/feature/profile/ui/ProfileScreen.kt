@@ -179,7 +179,8 @@ fun ProfileScreen(
                                 items = state.rankItems,
                                 isLoading = state.rankLoading,
                                 subTab = state.rankSubTab,
-                                onSubTabSelected = { viewModel.selectRankSubTab(it) }
+                                onSubTabSelected = { viewModel.selectRankSubTab(it) },
+                                showPlayCount = state.isSelf
                             )
                         }
                     }

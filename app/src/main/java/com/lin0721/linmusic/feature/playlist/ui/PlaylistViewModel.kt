@@ -702,7 +702,8 @@ class PlaylistViewModel(
             }
             libraryRepository.getUserRecord(profile.uid, type).collect { result ->
                 result.fold(
-                    onSuccess = { tracks ->
+                    onSuccess = { records ->
+                        val tracks = records.map { it.track }
                         val detail = PlaylistDetail(
                             id = -2L,
                             name = "听歌排行的歌单",
@@ -711,7 +712,10 @@ class PlaylistViewModel(
                             playCount = 0L,
                             tracks = tracks
                         )
-                        _uiState.value = PlaylistUiState.Success(detail)
+                        _uiState.value = PlaylistUiState.Success(
+                            playlist = detail,
+                            trackPlayCounts = records.associate { it.track.id to it.playCount }
+                        )
                         _historyRecommendState.update { it.copy(songsLoading = false) }
                     },
                     onFailure = { error ->

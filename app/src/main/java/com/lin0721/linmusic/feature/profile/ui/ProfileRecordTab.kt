@@ -3,15 +3,11 @@ package com.lin0721.linmusic.feature.profile.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,18 +21,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.EmptyState
+import com.lin0721.linmusic.core.ui.components.SongRow
+import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
-import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
 
@@ -47,7 +41,9 @@ fun LazyListScope.profileRecordItems(
     items: List<ProfileListenRankItem>,
     isLoading: Boolean,
     subTab: Int,
-    onSubTabSelected: (Int) -> Unit
+    onSubTabSelected: (Int) -> Unit,
+    // 他人的播放次数拿不到，看别人主页时不展示这一列
+    showPlayCount: Boolean
 ) {
     item(key = "record_subtabs") {
         ProfileRankSubTabs(subTab = subTab, onSubTabSelected = onSubTabSelected)
@@ -69,56 +65,25 @@ fun LazyListScope.profileRecordItems(
     }
 
     itemsIndexed(items, key = { index, item -> "${subTab}_${item.songId}_$index" }) { index, item ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "${index + 1}",
-                color = TextGray,
-                fontSize = 12.sp,
-                modifier = Modifier.width(24.dp)
-            )
-
-            AsyncImage(
-                model = "${item.albumCoverUrl}?param=120y120",
-                contentDescription = item.songName,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(RadiusCompact)),
-                contentScale = ContentScale.Crop
-            )
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 11.dp, end = 8.dp)
-            ) {
-                Text(
-                    text = item.songName,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = item.artistName,
-                    color = TextGray,
-                    fontSize = 11.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Text(
-                text = "${item.playCount}次",
-                color = TextGray,
-                fontSize = 11.5.sp,
-                maxLines = 1
+        Box(modifier = Modifier.padding(horizontal = 4.dp)) {
+            SongRow(
+                data = SongRowData(
+                    id = item.songId,
+                    title = item.songName,
+                    artist = item.artistName,
+                    coverUrl = item.albumCoverUrl
+                ),
+                index = index + 1,
+                onClick = {},
+                trailingSlot = {
+                    if (showPlayCount) {
+                        Text(
+                            text = "${item.playCount}次",
+                            color = TextGray,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             )
         }
     }

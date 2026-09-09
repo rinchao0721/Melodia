@@ -508,6 +508,7 @@ fun PlaylistScreen(
                 } else {
                     PlaylistContent(
                         playlist       = state.playlist,
+                        trackPlayCounts = state.trackPlayCounts,
                         canRemoveFromPlaylist = isOwnedPlaylist,
                         onRemoveFromPlaylist = { songId ->
                             viewModel.removeTrackFromPlaylist(state.playlist.id, songId)

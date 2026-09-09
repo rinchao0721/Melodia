@@ -86,7 +86,8 @@ fun PlaylistContent(
     isLoadingMoreTracks: Boolean = false,
     onLoadMoreTracks: () -> Unit = {},
     onLocateTrack: (Long) -> Unit = {},
-    onCreatorClick: (Long) -> Unit = {}
+    onCreatorClick: (Long) -> Unit = {},
+    trackPlayCounts: Map<Long, Int> = emptyMap()
 ) {
     val density = LocalDensity.current
 
@@ -307,7 +308,8 @@ fun PlaylistContent(
                     onPlaySong         = onPlaySong,
                     onLikeClick        = onLikeClick,
                     onOpenCollectSheet = { collectSongId = it },
-                    onMoreClick        = { activeSongMoreOptions = it }
+                    onMoreClick        = { activeSongMoreOptions = it },
+                    trackPlayCounts    = trackPlayCounts
                 )
 
                 if (isLoadingMoreTracks) {
