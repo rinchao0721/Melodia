@@ -93,7 +93,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                             .clickable {
                                 pendingClear = PendingClear(
                                     title = "清理应用缓存",
-                                    message = "确定要清空以下全部缓存吗？清空后音频、图片需要重新缓冲加载，日志将无法再导出。"
+                                    message = "确定要清空以下全部缓存吗？"
                                 ) { viewModel.clearApplicationCache(context) }
                             }
                             .padding(vertical = 14.dp),
@@ -119,7 +119,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                         onClear = {
                             pendingClear = PendingClear(
                                 title = "清理音频缓存",
-                                message = "确定要清空音频缓存吗？之后播放歌曲需要重新缓冲。"
+                                message = "确定要清空音频缓存吗？"
                             ) { viewModel.clearAudioCacheOnly(context) }
                         }
                     )
@@ -132,7 +132,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                         onClear = {
                             pendingClear = PendingClear(
                                 title = "清理图片缓存",
-                                message = "确定要清空图片缓存吗？之后加载封面、头像需要重新下载。"
+                                message = "确定要清空图片缓存吗？"
                             ) { viewModel.clearImageCacheOnly(context) }
                         }
                     )
@@ -145,7 +145,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                         onClear = {
                             pendingClear = PendingClear(
                                 title = "清理日志文件",
-                                message = "确定要清空日志文件吗？清空后将无法再导出诊断日志。"
+                                message = "确定要清空日志文件吗？"
                             ) { viewModel.clearLogCacheOnly() }
                         }
                     )
