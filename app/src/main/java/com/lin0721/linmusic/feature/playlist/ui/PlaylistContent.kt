@@ -389,7 +389,7 @@ fun PlaylistContent(
                         onLocateTrack(id)
                     }
                 },
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -399,14 +399,14 @@ fun PlaylistContent(
                 if (isLoadingMoreTracks) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         strokeWidth = 2.dp
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Default.CenterFocusStrong,
                         contentDescription = "定位到正在播放的歌曲",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
