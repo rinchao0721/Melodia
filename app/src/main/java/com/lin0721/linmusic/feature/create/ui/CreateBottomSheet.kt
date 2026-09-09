@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DragHandleShape
@@ -228,15 +229,9 @@ private fun CreatePlaylistDialog(
                     Text("设为隐私歌单", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text("仅自己可见", color = TextGray, fontSize = 12.sp)
                 }
-                Switch(
+                MelodiaSwitch(
                     checked = isPrivate,
-                    onCheckedChange = { isPrivate = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = NeteaseRed,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = SurfaceLight
-                    )
+                    onCheckedChange = { isPrivate = it }
                 )
             }
 

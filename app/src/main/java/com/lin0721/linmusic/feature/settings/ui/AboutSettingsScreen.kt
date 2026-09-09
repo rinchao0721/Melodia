@@ -6,17 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,25 +24,23 @@ import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.update.UpdateManager
 import org.koin.compose.koinInject
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
 
-    // 渲染“关于”子设置项
+    // 渲染"关于"子设置项
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
         contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp),
@@ -74,8 +65,8 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Melodia Player", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(appVersionLabel(), color = TextGray, fontSize = 13.sp)
+            Text("Melodia Player", color = MaterialTheme.colorScheme.onSurface, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(appVersionLabel(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -90,14 +81,14 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "前往 GitHub 获取最新安装包",
                     onClick = { updateManager.checkForUpdate(manual = true) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsSwitchRow(
                     title = "自动检查更新",
                     subtitle = "启动应用时后台检查一次更新",
                     checked = autoCheckUpdateEnabled,
                     onCheckedChange = { viewModel.updateAutoCheckUpdateEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsSwitchRow(
                     title = "接收测试版更新",
                     subtitle = "包含 beta/rc 预览版本，可能不稳定",
@@ -112,24 +103,24 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                 Text(
                     text = "Melodia 是一款基于 Jetpack Compose 构建的第三方网易云音乐播放器。\n\n" +
                             "本项目基于开源协议发布。",
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     fontSize = 14.sp,
                     textAlign = TextAlign.Start,
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
-                    Text("开源协议 (MIT LICENSE)", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("开源协议 (MIT LICENSE)", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files...",
-                        color = TextGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Start,
                         lineHeight = 16.sp,
                         modifier = Modifier
-                            .background(SurfaceLight, RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
                             .padding(10.dp)
                     )
                 }
@@ -141,14 +132,14 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                 val logLevelStr by viewModel.logLevel.collectAsStateWithLifecycle()
                 val currentLogLevel = runCatching { AppLogger.LogLevel.valueOf(logLevelStr) }
                     .getOrDefault(AppLogger.LogLevel.WARN)
-                var showLogLevelDialog by remember { mutableStateOf(false) }
+                var showLogLevelSheet by remember { mutableStateOf(false) }
 
                 SettingsRow(
                     title = "日志级别",
                     subtitle = "当前: ${logLevelLabel(currentLogLevel)}，越详细越利于排查问题",
-                    onClick = { showLogLevelDialog = true }
+                    onClick = { showLogLevelSheet = true }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsRow(
                     title = "导出并分享日志",
                     subtitle = "当应用发生故障时，可将本地运行日志导出",
@@ -156,7 +147,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                         exportAndShareLogs(context)
                     }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsRow(
                     title = "清空日志文件",
                     subtitle = "清除本地保存的运行日志，清空后将无法再导出",
@@ -169,47 +160,63 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                     }
                 )
 
-                if (showLogLevelDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showLogLevelDialog = false },
-                        title = { Text("日志级别", color = Color.White) },
-                        text = {
-                            Column {
-                                AppLogger.LogLevel.entries.forEach { level ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                viewModel.updateLogLevel(level)
-                                                showLogLevelDialog = false
-                                            }
-                                            .padding(vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        RadioButton(
-                                            selected = currentLogLevel == level,
-                                            onClick = {
-                                                viewModel.updateLogLevel(level)
-                                                showLogLevelDialog = false
-                                            },
-                                            colors = RadioButtonDefaults.colors(
-                                                selectedColor = NeteaseRed,
-                                                unselectedColor = TextGray
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(text = logLevelLabel(level), color = Color.White, fontSize = 16.sp)
+                if (showLogLevelSheet) {
+                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                    ModalBottomSheet(
+                        onDismissRequest = { showLogLevelSheet = false },
+                        sheetState = sheetState,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        shape = BottomSheetShape,
+                        dragHandle = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
+                                    .width(36.dp)
+                                    .height(4.dp)
+                                    .clip(DragHandleShape)
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            )
+                        }
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
+                        ) {
+                            Text(
+                                text = "日志级别",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(bottom = MelodiaSpacing.md)
+                            )
+
+                            AppLogger.LogLevel.entries.forEach { level ->
+                                val isSelected = currentLogLevel == level
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.updateLogLevel(level)
+                                            showLogLevelSheet = false
+                                        }
+                                        .padding(vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = logLevelLabel(level),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 15.sp
+                                    )
+                                    if (isSelected) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
-                        },
-                        confirmButton = {
-                            MelodiaTextButton(onClick = { showLogLevelDialog = false }) {
-                                Text("取消", color = NeteaseRed)
-                            }
-                        },
-                        containerColor = SurfaceDark
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -226,7 +233,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                             "• Koin\n" +
                             "• Coil\n" +
                             "• Haze",
-                    color = TextGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Start,
                     lineHeight = 20.sp,
