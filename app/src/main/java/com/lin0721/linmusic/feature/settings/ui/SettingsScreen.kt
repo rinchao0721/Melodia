@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
@@ -37,16 +38,16 @@ import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 定义多级菜单类型
-enum class SettingsSubMenu(val title: String, val icon: ImageVector) {
-    PLAYBACK_DOWNLOAD("播放与下载", Icons.Outlined.PlayCircleOutline),
-    AUDIO_QUALITY("音质", Icons.Outlined.HighQuality),
-    PRIVACY("隐私设置", Icons.Outlined.PrivacyTip),
-    STORAGE("储存空间", Icons.Outlined.Storage),
-    NETWORK("网络设置", Icons.Outlined.Wifi),
-    EXTENSIONS("扩展", Icons.Outlined.Extension),
-    LYRICS("歌词设置", Icons.Outlined.Subtitles),
-    ABOUT("关于", Icons.Outlined.Info)
+// 定义多级菜单类型。subtitle 是子页面前两个设置项标题的预览，仅用于主菜单入口展示
+enum class SettingsSubMenu(val title: String, val subtitle: String, val icon: ImageVector) {
+    PLAYBACK_DOWNLOAD("播放与下载", "自动播放推荐新歌、边听边存", Icons.Outlined.PlayCircleOutline),
+    AUDIO_QUALITY("音质", "Wi-Fi 环境播放音质、移动网络环境播放音质", Icons.Outlined.HighQuality),
+    PRIVACY("隐私设置", "", Icons.Outlined.PrivacyTip),
+    STORAGE("储存空间", "清理应用缓存、最大音频缓存上限", Icons.Outlined.Storage),
+    NETWORK("网络设置", "仅 Wi-Fi 网络下联网播放、流量播放警告提示", Icons.Outlined.Wifi),
+    EXTENSIONS("扩展", "启用系统锁屏显示、车载模式蓝牙自动启动", Icons.Outlined.Extension),
+    LYRICS("歌词设置", "启用桌面悬浮歌词、悬浮歌词字号", Icons.Outlined.Subtitles),
+    ABOUT("关于", "检查更新、自动检查更新", Icons.Outlined.Info)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,15 +170,13 @@ private fun MainSettingsMenu(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = MelodiaSpacing.xs, bottom = MelodiaSpacing.sm)
                 )
-                SettingsSubMenu.values().forEachIndexed { index, item ->
+                SettingsSubMenu.values().forEach { item ->
                     SettingsMainMenuRow(
                         icon = item.icon,
                         title = item.title,
+                        subtitle = item.subtitle,
                         onClick = { onNavigate(item) }
                     )
-                    if (index < SettingsSubMenu.values().lastIndex) {
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    }
                 }
             }
         }
@@ -276,6 +275,7 @@ fun SettingsGroupCard(
 private fun SettingsMainMenuRow(
     icon: ImageVector,
     title: String,
+    subtitle: String,
     onClick: () -> Unit
 ) {
     Row(
@@ -292,12 +292,23 @@ private fun SettingsMainMenuRow(
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(MelodiaSpacing.md))
-        Text(
-            text = title,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f).padding(end = MelodiaSpacing.sm)) {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp
+            )
+            if (subtitle.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
