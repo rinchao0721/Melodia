@@ -115,6 +115,8 @@ class ProfileViewModel(
         val state = _uiState.value as? ProfileUiState.Success ?: return
         if (state.playlistsLoaded) return
         playlistOffset = 0
+        // 首次拉取也要标 loading，否则数据还没回来时 playlists 为空会被误判成"暂无歌单"闪一下空态
+        _uiState.value = state.copy(playlistsLoadingMore = true)
         viewModelScope.launch {
             profileRepository.getUserPlaylists(uid, offset = 0, limit = PLAYLIST_PAGE_SIZE)
                 .first()
@@ -124,13 +126,14 @@ class ProfileViewModel(
                     _uiState.value = latest.copy(
                         playlists = page.playlists,
                         playlistsHasMore = page.hasMore,
-                        playlistsLoaded = true
+                        playlistsLoaded = true,
+                        playlistsLoadingMore = false
                     )
                 }
                 .onFailure { error ->
                     _toastEvent.emit(error.message ?: "加载歌单失败")
                     val latest = _uiState.value as? ProfileUiState.Success ?: return@onFailure
-                    _uiState.value = latest.copy(playlistsLoaded = true)
+                    _uiState.value = latest.copy(playlistsLoaded = true, playlistsLoadingMore = false)
                 }
         }
     }
@@ -162,6 +165,8 @@ class ProfileViewModel(
     fun loadEventsIfNeeded() {
         val state = _uiState.value as? ProfileUiState.Success ?: return
         if (state.eventsLoaded) return
+        // 首次拉取也要标 loading，理由同 loadPlaylistsIfNeeded
+        _uiState.value = state.copy(eventsLoadingMore = true)
         viewModelScope.launch {
             // 首次拉取动态 time 传 -1L 获取最新一页
             profileRepository.getUserEvents(uid, time = -1L, limit = EVENT_PAGE_SIZE)
@@ -172,13 +177,14 @@ class ProfileViewModel(
                         events = page.events,
                         eventsHasMore = page.hasMore,
                         eventsLastTime = page.lasttime,
-                        eventsLoaded = true
+                        eventsLoaded = true,
+                        eventsLoadingMore = false
                     )
                 }
                 .onFailure { error ->
                     _toastEvent.emit(error.message ?: "加载动态失败")
                     val latest = _uiState.value as? ProfileUiState.Success ?: return@onFailure
-                    _uiState.value = latest.copy(eventsLoaded = true)
+                    _uiState.value = latest.copy(eventsLoaded = true, eventsLoadingMore = false)
                 }
         }
     }

@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.profile.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -18,12 +21,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -118,36 +124,58 @@ fun ProfileScreen(
                         onMoreClick = {}
                     )
 
-                    ProfileHeaderSection(
-                        userInfo = state.userInfo,
-                        isSelf = state.isSelf,
-                        selectedTab = state.selectedTab,
-                        onTabSelected = { viewModel.selectTab(it) },
-                        onFollowClick = { viewModel.toggleFollow() },
-                        onFollowsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWS) },
-                        onFollowedsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWEDS) }
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
+                    // 头部资料区跟 Tab 内容放进同一个 LazyColumn，一起滚动
+                    val listState = rememberLazyListState()
+                    // 切 Tab 时滚回顶部
+                    LaunchedEffect(state.selectedTab) {
+                        listState.scrollToItem(0)
+                    }
+                    val shouldLoadMore by remember(state.selectedTab) {
+                        derivedStateOf {
+                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            totalItems > 0 && lastVisible >= totalItems - 3
+                        }
+                    }
+                    LaunchedEffect(shouldLoadMore, state.selectedTab) {
+                        if (!shouldLoadMore) return@LaunchedEffect
                         when (state.selectedTab) {
-                            0 -> ProfilePlaylistTab(
+                            0 -> if (state.playlistsHasMore && !state.playlistsLoadingMore) viewModel.loadMorePlaylists()
+                            1 -> if (state.eventsHasMore && !state.eventsLoadingMore) viewModel.loadMoreEvents()
+                        }
+                    }
+
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+                    ) {
+                        item(key = "header_info") {
+                            ProfileHeaderInfo(
+                                userInfo = state.userInfo,
+                                isSelf = state.isSelf,
+                                onFollowClick = { viewModel.toggleFollow() },
+                                onFollowsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWS) },
+                                onFollowedsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWEDS) }
+                            )
+                        }
+                        item(key = "tab_bar") {
+                            ProfileTabBar(
+                                selectedTab = state.selectedTab,
+                                onTabSelected = { viewModel.selectTab(it) }
+                            )
+                        }
+                        when (state.selectedTab) {
+                            0 -> profilePlaylistItems(
                                 playlists = state.playlists,
                                 isLoading = state.playlistsLoadingMore,
-                                hasMore = state.playlistsHasMore,
-                                onLoadMore = { viewModel.loadMorePlaylists() },
                                 onPlaylistClick = onPlaylistClick
                             )
-                            1 -> ProfileEventTab(
+                            1 -> profileEventItems(
                                 events = state.events,
-                                isLoading = state.eventsLoadingMore,
-                                hasMore = state.eventsHasMore,
-                                onLoadMore = { viewModel.loadMoreEvents() }
+                                isLoading = state.eventsLoadingMore
                             )
-                            2 -> ProfileRecordTab(
+                            2 -> profileRecordItems(
                                 items = state.rankItems,
                                 isLoading = state.rankLoading,
                                 subTab = state.rankSubTab,

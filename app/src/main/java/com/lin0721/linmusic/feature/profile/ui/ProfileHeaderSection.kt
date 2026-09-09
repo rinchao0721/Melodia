@@ -38,12 +38,11 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.profile.domain.ProfileUserInfo
 
+// 头部资料区（头像/昵称/等级/签名/统计/关注按钮），不含 Tab 栏——
 @Composable
-fun ProfileHeaderSection(
+fun ProfileHeaderInfo(
     userInfo: ProfileUserInfo,
     isSelf: Boolean,
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
     onFollowClick: () -> Unit,
     onFollowsClick: () -> Unit,
     onFollowedsClick: () -> Unit,
@@ -209,18 +208,13 @@ fun ProfileHeaderSection(
             color = Color.White.copy(alpha = 0.08f),
             thickness = 1.dp
         )
-
-        // 分页 Tab 栏：视觉样式对齐 ArtistTabBar，指示器选中态高亮
-        ProfileTabBar(
-            selectedTab = selectedTab,
-            onTabSelected = onTabSelected
-        )
     }
 }
 
-// 头部 Tab 切换栏（样式对齐 ArtistTabBar）
+// 分页 Tab 栏
+// 两者都作为外层 LazyColumn 的普通 item，一起随内容滚动
 @Composable
-private fun ProfileTabBar(
+fun ProfileTabBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
@@ -229,7 +223,7 @@ private fun ProfileTabBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(BackgroundDark)
-            .padding(top = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(28.dp)
     ) {
         tabs.forEachIndexed { index, title ->
