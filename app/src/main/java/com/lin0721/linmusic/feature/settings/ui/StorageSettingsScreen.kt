@@ -62,10 +62,11 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
     }
 
     val currentSizeStr = when (currentMaxSize) {
-        200 * 1024 * 1024L -> "200 MB"
         500 * 1024 * 1024L -> "500 MB"
         1024 * 1024 * 1024L -> "1 GB"
         2 * 1024 * 1024 * 1024L -> "2 GB"
+        5 * 1024 * 1024 * 1024L -> "5 GB"
+        Long.MAX_VALUE -> "无限制"
         else -> "${currentMaxSize / (1024 * 1024)} MB"
     }
 
@@ -235,10 +236,11 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                     )
 
                     val options = listOf(
-                        200 * 1024 * 1024L to "200 MB",
                         500 * 1024 * 1024L to "500 MB",
                         1024 * 1024 * 1024L to "1 GB",
-                        2 * 1024 * 1024 * 1024L to "2 GB"
+                        2 * 1024 * 1024 * 1024L to "2 GB",
+                        5 * 1024 * 1024 * 1024L to "5 GB",
+                        Long.MAX_VALUE to "无限制"
                     )
                     options.forEach { (size, label) ->
                         val isSelected = currentMaxSize == size

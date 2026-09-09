@@ -58,7 +58,7 @@ class SettingsViewModel(
 
     val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(true)
 
-    val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(512 * 1024 * 1024L)
+    val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(500 * 1024 * 1024L)
 
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 
