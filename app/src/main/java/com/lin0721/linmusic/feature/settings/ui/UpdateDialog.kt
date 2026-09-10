@@ -44,7 +44,7 @@ fun UpdateDialog(
     val isDownloading = state is UpdateUiState.Downloading
 
     AlertDialog(
-        onDismissRequest = { if (!isDownloading) onDismiss() },
+        onDismissRequest = onDismiss,
         title = {
             val channelSuffix = if (info.isPrerelease) "（测试版）" else ""
             Text("发现新版本 ${info.versionName}$channelSuffix", color = Color.White, fontWeight = FontWeight.Bold)
@@ -85,10 +85,10 @@ fun UpdateDialog(
         },
         confirmButton = {
             MelodiaTextButton(
-                enabled = !isDownloading,
                 onClick = {
                     when (state) {
                         is UpdateUiState.ReadyToInstall -> onInstall()
+                        is UpdateUiState.Downloading -> onDismiss()
                         else -> onStartDownload()
                     }
                 }
@@ -96,7 +96,7 @@ fun UpdateDialog(
                 val label = when (state) {
                     is UpdateUiState.ReadyToInstall -> "安装"
                     is UpdateUiState.DownloadFailed -> "重试"
-                    is UpdateUiState.Downloading -> "下载中..."
+                    is UpdateUiState.Downloading -> "后台下载"
                     else -> "立即更新"
                 }
                 Text(label, color = NeteaseRed, fontWeight = FontWeight.Bold)
@@ -104,12 +104,14 @@ fun UpdateDialog(
         },
         dismissButton = {
             Row {
-                MelodiaTextButton(enabled = !isDownloading, onClick = onIgnore) {
-                    Text("忽略此版本", color = TextGray)
+                if (!isDownloading) {
+                    MelodiaTextButton(onClick = onIgnore) {
+                        Text("忽略此版本", color = TextGray)
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                MelodiaTextButton(enabled = !isDownloading, onClick = onDismiss) {
-                    Text("稍后", color = Color.White)
+                MelodiaTextButton(onClick = onDismiss) {
+                    Text(if (isDownloading) "收起" else "稍后", color = Color.White)
                 }
             }
         },

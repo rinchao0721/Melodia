@@ -55,5 +55,15 @@ val updateModule = module {
     single { UpdateRepository(get()) }
     single { ApkDownloader(context = get(), downloadClient = get(named(GITHUB_CLIENT))) }
     single { ApkInstaller(context = get()) }
-    single { UpdateManager(context = get(), updateRepository = get(), apkDownloader = get(), apkInstaller = get(), settingsPreferences = get()) }
+    single { com.lin0721.linmusic.core.update.data.UpdateNotificationHelper(context = get()) }
+    single {
+        UpdateManager(
+            context = get(),
+            updateRepository = get(),
+            apkDownloader = get(),
+            apkInstaller = get(),
+            settingsPreferences = get(),
+            notificationHelper = get()
+        )
+    }
 }

@@ -281,7 +281,8 @@ fun MelodiaApp() {
         // 5. 全局更新弹窗，任意页面均可弹出
         val updateManager: UpdateManager = koinInject()
         val updateState by updateManager.uiState.collectAsStateWithLifecycle()
-        if (updateState !is UpdateUiState.Idle) {
+        val isDialogVisible by updateManager.isDialogVisible.collectAsStateWithLifecycle()
+        if (isDialogVisible && updateState !is UpdateUiState.Idle) {
             UpdateDialog(
                 state = updateState,
                 onDismiss = { updateManager.dismiss() },
