@@ -114,7 +114,7 @@ class UpdateManager(
                     is DownloadState.Failed -> {
                         _uiState.value = UpdateUiState.DownloadFailed(info, state.message)
                         notificationHelper.showDownloadFailed(state.message)
-                        ToastManager.showToast("新版本下载失败，请稍后重试")
+                        ToastManager.showToast("下载失败，请稍后重试")
                     }
                 }
             }

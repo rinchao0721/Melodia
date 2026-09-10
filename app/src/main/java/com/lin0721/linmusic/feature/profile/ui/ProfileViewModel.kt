@@ -115,7 +115,7 @@ class ProfileViewModel(
         val state = _uiState.value as? ProfileUiState.Success ?: return
         if (state.playlistsLoaded) return
         playlistOffset = 0
-        // 首次拉取也要标 loading，否则数据还没回来时 playlists 为空会被误判成"暂无歌单"闪一下空态
+        // 首次拉取也要标 loading
         _uiState.value = state.copy(playlistsLoadingMore = true)
         viewModelScope.launch {
             profileRepository.getUserPlaylists(uid, offset = 0, limit = PLAYLIST_PAGE_SIZE)
