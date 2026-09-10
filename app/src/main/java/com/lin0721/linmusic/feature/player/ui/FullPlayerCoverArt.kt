@@ -10,8 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -19,10 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
-import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -38,6 +34,11 @@ fun FullPlayerCoverArt(
     onClose: () -> Unit,
     onPaletteExtracted: (PlayerBackdropPalette) -> Unit,
     onMoreClick: () -> Unit = {},
+    previousCoverUrl: String? = null,
+    nextCoverUrl: String? = null,
+    onSwipeToPrevious: () -> Unit = {},
+    onSwipeToNext: () -> Unit = {},
+    currentKey: Any,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -52,13 +53,13 @@ fun FullPlayerCoverArt(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg)
             .padding(top = MelodiaSpacing.md, bottom = MelodiaSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = MelodiaSpacing.lg)
                 .padding(bottom = 36.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -123,21 +124,18 @@ fun FullPlayerCoverArt(
             }
         }
 
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(coverUrl.ifEmpty { null })
-                .allowHardware(false)
-                .crossfade(true)
-                .build(),
-            contentDescription = title,
+        SwipeToSkipCover(
+            coverUrl = coverUrl,
+            previousCoverUrl = previousCoverUrl,
+            nextCoverUrl = nextCoverUrl,
+            onConfirmPrevious = onSwipeToPrevious,
+            onConfirmNext = onSwipeToNext,
+            currentKey = currentKey,
+            contentPadding = MelodiaSpacing.lg,
             contentScale = ContentScale.Crop,
-            loading = { CoverPlaceholder() },
-            error = { CoverPlaceholder() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .shadow(elevation = 24.dp, shape = RoundedCornerShape(RadiusCompact), clip = false)
-                .clip(RoundedCornerShape(RadiusCompact))
+            shape = RoundedCornerShape(RadiusCompact),
+            elevation = 24.dp,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

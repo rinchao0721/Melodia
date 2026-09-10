@@ -16,9 +16,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private const val TAG = "PlayerManager"
@@ -82,6 +85,15 @@ class PlayerManager(
     val currentIndex: StateFlow<Int> = playbackQueue.currentIndex
     val playMode: StateFlow<PlayMode> = playbackQueue.playMode
     val queue: StateFlow<List<QueueItem>> = playbackQueue.items
+
+    // 滑动切歌手势预览用：队列头尾按循环取相邻曲目，不足两首时为 null
+    val previousQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
+        if (items.size > 1 && index in items.indices) items[(index - 1 + items.size) % items.size] else null
+    }.stateIn(scope, SharingStarted.Eagerly, null)
+
+    val nextQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
+        if (items.size > 1 && index in items.indices) items[(index + 1) % items.size] else null
+    }.stateIn(scope, SharingStarted.Eagerly, null)
 
     private var activePlayJob: Job? = null
     private var moveSaveJob: Job? = null
@@ -215,6 +227,13 @@ class PlayerManager(
             seekTo(0)
             return
         }
+        consecutiveErrors = 0
+        fetchUrlAndPlay(playbackQueue.previousIndex())
+    }
+
+    // 滑动切歌专用
+    fun skipToPrevious() {
+        if (playbackQueue.isEmpty) return
         consecutiveErrors = 0
         fetchUrlAndPlay(playbackQueue.previousIndex())
     }
