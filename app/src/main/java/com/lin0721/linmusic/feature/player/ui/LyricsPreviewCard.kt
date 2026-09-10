@@ -36,6 +36,7 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.lighten
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.lyricLineKey
 
 // 卡片尺寸比全屏背景小得多，模糊半径按比例调小，避免整块糊成一片看不出光斑层次
 private val LYRICS_CARD_BLUR_RADIUS = 32.dp
@@ -242,7 +243,7 @@ fun LyricsPreview(
         userScrollEnabled   = false,
         contentPadding = PaddingValues(top = 0.dp, bottom = with(density) { (cardHeightPx / 2).toDp() })
     ) {
-        itemsIndexed(items = lyrics, key = { _, line -> line.timeMs }) { index, line ->
+        itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
             val isCurrent = index == currentIndex
             val distance  = kotlin.math.abs(index - currentIndex).coerceAtMost(4)
 

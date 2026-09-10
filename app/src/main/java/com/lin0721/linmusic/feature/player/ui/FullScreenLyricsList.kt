@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.lyricLineKey
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -149,7 +150,7 @@ fun ColumnScope.FullScreenLyricsList(
                 ),
                 horizontalAlignment = Alignment.Start
             ) {
-                itemsIndexed(items = lyrics, key = { _, line -> line.timeMs }) { index, line ->
+                itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
                     val isCurrent = index == currentIndex
                     val isCenterTarget = index == centerLineIndex && isUserScrolling
                     val distance = kotlin.math.abs(index - currentIndex).coerceAtMost(5)
