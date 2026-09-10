@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.search.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.model.Track
@@ -9,6 +10,11 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
+import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
+import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import com.lin0721.linmusic.feature.search.data.SearchRepository
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
@@ -32,11 +38,21 @@ class SearchViewModel(
     private val historyPreferences: SearchHistoryPreferences,
     val playerManager: PlayerManager,
     userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songCollectDelegate: SongCollectDelegate,
+    private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
+    private val songLikeRepository: SongLikeRepository,
+    private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // 搜索结果里的歌曲行同样需要红心外显与收藏弹层，跟 Artist/Playlist 共用同一套委托
+    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
+    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+
+    val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
     val history: StateFlow<List<String>> = historyPreferences.history
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -67,6 +83,68 @@ class SearchViewModel(
 
     init {
         loadDiscoveryData()
+        loadLikedSongIds()
+    }
+
+    fun loadLikedSongIds() {
+        viewModelScope.launch {
+            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it }
+        }
+    }
+
+    // 加入下一首播放
+    fun addTrackToPlayNext(track: Track) {
+        val queueItem = QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
+        playerManager.addToPlayNext(listOf(queueItem))
+        viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
+    }
+
+    fun prepareCollectDialog(songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.prepare(songId, _likedSongIds.value) { _toastEvent.emit(it) }
+        }
+    }
+
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+        viewModelScope.launch {
+            songCollectDelegate.save(
+                songId = songId,
+                items = items,
+                likedSongIds = _likedSongIds.value,
+                onToast = { _toastEvent.emit(it) },
+                onLikedChanged = { _likedSongIds.value = it }
+            )
+        }
+    }
+
+    fun createPlaylistAndAddSong(name: String, songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+        }
+    }
+
+    // 歌曲"喜欢"开关，供「更多操作」菜单调用（与红心图标的收藏弹层入口独立）
+    fun toggleLikeSong(songId: Long, like: Boolean) {
+        viewModelScope.launch {
+            songLikeRepository.likeSong(songId, like).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit(if (like) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
+                    val currentLiked = _likedSongIds.value.toMutableSet()
+                    if (like) currentLiked.add(songId) else currentLiked.remove(songId)
+                    _likedSongIds.value = currentLiked
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun handleLoginSuccess(cookies: String) {
+        viewModelScope.launch {
+            if (syncProfileAfterLoginUseCase(cookies) == null) return@launch
+            _toastEvent.emit("登录成功，正在同步数据...")
+            loadLikedSongIds()
+        }
     }
 
     private fun loadDiscoveryData() {

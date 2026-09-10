@@ -8,6 +8,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -27,6 +29,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,7 +60,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
+import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.EmptyState
@@ -74,6 +83,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
@@ -114,10 +125,17 @@ fun SearchScreen(
     val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
+    val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
     // 每个 Tab 各自持有滚动位置，切换 Tab 时不丢失浏览进度
     val resultListStates = remember { SearchType.entries.associateWith { LazyListState() } }
+
+    var optionsTrack by remember { mutableStateOf<Track?>(null) }
+    var collectSongId by remember { mutableStateOf<Long?>(null) }
+    var showLoginSheet by remember { mutableStateOf(false) }
+    var showWebViewLogin by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { ToastManager.showToast(it) }
@@ -309,12 +327,21 @@ fun SearchScreen(
                                 listState = resultListStates.getValue(type),
                                 currentTrackId = currentTrack?.mediaId,
                                 isPlaying = isPlaying,
+                                likedSongIds = likedSongIds,
+                                isLoggedIn = userProfile != null,
                                 onSongClick = { viewModel.playSong(it) },
                                 onAlbumClick = { id -> onPlaylistClick(id, true) },
                                 onArtistClick = onArtistClick,
                                 onPlaylistClick = { id -> onPlaylistClick(id, false) },
                                 onLoadMore = { viewModel.loadMore() },
-                                onRetry = { viewModel.retrySearch() }
+                                onRetry = { viewModel.retrySearch() },
+                                onLikeClick = { songId ->
+                                    collectSongId = songId
+                                    viewModel.prepareCollectDialog(songId)
+                                },
+                                onOpenMoreOptions = { track ->
+                                    if (userProfile == null) showLoginSheet = true else optionsTrack = track
+                                }
                             )
                         }
                     }
@@ -341,6 +368,62 @@ fun SearchScreen(
                     onClick = { viewModel.searchWithKeyword(it) }
                 )
             }
+        }
+
+        optionsTrack?.let { track ->
+            PlaylistSongOptionsSheet(
+                track = track,
+                isLiked = track.id in likedSongIds,
+                isLoggedIn = userProfile != null,
+                onDismiss = { optionsTrack = null },
+                onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
+                onToggleLike = { songId, like -> viewModel.toggleLikeSong(songId, like) },
+                onCollectClick = { songId ->
+                    collectSongId = songId
+                    viewModel.prepareCollectDialog(songId)
+                },
+                onArtistClick = onArtistClick,
+                onAlbumClick = { id -> onPlaylistClick(id, true) },
+                onRequireLogin = { showLoginSheet = true }
+            )
+        }
+
+        collectSongId?.let { songId ->
+            PlaylistCollectSheet(
+                songId = songId,
+                collectState = collectState,
+                onDismiss = { collectSongId = null },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
+            )
+        }
+
+        if (showLoginSheet) {
+            LoginBottomSheet(
+                onDismiss = { showLoginSheet = false },
+                onWebLogin = {
+                    showLoginSheet = false
+                    showWebViewLogin = true
+                },
+                onLoginSuccess = { cookies ->
+                    showLoginSheet = false
+                    viewModel.handleLoginSuccess(cookies)
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showWebViewLogin,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            WebViewLoginScreen(
+                onClose = { showWebViewLogin = false },
+                onLoginSuccess = { cookies ->
+                    showWebViewLogin = false
+                    viewModel.handleLoginSuccess(cookies)
+                }
+            )
         }
     }
 }
@@ -431,12 +514,16 @@ private fun SearchResultsList(
     listState: LazyListState,
     currentTrackId: String?,
     isPlaying: Boolean,
+    likedSongIds: Set<Long>,
+    isLoggedIn: Boolean,
     onSongClick: (Track) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onLoadMore: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onLikeClick: (Long) -> Unit,
+    onOpenMoreOptions: (Track) -> Unit
 ) {
     when (state) {
         SearchResultsUiState.Idle, SearchResultsUiState.Loading -> {
@@ -492,17 +579,37 @@ private fun SearchResultsList(
                                     title = track.name,
                                     artist = track.ar.joinToString(" / ") { it.name },
                                     coverUrl = track.al.picUrl,
-                                    durationText = if (track.dt > 0) {
-                                        val minutes = track.dt / 1000 / 60
-                                        val seconds = track.dt / 1000 % 60
-                                        "${minutes}:%02d".format(seconds)
-                                    } else {
-                                        null
-                                    }
+                                    isVip = track.fee == 1
                                 ),
                                 isActive = isActive,
                                 isPlaying = isPlaying,
-                                onClick = { onSongClick(track) }
+                                onClick = { onSongClick(track) },
+                                trailingSlot = {
+                                    if (isLoggedIn && track.id in likedSongIds) {
+                                        MelodiaIconButton(
+                                            onClick = { onLikeClick(track.id) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Favorite,
+                                                contentDescription = "已收藏歌曲",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    MelodiaIconButton(
+                                        onClick = { onOpenMoreOptions(track) },
+                                        modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = "更多操作",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             )
                         }
                         is SearchResultItem.AlbumItem -> EntityRow(
