@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -46,12 +48,6 @@ fun PlaybackControls(
     isIntelligence: Boolean = false,
     onDisableIntelligence: () -> Unit = {}
 ) {
-    val bounceScale = remember { Animatable(1f) }
-    LaunchedEffect(isPlaying) {
-        bounceScale.snapTo(0.85f)
-        bounceScale.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = 400f))
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -92,17 +88,37 @@ fun PlaybackControls(
                 Icon(Icons.Rounded.SkipPrevious, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
             }
             val playInteraction = remember { MutableInteractionSource() }
+            val isPressed by playInteraction.collectIsPressedAsState()
+            val buttonAlpha = remember { Animatable(1f) }
+            var clickTrigger by remember { mutableIntStateOf(0) }
+
+            LaunchedEffect(isPressed) {
+                if (isPressed) {
+                    buttonAlpha.animateTo(0.70f, tween(durationMillis = 80))
+                } else if (clickTrigger == 0) {
+                    buttonAlpha.animateTo(1f, tween(durationMillis = 200, easing = FastOutSlowInEasing))
+                }
+            }
+
+            LaunchedEffect(clickTrigger) {
+                if (clickTrigger > 0) {
+                    buttonAlpha.snapTo(0.70f)
+                    buttonAlpha.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing))
+                }
+            }
+
             FloatingActionButton(
-                onClick = onTogglePlay,
+                onClick = {
+                    clickTrigger++
+                    onTogglePlay()
+                },
                 containerColor = Color.White,
                 shape = CircleShape,
                 interactionSource = playInteraction,
                 modifier = Modifier
-                    .pressScale(MelodiaPress.Transport, playInteraction)
                     .size(72.dp)
                     .graphicsLayer {
-                        scaleX = bounceScale.value
-                        scaleY = bounceScale.value
+                        alpha = buttonAlpha.value
                     }
             ) {
                 Icon(

@@ -1,7 +1,13 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,12 +63,6 @@ fun FullScreenControls(
     val progress = if (duration > 0) {
         if (isSeeking) seekPosition else currentPosition.toFloat() / duration
     } else 0f
-
-    val bounceScale = remember { androidx.compose.animation.core.Animatable(1f) }
-    LaunchedEffect(isPlaying) {
-        bounceScale.snapTo(0.85f)
-        bounceScale.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = 400f))
-    }
 
     Column(
         modifier = modifier
@@ -164,15 +164,42 @@ fun FullScreenControls(
                     )
                 }
 
+                val playInteraction = remember { MutableInteractionSource() }
+                val isPressed by playInteraction.collectIsPressedAsState()
+                val buttonAlpha = remember { Animatable(1f) }
+                var clickTrigger by remember { mutableIntStateOf(0) }
+
+                LaunchedEffect(isPressed) {
+                    if (isPressed) {
+                        buttonAlpha.animateTo(0.70f, tween(durationMillis = 80))
+                    } else if (clickTrigger == 0) {
+                        buttonAlpha.animateTo(1f, tween(durationMillis = 200, easing = FastOutSlowInEasing))
+                    }
+                }
+
+                LaunchedEffect(clickTrigger) {
+                    if (clickTrigger > 0) {
+                        buttonAlpha.snapTo(0.70f)
+                        buttonAlpha.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing))
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .size(72.dp)
-                        .pressable(MelodiaPress.Transport) { onTogglePlay() }
                         .graphicsLayer {
-                            scaleX = bounceScale.value
-                            scaleY = bounceScale.value
+                            alpha = buttonAlpha.value
                         }
-                        .background(Color.White, CircleShape),
+                        .background(Color.White, CircleShape)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = playInteraction,
+                            indication = null,
+                            onClick = {
+                                clickTrigger++
+                                onTogglePlay()
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
