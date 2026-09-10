@@ -37,7 +37,7 @@ class UpdateRepository(private val api: GithubReleaseApi) {
     }
 
     companion object {
-        private const val GITHUB_OWNER = "segfault-yu"
+        private const val GITHUB_OWNER = "rinchao0721"
         private const val GITHUB_REPO = "Melodia"
     }
 }

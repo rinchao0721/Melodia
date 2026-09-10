@@ -90,6 +90,10 @@ class UpdateManager(
 
     // 点击更新后关闭弹窗转入后台静默下载，并通过通知栏实时同步下载进度
     fun startDownload() {
+        if (_uiState.value is UpdateUiState.Downloading) {
+            _isDialogVisible.value = false
+            return
+        }
         val info = currentInfoOrNull() ?: return
         _isDialogVisible.value = false
         ToastManager.showToast("正在后台下载新版本...")
