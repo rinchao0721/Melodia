@@ -172,7 +172,7 @@ fun FullPlayerScreen(
         dragReleaseJob?.cancel()
         dragReleaseJob = coroutineScope.launch {
             val shouldClose = if (isGestureStartedAtTop) {
-                offsetY > screenHeightPx * 0.20f || velocity > 1000f
+                offsetY > screenHeightPx * 0.10f || velocity > 450f
             } else {
                 offsetY > screenHeightPx * 0.20f
             }

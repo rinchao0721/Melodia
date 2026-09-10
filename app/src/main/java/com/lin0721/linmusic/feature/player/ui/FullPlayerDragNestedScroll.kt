@@ -31,7 +31,7 @@ fun rememberFullPlayerNestedScrollConnection(
                 if (source == NestedScrollSource.UserInput) {
                     if (!isScrollGestureActive) {
                         isScrollGestureActive = true
-                        isGestureStartedAtTop = listState.firstVisibleItemIndex == 0
+                        isGestureStartedAtTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
                     }
                 }
 
@@ -54,7 +54,7 @@ fun rememberFullPlayerNestedScrollConnection(
                 if (source == NestedScrollSource.UserInput) {
                     if (!isScrollGestureActive) {
                         isScrollGestureActive = true
-                        isGestureStartedAtTop = listState.firstVisibleItemIndex == 0
+                        isGestureStartedAtTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
                     }
                 }
 

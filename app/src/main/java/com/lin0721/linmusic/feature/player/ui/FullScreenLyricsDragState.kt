@@ -22,7 +22,9 @@ import kotlinx.coroutines.launch
 class FullScreenLyricsDragState(
     private val scope: CoroutineScope,
     private val lazyListState: LazyListState,
-    private val onClose: () -> Unit
+    private val onClose: () -> Unit,
+    private val onDragClose: () -> Unit = onClose,
+    initialScreenHeightPx: Float = 0f
 ) {
 
     var offsetY by mutableFloatStateOf(0f)
@@ -31,13 +33,27 @@ class FullScreenLyricsDragState(
     var viewportHeightPx by mutableFloatStateOf(0f)
         private set
 
+    var screenHeightPx by mutableFloatStateOf(initialScreenHeightPx)
+        private set
+
     // 一次手势是否起始于列表顶部，决定跟手阻尼与是否响应甩动关闭
     private var isGestureStartedAtTop = true
     private var isScrollGestureActive = false
     private var dragReleaseJob: Job? = null
 
+    fun reset() {
+        dragReleaseJob?.cancel()
+        offsetY = 0f
+        isScrollGestureActive = false
+        isGestureStartedAtTop = true
+    }
+
     fun onViewportHeightChange(heightPx: Float) {
         viewportHeightPx = heightPx
+    }
+
+    fun onScreenHeightChange(heightPx: Float) {
+        screenHeightPx = heightPx
     }
 
     // 顶栏拖动整页跟手，不设阻尼
@@ -53,16 +69,17 @@ class FullScreenLyricsDragState(
     fun handleDragRelease(velocity: Float = 0f) {
         dragReleaseJob?.cancel()
         dragReleaseJob = scope.launch {
+            val totalHeight = if (screenHeightPx > 0f) screenHeightPx else 2400f
             val shouldClose = if (isGestureStartedAtTop) {
-                offsetY > viewportHeightPx * 0.20f || velocity > 1000f
+                offsetY > totalHeight * 0.10f || velocity > 450f
             } else {
-                offsetY > viewportHeightPx * 0.20f
+                offsetY > totalHeight * 0.20f
             }
 
             if (offsetY > 0f && shouldClose) {
                 animate(
                     initialValue = offsetY,
-                    targetValue = viewportHeightPx,
+                    targetValue = totalHeight,
                     initialVelocity = velocity,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
@@ -71,7 +88,7 @@ class FullScreenLyricsDragState(
                 ) { value, _ ->
                     offsetY = value
                 }
-                onClose()
+                onDragClose()
             } else {
                 animate(
                     initialValue = offsetY,
@@ -94,7 +111,7 @@ class FullScreenLyricsDragState(
     private fun markGestureStart(source: NestedScrollSource) {
         if (source == NestedScrollSource.UserInput && !isScrollGestureActive) {
             isScrollGestureActive = true
-            isGestureStartedAtTop = lazyListState.firstVisibleItemIndex == 0
+            isGestureStartedAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
         }
     }
 
@@ -159,8 +176,22 @@ class FullScreenLyricsDragState(
 @Composable
 fun rememberFullScreenLyricsDragState(
     lazyListState: LazyListState,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onDragClose: () -> Unit = onClose,
+    screenHeightPx: Float = 0f
 ): FullScreenLyricsDragState {
     val scope = rememberCoroutineScope()
-    return remember { FullScreenLyricsDragState(scope, lazyListState, onClose) }
+    val state = remember {
+        FullScreenLyricsDragState(
+            scope = scope,
+            lazyListState = lazyListState,
+            onClose = onClose,
+            onDragClose = onDragClose,
+            initialScreenHeightPx = screenHeightPx
+        )
+    }
+    if (screenHeightPx > 0f && state.screenHeightPx != screenHeightPx) {
+        state.onScreenHeightChange(screenHeightPx)
+    }
+    return state
 }

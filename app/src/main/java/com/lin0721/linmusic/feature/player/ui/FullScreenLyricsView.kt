@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -23,11 +24,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlayMode
@@ -54,6 +58,7 @@ fun FullScreenLyricsView(
     onSeek: (Long) -> Unit,
     hazeState: HazeState,
     onClose: () -> Unit,
+    onDragClose: () -> Unit = onClose,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -68,9 +73,29 @@ fun FullScreenLyricsView(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var timerJob by remember { mutableStateOf<Job?>(null) }
-    var viewportHeightPx by remember { mutableFloatStateOf(0f) }
 
-    val dragState = rememberFullScreenLyricsDragState(lazyListState = lazyListState, onClose = onClose)
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenHeightPx = remember(configuration.screenHeightDp, density) {
+        with(density) { configuration.screenHeightDp.dp.toPx() }
+    }
+
+    val dragState = rememberFullScreenLyricsDragState(
+        lazyListState = lazyListState,
+        onClose = onClose,
+        onDragClose = onDragClose,
+        screenHeightPx = screenHeightPx
+    )
+
+    LaunchedEffect(Unit) {
+        dragState.reset()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            dragState.reset()
+        }
+    }
 
     // 歌词页手势拖动的纯 UI 交互态，不涉及业务数据，只在本组件内部使用
     var isUserScrolling by remember { mutableStateOf(false) }
@@ -124,6 +149,7 @@ fun FullScreenLyricsView(
         mode = BackdropMode.Immersive,
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { dragState.onScreenHeightChange(it.height.toFloat()) }
             .nestedScroll(dragState.nestedScrollConnection)
             .graphicsLayer {
                 translationY = dragState.offsetY

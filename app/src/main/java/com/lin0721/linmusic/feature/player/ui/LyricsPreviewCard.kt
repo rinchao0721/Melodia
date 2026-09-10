@@ -125,6 +125,7 @@ fun LyricsCard(
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
             .height(cardHeight)
             .clip(RoundedCornerShape(InfoCardRadius))
+            .clickable(onClick = onOpenFullScreen)
     ) {
         Box(
             modifier = Modifier

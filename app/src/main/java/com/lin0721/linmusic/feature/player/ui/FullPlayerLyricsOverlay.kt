@@ -1,12 +1,18 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
@@ -35,6 +41,14 @@ fun FullPlayerLyricsOverlay(
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit
 ) {
+    var isDragClosed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            isDragClosed = false
+        }
+    }
+
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(
@@ -44,13 +58,17 @@ fun FullPlayerLyricsOverlay(
                 stiffness = Spring.StiffnessMediumLow
             )
         ),
-        exit = slideOutVertically(
-            targetOffsetY = { it },
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMediumLow
+        exit = if (isDragClosed) {
+            ExitTransition.None
+        } else {
+            slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
             )
-        ),
+        },
         modifier = Modifier.fillMaxSize()
     ) {
         FullScreenLyricsView(
@@ -64,6 +82,10 @@ fun FullPlayerLyricsOverlay(
             onSeek = onSeek,
             hazeState = hazeState,
             onClose = onClose,
+            onDragClose = {
+                isDragClosed = true
+                onClose()
+            },
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
             duration = duration,
