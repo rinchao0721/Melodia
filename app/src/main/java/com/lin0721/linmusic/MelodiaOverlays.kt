@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
@@ -54,6 +55,9 @@ fun MelodiaBottomOverlay(
     onMiniPlayerClick: () -> Unit,
     onMiniPlayerDrag: (Float) -> Unit,
     onMiniPlayerDragEnd: (Float) -> Unit,
+    previousQueueItem: QueueItem? = null,
+    nextQueueItem: QueueItem? = null,
+    onMiniPlayerPrevious: () -> Unit = {},
     onCreateDismiss: () -> Unit,
     onNavigate: (Screen) -> Unit,
     onCreateClick: () -> Unit,
@@ -118,6 +122,9 @@ fun MelodiaBottomOverlay(
                     onClick = onMiniPlayerClick,
                     onDrag = onMiniPlayerDrag,
                     onDragEnd = onMiniPlayerDragEnd,
+                    previousQueueItem = previousQueueItem,
+                    nextQueueItem = nextQueueItem,
+                    onPrevious = onMiniPlayerPrevious,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = MelodiaSpacing.sm)

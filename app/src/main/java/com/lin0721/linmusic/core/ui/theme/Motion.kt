@@ -2,6 +2,9 @@ package com.lin0721.linmusic.core.ui.theme
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
 
@@ -25,6 +28,12 @@ const val ContentSwitchDurationMs = 300
 
 // 全屏页滑入滑出（如网页登录页覆盖/退出）
 const val ScreenSlideDurationMs = 320
+
+// 封面左右滑动切歌：确认切换滑出/未达阈值回弹共用同一档弹簧手感，与全屏播放器展开收起一致
+val SwipeCoverSpringSpec: SpringSpec<Float> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow
+)
 
 // scale 为按下时的缩放比；highlightAlpha 为垫在内容之下的纯黑层透明度（1f 即底色完全熄灭），
 // 该层只在长按超过系统阈值后才出现，轻点不触发

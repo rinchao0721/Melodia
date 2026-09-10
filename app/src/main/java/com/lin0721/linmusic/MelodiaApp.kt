@@ -53,6 +53,8 @@ fun MelodiaApp() {
     val settingsPreferences: SettingsPreferences = koinInject()
     val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
     val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
+    val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
+    val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
     val currentPositionState = viewModel.playerManager.currentPosition.collectAsStateWithLifecycle()
     val currentPositionProvider = { currentPositionState.value }
@@ -225,6 +227,9 @@ fun MelodiaApp() {
                         onMiniPlayerClick = { playerSheet.animateTo(true, 0f) },
                         onMiniPlayerDrag = { delta -> playerSheet.onDrag(delta) },
                         onMiniPlayerDragEnd = { velocity -> playerSheet.onDragEnd(velocity) },
+                        previousQueueItem = previousQueueItem,
+                        nextQueueItem = nextQueueItem,
+                        onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
                         onCreateDismiss = { showCreateSheet = false },
                         onNavigate = { navigation.openTab(it) },
                         onCreateClick = { showCreateSheet = !showCreateSheet },

@@ -10,6 +10,10 @@ fun LazyListScope.fullPlayerPlaybackSection(
     songState: PlayerSongDetailState,
     colors: PlayerBackdropPalette,
     coverUrl: String,
+    previousCoverUrl: String?,
+    nextCoverUrl: String?,
+    onSwipeToPrevious: () -> Unit,
+    currentKey: Any,
     title: String,
     artist: String,
     playContext: String?,
@@ -43,7 +47,12 @@ fun LazyListScope.fullPlayerPlaybackSection(
             playContext = playContext,
             onClose = onClose,
             onPaletteExtracted = onPaletteExtracted,
-            onMoreClick = onMoreClick
+            onMoreClick = onMoreClick,
+            previousCoverUrl = previousCoverUrl,
+            nextCoverUrl = nextCoverUrl,
+            onSwipeToPrevious = onSwipeToPrevious,
+            onSwipeToNext = onPlayNext,
+            currentKey = currentKey
         )
     }
 

@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.ui.components
 
+import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
@@ -18,15 +19,19 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -40,7 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.media3.common.MediaItem
 import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.lin0721.linmusic.Screen
+import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -50,7 +57,6 @@ import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalContext
-import coil.request.ImageRequest
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -65,6 +71,7 @@ import com.lin0721.linmusic.feature.player.ui.deviceIcon
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.drawSingleHueMesh
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
+import kotlinx.coroutines.delay
 
 // 光斑位置固定不做动画，跟大卡片/全屏背景那种游走效果区分开，
 // 避免小尺寸下持续重绘、观感也容易显得杂
@@ -84,20 +91,16 @@ fun MiniPlayerCard(
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     onDrag: ((Float) -> Unit)? = null,
-    onDragEnd: ((Float) -> Unit)? = null
+    onDragEnd: ((Float) -> Unit)? = null,
+    previousQueueItem: QueueItem? = null,
+    nextQueueItem: QueueItem? = null,
+    onPrevious: () -> Unit = {}
 ) {
     if (currentTrack == null) return
 
     val context = LocalContext.current
     val cleanCoverUrl = remember(currentTrack.mediaMetadata.artworkUri) {
         currentTrack.mediaMetadata.artworkUri?.toString() ?: ""
-    }
-    val artworkRequest = remember(cleanCoverUrl) {
-        ImageRequest.Builder(context)
-            .data(cleanCoverUrl.ifEmpty { null })
-            .allowHardware(false)
-            .crossfade(true)
-            .build()
     }
 
     // 缓存并提取背景色，优先从缓存中获取，无缓存则默认为深灰色
@@ -126,6 +129,29 @@ fun MiniPlayerCard(
     val lightBlob = remember(animatedBase) { animatedBase.lighten(0.05f) }
     val darkBlob = remember(animatedBase) { animatedBase.darken(0.15f) }
 
+    // 左右滑动切歌的手势识别区域是整条悬浮栏
+    // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
+    val swipeState = rememberSwipeToSkipCoverState()
+    var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
+    var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }
+    if (!swipeState.isTransitioning) {
+        displayedPreviousQueueItem = previousQueueItem
+        displayedNextQueueItem = nextQueueItem
+    }
+    val canSwipeToPrevious = displayedPreviousQueueItem != null
+    val canSwipeToNext = displayedNextQueueItem != null
+    // currentTrack 真正切换后再把位移归零、解除冻结
+    swipeState.syncCurrentKey(currentTrack.mediaId)
+
+    // 图标显示做一层去抖：暂停状态维持不到 400ms 就又变回播放的话，不体现在图标上
+    var displayedIsPlaying by remember { mutableStateOf(isPlaying) }
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) {
+            delay(400)
+        }
+        displayedIsPlaying = isPlaying
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -139,6 +165,15 @@ fun MiniPlayerCard(
                 onDragStopped = { velocity ->
                     onDragEnd?.invoke(velocity)
                 }
+            )
+            .then(
+                rememberSwipeToSkipDragModifier(
+                    state = swipeState,
+                    canSwipeToPrevious = canSwipeToPrevious,
+                    canSwipeToNext = canSwipeToNext,
+                    onConfirmPrevious = onPrevious,
+                    onConfirmNext = onNext
+                )
             )
             .clickable(onClick = onClick)
     ) {
@@ -166,82 +201,26 @@ fun MiniPlayerCard(
                     .fillMaxWidth()
                     .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
             ) {
-                // 专辑封面
-                SubcomposeAsyncImage(
-                    model = artworkRequest,
-                    contentDescription = null,
-                    loading = { CoverPlaceholder() },
-                    error = { CoverPlaceholder() },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(RadiusCompact)),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                // 歌名歌手信息；连接非扬声器设备时第二行由歌手名切换成设备名，扬声器播放时不显示第二行
+                // 封面+歌名歌手整体跟手平移，播放/下一首按钮不参与滑动
                 val connectedDevice = rememberCurrentOutputDevice()
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val title = currentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
-                    val artist = currentTrack.mediaMetadata.artist?.toString().orEmpty()
-                    val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
-                    Text(
-                        text = titleLine,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = TextStyle(
-                            platformStyle = PlatformTextStyle(includeFontPadding = false),
-                            lineHeight = 16.sp
-                        ),
-                        modifier = Modifier.basicMarquee()
-                    )
-                    if (connectedDevice != null) {
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = deviceIcon(connectedDevice.type),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = deviceLabel(connectedDevice),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = TextStyle(
-                                    platformStyle = PlatformTextStyle(includeFontPadding = false),
-                                    lineHeight = 13.sp
-                                )
-                            )
-                        }
-                    } else if (artist.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Text(
-                            text = artist,
-                            color = TextGray,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false),
-                                lineHeight = 14.sp
-                            )
-                        )
-                    }
-                }
+                MiniPlayerSlidingContent(
+                    state = swipeState,
+                    currentKey = currentTrack.mediaId,
+                    currentTitle = currentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
+                    currentArtist = currentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                    currentCoverUrl = cleanCoverUrl,
+                    previousQueueItem = displayedPreviousQueueItem,
+                    nextQueueItem = displayedNextQueueItem,
+                    connectedDevice = connectedDevice,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                )
 
                 // 播放/暂停按钮
                 MelodiaIconButton(onClick = onTogglePlay) {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        imageVector = if (displayedIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "播放/暂停",
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
@@ -263,6 +242,179 @@ fun MiniPlayerCard(
                 currentPositionProvider = currentPositionProvider,
                 duration = duration
             )
+        }
+    }
+}
+
+// 单层的展示数据 + 位置：按 key驱动 Compose 复用，见 MiniPlayerSlidingContent 顶部注释
+private class MiniPlayerSlideLayer(
+    val key: Any,
+    val title: String,
+    val artist: String,
+    val coverUrl: String,
+    val connectedDevice: AudioDeviceInfo?,
+    val translationXProvider: () -> Float
+)
+
+// 封面+歌名歌手整体的跟手平移容器：当前/上一首/下一首三层叠放，靠 state.offsetX 联动。
+@Composable
+private fun MiniPlayerSlidingContent(
+    state: SwipeToSkipCoverState,
+    currentKey: Any,
+    currentTitle: String,
+    currentArtist: String,
+    currentCoverUrl: String,
+    previousQueueItem: QueueItem?,
+    nextQueueItem: QueueItem?,
+    connectedDevice: AudioDeviceInfo?,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clipToBounds()
+            .onSizeChanged { state.containerWidthPx = it.width.toFloat() }
+    ) {
+        val layers = buildList {
+            previousQueueItem?.let { item ->
+                add(
+                    MiniPlayerSlideLayer(
+                        // QueueItem.songId 是 Long，currentKey（mediaId）是 String，
+                        // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
+                        key = item.songId.toString(),
+                        title = item.title,
+                        artist = item.artist,
+                        coverUrl = item.coverUrl,
+                        connectedDevice = null,
+                        translationXProvider = { state.offsetX - state.containerWidthPx }
+                    )
+                )
+            }
+            add(
+                MiniPlayerSlideLayer(
+                    key = currentKey,
+                    title = currentTitle,
+                    artist = currentArtist,
+                    coverUrl = currentCoverUrl,
+                    connectedDevice = connectedDevice,
+                    translationXProvider = { state.offsetX }
+                )
+            )
+            nextQueueItem?.let { item ->
+                add(
+                    MiniPlayerSlideLayer(
+                        // 队列只有两首歌时上一首/下一首指向同一首曲目，key 会撞上前面那层，加个后缀区分开；
+                        // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
+                        key = if (item.songId == previousQueueItem?.songId) "${item.songId}-next" else item.songId.toString(),
+                        title = item.title,
+                        artist = item.artist,
+                        coverUrl = item.coverUrl,
+                        connectedDevice = null,
+                        translationXProvider = { state.offsetX + state.containerWidthPx }
+                    )
+                )
+            }
+        }
+        layers.forEach { layer ->
+            key(layer.key) {
+                MiniPlayerContentRow(
+                    title = layer.title,
+                    artist = layer.artist,
+                    coverUrl = layer.coverUrl,
+                    connectedDevice = layer.connectedDevice,
+                    translationXProvider = layer.translationXProvider
+                )
+            }
+        }
+    }
+}
+
+// 单层：封面 + 歌名/歌手
+@Composable
+private fun MiniPlayerContentRow(
+    title: String,
+    artist: String,
+    coverUrl: String,
+    connectedDevice: AudioDeviceInfo?,
+    translationXProvider: () -> Float
+) {
+    val context = LocalContext.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { translationX = translationXProvider() }
+    ) {
+        SubcomposeAsyncImage(
+            // 三层内容在切歌确认前后都是从预览态直接切换过来的，图片基本已经在 Coil 内存缓存里；
+            model = remember(coverUrl) {
+                ImageRequest.Builder(context)
+                    .data(coverUrl.ifEmpty { null })
+                    .allowHardware(false)
+                    .build()
+            },
+            contentDescription = null,
+            loading = { CoverPlaceholder() },
+            error = { CoverPlaceholder() },
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(RadiusCompact)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
+            Text(
+                text = titleLine,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                    lineHeight = 16.sp
+                ),
+                modifier = Modifier.basicMarquee()
+            )
+            if (connectedDevice != null) {
+                Spacer(modifier = Modifier.height(1.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = deviceIcon(connectedDevice.type),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = deviceLabel(connectedDevice),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeight = 13.sp
+                        )
+                    )
+                }
+            } else if (artist.isNotBlank()) {
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = artist,
+                    color = TextGray,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeight = 14.sp
+                    )
+                )
+            }
         }
     }
 }

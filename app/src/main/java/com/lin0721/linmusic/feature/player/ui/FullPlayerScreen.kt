@@ -65,6 +65,8 @@ fun FullPlayerScreen(
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
     val currentQueueIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
+    val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
+    val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
@@ -127,6 +129,9 @@ fun FullPlayerScreen(
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
     val coverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
         ?.replace("?param=300y300", "") ?: ""
+    // 上一首/下一首预览封面去掉缩略图参数
+    val previousCoverUrl = previousQueueItem?.coverUrl?.replace("?param=300y300", "")
+    val nextCoverUrl = nextQueueItem?.coverUrl?.replace("?param=300y300", "")
 
     fun shareCurrentSong() {
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
@@ -234,6 +239,10 @@ fun FullPlayerScreen(
                 songState = songDetailState,
                 colors = colors,
                 coverUrl = coverUrl,
+                previousCoverUrl = previousCoverUrl,
+                nextCoverUrl = nextCoverUrl,
+                onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
+                currentKey = currentTrack.mediaId,
                 title = title,
                 artist = artist,
                 playContext = playContext,
