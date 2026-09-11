@@ -52,7 +52,7 @@ class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
                     initialVelocity = velocity,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
+                        stiffness = Spring.StiffnessLow
                     )
                 ) { value, _ -> offsetY = value.coerceIn(0f, screenHeightPx) }
             }
@@ -67,7 +67,7 @@ class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
                     initialVelocity = velocity,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
+                        stiffness = Spring.StiffnessLow
                     )
                 ) { value, _ -> offsetY = value.coerceIn(0f, screenHeightPx) }
                 offsetY = screenHeightPx

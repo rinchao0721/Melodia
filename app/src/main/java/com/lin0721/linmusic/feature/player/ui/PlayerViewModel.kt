@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -49,11 +50,14 @@ data class PlayerSongDetailState(
     val lyrics: List<LyricLine> = emptyList(),
     val isLyricsLoading: Boolean = false,
     val songWiki: SongWikiData? = null,
+    val isSongWikiLoading: Boolean = false,
     val similarArtists: List<ArtistInfo> = emptyList(),
     val isSimilarArtistsLoading: Boolean = false,
     val artistDetail: ArtistDetailInfo? = null,
+    val isArtistDetailLoading: Boolean = false,
     val artistFansCount: Long? = null,
     val artistAlbums: List<ArtistAlbum> = emptyList(),
+    val isArtistAlbumsLoading: Boolean = false,
     val isLiked: Boolean = false,
     val isArtistFollowed: Boolean = false
 )
@@ -217,10 +221,14 @@ class PlayerViewModel(
                         currentSongId = songId
                         clearState()
                         _songDetailState.update { it.copy(isLiked = songId in likedSongIds) }
-                        loadLyrics(songId)
-                        loadSongDetail(songId)
-                        loadSongWiki(songId)
-                        loadComments(songId)
+                        // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
+                        // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
+                        coroutineScope {
+                            launch { loadLyrics(songId) }
+                            launch { loadSongDetail(songId) }
+                            launch { loadSongWiki(songId) }
+                            launch { loadComments(songId) }
+                        }
                     }
                 }
         }
@@ -242,31 +250,28 @@ class PlayerViewModel(
         }
     }
 
-    private fun loadLyrics(songId: Long) {
-        viewModelScope.launch {
-            _songDetailState.update { it.copy(isLyricsLoading = true) }
-            playbackRepository.getLyrics(songId).collect { result ->
-                result.onSuccess { lines ->
-                    if (currentSongId == songId) _songDetailState.update { it.copy(lyrics = lines) }
-                }.onFailure {
-                    if (currentSongId == songId) _songDetailState.update { it.copy(lyrics = emptyList()) }
-                }
+    private suspend fun loadLyrics(songId: Long) {
+        _songDetailState.update { it.copy(isLyricsLoading = true) }
+        playbackRepository.getLyrics(songId).collect { result ->
+            result.onSuccess { lines ->
+                _songDetailState.update { it.copy(lyrics = lines) }
+            }.onFailure {
+                _songDetailState.update { it.copy(lyrics = emptyList()) }
             }
-            _songDetailState.update { it.copy(isLyricsLoading = false) }
         }
+        _songDetailState.update { it.copy(isLyricsLoading = false) }
     }
 
-    private fun loadSongDetail(songId: Long) {
-        viewModelScope.launch {
-            playerRepository.getSongDetail(songId).collect { result ->
-                result.onSuccess { track ->
-                    if (currentSongId != songId) return@onSuccess
-                    _songDetailState.update { it.copy(songDetail = track) }
-                    val primaryArtistId = track.ar.firstOrNull()?.id
-                    if (primaryArtistId != null && primaryArtistId > 0) {
-                        loadSimilarArtists(primaryArtistId, songId)
-                        loadArtistDetail(primaryArtistId, songId)
-                        loadArtistAlbums(primaryArtistId, songId)
+    private suspend fun loadSongDetail(songId: Long) {
+        playerRepository.getSongDetail(songId).collect { result ->
+            result.onSuccess { track ->
+                _songDetailState.update { it.copy(songDetail = track) }
+                val primaryArtistId = track.ar.firstOrNull()?.id
+                if (primaryArtistId != null && primaryArtistId > 0) {
+                    coroutineScope {
+                        launch { loadSimilarArtists(primaryArtistId) }
+                        launch { loadArtistDetail(primaryArtistId) }
+                        launch { loadArtistAlbums(primaryArtistId) }
                     }
                 }
             }
@@ -274,87 +279,74 @@ class PlayerViewModel(
     }
 
     // 异步加载歌曲详情与音乐百科信息
-    private fun loadSongWiki(songId: Long) {
-        viewModelScope.launch {
-            playerRepository.getSongWiki(songId).collect { result ->
-                if (currentSongId == songId) {
-                    _songDetailState.update { it.copy(songWiki = result.getOrNull()) }
-                }
-            }
+    private suspend fun loadSongWiki(songId: Long) {
+        _songDetailState.update { it.copy(isSongWikiLoading = true) }
+        playerRepository.getSongWiki(songId).collect { result ->
+            _songDetailState.update { it.copy(songWiki = result.getOrNull()) }
         }
+        _songDetailState.update { it.copy(isSongWikiLoading = false) }
     }
 
-    private fun loadSimilarArtists(artistId: Long, forSongId: Long) {
-        viewModelScope.launch {
-            _songDetailState.update { it.copy(isSimilarArtistsLoading = true) }
-            artistRepository.getSimilarArtists(artistId).collect { result ->
-                if (currentSongId != forSongId) return@collect
-                result.onSuccess { artists ->
-                    _songDetailState.update { it.copy(similarArtists = artists) }
-                }.onFailure {
-                    _songDetailState.update { it.copy(similarArtists = emptyList()) }
-                }
+    private suspend fun loadSimilarArtists(artistId: Long) {
+        _songDetailState.update { it.copy(isSimilarArtistsLoading = true) }
+        artistRepository.getSimilarArtists(artistId).collect { result ->
+            result.onSuccess { artists ->
+                _songDetailState.update { it.copy(similarArtists = artists) }
+            }.onFailure {
+                _songDetailState.update { it.copy(similarArtists = emptyList()) }
             }
-            _songDetailState.update { it.copy(isSimilarArtistsLoading = false) }
         }
+        _songDetailState.update { it.copy(isSimilarArtistsLoading = false) }
     }
 
-    private fun loadArtistDetail(artistId: Long, forSongId: Long) {
-        viewModelScope.launch {
-            // 异步加载歌手粉丝数量作为每月听众数
-            loadArtistFansCount(artistId, forSongId)
-            // 异步加载当前用户是否关注了该歌手
-            loadArtistFollowState(artistId, forSongId)
-            artistRepository.getArtistDetail(artistId).collect { result ->
-                if (currentSongId != forSongId) return@collect
-                result.onSuccess { detail ->
-                    _songDetailState.update { it.copy(artistDetail = detail) }
-                }.onFailure {
-                    _songDetailState.update { it.copy(artistDetail = null) }
-                }
+    private suspend fun loadArtistDetail(artistId: Long) = coroutineScope {
+        // 异步加载歌手粉丝数量作为每月听众数
+        launch { loadArtistFansCount(artistId) }
+        // 异步加载当前用户是否关注了该歌手
+        launch { loadArtistFollowState(artistId) }
+        _songDetailState.update { it.copy(isArtistDetailLoading = true) }
+        artistRepository.getArtistDetail(artistId).collect { result ->
+            result.onSuccess { detail ->
+                _songDetailState.update { it.copy(artistDetail = detail) }
+            }.onFailure {
+                _songDetailState.update { it.copy(artistDetail = null) }
             }
         }
+        _songDetailState.update { it.copy(isArtistDetailLoading = false) }
     }
 
     // 异步加载歌手关注状态
-    private fun loadArtistFollowState(artistId: Long, forSongId: Long) {
-        viewModelScope.launch {
-            artistRepository.checkArtistFollowed(artistId).collect { result ->
-                if (currentSongId != forSongId) return@collect
-                result.onSuccess { followed ->
-                    _songDetailState.update { it.copy(isArtistFollowed = followed) }
-                }.onFailure {
-                    _songDetailState.update { it.copy(isArtistFollowed = false) }
-                }
+    private suspend fun loadArtistFollowState(artistId: Long) {
+        artistRepository.checkArtistFollowed(artistId).collect { result ->
+            result.onSuccess { followed ->
+                _songDetailState.update { it.copy(isArtistFollowed = followed) }
+            }.onFailure {
+                _songDetailState.update { it.copy(isArtistFollowed = false) }
             }
         }
     }
 
     // 异步获取歌手粉丝数
-    private fun loadArtistFansCount(artistId: Long, forSongId: Long) {
-        viewModelScope.launch {
-            artistRepository.getArtistFansCount(artistId).collect { result ->
-                if (currentSongId != forSongId) return@collect
-                result.onSuccess { count ->
-                    _songDetailState.update { it.copy(artistFansCount = count) }
-                }.onFailure {
-                    _songDetailState.update { it.copy(artistFansCount = null) }
-                }
+    private suspend fun loadArtistFansCount(artistId: Long) {
+        artistRepository.getArtistFansCount(artistId).collect { result ->
+            result.onSuccess { count ->
+                _songDetailState.update { it.copy(artistFansCount = count) }
+            }.onFailure {
+                _songDetailState.update { it.copy(artistFansCount = null) }
             }
         }
     }
 
-    private fun loadArtistAlbums(artistId: Long, forSongId: Long) {
-        viewModelScope.launch {
-            artistRepository.getArtistAlbums(artistId).collect { result ->
-                if (currentSongId != forSongId) return@collect
-                result.onSuccess { page ->
-                    _songDetailState.update { it.copy(artistAlbums = page.albums) }
-                }.onFailure {
-                    _songDetailState.update { it.copy(artistAlbums = emptyList()) }
-                }
+    private suspend fun loadArtistAlbums(artistId: Long) {
+        _songDetailState.update { it.copy(isArtistAlbumsLoading = true) }
+        artistRepository.getArtistAlbums(artistId).collect { result ->
+            result.onSuccess { page ->
+                _songDetailState.update { it.copy(artistAlbums = page.albums) }
+            }.onFailure {
+                _songDetailState.update { it.copy(artistAlbums = emptyList()) }
             }
         }
+        _songDetailState.update { it.copy(isArtistAlbumsLoading = false) }
     }
 
     private fun findLyricIndex(lines: List<LyricLine>, positionMs: Long): Int {
@@ -373,20 +365,17 @@ class PlayerViewModel(
         return result
     }
 
-    private fun loadComments(songId: Long) {
-        viewModelScope.launch {
-            _commentsState.value = CommentsState.Loading
-            commentRepository.getComments(songId, limit = 20).collect { result ->
-                if (currentSongId != songId) return@collect
-                result.onSuccess { response ->
-                    _commentsState.value = CommentsState.Success(
-                        hotComments = response.hotComments,
-                        comments = response.comments,
-                        total = response.total
-                    )
-                }.onFailure { error ->
-                    _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
-                }
+    private suspend fun loadComments(songId: Long) {
+        _commentsState.value = CommentsState.Loading
+        commentRepository.getComments(songId, limit = 20).collect { result ->
+            result.onSuccess { response ->
+                _commentsState.value = CommentsState.Success(
+                    hotComments = response.hotComments,
+                    comments = response.comments,
+                    total = response.total
+                )
+            }.onFailure { error ->
+                _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
             }
         }
     }
@@ -394,7 +383,7 @@ class PlayerViewModel(
     fun retryComments() {
         val songId = currentSongId
         if (songId != -1L) {
-            loadComments(songId)
+            viewModelScope.launch { loadComments(songId) }
         }
     }
 

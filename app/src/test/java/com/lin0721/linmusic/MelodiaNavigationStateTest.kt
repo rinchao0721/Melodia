@@ -128,22 +128,19 @@ class MelodiaNavigationStateTest {
     }
 
     @Test
-    fun `从播放器跳转会冻结根页面直到退出覆盖层`() = inSnapshot {
+    fun `从播放器跳转后退回起点会提示重新打开播放器`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.openArtist(1L)
         assertFalse(nav.isNavigatingFromPlayer)
-        assertEquals(Screen.Artist(1L), nav.rootScreen)
 
         nav.navigateFromPlayer { nav.openArtist(2L) }
         assertTrue(nav.isNavigatingFromPlayer)
-        // 覆盖层跳到了歌手2，但根页面必须仍然冻结在歌手1，不能被顶替
         assertEquals(Screen.Artist(2L), nav.currentScreen)
-        assertEquals(Screen.Artist(1L), nav.rootScreen)
 
-        nav.navigateBack()
+        val shouldReopenPlayer = nav.navigateBack()
+        assertTrue(shouldReopenPlayer)
         assertFalse(nav.isNavigatingFromPlayer)
         assertEquals(Screen.Artist(1L), nav.currentScreen)
-        assertEquals(Screen.Artist(1L), nav.rootScreen)
     }
 
     @Test

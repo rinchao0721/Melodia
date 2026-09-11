@@ -1,11 +1,6 @@
 package com.lin0721.linmusic
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -84,19 +79,26 @@ fun MelodiaApp() {
 
     val toastMessage = rememberGlobalToastMessage()
 
+    fun handleBack() {
+        val shouldReopenPlayer = navigation.navigateBack()
+        if (shouldReopenPlayer) {
+            playerSheet.animateTo(true, 0f)
+        }
+    }
+
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级
     val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
-            navigation.isNavigatingFromPlayer && navigation.canNavigateBack -> navigation.navigateBack()
+            navigation.isNavigatingFromPlayer -> handleBack()
             playerSheet.isOpen -> {
                 navigation.resetPlayerNavigation()
                 playerSheet.animateTo(false, 0f)
             }
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
-            navigation.canNavigateBack -> navigation.navigateBack()
+            navigation.canNavigateBack -> handleBack()
         }
     }
 
@@ -179,7 +181,7 @@ fun MelodiaApp() {
                         .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
                 ) {
                     MelodiaNavHost(
-                        currentScreen = navigation.rootScreen,
+                        currentScreen = navigation.currentScreen,
                         homeViewModel = viewModel,
                         homeTab = navigation.homeTab,
                         showMusicNewWorks = navigation.showMusicNewWorks,
@@ -197,7 +199,7 @@ fun MelodiaApp() {
                         onHomeTabSelected = { navigation.selectHomeTab(it) },
                         onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                         onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
-                        onBack = { navigation.navigateBack() }
+                        onBack = { handleBack() }
                     )
 
                     // 创建菜单遮罩
@@ -276,72 +278,22 @@ fun MelodiaApp() {
                 navigation.navigateFromPlayer {
                     navigation.openArtist(artistId)
                 }
+                playerSheet.animateTo(false, 0f)
             },
             onAlbumClick = { albumId ->
                 navigation.navigateFromPlayer {
                     navigation.openPlaylist(albumId, isAlbum = true)
                 }
+                playerSheet.animateTo(false, 0f)
             },
             onNavigateToProfile = { uid ->
                 navigation.navigateFromPlayer {
                     navigation.openProfile(uid)
                 }
+                playerSheet.animateTo(false, 0f)
             },
             modifier = Modifier.zIndex(1f)
         )
-
-        // 4. 从全屏播放器推入的二级页面顶层容器（直接盖在全屏播放器之上，从右侧平滑滑入滑出，彻底杜绝主界面闪烁）
-        // 注：navigation.currentScreen 与 rootScreen 各自携带独立的跳转参数，覆盖层导航不会影响下面冻结的根页面
-        AnimatedVisibility(
-            visible = navigation.isNavigatingFromPlayer,
-            enter = slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(300, easing = FastOutSlowInEasing)
-            ),
-            exit = slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(250, easing = FastOutSlowInEasing)
-            ),
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(2f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(BackgroundDark)
-                    // 兜底吞掉页面内容自己没消费的触摸事件，防止手势穿透到被完全遮住的全屏播放器
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                awaitPointerEvent(PointerEventPass.Final).changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-            ) {
-                MelodiaNavHost(
-                    currentScreen = navigation.currentScreen,
-                    homeViewModel = viewModel,
-                    homeTab = navigation.homeTab,
-                    showMusicNewWorks = navigation.showMusicNewWorks,
-                    searchAutoFocus = navigation.searchAutoFocus,
-                    onOpenSidebar = { sidebar.open() },
-                    onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
-                    onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
-                    onNavigateToArtist = { id -> navigation.openArtist(id) },
-                    onNavigateToRadio = { id -> navigation.openRadio(id) },
-                    onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
-                    onMvFullscreenChanged = { isMvFullscreen = it },
-                    onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
-                    onNavigateToProfile = { uid -> navigation.openProfile(uid) },
-                    onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
-                    onHomeTabSelected = { navigation.selectHomeTab(it) },
-                    onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
-                    onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
-                    onBack = { navigation.navigateBack() }
-                )
-            }
-        }
 
         // 5. 全局自定义 Toast 提示
         MelodiaToastHost(toastMessage = toastMessage)

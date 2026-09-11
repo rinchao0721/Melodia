@@ -43,21 +43,23 @@ fun LazyListScope.fullPlayerPlaybackSection(
     connectedDevice: AudioDeviceInfo? = null
 ) {
     item(key = "cover") {
-        FullPlayerCoverArt(
-            coverUrl = coverUrl,
-            title = title,
-            playContext = playContext,
-            onClose = onClose,
-            onPaletteExtracted = onPaletteExtracted,
-            onMoreClick = onMoreClick,
-            previousCoverUrl = previousCoverUrl,
-            nextCoverUrl = nextCoverUrl,
-            onSwipeToPrevious = onSwipeToPrevious,
-            onSwipeToNext = onPlayNext,
-            currentKey = currentKey,
-            previousKey = previousKey,
-            nextKey = nextKey
-        )
+        FullPlayerItemEnterAnimation {
+            FullPlayerCoverArt(
+                coverUrl = coverUrl,
+                title = title,
+                playContext = playContext,
+                onClose = onClose,
+                onPaletteExtracted = onPaletteExtracted,
+                onMoreClick = onMoreClick,
+                previousCoverUrl = previousCoverUrl,
+                nextCoverUrl = nextCoverUrl,
+                onSwipeToPrevious = onSwipeToPrevious,
+                onSwipeToNext = onPlayNext,
+                currentKey = currentKey,
+                previousKey = previousKey,
+                nextKey = nextKey
+            )
+        }
     }
 
     item(key = "song_info") {

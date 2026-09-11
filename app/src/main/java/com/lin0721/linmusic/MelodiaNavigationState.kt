@@ -64,14 +64,6 @@ class MelodiaNavigationState {
     val isNavigatingFromPlayer: Boolean
         get() = playerNavTargetStackDepth != -1 && backStack.size > playerNavTargetStackDepth
 
-    // 底层主页面内容宿主展示的屏幕：从播放器跳转二级页面时冻结在进入前的底层屏幕（连同它自带的参数一起冻结），
-    // 避免底层发生转场、重绘，或被后续导航顶替内容
-    val rootScreen: Screen
-        get() = if (isNavigatingFromPlayer && playerNavTargetStackDepth in 1..backStack.size) {
-            backStack[playerNavTargetStackDepth - 1]
-        } else {
-            currentScreen
-        }
 
     fun navigateFromPlayer(action: () -> Unit) {
         if (playerNavTargetStackDepth == -1) {
@@ -104,13 +96,16 @@ class MelodiaNavigationState {
         }
     }
 
-    fun navigateBack() {
+    fun navigateBack(): Boolean {
         if (backStack.size > 1) {
+            val willExitPlayerNav = isNavigatingFromPlayer && (backStack.size - 1) <= playerNavTargetStackDepth
             backStack.removeAt(backStack.lastIndex)
-            if (playerNavTargetStackDepth != -1 && backStack.size <= playerNavTargetStackDepth) {
+            if (willExitPlayerNav) {
                 playerNavTargetStackDepth = -1
             }
+            return willExitPlayerNav
         }
+        return false
     }
 
     fun openPlaylist(id: Long, isAlbum: Boolean) {
