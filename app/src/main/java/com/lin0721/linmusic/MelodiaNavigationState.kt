@@ -3,6 +3,7 @@ package com.lin0721.linmusic
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,53 +11,38 @@ import androidx.compose.runtime.setValue
 
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
-enum class Screen {
-    Home, Playlist, Search, Library, Settings, Artist, Radio, MvPlayer, PlaylistCategory,
+// 导航目标：每一帧自带跳转参数（而非存在导航状态里的单一全局变量），
+// 这样栈里任意两帧即使是同一种页面类型，也各自持有自己的参数，互不覆盖
+sealed class Screen {
+    data object Home : Screen()
+    data class Playlist(val id: Long, val isAlbum: Boolean) : Screen()
+    data object Search : Screen()
+    data object Library : Screen()
+    data object Settings : Screen()
+    data class Artist(val id: Long) : Screen()
+    data class Radio(val id: Long) : Screen()
+    data class MvPlayer(val id: Long, val name: String) : Screen()
+    data class PlaylistCategory(val category: String) : Screen()
     // 侧边栏二级页
-    RecentPlay, ListenData, Cloud, Message, Account,
+    data object RecentPlay : Screen()
+    data object ListenData : Screen()
+    data object Cloud : Screen()
+    data object Message : Screen()
+    data object Account : Screen()
     // 个人主页与关注/粉丝列表
-    Profile, FollowList
+    data class Profile(val uid: Long) : Screen()
+    data class FollowList(val uid: Long, val mode: FollowListMode) : Screen()
 }
 
-// 应用级导航状态：回退栈与各页面所需的跳转参数
+// 应用级导航状态：回退栈，每一帧自带跳转参数
 class MelodiaNavigationState {
 
-    private val backStack = mutableStateListOf(Screen.Home)
+    private val backStack = mutableStateListOf<Screen>(Screen.Home)
 
     val currentScreen: Screen by derivedStateOf { backStack.lastOrNull() ?: Screen.Home }
 
     // 栈深大于 1 时才有上一级可回退
     val canNavigateBack: Boolean get() = backStack.size > 1
-
-    var activePlaylistId by mutableStateOf<Long?>(null)
-        private set
-
-    var activePlaylistIsAlbum by mutableStateOf(false)
-        private set
-
-    var activeArtistId by mutableStateOf<Long?>(null)
-        private set
-
-    var activeRadioId by mutableStateOf<Long?>(null)
-        private set
-
-    var activeMvId by mutableStateOf<Long?>(null)
-        private set
-
-    var activeMvName by mutableStateOf("")
-        private set
-
-    var activePlaylistCategory by mutableStateOf<String?>(null)
-        private set
-
-    var activeProfileUid by mutableStateOf<Long?>(null)
-        private set
-
-    var activeFollowListUid by mutableStateOf<Long?>(null)
-        private set
-
-    var activeFollowListMode by mutableStateOf(FollowListMode.FOLLOWS)
-        private set
 
     // 主页三个 tab 的选中项。存在导航状态里而非 HomeScreen 内部——
     // 页面切走时 HomeScreen 会离开 composition，记在里面的话从电台详情页退回来会跳回「全部」
@@ -71,16 +57,45 @@ class MelodiaNavigationState {
     var searchAutoFocus by mutableStateOf(false)
         private set
 
+    // 记录从全屏播放器发起跳转时的栈深；当前栈深大于该深度时表示处于从播放器打开的二级页面中
+    var playerNavTargetStackDepth by mutableIntStateOf(-1)
+        private set
+
+    val isNavigatingFromPlayer: Boolean
+        get() = playerNavTargetStackDepth != -1 && backStack.size > playerNavTargetStackDepth
+
+    // 底层主页面内容宿主展示的屏幕：从播放器跳转二级页面时冻结在进入前的底层屏幕（连同它自带的参数一起冻结），
+    // 避免底层发生转场、重绘，或被后续导航顶替内容
+    val rootScreen: Screen
+        get() = if (isNavigatingFromPlayer && playerNavTargetStackDepth in 1..backStack.size) {
+            backStack[playerNavTargetStackDepth - 1]
+        } else {
+            currentScreen
+        }
+
+    fun navigateFromPlayer(action: () -> Unit) {
+        if (playerNavTargetStackDepth == -1) {
+            playerNavTargetStackDepth = backStack.size
+        }
+        action()
+    }
+
+    fun resetPlayerNavigation() {
+        playerNavTargetStackDepth = -1
+    }
+
     fun navigateTo(screen: Screen) {
         if (backStack.lastOrNull() == screen) return
         when (screen) {
             // 主页为栈底，跳转时清空历史
             Screen.Home -> {
+                playerNavTargetStackDepth = -1
                 backStack.clear()
                 backStack.add(Screen.Home)
             }
             // 底栏一级入口，始终保留主页作为回退目标
             Screen.Search, Screen.Library -> {
+                playerNavTargetStackDepth = -1
                 backStack.clear()
                 backStack.add(Screen.Home)
                 backStack.add(screen)
@@ -92,18 +107,18 @@ class MelodiaNavigationState {
     fun navigateBack() {
         if (backStack.size > 1) {
             backStack.removeAt(backStack.lastIndex)
+            if (playerNavTargetStackDepth != -1 && backStack.size <= playerNavTargetStackDepth) {
+                playerNavTargetStackDepth = -1
+            }
         }
     }
 
     fun openPlaylist(id: Long, isAlbum: Boolean) {
-        activePlaylistId = id
-        activePlaylistIsAlbum = isAlbum
-        navigateTo(Screen.Playlist)
+        navigateTo(Screen.Playlist(id, isAlbum))
     }
 
     fun openArtist(id: Long) {
-        activeArtistId = id
-        navigateTo(Screen.Artist)
+        navigateTo(Screen.Artist(id))
     }
 
     fun selectHomeTab(index: Int) {
@@ -117,19 +132,15 @@ class MelodiaNavigationState {
     }
 
     fun openRadio(id: Long) {
-        activeRadioId = id
-        navigateTo(Screen.Radio)
+        navigateTo(Screen.Radio(id))
     }
 
     fun openMvPlayer(id: Long, name: String) {
-        activeMvId = id
-        activeMvName = name
-        navigateTo(Screen.MvPlayer)
+        navigateTo(Screen.MvPlayer(id, name))
     }
 
     fun openPlaylistCategory(category: String) {
-        activePlaylistCategory = category
-        navigateTo(Screen.PlaylistCategory)
+        navigateTo(Screen.PlaylistCategory(category))
     }
 
     fun openRecentPlay() {
@@ -153,14 +164,11 @@ class MelodiaNavigationState {
     }
 
     fun openProfile(uid: Long) {
-        activeProfileUid = uid
-        navigateTo(Screen.Profile)
+        navigateTo(Screen.Profile(uid))
     }
 
     fun openFollowList(uid: Long, mode: FollowListMode) {
-        activeFollowListUid = uid
-        activeFollowListMode = mode
-        navigateTo(Screen.FollowList)
+        navigateTo(Screen.FollowList(uid, mode))
     }
 
     // 从主页搜索框进入时自动弹键盘，从底栏进入时展示发现内容

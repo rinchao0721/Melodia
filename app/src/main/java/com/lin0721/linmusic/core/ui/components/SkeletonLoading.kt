@@ -25,6 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,7 +35,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.SurfaceLight
 
@@ -60,7 +68,7 @@ fun Modifier.shimmerBackground(shape: Shape = RectangleShape): Modifier {
 }
 
 // 封面图未加载/加载失败时的静态占位：色块 + 居中音符图标，不做动画。
-// 配合 SubcomposeAsyncImage 的 loading/error 插槽使用，外层的 .clip() 决定最终形状
+// 配合 AntiFlickerCoverImage 叠层使用，外层的 .clip() 决定最终形状
 @Composable
 fun CoverPlaceholder(modifier: Modifier = Modifier) {
     Box(
@@ -75,6 +83,52 @@ fun CoverPlaceholder(modifier: Modifier = Modifier) {
             tint = Color.White.copy(alpha = 0.3f),
             modifier = Modifier.fillMaxSize(0.34f)
         )
+    }
+}
+
+// 无占位闪烁的封面异步加载：占位图常驻底层，图片直接叠在顶层覆盖，不走 loading/success 插槽整体切换，
+// 避免 SubcomposeAsyncImage 那种切片方式在命中内存缓存时仍会闪现一帧占位图。外层 modifier 负责尺寸/裁剪
+@Composable
+fun AntiFlickerCoverImage(
+    url: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val context = LocalContext.current
+    var isLoaded by remember(url) { mutableStateOf(false) }
+    var isError by remember(url) { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        if (url.isEmpty() || !isLoaded || isError) {
+            CoverPlaceholder()
+        }
+
+        if (url.isNotEmpty()) {
+            AsyncImage(
+                model = remember(url) {
+                    ImageRequest.Builder(context)
+                        .data(url)
+                        .allowHardware(false)
+                        .build()
+                },
+                contentDescription = null,
+                contentScale = contentScale,
+                onState = { state ->
+                    when (state) {
+                        is AsyncImagePainter.State.Success -> {
+                            isLoaded = true
+                            isError = false
+                        }
+                        is AsyncImagePainter.State.Error -> {
+                            isLoaded = false
+                            isError = true
+                        }
+                        else -> Unit
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
 

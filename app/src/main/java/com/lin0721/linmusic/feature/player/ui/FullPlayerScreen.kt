@@ -243,6 +243,8 @@ fun FullPlayerScreen(
                 nextCoverUrl = nextCoverUrl,
                 onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
                 currentKey = currentTrack.mediaId,
+                previousKey = previousQueueItem?.songId?.toString(),
+                nextKey = nextQueueItem?.songId?.toString(),
                 title = title,
                 artist = artist,
                 playContext = playContext,
@@ -260,7 +262,6 @@ fun FullPlayerScreen(
                 onToggleLike = viewModel::toggleLike,
                 onArtistClick = {
                     songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                        onClose()
                         onArtistClick(id)
                     }
                 },
@@ -287,7 +288,8 @@ fun FullPlayerScreen(
                 onCommentsClick = { showCommentsSheet = true },
                 onRetryComments = viewModel::retryComments,
                 onFollowArtistClick = { viewModel.toggleArtistFollow() },
-                onArtistClick = onArtistClick
+                onArtistClick = onArtistClick,
+                onAlbumClick = onAlbumClick
             )
         }
 
@@ -303,7 +305,6 @@ fun FullPlayerScreen(
             backgroundColor = colors.base,
             onArtistClick = {
                 songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                    onClose()
                     onArtistClick(id)
                 }
             },
@@ -380,7 +381,7 @@ fun FullPlayerScreen(
             onAlbumClick = {
                 val albumId = songDetail?.al?.id ?: 0L
                 if (albumId > 0L) {
-                    onClose()
+                    showMoreOptionsSheet = false
                     onAlbumClick(albumId)
                 } else {
                     ToastManager.showToast("未找到专辑信息")
@@ -389,7 +390,7 @@ fun FullPlayerScreen(
             onArtistClick = {
                 val artistId = songDetail?.ar?.firstOrNull()?.id ?: 0L
                 if (artistId > 0L) {
-                    onClose()
+                    showMoreOptionsSheet = false
                     onArtistClick(artistId)
                 } else {
                     ToastManager.showToast("未找到歌手信息")
@@ -438,7 +439,7 @@ fun FullPlayerScreen(
             onOutputDeviceSelected = { deviceId -> viewModel.playerManager.setPreferredAudioDevice(deviceId) },
             onOutputDeviceDismiss = { showOutputDeviceSheet = false },
             onNavigateToProfile = { uid ->
-                onClose()
+                showCommentsSheet = false
                 onNavigateToProfile(uid)
             }
         )

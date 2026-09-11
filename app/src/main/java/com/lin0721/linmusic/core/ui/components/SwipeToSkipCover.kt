@@ -26,11 +26,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -153,6 +150,8 @@ fun SwipeToSkipCover(
     // 等这个 key 真的变化（网络请求返回、currentTrack 更新）了再把位移归零
     currentKey: Any,
     modifier: Modifier = Modifier,
+    previousKey: Any? = null,
+    nextKey: Any? = null,
     contentPadding: Dp = 0.dp,
     contentScale: ContentScale = ContentScale.Crop,
     shape: Shape = RectangleShape,
@@ -168,9 +167,25 @@ fun SwipeToSkipCover(
     var isTransitioning by remember { mutableStateOf(false) }
     var displayedPreviousCoverUrl by remember { mutableStateOf(previousCoverUrl) }
     var displayedNextCoverUrl by remember { mutableStateOf(nextCoverUrl) }
+    var displayedPreviousKey by remember { mutableStateOf(previousKey) }
+    var displayedNextKey by remember { mutableStateOf(nextKey) }
     if (!isTransitioning) {
-        displayedPreviousCoverUrl = previousCoverUrl
-        displayedNextCoverUrl = nextCoverUrl
+        val currentKeyStr = currentKey.toString()
+        val prevKeyStr = previousKey?.toString()
+        val nextKeyStr = nextKey?.toString()
+        // 点击上一首/下一首切歌时外部队列索引先变，若与当前封面或Key重合则冻结预览，避免被提前顶掉
+        if ((previousCoverUrl != null && previousCoverUrl == coverUrl) ||
+            (nextCoverUrl != null && nextCoverUrl == coverUrl) ||
+            (prevKeyStr != null && prevKeyStr == currentKeyStr) ||
+            (nextKeyStr != null && nextKeyStr == currentKeyStr)
+        ) {
+            isTransitioning = true
+        } else {
+            displayedPreviousCoverUrl = previousCoverUrl
+            displayedNextCoverUrl = nextCoverUrl
+            displayedPreviousKey = previousKey
+            displayedNextKey = nextKey
+        }
     }
     val canSwipeToPrevious = displayedPreviousCoverUrl != null
     val canSwipeToNext = displayedNextCoverUrl != null
@@ -234,18 +249,36 @@ fun SwipeToSkipCover(
                 }
             )
     ) {
-        // 每层用封面 URL（而不是"上一首/当前/下一首"角色）做 key，并且三层必须在同一处
         val previewPreviousUrl = displayedPreviousCoverUrl
         val previewNextUrl = displayedNextCoverUrl
+        val previewPrevKey = displayedPreviousKey
+        val previewNxtKey = displayedNextKey
+        val currentKeyStr = currentKey.toString()
+
         val layers = buildList {
             if (previewPreviousUrl != null) {
-                add(SwipeCoverLayerSpec(previewPreviousUrl) { offsetX - containerWidthPx })
+                val prevKeyCalculated = when {
+                    previewPrevKey != null -> {
+                        val k = previewPrevKey.toString()
+                        if (k == currentKeyStr) "$k-prev" else k
+                    }
+                    previewPreviousUrl == coverUrl -> "$previewPreviousUrl-prev"
+                    else -> previewPreviousUrl
+                }
+                add(SwipeCoverLayerSpec(prevKeyCalculated, previewPreviousUrl) { offsetX - containerWidthPx })
             }
-            add(SwipeCoverLayerSpec(coverUrl) { offsetX })
+            add(SwipeCoverLayerSpec(currentKeyStr, coverUrl) { offsetX })
             if (previewNextUrl != null) {
-                // 队列只有两首歌时上一首/下一首指向同一首曲目，key 会撞上前一层，加个后缀区分开
-                val nextKey = if (previewNextUrl == previewPreviousUrl) "$previewNextUrl-next" else previewNextUrl
-                add(SwipeCoverLayerSpec(nextKey, previewNextUrl) { offsetX + containerWidthPx })
+                val nextKeyCalculated = when {
+                    previewNxtKey != null -> {
+                        val k = previewNxtKey.toString()
+                        val prevK = previewPrevKey?.toString()
+                        if (k == prevK || k == currentKeyStr) "$k-next" else k
+                    }
+                    previewNextUrl == previewPreviousUrl || previewNextUrl == coverUrl -> "$previewNextUrl-next"
+                    else -> previewNextUrl
+                }
+                add(SwipeCoverLayerSpec(nextKeyCalculated, previewNextUrl) { offsetX + containerWidthPx })
             }
         }
         layers.forEach { layer ->
@@ -280,20 +313,9 @@ private fun SwipeCoverLayer(
     contentPadding: Dp,
     translationXProvider: () -> Float
 ) {
-    val context = LocalContext.current
-    SubcomposeAsyncImage(
-        // 三张封面在切歌确认前后都是从预览态直接切换过来的，图片基本已经在 Coil 内存缓存里；
-        // 不开 crossfade 避免缓存命中时也走一遍淡入动画，看起来像空位图闪了一下
-        model = remember(url) {
-            ImageRequest.Builder(context)
-                .data(url.ifEmpty { null })
-                .allowHardware(false)
-                .build()
-        },
-        contentDescription = null,
+    AntiFlickerCoverImage(
+        url = url,
         contentScale = contentScale,
-        loading = { CoverPlaceholder() },
-        error = { CoverPlaceholder() },
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { translationX = translationXProvider() }

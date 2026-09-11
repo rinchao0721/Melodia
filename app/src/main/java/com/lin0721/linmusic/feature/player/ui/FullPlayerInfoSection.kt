@@ -16,7 +16,8 @@ fun LazyListScope.fullPlayerInfoSection(
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
     onFollowArtistClick: () -> Unit,
-    onArtistClick: (Long) -> Unit
+    onArtistClick: (Long) -> Unit,
+    onAlbumClick: (Long) -> Unit = {}
 ) {
     // 纯音乐没有可滚动歌词，不占位
     val lyrics = songState.lyrics
@@ -76,7 +77,8 @@ fun LazyListScope.fullPlayerInfoSection(
         ArtistAlbumsCard(
             albums = songState.artistAlbums,
             artistName = songState.artistDetail?.name,
-            cardColor = MaterialTheme.colorScheme.surface
+            cardColor = MaterialTheme.colorScheme.surface,
+            onAlbumClick = onAlbumClick
         )
     }
 }

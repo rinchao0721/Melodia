@@ -52,7 +52,7 @@ class MelodiaNavigationStateTest {
     fun `跳转到主页会清空历史`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.navigateTo(Screen.Settings)
-        nav.navigateTo(Screen.Artist)
+        nav.navigateTo(Screen.Artist(1L))
         nav.navigateTo(Screen.Home)
         assertEquals(Screen.Home, nav.currentScreen)
         assertFalse(nav.canNavigateBack)
@@ -62,7 +62,7 @@ class MelodiaNavigationStateTest {
     fun `底栏入口始终保留主页作为回退目标`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.navigateTo(Screen.Settings)
-        nav.navigateTo(Screen.Artist)
+        nav.navigateTo(Screen.Artist(1L))
         nav.navigateTo(Screen.Library)
 
         assertEquals(Screen.Library, nav.currentScreen)
@@ -84,17 +84,14 @@ class MelodiaNavigationStateTest {
     fun `打开歌单会记录ID与专辑标记并跳转`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.openPlaylist(id = 123L, isAlbum = true)
-        assertEquals(Screen.Playlist, nav.currentScreen)
-        assertEquals(123L, nav.activePlaylistId)
-        assertTrue(nav.activePlaylistIsAlbum)
+        assertEquals(Screen.Playlist(123L, true), nav.currentScreen)
     }
 
     @Test
     fun `打开歌手会记录ID并跳转`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.openArtist(456L)
-        assertEquals(Screen.Artist, nav.currentScreen)
-        assertEquals(456L, nav.activeArtistId)
+        assertEquals(Screen.Artist(456L), nav.currentScreen)
     }
 
     @Test
@@ -113,5 +110,49 @@ class MelodiaNavigationStateTest {
         nav.openTab(Screen.Search)
         assertEquals(Screen.Search, nav.currentScreen)
         assertFalse(nav.searchAutoFocus)
+    }
+
+    @Test
+    fun `非相邻的同类型页面各自保留自己的参数`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openPlaylist(id = 1L, isAlbum = false)
+        nav.openArtist(2L)
+        nav.openPlaylist(id = 3L, isAlbum = false)
+        assertEquals(Screen.Playlist(3L, false), nav.currentScreen)
+
+        nav.navigateBack()
+        assertEquals(Screen.Artist(2L), nav.currentScreen)
+
+        nav.navigateBack()
+        assertEquals(Screen.Playlist(1L, false), nav.currentScreen)
+    }
+
+    @Test
+    fun `从播放器跳转会冻结根页面直到退出覆盖层`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openArtist(1L)
+        assertFalse(nav.isNavigatingFromPlayer)
+        assertEquals(Screen.Artist(1L), nav.rootScreen)
+
+        nav.navigateFromPlayer { nav.openArtist(2L) }
+        assertTrue(nav.isNavigatingFromPlayer)
+        // 覆盖层跳到了歌手2，但根页面必须仍然冻结在歌手1，不能被顶替
+        assertEquals(Screen.Artist(2L), nav.currentScreen)
+        assertEquals(Screen.Artist(1L), nav.rootScreen)
+
+        nav.navigateBack()
+        assertFalse(nav.isNavigatingFromPlayer)
+        assertEquals(Screen.Artist(1L), nav.currentScreen)
+        assertEquals(Screen.Artist(1L), nav.rootScreen)
+    }
+
+    @Test
+    fun `关闭播放器会重置播放器跳转标记`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.navigateFromPlayer { nav.openArtist(1L) }
+        assertTrue(nav.isNavigatingFromPlayer)
+
+        nav.resetPlayerNavigation()
+        assertFalse(nav.isNavigatingFromPlayer)
     }
 }

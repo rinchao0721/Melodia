@@ -507,7 +507,8 @@ fun AboutArtistCard(
 fun ArtistAlbumsCard(
     albums: List<ArtistAlbum>,
     artistName: String?,
-    cardColor: Color
+    cardColor: Color,
+    onAlbumClick: (Long) -> Unit = {}
 ) {
     if (albums.isEmpty()) return
 
@@ -529,20 +530,26 @@ fun ArtistAlbumsCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            ImperativeLazyRow(albums = albums)
+            ImperativeLazyRow(albums = albums, onAlbumClick = onAlbumClick)
         }
     }
 }
 
 @Composable
-private fun ImperativeLazyRow(albums: List<ArtistAlbum>) {
+private fun ImperativeLazyRow(
+    albums: List<ArtistAlbum>,
+    onAlbumClick: (Long) -> Unit
+) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(albums, key = { it.id }) { album ->
             Column(
-                modifier = Modifier.width(120.dp)
+                modifier = Modifier
+                    .width(120.dp)
+                    .clip(RoundedCornerShape(RadiusCompact))
+                    .clickable { onAlbumClick(album.id) }
             ) {
                 SubcomposeAsyncImage(
                     model = "${album.picUrl}?param=250y250",

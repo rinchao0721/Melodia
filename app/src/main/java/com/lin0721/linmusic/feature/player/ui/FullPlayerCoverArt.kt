@@ -39,6 +39,8 @@ fun FullPlayerCoverArt(
     onSwipeToPrevious: () -> Unit = {},
     onSwipeToNext: () -> Unit = {},
     currentKey: Any,
+    previousKey: Any? = null,
+    nextKey: Any? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -131,6 +133,8 @@ fun FullPlayerCoverArt(
             onConfirmPrevious = onSwipeToPrevious,
             onConfirmNext = onSwipeToNext,
             currentKey = currentKey,
+            previousKey = previousKey,
+            nextKey = nextKey,
             contentPadding = MelodiaSpacing.lg,
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),

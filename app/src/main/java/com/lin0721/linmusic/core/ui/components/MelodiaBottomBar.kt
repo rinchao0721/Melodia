@@ -44,8 +44,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.media3.common.MediaItem
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -337,28 +335,18 @@ private fun MiniPlayerContentRow(
     connectedDevice: AudioDeviceInfo?,
     translationXProvider: () -> Float
 ) {
-    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { translationX = translationXProvider() }
     ) {
-        SubcomposeAsyncImage(
-            // 三层内容在切歌确认前后都是从预览态直接切换过来的，图片基本已经在 Coil 内存缓存里；
-            model = remember(coverUrl) {
-                ImageRequest.Builder(context)
-                    .data(coverUrl.ifEmpty { null })
-                    .allowHardware(false)
-                    .build()
-            },
-            contentDescription = null,
-            loading = { CoverPlaceholder() },
-            error = { CoverPlaceholder() },
+        AntiFlickerCoverImage(
+            url = coverUrl,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(RadiusCompact)),
-            contentScale = ContentScale.Crop
+                .clip(RoundedCornerShape(RadiusCompact))
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(

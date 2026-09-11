@@ -1,6 +1,11 @@
 package com.lin0721.linmusic
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -28,6 +33,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -79,11 +85,15 @@ fun MelodiaApp() {
     val toastMessage = rememberGlobalToastMessage()
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级
-    val isAnyOverlayOpen = playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
+    val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
-            playerSheet.isOpen -> playerSheet.animateTo(false, 0f)
+            navigation.isNavigatingFromPlayer && navigation.canNavigateBack -> navigation.navigateBack()
+            playerSheet.isOpen -> {
+                navigation.resetPlayerNavigation()
+                playerSheet.animateTo(false, 0f)
+            }
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
             navigation.canNavigateBack -> navigation.navigateBack()
@@ -169,18 +179,8 @@ fun MelodiaApp() {
                         .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
                 ) {
                     MelodiaNavHost(
-                        currentScreen = navigation.currentScreen,
+                        currentScreen = navigation.rootScreen,
                         homeViewModel = viewModel,
-                        activePlaylistId = navigation.activePlaylistId,
-                        activePlaylistIsAlbum = navigation.activePlaylistIsAlbum,
-                        activeArtistId = navigation.activeArtistId,
-                        activeRadioId = navigation.activeRadioId,
-                        activeMvId = navigation.activeMvId,
-                        activeMvName = navigation.activeMvName,
-                        activePlaylistCategory = navigation.activePlaylistCategory,
-                        activeProfileUid = navigation.activeProfileUid,
-                        activeFollowListUid = navigation.activeFollowListUid,
-                        activeFollowListMode = navigation.activeFollowListMode,
                         homeTab = navigation.homeTab,
                         showMusicNewWorks = navigation.showMusicNewWorks,
                         searchAutoFocus = navigation.searchAutoFocus,
@@ -264,26 +264,89 @@ fun MelodiaApp() {
             duration = duration,
             onTogglePlay = { viewModel.togglePlayPause() },
             onSeek = { viewModel.playerManager.seekTo(it) },
-            onClose = { playerSheet.animateTo(false, 0f) },
-            onDragClose = { offset, velocity -> playerSheet.animateTo(false, velocity, offset) },
-            onArtistClick = { artistId ->
+            onClose = {
+                navigation.resetPlayerNavigation()
                 playerSheet.animateTo(false, 0f)
-                navigation.openArtist(artistId)
+            },
+            onDragClose = { offset, velocity ->
+                navigation.resetPlayerNavigation()
+                playerSheet.animateTo(false, velocity, offset)
+            },
+            onArtistClick = { artistId ->
+                navigation.navigateFromPlayer {
+                    navigation.openArtist(artistId)
+                }
             },
             onAlbumClick = { albumId ->
-                playerSheet.animateTo(false, 0f)
-                navigation.openPlaylist(albumId, isAlbum = true)
+                navigation.navigateFromPlayer {
+                    navigation.openPlaylist(albumId, isAlbum = true)
+                }
             },
             onNavigateToProfile = { uid ->
-                playerSheet.animateTo(false, 0f)
-                navigation.openProfile(uid)
-            }
+                navigation.navigateFromPlayer {
+                    navigation.openProfile(uid)
+                }
+            },
+            modifier = Modifier.zIndex(1f)
         )
 
-        // 4. 全局自定义 Toast 提示
+        // 4. 从全屏播放器推入的二级页面顶层容器（直接盖在全屏播放器之上，从右侧平滑滑入滑出，彻底杜绝主界面闪烁）
+        // 注：navigation.currentScreen 与 rootScreen 各自携带独立的跳转参数，覆盖层导航不会影响下面冻结的根页面
+        AnimatedVisibility(
+            visible = navigation.isNavigatingFromPlayer,
+            enter = slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(250, easing = FastOutSlowInEasing)
+            ),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackgroundDark)
+                    // 兜底吞掉页面内容自己没消费的触摸事件，防止手势穿透到被完全遮住的全屏播放器
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent(PointerEventPass.Final).changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+            ) {
+                MelodiaNavHost(
+                    currentScreen = navigation.currentScreen,
+                    homeViewModel = viewModel,
+                    homeTab = navigation.homeTab,
+                    showMusicNewWorks = navigation.showMusicNewWorks,
+                    searchAutoFocus = navigation.searchAutoFocus,
+                    onOpenSidebar = { sidebar.open() },
+                    onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
+                    onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
+                    onNavigateToArtist = { id -> navigation.openArtist(id) },
+                    onNavigateToRadio = { id -> navigation.openRadio(id) },
+                    onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
+                    onMvFullscreenChanged = { isMvFullscreen = it },
+                    onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
+                    onNavigateToProfile = { uid -> navigation.openProfile(uid) },
+                    onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
+                    onHomeTabSelected = { navigation.selectHomeTab(it) },
+                    onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
+                    onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
+                    onBack = { navigation.navigateBack() }
+                )
+            }
+        }
+
+        // 5. 全局自定义 Toast 提示
         MelodiaToastHost(toastMessage = toastMessage)
 
-        // 5. 全局更新弹窗，任意页面均可弹出
+        // 6. 全局更新弹窗，任意页面均可弹出
         val updateManager: UpdateManager = koinInject()
         val updateState by updateManager.uiState.collectAsStateWithLifecycle()
         val isDialogVisible by updateManager.isDialogVisible.collectAsStateWithLifecycle()
