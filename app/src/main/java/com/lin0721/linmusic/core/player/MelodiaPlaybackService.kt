@@ -5,6 +5,8 @@ import android.content.Intent
 import android.media.AudioManager
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -92,6 +94,17 @@ class MelodiaPlaybackService : MediaSessionService() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(dynamicDataSourceFactory))
             .build()
         this.exoPlayer = localExoPlayer
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+
+        serviceScope.launch {
+            settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
+                localExoPlayer.setAudioAttributes(audioAttributes, !playWithOtherApps)
+            }
+        }
 
         val forwardingPlayer = object : ForwardingPlayer(localExoPlayer) {
             override fun seekToNext() {

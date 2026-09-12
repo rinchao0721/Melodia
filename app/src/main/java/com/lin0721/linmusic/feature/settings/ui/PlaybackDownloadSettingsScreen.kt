@@ -14,6 +14,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 @Composable
 fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
+    val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
 
     // 渲染播放与下载的子设置项
@@ -28,6 +29,13 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "当前曲目播放完毕后自动接入相似推荐",
                     checked = autoPlayNext,
                     onCheckedChange = { viewModel.updateAutoPlayNext(it) }
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                SettingsSwitchRow(
+                    title = "与其他应用同时播放",
+                    subtitle = "开启后不被其他应用打断播放",
+                    checked = playWithOtherApps,
+                    onCheckedChange = { viewModel.updatePlayWithOtherApps(it) }
                 )
             }
         }

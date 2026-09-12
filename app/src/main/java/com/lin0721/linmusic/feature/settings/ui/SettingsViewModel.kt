@@ -62,6 +62,8 @@ class SettingsViewModel(
 
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 
+    val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
+
     val wifiOnlyPlay = settingsPreferences.wifiOnlyPlay.asState(false)
 
     val mobileAlert = settingsPreferences.mobileAlert.asState(true)
@@ -187,6 +189,8 @@ class SettingsViewModel(
     }
 
     fun updateAutoPlayNext(enabled: Boolean) = launchSave { settingsPreferences.saveAutoPlayNext(enabled) }
+
+    fun updatePlayWithOtherApps(enabled: Boolean) = launchSave { settingsPreferences.savePlayWithOtherApps(enabled) }
 
     fun updateWifiOnlyPlay(enabled: Boolean) = launchSave { settingsPreferences.saveWifiOnlyPlay(enabled) }
 

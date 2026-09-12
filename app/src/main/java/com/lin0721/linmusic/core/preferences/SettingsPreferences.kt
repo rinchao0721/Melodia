@@ -36,6 +36,8 @@ class SettingsPreferences(private val context: Context) {
 
         // 自动播放推荐新歌，默认 true
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
+        // 与其他应用同时播放，默认 false
+        private val KEY_PLAY_WITH_OTHER_APPS = booleanPreferencesKey("play_with_other_apps")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -161,6 +163,17 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveAutoPlayNext(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_AUTO_PLAY_NEXT] = enabled
+        }
+    }
+
+    // 与其他应用同时播放 Flow
+    val playWithOtherApps: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_PLAY_WITH_OTHER_APPS] ?: false
+    }
+
+    suspend fun savePlayWithOtherApps(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_PLAY_WITH_OTHER_APPS] = enabled
         }
     }
 
