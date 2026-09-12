@@ -62,74 +62,11 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import java.util.Calendar
 import kotlinx.coroutines.delay
 
-// 按当前时段取问候语
-private fun getGreetingText(): String {
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    return when (hour) {
-        in 6..11 -> "早上好"
-        in 12..13 -> "中午好"
-        in 14..17 -> "下午好"
-        in 18..22 -> "晚上好"
-        else -> "夜深了"
-    }
-}
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.height
 
-// 顶部问候栏：未登录时整行可点击拉起登录
-@Composable
-fun TopGreetingBar(
-    userProfile: UserProfile?,
-    onLoginClick: () -> Unit,
-    onSearchClick: () -> Unit = {}
-) {
-    val greeting = remember { getGreetingText() }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (userProfile == null) Modifier.clickable { onLoginClick() } else Modifier)
-            .padding(start = 20.dp, end = 20.dp, top = MelodiaSpacing.lg, bottom = 0.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (userProfile != null) {
-            AsyncImage(
-                model = "${userProfile.avatarUrl}?param=200y200",
-                contentDescription = "用户头像",
-                modifier = Modifier
-                    .size(40.dp)
-                    .pressable(MelodiaPress.Icon) { onLoginClick() }
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            if (userProfile != null) {
-                Text(text = "$greeting，", fontSize = 12.sp, color = Color.LightGray)
-                Text(text = userProfile.nickname, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            } else {
-                Text(text = "未登录", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text(text = "点击登录", fontSize = 12.sp, color = Color.LightGray)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .pressable(MelodiaPress.Icon) { onSearchClick() }
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-            }
-        }
-    }
-}
-
-// 首页/音乐/播客三个 tab 共用的固定顶栏，脱离各自 LazyColumn 独立渲染一次
+// 首页/音乐/播客三个 tab 共用的单排固定吸顶栏（头像与胶囊同排）
 @Composable
 fun HomeSharedHeader(
     userProfile: UserProfile?,
@@ -137,26 +74,60 @@ fun HomeSharedHeader(
     onTabSelected: (Int) -> Unit,
     secondarySelected: Boolean,
     onSecondarySelected: () -> Unit,
-    onAvatarClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onAvatarClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(GradientStart, BackgroundDark)))
+            .zIndex(2f)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
-        TopGreetingBar(
-            userProfile = userProfile,
-            onLoginClick = onAvatarClick,
-            onSearchClick = onSearchClick
-        )
-        FilterPills(
-            selectedIndex = selectedTab,
-            onSelected = onTabSelected,
-            secondarySelected = secondarySelected,
-            onSecondarySelected = onSecondarySelected
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = MelodiaSpacing.sm, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.padding(start = 20.dp, end = 12.dp)) {
+                if (userProfile != null) {
+                    AsyncImage(
+                        model = "${userProfile.avatarUrl}?param=200y200",
+                        contentDescription = "用户头像",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .pressable(MelodiaPress.Icon) { onAvatarClick() }
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .clickable { onAvatarClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "未登录",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            FilterPills(
+                selectedIndex = selectedTab,
+                onSelected = onTabSelected,
+                secondarySelected = secondarySelected,
+                onSecondarySelected = onSecondarySelected,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(end = 20.dp)
+            )
+        }
     }
 }
 
@@ -198,7 +169,9 @@ fun FilterPills(
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     secondarySelected: Boolean,
-    onSecondarySelected: () -> Unit
+    onSecondarySelected: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp)
 ) {
     val labels = remember { listOf("全部", "音乐", "播客") }
     val secondaryTarget = selectedIndex == SecondaryPillTriggerIndex
@@ -220,8 +193,8 @@ fun FilterPills(
     }
 
     LazyRow(
-        modifier = Modifier.padding(top = MelodiaSpacing.sm),
-        contentPadding = PaddingValues(horizontal = 20.dp),
+        modifier = modifier,
+        contentPadding = contentPadding,
         verticalAlignment = Alignment.CenterVertically
     ) {
         labels.forEachIndexed { index, label ->
@@ -296,10 +269,11 @@ private fun FilterPillChip(
     val contentColor = if (animateColors) animatedContent else targetContent
     Box(
         modifier = modifier
+            .height(36.dp)
             .pressable(pressStyle, onClick = onClick)
             .clip(shape)
             .background(backgroundColor)
-            .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+            .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(text = text, color = contentColor, fontSize = 14.sp)

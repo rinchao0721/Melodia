@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -40,10 +41,11 @@ fun FilterChipsRow(
             val isSelected = index == selectedIndex
             Box(
                 modifier = Modifier
+                    .height(36.dp)
                     .pressable(MelodiaPress.Pill) { onSelected(index) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f))
-                    .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

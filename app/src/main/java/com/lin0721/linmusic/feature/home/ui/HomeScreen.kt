@@ -118,8 +118,7 @@ fun HomeScreen(
                 onTabSelected = onTabSelected,
                 secondarySelected = showNewWorksFeed,
                 onSecondarySelected = { onShowNewWorksFeedChanged(true) },
-                onAvatarClick = onAvatarClick,
-                onSearchClick = onSearchClick
+                onAvatarClick = onAvatarClick
             )
 
             Box(modifier = Modifier.weight(1f)) {

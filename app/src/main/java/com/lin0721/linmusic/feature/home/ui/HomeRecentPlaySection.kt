@@ -41,7 +41,7 @@ fun RecentPlaySection(
 ) {
     if (items.isEmpty()) return
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
         Text(
             text = "最近播放",
             color = MaterialTheme.colorScheme.onSurface,
