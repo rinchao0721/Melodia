@@ -70,7 +70,7 @@ fun FullPlayerCoverArt(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MelodiaSpacing.lg)
-                .padding(bottom = 36.dp),
+                .padding(bottom = 44.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
