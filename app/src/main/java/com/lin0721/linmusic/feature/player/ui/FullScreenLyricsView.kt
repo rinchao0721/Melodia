@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.player.ui
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -155,6 +156,10 @@ fun FullScreenLyricsView(
                 translationY = dragState.offsetY
             }
             .clip(RoundedCornerShape(topStart = topCornerRadius, topEnd = topCornerRadius))
+            // 拦截全屏歌词页空白处点击，防止手势穿透到底层播放器
+            .pointerInput(Unit) {
+                detectTapGestures { }
+            }
     ) {
 
         Column(

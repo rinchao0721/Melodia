@@ -26,6 +26,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlin.math.max
 
 // TopBar 操作区高度（不含状态栏）
@@ -94,6 +95,7 @@ fun PlaylistContent(
     val isDailyRecommend = playlist.id == -1L || playlist.id == -2L
     // 搜索栏统一为 item 0，无需按是否每日推荐区分初始位置
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
     val canLoadMoreTracks = hasMoreTracks && !isLoadingMoreTracks
     LaunchedEffect(listState, canLoadMoreTracks) {
@@ -361,7 +363,12 @@ fun PlaylistContent(
             overlayHeight   = overlayHeight,
             statusBarHeight = statusBarHeight,
             dominantColor   = dominantColor,
-            onBack          = onBack
+            onBack          = onBack,
+            onScrollToTop   = {
+                coroutineScope.launch {
+                    listState.animateScrollToItem(0)
+                }
+            }
         )
 
         // 播放按钮跟手滑动、到位后锁停
