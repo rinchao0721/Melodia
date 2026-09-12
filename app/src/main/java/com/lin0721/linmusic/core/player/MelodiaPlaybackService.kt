@@ -141,6 +141,10 @@ class MelodiaPlaybackService : MediaSessionService() {
                     else -> super.isCommandAvailable(command)
                 }
             }
+
+            override fun hasNextMediaItem(): Boolean = true
+
+            override fun hasPreviousMediaItem(): Boolean = true
         }
             
         player = forwardingPlayer
@@ -171,12 +175,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         })
 
-        // 监听播放模式改变以实时同步控制栏的按钮状态
-        serviceScope.launch {
-            playerManager.playMode.collect {
-                updateCustomLayout()
-            }
-        }
+
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -257,74 +256,28 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun updateCustomLayoutForController(session: MediaSession, controller: MediaSession.ControllerInfo) {
+    private fun buildLikeButton(): CommandButton {
         val songId = exoPlayer?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
         val isLiked = songId != -1L && songId in likedSongIdsCache
 
         val likeIconRes = if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
         val likeDisplayName = if (isLiked) "取消喜欢" else "喜欢"
 
-        val likeButton = CommandButton.Builder()
+        return CommandButton.Builder()
             .setDisplayName(likeDisplayName)
             .setIconResId(likeIconRes)
             .setSessionCommand(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
             .build()
+    }
 
-        val mode = playerManager.playMode.value
-        val modeIconRes = when (mode) {
-            PlayMode.SHUFFLE -> R.drawable.ic_shuffle
-            PlayMode.SINGLE_LOOP -> R.drawable.ic_repeat_one
-            PlayMode.LIST_LOOP -> R.drawable.ic_repeat
-        }
-        val modeDisplayName = when (mode) {
-            PlayMode.SHUFFLE -> "随机播放"
-            PlayMode.SINGLE_LOOP -> "单曲循环"
-            PlayMode.LIST_LOOP -> "列表循环"
-        }
-
-        val modeButton = CommandButton.Builder()
-            .setDisplayName(modeDisplayName)
-            .setIconResId(modeIconRes)
-            .setSessionCommand(SessionCommand("ACTION_TOGGLE_PLAY_MODE", Bundle()))
-            .build()
-
-        val customLayout = com.google.common.collect.ImmutableList.of(likeButton, modeButton)
+    private fun updateCustomLayoutForController(session: MediaSession, controller: MediaSession.ControllerInfo) {
+        val customLayout = com.google.common.collect.ImmutableList.of(buildLikeButton())
         session.setCustomLayout(controller, customLayout)
     }
 
     private fun updateCustomLayout() {
         val session = mediaSession ?: return
-        val songId = exoPlayer?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
-        val isLiked = songId != -1L && songId in likedSongIdsCache
-
-        val likeIconRes = if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
-        val likeDisplayName = if (isLiked) "取消喜欢" else "喜欢"
-
-        val likeButton = CommandButton.Builder()
-            .setDisplayName(likeDisplayName)
-            .setIconResId(likeIconRes)
-            .setSessionCommand(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
-            .build()
-
-        val mode = playerManager.playMode.value
-        val modeIconRes = when (mode) {
-            PlayMode.SHUFFLE -> R.drawable.ic_shuffle
-            PlayMode.SINGLE_LOOP -> R.drawable.ic_repeat_one
-            PlayMode.LIST_LOOP -> R.drawable.ic_repeat
-        }
-        val modeDisplayName = when (mode) {
-            PlayMode.SHUFFLE -> "随机播放"
-            PlayMode.SINGLE_LOOP -> "单曲循环"
-            PlayMode.LIST_LOOP -> "列表循环"
-        }
-
-        val modeButton = CommandButton.Builder()
-            .setDisplayName(modeDisplayName)
-            .setIconResId(modeIconRes)
-            .setSessionCommand(SessionCommand("ACTION_TOGGLE_PLAY_MODE", Bundle()))
-            .build()
-
-        val customLayout = com.google.common.collect.ImmutableList.of(likeButton, modeButton)
+        val customLayout = com.google.common.collect.ImmutableList.of(buildLikeButton())
         session.setCustomLayout(customLayout)
     }
 
