@@ -9,8 +9,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square)](https://kotlinlang.org)
-[![License](https://img.shields.io/badge/License-GPL--3.0-orange?style=flat-square)](LICENSE)
-
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 </div>
 
 ---
@@ -27,16 +26,13 @@
 
 ---
 
-## 下载与安装
+## 下载与反馈
 
-您可以从 [GitHub Releases](https://github.com/rinchao0721/Melodia/releases) 下载最新签名的 Release APK 安装包：
-
-- **正式版 (Release)**：经过完整验证的稳定版本，更新提示遵循正式发布渠道。
-- **预发布版 (Beta / RC)**：包含最新功能与实验性改动，供尝鲜体验。
-- **应用内更新**：进入应用后，可通过「设置 -> 关于」检查新版本并直接在应用内完成下载与更新。
+- **安装包下载**：前往 [GitHub Releases](https://github.com/rinchao0721/Melodia/releases) 获取最新预编译 APK
+- **缺陷与建议**：[GitHub Issues](https://github.com/rinchao0721/Melodia/issues)
+- **交流 QQ 群**：`331832996`
 
 ---
-
 ## 项目架构
 
 项目按**业务域 (Feature-Driven)** 组织代码：`core` 承载全局共享基础设施与通用能力，`feature` 下每个独立业务域自持 `data` / `domain` / `ui` 结构。依赖方向单向收敛——`feature` 依赖 `core`，`core` 不反向依赖 `feature`，各业务域之间解耦无循环依赖。
@@ -69,9 +65,9 @@ app/src/main/java/com/lin0721/linmusic/
 │   ├── userartist/              # 用户关注歌手列表管理
 │   └── userplaylist/            # 用户歌单状态与列表维护
 │
-├── di/                          # Koin 依赖注入模块装配
+├── di/                          # Koin 依赖注入模块（Network, Local, Repository, Player, Update, ViewModel）
 │
-└── feature/                     # 独立业务模块
+└── feature/                     # 业务功能域（各自包含 data / domain / ui）
     ├── account/                 # 账号登录与授权管理
     ├── artist/                  # 歌手主页、热门单曲与全部专辑
     ├── cloud/                   # 用户云盘资产管理
@@ -93,28 +89,6 @@ app/src/main/java/com/lin0721/linmusic/
 
 ---
 
-## 技术栈与选型
-
-- **UI 框架**：Jetpack Compose（基于 Material Design 3 ）
-- **媒体引擎**：AndroidX Media3（ExoPlayer + MediaSession）
-- **依赖注入**：Koin
-- **网络通信**：Retrofit2 + OkHttp3 + kotlinx.serialization
-- **异步与响应式**：Kotlin Coroutines + Flow / StateFlow
-- **图片加载**：Coil（支持多级内存/磁盘缓存与渐进式展示）
-- **持久化方案**：Jetpack DataStore & SharedPreferences
-- **代码分析与规范**：Detekt + ktlint
-
----
-
-## 原生网络加密实现
-
-项目所有请求签名与参数加密均在 Kotlin 端原生实现：
-
-- **EApi 路由**：MD5 签名 + 128 位 AES-ECB 加密，请求重定向至移动端网关 `interface.music.163.com` 并自动附带移动端特征，应用于排行榜、收藏列表、用户歌单及搜索等主要接口。
-- **WeApi 路由**：AES-CBC + 1024 位 RSA 联合加密，路由至 `music.163.com`，用于历史日推及用户账户等特定交互接口。
-- **设备指纹伪装**：网络拦截层自动注入真实设备指纹与地域伪装头信息，保障会话与接口调用的连续稳定性。
-
----
 
 ## 统一错误处理
 
@@ -126,8 +100,10 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 
 ### 环境要求
 
-- **JDK**：21
-- **Android SDK**：Compile / Target SDK 36，Min SDK 26
+- **JDK**：Java 21（推荐 Eclipse Temurin 21）
+- **Gradle**：9.3+（项目内置 Gradle Wrapper 9.3.1）
+- **Android Gradle Plugin (AGP)**：9.1.1+
+- **Android SDK**：Compile / Target SDK 36，Min SDK 26 (Android 8.0+)
 - **IDE**：Android Studio Ladybug (2024.2.1) 或更高版本
 
 ### 常用命令
