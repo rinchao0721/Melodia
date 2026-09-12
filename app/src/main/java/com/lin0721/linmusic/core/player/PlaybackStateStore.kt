@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// 上次退出时的曲目与进度
-data class RestoredTrack(val mediaItem: MediaItem, val positionMs: Long)
+// 上次退出时的曲目、进度与总时长
+data class RestoredTrack(val mediaItem: MediaItem, val positionMs: Long, val durationMs: Long = 0L)
 
 // 播放状态持久化：封装队列、播放模式与当前曲目的读写，写入统一异步执行
 class PlaybackStateStore(
@@ -43,7 +43,7 @@ class PlaybackStateStore(
             .setMediaMetadata(metadata)
             .build()
 
-        return RestoredTrack(mediaItem, lastState.lastPositionMs)
+        return RestoredTrack(mediaItem, lastState.lastPositionMs, lastState.durationMs)
     }
 
     fun savePlayMode(mode: PlayMode) {

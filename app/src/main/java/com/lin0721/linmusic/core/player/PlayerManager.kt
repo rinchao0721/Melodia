@@ -35,6 +35,9 @@ private const val PREFETCH_URL_WINDOW_MS = 8000L
 // 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
 private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
 
+// 播放中自动持久化进度的周期，覆盖直接划掉应用强退场景
+private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
+
 // 预取到的下一首播放链接，按 songId 校验有效性
 private data class PrefetchedUrl(val songId: Long, val url: String)
 
@@ -99,6 +102,12 @@ class PlayerManager(
     private var moveSaveJob: Job? = null
     private var consecutiveErrors = 0
 
+    // 断点续播暂存位置，用于在底层触发切歌转场时防止进度被重置为 0
+    private var pendingStartPosition: Long = 0L
+
+    // 播放中周期性保存的上次时间戳
+    private var lastPeriodicSaveElapsedMs: Long = 0L
+
     private var prefetchJob: Job? = null
     private var prefetchedNextUrl: PrefetchedUrl? = null
     private var prefetchTriggeredForSongId: Long = -1L
@@ -138,6 +147,12 @@ class PlayerManager(
                     roaming.onProgressTick(songId, remainingMs)
                     maybePrefetchNextTrackUrl(remainingMs)
                 }
+
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastPeriodicSaveElapsedMs >= PERIODIC_STATE_SAVE_INTERVAL_MS) {
+                    lastPeriodicSaveElapsedMs = now
+                    saveState()
+                }
             }
         )
     }
@@ -157,6 +172,9 @@ class PlayerManager(
         if (lastTrack != null && _currentTrack.value == null) {
             _currentTrack.value = lastTrack.mediaItem
             progress.setPosition(lastTrack.positionMs)
+            if (lastTrack.durationMs > 0L) {
+                progress.setDuration(lastTrack.durationMs)
+            }
             resetTrackTiming(startPlaying = false)
         }
 
@@ -213,6 +231,7 @@ class PlayerManager(
         playbackQueue.replaceWithSingle(item)
         playbackQueue.setPlayContext(playContext)
         consecutiveErrors = 0
+        pendingStartPosition = startPosition
 
         controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
     }
@@ -324,6 +343,7 @@ class PlayerManager(
     fun seekTo(positionMs: Long) {
         controllerHolder.seekTo(positionMs)
         progress.setPosition(positionMs)
+        saveState()
     }
 
     fun setPreferredAudioDevice(deviceId: Int) {
@@ -345,7 +365,8 @@ class PlayerManager(
                 )
                 playbackQueue.replaceWithSingle(qi)
             }
-            fetchUrlAndPlay(playbackQueue.currentIndex.value, progress.currentPosition.value)
+            val indexToPlay = playbackQueue.currentIndex.value.coerceAtLeast(0)
+            fetchUrlAndPlay(indexToPlay, progress.currentPosition.value)
             return
         }
         if (_isPlaying.value) pause() else resume()
@@ -356,13 +377,16 @@ class PlayerManager(
         val songId = item.mediaId.toLongOrNull() ?: -1L
         if (songId == -1L) return
 
+        val duration = controllerHolder.duration.takeIf { it > 0L } ?: progress.duration.value
+
         stateStore.savePlaybackState {
             PlaybackState(
                 songId = songId,
                 title = item.mediaMetadata.title?.toString() ?: "",
                 artist = item.mediaMetadata.artist?.toString() ?: "",
                 coverUrl = item.mediaMetadata.artworkUri?.toString() ?: "",
-                lastPositionMs = controllerHolder.currentPositionOrNull ?: progress.currentPosition.value
+                lastPositionMs = controllerHolder.currentPositionOrNull ?: progress.currentPosition.value,
+                durationMs = duration
             )
         }
     }
@@ -384,7 +408,8 @@ class PlayerManager(
                     title = currentTrackItem.title,
                     artist = currentTrackItem.artist,
                     coverUrl = currentTrackItem.coverUrl,
-                    lastPositionMs = 0L
+                    lastPositionMs = 0L,
+                    durationMs = progress.duration.value
                 )
             }
         } else {
@@ -402,7 +427,8 @@ class PlayerManager(
                     title = "",
                     artist = "",
                     coverUrl = "",
-                    lastPositionMs = 0L
+                    lastPositionMs = 0L,
+                    durationMs = 0L
                 )
             }
         }
@@ -418,15 +444,19 @@ class PlayerManager(
         activePlayJob?.cancel()
         roaming.cancel()
         networkGuard.cancelRecoveryWait()
+        pendingStartPosition = startPosition
 
         activePlayJob = scope.launch {
-            if (networkGuard.blockPlaybackOnMobile()) return@launch
+            if (networkGuard.blockPlaybackOnMobile()) {
+                pendingStartPosition = 0L
+                return@launch
+            }
 
             playbackQueue.setCurrentIndex(index)
             saveQueueState()
 
-            // 立即重置当前进度与时长，避免上一首歌曲的数据在加载新歌期间残留导致进度条闪烁
-            progress.resetTo(startPosition)
+            // 立即重置当前进度与时长；断点续播时保留已有时长避免进度条闪烁
+            progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
 
             roaming.prefetchOnPlay(item.songId, index)
 
@@ -602,9 +632,14 @@ class PlayerManager(
         playbackQueue.setPlayContext(mediaItem?.mediaMetadata?.extras?.getString("playContext"))
         if (mediaItem != null) {
             reportStartPlay(mediaItem)
-            // 切歌过渡时，应当立即将当前进度重置，防止读取上一首残留位置或缓冲位置
+            // 切歌过渡时：若存在断点续播位置则恢复断点，否则重置为 0
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
-                progress.setPosition(0L)
+                if (pendingStartPosition > 0L) {
+                    progress.setPosition(pendingStartPosition)
+                    pendingStartPosition = 0L
+                } else {
+                    progress.setPosition(0L)
+                }
             }
             progress.updateDurationFromController()
             saveState()

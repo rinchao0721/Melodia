@@ -24,7 +24,8 @@ data class PlaybackState(
     val title: String = "",
     val artist: String = "",
     val coverUrl: String = "",
-    val lastPositionMs: Long = 0
+    val lastPositionMs: Long = 0,
+    val durationMs: Long = 0
 )
 
 data class QueueState(
@@ -41,6 +42,7 @@ class PlaybackPreferences(private val context: Context) {
         private val KEY_ARTIST = stringPreferencesKey("last_song_artist")
         private val KEY_COVER = stringPreferencesKey("last_song_cover")
         private val KEY_POSITION = longPreferencesKey("last_position_ms")
+        private val KEY_DURATION = longPreferencesKey("last_duration_ms")
         private val KEY_PLAY_MODE = stringPreferencesKey("play_mode")
         private val KEY_QUEUE = stringPreferencesKey("play_queue")
         private val KEY_QUEUE_INDEX = intPreferencesKey("queue_index")
@@ -54,7 +56,8 @@ class PlaybackPreferences(private val context: Context) {
             title = prefs[KEY_TITLE] ?: "",
             artist = prefs[KEY_ARTIST] ?: "",
             coverUrl = prefs[KEY_COVER] ?: "",
-            lastPositionMs = prefs[KEY_POSITION] ?: 0
+            lastPositionMs = prefs[KEY_POSITION] ?: 0,
+            durationMs = prefs[KEY_DURATION] ?: 0
         )
     }
 
@@ -72,6 +75,7 @@ class PlaybackPreferences(private val context: Context) {
             prefs[KEY_ARTIST] = state.artist
             prefs[KEY_COVER] = state.coverUrl
             prefs[KEY_POSITION] = state.lastPositionMs
+            prefs[KEY_DURATION] = state.durationMs
         }
     }
 
