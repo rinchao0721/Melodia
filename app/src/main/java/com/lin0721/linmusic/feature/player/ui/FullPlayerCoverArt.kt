@@ -1,5 +1,13 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -79,36 +87,56 @@ fun FullPlayerCoverArt(
                     modifier = Modifier.size(32.dp)
                 )
             }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            AnimatedContent(
+                targetState = playContext,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(260)) +
+                            slideInVertically(animationSpec = tween(260)) { height -> height / 3 })
+                        .togetherWith(
+                            fadeOut(animationSpec = tween(200)) +
+                                    slideOutVertically(animationSpec = tween(200)) { height -> -height / 3 }
+                        ).using(
+                            SizeTransform(
+                                clip = false,
+                                sizeAnimationSpec = { _, _ -> tween(280) }
+                            )
+                        )
+                },
+                label = "play_source_transition",
+                contentAlignment = Alignment.Center,
                 modifier = Modifier.weight(1f)
-            ) {
-                val (sourceText, detailText) = when (playContext) {
+            ) { context ->
+                val (sourceText, detailText) = when (context) {
                     null -> "NOW PLAYING" to null
                     "搜索" -> "播放自" to "搜索"
                     "每日推荐" -> "播放自" to "每日推荐"
                     "历史日推" -> "播放自" to "历史日推"
                     "intelligence" -> "播放自" to "心动模式"
-                    else -> "播放自歌单" to playContext
+                    else -> "播放自歌单" to context
                 }
-                Text(
-                    text = sourceText,
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (detailText != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
-                        text = "“$detailText”",
-                        color = Color.White,
-                        fontSize = 14.sp,
+                        text = sourceText,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (detailText != null) {
+                        Text(
+                            text = "“$detailText”",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
             MelodiaIconButton(

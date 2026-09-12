@@ -301,7 +301,7 @@ class HomeViewModel(
                             val items = listOf(currentItem) + tracks.map { track ->
                                 QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = "intelligence")
+                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已开启心动模式")
                         } else {
                             _toastEvent.emit("获取心动推荐失败")
@@ -322,7 +322,7 @@ class HomeViewModel(
                                                         val items = listOf(currentItem) + tracks.map { track ->
                                                             QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = "intelligence")
+                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已从《${firstSong.name}》开启心动模式")
                         }.onFailure {
                             _toastEvent.emit(it.toUserMessage(resourceProvider))

@@ -185,11 +185,26 @@ class PlayerManager(
             playbackQueue.takeSnapshot()
         }
 
+        // 记录替换前正在播放的歌曲 ID（优先取底层已加载的曲目，次选原队列当前曲目）
+        val playingSongId = _currentTrack.value?.mediaId?.toLongOrNull()
+            ?: playbackQueue.currentItem()?.songId
+
         playbackQueue.setPlayContext(playContext)
         playbackQueue.replaceAll(items, startIndex)
         consecutiveErrors = 0
         saveQueueState()
-        fetchUrlAndPlay(playbackQueue.currentIndex.value)
+
+        val currentIndex = playbackQueue.currentIndex.value
+        val targetItem = playbackQueue.itemAt(currentIndex)
+        val isCurrentPlayingTrack = targetItem != null && targetItem.songId == playingSongId
+
+        if ((playContext == CONTEXT_INTELLIGENCE || playContext == SimilarRoamingController.CONTEXT_ROAMING) && isCurrentPlayingTrack) {
+            // 以当前正在播放的曲目为种子时平滑衔接，不重载音频与重置进度
+            roaming.prefetchOnPlay(targetItem.songId, currentIndex)
+            return
+        }
+
+        fetchUrlAndPlay(currentIndex)
     }
 
     // 单曲播放（向后兼容，创建 1 项队列）
@@ -563,7 +578,6 @@ class PlayerManager(
     // 关闭心动模式并还原进入前备份的队列数据
     fun disableIntelligence() {
         if (playbackQueue.playContext.value != CONTEXT_INTELLIGENCE) return
-        playbackQueue.setPlayContext(null)
         playbackQueue.restoreSnapshot()
         saveQueueState()
     }

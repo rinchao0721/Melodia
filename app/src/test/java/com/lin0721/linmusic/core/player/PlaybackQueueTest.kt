@@ -261,6 +261,22 @@ class PlaybackQueueTest {
     }
 
     @Test
+    fun `还原快照时同步还原播放上下文`() {
+        val queue = queueOf(1, 2, 3, startIndex = 0)
+        queue.setPlayContext("我喜欢的音乐")
+        queue.takeSnapshot()
+
+        // 进入心动模式，切换上下文
+        queue.setPlayContext("intelligence")
+        queue.replaceAll(listOf(item(1), item(9)), startIndex = 0)
+        assertEquals("intelligence", queue.playContext.value)
+
+        // 还原快照，上下文应自动恢复为原歌单
+        queue.restoreSnapshot()
+        assertEquals("我喜欢的音乐", queue.playContext.value)
+    }
+
+    @Test
     fun `无快照时还原不产生变化`() {
         val queue = queueOf(1, 2, 3, startIndex = 1)
         queue.restoreSnapshot()

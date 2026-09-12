@@ -16,6 +16,7 @@ class PlaybackQueue {
     // 进入漫游前的队列快照
     private var snapshotItems: List<QueueItem> = emptyList()
     private var snapshotIndex: Int = -1
+    private var snapshotContext: String? = null
 
     private val _currentIndex = MutableStateFlow(-1)
     val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
@@ -241,10 +242,11 @@ class PlaybackQueue {
         _items.value = playItems
     }
 
-    // 备份当前队列，供退出漫游时还原
+    // 备份当前队列与播放上下文，供退出漫游/心动模式时还原
     fun takeSnapshot() {
         snapshotItems = originalItems
         snapshotIndex = _currentIndex.value
+        snapshotContext = _playContext.value
     }
 
     // 还原备份的队列，并把当前正在播放的曲目定位到新队列中
@@ -268,8 +270,10 @@ class PlaybackQueue {
         }
 
         _items.value = playItems
+        _playContext.value = snapshotContext
         snapshotItems = emptyList()
         snapshotIndex = -1
+        snapshotContext = null
     }
 
     // 打乱其余曲目并把当前曲目固定在首位，避免切到随机模式时当前歌曲被换掉
