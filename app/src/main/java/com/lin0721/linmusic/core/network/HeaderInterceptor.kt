@@ -43,9 +43,10 @@ class HeaderInterceptor(
             ""
         }
 
-        // 域名白名单控制
+        // 域名白名单控制；二维码接口保持纯净直连，不注入伪装 IP 避免鉴权风控
+        val isQrLogin = urlString.contains("/login/qrcode/")
         val ipAddress = realIpProvider.resolveIp(useRealIp, realIpValue)
-        if (ipAddress != null && url.host.contains(NeteaseEndpoints.DOMAIN_SUFFIX)) {
+        if (!isQrLogin && ipAddress != null && url.host.contains(NeteaseEndpoints.DOMAIN_SUFFIX)) {
             newRequestBuilder.header("X-Real-IP", ipAddress)
             newRequestBuilder.header("X-Forwarded-For", ipAddress)
         }
@@ -77,7 +78,8 @@ class HeaderInterceptor(
             newRequestBuilder.header("Referer", NeteaseEndpoints.WEB_BASE_URL)
             
             val requestCookies = originalRequest.headers("Cookie").toMutableList()
-            if (storedCookies != null) requestCookies.add(storedCookies)
+            // 二维码接口隔离历史 Cookie，避免失效凭据污染新会话
+            if (!isQrLogin && storedCookies != null) requestCookies.add(storedCookies)
             
             val cookiesStr = requestCookies.joinToString("; ")
             if (!cookiesStr.contains("os=")) {

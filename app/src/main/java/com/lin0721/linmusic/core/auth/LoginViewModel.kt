@@ -97,6 +97,12 @@ class LoginViewModel(
                         }
                         return@launch
                     }
+                    else -> {
+                        val errorMsg = response.message?.takeIf { it.isNotBlank() } ?: "扫码异常(${response.code})"
+                        AppLogger.w(TAG, "二维码轮询异常响应: code=${response.code}, message=$errorMsg")
+                        _qrState.value = QrLoginState.Error(errorMsg)
+                        return@launch
+                    }
                 }
             }
         }

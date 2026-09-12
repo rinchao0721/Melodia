@@ -25,6 +25,18 @@ class CryptoInterceptorRoutingTest {
     }
 
     @Test
+    fun `二维码weapi路径识别为WEAPI`() {
+        assertEquals(
+            CryptoInterceptor.CryptoType.WEAPI,
+            interceptor.resolveCryptoType("https://music.163.com/weapi/login/qrcode/unikey")
+        )
+        assertEquals(
+            CryptoInterceptor.CryptoType.WEAPI,
+            interceptor.resolveCryptoType("https://music.163.com/weapi/login/qrcode/client/login")
+        )
+    }
+
+    @Test
     fun `裸api路径识别为WEAPI`() {
         assertEquals(
             CryptoInterceptor.CryptoType.WEAPI,
