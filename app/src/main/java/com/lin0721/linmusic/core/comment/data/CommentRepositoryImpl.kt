@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.comment.data
 
+import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.network.apiFlow
 import kotlinx.coroutines.flow.Flow
 
@@ -37,6 +38,78 @@ class CommentRepositoryImpl(
                 )
             )
         },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { Unit }
+    )
+
+    override fun getCommentsV2(
+        threadId: String,
+        pageNo: Int,
+        pageSize: Int,
+        cursor: String,
+        sortType: CommentSortType
+    ): Flow<Result<CommentsV2Data>> = apiFlow(
+        request = {
+            apiService.getCommentsV2(
+                CommentsV2Request(
+                    threadId = threadId,
+                    pageNo = pageNo,
+                    pageSize = pageSize,
+                    cursor = cursor,
+                    sortType = sortType.wireValue
+                )
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { it.data ?: CommentsV2Data() }
+    )
+
+    override fun getFloorComments(
+        threadId: String,
+        parentCommentId: Long,
+        time: Long,
+        limit: Int
+    ): Flow<Result<FloorCommentsData>> = apiFlow(
+        request = {
+            apiService.getFloorComments(
+                FloorCommentsRequest(
+                    parentCommentId = parentCommentId,
+                    threadId = threadId,
+                    time = time,
+                    limit = limit
+                )
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { it.data ?: FloorCommentsData() }
+    )
+
+    override fun addComment(threadId: String, content: String): Flow<Result<CommentItem?>> = apiFlow(
+        request = { apiService.addComment(AddCommentRequest(threadId = threadId, content = content)) },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { it.comment }
+    )
+
+    override fun replyComment(threadId: String, commentId: Long, content: String): Flow<Result<CommentItem?>> = apiFlow(
+        request = {
+            apiService.replyComment(
+                ReplyCommentRequest(threadId = threadId, commentId = commentId, content = content)
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        msg = { it.message },
+        transform = { it.comment }
+    )
+
+    override fun deleteComment(threadId: String, commentId: Long): Flow<Result<Unit>> = apiFlow(
+        request = { apiService.deleteComment(DeleteCommentRequest(threadId = threadId, commentId = commentId)) },
         isSuccess = { it.isSuccess },
         code = { it.code },
         msg = { it.message },

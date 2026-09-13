@@ -133,7 +133,10 @@ data class CommentItem(
     val timeStr: String? = null,
     val likedCount: Int = 0,
     val liked: Boolean = false,
-    val beReplied: List<BeRepliedComment>? = null
+    val beReplied: List<BeRepliedComment>? = null,
+    // 该评论下的子回复总数，用于"展开 N 条回复"入口的显示条件
+    val replyCount: Int = 0,
+    val parentCommentId: Long = 0
 )
 
 @Serializable

@@ -40,6 +40,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -131,8 +135,21 @@ class PlayerViewModel(
     private val _songDetailState = MutableStateFlow(PlayerSongDetailState())
     val songDetailState: StateFlow<PlayerSongDetailState> = _songDetailState.asStateFlow()
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
-    val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
+    private val commentsController = CommentsSectionController(
+        scope = viewModelScope,
+        repository = commentRepository,
+        onToast = { message -> _toastEvent.emit(message) },
+        resourceProvider = resourceProvider
+    )
+    val commentsState: StateFlow<CommentsState> = commentsController.commentsState
+    val composerState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentComposerState> = commentsController.composerState
+    val floorState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentFloorState> = commentsController.floorState
+
+    val userProfile = userPreferences.userProfile.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
@@ -227,7 +244,7 @@ class PlayerViewModel(
                             launch { loadLyrics(songId) }
                             launch { loadSongDetail(songId) }
                             launch { loadSongWiki(songId) }
-                            launch { loadComments(songId) }
+                            launch { commentsController.load("R_SO_4_$songId") }
                         }
                     }
                 }
@@ -237,7 +254,6 @@ class PlayerViewModel(
     private fun clearState() {
         _songDetailState.value = PlayerSongDetailState()
         _currentLyricIndex.value = -1
-        _commentsState.value = CommentsState.Loading
     }
 
     private fun observePosition() {
@@ -365,73 +381,28 @@ class PlayerViewModel(
         return result
     }
 
-    private suspend fun loadComments(songId: Long) {
-        _commentsState.value = CommentsState.Loading
-        commentRepository.getComments(songId, limit = 20).collect { result ->
-            result.onSuccess { response ->
-                _commentsState.value = CommentsState.Success(
-                    hotComments = response.hotComments,
-                    comments = response.comments,
-                    total = response.total
-                )
-            }.onFailure { error ->
-                _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
-            }
-        }
-    }
-
     fun retryComments() {
-        val songId = currentSongId
-        if (songId != -1L) {
-            viewModelScope.launch { loadComments(songId) }
-        }
+        commentsController.retry()
     }
 
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
-            val profile = userPreferences.userProfile.first()
-            if (profile == null) {
+            if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
-
-            val currentState = _commentsState.value as? CommentsState.Success ?: return@launch
-            
-            val songId = currentSongId
-            if (songId == -1L) return@launch
-            val threadId = "R_SO_4_$songId"
-            val targetLike = !comment.liked
-
-            val updatedComments = currentState.comments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            val updatedHotComments = currentState.hotComments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            _commentsState.value = CommentsState.Success(
-                hotComments = updatedHotComments,
-                comments = updatedComments,
-                total = currentState.total
-            )
-
-            commentRepository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
-                result.onFailure { e ->
-                    _commentsState.value = currentState
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+            commentsController.like(comment)
         }
     }
+
+    fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
+    fun loadMoreComments() = commentsController.loadMore()
+    fun submitComment(content: String) = commentsController.submitComment(content)
+    fun submitCommentReply(parentCommentId: Long, content: String) = commentsController.submitReply(parentCommentId, content)
+    fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
+    fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
+    fun loadMoreCommentFloor() = commentsController.loadMoreFloor()
+    fun closeCommentFloor() = commentsController.closeFloor()
 
     // 切换歌手的关注状态
     fun toggleArtistFollow() {

@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.comment.data.CommentRepository
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.ArtistMv
@@ -50,8 +54,15 @@ class ArtistMvPlayerViewModel(
     private val _mvDetail = MutableStateFlow<MvDetail?>(null)
     val mvDetail: StateFlow<MvDetail?> = _mvDetail.asStateFlow()
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
-    val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
+    private val commentsController = CommentsSectionController(
+        scope = viewModelScope,
+        repository = commentRepository,
+        onToast = { message -> _toastEvent.emit(message) },
+        resourceProvider = resourceProvider
+    )
+    val commentsState: StateFlow<CommentsState> = commentsController.commentsState
+    val composerState: StateFlow<CommentComposerState> = commentsController.composerState
+    val floorState: StateFlow<CommentFloorState> = commentsController.floorState
 
     private val _relatedMvs = MutableStateFlow<List<ArtistMv>>(emptyList())
     val relatedMvs: StateFlow<List<ArtistMv>> = _relatedMvs.asStateFlow()
@@ -154,50 +165,31 @@ class ArtistMvPlayerViewModel(
     }
 
     fun loadComments(mvId: Long) {
-        viewModelScope.launch {
-            _commentsState.value = CommentsState.Loading
-            val threadId = "R_MV_5_$mvId"
-            commentRepository.getComments(threadId, limit = 20).collect { result ->
-                result.onSuccess { response ->
-                    _commentsState.value = CommentsState.Success(
-                        hotComments = response.hotComments,
-                        comments = response.comments,
-                        total = response.total
-                    )
-                }.onFailure { e ->
-                    _commentsState.value = CommentsState.Error(e.toUserMessage(resourceProvider))
-                }
-            }
-        }
+        commentsController.load("R_MV_5_$mvId")
     }
 
-    fun likeComment(mvId: Long, comment: CommentItem) {
+    fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
             if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
-            val currentState = _commentsState.value as? CommentsState.Success ?: return@launch
-            val threadId = "R_MV_5_$mvId"
-            val targetLike = !comment.liked
-
-            fun bump(c: CommentItem) = if (c.commentId == comment.commentId) {
-                c.copy(liked = targetLike, likedCount = c.likedCount + if (targetLike) 1 else -1)
-            } else c
-
-            _commentsState.value = currentState.copy(
-                comments = currentState.comments.map(::bump),
-                hotComments = currentState.hotComments.map(::bump)
-            )
-
-            commentRepository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
-                result.onFailure { e ->
-                    _commentsState.value = currentState
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+            commentsController.like(comment)
         }
     }
+
+    fun likeComment(mvId: Long, comment: CommentItem) {
+        likeComment(comment)
+    }
+
+    fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
+    fun loadMoreComments() = commentsController.loadMore()
+    fun submitComment(content: String) = commentsController.submitComment(content)
+    fun submitCommentReply(parentCommentId: Long, content: String) = commentsController.submitReply(parentCommentId, content)
+    fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
+    fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
+    fun loadMoreCommentFloor() = commentsController.loadMoreFloor()
+    fun closeCommentFloor() = commentsController.closeFloor()
 
     fun toggleLike(mvId: Long) {
         viewModelScope.launch {

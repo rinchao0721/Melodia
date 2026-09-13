@@ -285,7 +285,11 @@ sealed interface CommentsState {
     data class Success(
         val hotComments: List<CommentItem>,
         val comments: List<CommentItem>,
-        val total: Int
+        val total: Int,
+        val sortType: com.lin0721.linmusic.core.comment.data.CommentSortType = com.lin0721.linmusic.core.comment.data.CommentSortType.LATEST,
+        val cursor: String = "0",
+        val hasMore: Boolean = false,
+        val isLoadingMore: Boolean = false
     ) : CommentsState
     data class Error(val message: String) : CommentsState
 }
