@@ -45,7 +45,7 @@ interface CommentApi {
 
 // ======================= 评论 DTO =======================
 
-// 排序方式：wireValue 是网易云真实接口参数（推荐=99，最热=2，最新=3，源自参考项目注释）
+// 排序方式：wireValue 推荐=99，最热=2，最新=3）
 enum class CommentSortType(val wireValue: Int) {
     RECOMMEND(99), HOT(2), LATEST(3);
 

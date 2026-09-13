@@ -32,6 +32,12 @@ sealed interface CommentFloorState {
 }
 
 // 评论区共享逻辑：Player/Playlist/ArtistMvPlayer 三个 ViewModel 各自持有一个实例并转发状态，
+private data class TabCacheEntry(
+    val state: CommentsState.Success,
+    val pageNo: Int
+)
+
+// 评论区共享逻辑：Player/Playlist/ArtistMvPlayer 三个 ViewModel 各自持有一个实例并转发状态，
 // 避免加载/分页/排序/点赞/发表/回复/删除/楼层这些逻辑在三处重复实现
 class CommentsSectionController(
     private val scope: CoroutineScope,
@@ -40,7 +46,7 @@ class CommentsSectionController(
     private val resourceProvider: ResourceProvider
 ) {
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
+    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading())
     val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
 
     private val _composerState = MutableStateFlow<CommentComposerState>(CommentComposerState.Idle)
@@ -50,12 +56,18 @@ class CommentsSectionController(
     val floorState: StateFlow<CommentFloorState> = _floorState.asStateFlow()
 
     private var threadId: String = ""
-    private var currentSortType: CommentSortType = CommentSortType.LATEST
+    private var currentSortType: CommentSortType = CommentSortType.RECOMMEND
     private var currentPageNo: Int = 1
+    private val sortCache = mutableMapOf<CommentSortType, TabCacheEntry>()
 
     fun load(threadId: String) {
+        if (this.threadId == threadId && _commentsState.value is CommentsState.Success) {
+            return
+        }
         this.threadId = threadId
+        sortCache.clear()
         this.currentPageNo = 1
+        _commentsState.value = CommentsState.Loading(sortType = currentSortType)
         fetchPage(pageNo = 1, sortType = currentSortType, previousCursor = null, append = false)
     }
 
@@ -75,20 +87,33 @@ class CommentsSectionController(
     fun changeSort(sortType: CommentSortType) {
         if (sortType == currentSortType) return
         currentSortType = sortType
-        currentPageNo = 1
-        fetchPage(pageNo = 1, sortType = sortType, previousCursor = null, append = false)
+        val cached = sortCache[sortType]
+        if (cached != null) {
+            currentPageNo = cached.pageNo
+            _commentsState.value = cached.state
+        } else {
+            val lastTotal = (_commentsState.value as? CommentsState.Success)?.total
+                ?: _commentsState.value.totalCount
+            _commentsState.value = CommentsState.Loading(sortType = sortType, totalCount = lastTotal)
+            currentPageNo = 1
+            fetchPage(pageNo = 1, sortType = sortType, previousCursor = null, append = false)
+        }
     }
 
     private fun fetchPage(pageNo: Int, sortType: CommentSortType, previousCursor: String?, append: Boolean) {
-        if (!append) _commentsState.value = CommentsState.Loading
+        if (!append && _commentsState.value !is CommentsState.Loading) {
+            val lastTotal = (_commentsState.value as? CommentsState.Success)?.total
+                ?: _commentsState.value.totalCount
+            _commentsState.value = CommentsState.Loading(sortType = sortType, totalCount = lastTotal)
+        }
         val cursor = sortType.cursorFor(pageNo, PAGE_SIZE, previousCursor)
         scope.launch {
             repository.getCommentsV2(threadId, pageNo, PAGE_SIZE, cursor, sortType).collect { result ->
                 result.onSuccess { data ->
                     currentPageNo = pageNo
-                    val previous = _commentsState.value as? CommentsState.Success
+                    val previous = if (append) _commentsState.value as? CommentsState.Success else null
                     val mergedComments = if (append && previous != null) previous.comments + data.comments else data.comments
-                    _commentsState.value = CommentsState.Success(
+                    val newState = CommentsState.Success(
                         hotComments = if (append) previous?.hotComments.orEmpty() else emptyList(),
                         comments = mergedComments,
                         total = data.totalCount,
@@ -97,13 +122,20 @@ class CommentsSectionController(
                         hasMore = data.hasMore,
                         isLoadingMore = false
                     )
+                    _commentsState.value = newState
+                    sortCache[sortType] = TabCacheEntry(state = newState, pageNo = pageNo)
                 }.onFailure { error ->
                     if (append) {
                         val previous = _commentsState.value as? CommentsState.Success
                         if (previous != null) _commentsState.value = previous.copy(isLoadingMore = false)
                         scope.launch { onToast(error.toUserMessage(resourceProvider)) }
                     } else {
-                        _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
+                        val lastTotal = _commentsState.value.totalCount
+                        _commentsState.value = CommentsState.Error(
+                            message = error.toUserMessage(resourceProvider),
+                            sortType = sortType,
+                            totalCount = lastTotal
+                        )
                     }
                 }
             }
@@ -118,15 +150,29 @@ class CommentsSectionController(
             item.copy(liked = targetLike, likedCount = item.likedCount + if (targetLike) 1 else -1)
         } else item
 
-        _commentsState.value = currentState.copy(
+        val updatedCurrent = currentState.copy(
             comments = currentState.comments.map(::bump),
             hotComments = currentState.hotComments.map(::bump)
         )
+        _commentsState.value = updatedCurrent
+        sortCache[currentState.sortType] = TabCacheEntry(state = updatedCurrent, pageNo = currentPageNo)
+
+        // 跨 Tab 同步缓存中的点赞状态
+        sortCache.forEach { (type, entry) ->
+            if (type != currentState.sortType) {
+                val updatedState = entry.state.copy(
+                    comments = entry.state.comments.map(::bump),
+                    hotComments = entry.state.hotComments.map(::bump)
+                )
+                sortCache[type] = entry.copy(state = updatedState)
+            }
+        }
 
         scope.launch {
             repository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
                 result.onFailure { error ->
                     _commentsState.value = currentState
+                    sortCache[currentState.sortType] = TabCacheEntry(state = currentState, pageNo = currentPageNo)
                     onToast(error.toUserMessage(resourceProvider))
                 }
             }
@@ -141,10 +187,20 @@ class CommentsSectionController(
                 _composerState.value = CommentComposerState.Idle
                 result.onSuccess { newComment ->
                     val state = _commentsState.value as? CommentsState.Success ?: return@onSuccess
-                    _commentsState.value = if (newComment != null) {
-                        state.copy(comments = listOf(newComment) + state.comments, total = state.total + 1)
+                    val newTotal = state.total + 1
+                    val updatedState = if (newComment != null) {
+                        state.copy(comments = listOf(newComment) + state.comments, total = newTotal)
                     } else {
-                        state.copy(total = state.total + 1)
+                        state.copy(total = newTotal)
+                    }
+                    _commentsState.value = updatedState
+                    sortCache[state.sortType] = TabCacheEntry(state = updatedState, pageNo = currentPageNo)
+
+                    // 跨 Tab 同步更新总评论数
+                    sortCache.forEach { (type, entry) ->
+                        if (type != state.sortType) {
+                            sortCache[type] = entry.copy(state = entry.state.copy(total = newTotal))
+                        }
                     }
                 }.onFailure { error ->
                     onToast(error.toUserMessage(resourceProvider))
@@ -170,15 +226,30 @@ class CommentsSectionController(
 
     fun deleteComment(comment: CommentItem) {
         val currentState = _commentsState.value as? CommentsState.Success ?: return
+        val newTotal = (currentState.total - 1).coerceAtLeast(0)
         val updated = currentState.copy(
             comments = currentState.comments.filterNot { it.commentId == comment.commentId },
-            total = (currentState.total - 1).coerceAtLeast(0)
+            total = newTotal
         )
         _commentsState.value = updated
+        sortCache[currentState.sortType] = TabCacheEntry(state = updated, pageNo = currentPageNo)
+
+        // 跨 Tab 同步删除
+        sortCache.forEach { (type, entry) ->
+            if (type != currentState.sortType) {
+                val updatedState = entry.state.copy(
+                    comments = entry.state.comments.filterNot { it.commentId == comment.commentId },
+                    total = (entry.state.total - 1).coerceAtLeast(0)
+                )
+                sortCache[type] = entry.copy(state = updatedState)
+            }
+        }
+
         scope.launch {
             repository.deleteComment(threadId, comment.commentId).collect { result ->
                 result.onFailure { error ->
                     _commentsState.value = currentState
+                    sortCache[currentState.sortType] = TabCacheEntry(state = currentState, pageNo = currentPageNo)
                     onToast(error.toUserMessage(resourceProvider))
                 }
             }

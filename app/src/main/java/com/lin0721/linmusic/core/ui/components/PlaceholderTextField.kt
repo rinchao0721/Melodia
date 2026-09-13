@@ -17,6 +17,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+
 // 带占位符的输入框，支持单行与多行，替代各处手写的 BasicTextField + 条件 Text 组合
 @Composable
 fun PlaceholderTextField(
@@ -27,7 +30,8 @@ fun PlaceholderTextField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
-    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.small
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.small,
+    focusRequester: FocusRequester? = null
 ) {
     val boxModifier = if (singleLine) {
         modifier
@@ -53,12 +57,16 @@ fun PlaceholderTextField(
         if (value.isEmpty()) {
             Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
+        val textFieldModifier = Modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = textFieldModifier,
             singleLine = singleLine,
             minLines = minLines,
             maxLines = maxLines

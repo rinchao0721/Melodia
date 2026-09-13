@@ -39,7 +39,7 @@ class CommentsSectionControllerTest {
                     totalCount = 100,
                     hasMore = true,
                     cursor = "999",
-                    sortType = CommentSortType.LATEST.wireValue
+                    sortType = CommentSortType.RECOMMEND.wireValue
                 )
             )
         }
@@ -53,7 +53,7 @@ class CommentsSectionControllerTest {
         assertEquals(100, state.total)
         assertTrue(state.hasMore)
         assertEquals("999", state.cursor)
-        assertEquals(CommentSortType.LATEST, state.sortType)
+        assertEquals(CommentSortType.RECOMMEND, state.sortType)
     }
 
     @Test
@@ -256,6 +256,40 @@ class CommentsSectionControllerTest {
         controller.closeFloor()
 
         assertTrue(controller.floorState.value is CommentFloorState.Idle)
+    }
+
+    @Test
+    fun `切换排序后切回原排序命中缓存不重复发起网络请求`() = runTest {
+        val repository = FakeCommentRepository().apply {
+            commentsV2Result = Result.success(
+                CommentsV2Data(comments = listOf(CommentItem(commentId = 101, content = "推荐内容")))
+            )
+        }
+        val controller = newController(repository, this)
+
+        // 1. 初次加载推荐
+        controller.load("R_SO_4_1")
+        advanceUntilIdle()
+        val firstState = controller.commentsState.value as CommentsState.Success
+        assertEquals(101L, firstState.comments.first().commentId)
+
+        // 2. 切换到最新
+        repository.commentsV2Result = Result.success(
+            CommentsV2Data(comments = listOf(CommentItem(commentId = 202, content = "最新内容")))
+        )
+        controller.changeSort(CommentSortType.LATEST)
+        advanceUntilIdle()
+        val latestState = controller.commentsState.value as CommentsState.Success
+        assertEquals(202L, latestState.comments.first().commentId)
+
+        // 3. 切回推荐：直接命中缓存，哪怕 repository 失败也能立即呈现原推荐内容
+        repository.commentsV2Result = Result.failure(AppError.NetworkError)
+        controller.changeSort(CommentSortType.RECOMMEND)
+        advanceUntilIdle()
+
+        val restoredState = controller.commentsState.value as CommentsState.Success
+        assertEquals(CommentSortType.RECOMMEND, restoredState.sortType)
+        assertEquals(101L, restoredState.comments.first().commentId)
     }
 }
 

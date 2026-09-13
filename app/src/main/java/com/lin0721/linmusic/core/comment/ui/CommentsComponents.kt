@@ -1,9 +1,13 @@
 package com.lin0721.linmusic.core.comment.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -11,6 +15,13 @@ import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.ui.components.shimmerBackground
+import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -173,13 +184,56 @@ fun CommentsPreviewCard(
 }
 
 @Composable
+fun CommentSortTabs(
+    current: CommentSortType,
+    onSelect: (CommentSortType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = listOf(
+        CommentSortType.RECOMMEND to "推荐",
+        CommentSortType.HOT to "最热",
+        CommentSortType.LATEST to "最新"
+    )
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+    ) {
+        options.forEach { (type, label) ->
+            val selected = type == current
+            val background by animateColorAsState(
+                targetValue = if (selected) NeteaseRed else Color.White.copy(alpha = 0.08f),
+                animationSpec = tween(ContentSwitchDurationMs),
+                label = "sortTabBg"
+            )
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(background)
+                    .pressable(MelodiaPress.Pill, shape = CircleShape, onClick = { onSelect(type) })
+                    .padding(horizontal = MelodiaSpacing.md, vertical = 6.dp)
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) Color.White else TextGray,
+                    fontSize = 12.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun CommentRowItem(
     comment: CommentItem,
     modifier: Modifier = Modifier,
     contentMaxLines: Int = Int.MAX_VALUE,
     isLikeClickable: Boolean = true,
     onLikeClick: () -> Unit = {},
-    onUserClick: (Long) -> Unit = {}
+    onUserClick: (Long) -> Unit = {},
+    onReplyClick: () -> Unit = {},
+    onExpandFloorClick: () -> Unit = {},
+    onDeleteClick: (() -> Unit)? = null
 ) {
     val userClickModifier = if (comment.user.userId > 0L) {
         Modifier.clickable { onUserClick(comment.user.userId) }
@@ -267,6 +321,56 @@ fun CommentRowItem(
                 maxLines = contentMaxLines,
                 overflow = if (contentMaxLines < Int.MAX_VALUE) TextOverflow.Ellipsis else TextOverflow.Clip
             )
+
+            comment.beReplied?.firstOrNull()?.let { quoted ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .padding(horizontal = MelodiaSpacing.sm, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "回复 ${quoted.user?.nickname.orEmpty()}：${quoted.content.orEmpty()}",
+                        color = TextGray.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (contentMaxLines == Int.MAX_VALUE) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "回复",
+                        color = TextGray.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onReplyClick)
+                    )
+                    if (comment.replyCount > 0) {
+                        Text(
+                            text = "展开 ${comment.replyCount} 条回复 ›",
+                            color = NeteaseRed,
+                            fontSize = 11.sp,
+                            modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onExpandFloorClick)
+                        )
+                    }
+                    if (onDeleteClick != null) {
+                        Text(
+                            text = "删除",
+                            color = TextGray.copy(alpha = 0.8f),
+                            fontSize = 11.sp,
+                            modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onDeleteClick)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -281,17 +385,142 @@ fun formatLikedCount(count: Int): String {
 }
 
 sealed interface CommentsState {
-    object Loading : CommentsState
+    val sortType: CommentSortType
+    val totalCount: Int?
+
+    data class Loading(
+        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
+        override val totalCount: Int? = null
+    ) : CommentsState
+
     data class Success(
         val hotComments: List<CommentItem>,
         val comments: List<CommentItem>,
         val total: Int,
-        val sortType: com.lin0721.linmusic.core.comment.data.CommentSortType = com.lin0721.linmusic.core.comment.data.CommentSortType.LATEST,
+        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
         val cursor: String = "0",
         val hasMore: Boolean = false,
         val isLoadingMore: Boolean = false
+    ) : CommentsState {
+        override val totalCount: Int get() = total
+    }
+
+    data class Error(
+        val message: String,
+        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
+        override val totalCount: Int? = null
     ) : CommentsState
-    data class Error(val message: String) : CommentsState
+}
+
+// 单条评论扫光骨架条目
+@Composable
+fun CommentItemSkeleton(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = MelodiaSpacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .shimmerBackground(CircleShape)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(96.dp)
+                        .height(14.dp)
+                        .shimmerBackground(RoundedCornerShape(4.dp))
+                )
+                Box(
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(14.dp)
+                        .shimmerBackground(RoundedCornerShape(4.dp))
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(64.dp)
+                    .height(10.dp)
+                    .shimmerBackground(RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .height(14.dp)
+                    .shimmerBackground(RoundedCornerShape(4.dp))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(14.dp)
+                    .shimmerBackground(RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(12.dp)
+                    .shimmerBackground(RoundedCornerShape(4.dp))
+            )
+        }
+    }
+}
+
+// 评论流扫光骨架屏
+@Composable
+fun CommentListSkeleton(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md)
+    ) {
+        repeat(6) {
+            CommentItemSkeleton()
+        }
+    }
+}
+
+// 楼层详情扫光骨架屏
+@Composable
+fun CommentFloorSkeleton(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
+    ) {
+        CommentItemSkeleton()
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
+            color = Color.White.copy(alpha = 0.08f)
+        )
+        Box(
+            modifier = Modifier
+                .width(80.dp)
+                .height(12.dp)
+                .shimmerBackground(RoundedCornerShape(4.dp))
+        )
+        Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
+        repeat(4) {
+            CommentItemSkeleton()
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
+                color = Color.White.copy(alpha = 0.06f)
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -301,6 +530,13 @@ fun CommentsBottomSheet(
     onLikeComment: (CommentItem) -> Unit,
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
+    onSortChange: (CommentSortType) -> Unit,
+    onLoadMore: () -> Unit,
+    onWriteCommentClick: () -> Unit,
+    onReplyClick: (CommentItem) -> Unit,
+    onExpandFloor: (CommentItem) -> Unit,
+    onDeleteClick: (CommentItem) -> Unit,
+    currentUserId: Long?,
     onUserClick: (Long) -> Unit = {}
 ) {
     ModalBottomSheet(
@@ -331,6 +567,14 @@ fun CommentsBottomSheet(
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
             )
+
+            if (commentsState is CommentsState.Success) {
+                CommentSortTabs(
+                    current = commentsState.sortType,
+                    onSelect = onSortChange,
+                    modifier = Modifier.padding(bottom = MelodiaSpacing.md)
+                )
+            }
 
             when (commentsState) {
                 is CommentsState.Loading -> {
@@ -384,7 +628,21 @@ fun CommentsBottomSheet(
                             )
                         }
                     } else {
+                        val listState = rememberLazyListState()
+                        val shouldLoadMore by remember(listState) {
+                            derivedStateOf {
+                                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                lastVisible >= allComments.size - 3
+                            }
+                        }
+                        LaunchedEffect(shouldLoadMore, commentsState.hasMore, commentsState.isLoadingMore) {
+                            if (shouldLoadMore && commentsState.hasMore && !commentsState.isLoadingMore) {
+                                onLoadMore()
+                            }
+                        }
+
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
                             contentPadding = PaddingValues(bottom = 24.dp)
@@ -393,10 +651,42 @@ fun CommentsBottomSheet(
                                 CommentRowItem(
                                     comment = comment,
                                     onLikeClick = { onLikeComment(comment) },
-                                    onUserClick = onUserClick
+                                    onUserClick = onUserClick,
+                                    onReplyClick = { onReplyClick(comment) },
+                                    onExpandFloorClick = { onExpandFloor(comment) },
+                                    onDeleteClick = if (comment.user.userId == currentUserId) {
+                                        { onDeleteClick(comment) }
+                                    } else null
                                 )
                             }
+                            if (commentsState.isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = MelodiaSpacing.md),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = NeteaseRed,
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
+                            }
                         }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = MelodiaSpacing.sm)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .pressable(MelodiaPress.Row, shape = RoundedCornerShape(20.dp), onClick = onWriteCommentClick)
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("说点什么...", color = TextGray, fontSize = 13.sp)
                     }
                 }
             }

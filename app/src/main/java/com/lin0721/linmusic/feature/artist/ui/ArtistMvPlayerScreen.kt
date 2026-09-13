@@ -12,8 +12,15 @@ import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
+import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -139,6 +146,9 @@ fun ArtistMvPlayerScreen(
 
     var quality by remember { mutableStateOf(1080) }
     var showCommentsSheet by remember { mutableStateOf(false) }
+    var showCommentFloor by remember { mutableStateOf(false) }
+    val composerState by viewModel.composerState.collectAsStateWithLifecycle()
+    val floorState by viewModel.floorState.collectAsStateWithLifecycle()
 
     LaunchedEffect(mvId) {
         quality = 1080
@@ -236,6 +246,8 @@ fun ArtistMvPlayerScreen(
     }
 
     BackHandler(enabled = isFullscreen) { exitFullscreen() }
+    BackHandler(enabled = showCommentsSheet) { showCommentsSheet = false }
+    BackHandler(enabled = showCommentFloor) { showCommentFloor = false }
 
     val exoPlayer = remember { ExoPlayer.Builder(context).build() }
 
@@ -939,11 +951,51 @@ fun ArtistMvPlayerScreen(
                     if (userProfile == null) {
                         ToastManager.showToast("请先登录账号")
                     } else {
-                        viewModel.likeComment(mvId, comment)
+                        viewModel.likeComment(comment)
                     }
                 },
                 onDismiss = { showCommentsSheet = false },
                 onRetry = { viewModel.loadComments(mvId) },
+                onSortChange = viewModel::changeCommentSort,
+                onLoadMore = viewModel::loadMoreComments,
+                onWriteCommentClick = {
+                    if (userProfile == null) {
+                        ToastManager.showToast("请先登录账号")
+                    }
+                },
+                onReplyClick = { comment ->
+                    if (userProfile == null) {
+                        ToastManager.showToast("请先登录账号")
+                    }
+                },
+                onExpandFloor = { comment ->
+                    showCommentFloor = true
+                    viewModel.openCommentFloor(comment)
+                },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                currentUserId = userProfile?.uid,
+                onUserClick = onNavigateToProfile
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showCommentFloor,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            CommentFloorScreen(
+                floorState = floorState,
+                currentUserId = userProfile?.uid,
+                isSubmitting = composerState is CommentComposerState.Submitting,
+                onBack = { showCommentFloor = false },
+                onLoadMore = viewModel::loadMoreCommentFloor,
+                onSubmitReply = { parentCommentId, content ->
+                    viewModel.submitCommentReply(parentCommentId, content)
+                },
+                onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                onLikeClick = { comment -> viewModel.likeComment(comment) },
+                onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
                 onUserClick = onNavigateToProfile
             )
         }
