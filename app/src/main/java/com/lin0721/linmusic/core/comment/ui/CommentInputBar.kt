@@ -44,7 +44,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
+import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.TextGray
 
 // 评论区底部常驻输入栏：随软键盘升降，支持直接发表主评论与针对指定用户的回复
@@ -65,7 +65,7 @@ fun CommentInputBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(SurfaceDark)
+            .background(BackgroundDark)
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
     ) {
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f))

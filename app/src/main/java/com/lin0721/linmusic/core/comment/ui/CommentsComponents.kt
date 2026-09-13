@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.core.comment.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -22,6 +25,7 @@ import androidx.compose.runtime.remember
 import com.lin0721.linmusic.core.comment.data.CommentSortType
 import com.lin0721.linmusic.core.ui.components.shimmerBackground
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
+import com.lin0721.linmusic.core.ui.theme.PillRadius
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -183,40 +187,50 @@ fun CommentsPreviewCard(
     }
 }
 
+// 评论排序胶囊行：复用音乐库胶囊视觉表现与微动效，三项常驻单选切换
 @Composable
 fun CommentSortTabs(
     current: CommentSortType,
     onSelect: (CommentSortType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val options = listOf(
+    val tabs = listOf(
         CommentSortType.RECOMMEND to "推荐",
         CommentSortType.HOT to "最热",
         CommentSortType.LATEST to "最新"
     )
+
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        options.forEach { (type, label) ->
-            val selected = type == current
-            val background by animateColorAsState(
-                targetValue = if (selected) NeteaseRed else Color.White.copy(alpha = 0.08f),
-                animationSpec = tween(ContentSwitchDurationMs),
-                label = "sortTabBg"
+        tabs.forEach { (type, label) ->
+            val isSelected = type == current
+            val bgColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                animationSpec = tween(220),
+                label = "sort_pill_bg"
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.LightGray,
+                animationSpec = tween(220),
+                label = "sort_pill_content"
             )
             Box(
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(background)
-                    .pressable(MelodiaPress.Pill, shape = CircleShape, onClick = { onSelect(type) })
-                    .padding(horizontal = MelodiaSpacing.md, vertical = 6.dp)
+                    .height(36.dp)
+                    .pressable(MelodiaPress.Pill) { onSelect(type) }
+                    .clip(RoundedCornerShape(PillRadius))
+                    .background(bgColor)
+                    .animateContentSize(spring(stiffness = Spring.StiffnessMedium))
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
-                    color = if (selected) Color.White else TextGray,
-                    fontSize = 12.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    color = contentColor,
+                    fontSize = 14.sp
                 )
             }
         }
