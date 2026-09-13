@@ -73,6 +73,47 @@ class HeaderInterceptor(
                 "os=android; appver=9.0.90; osver=${android.os.Build.VERSION.RELEASE}"
             }
             newRequestBuilder.header("Cookie", if (filteredCookies.isEmpty()) osCookie else "$filteredCookies; $osCookie")
+        } else if (urlString.contains("/xeapi/")) {
+            val newUrl = url.newBuilder()
+                .host(NeteaseEndpoints.XEAPI_HOST)
+                .build()
+            newRequestBuilder.url(newUrl)
+
+            val deviceId = com.lin0721.linmusic.core.network.NeteaseDeviceId.current()
+            val osVer = android.os.Build.VERSION.RELEASE
+            val appVer = "9.5.61"
+            val buildVer = System.currentTimeMillis().toString().substring(0, 10)
+
+            newRequestBuilder.header(
+                "User-Agent",
+                "NeteaseMusic/9.5.61.260802021928(9005061);Dalvik/2.1.0 (Linux; U; Android $osVer; ${android.os.Build.MODEL})"
+            )
+            newRequestBuilder.header("X-Client-Enc-State", "ENCRYPTED")
+            newRequestBuilder.header("x-aeapi", "true")
+            newRequestBuilder.header("content-type", "application/x-www-form-urlencoded;charset=utf-8")
+            newRequestBuilder.header("x-deviceid", deviceId)
+            newRequestBuilder.header("x-os", "android")
+            newRequestBuilder.header("x-osver", osVer)
+            newRequestBuilder.header("x-appver", appVer)
+            newRequestBuilder.header("x-sdeviceid", deviceId)
+            newRequestBuilder.header("x-buildver", buildVer)
+            newRequestBuilder.removeHeader("Referer")
+
+            val musicU = storedCookies?.let { Regex("MUSIC_U=([^;]+)").find(it)?.groupValues?.get(1) }
+            if (!musicU.isNullOrEmpty()) {
+                newRequestBuilder.header("x-music-u", musicU)
+            }
+
+            val cookieParts = mutableListOf(
+                "os=android",
+                "osver=$osVer",
+                "appver=$appVer",
+                "deviceId=$deviceId",
+                "sDeviceId=$deviceId",
+                "buildver=$buildVer"
+            )
+            if (storedCookies != null) cookieParts.add(storedCookies)
+            newRequestBuilder.header("Cookie", cookieParts.joinToString("; "))
         } else {
             newRequestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             newRequestBuilder.header("Referer", NeteaseEndpoints.WEB_BASE_URL)

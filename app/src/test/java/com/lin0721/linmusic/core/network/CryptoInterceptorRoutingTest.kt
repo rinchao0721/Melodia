@@ -1,12 +1,21 @@
 package com.lin0721.linmusic.core.network
 
+import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
+import com.lin0721.linmusic.core.network.crypto.XeapiPublicKeyState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CryptoInterceptorRoutingTest {
 
-    private val interceptor = CryptoInterceptor()
+    // resolveCryptoType 是纯 URL 字符串判断，不会真的用到 XeapiKeyStore，这里给个不触碰
+    // Context/网络的假实现即可，避免这个纯单测文件被迫引入 Robolectric
+    private val fakeXeapiKeyStore = object : XeapiKeyStore {
+        override suspend fun getOrFetchPublicKey(): XeapiPublicKeyState? = null
+        override suspend fun refresh(): XeapiPublicKeyState? = null
+    }
+
+    private val interceptor = CryptoInterceptor(fakeXeapiKeyStore)
 
     @Test
     fun `eapi路径识别为EAPI`() {
@@ -63,6 +72,22 @@ class CryptoInterceptorRoutingTest {
         assertEquals(
             CryptoInterceptor.CryptoType.EAPI,
             interceptor.resolveCryptoType("https://music.163.com/eapi/v6/playlist/detail")
+        )
+    }
+
+    @Test
+    fun `xeapi路径识别为XEAPI`() {
+        assertEquals(
+            CryptoInterceptor.CryptoType.XEAPI,
+            interceptor.resolveCryptoType("https://interface3.music.163.com/xeapi/resource/comments/add")
+        )
+    }
+
+    @Test
+    fun `xeapi不会被裸api兜底逻辑误判为WEAPI`() {
+        assertEquals(
+            CryptoInterceptor.CryptoType.XEAPI,
+            interceptor.resolveCryptoType("https://music.163.com/xeapi/v1/resource/comments/reply")
         )
     }
 }

@@ -2,6 +2,9 @@ package com.lin0721.linmusic.core.network
 
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.crypto.NeteaseCrypto
+import com.lin0721.linmusic.core.network.crypto.XeapiCrypto
+import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
+import kotlinx.coroutines.runBlocking
 import okhttp3.FormBody
 import okhttp3.Interceptor
 import okhttp3.RequestBody
@@ -10,8 +13,8 @@ import okio.Buffer
 
 private const val TAG = "CryptoInterceptor"
 
-// OkHttp 拦截器 —— 自动识别网易云 API 类型并加密请求体 (WeApi/EApi/LinuxApi)
-class CryptoInterceptor : Interceptor {
+// OkHttp 拦截器 —— 自动识别网易云 API 类型并加密请求体 (WeApi/EApi/LinuxApi/XeApi)
+class CryptoInterceptor(private val xeapiKeyStore: XeapiKeyStore) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -28,6 +31,7 @@ class CryptoInterceptor : Interceptor {
             CryptoType.WEAPI -> buildWeApiForm(rawJson, cookies)
             CryptoType.EAPI -> buildEApiForm(url, rawJson)
             CryptoType.LINUXAPI -> buildLinuxApiForm(rawJson)
+            CryptoType.XEAPI -> buildXeApiForm(url, rawJson)
         }
 
         val newRequest = originalRequest.newBuilder()
@@ -40,11 +44,12 @@ class CryptoInterceptor : Interceptor {
 
     // ---------- 路由判定 ----------
 
-    internal enum class CryptoType { WEAPI, EAPI, LINUXAPI }
+    internal enum class CryptoType { WEAPI, EAPI, LINUXAPI, XEAPI }
 
     // 根据 URL 路径判断加密类型（internal 以便单测直接调用）
     internal fun resolveCryptoType(url: String): CryptoType? = when {
         url.contains("/eapi/") -> CryptoType.EAPI
+        url.contains("/xeapi/") -> CryptoType.XEAPI
         url.contains("/linux/api/") -> CryptoType.LINUXAPI
         url.contains("/weapi/") || url.contains("/api/") -> CryptoType.WEAPI
         else -> null
@@ -117,6 +122,42 @@ class CryptoInterceptor : Interceptor {
         return FormBody.Builder()
             .add("eparams", encrypted.getValue("eparams"))
             .build()
+    }
+
+    // XEapi：加密后包含 B/S/R 三个表单字段
+    private fun buildXeApiForm(url: String, rawJson: String): FormBody {
+        val xeapiPath = extractXeApiPath(url)
+        val apiPath = xeapiPath.replace("/xeapi/", "/api/")
+
+        val dataMap = try {
+            val obj = org.json.JSONObject(rawJson)
+            val map = LinkedHashMap<String, String>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                map[key] = obj.get(key).toString()
+            }
+            map
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "XEapi 请求体解析失败，payload 已清空: $url", e)
+            emptyMap()
+        }
+
+        val publicKeyState = runBlocking { xeapiKeyStore.getOrFetchPublicKey() }
+            ?: throw java.io.IOException("xeapi 公钥获取失败，评论功能暂时不可用")
+
+        val encrypted = XeapiCrypto.assembleRequest(apiPath, dataMap, publicKeyState)
+        return FormBody.Builder()
+            .add("B", encrypted.b)
+            .add("S", encrypted.s)
+            .add("R", encrypted.r)
+            .build()
+    }
+
+    // 从完整 URL 中提取 /xeapi/ 及之后的路径
+    private fun extractXeApiPath(url: String): String {
+        val idx = url.indexOf("/xeapi/")
+        return if (idx != -1) url.substring(idx) else url
     }
 
     // ---------- 工具方法 ----------
