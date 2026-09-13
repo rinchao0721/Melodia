@@ -12,6 +12,7 @@ import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -101,8 +102,9 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.LocalBottomOverlayInset
-import com.lin0721.linmusic.core.comment.ui.CommentsBottomSheet
+import com.lin0721.linmusic.core.comment.ui.MvInlineCommentsView
 import com.lin0721.linmusic.core.comment.ui.CommentsPreviewCard
+import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.interaction.pressScale
@@ -133,6 +135,7 @@ fun ArtistMvPlayerScreen(
     onArtistClick: (Long) -> Unit,
     onMvClick: (Long, String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
+    onCommentsVisibilityChanged: (Boolean) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -145,7 +148,7 @@ fun ArtistMvPlayerScreen(
     val isArtistFollowed by viewModel.isArtistFollowed.collectAsStateWithLifecycle()
 
     var quality by remember { mutableStateOf(1080) }
-    var showCommentsSheet by remember { mutableStateOf(false) }
+    var showCommentsSection by remember { mutableStateOf(false) }
     var showCommentFloor by remember { mutableStateOf(false) }
     val composerState by viewModel.composerState.collectAsStateWithLifecycle()
     val floorState by viewModel.floorState.collectAsStateWithLifecycle()
@@ -211,7 +214,13 @@ fun ArtistMvPlayerScreen(
             val insetsController = activity?.window?.let { WindowInsetsControllerCompat(it, view) }
             insetsController?.show(WindowInsetsCompat.Type.systemBars())
             onFullscreenChanged(false)
+            onCommentsVisibilityChanged(false)
         }
+    }
+
+    // 评论区展开状态变化 -> 联动外层隐藏/显示底部 MiniPlayer
+    LaunchedEffect(showCommentsSection) {
+        onCommentsVisibilityChanged(showCommentsSection)
     }
 
     // 设备物理方向变化 -> 自动联动全屏态
@@ -221,6 +230,10 @@ fun ArtistMvPlayerScreen(
 
     // 全屏态变化 -> 隐藏/显示系统栏、通知外层隐藏/显示底部导航栏、并把强制转向"放开"为自由感应
     LaunchedEffect(isFullscreen) {
+        if (isFullscreen) {
+            showCommentsSection = false
+            showCommentFloor = false
+        }
         onFullscreenChanged(isFullscreen)
         val insetsController = activity?.window?.let { WindowInsetsControllerCompat(it, view) }
         if (isFullscreen) {
@@ -246,7 +259,7 @@ fun ArtistMvPlayerScreen(
     }
 
     BackHandler(enabled = isFullscreen) { exitFullscreen() }
-    BackHandler(enabled = showCommentsSheet) { showCommentsSheet = false }
+    BackHandler(enabled = showCommentsSection) { showCommentsSection = false }
     BackHandler(enabled = showCommentFloor) { showCommentFloor = false }
 
     val exoPlayer = remember { ExoPlayer.Builder(context).build() }
@@ -747,10 +760,16 @@ fun ArtistMvPlayerScreen(
             Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                 VideoArea(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
 
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(BackgroundDark)
                 ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+                    ) {
                     item(key = "info") {
                         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
@@ -920,7 +939,7 @@ fun ArtistMvPlayerScreen(
                         CommentsPreviewCard(
                             commentsState = commentsState,
                             cardColor = MaterialTheme.colorScheme.surface,
-                            onClick = { showCommentsSheet = true },
+                            onClick = { showCommentsSection = true },
                             onRetry = { viewModel.loadComments(mvId) }
                         )
                     }
@@ -940,48 +959,53 @@ fun ArtistMvPlayerScreen(
                         }
                     }
                 }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showCommentsSection,
+                    enter = slideInVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeIn(tween(ScreenSlideDurationMs, easing = LinearEasing)),
+                    exit = slideOutVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeOut(tween(ScreenSlideDurationMs, easing = LinearEasing))
+                ) {
+                    MvInlineCommentsView(
+                        commentsState = commentsState,
+                        isSubmitting = composerState is CommentComposerState.Submitting,
+                        currentUserId = userProfile?.uid,
+                        bottomOverlayInset = 0.dp,
+                        onLikeComment = { comment ->
+                            if (userProfile == null) {
+                                ToastManager.showToast("请先登录账号")
+                            } else {
+                                viewModel.likeComment(comment)
+                            }
+                        },
+                        onSubmitComment = { content, target ->
+                            if (target != null) {
+                                viewModel.submitCommentReply(target.commentId, content)
+                            } else {
+                                viewModel.submitComment(content)
+                            }
+                        },
+                        onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                        onExpandFloor = { comment ->
+                            showCommentFloor = true
+                            viewModel.openCommentFloor(comment)
+                        },
+                        onSortChange = viewModel::changeCommentSort,
+                        onLoadMore = viewModel::loadMoreComments,
+                        onRetry = { viewModel.loadComments(mvId) },
+                        onClose = { showCommentsSection = false },
+                        onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                        onUserClick = onNavigateToProfile
+                    )
+                }
             }
         }
         }
-
-        if (showCommentsSheet) {
-            CommentsBottomSheet(
-                commentsState = commentsState,
-                onLikeComment = { comment ->
-                    if (userProfile == null) {
-                        ToastManager.showToast("请先登录账号")
-                    } else {
-                        viewModel.likeComment(comment)
-                    }
-                },
-                onDismiss = { showCommentsSheet = false },
-                onRetry = { viewModel.loadComments(mvId) },
-                onSortChange = viewModel::changeCommentSort,
-                onLoadMore = viewModel::loadMoreComments,
-                onWriteCommentClick = {
-                    if (userProfile == null) {
-                        ToastManager.showToast("请先登录账号")
-                    }
-                },
-                onReplyClick = { comment ->
-                    if (userProfile == null) {
-                        ToastManager.showToast("请先登录账号")
-                    }
-                },
-                onExpandFloor = { comment ->
-                    showCommentFloor = true
-                    viewModel.openCommentFloor(comment)
-                },
-                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                currentUserId = userProfile?.uid,
-                onUserClick = onNavigateToProfile
-            )
         }
 
         AnimatedVisibility(
             visible = showCommentFloor,
-            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
-            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+            enter = slideInVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeIn(tween(ScreenSlideDurationMs, easing = LinearEasing)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeOut(tween(ScreenSlideDurationMs, easing = LinearEasing))
         ) {
             CommentFloorScreen(
                 floorState = floorState,

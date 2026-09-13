@@ -31,6 +31,7 @@ fun MelodiaNavHost(
     onNavigateToRadio: (Long) -> Unit,
     onNavigateToMv: (Long, String) -> Unit,
     onMvFullscreenChanged: (Boolean) -> Unit,
+    onMvCommentsVisibilityChanged: (Boolean) -> Unit = {},
     onNavigateToPlaylistCategory: (String) -> Unit,
     onNavigateToProfile: (Long) -> Unit,
     onNavigateToFollowList: (Long, FollowListMode) -> Unit,
@@ -137,6 +138,7 @@ fun MelodiaNavHost(
                     onArtistClick = onNavigateToArtist,
                     onMvClick = onNavigateToMv,
                     onFullscreenChanged = onMvFullscreenChanged,
+                    onCommentsVisibilityChanged = onMvCommentsVisibilityChanged,
                     onNavigateToProfile = onNavigateToProfile
                 )
             }

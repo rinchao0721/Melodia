@@ -38,6 +38,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -56,17 +61,28 @@ fun CommentInputBar(
     onClearReplyTarget: () -> Unit,
     onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "说点什么..."
+    placeholder: String = "说点什么...",
+    bottomOverlayInset: Dp = 0.dp
 ) {
     var text by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val canSubmit = text.isNotBlank() && !isSubmitting
 
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val bottomPadding = if (imeBottom > 0) {
+        WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    } else {
+        val navBarsPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        if (bottomOverlayInset > 0.dp) bottomOverlayInset else navBarsPadding
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(BackgroundDark)
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            .background(BackgroundDark.copy(alpha = 0.98f))
+            .pointerInput(Unit) { detectTapGestures { } }
+            .padding(bottom = bottomPadding)
     ) {
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
@@ -127,15 +143,18 @@ fun CommentInputBar(
                 placeholder = dynamicPlaceholder,
                 singleLine = false,
                 maxLines = 4,
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 focusRequester = focusRequester,
+                containerColor = Color.White.copy(alpha = 0.12f),
+                textColor = Color.White,
+                placeholderColor = TextGray.copy(alpha = 0.8f),
                 modifier = Modifier.weight(1f)
             )
 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (canSubmit) NeteaseRed else Color.White.copy(alpha = 0.1f))
+                    .background(if (canSubmit) NeteaseRed else NeteaseRed.copy(alpha = 0.35f))
                     .then(
                         if (canSubmit) {
                             Modifier.pressable(MelodiaPress.Pill) {
@@ -159,7 +178,7 @@ fun CommentInputBar(
                 } else {
                     Text(
                         text = "发送",
-                        color = if (canSubmit) Color.White else TextGray,
+                        color = if (canSubmit) Color.White else Color.White.copy(alpha = 0.6f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )

@@ -17,8 +17,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 // 带占位符的输入框，支持单行与多行，替代各处手写的 BasicTextField + 条件 Text 组合
 @Composable
@@ -31,21 +37,34 @@ fun PlaceholderTextField(
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.small,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    containerColor: Color = MaterialTheme.colorScheme.background,
+    borderColor: Color? = null,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val baseModifier = modifier
+        .fillMaxWidth()
+        .clip(shape)
+        .then(if (borderColor != null) Modifier.border(1.dp, borderColor, shape) else Modifier)
+        .background(containerColor)
+        .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+        ) {
+            focusRequester?.requestFocus()
+            keyboardController?.show()
+        }
+
     val boxModifier = if (singleLine) {
-        modifier
-            .fillMaxWidth()
+        baseModifier
             .height(44.dp)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 14.dp)
     } else {
-        modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+        baseModifier
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     }
 
     val contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart
@@ -55,7 +74,7 @@ fun PlaceholderTextField(
         contentAlignment = contentAlignment
     ) {
         if (value.isEmpty()) {
-            Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text(placeholder, color = placeholderColor, fontSize = 14.sp)
         }
         val textFieldModifier = Modifier
             .fillMaxWidth()
@@ -64,7 +83,7 @@ fun PlaceholderTextField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
+            textStyle = TextStyle(color = textColor, fontSize = 14.sp),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = textFieldModifier,
             singleLine = singleLine,
