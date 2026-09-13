@@ -132,6 +132,7 @@ dependencies {
     implementation(libs.androidx.palette)
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)
+    implementation(libs.bouncycastle)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

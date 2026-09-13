@@ -88,16 +88,8 @@ class CryptoInterceptor : Interceptor {
             org.json.JSONObject()
         }
         
-        val brand = android.os.Build.BRAND
         val model = android.os.Build.MODEL
-        val deviceId = try {
-            val rawId = "${brand}_${model}_${android.os.Build.BOARD}"
-            val digest = java.security.MessageDigest.getInstance("MD5").digest(rawId.toByteArray())
-            digest.joinToString("") { "%02x".format(it) }
-        } catch (e: Exception) {
-            AppLogger.d(TAG, "deviceId MD5 摘要失败，退化使用 model", e)
-            model
-        }
+        val deviceId = NeteaseDeviceId.current()
 
         val headerObj = org.json.JSONObject().apply {
             put("osver", android.os.Build.VERSION.RELEASE)

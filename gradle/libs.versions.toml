@@ -21,9 +21,11 @@ palette = "1.0.0"
 coroutinesTest = "1.9.0"
 imageCropper = "4.7.0"
 zxing = "3.5.3"
-
+bouncycastle = "1.85.2"
 
 [libraries]
+bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
