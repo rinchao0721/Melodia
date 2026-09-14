@@ -67,6 +67,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.EntityCoverShape
@@ -152,8 +153,9 @@ fun SearchScreen(
     }
 
     // 搜索态是页面内部状态，不在导航栈里；系统返回手势要先退出搜索态回到发现页，
-    // 而不是直接被外层全局 BackHandler 接住退回首页
-    BackHandler(enabled = isSearchActive) {
+    // 而不是直接被外层全局 BackHandler 接住退回首页。
+    // 全屏播放器/侧边栏/创建菜单开着时要让位，否则这个局部 handler 会抢先吞掉本该用来关浮层的返回事件
+    BackHandler(enabled = isSearchActive && !LocalGlobalOverlayOpen.current) {
         viewModel.deactivateSearch()
     }
 

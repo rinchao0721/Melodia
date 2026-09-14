@@ -101,6 +101,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.comment.ui.MvInlineCommentsView
 import com.lin0721.linmusic.core.comment.ui.CommentsPreviewCard
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -257,9 +258,11 @@ fun ArtistMvPlayerScreen(
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
     }
 
-    BackHandler(enabled = isFullscreen) { exitFullscreen() }
-    BackHandler(enabled = showCommentsSection) { showCommentsSection = false }
-    BackHandler(enabled = showCommentFloor) { showCommentFloor = false }
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    val isGlobalOverlayOpen = LocalGlobalOverlayOpen.current
+    BackHandler(enabled = isFullscreen && !isGlobalOverlayOpen) { exitFullscreen() }
+    BackHandler(enabled = showCommentsSection && !isGlobalOverlayOpen) { showCommentsSection = false }
+    BackHandler(enabled = showCommentFloor && !isGlobalOverlayOpen) { showCommentFloor = false }
 
     val exoPlayer = remember { ExoPlayer.Builder(context).build() }
 

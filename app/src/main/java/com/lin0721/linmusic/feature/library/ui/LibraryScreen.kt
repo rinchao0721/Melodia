@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
@@ -118,7 +119,8 @@ fun LibraryScreen(
     var isReorderMode by remember { mutableStateOf(false) }
     val reorderedPlaylists = remember { mutableStateListOf<LibraryItem>() }
 
-    BackHandler(enabled = isReorderMode) {
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    BackHandler(enabled = isReorderMode && !LocalGlobalOverlayOpen.current) {
         isReorderMode = false
     }
 

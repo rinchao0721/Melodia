@@ -89,7 +89,10 @@ fun MelodiaApp() {
     }
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级
-    val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
+    // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统
+    val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen ||
+            showCreateSheet || navigation.showMusicNewWorks || navigation.canNavigateBack ||
+            navigation.activeTab != Screen.Home
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
@@ -100,7 +103,8 @@ fun MelodiaApp() {
             }
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
-            navigation.canNavigateBack -> handleBack()
+            navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
+            navigation.canNavigateBack || navigation.activeTab != Screen.Home -> handleBack()
         }
     }
 
@@ -176,7 +180,10 @@ fun MelodiaApp() {
                 }
                 .background(BackgroundDark)
         ) {
-            CompositionLocalProvider(LocalBottomOverlayInset provides bottomOverlayHeight) {
+            CompositionLocalProvider(
+                LocalBottomOverlayInset provides bottomOverlayHeight,
+                LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || showCreateSheet)
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

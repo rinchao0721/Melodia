@@ -35,6 +35,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
 val LocalBottomOverlayInset = staticCompositionLocalOf { 0.dp }
 
+// 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
+// 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
+// 导致返回键没有先关掉全局浮层，而是直接改动了浮层底下页面的内部状态
+val LocalGlobalOverlayOpen = staticCompositionLocalOf { false }
+
 // ────────────────────────────────────────────────────────────────────────────
 // 底部浮层：创建菜单弹出层 + 悬浮播放卡片 + M3 导航栏
 // ────────────────────────────────────────────────────────────────────────────

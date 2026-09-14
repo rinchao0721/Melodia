@@ -66,6 +66,7 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
@@ -180,7 +181,10 @@ fun PlaylistScreen(
         }
     }
 
-    BackHandler(enabled = isReorderMode) {
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    val isGlobalOverlayOpen = LocalGlobalOverlayOpen.current
+
+    BackHandler(enabled = isReorderMode && !isGlobalOverlayOpen) {
         if (!isSavingOrder) {
             if (isOrderChanged) {
                 showDiscardConfirmDialog = true
@@ -190,11 +194,11 @@ fun PlaylistScreen(
         }
     }
 
-    BackHandler(enabled = showCommentsSheet) {
+    BackHandler(enabled = showCommentsSheet && !isGlobalOverlayOpen) {
         showCommentsSheet = false
     }
 
-    BackHandler(enabled = showCommentFloor) {
+    BackHandler(enabled = showCommentFloor && !isGlobalOverlayOpen) {
         showCommentFloor = false
     }
 
