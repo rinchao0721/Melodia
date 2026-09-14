@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Close
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.ui.components.shimmerBackground
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -545,213 +546,11 @@ fun CommentFloorSkeleton(modifier: Modifier = Modifier) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CommentsBottomSheet(
-    commentsState: CommentsState,
-    isSubmitting: Boolean = false,
-    currentUserId: Long?,
-    onLikeComment: (CommentItem) -> Unit,
-    onSubmitComment: (String, CommentItem?) -> Unit,
-    onDeleteClick: (CommentItem) -> Unit,
-    onExpandFloor: (CommentItem) -> Unit,
-    onSortChange: (CommentSortType) -> Unit,
-    onLoadMore: () -> Unit,
-    onRetry: () -> Unit,
-    onDismiss: () -> Unit,
-    onRequireLogin: () -> Unit,
-    onUserClick: (Long) -> Unit = {}
-) {
-    var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
-    val focusRequester = remember { FocusRequester() }
-
-    val totalCount = commentsState.totalCount ?: (commentsState as? CommentsState.Success)?.total ?: 0
-    val titleText = if (totalCount > 0) "评论 ($totalCount)" else "评论"
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = BackgroundDark,
-        shape = BottomSheetShape,
-        dragHandle = {
-            Box(modifier = Modifier.padding(top = 12.dp, bottom = MelodiaSpacing.xs)) {
-                Surface(
-                    modifier = Modifier.width(40.dp).height(4.dp),
-                    shape = DragHandleShape,
-                    color = Color.White.copy(alpha = 0.3f)
-                ) {}
-            }
-        }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.75f)
-        ) {
-            // 顶栏：标题 (总数) 与关闭按钮
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = titleText,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                MelodiaIconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "关闭",
-                        tint = Color.LightGray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            // 排序胶囊栏：常驻顶部
-            CommentSortTabs(
-                current = commentsState.sortType,
-                onSelect = onSortChange,
-                modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
-            )
-
-            // 中间内容与列表区
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                when (commentsState) {
-                    is CommentsState.Loading -> {
-                        CommentListSkeleton(modifier = Modifier.fillMaxSize())
-                    }
-                    is CommentsState.Error -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(MelodiaSpacing.lg),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "加载失败: ${commentsState.message}",
-                                color = TextGray,
-                                fontSize = 14.sp,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            MelodiaButton(
-                                onClick = onRetry,
-                                colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed)
-                            ) {
-                                Text("重试", color = Color.White)
-                            }
-                        }
-                    }
-                    is CommentsState.Success -> {
-                        val allComments = (commentsState.hotComments + commentsState.comments)
-                            .distinctBy { it.commentId }
-
-                        if (allComments.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "暂无评论",
-                                    color = TextGray,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        } else {
-                            val listState = rememberLazyListState()
-                            val shouldLoadMore by remember(listState) {
-                                derivedStateOf {
-                                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                                    lastVisible >= allComments.size - 3
-                                }
-                            }
-                            LaunchedEffect(shouldLoadMore, commentsState.hasMore, commentsState.isLoadingMore) {
-                                if (shouldLoadMore && commentsState.hasMore && !commentsState.isLoadingMore) {
-                                    onLoadMore()
-                                }
-                            }
-
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = MelodiaSpacing.md),
-                                verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-                                contentPadding = PaddingValues(vertical = MelodiaSpacing.sm)
-                            ) {
-                                items(allComments, key = { it.commentId }) { comment ->
-                                    CommentRowItem(
-                                        comment = comment,
-                                        onLikeClick = { onLikeComment(comment) },
-                                        onUserClick = onUserClick,
-                                        onReplyClick = {
-                                            if (currentUserId == null) {
-                                                onRequireLogin()
-                                            } else {
-                                                replyTarget = comment
-                                                focusRequester.requestFocus()
-                                            }
-                                        },
-                                        onExpandFloorClick = { onExpandFloor(comment) },
-                                        onDeleteClick = if (comment.user.userId == currentUserId) {
-                                            { onDeleteClick(comment) }
-                                        } else null
-                                    )
-                                }
-                                if (commentsState.isLoadingMore) {
-                                    item {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = MelodiaSpacing.md),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                color = NeteaseRed,
-                                                modifier = Modifier.size(20.dp),
-                                                strokeWidth = 2.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 底部常驻输入栏
-            CommentInputBar(
-                replyTarget = replyTarget,
-                isSubmitting = isSubmitting,
-                focusRequester = focusRequester,
-                onClearReplyTarget = { replyTarget = null },
-                onSubmit = { content ->
-                    if (currentUserId == null) {
-                        onRequireLogin()
-                    } else {
-                        onSubmitComment(content, replyTarget)
-                        replyTarget = null
-                    }
-                }
-            )
-        }
-    }
-}
-
 // MV 视频下方内嵌评论区视图：非全屏时直接在视频正下方图层展开，无任何弹窗遮罩，顶部保留关闭返回入口
 @Composable
 fun MvInlineCommentsView(
     commentsState: CommentsState,
-    isSubmitting: Boolean = false,
+    composerState: CommentComposerState = CommentComposerState.Idle,
     currentUserId: Long?,
     bottomOverlayInset: Dp = 0.dp,
     onLikeComment: (CommentItem) -> Unit,
@@ -922,7 +721,7 @@ fun MvInlineCommentsView(
         // 底部常驻输入栏
         CommentInputBar(
             replyTarget = replyTarget,
-            isSubmitting = isSubmitting,
+            composerState = composerState,
             focusRequester = focusRequester,
             bottomOverlayInset = 0.dp,
             onClearReplyTarget = { replyTarget = null },

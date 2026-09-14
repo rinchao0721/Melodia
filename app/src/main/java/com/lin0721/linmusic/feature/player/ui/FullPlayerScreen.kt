@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
@@ -463,7 +462,7 @@ fun FullPlayerScreen(
             CommentFullScreen(
                 commentsState = commentsState,
                 currentUserId = userProfile?.uid,
-                isSubmitting = composerState is CommentComposerState.Submitting,
+                composerState = composerState,
                 onBack = { showCommentsSheet = false },
                 onSortChange = viewModel::changeCommentSort,
                 onLikeComment = viewModel::likeComment,
@@ -497,7 +496,7 @@ fun FullPlayerScreen(
             CommentFloorScreen(
                 floorState = floorState,
                 currentUserId = userProfile?.uid,
-                isSubmitting = composerState is CommentComposerState.Submitting,
+                composerState = composerState,
                 onBack = { showCommentFloor = false },
                 onLoadMore = viewModel::loadMoreCommentFloor,
                 onSubmitReply = { parentCommentId, content ->

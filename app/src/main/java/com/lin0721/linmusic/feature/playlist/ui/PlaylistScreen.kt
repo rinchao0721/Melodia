@@ -29,7 +29,6 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
-import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.model.CommentItem
@@ -666,7 +665,7 @@ fun PlaylistScreen(
             CommentFullScreen(
                 commentsState = commentsState,
                 currentUserId = userProfile?.uid,
-                isSubmitting = composerState is CommentComposerState.Submitting,
+                composerState = composerState,
                 onBack = { showCommentsSheet = false },
                 onSortChange = viewModel::changeCommentSort,
                 onLikeComment = viewModel::likeComment,
@@ -697,7 +696,7 @@ fun PlaylistScreen(
             CommentFloorScreen(
                 floorState = floorState,
                 currentUserId = userProfile?.uid,
-                isSubmitting = composerState is CommentComposerState.Submitting,
+                composerState = composerState,
                 onBack = { showCommentFloor = false },
                 onLoadMore = viewModel::loadMoreCommentFloor,
                 onSubmitReply = { parentCommentId, content ->

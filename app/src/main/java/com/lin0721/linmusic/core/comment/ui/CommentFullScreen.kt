@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
@@ -57,7 +58,7 @@ import androidx.compose.runtime.setValue
 fun CommentFullScreen(
     commentsState: CommentsState,
     currentUserId: Long?,
-    isSubmitting: Boolean,
+    composerState: CommentComposerState,
     onBack: () -> Unit,
     onSortChange: (CommentSortType) -> Unit,
     onLikeComment: (CommentItem) -> Unit,
@@ -225,7 +226,7 @@ fun CommentFullScreen(
         // 底部输入栏：常驻底部，不因中间内容状态消失
         CommentInputBar(
             replyTarget = replyTarget,
-            isSubmitting = isSubmitting,
+            composerState = composerState,
             focusRequester = focusRequester,
             onClearReplyTarget = { replyTarget = null },
             onSubmit = { content ->

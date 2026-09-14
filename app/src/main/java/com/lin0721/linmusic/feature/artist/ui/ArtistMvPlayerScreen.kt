@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
@@ -967,7 +966,7 @@ fun ArtistMvPlayerScreen(
                 ) {
                     MvInlineCommentsView(
                         commentsState = commentsState,
-                        isSubmitting = composerState is CommentComposerState.Submitting,
+                        composerState = composerState,
                         currentUserId = userProfile?.uid,
                         bottomOverlayInset = 0.dp,
                         onLikeComment = { comment ->
@@ -1010,7 +1009,7 @@ fun ArtistMvPlayerScreen(
             CommentFloorScreen(
                 floorState = floorState,
                 currentUserId = userProfile?.uid,
-                isSubmitting = composerState is CommentComposerState.Submitting,
+                composerState = composerState,
                 onBack = { showCommentFloor = false },
                 onLoadMore = viewModel::loadMoreCommentFloor,
                 onSubmitReply = { parentCommentId, content ->

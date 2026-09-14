@@ -17,6 +17,8 @@ private const val PAGE_SIZE = 20
 sealed interface CommentComposerState {
     data object Idle : CommentComposerState
     data object Submitting : CommentComposerState
+    // 提交失败，未清空输入框内容，UI 侧据此保留用户已输入的草稿而不是清空重打
+    data object Failed : CommentComposerState
 }
 
 sealed interface CommentFloorState {
@@ -107,8 +109,11 @@ class CommentsSectionController(
             _commentsState.value = CommentsState.Loading(sortType = sortType, totalCount = lastTotal)
         }
         val cursor = sortType.cursorFor(pageNo, PAGE_SIZE, previousCursor)
+        val requestThreadId = threadId
         scope.launch {
-            repository.getCommentsV2(threadId, pageNo, PAGE_SIZE, cursor, sortType).collect { result ->
+            repository.getCommentsV2(requestThreadId, pageNo, PAGE_SIZE, cursor, sortType).collect { result ->
+                // 请求发出后 threadId 变了（切歌）或排序又被切换过，说明这次响应已经过期，丢弃不覆盖当前状态
+                if (requestThreadId != threadId || sortType != currentSortType) return@collect
                 result.onSuccess { data ->
                     currentPageNo = pageNo
                     val previous = if (append) _commentsState.value as? CommentsState.Success else null
@@ -168,8 +173,10 @@ class CommentsSectionController(
             }
         }
 
+        val requestThreadId = threadId
         scope.launch {
-            repository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
+            repository.likeComment(requestThreadId, comment.commentId, targetLike).collect { result ->
+                if (requestThreadId != threadId) return@collect
                 result.onFailure { error ->
                     _commentsState.value = currentState
                     sortCache[currentState.sortType] = TabCacheEntry(state = currentState, pageNo = currentPageNo)
@@ -182,10 +189,12 @@ class CommentsSectionController(
     fun submitComment(content: String) {
         if (content.isBlank()) return
         _composerState.value = CommentComposerState.Submitting
+        val requestThreadId = threadId
         scope.launch {
-            repository.addComment(threadId, content).collect { result ->
-                _composerState.value = CommentComposerState.Idle
+            repository.addComment(requestThreadId, content).collect { result ->
+                if (requestThreadId != threadId) return@collect
                 result.onSuccess { newComment ->
+                    _composerState.value = CommentComposerState.Idle
                     val state = _commentsState.value as? CommentsState.Success ?: return@onSuccess
                     val newTotal = state.total + 1
                     val updatedState = if (newComment != null) {
@@ -203,6 +212,8 @@ class CommentsSectionController(
                         }
                     }
                 }.onFailure { error ->
+                    // 失败态不清空输入框内容，交由 UI 保留用户已输入的草稿
+                    _composerState.value = CommentComposerState.Failed
                     onToast(error.toUserMessage(resourceProvider))
                 }
             }
@@ -212,12 +223,20 @@ class CommentsSectionController(
     fun submitReply(parentCommentId: Long, content: String) {
         if (content.isBlank()) return
         _composerState.value = CommentComposerState.Submitting
+        val requestThreadId = threadId
         scope.launch {
-            repository.replyComment(threadId, parentCommentId, content).collect { result ->
-                _composerState.value = CommentComposerState.Idle
+            repository.replyComment(requestThreadId, parentCommentId, content).collect { result ->
+                if (requestThreadId != threadId) return@collect
                 result.onSuccess {
-                    scope.launch { onToast("回复成功") }
+                    _composerState.value = CommentComposerState.Idle
+                    onToast("回复成功")
+                    // 回复的响应体是否带新评论对象未经真机验证，统一重新拉一次楼层首页保证列表里能看到刚发的这条
+                    val floor = _floorState.value as? CommentFloorState.Success
+                    if (floor != null) {
+                        fetchFloor(floor.ownerComment, time = -1, append = false)
+                    }
                 }.onFailure { error ->
+                    _composerState.value = CommentComposerState.Failed
                     onToast(error.toUserMessage(resourceProvider))
                 }
             }
@@ -245,8 +264,10 @@ class CommentsSectionController(
             }
         }
 
+        val requestThreadId = threadId
         scope.launch {
-            repository.deleteComment(threadId, comment.commentId).collect { result ->
+            repository.deleteComment(requestThreadId, comment.commentId).collect { result ->
+                if (requestThreadId != threadId) return@collect
                 result.onFailure { error ->
                     _commentsState.value = currentState
                     sortCache[currentState.sortType] = TabCacheEntry(state = currentState, pageNo = currentPageNo)

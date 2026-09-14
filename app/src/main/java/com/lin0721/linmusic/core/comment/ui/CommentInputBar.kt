@@ -43,6 +43,8 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.LaunchedEffect
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -56,7 +58,7 @@ import com.lin0721.linmusic.core.ui.theme.TextGray
 @Composable
 fun CommentInputBar(
     replyTarget: CommentItem?,
-    isSubmitting: Boolean,
+    composerState: CommentComposerState,
     focusRequester: FocusRequester,
     onClearReplyTarget: () -> Unit,
     onSubmit: (String) -> Unit,
@@ -66,7 +68,26 @@ fun CommentInputBar(
 ) {
     var text by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val isSubmitting = composerState is CommentComposerState.Submitting
     val canSubmit = text.isNotBlank() && !isSubmitting
+
+    // composerState 是跨输入框共享的全局状态（全屏评论页与楼层详情页的输入栏可能同时挂载）。
+    // 只在"这个输入框自己发起的提交"结束时才清空/保留草稿，避免误清掉另一个输入框里还没发的内容。
+    var mySubmissionPending by remember { mutableStateOf(false) }
+    LaunchedEffect(composerState) {
+        if (mySubmissionPending) {
+            when (composerState) {
+                is CommentComposerState.Idle -> {
+                    text = ""
+                    mySubmissionPending = false
+                }
+                is CommentComposerState.Failed -> {
+                    mySubmissionPending = false
+                }
+                is CommentComposerState.Submitting -> Unit
+            }
+        }
+    }
 
     val density = LocalDensity.current
     val imeBottom = WindowInsets.ime.getBottom(density)
@@ -158,8 +179,8 @@ fun CommentInputBar(
                     .then(
                         if (canSubmit) {
                             Modifier.pressable(MelodiaPress.Pill) {
+                                mySubmissionPending = true
                                 onSubmit(text.trim())
-                                text = ""
                                 keyboardController?.hide()
                             }
                         } else {

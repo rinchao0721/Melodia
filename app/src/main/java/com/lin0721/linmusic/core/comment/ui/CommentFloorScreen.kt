@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
@@ -51,7 +52,7 @@ import androidx.compose.runtime.setValue
 fun CommentFloorScreen(
     floorState: CommentFloorState,
     currentUserId: Long?,
-    isSubmitting: Boolean,
+    composerState: CommentComposerState,
     onBack: () -> Unit,
     onLoadMore: () -> Unit,
     onSubmitReply: (parentCommentId: Long, content: String) -> Unit,
@@ -207,7 +208,7 @@ fun CommentFloorScreen(
 
                 CommentInputBar(
                     replyTarget = replyTarget,
-                    isSubmitting = isSubmitting,
+                    composerState = composerState,
                     focusRequester = focusRequester,
                     placeholder = "回复 @${floorState.ownerComment.user.nickname}...",
                     onClearReplyTarget = { replyTarget = null },
