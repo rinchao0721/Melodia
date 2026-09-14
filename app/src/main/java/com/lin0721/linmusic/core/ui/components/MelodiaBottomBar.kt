@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -63,6 +64,7 @@ import com.lin0721.linmusic.core.ui.theme.NavPillSelected
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.lighten
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
@@ -130,6 +132,11 @@ fun MiniPlayerCard(
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
     val swipeState = rememberSwipeToSkipCoverState()
+    val swipeDirection = swipeState.syncCurrentKey(
+        key = currentTrack.mediaId,
+        previousKey = previousQueueItem?.songId?.toString(),
+        nextKey = nextQueueItem?.songId?.toString()
+    )
     var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
     var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }
     if (!swipeState.isTransitioning) {
@@ -138,8 +145,17 @@ fun MiniPlayerCard(
     }
     val canSwipeToPrevious = displayedPreviousQueueItem != null
     val canSwipeToNext = displayedNextQueueItem != null
-    // currentTrack 真正切换后再把位移归零、解除冻结
-    swipeState.syncCurrentKey(currentTrack.mediaId)
+    var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
+    if (swipeDirection != null) {
+        pendingSlideInKey = currentTrack.mediaId
+    }
+    LaunchedEffect(pendingSlideInKey) {
+        if (pendingSlideInKey != null) {
+            animate(swipeState.offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
+                swipeState.offsetX = value
+            }
+        }
+    }
 
     // 图标显示做一层去抖：暂停状态维持不到 400ms 就又变回播放的话，不体现在图标上
     var displayedIsPlaying by remember { mutableStateOf(isPlaying) }

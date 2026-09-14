@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -37,6 +38,9 @@ import kotlinx.coroutines.launch
 private const val SwipeConfirmFraction = 0.32f
 private const val SwipeConfirmVelocityPx = 1200f
 
+// 点击上一首/下一首按钮、或播完自动切歌等非拖拽路径触发切歌时，判断应该模拟哪个方向的滑入动画
+enum class SwipeDirection { NEXT, PREVIOUS }
+
 // 手势捕获区域跟实际跟手滑动的视觉区域尺寸不一致时使用（比如迷你条：整条悬浮栏都能拖出切歌手势，
 // 但只有封面+歌名歌手那一行跟着滑动）。containerWidthPx 由调用方在渲染滑动内容时上报自己的宽度，
 // 阈值和归位动画都按它算，跟手势检测区域无关
@@ -47,6 +51,11 @@ class SwipeToSkipCoverState {
     var containerWidthPx by mutableFloatStateOf(0f)
     internal var settleJob: Job? = null
     private var syncedKey: Any? = null
+    private var lastPreviousKey: Any? = null
+    private var lastNextKey: Any? = null
+    // 拖拽确认已经自己在跑滑出动画，跟外部（按钮/自动切歌）触发的过渡区分开，
+    // 避免归零时误判成外部触发又补一次动画
+    private var isDragConfirmed = false
 
     // 预览内容不跟着刷新，等 syncCurrentKey 探测到曲目真正切换完成后再放开
     var isTransitioning by mutableStateOf(false)
@@ -54,15 +63,41 @@ class SwipeToSkipCoverState {
 
     fun beginTransition() {
         isTransitioning = true
+        isDragConfirmed = true
     }
 
-    // 切歌确认后先把位移停在滑出的终点，等外部真正的数据
-    fun syncCurrentKey(key: Any?) {
-        if (syncedKey != key) {
-            syncedKey = key
-            offsetX = 0f
-            isTransitioning = false
+    // 每次重组都要调用。队列 currentIndex 往往先于 currentTrack 更新：一旦发现活的
+    // previousKey/nextKey 已经等于还没让位的当前 key，说明外部（按钮/自动切歌）触发的切歌
+    // 已经在路上了，提前进入"过渡中"并把 lastNext/PreviousKey 锁定在这一帧之前的值，
+    // 不能被过渡期里的新值覆盖，否则等 key 真的变化时会拿错比对对象、判断不出方向
+    fun syncCurrentKey(key: Any?, previousKey: Any? = null, nextKey: Any? = null): SwipeDirection? {
+        if (!isTransitioning && syncedKey == key && (previousKey == key || nextKey == key)) {
+            isTransitioning = true
         }
+        var direction: SwipeDirection? = null
+        if (syncedKey != key) {
+            direction = when {
+                isDragConfirmed -> null
+                key == lastNextKey -> SwipeDirection.NEXT
+                key == lastPreviousKey -> SwipeDirection.PREVIOUS
+                else -> null
+            }
+            offsetX = when (direction) {
+                SwipeDirection.NEXT -> containerWidthPx
+                SwipeDirection.PREVIOUS -> -containerWidthPx
+                null -> 0f
+            }
+            syncedKey = key
+            isTransitioning = false
+            isDragConfirmed = false
+            lastPreviousKey = previousKey
+            lastNextKey = nextKey
+        } else if (!isTransitioning) {
+            // 稳定态才刷新，过渡期内保持冻结
+            lastPreviousKey = previousKey
+            lastNextKey = nextKey
+        }
+        return direction
     }
 }
 
@@ -165,6 +200,9 @@ fun SwipeToSkipCover(
     // 切歌确认后到 currentKey 真正追上来之前冻结预览内容，避免队列 currentIndex 先于
     // currentTrack 更新时，画面被下下首的数据提前顶掉
     var isTransitioning by remember { mutableStateOf(false) }
+    // 区分这次过渡是拖拽确认触发的（自己已经在跑滑出动画）还是外部（按钮/自动切歌）触发的，
+    // 只有后者需要在下面的同步点补一次程序化的滑入动画
+    var isDragConfirmed by remember { mutableStateOf(false) }
     var displayedPreviousCoverUrl by remember { mutableStateOf(previousCoverUrl) }
     var displayedNextCoverUrl by remember { mutableStateOf(nextCoverUrl) }
     var displayedPreviousKey by remember { mutableStateOf(previousKey) }
@@ -191,10 +229,40 @@ fun SwipeToSkipCover(
     val canSwipeToNext = displayedNextCoverUrl != null
 
     var syncedKey by remember { mutableStateOf(currentKey) }
+    var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
     if (syncedKey != currentKey) {
+        // 拖拽确认路径已经自己在跑滑出动画，这里只需要收尾归零；外部（按钮/自动切歌）触发的
+        // 变化如果能判断出新的当前曲目就是刚才冻结住的"下一首/上一首"，就把位移摆到对应的
+        // 滑入起点，交给下面的 LaunchedEffect 播一次归位动画，跟拖拽切歌的观感保持一致
+        val matchesNext = (displayedNextKey != null && displayedNextKey.toString() == currentKey.toString()) ||
+            (displayedNextCoverUrl != null && displayedNextCoverUrl == coverUrl)
+        val matchesPrevious = (displayedPreviousKey != null && displayedPreviousKey.toString() == currentKey.toString()) ||
+            (displayedPreviousCoverUrl != null && displayedPreviousCoverUrl == coverUrl)
+        val direction = if (isDragConfirmed) {
+            null
+        } else when {
+            matchesNext -> SwipeDirection.NEXT
+            matchesPrevious -> SwipeDirection.PREVIOUS
+            else -> null
+        }
+        offsetX = when (direction) {
+            SwipeDirection.NEXT -> containerWidthPx
+            SwipeDirection.PREVIOUS -> -containerWidthPx
+            null -> 0f
+        }
         syncedKey = currentKey
-        offsetX = 0f
         isTransitioning = false
+        isDragConfirmed = false
+        if (direction != null) {
+            pendingSlideInKey = currentKey
+        }
+    }
+    LaunchedEffect(pendingSlideInKey) {
+        if (pendingSlideInKey != null) {
+            animate(offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
+                offsetX = value
+            }
+        }
     }
 
     Box(
@@ -220,6 +288,7 @@ fun SwipeToSkipCover(
                                 (offsetX > threshold || velocity > SwipeConfirmVelocityPx)
                             if (confirmNext || confirmPrevious) {
                                 isTransitioning = true
+                                isDragConfirmed = true
                             }
                             settleJob = scope.launch {
                                 when {
