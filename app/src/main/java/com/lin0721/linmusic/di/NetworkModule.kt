@@ -70,7 +70,7 @@ val networkModule = module {
     }
 
     // ─── 加密拦截器 ───
-    single { CryptoInterceptor() }
+    single { CryptoInterceptor(get()) }
 
     // ─── 空响应体拦截器 ───
     single { EmptyBodyInterceptor() }

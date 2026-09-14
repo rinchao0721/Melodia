@@ -26,6 +26,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.comment.ui.CommentsState
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
@@ -86,8 +90,15 @@ class PlaylistViewModel(
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
-    val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
+    private val commentsController = CommentsSectionController(
+        scope = viewModelScope,
+        repository = commentRepository,
+        onToast = { message -> _toastEvent.emit(message) },
+        resourceProvider = resourceProvider
+    )
+    val commentsState: StateFlow<CommentsState> = commentsController.commentsState
+    val composerState: StateFlow<CommentComposerState> = commentsController.composerState
+    val floorState: StateFlow<CommentFloorState> = commentsController.floorState
 
     // 历史日推（每日推荐/听歌排行）浏览状态
     private val _historyRecommendState = MutableStateFlow(HistoryRecommendState())
@@ -578,68 +589,27 @@ class PlaylistViewModel(
     private fun commentThreadId(id: Long): String = if (isAlbumMode) "R_AL_3_$id" else "A_PL_0_$id"
 
     fun loadPlaylistComments(playlistId: Long) {
-        viewModelScope.launch {
-            _commentsState.value = CommentsState.Loading
-            val threadId = commentThreadId(playlistId)
-            commentRepository.getComments(threadId, limit = 20).collect { result ->
-                result.onSuccess { response ->
-                    _commentsState.value = CommentsState.Success(
-                        hotComments = response.hotComments,
-                        comments = response.comments,
-                        total = response.total
-                    )
-                }.onFailure { error ->
-                    _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
-                }
-            }
-        }
+        commentsController.load(commentThreadId(playlistId))
     }
 
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
-            val profile = userProfile.value
-            if (profile == null) {
+            if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
-
-            val currentState = _commentsState.value as? CommentsState.Success ?: return@launch
-            
-            val successState = _uiState.value as? PlaylistUiState.Success ?: return@launch
-            val playlistId = successState.playlist.id
-            val threadId = commentThreadId(playlistId)
-            val targetLike = !comment.liked
-
-            val updatedComments = currentState.comments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            val updatedHotComments = currentState.hotComments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            _commentsState.value = CommentsState.Success(
-                hotComments = updatedHotComments,
-                comments = updatedComments,
-                total = currentState.total
-            )
-
-            commentRepository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
-                result.onFailure { e ->
-                    _commentsState.value = currentState
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+            commentsController.like(comment)
         }
     }
+
+    fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
+    fun loadMoreComments() = commentsController.loadMore()
+    fun submitComment(content: String) = commentsController.submitComment(content)
+    fun submitCommentReply(parentCommentId: Long, content: String) = commentsController.submitReply(parentCommentId, content)
+    fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
+    fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
+    fun loadMoreCommentFloor() = commentsController.loadMoreFloor()
+    fun closeCommentFloor() = commentsController.closeFloor()
 
     // 加载历史日推可用日期
     fun loadHistoryDates() {

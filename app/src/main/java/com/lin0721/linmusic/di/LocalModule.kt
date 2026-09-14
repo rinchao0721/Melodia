@@ -16,4 +16,7 @@ val localModule = module {
     single { ContentFilter(get()) }
     single { ResourceProvider(androidContext()) }
     single { SearchHistoryPreferences(androidContext()) }
+    single<com.lin0721.linmusic.core.network.crypto.XeapiKeyStore> {
+        com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl(androidContext())
+    }
 }
