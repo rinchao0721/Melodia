@@ -7,8 +7,10 @@ import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
 import kotlinx.coroutines.runBlocking
 import okhttp3.FormBody
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 
 private const val TAG = "CryptoInterceptor"
@@ -39,7 +41,26 @@ class CryptoInterceptor(private val xeapiKeyStore: XeapiKeyStore) : Interceptor 
             .header("Content-Type", "application/x-www-form-urlencoded")
             .build()
 
-        return chain.proceed(newRequest)
+        val response = chain.proceed(newRequest)
+        return if (cryptoType == CryptoType.XEAPI) decryptXeApiResponse(response) else response
+    }
+
+    // xeapi 请求体里 queryString 固定带 e_r=true，服务端响应始终是加密二进制，
+    // 不解密直接交给 Retrofit 会被 JSON 反序列化器当成乱码解析失败
+    private fun decryptXeApiResponse(response: Response): Response {
+        val body = response.body ?: return response
+        val encryptedBytes = body.bytes()
+        val decryptedJson = try {
+            XeapiCrypto.decryptResponseBody(encryptedBytes)
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "xeapi 响应体解密失败", e)
+            return response.newBuilder()
+                .body(encryptedBytes.toResponseBody(body.contentType()))
+                .build()
+        }
+        return response.newBuilder()
+            .body(decryptedJson.toResponseBody("application/json; charset=utf-8".toMediaType()))
+            .build()
     }
 
     // ---------- 路由判定 ----------
