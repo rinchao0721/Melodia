@@ -118,9 +118,12 @@ class MelodiaNavigationState(
 
     fun navigateTo(screen: Screen) {
         when (screen) {
-            // 底栏 tab：只切换当前激活栈，不清空任何一条栈的历史
+            // 底栏 tab
             Screen.Home, Screen.Search, Screen.Library -> {
-                if (activeTab == screen) return
+                if (activeTab == screen) {
+                    resetStackToRoot(screen)
+                    return
+                }
                 playerNavTargetStackDepth = -1
                 activeTab = screen
             }
@@ -141,11 +144,20 @@ class MelodiaNavigationState(
             }
             return willExitPlayerNav
         }
-        // 已在当前 tab 的根页面：非主页 tab 先退回主页 tab，主页 tab 则交还系统默认行为
+        // 已在当前 tab 的根页面
         if (activeTab != Screen.Home) {
+            resetStackToRoot(Screen.Home)
             activeTab = Screen.Home
         }
         return false
+    }
+
+    // 把指定 tab 的栈清回只剩根页面
+    private fun resetStackToRoot(tab: Screen) {
+        val stack = stackFor(tab)
+        while (stack.size > 1) {
+            stack.removeAt(stack.lastIndex)
+        }
     }
 
     fun openPlaylist(id: Long, isAlbum: Boolean) {
