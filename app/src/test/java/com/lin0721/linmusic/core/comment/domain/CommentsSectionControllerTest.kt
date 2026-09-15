@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.comment.data.CommentsV2Data
 import com.lin0721.linmusic.core.comment.data.FloorCommentsData
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.ResourceProvider
 import kotlinx.coroutines.test.TestScope
@@ -21,6 +22,8 @@ class CommentsSectionControllerTest {
     private val fakeResourceProvider = object : ResourceProvider() {
         override fun getString(resId: Int): String = "error"
     }
+
+    private val testAuthor = CommentUser(userId = 99L, nickname = "测试用户", avatarUrl = "")
 
     private fun newController(repository: FakeCommentRepository, scope: TestScope) =
         CommentsSectionController(
@@ -160,7 +163,7 @@ class CommentsSectionControllerTest {
         controller.load("R_SO_4_1")
         advanceUntilIdle()
 
-        controller.submitComment("hi")
+        controller.submitComment("hi", testAuthor)
         advanceUntilIdle()
 
         val state = controller.commentsState.value as CommentsState.Success
@@ -168,7 +171,7 @@ class CommentsSectionControllerTest {
     }
 
     @Test
-    fun `submitComment拿不到新评论对象时不插入但total加1`() = runTest {
+    fun `submitComment拿不到新评论对象时插入本地乐观评论且total加1`() = runTest {
         val repository = FakeCommentRepository().apply {
             commentsV2Result = Result.success(CommentsV2Data(comments = listOf(CommentItem(commentId = 1)), totalCount = 10))
             addCommentResult = Result.success(null)
@@ -177,11 +180,14 @@ class CommentsSectionControllerTest {
         controller.load("R_SO_4_1")
         advanceUntilIdle()
 
-        controller.submitComment("hi")
+        controller.submitComment("hi", testAuthor)
         advanceUntilIdle()
 
         val state = controller.commentsState.value as CommentsState.Success
-        assertEquals(listOf(1L), state.comments.map { it.commentId })
+        assertEquals(2, state.comments.size)
+        assertEquals("hi", state.comments.first().content)
+        assertEquals(testAuthor, state.comments.first().user)
+        assertEquals(1L, state.comments[1].commentId)
         assertEquals(11, state.total)
     }
 

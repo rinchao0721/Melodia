@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.TextGray
 
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -64,6 +65,7 @@ fun CommentFloorScreen(
 ) {
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -144,6 +146,7 @@ fun CommentFloorScreen(
                                 if (currentUserId == null) {
                                     onRequireLogin()
                                 } else {
+                                    focusManager.clearFocus()
                                     replyTarget = floorState.ownerComment
                                     focusRequester.requestFocus()
                                 }
@@ -172,6 +175,7 @@ fun CommentFloorScreen(
                                 if (currentUserId == null) {
                                     onRequireLogin()
                                 } else {
+                                    focusManager.clearFocus()
                                     replyTarget = reply
                                     focusRequester.requestFocus()
                                 }

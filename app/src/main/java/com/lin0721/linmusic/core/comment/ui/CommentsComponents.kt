@@ -5,7 +5,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +17,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
+import androidx.compose.material.icons.automirrored.rounded.Reply
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,6 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.material.icons.rounded.Close
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -245,6 +255,7 @@ fun CommentSortTabs(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CommentRowItem(
     comment: CommentItem,
@@ -263,6 +274,12 @@ fun CommentRowItem(
         Modifier
     }
 
+    // 只有底部弹窗/全屏列表里的完整行才响应点击回复/长按菜单，预览卡片里的迷你行保持静态展示
+    val isInteractive = contentMaxLines == Int.MAX_VALUE
+    var showActionMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -272,7 +289,7 @@ fun CommentRowItem(
             contentDescription = comment.user.nickname,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(36.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .then(userClickModifier)
         )
@@ -292,16 +309,15 @@ fun CommentRowItem(
                     Text(
                         text = comment.user.nickname,
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = comment.timeStr ?: "",
                         color = TextGray.copy(alpha = 0.6f),
-                        fontSize = 10.sp
+                        fontSize = 11.sp
                     )
                 }
 
@@ -322,78 +338,158 @@ fun CommentRowItem(
                     Text(
                         text = formatLikedCount(comment.likedCount),
                         color = if (comment.liked) NeteaseRed else TextGray.copy(alpha = 0.8f),
-                        fontSize = 11.sp
+                        fontSize = 12.sp
                     )
                     Icon(
                         imageVector = Icons.Rounded.ThumbUp,
                         contentDescription = null,
                         tint = if (comment.liked) NeteaseRed else TextGray.copy(alpha = 0.6f),
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                text = comment.content,
-                color = Color.White.copy(alpha = 0.95f),
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                maxLines = contentMaxLines,
-                overflow = if (contentMaxLines < Int.MAX_VALUE) TextOverflow.Ellipsis else TextOverflow.Clip
-            )
-
-            comment.beReplied?.firstOrNull()?.let { quoted ->
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
+            Box {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
-                        .padding(horizontal = MelodiaSpacing.sm, vertical = 6.dp)
+                        .then(
+                            if (isInteractive) {
+                                Modifier.combinedClickable(
+                                    onClick = onReplyClick,
+                                    onLongClick = { showActionMenu = true }
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     Text(
-                        text = "回复 ${quoted.user?.nickname.orEmpty()}：${quoted.content.orEmpty()}",
-                        color = TextGray.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = comment.content,
+                        color = Color.White.copy(alpha = 0.95f),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        maxLines = contentMaxLines,
+                        overflow = if (contentMaxLines < Int.MAX_VALUE) TextOverflow.Ellipsis else TextOverflow.Clip
                     )
+
+                    comment.beReplied?.firstOrNull()?.let { quoted ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .padding(horizontal = MelodiaSpacing.sm, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "回复 ${quoted.user?.nickname.orEmpty()}：${quoted.content.orEmpty()}",
+                                color = TextGray.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                if (isInteractive) {
+                    DropdownMenu(
+                        expanded = showActionMenu,
+                        onDismissRequest = { showActionMenu = false },
+                        shape = RoundedCornerShape(20.dp),
+                        containerColor = SurfaceDark
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.xs),
+                            horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.lg)
+                        ) {
+                            CommentActionMenuItem(
+                                icon = Icons.Rounded.ContentCopy,
+                                label = "复制",
+                                onClick = {
+                                    showActionMenu = false
+                                    clipboardManager.setText(AnnotatedString(comment.content))
+                                }
+                            )
+                            CommentActionMenuItem(
+                                icon = Icons.AutoMirrored.Rounded.Reply,
+                                label = "回复",
+                                onClick = {
+                                    showActionMenu = false
+                                    onReplyClick()
+                                }
+                            )
+                            CommentActionMenuItem(
+                                icon = Icons.Rounded.Share,
+                                label = "分享",
+                                onClick = {
+                                    showActionMenu = false
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, comment.content)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, "分享评论"))
+                                }
+                            )
+                            if (onDeleteClick != null) {
+                                CommentActionMenuItem(
+                                    icon = Icons.Rounded.Delete,
+                                    label = "删除",
+                                    tint = NeteaseRed,
+                                    onClick = {
+                                        showActionMenu = false
+                                        onDeleteClick()
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            if (contentMaxLines == Int.MAX_VALUE) {
+            if (isInteractive && comment.replyCount > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "回复",
-                        color = TextGray.copy(alpha = 0.8f),
-                        fontSize = 11.sp,
-                        modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onReplyClick)
-                    )
-                    if (comment.replyCount > 0) {
-                        Text(
-                            text = "展开 ${comment.replyCount} 条回复 ›",
-                            color = NeteaseRed,
-                            fontSize = 11.sp,
-                            modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onExpandFloorClick)
-                        )
-                    }
-                    if (onDeleteClick != null) {
-                        Text(
-                            text = "删除",
-                            color = TextGray.copy(alpha = 0.8f),
-                            fontSize = 11.sp,
-                            modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onDeleteClick)
-                        )
-                    }
-                }
+                Text(
+                    text = "展开 ${comment.replyCount} 条回复 ›",
+                    color = NeteaseRed,
+                    fontSize = 12.sp,
+                    modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onExpandFloorClick)
+                )
             }
         }
+    }
+}
+
+// 长按评论弹出的横向操作菜单里的单个图标项：图标在上、文字标签在下
+@Composable
+private fun CommentActionMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    tint: Color = Color.White
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = MelodiaSpacing.xs, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = label,
+            color = tint,
+            fontSize = 11.sp
+        )
     }
 }
 
@@ -567,6 +663,7 @@ fun MvInlineCommentsView(
 ) {
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
 
     val totalCount = commentsState.totalCount ?: (commentsState as? CommentsState.Success)?.total ?: 0
     val titleText = if (totalCount > 0) "评论 ($totalCount)" else "评论"
@@ -674,7 +771,7 @@ fun MvInlineCommentsView(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = MelodiaSpacing.md),
-                            verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
                             contentPadding = PaddingValues(top = MelodiaSpacing.sm, bottom = MelodiaSpacing.md)
                         ) {
                             items(allComments, key = { it.commentId }) { comment ->
@@ -686,6 +783,7 @@ fun MvInlineCommentsView(
                                         if (currentUserId == null) {
                                             onRequireLogin()
                                         } else {
+                                            focusManager.clearFocus()
                                             replyTarget = comment
                                             focusRequester.requestFocus()
                                         }

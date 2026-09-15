@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.core.comment.data.CommentSortType
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import kotlinx.coroutines.CoroutineScope
@@ -186,22 +187,22 @@ class CommentsSectionController(
         }
     }
 
-    fun submitComment(content: String) {
+    // author 用于服务端未按预期返回新评论对象时，本地兜底构造一条乐观展示的评论——
+    fun submitComment(content: String, author: CommentUser) {
         if (content.isBlank()) return
         _composerState.value = CommentComposerState.Submitting
         val requestThreadId = threadId
+        val optimisticComment = buildOptimisticComment(author, content)
         scope.launch {
             repository.addComment(requestThreadId, content).collect { result ->
                 if (requestThreadId != threadId) return@collect
                 result.onSuccess { newComment ->
                     _composerState.value = CommentComposerState.Idle
+                    onToast("发送成功")
                     val state = _commentsState.value as? CommentsState.Success ?: return@onSuccess
+                    val commentToInsert = newComment ?: optimisticComment
                     val newTotal = state.total + 1
-                    val updatedState = if (newComment != null) {
-                        state.copy(comments = listOf(newComment) + state.comments, total = newTotal)
-                    } else {
-                        state.copy(total = newTotal)
-                    }
+                    val updatedState = state.copy(comments = listOf(commentToInsert) + state.comments, total = newTotal)
                     _commentsState.value = updatedState
                     sortCache[state.sortType] = TabCacheEntry(state = updatedState, pageNo = currentPageNo)
 
@@ -220,20 +221,36 @@ class CommentsSectionController(
         }
     }
 
-    fun submitReply(parentCommentId: Long, content: String) {
+    fun submitReply(parentCommentId: Long, content: String, author: CommentUser) {
         if (content.isBlank()) return
         _composerState.value = CommentComposerState.Submitting
         val requestThreadId = threadId
+        val optimisticReply = buildOptimisticComment(author, content, parentCommentId = parentCommentId)
         scope.launch {
             repository.replyComment(requestThreadId, parentCommentId, content).collect { result ->
                 if (requestThreadId != threadId) return@collect
-                result.onSuccess {
+                result.onSuccess { newComment ->
                     _composerState.value = CommentComposerState.Idle
-                    onToast("回复成功")
-                    // 回复的响应体是否带新评论对象未经真机验证，统一重新拉一次楼层首页保证列表里能看到刚发的这条
+                    onToast("发送成功")
+
                     val floor = _floorState.value as? CommentFloorState.Success
+                    val commentToInsert = newComment ?: optimisticReply
                     if (floor != null) {
-                        fetchFloor(floor.ownerComment, time = -1, append = false)
+                        _floorState.value = floor.copy(replies = listOf(commentToInsert) + floor.replies)
+                    }
+
+                    // 楼主评论的"展开 N 条回复"计数同步 +1，不管当前有没有打开楼层页都要更新
+                    val topLevelCommentId = floor?.ownerComment?.commentId ?: parentCommentId
+                    val listState = _commentsState.value as? CommentsState.Success
+                    if (listState != null) {
+                        fun bumpReplyCount(item: CommentItem) =
+                            if (item.commentId == topLevelCommentId) item.copy(replyCount = item.replyCount + 1) else item
+                        val updated = listState.copy(
+                            comments = listState.comments.map(::bumpReplyCount),
+                            hotComments = listState.hotComments.map(::bumpReplyCount)
+                        )
+                        _commentsState.value = updated
+                        sortCache[listState.sortType] = TabCacheEntry(state = updated, pageNo = currentPageNo)
                     }
                 }.onFailure { error ->
                     _composerState.value = CommentComposerState.Failed
@@ -317,6 +334,21 @@ class CommentsSectionController(
                 }
             }
         }
+    }
+
+    // 服务端未按预期返回新评论对象时的本地兜底：commentId 用负数时间戳标记"未与服务端 ID 对齐"，
+    private fun buildOptimisticComment(author: CommentUser, content: String, parentCommentId: Long = 0): CommentItem {
+        val now = System.currentTimeMillis()
+        return CommentItem(
+            commentId = -now,
+            user = author,
+            content = content,
+            time = now,
+            timeStr = "刚刚",
+            likedCount = 0,
+            liked = false,
+            parentCommentId = parentCommentId
+        )
     }
 }
 

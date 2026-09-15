@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.core.comment.data.CommentSortType
 import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
 import com.lin0721.linmusic.core.comment.domain.CommentComposerState
@@ -397,8 +398,15 @@ class PlayerViewModel(
 
     fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
     fun loadMoreComments() = commentsController.loadMore()
-    fun submitComment(content: String) = commentsController.submitComment(content)
-    fun submitCommentReply(parentCommentId: Long, content: String) = commentsController.submitReply(parentCommentId, content)
+    fun submitComment(content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+
+    fun submitCommentReply(parentCommentId: Long, content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
     fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
     fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
     fun loadMoreCommentFloor() = commentsController.loadMoreFloor()

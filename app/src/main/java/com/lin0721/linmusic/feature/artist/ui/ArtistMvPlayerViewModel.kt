@@ -12,6 +12,7 @@ import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.ArtistMv
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlayerManager
@@ -184,8 +185,15 @@ class ArtistMvPlayerViewModel(
 
     fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
     fun loadMoreComments() = commentsController.loadMore()
-    fun submitComment(content: String) = commentsController.submitComment(content)
-    fun submitCommentReply(parentCommentId: Long, content: String) = commentsController.submitReply(parentCommentId, content)
+    fun submitComment(content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+
+    fun submitCommentReply(parentCommentId: Long, content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
     fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
     fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
     fun loadMoreCommentFloor() = commentsController.loadMoreFloor()

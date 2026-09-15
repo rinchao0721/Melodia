@@ -50,6 +50,7 @@ import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.TextGray
 
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -72,6 +73,7 @@ fun CommentFullScreen(
 ) {
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -179,7 +181,7 @@ fun CommentFullScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = MelodiaSpacing.md),
-                            verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
                             contentPadding = PaddingValues(vertical = MelodiaSpacing.sm)
                         ) {
                             items(allComments, key = { it.commentId }) { comment ->
@@ -191,6 +193,8 @@ fun CommentFullScreen(
                                         if (currentUserId == null) {
                                             onRequireLogin()
                                         } else {
+                                            // 已在回复别的评论时，先清焦点再重新请求，避免键盘/焦点卡在上一个目标上不跟着切换
+                                            focusManager.clearFocus()
                                             replyTarget = comment
                                             focusRequester.requestFocus()
                                         }
