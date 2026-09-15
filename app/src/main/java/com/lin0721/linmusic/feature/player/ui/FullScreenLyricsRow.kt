@@ -76,7 +76,7 @@ fun FullScreenLyricsRow(
             KaraokeLyricRow(
                 line = line,
                 currentPositionProvider = currentPositionProvider,
-                inactiveColor = Color.White.copy(alpha = 0.35f),
+                inactiveColor = highlightColor,
                 activeColor = Color.White,
                 fontSize = 22.sp
              )

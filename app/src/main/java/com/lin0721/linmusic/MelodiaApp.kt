@@ -57,6 +57,8 @@ fun MelodiaApp() {
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
+    // 迷你播放条按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying
+    val miniPlayerShowPause by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentPositionState = viewModel.playerManager.currentPosition.collectAsStateWithLifecycle()
     val currentPositionProvider = { currentPositionState.value }
     val duration by viewModel.playerManager.duration.collectAsStateWithLifecycle()
@@ -231,7 +233,7 @@ fun MelodiaApp() {
                         isMvFullscreen = isMvFullscreen,
                         isMvCommentsOpen = isMvCommentsOpen,
                         currentTrack = currentTrack,
-                        isPlaying = isPlaying,
+                        isPlaying = miniPlayerShowPause,
                         currentPositionProvider = currentPositionProvider,
                         duration = duration,
                         hazeState = hazeState,

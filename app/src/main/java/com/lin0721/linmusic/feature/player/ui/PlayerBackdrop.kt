@@ -25,36 +25,37 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.lighten
+import com.lin0721.linmusic.core.ui.theme.saturate
 
 enum class BackdropMode { Collapsed, Immersive }
 
 // 用原生 Modifier.blur 软化渐变/光斑
-// 依赖 RenderEffect，只有 API 31（Android 12）以上才有实际效果，31 以下这行代码不生效但不报错
 private val BACKDROP_BLUR_RADIUS = 60.dp
 
-// 单一色相的两枚模糊光斑：深色底 + lighten/darken 变体，Immersive 背景与歌词预览卡共用
-// fill 必须是明显压暗过的变体，不能直接传未处理的 base——base 现在取自 Vibrant，
-// 亮度本身就不低，直接铺满整块背景会显得又亮又平，没有层次
+// 单一色相的模糊光斑：深色底 + lighten/darken 变体，Immersive 背景与歌词预览卡共用
+// fill 必须是明显压暗过的变体，不能直接传未处理的 base——base 现在取自 Vibrant
+// lightBlob 为 null 时只画 darkBlob 这一枚
 internal fun DrawScope.drawSingleHueMesh(
     fill: Color,
-    lightBlob: Color,
-    lightCenter: Offset,
-    lightRadius: Float,
+    lightBlob: Color? = null,
+    lightCenter: Offset = Offset.Zero,
+    lightRadius: Float = 0f,
     darkBlob: Color,
     darkCenter: Offset,
     darkRadius: Float
 ) {
     drawRect(color = fill)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(lightBlob.copy(alpha = 0.5f), Color.Transparent),
+    if (lightBlob != null) {
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(lightBlob.copy(alpha = 0.5f), Color.Transparent),
+                center = lightCenter,
+                radius = lightRadius
+            ),
             center = lightCenter,
             radius = lightRadius
-        ),
-        center = lightCenter,
-        radius = lightRadius
-    )
+        )
+    }
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(darkBlob.copy(alpha = 0.6f), Color.Transparent),
@@ -124,25 +125,6 @@ fun PlayerBackdrop(
         BackdropMode.Immersive -> {
             val infiniteTransition = rememberInfiniteTransition(label = "fluid_mesh_fullscreen")
 
-            val lightCenterX by infiniteTransition.animateFloat(
-                initialValue = 0.0f,
-                targetValue = 0.5f,
-                animationSpec = infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "light_x"
-            )
-            val lightCenterY by infiniteTransition.animateFloat(
-                initialValue = 0.0f,
-                targetValue = 0.6f,
-                animationSpec = infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "light_y"
-            )
-            val lightRadiusScale by infiniteTransition.animateFloat(
-                initialValue = 0.8f,
-                targetValue = 1.1f,
-                animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "light_radius"
-            )
-
             val darkCenterX by infiniteTransition.animateFloat(
                 initialValue = 1.0f,
                 targetValue = 1.4f,
@@ -162,9 +144,9 @@ fun PlayerBackdrop(
                 label = "dark_radius"
             )
 
-            val fillColor = remember(base) { base.darken(0.35f) }
-            val lightBlob = remember(base) { base.lighten(0.05f) }
-            val darkBlob = remember(base) { base.darken(0.15f) }
+            val vividBase = remember(base) { base.saturate(0.6f) }
+            val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
+            val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
 
             Box(modifier = modifier) {
                 Box(
@@ -175,9 +157,6 @@ fun PlayerBackdrop(
                             val baseSize = size.minDimension
                             drawSingleHueMesh(
                                 fill = fillColor,
-                                lightBlob = lightBlob,
-                                lightCenter = Offset(size.width * lightCenterX, size.height * lightCenterY),
-                                lightRadius = baseSize * lightRadiusScale,
                                 darkBlob = darkBlob,
                                 darkCenter = Offset(size.width * darkCenterX, size.height * darkCenterY),
                                 darkRadius = baseSize * darkRadiusScale

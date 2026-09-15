@@ -21,6 +21,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     playContext: String?,
     currentLyricIndex: Int,
     isPlaying: Boolean,
+    // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"，不受歌词区仍用的严格 isPlaying 影响
+    playWhenReady: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
     playMode: PlayMode,
@@ -92,7 +94,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
 
     item(key = "controls") {
         PlaybackControls(
-            isPlaying = isPlaying,
+            isPlaying = playWhenReady,
             onTogglePlay = onTogglePlay,
             onPlayNext = onPlayNext,
             onPlayPrevious = onPlayPrevious,

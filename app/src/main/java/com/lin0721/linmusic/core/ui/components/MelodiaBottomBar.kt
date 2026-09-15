@@ -23,11 +23,9 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -50,7 +48,6 @@ import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -66,16 +63,10 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.lighten
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
-import com.lin0721.linmusic.feature.player.ui.drawSingleHueMesh
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
-
-// 光斑位置固定不做动画，跟大卡片/全屏背景那种游走效果区分开，
-// 避免小尺寸下持续重绘、观感也容易显得杂
-private val MINI_PLAYER_BLUR_RADIUS = 28.dp
 
 //悬浮播放控制卡片
 
@@ -126,8 +117,6 @@ fun MiniPlayerCard(
         label = "mini_player_base"
     )
     val fillColor = remember(animatedBase) { animatedBase.darken(0.35f) }
-    val lightBlob = remember(animatedBase) { animatedBase.lighten(0.05f) }
-    val darkBlob = remember(animatedBase) { animatedBase.darken(0.15f) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -166,11 +155,19 @@ fun MiniPlayerCard(
         displayedIsPlaying = isPlaying
     }
 
+    val miniPlayerShape = RoundedCornerShape(InfoCardRadius)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(InfoCardRadius))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
+            // 弥散阴影让卡片从纯黑背景上浮起来，避免边缘跟背景生硬贴死
+            .shadow(
+                elevation = 16.dp,
+                shape = miniPlayerShape,
+                ambientColor = Color.Black.copy(alpha = 0.4f),
+                spotColor = Color.Black.copy(alpha = 0.4f)
+            )
+            .clip(miniPlayerShape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), miniPlayerShape)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -194,19 +191,7 @@ fun MiniPlayerCard(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .blur(MINI_PLAYER_BLUR_RADIUS)
-                .drawBehind {
-                    val baseSize = size.minDimension
-                    drawSingleHueMesh(
-                        fill = fillColor,
-                        lightBlob = lightBlob,
-                        lightCenter = Offset(size.width * 0.15f, size.height * 0.2f),
-                        lightRadius = baseSize * 0.9f,
-                        darkBlob = darkBlob,
-                        darkCenter = Offset(size.width * 0.95f, size.height * 1.0f),
-                        darkRadius = baseSize * 0.6f
-                    )
-                }
+                .background(fillColor)
         )
         Column {
             Row(
@@ -442,7 +427,7 @@ fun MiniPlayerProgress(
             modifier = Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .fillMaxHeight()
-                .background(NeteaseRed)
+                .background(Color.White.copy(alpha = 0.85f))
         )
     }
 }

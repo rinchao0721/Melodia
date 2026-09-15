@@ -67,6 +67,9 @@ fun FullPlayerScreen(
     val viewModel: PlayerViewModel = koinViewModel()
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
+    // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
+    // 歌词区/顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
+    val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentLyricIndex by viewModel.currentLyricIndex.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
@@ -269,6 +272,7 @@ fun FullPlayerScreen(
                 playContext = playContext,
                 currentLyricIndex = currentLyricIndex,
                 isPlaying = isPlaying,
+                playWhenReady = playWhenReady,
                 currentPositionProvider = currentPositionProvider,
                 duration = duration,
                 playMode = playMode,
@@ -322,6 +326,8 @@ fun FullPlayerScreen(
             isLiked = songDetailState.isLiked,
             onToggleLike = viewModel::toggleLike,
             backgroundColor = colors.base,
+            currentPositionProvider = currentPositionProvider,
+            duration = duration,
             onArtistClick = {
                 songDetail?.ar?.firstOrNull()?.id?.let { id ->
                     onArtistClick(id)

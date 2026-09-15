@@ -130,7 +130,6 @@ dependencies {
     implementation(libs.androidx.media)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.haze)
-    implementation(libs.androidx.palette)
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)
     implementation(libs.bouncycastle)

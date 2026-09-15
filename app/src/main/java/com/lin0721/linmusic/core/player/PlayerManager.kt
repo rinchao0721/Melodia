@@ -58,6 +58,10 @@ class PlayerManager(
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    // 播放意图：点了播放就立即置真，不等音频真正流出。弱网缓冲期间 isPlaying 还是 false，
+    private val _playWhenReady = MutableStateFlow(false)
+    val playWhenReady: StateFlow<Boolean> = _playWhenReady.asStateFlow()
+
     private val _currentTrack = MutableStateFlow<MediaItem?>(null)
     val currentTrack: StateFlow<MediaItem?> = _currentTrack.asStateFlow()
 
@@ -329,6 +333,7 @@ class PlayerManager(
     }
 
     fun pause() {
+        _playWhenReady.value = false
         controllerHolder.pause()
         saveState()
     }
@@ -337,6 +342,7 @@ class PlayerManager(
     suspend fun shouldBlockPlaybackOnMobile(): Boolean = networkGuard.blockPlaybackOnMobile()
 
     fun resume() {
+        _playWhenReady.value = true
         controllerHolder.play()
     }
 
@@ -365,6 +371,7 @@ class PlayerManager(
                 )
                 playbackQueue.replaceWithSingle(qi)
             }
+            _playWhenReady.value = true
             val indexToPlay = playbackQueue.currentIndex.value.coerceAtLeast(0)
             fetchUrlAndPlay(indexToPlay, progress.currentPosition.value)
             return
@@ -583,6 +590,7 @@ class PlayerManager(
         consecutiveErrors++
         if (consecutiveErrors >= 3 || playbackQueue.size <= 1) {
             AppLogger.e(TAG, "连续 $consecutiveErrors 次播放失败，放弃自动切歌 failedIndex=$failedIndex queueSize=${playbackQueue.size}")
+            _playWhenReady.value = false
             scope.launch {
                 Toast.makeText(context, "无法获取该歌曲的播放链接", Toast.LENGTH_SHORT).show()
             }
@@ -610,6 +618,11 @@ class PlayerManager(
         if (playbackQueue.playContext.value != CONTEXT_INTELLIGENCE) return
         playbackQueue.restoreSnapshot()
         saveQueueState()
+    }
+
+    // 镜像 ExoPlayer 真实的 playWhenReady：覆盖手动置位覆盖不到的场景（音频焦点丢失、耳机拔出等系统触发的暂停）
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        _playWhenReady.value = playWhenReady
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {

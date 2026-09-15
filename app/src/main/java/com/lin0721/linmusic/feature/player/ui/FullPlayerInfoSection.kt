@@ -57,7 +57,6 @@ fun LazyListScope.fullPlayerInfoSection(
                         currentIndex = currentLyricIndex,
                         isLoading = false,
                         base = colors.base,
-                        highlightColor = colors.textHighlight,
                         onOpenFullScreen = onOpenFullScreenLyrics
                     )
                 }

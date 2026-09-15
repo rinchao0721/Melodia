@@ -2,15 +2,32 @@ package com.lin0721.linmusic.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// HSV 明度偏移，供取色/背景渲染各处按需现算深浅变体，不落地成持久字段
+// HSV 明度按比例偏移，供取色/背景渲染各处按需现算深浅变体，不落地成持久字段。
+// 用比例缩放而不是加减法再 coerceIn 夹断：暗色/灰阶封面明度本就 ≤ 0.35，
+// 加减法一夹断就是绝对纯黑，色相全丢；比例缩放无论原明度多低都只是"更暗"，不会砸成死黑
 fun Color.lighten(amount: Float): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
-    hsv[2] = (hsv[2] + amount).coerceIn(0f, 1f)
+    hsv[2] = (hsv[2] + (1f - hsv[2]) * amount).coerceIn(0f, 1f)
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
-fun Color.darken(amount: Float): Color = lighten(-amount)
+fun Color.darken(amount: Float): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
+    hsv[2] = (hsv[2] * (1f - amount)).coerceIn(0f, 1f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
+
+// HSV 饱和度按比例往纯色方向推；原色饱和度为 0（灰阶/黑白）时色相无意义，直接跳过，
+// 否则会凭空编出一个色相方向的颜色
+fun Color.saturate(amount: Float): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
+    if (hsv[1] <= 0f) return this
+    hsv[1] = (hsv[1] + (1f - hsv[1]) * amount).coerceIn(0f, 1f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
 
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF282828)
