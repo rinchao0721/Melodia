@@ -1,7 +1,5 @@
 <div align="center">
-  <img src="docs/images/app_icon.png" width="96" height="96" alt="Melodia 图标" />
-
-# Melodia
+  <img src="docs/images/cover.png" alt="Melodia" />
 
 基于 Kotlin + Jetpack Compose 构建的轻量、现代的第三方网易云音乐 Android 客户端
 
@@ -133,6 +131,7 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 
 - [NeteaseCloudMusicApi](https://github.com/binaryify/NeteaseCloudMusicApi) - 网易云音乐 API 分析与实现参考
 - [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) - 增强接口与加密逻辑参考
+- [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) - 取色算法参考
 - [SPlayer](https://github.com/SPlayer-Dev/SPlayer) - 现代流媒体架构设计启发
 - [Spotify](https://spotify.com) - 优秀的移动端流媒体交互范式与 UI/UX 体验灵感
 
