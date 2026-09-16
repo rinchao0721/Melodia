@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.core.player
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -17,7 +19,14 @@ import kotlinx.serialization.json.Json
 
 private const val TAG = "PlaybackPreferences"
 
-private val Context.dataStore by preferencesDataStore(name = "playback_prefs")
+// 播放进度/队列频繁写入，异常断电等意外中断最容易损坏该文件；损坏时回退空数据而非崩溃
+private val Context.dataStore by preferencesDataStore(
+    name = "playback_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "播放偏好数据损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 data class PlaybackState(
     val songId: Long = -1,

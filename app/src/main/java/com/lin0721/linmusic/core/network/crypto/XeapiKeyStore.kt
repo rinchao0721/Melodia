@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.core.network.crypto
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
@@ -27,7 +29,13 @@ interface XeapiKeyStore {
     suspend fun refresh(): XeapiPublicKeyState?
 }
 
-private val Context.xeapiKeyDataStore by preferencesDataStore(name = "xeapi_key_prefs")
+private val Context.xeapiKeyDataStore by preferencesDataStore(
+    name = "xeapi_key_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "xeapi 密钥缓存损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 class XeapiKeyStoreImpl(private val context: Context) : XeapiKeyStore {
 

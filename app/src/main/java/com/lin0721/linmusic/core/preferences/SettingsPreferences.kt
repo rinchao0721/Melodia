@@ -2,17 +2,28 @@ package com.lin0721.linmusic.core.preferences
 
 import android.content.Context
 import com.lin0721.linmusic.BuildConfig
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.lin0721.linmusic.core.log.AppLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+private const val TAG = "SettingsPreferences"
+
 // 使用 preferencesDataStore 进行设置项持久化
-private val Context.settingsDataStore by preferencesDataStore(name = "settings_prefs")
+private val Context.settingsDataStore by preferencesDataStore(
+    name = "settings_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "设置数据损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 class SettingsPreferences(private val context: Context) {
 

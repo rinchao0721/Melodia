@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.core.auth
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -14,7 +16,14 @@ import kotlinx.serialization.json.Json
 
 private const val TAG = "UserPreferences"
 
-private val Context.userDataStore by preferencesDataStore(name = "user_prefs")
+// 损坏时回退空数据（相当于自动登出）而非崩溃；用户可重新登录
+private val Context.userDataStore by preferencesDataStore(
+    name = "user_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "用户偏好数据损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 // 用户基本信息模型
 @Serializable
