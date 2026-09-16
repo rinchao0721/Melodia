@@ -532,15 +532,9 @@ fun LibraryScreen(
                 onDismiss = { activeOptionsItem = null },
                 onTogglePin = { viewModel.togglePin(it) },
                 onEditOrder = {
-                    val successState = uiState as? LibraryUiState.Success
-                    if (successState != null) {
-                        val playlistsToSort = successState.allItems.filter {
-                            it.type == LibraryItemType.PLAYLIST && it.id != "-2" && !it.isLikedSongs
-                        }
-                        reorderedPlaylists.clear()
-                        reorderedPlaylists.addAll(playlistsToSort)
-                        isReorderMode = true
-                    }
+                    reorderedPlaylists.clear()
+                    reorderedPlaylists.addAll(viewModel.getPlaylistsForReorder())
+                    isReorderMode = true
                 },
                 onShare = { shareItem(it) },
                 onDownload = {
@@ -834,8 +828,8 @@ private fun LibrarySortAndFilterBar(
             Text(
                 text = when (sortOrder) {
                     LibrarySortOrder.RECENTLY_PLAYED -> "最近播放"
-                    LibrarySortOrder.CREATE_TIME -> "创建时间"
                     LibrarySortOrder.NAME -> "字母排序"
+                    LibrarySortOrder.CUSTOM -> "自定义"
                 },
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp,

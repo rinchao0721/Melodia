@@ -154,7 +154,17 @@ fun LibraryItemOptionsSheet(
                 when (item.type) {
                     LibraryItemType.PLAYLIST -> {
                         if (item.isLikedSongs) {
-                            // "我喜欢的音乐"：不提供置顶与删除，支持分享与下载
+                            // "我喜欢的音乐"：不提供删除，支持置顶、分享与下载
+                            add(
+                                LibraryOptionsMenuItem(
+                                    icon = Icons.Default.PushPin,
+                                    title = pinTitle,
+                                    onClick = {
+                                        onDismiss()
+                                        onTogglePin(item.id)
+                                    }
+                                )
+                            )
                             add(
                                 LibraryOptionsMenuItem(
                                     icon = Icons.Default.Share,
