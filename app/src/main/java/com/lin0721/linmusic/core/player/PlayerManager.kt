@@ -106,6 +106,9 @@ class PlayerManager(
     private var moveSaveJob: Job? = null
     private var consecutiveErrors = 0
 
+    // 滑动切歌手势撤销窗口：记录最近一次 fetchUrlAndPlay 之前的队列位置，playItem 真正调用前有效
+    private var pendingSkipFromIndex: Int? = null
+
     // 断点续播暂存位置，用于在底层触发切歌转场时防止进度被重置为 0
     private var pendingStartPosition: Long = 0L
 
@@ -453,6 +456,8 @@ class PlayerManager(
         networkGuard.cancelRecoveryWait()
         pendingStartPosition = startPosition
 
+        val fromIndex = playbackQueue.currentIndex.value
+
         activePlayJob = scope.launch {
             if (networkGuard.blockPlaybackOnMobile()) {
                 pendingStartPosition = 0L
@@ -461,6 +466,8 @@ class PlayerManager(
 
             playbackQueue.setCurrentIndex(index)
             saveQueueState()
+            // 目标歌曲的播放地址还没请求回来之前，允许滑动手势整个撤销这次切歌
+            pendingSkipFromIndex = fromIndex
 
             // 立即重置当前进度与时长；断点续播时保留已有时长避免进度条闪烁
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
@@ -470,6 +477,7 @@ class PlayerManager(
             // 命中预取缓存时跳过网络请求，最大限度缩短切歌间隙
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
+                pendingSkipFromIndex = null
                 controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
                 return@launch
             }
@@ -477,6 +485,7 @@ class PlayerManager(
             repository.getSongUrl(item.songId).collect { result ->
                 result.onSuccess { url ->
                     val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
+                    pendingSkipFromIndex = null
                     controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
@@ -488,6 +497,20 @@ class PlayerManager(
                 }
             }
         }
+    }
+
+    // 滑动切歌手势专用：目标歌曲的播放地址还没请求回来、还没真正调用播放前可以整个撤销，
+    // 当前歌曲播放不受影响；已经来不及（播放已经切过去）就返回 false
+    fun cancelPendingSkip(): Boolean {
+        val fromIndex = pendingSkipFromIndex ?: return false
+        activePlayJob?.cancel()
+        pendingSkipFromIndex = null
+        playbackQueue.setCurrentIndex(fromIndex)
+        saveQueueState()
+        // resetTo() 已经把进度条乐观置零/清空时长，撤销后按播放器的真实位置纠正回来
+        progress.setPosition(controllerHolder.currentPosition)
+        progress.updateDurationFromController()
+        return true
     }
 
     // 临近播完时提前预取下一首链接，供 playNextOnEnded 命中缓存零等待衔接

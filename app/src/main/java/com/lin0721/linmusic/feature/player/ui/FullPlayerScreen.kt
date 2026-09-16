@@ -155,6 +155,23 @@ fun FullPlayerScreen(
     val previousCoverUrl = previousQueueItem?.coverUrl?.replace("?param=300y300", "")
     val nextCoverUrl = nextQueueItem?.coverUrl?.replace("?param=300y300", "")
 
+    // 歌名/歌手要跟封面一起冻结：队列已经先切过去、currentTrack 还没跟上时，
+    // 直接用实时值会让封面下方的文字在滑动/切歌过程中先于封面硬跳
+    val previousKeyStr = previousQueueItem?.songId?.toString()
+    val nextKeyStr = nextQueueItem?.songId?.toString()
+    var displayedTitle by remember { mutableStateOf(title) }
+    var displayedArtist by remember { mutableStateOf(artist) }
+    if ((previousCoverUrl != null && previousCoverUrl == coverUrl) ||
+        (nextCoverUrl != null && nextCoverUrl == coverUrl) ||
+        (previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
+        (nextKeyStr != null && nextKeyStr == currentTrack.mediaId)
+    ) {
+        // 队列已经先切过去，曲目数据还没跟上，先保留原文字，等 currentTrack 落地后再刷新
+    } else {
+        displayedTitle = title
+        displayedArtist = artist
+    }
+
     fun shareCurrentSong() {
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -264,11 +281,12 @@ fun FullPlayerScreen(
                 previousCoverUrl = previousCoverUrl,
                 nextCoverUrl = nextCoverUrl,
                 onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
+                onCancelSwipe = viewModel.playerManager::cancelPendingSkip,
                 currentKey = currentTrack.mediaId,
                 previousKey = previousQueueItem?.songId?.toString(),
                 nextKey = nextQueueItem?.songId?.toString(),
-                title = title,
-                artist = artist,
+                title = displayedTitle,
+                artist = displayedArtist,
                 playContext = playContext,
                 currentLyricIndex = currentLyricIndex,
                 isPlaying = isPlaying,

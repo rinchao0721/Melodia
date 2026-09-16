@@ -50,6 +50,7 @@ class SwipeToSkipCoverState {
         internal set
     var containerWidthPx by mutableFloatStateOf(0f)
     internal var settleJob: Job? = null
+    internal var isDragActive by mutableStateOf(false)
     private var syncedKey: Any? = null
     private var lastPreviousKey: Any? = null
     private var lastNextKey: Any? = null
@@ -66,11 +67,24 @@ class SwipeToSkipCoverState {
         isDragConfirmed = true
     }
 
+    // 撤销成功：这次过渡等同于没发生过，立刻解冻
+    fun cancelTransition() {
+        isTransitioning = false
+        isDragConfirmed = false
+    }
+
+    // 撤销来不及：保持"过渡中"冻结，但不再压制新歌数据落地时该补的滑入动画
+    fun markCancelTooLate() {
+        isDragConfirmed = false
+    }
+
     // 每次重组都要调用。队列 currentIndex 往往先于 currentTrack 更新：一旦发现活的
     // previousKey/nextKey 已经等于还没让位的当前 key，说明外部（按钮/自动切歌）触发的切歌
     // 已经在路上了，提前进入"过渡中"并把 lastNext/PreviousKey 锁定在这一帧之前的值，
     // 不能被过渡期里的新值覆盖，否则等 key 真的变化时会拿错比对对象、判断不出方向
     fun syncCurrentKey(key: Any?, previousKey: Any? = null, nextKey: Any? = null): SwipeDirection? {
+        // 拖拽或收尾动画正握着 offsetX，这次同步先跳过，等手势彻底结束再处理
+        if (isDragActive || settleJob?.isActive == true) return null
         if (!isTransitioning && syncedKey == key && (previousKey == key || nextKey == key)) {
             isTransitioning = true
         }
@@ -112,6 +126,7 @@ private fun settleSwipe(
     canSwipeToNext: Boolean,
     onConfirmPrevious: () -> Unit,
     onConfirmNext: () -> Unit,
+    onCancelPending: () -> Boolean,
     scope: CoroutineScope
 ) {
     val containerWidthPx = state.containerWidthPx
@@ -120,6 +135,8 @@ private fun settleSwipe(
         (state.offsetX < -threshold || velocity < -SwipeConfirmVelocityPx)
     val confirmPrevious = canSwipeToPrevious &&
         (state.offsetX > threshold || velocity > SwipeConfirmVelocityPx)
+    // 这次手势没有再次确认方向，但之前已经有一次确认过的切歌还没落地，说明用户是在快速滑回去取消
+    val wasTransitioning = state.isTransitioning
     if (confirmNext || confirmPrevious) {
         state.beginTransition()
     }
@@ -142,6 +159,9 @@ private fun settleSwipe(
                 animate(state.offsetX, 0f, velocity, SwipeCoverSpringSpec) { value, _ ->
                     state.offsetX = value
                 }
+                if (wasTransitioning) {
+                    if (onCancelPending()) state.cancelTransition() else state.markCancelTooLate()
+                }
             }
         }
     }
@@ -155,7 +175,8 @@ fun rememberSwipeToSkipDragModifier(
     canSwipeToPrevious: Boolean,
     canSwipeToNext: Boolean,
     onConfirmPrevious: () -> Unit,
-    onConfirmNext: () -> Unit
+    onConfirmNext: () -> Unit,
+    onCancelPending: () -> Boolean = { false }
 ): Modifier {
     val scope = rememberCoroutineScope()
     if (!canSwipeToPrevious && !canSwipeToNext) return Modifier
@@ -167,8 +188,10 @@ fun rememberSwipeToSkipDragModifier(
             val maxPrevious = if (canSwipeToPrevious) state.containerWidthPx else 0f
             state.offsetX = (state.offsetX + delta).coerceIn(-maxNext, maxPrevious)
         },
+        onDragStarted = { state.isDragActive = true },
         onDragStopped = { velocity ->
-            settleSwipe(state, velocity, canSwipeToPrevious, canSwipeToNext, onConfirmPrevious, onConfirmNext, scope)
+            state.isDragActive = false
+            settleSwipe(state, velocity, canSwipeToPrevious, canSwipeToNext, onConfirmPrevious, onConfirmNext, onCancelPending, scope)
         }
     )
 }
@@ -190,12 +213,17 @@ fun SwipeToSkipCover(
     contentPadding: Dp = 0.dp,
     contentScale: ContentScale = ContentScale.Crop,
     shape: Shape = RectangleShape,
-    elevation: Dp = 0.dp
+    elevation: Dp = 0.dp,
+    // 快速滑回中间时尝试撤销上一次已确认但还没落地的切歌；返回 true 表示撤销成功
+    onCancelPending: () -> Boolean = { false }
 ) {
     val scope = rememberCoroutineScope()
     var offsetX by remember { mutableFloatStateOf(0f) }
     var containerWidthPx by remember { mutableStateOf(0f) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
+    // 手指正按在屏幕上拖拽期间，offsetX 完全交给手势本身掌控，下面的 key 同步逻辑不能插手，
+    // 否则网络请求在拖拽过程中落地会跟手势的实时位移打架，出现封面/文字硬跳的画面撕裂
+    var isDragActive by remember { mutableStateOf(false) }
 
     // 切歌确认后到 currentKey 真正追上来之前冻结预览内容，避免队列 currentIndex 先于
     // currentTrack 更新时，画面被下下首的数据提前顶掉
@@ -207,6 +235,10 @@ fun SwipeToSkipCover(
     var displayedNextCoverUrl by remember { mutableStateOf(nextCoverUrl) }
     var displayedPreviousKey by remember { mutableStateOf(previousKey) }
     var displayedNextKey by remember { mutableStateOf(nextKey) }
+    // 当前位置渲染用的封面/Key 同样要冻结：过渡期间网络请求随时可能落地，
+    // 直接用实时 coverUrl/currentKey 会让"当前"这一层的画面在手势进行中被悄悄换成新歌
+    var displayedCoverUrl by remember { mutableStateOf(coverUrl) }
+    var displayedCurrentKey by remember { mutableStateOf(currentKey) }
     if (!isTransitioning) {
         val currentKeyStr = currentKey.toString()
         val prevKeyStr = previousKey?.toString()
@@ -223,6 +255,8 @@ fun SwipeToSkipCover(
             displayedNextCoverUrl = nextCoverUrl
             displayedPreviousKey = previousKey
             displayedNextKey = nextKey
+            displayedCoverUrl = coverUrl
+            displayedCurrentKey = currentKey
         }
     }
     val canSwipeToPrevious = displayedPreviousCoverUrl != null
@@ -230,7 +264,7 @@ fun SwipeToSkipCover(
 
     var syncedKey by remember { mutableStateOf(currentKey) }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
-    if (syncedKey != currentKey) {
+    if (!isDragActive && settleJob?.isActive != true && syncedKey != currentKey) {
         // 拖拽确认路径已经自己在跑滑出动画，这里只需要收尾归零；外部（按钮/自动切歌）触发的
         // 变化如果能判断出新的当前曲目就是刚才冻结住的"下一首/上一首"，就把位移摆到对应的
         // 滑入起点，交给下面的 LaunchedEffect 播一次归位动画，跟拖拽切歌的观感保持一致
@@ -280,12 +314,16 @@ fun SwipeToSkipCover(
                             val maxPrevious = if (canSwipeToPrevious) containerWidthPx else 0f
                             offsetX = (offsetX + delta).coerceIn(-maxNext, maxPrevious)
                         },
+                        onDragStarted = { isDragActive = true },
                         onDragStopped = { velocity ->
+                            isDragActive = false
                             val threshold = containerWidthPx * SwipeConfirmFraction
                             val confirmNext = canSwipeToNext &&
                                 (offsetX < -threshold || velocity < -SwipeConfirmVelocityPx)
                             val confirmPrevious = canSwipeToPrevious &&
                                 (offsetX > threshold || velocity > SwipeConfirmVelocityPx)
+                            // 这次没有再次确认方向，但之前已经有一次确认过的切歌还没落地，说明是在快速滑回取消
+                            val wasTransitioning = isTransitioning
                             if (confirmNext || confirmPrevious) {
                                 isTransitioning = true
                                 isDragConfirmed = true
@@ -308,6 +346,14 @@ fun SwipeToSkipCover(
                                         animate(offsetX, 0f, velocity, SwipeCoverSpringSpec) { value, _ ->
                                             offsetX = value
                                         }
+                                        if (wasTransitioning) {
+                                            if (onCancelPending()) {
+                                                isTransitioning = false
+                                                isDragConfirmed = false
+                                            } else {
+                                                isDragConfirmed = false
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -322,7 +368,7 @@ fun SwipeToSkipCover(
         val previewNextUrl = displayedNextCoverUrl
         val previewPrevKey = displayedPreviousKey
         val previewNxtKey = displayedNextKey
-        val currentKeyStr = currentKey.toString()
+        val currentKeyStr = displayedCurrentKey.toString()
 
         val layers = buildList {
             if (previewPreviousUrl != null) {
@@ -331,12 +377,12 @@ fun SwipeToSkipCover(
                         val k = previewPrevKey.toString()
                         if (k == currentKeyStr) "$k-prev" else k
                     }
-                    previewPreviousUrl == coverUrl -> "$previewPreviousUrl-prev"
+                    previewPreviousUrl == displayedCoverUrl -> "$previewPreviousUrl-prev"
                     else -> previewPreviousUrl
                 }
                 add(SwipeCoverLayerSpec(prevKeyCalculated, previewPreviousUrl) { offsetX - containerWidthPx })
             }
-            add(SwipeCoverLayerSpec(currentKeyStr, coverUrl) { offsetX })
+            add(SwipeCoverLayerSpec(currentKeyStr, displayedCoverUrl) { offsetX })
             if (previewNextUrl != null) {
                 val nextKeyCalculated = when {
                     previewNxtKey != null -> {
@@ -344,7 +390,7 @@ fun SwipeToSkipCover(
                         val prevK = previewPrevKey?.toString()
                         if (k == prevK || k == currentKeyStr) "$k-next" else k
                     }
-                    previewNextUrl == previewPreviousUrl || previewNextUrl == coverUrl -> "$previewNextUrl-next"
+                    previewNextUrl == previewPreviousUrl || previewNextUrl == displayedCoverUrl -> "$previewNextUrl-next"
                     else -> previewNextUrl
                 }
                 add(SwipeCoverLayerSpec(nextKeyCalculated, previewNextUrl) { offsetX + containerWidthPx })

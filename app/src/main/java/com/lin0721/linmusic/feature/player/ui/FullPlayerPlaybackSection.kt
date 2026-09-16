@@ -13,6 +13,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
     previousCoverUrl: String?,
     nextCoverUrl: String?,
     onSwipeToPrevious: () -> Unit,
+    onCancelSwipe: () -> Boolean,
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
@@ -59,7 +60,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 onSwipeToNext = onPlayNext,
                 currentKey = currentKey,
                 previousKey = previousKey,
-                nextKey = nextKey
+                nextKey = nextKey,
+                onCancelSwipe = onCancelSwipe
             )
         }
     }

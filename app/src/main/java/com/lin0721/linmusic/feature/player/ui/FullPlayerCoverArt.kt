@@ -49,7 +49,8 @@ fun FullPlayerCoverArt(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCancelSwipe: () -> Boolean = { false }
 ) {
     val context = LocalContext.current
 
@@ -167,7 +168,8 @@ fun FullPlayerCoverArt(
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 24.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onCancelPending = onCancelSwipe
         )
     }
 }

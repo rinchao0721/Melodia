@@ -245,6 +245,7 @@ fun MelodiaApp() {
                         previousQueueItem = previousQueueItem,
                         nextQueueItem = nextQueueItem,
                         onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
+                        onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
                         onCreateDismiss = { showCreateSheet = false },
                         onNavigate = { navigation.openTab(it) },
                         onCreateClick = { showCreateSheet = !showCreateSheet },

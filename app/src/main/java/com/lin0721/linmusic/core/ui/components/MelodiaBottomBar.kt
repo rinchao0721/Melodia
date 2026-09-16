@@ -85,7 +85,8 @@ fun MiniPlayerCard(
     onDragEnd: ((Float) -> Unit)? = null,
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
-    onPrevious: () -> Unit = {}
+    onPrevious: () -> Unit = {},
+    onCancelPendingSkip: () -> Boolean = { false }
 ) {
     if (currentTrack == null) return
 
@@ -128,12 +129,19 @@ fun MiniPlayerCard(
     )
     var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
     var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }
+    // "当前"这一层同样要冻结：过渡期间网络请求随时可能落地，直接用实时 currentTrack
+    // 会让画面在手势进行中被悄悄换成新歌（封面/歌名瞬间跳变）
+    var displayedCurrentTrack by remember { mutableStateOf(currentTrack) }
     if (!swipeState.isTransitioning) {
         displayedPreviousQueueItem = previousQueueItem
         displayedNextQueueItem = nextQueueItem
+        displayedCurrentTrack = currentTrack
     }
     val canSwipeToPrevious = displayedPreviousQueueItem != null
     val canSwipeToNext = displayedNextQueueItem != null
+    val displayedCleanCoverUrl = remember(displayedCurrentTrack.mediaMetadata.artworkUri) {
+        displayedCurrentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
     if (swipeDirection != null) {
         pendingSlideInKey = currentTrack.mediaId
@@ -183,7 +191,8 @@ fun MiniPlayerCard(
                     canSwipeToPrevious = canSwipeToPrevious,
                     canSwipeToNext = canSwipeToNext,
                     onConfirmPrevious = onPrevious,
-                    onConfirmNext = onNext
+                    onConfirmNext = onNext,
+                    onCancelPending = onCancelPendingSkip
                 )
             )
             .clickable(onClick = onClick)
@@ -204,10 +213,10 @@ fun MiniPlayerCard(
                 val connectedDevice = rememberCurrentOutputDevice()
                 MiniPlayerSlidingContent(
                     state = swipeState,
-                    currentKey = currentTrack.mediaId,
-                    currentTitle = currentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
-                    currentArtist = currentTrack.mediaMetadata.artist?.toString().orEmpty(),
-                    currentCoverUrl = cleanCoverUrl,
+                    currentKey = displayedCurrentTrack.mediaId,
+                    currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
+                    currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                    currentCoverUrl = displayedCleanCoverUrl,
                     previousQueueItem = displayedPreviousQueueItem,
                     nextQueueItem = displayedNextQueueItem,
                     connectedDevice = connectedDevice,
