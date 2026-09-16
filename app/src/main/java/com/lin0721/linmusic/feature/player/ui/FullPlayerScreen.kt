@@ -254,7 +254,7 @@ fun FullPlayerScreen(
             modifier = Modifier.fillMaxSize().haze(hazeState),
             contentPadding = PaddingValues(
                 top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
-                bottom = 80.dp
+                bottom = 80.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             )
         ) {
             fullPlayerPlaybackSection(
