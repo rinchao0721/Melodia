@@ -62,6 +62,7 @@ fun FullPlayerSheets(
             playMode = playMode,
             playContext = playContext,
             isPlaying = isPlaying,
+            sleepTimerRemaining = sleepTimerRemaining,
             onPlayAtIndex = onPlayAtIndex,
             onRemoveAtIndex = onRemoveAtIndex,
             onMoveItem = onMoveQueueItem,
@@ -69,6 +70,7 @@ fun FullPlayerSheets(
             onClearQueue = onClearQueue,
             onDisableRoaming = onDisableRoaming,
             onDisableIntelligence = onDisableIntelligence,
+            onShowTimerClick = onShowTimerClick,
             onDismiss = onQueueDismiss
         )
     }

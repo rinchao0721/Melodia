@@ -67,6 +67,7 @@ fun PlayQueueSheet(
     playMode: PlayMode,
     playContext: String?,
     isPlaying: Boolean,
+    sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
     onRemoveAtIndex: (Int) -> Unit,
     onMoveItem: (from: Int, to: Int) -> Unit,
@@ -74,6 +75,7 @@ fun PlayQueueSheet(
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onShowTimerClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -486,9 +488,17 @@ fun PlayQueueSheet(
             BottomActionRow(
                 playMode = playMode,
                 playContext = playContext,
+                sleepTimerRemaining = sleepTimerRemaining,
                 onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
-                onDisableIntelligence = onDisableIntelligence
+                onDisableIntelligence = onDisableIntelligence,
+                onShowTimerClick = {
+                    scope.launch {
+                        sheetState.hide()
+                        onDismiss()
+                        onShowTimerClick()
+                    }
+                }
             )
         }
     }
@@ -621,9 +631,11 @@ private fun SectionLabel(text: String) {
 private fun BottomActionRow(
     playMode: PlayMode,
     playContext: String?,
+    sleepTimerRemaining: Long,
     onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
-    onDisableIntelligence: () -> Unit
+    onDisableIntelligence: () -> Unit,
+    onShowTimerClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -670,8 +682,16 @@ private fun BottomActionRow(
                 fontSize = 13.sp
             )
         }
+        val timerText = if (sleepTimerRemaining > 0L) {
+            val totalSeconds = sleepTimerRemaining / 1000L
+            val mins = totalSeconds / 60
+            val secs = totalSeconds % 60
+            "%d:%02d".format(mins, secs)
+        } else {
+            "定时器"
+        }
         MelodiaButton(
-            onClick = { },
+            onClick = onShowTimerClick,
             colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
@@ -680,7 +700,7 @@ private fun BottomActionRow(
         ) {
             Icon(Icons.Outlined.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("定时器", color = Color.White, fontSize = 13.sp)
+            Text(timerText, color = Color.White, fontSize = 13.sp)
         }
     }
 }
