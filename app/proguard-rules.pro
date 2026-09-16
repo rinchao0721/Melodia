@@ -45,6 +45,14 @@
 # ===== 网易云加密 =====
 # NeteaseCrypto 走标准 javax.crypto，无反射，无需 keep；此处仅声明以备查
 
+# XeapiCrypto 用 BouncyCastleProvider 做 X25519 密钥协商，BC 内部通过字符串反射
+# 注册 SPI 实现类，不 keep 会被 R8 当死代码裁掉，导致 release 包
+# getInstance("X25519", bcProvider) 抛 NoSuchAlgorithmException（评论等 xeapi
+# 接口必崩，仅正式混淆包复现，debug 包无法复现）
+-keep class org.bouncycastle.** { *; }
+-keepclassmembers class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
 # ===== Media3 / Coil / Koin =====
 # 三者均随包提供 consumer rules：Media3 保留 Player 相关回调，Coil 保留解码器，
 # Koin 的构造函数 DSL（::X 函数引用）为编译期解析，均无需额外声明
