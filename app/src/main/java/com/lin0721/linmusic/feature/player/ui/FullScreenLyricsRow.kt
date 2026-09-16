@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +25,6 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字扫色，可选附带翻译副行
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
 @Composable
 fun FullScreenLyricsRow(
@@ -48,9 +46,7 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_scale_$index"
     )
 
-    val targetAlpha = if (isCurrent) 1f
-                      else if (isCenterTarget) 0.85f
-                      else (0.65f - distance * 0.08f).coerceAtLeast(0.2f)
+    val targetAlpha = if (isCurrent) 1f else if (isCenterTarget) 0.95f else 0.85f
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
         animationSpec = tween(250),
@@ -76,7 +72,7 @@ fun FullScreenLyricsRow(
             KaraokeLyricRow(
                 line = line,
                 currentPositionProvider = currentPositionProvider,
-                inactiveColor = highlightColor,
+                inactiveColor = highlightColor.copy(alpha = 0.5f),
                 activeColor = Color.White,
                 fontSize = 22.sp
              )
@@ -95,7 +91,7 @@ fun FullScreenLyricsRow(
             Text(
                 text = line.translation,
                 fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isCurrent) Color.White else highlightColor,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )

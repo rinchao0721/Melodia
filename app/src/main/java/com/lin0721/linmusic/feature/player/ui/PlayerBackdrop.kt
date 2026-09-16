@@ -92,6 +92,9 @@ fun PlayerBackdrop(
             )
             val gradientEndY = with(density) { gradientEndYDp.dp.toPx() }
 
+            // 跟歌单页顶栏/搜索栏/大封面渐变同一套处理：base 直接用太亮，先压暗一档
+            val fillColor = remember(base) { base.darken(0.35f) }
+
             Box(
                 modifier = modifier
                     .fillMaxWidth()
@@ -105,12 +108,10 @@ fun PlayerBackdrop(
                         .drawBehind {
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    // 显式指定每档的位置：76% 处就已经完全透明，在 endY 与容器底部之间
-                                    // 留出一段纯透明缓冲区，避免残留的低 alpha 色调跟下方评论卡片的实色背景撞出一条边界线
-                                    0.0f to base,
-                                    0.2f to base.copy(alpha = 0.75f),
-                                    0.45f to base.copy(alpha = 0.45f),
-                                    0.62f to base.copy(alpha = 0.08f),
+                                    0.0f to fillColor,
+                                    0.2f to fillColor.copy(alpha = 0.75f),
+                                    0.45f to fillColor.copy(alpha = 0.45f),
+                                    0.62f to fillColor.copy(alpha = 0.08f),
                                     0.76f to Color.Transparent,
                                     startY = 0f,
                                     endY = gradientEndY

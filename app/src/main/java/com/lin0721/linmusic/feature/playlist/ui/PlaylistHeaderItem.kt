@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +46,7 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
 import com.lin0721.linmusic.core.model.PlaylistDetail
 
@@ -98,11 +102,17 @@ fun PlaylistHeaderItem(
     // 区间（60%-100%）有重叠形成交错过渡；创建者/简介/歌曲数/操作按钮不做特殊处理，
     // 当作普通内容随手指滚动划走即可
     val titleAlpha = 1f - ((progress - 0.4f) / 0.4f).coerceIn(0f, 1f)
+    val animatedDominant by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(800),
+        label = "playlist_header_color"
+    )
+    val gradientTop = remember(animatedDominant) { animatedDominant.darken(0.35f) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             // 使用从封面提取的主色调渐变到背景黑
-            .background(Brush.verticalGradient(listOf(dominantColor, MaterialTheme.colorScheme.background)))
+            .background(Brush.verticalGradient(listOf(gradientTop, MaterialTheme.colorScheme.background)))
     ) {
         // 封面：与操作区的返回键水平对齐
         Box(

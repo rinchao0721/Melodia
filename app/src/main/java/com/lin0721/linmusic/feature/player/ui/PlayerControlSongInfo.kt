@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 封面下方的歌名歌手行，右侧带收藏按钮
@@ -50,7 +49,7 @@ fun SongInfo(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = artist,
-                color = TextGray.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = 0.75f),
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

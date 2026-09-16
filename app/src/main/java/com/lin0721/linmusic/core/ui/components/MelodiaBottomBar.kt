@@ -116,7 +116,7 @@ fun MiniPlayerCard(
         animationSpec = tween(800),
         label = "mini_player_base"
     )
-    val fillColor = remember(animatedBase) { animatedBase.darken(0.35f) }
+    val fillColor = remember(animatedBase) { animatedBase.darken(0.45f) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -394,7 +394,7 @@ private fun MiniPlayerContentRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = TextGray,
+                    color = Color.White.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

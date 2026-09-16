@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.lighten
 import com.lin0721.linmusic.core.ui.theme.saturate
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
@@ -95,9 +96,10 @@ fun LyricsCard(
     val vividBase = remember(base) { base.saturate(0.6f) }
     val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
     val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
-    // 未唱到的歌词跟卡片底色同色系，从提过饱和度的 vividBase 去混白，不用纯白半透明（会在彩色底上发灰）；
-    // 混白比例跟全屏歌词页的 textHighlight 对齐，以白为主只带一点点色相
-    val inactiveLyricColor = remember(vividBase) { lerp(vividBase, Color.White, 0.85f) }
+    // 未唱到的歌词颜色跟全屏歌词页的 textHighlight 用同一套配方，背景用的 vividBase 幅度较小，
+    // 文字这里单独再提一档饱和度+明度，不然混完白会发灰
+    val textVividBase = remember(base) { base.saturate(0.8f).lighten(1.0f) }
+    val inactiveLyricColor = remember(textVividBase) { lerp(textVividBase, Color.White, 0.5f) }
 
     // 当前行实际换行数，由 LyricsPreview 里当前行 Text 的 onTextLayout 回报，用来动态撑高预览区
     var currentLineWrapLines by remember { mutableIntStateOf(1) }
