@@ -1,7 +1,8 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,27 +10,23 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.darken
 
 private val SearchBarHeight = 40.dp
 
 // ────────────────────────────────────────────────────────────────────────────
 // 搜索栏：悬浮在列表上方的独立浮层，展开位移由调用方通过 modifier 的 graphicsLayer 驱动
-// 搜索框与排序按钮做成毛玻璃质感的圆角矩形，圆角对齐封面；点击排序展开的是复用项目
-// 通用弹层规范的 PlaylistSortSheet，而非系统 DropdownMenu
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SearchBarItem(
@@ -37,11 +34,16 @@ fun SearchBarItem(
     onQueryChange: (String) -> Unit,
     topPadding: Dp,
     backgroundColor: Color,
-    sortOption: PlaylistSortOption,
-    onSortOptionChange: (PlaylistSortOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth().background(backgroundColor)) {
+    // 取色完成时颜色平滑过渡
+    val animatedBackground by animateColorAsState(
+        targetValue = backgroundColor,
+        animationSpec = tween(800),
+        label = "search_bar_color"
+    )
+    val fillColor = remember(animatedBackground) { animatedBackground.darken(0.35f) }
+    Column(modifier = modifier.fillMaxWidth().background(fillColor)) {
         // 占据 overlay 的高度，防止下拉后搜索栏被返回键等遮挡
         Spacer(modifier = Modifier.height(topPadding))
 
@@ -53,7 +55,7 @@ fun SearchBarItem(
         ) {
             Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .height(SearchBarHeight)
                     .clip(RoundedCornerShape(RadiusCompact))
                     .background(Color.White.copy(alpha = 0.12f)),
@@ -80,36 +82,6 @@ fun SearchBarItem(
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(Modifier.width(14.dp))
-            }
-            Spacer(Modifier.width(MelodiaSpacing.md))
-
-            var showSortSheet by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .height(SearchBarHeight)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .clickable { showSortSheet = true }
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "排序",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            if (showSortSheet) {
-                PlaylistSortSheet(
-                    sortOption = sortOption,
-                    onSortOptionChange = {
-                        onSortOptionChange(it)
-                        showSortSheet = false
-                    },
-                    onDismiss = { showSortSheet = false }
-                )
             }
         }
     }

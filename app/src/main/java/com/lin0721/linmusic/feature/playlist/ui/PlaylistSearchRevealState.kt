@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -39,6 +40,10 @@ class SearchBarRevealState internal constructor(
     var revealPx by mutableFloatStateOf(0f)
         private set
 
+    // 搜索态的离散意图：松手那一刻就确定，不随回弹动画途中的 revealPx 数值抖动
+    var isOpen by mutableStateOf(false)
+        private set
+
     private var settleJob: Job? = null
 
     // 继续下拉：越接近展开上限，同样的拖拽距离换来的位移越小，橡皮筋阻尼只作用于这个方向
@@ -58,9 +63,8 @@ class SearchBarRevealState internal constructor(
     }
 
     val connection: NestedScrollConnection = object : NestedScrollConnection {
-        // 搜索栏已展开时上滑：先把展开量收回，收完再把剩余量交还给列表自己滚动
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (isDailyRecommend || revealPx <= 0f || available.y >= 0f) return Offset.Zero
+            if (isDailyRecommend || isOpen || revealPx <= 0f || available.y >= 0f) return Offset.Zero
             settleJob?.cancel()
             applyClose(available.y)
             return available
@@ -68,7 +72,7 @@ class SearchBarRevealState internal constructor(
 
         // 列表已经在顶部、自己消费不掉的下拉量，才轮到搜索栏展开
         override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-            if (isDailyRecommend || source != NestedScrollSource.UserInput || available.y <= 0f) {
+            if (isDailyRecommend || isOpen || source != NestedScrollSource.UserInput || available.y <= 0f) {
                 return Offset.Zero
             }
             val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
@@ -79,15 +83,35 @@ class SearchBarRevealState internal constructor(
         }
 
         override suspend fun onPreFling(available: Velocity): Velocity {
-            if (isDailyRecommend || revealPx <= 0f) return Velocity.Zero
+            if (isDailyRecommend || isOpen || revealPx <= 0f) return Velocity.Zero
             settle(available.y)
             return available
         }
 
         override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-            if (isDailyRecommend || revealPx <= 0f) return Velocity.Zero
+            if (isDailyRecommend || isOpen || revealPx <= 0f) return Velocity.Zero
             settle(available.y)
             return available
+        }
+    }
+
+    // 搜索返回箭头专用：展开态下唯一允许把它关掉的入口
+    fun close() {
+        val max = searchBarHeightPx
+        if (max <= 0f || !isOpen) return
+        isOpen = false
+        settleJob?.cancel()
+        settleJob = scope.launch {
+            animate(
+                initialValue = revealPx,
+                targetValue = 0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) { value, _ ->
+                revealPx = value.coerceIn(0f, max)
+            }
         }
     }
 
@@ -101,6 +125,7 @@ class SearchBarRevealState internal constructor(
             revealPx > max / 2f -> max
             else -> 0f
         }
+        isOpen = target > 0f
         settleJob?.cancel()
         settleJob = scope.launch {
             animate(
