@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -86,7 +88,9 @@ fun MiniPlayerCard(
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
     onPrevious: () -> Unit = {},
-    onCancelPendingSkip: () -> Boolean = { false }
+    onCancelPendingSkip: () -> Boolean = { false },
+    isLiked: Boolean = false,
+    onLikeClick: () -> Unit = {}
 ) {
     if (currentTrack == null) return
 
@@ -225,23 +229,34 @@ fun MiniPlayerCard(
                         .height(44.dp)
                 )
 
-                // 播放/暂停按钮
-                MelodiaIconButton(onClick = onTogglePlay) {
-                    Icon(
-                        imageVector = if (displayedIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = "播放/暂停",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                // 下一首按钮
-                MelodiaIconButton(onClick = onNext) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "下一首",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
+                    // 收藏到歌单按钮：图标跟着"是否已在我喜欢的音乐里"变化，具体收藏到哪些歌单由弹层里的勾选决定
+                    MelodiaIconButton(onClick = onLikeClick) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = "收藏到歌单",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    // 播放/暂停按钮
+                    MelodiaIconButton(onClick = onTogglePlay) {
+                        Icon(
+                            imageVector = if (displayedIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = "播放/暂停",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    // 下一首按钮
+                    MelodiaIconButton(onClick = onNext) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "下一首",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
             

@@ -65,6 +65,8 @@ fun MelodiaBottomOverlay(
     nextQueueItem: QueueItem? = null,
     onMiniPlayerPrevious: () -> Unit = {},
     onCancelPendingSkip: () -> Boolean = { false },
+    isMiniPlayerLiked: Boolean = false,
+    onMiniPlayerLikeClick: () -> Unit = {},
     onCreateDismiss: () -> Unit,
     onNavigate: (Screen) -> Unit,
     onCreateClick: () -> Unit,
@@ -133,6 +135,8 @@ fun MelodiaBottomOverlay(
                     nextQueueItem = nextQueueItem,
                     onPrevious = onMiniPlayerPrevious,
                     onCancelPendingSkip = onCancelPendingSkip,
+                    isLiked = isMiniPlayerLiked,
+                    onLikeClick = onMiniPlayerLikeClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = MelodiaSpacing.sm)

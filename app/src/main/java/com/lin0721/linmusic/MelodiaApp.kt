@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -63,6 +64,9 @@ fun MelodiaApp() {
     val currentPositionProvider = { currentPositionState.value }
     val duration by viewModel.playerManager.duration.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val collectState by viewModel.collectState.collectAsStateWithLifecycle()
+    val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
+    val isMiniPlayerLiked = currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
@@ -77,6 +81,8 @@ fun MelodiaApp() {
     var isMvCommentsOpen by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
+    // mini 栏爱心按钮触发的"收藏到歌单"弹层，非 null 时显示
+    var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
 
     val hazeState = remember { HazeState() }
     val density = LocalDensity.current
@@ -246,6 +252,14 @@ fun MelodiaApp() {
                         nextQueueItem = nextQueueItem,
                         onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
                         onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
+                        isMiniPlayerLiked = isMiniPlayerLiked,
+                        onMiniPlayerLikeClick = {
+                            val songId = currentTrack?.mediaId?.toLongOrNull()
+                            if (songId != null) {
+                                miniCollectSongId = songId
+                                viewModel.prepareCollectDialog(songId)
+                            }
+                        },
                         onCreateDismiss = { showCreateSheet = false },
                         onNavigate = { navigation.openTab(it) },
                         onCreateClick = { showCreateSheet = !showCreateSheet },
@@ -323,6 +337,17 @@ fun MelodiaApp() {
                 onIgnore = { updateManager.ignoreCurrentVersion() },
                 onStartDownload = { updateManager.startDownload() },
                 onInstall = { updateManager.retryInstall() }
+            )
+        }
+
+        // 7. mini 栏爱心按钮触发的"收藏到歌单"弹层，跟全屏播放页共用同一个组件
+        miniCollectSongId?.let { songId ->
+            PlaylistCollectSheet(
+                songId = songId,
+                collectState = collectState,
+                onDismiss = { miniCollectSongId = null },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }
     }
