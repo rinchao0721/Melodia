@@ -90,6 +90,14 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
+        // 启用 SuperLyric 实时歌词，默认 false
+        private val KEY_SUPER_LYRIC_ENABLED = booleanPreferencesKey("super_lyric_enabled")
+        // 启用 LyricInfo 系统歌词注入，默认 true
+        private val KEY_LYRIC_INFO_ENABLED = booleanPreferencesKey("lyric_info_enabled")
+        // 启用车载蓝牙歌词 (AVRCP)，默认 false
+        private val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
+        // 启用 Lyricon 词幕协议，默认 false
+        private val KEY_LYRICON_ENABLED = booleanPreferencesKey("lyricon_enabled")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -421,6 +429,50 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
+        }
+    }
+
+    // SuperLyric 实时歌词 Flow
+    val superLyricEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_SUPER_LYRIC_ENABLED] ?: false
+    }
+
+    suspend fun saveSuperLyricEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_SUPER_LYRIC_ENABLED] = enabled
+        }
+    }
+
+    // LyricInfo 系统歌词注入 Flow
+    val lyricInfoEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_LYRIC_INFO_ENABLED] ?: true
+    }
+
+    suspend fun saveLyricInfoEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_LYRIC_INFO_ENABLED] = enabled
+        }
+    }
+
+    // 车载蓝牙歌词 (AVRCP) Flow
+    val bluetoothLyricEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_BLUETOOTH_LYRIC_ENABLED] ?: false
+    }
+
+    suspend fun saveBluetoothLyricEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_BLUETOOTH_LYRIC_ENABLED] = enabled
+        }
+    }
+
+    // Lyricon 词幕协议 Flow
+    val lyriconEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_LYRICON_ENABLED] ?: false
+    }
+
+    suspend fun saveLyriconEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_LYRICON_ENABLED] = enabled
         }
     }
 }

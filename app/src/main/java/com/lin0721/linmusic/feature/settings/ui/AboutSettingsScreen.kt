@@ -228,6 +228,9 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                             "• NeteaseCloudMusicApi\n" +
                             "• NeteaseCloudMusicApiEnhanced\n" +
                             "• SPlayer\n" +
+                            "• SuperLyric\n" +
+                            "• LyricInfo\n" +
+                            "• Lyricon\n" +
                             "• node-vibrant\n" +
                             "• Jetpack Compose & Media3\n" +
                             "• Retrofit & OkHttp\n" +

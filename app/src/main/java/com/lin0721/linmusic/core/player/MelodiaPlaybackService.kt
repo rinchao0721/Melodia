@@ -36,8 +36,10 @@ import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +60,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val settingsPreferences: SettingsPreferences by inject()
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
+    private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val likedSongIdsCache = mutableSetOf<Long>()
@@ -162,6 +165,30 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
 
         val forwardingPlayer = object : ForwardingPlayer(localExoPlayer) {
+            private val listeners = CopyOnWriteArrayList<Player.Listener>()
+
+            override fun addListener(listener: Player.Listener) {
+                super.addListener(listener)
+                listeners.add(listener)
+            }
+
+            override fun removeListener(listener: Player.Listener) {
+                super.removeListener(listener)
+                listeners.remove(listener)
+            }
+
+            fun notifyMetadataChanged() {
+                val metadata = mediaMetadata
+                for (listener in listeners) {
+                    listener.onMediaMetadataChanged(metadata)
+                }
+            }
+
+            override fun getMediaMetadata(): androidx.media3.common.MediaMetadata {
+                val base = super.getMediaMetadata()
+                return externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
+            }
+
             override fun seekToNext() {
                 playerManager.playNext()
             }
@@ -221,6 +248,10 @@ class MelodiaPlaybackService : MediaSessionService() {
             .setSessionActivity(pendingIntent)
             .build()
 
+        externalLyricCoordinator.onMetadataChanged = {
+            forwardingPlayer.notifyMetadataChanged()
+        }
+
         // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态
         localExoPlayer.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -246,6 +277,8 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
+        externalLyricCoordinator.onMetadataChanged = null
+        externalLyricCoordinator.release()
         playerManager.release()
         playerManager.saveState()
         serviceScope.cancel()

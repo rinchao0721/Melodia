@@ -21,6 +21,16 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <queries>
+        <package android:name="io.github.proify.lyricon" />
+        <intent>
+            <action android:name="com.android.music.metachanged" />
+        </intent>
+        <intent>
+            <action android:name="com.android.music.playstatechanged" />
+        </intent>
+    </queries>
+
     <application
         android:name=".MelodiaApplication"
         android:allowBackup="true"

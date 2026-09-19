@@ -96,6 +96,14 @@ class SettingsViewModel(
 
     val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
 
+    val superLyricEnabled = settingsPreferences.superLyricEnabled.asState(false)
+
+    val lyricInfoEnabled = settingsPreferences.lyricInfoEnabled.asState(true)
+
+    val bluetoothLyricEnabled = settingsPreferences.bluetoothLyricEnabled.asState(false)
+
+    val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
+
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
@@ -238,6 +246,14 @@ class SettingsViewModel(
     fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
     
     fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+
+    fun updateSuperLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSuperLyricEnabled(enabled) }
+
+    fun updateLyricInfoEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricInfoEnabled(enabled) }
+
+    fun updateBluetoothLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveBluetoothLyricEnabled(enabled) }
+
+    fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 
