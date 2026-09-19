@@ -56,7 +56,8 @@ fun KaraokeLyricRow(
     currentPositionProvider: () -> Long,
     inactiveColor: Color,
     activeColor: Color,
-    fontSize: TextUnit = 22.sp
+    fontSize: TextUnit = 22.sp,
+    textAlign: TextAlign = TextAlign.Start
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
@@ -122,9 +123,15 @@ fun KaraokeLyricRow(
         }
     }
 
+    val boxAlignment = when (textAlign) {
+        TextAlign.Center -> Alignment.Center
+        TextAlign.End -> Alignment.CenterEnd
+        else -> Alignment.CenterStart
+    }
+
     Box(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = boxAlignment
     ) {
         // 底层灰色（未激活）歌词
         Text(
@@ -132,7 +139,7 @@ fun KaraokeLyricRow(
             fontSize = fontSize,
             fontWeight = FontWeight.ExtraBold,
             color = inactiveColor,
-            textAlign = TextAlign.Start,
+            textAlign = textAlign,
             onTextLayout = { textLayoutResult = it },
             modifier = Modifier.fillMaxWidth()
         )
@@ -143,7 +150,7 @@ fun KaraokeLyricRow(
             fontSize = fontSize,
             fontWeight = FontWeight.ExtraBold,
             color = activeColor,
-            textAlign = TextAlign.Start,
+            textAlign = textAlign,
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {

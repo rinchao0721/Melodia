@@ -86,6 +86,14 @@ class SettingsViewModel(
 
     val lyricTextColor = settingsPreferences.lyricTextColor.asState("#FFFFFF")
 
+    val fullScreenLyricTextSize = settingsPreferences.fullScreenLyricTextSize.asState(22)
+
+    val fullScreenLyricAlignment = settingsPreferences.fullScreenLyricAlignment.asState("left")
+
+    val fullScreenLyricShowTranslation = settingsPreferences.fullScreenLyricShowTranslation.asState(true)
+
+    val fullScreenLyricSecondaryMode = settingsPreferences.fullScreenLyricSecondaryMode.asState("translation")
+
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
@@ -218,6 +226,14 @@ class SettingsViewModel(
     fun updateLyricTextSize(size: Int) = launchSave { settingsPreferences.saveLyricTextSize(size) }
 
     fun updateLyricTextColor(color: String) = launchSave { settingsPreferences.saveLyricTextColor(color) }
+
+    fun updateFullScreenLyricTextSize(size: Int) = launchSave { settingsPreferences.saveFullScreenLyricTextSize(size) }
+
+    fun updateFullScreenLyricAlignment(alignment: String) = launchSave { settingsPreferences.saveFullScreenLyricAlignment(alignment) }
+    
+    fun updateFullScreenLyricShowTranslation(show: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricShowTranslation(show) }
+    
+    fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

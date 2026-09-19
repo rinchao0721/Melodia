@@ -80,6 +80,14 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_ALLOW_PRERELEASE_CHANNEL = booleanPreferencesKey("allow_prerelease_channel")
         // 用户主动忽略的更新版本 tag，默认空串表示未忽略任何版本
         private val KEY_IGNORED_UPDATE_TAG = stringPreferencesKey("ignored_update_tag")
+        // 全屏歌词字体大小，默认 22sp
+        private val KEY_FULL_SCREEN_LYRIC_TEXT_SIZE = intPreferencesKey("full_screen_lyric_text_size")
+        // 全屏歌词对齐方式，默认 "left"
+        private val KEY_FULL_SCREEN_LYRIC_ALIGNMENT = stringPreferencesKey("full_screen_lyric_alignment")
+        // 全屏歌词是否显示双语翻译，默认 true
+        private val KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION = booleanPreferencesKey("full_screen_lyric_show_translation")
+        // 全屏歌词副文本展示模式 ("translation", "roma", "none")，默认 "translation"
+        private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -355,6 +363,51 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveIgnoredUpdateTag(tag: String) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_IGNORED_UPDATE_TAG] = tag
+        }
+    }
+
+    // 全屏歌词字号设置 Flow
+    val fullScreenLyricTextSize: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_TEXT_SIZE] ?: 22
+    }
+
+    suspend fun saveFullScreenLyricTextSize(size: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_TEXT_SIZE] = size
+        }
+    }
+
+    // 全屏歌词对齐方式 Flow
+    val fullScreenLyricAlignment: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_ALIGNMENT] ?: "left"
+    }
+
+    suspend fun saveFullScreenLyricAlignment(alignment: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_ALIGNMENT] = alignment
+        }
+    }
+
+    // 全屏歌词是否显示双语翻译 Flow
+    val fullScreenLyricShowTranslation: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] ?: true
+    }
+
+    suspend fun saveFullScreenLyricShowTranslation(show: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = show
+        }
+    }
+
+    // 全屏歌词副文本展示模式 Flow（"translation"：翻译，"roma"：罗马音，"none"：仅原词）
+    val fullScreenLyricSecondaryMode: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE] ?: if (prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] == false) "none" else "translation"
+    }
+
+    suspend fun saveFullScreenLyricSecondaryMode(mode: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE] = mode
+            prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = mode != "none"
         }
     }
 }

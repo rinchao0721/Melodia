@@ -64,12 +64,15 @@ fun ColumnScope.FullScreenLyricsList(
     viewportHeightPx: Float,
     onViewportHeightChange: (Float) -> Unit,
     gestureModifier: Modifier,
+    fontSize: Int = 22,
+    alignment: String = "left",
+    secondaryMode: String = "translation",
     onSeek: (Long) -> Unit,
     onLyricClick: (LyricLine) -> Unit
 ) {
     val density = LocalDensity.current
 
-    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx) {
+    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode) {
         if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
             val itemStridePx = with(density) { 66.dp.toPx() }
             val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
@@ -79,9 +82,14 @@ fun ColumnScope.FullScreenLyricsList(
                 return@LaunchedEffect
             }
 
-            val hasTranslation = lyrics[currentIndex].translation != null
+            val currentLine = lyrics[currentIndex]
+            val hasSecondary = when (secondaryMode) {
+                "translation" -> currentLine.translation != null
+                "roma" -> currentLine.roma != null
+                else -> false
+            }
             val itemHeightPx = with(density) {
-                if (hasTranslation) 96.dp.toPx() else 54.dp.toPx()
+                if (hasSecondary) 96.dp.toPx() else 54.dp.toPx()
             }
             val centreOffsetPx = -((viewportHeightPx - itemHeightPx) / 2f).toInt()
             lazyListState.animateScrollToItem(
@@ -148,7 +156,11 @@ fun ColumnScope.FullScreenLyricsList(
                     top = 0.dp,
                     bottom = with(density) { (viewportHeightPx / 2f).toDp() }
                 ),
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = when (alignment) {
+                    "center" -> Alignment.CenterHorizontally
+                    "right" -> Alignment.End
+                    else -> Alignment.Start
+                }
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
                     val isCurrent = index == currentIndex
@@ -163,6 +175,9 @@ fun ColumnScope.FullScreenLyricsList(
                         distance = distance,
                         highlightColor = highlightColor,
                         currentPositionProvider = currentPositionProvider,
+                        fontSize = fontSize,
+                        alignment = alignment,
+                        secondaryMode = secondaryMode,
                         onClick = { onLyricClick(line) }
                     )
                 }

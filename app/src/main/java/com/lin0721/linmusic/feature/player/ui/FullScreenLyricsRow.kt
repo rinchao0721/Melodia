@@ -35,8 +35,29 @@ fun FullScreenLyricsRow(
     distance: Int,
     highlightColor: Color,
     currentPositionProvider: () -> Long,
+    fontSize: Int = 22,
+    alignment: String = "left",
+    secondaryMode: String = "translation",
     onClick: () -> Unit
 ) {
+    val textAlign = when (alignment) {
+        "center" -> TextAlign.Center
+        "right" -> TextAlign.End
+        else -> TextAlign.Start
+    }
+    val horizontalAlignment = when (alignment) {
+        "center" -> Alignment.CenterHorizontally
+        "right" -> Alignment.End
+        else -> Alignment.Start
+    }
+    val targetTransformOrigin = when (alignment) {
+        "center" -> TransformOrigin(0.5f, 0.5f)
+        "right" -> TransformOrigin(1f, 0.5f)
+        else -> TransformOrigin(0f, 0.5f)
+    }
+    val mainFontSize = fontSize.sp
+    val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
+
     val targetScale = if (isCurrent) 1.15f
                       else if (isCenterTarget) 1.05f
                       else (1f - distance * 0.05f).coerceAtLeast(0.82f)
@@ -53,20 +74,32 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
+    val widthFraction = if (alignment == "center") 0.9f else 0.85f
+    val paddingStart = when (alignment) {
+        "center" -> 24.dp
+        "left" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+    val paddingEnd = when (alignment) {
+        "center" -> 24.dp
+        "right" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+
     Column(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .padding(start = MelodiaSpacing.md)
+            .fillMaxWidth(widthFraction)
+            .padding(start = paddingStart, end = paddingEnd)
             .graphicsLayer {
                 scaleX = animatedScale
                 scaleY = animatedScale
                 alpha = animatedAlpha
-                transformOrigin = TransformOrigin(0f, 0.5f)
+                transformOrigin = targetTransformOrigin
             }
             .pressable(MelodiaPress.None) {
                 onClick()
             },
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = horizontalAlignment
     ) {
         if (isCurrent && line.words.isNotEmpty()) {
             KaraokeLyricRow(
@@ -74,25 +107,31 @@ fun FullScreenLyricsRow(
                 currentPositionProvider = currentPositionProvider,
                 inactiveColor = highlightColor.copy(alpha = 0.5f),
                 activeColor = Color.White,
-                fontSize = 22.sp
+                fontSize = mainFontSize,
+                textAlign = textAlign
              )
         } else {
             Text(
                 text = line.text,
-                fontSize = 22.sp,
+                fontSize = mainFontSize,
                 color = if (isCurrent) Color.White else highlightColor,
                 fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Start,
+                textAlign = textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        if (line.translation != null) {
+        val secondaryText = when (secondaryMode) {
+            "translation" -> line.translation
+            "roma" -> line.roma
+            else -> null
+        }
+        if (secondaryText != null) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = line.translation,
-                fontSize = 17.sp,
+                text = secondaryText,
+                fontSize = translationFontSize,
                 color = if (isCurrent) Color.White else highlightColor,
-                textAlign = TextAlign.Start,
+                textAlign = textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
         }
