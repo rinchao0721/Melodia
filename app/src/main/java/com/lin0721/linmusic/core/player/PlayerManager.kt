@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
@@ -122,6 +123,8 @@ class PlayerManager(
     private var prefetchedNextUrl: PrefetchedUrl? = null
     private var prefetchTriggeredForSongId: Long = -1L
 
+    private val streamCacheTriggeredSongIds = Collections.synchronizedSet(mutableSetOf<Long>())
+
     // 打卡上报用的挂钟计时：轮询到的播放位置在后台/锁屏场景下不可靠（真机验证过，间歇性追不上进度），改用挂钟时间差，不依赖控制器状态同步
     private var trackStartElapsedMs: Long = 0L
     private var trackPausedAccumMs: Long = 0L
@@ -156,6 +159,7 @@ class PlayerManager(
                     val remainingMs = dur - positionMs
                     roaming.onProgressTick(songId, remainingMs)
                     maybePrefetchNextTrackUrl(remainingMs)
+                    maybeCheckStreamCacheProgress(songId, positionMs, dur)
                 }
 
                 val now = SystemClock.elapsedRealtime()
@@ -353,6 +357,10 @@ class PlayerManager(
     fun seekTo(positionMs: Long) {
         controllerHolder.seekTo(positionMs)
         progress.setPosition(positionMs)
+        val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
+        if (songId != -1L) {
+            maybeCheckStreamCacheProgress(songId, positionMs, progress.duration.value)
+        }
         saveState()
     }
 
@@ -498,7 +506,6 @@ class PlayerManager(
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
-                maybeTriggerStreamCache(item)
                 return@launch
             }
 
@@ -506,7 +513,6 @@ class PlayerManager(
                 result.onSuccess { url ->
                     val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
                     controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
-                    maybeTriggerStreamCache(item)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
                     if (throwable is AppError.NetworkError) {
@@ -526,12 +532,24 @@ class PlayerManager(
         caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }.getOrDefault(false)
 
-    // 边听边存触发检查
+    // 播放进度达标时触发边听边存
+    private fun maybeCheckStreamCacheProgress(songId: Long, positionMs: Long, durationMs: Long) {
+        if (durationMs <= 0L || positionMs * 5 < durationMs * 4) return
+        if (streamCacheTriggeredSongIds.contains(songId)) return
+        val currentItem = playbackQueue.currentItem() ?: return
+        if (currentItem.songId != songId || currentItem.localUri != null) return
+        maybeTriggerStreamCache(currentItem)
+    }
+
     private fun maybeTriggerStreamCache(item: QueueItem) {
         if (item.songId <= 0L || item.localUri != null) return
+        if (!streamCacheTriggeredSongIds.add(item.songId)) return
         scope.launch(Dispatchers.IO) {
             val enabled = settingsPreferences.streamCacheEnabled.first()
-            if (!enabled) return@launch
+            if (!enabled) {
+                streamCacheTriggeredSongIds.remove(item.songId)
+                return@launch
+            }
             val isDownloaded = downloadPreferences.findVerifiedRecord(item.songId) != null
             if (isDownloaded) return@launch
 
