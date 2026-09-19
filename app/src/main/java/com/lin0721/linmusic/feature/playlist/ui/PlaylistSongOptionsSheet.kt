@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
@@ -49,7 +50,10 @@ fun PlaylistSongOptionsSheet(
     showArtistOption: Boolean = true,
     // 仅当前歌单创建者可从歌单中移除歌曲，由调用方按登录态与创建者身份算好传入
     canRemoveFromPlaylist: Boolean = false,
-    onRemoveFromPlaylist: (Long) -> Unit = {}
+    onRemoveFromPlaylist: (Long) -> Unit = {},
+    onDownloadClick: ((Track) -> Unit)? = null,
+    // 额外操作项
+    extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -148,6 +152,17 @@ fun PlaylistSongOptionsSheet(
                     }
                 )
 
+                if (onDownloadClick != null) {
+                    OptionRow(
+                        icon = Icons.Default.Download,
+                        text = "下载",
+                        onClick = {
+                            onDismiss()
+                            onDownloadClick(track)
+                        }
+                    )
+                }
+
                 if (showArtistOption) {
                     val artistsText = track.ar.joinToString(" • ") { it.name }
                     OptionRow(
@@ -185,6 +200,8 @@ fun PlaylistSongOptionsSheet(
                         }
                     }
                 )
+
+                extraOptions()
             }
         }
     }

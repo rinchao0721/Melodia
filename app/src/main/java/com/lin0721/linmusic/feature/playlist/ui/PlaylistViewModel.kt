@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -60,7 +63,8 @@ class PlaylistViewModel(
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
-    private val searchRepository: SearchRepository
+    private val searchRepository: SearchRepository,
+    private val songDownloadManager: SongDownloadManager
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -968,6 +972,39 @@ class PlaylistViewModel(
                 }
             }
         }
+    }
+
+    // 批量下载歌单曲目
+    fun downloadPlaylist(playlistId: Long, playlistName: String, tracks: List<Track>, level: String) {
+        if (tracks.isEmpty()) {
+            viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
+            return
+        }
+        val downloadTracks = tracks.map { track ->
+            DownloadTrackInfo(
+                track.id, track.name, track.ar.joinToString("/") { it.name },
+                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
+                yearFromEpochMillis(track.publishTime)
+            )
+        }
+        songDownloadManager.enqueueBatch(
+            downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
+        )
+        viewModelScope.launch { _toastEvent.emit("已将 ${downloadTracks.size} 首歌曲加入下载队列") }
+    }
+
+    // 下载单首歌曲
+    fun downloadTrack(track: Track, level: String) {
+        val downloadTrack = DownloadTrackInfo(
+            track.id,
+            track.name,
+            track.ar.joinToString("/") { it.name },
+            track.al.name,
+            track.al.picUrl.takeIf { it.isNotBlank() },
+            yearFromEpochMillis(track.publishTime)
+        )
+        songDownloadManager.enqueueSingle(downloadTrack, level)
+        viewModelScope.launch { _toastEvent.emit("已加入下载队列") }
     }
 }
 

@@ -1,11 +1,17 @@
 package com.lin0721.linmusic.core.player
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import com.lin0721.linmusic.core.download.DownloadPreferences
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.localmusic.LocalCoverArtCache
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -21,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,7 +53,10 @@ class PlayerManager(
     private val context: Context,
     private val playbackPreferences: PlaybackPreferences,
     private val repository: PlaybackRepository,
-    private val settingsPreferences: SettingsPreferences
+    private val settingsPreferences: SettingsPreferences,
+    private val downloadPreferences: DownloadPreferences,
+    private val localCoverArtCache: LocalCoverArtCache,
+    private val songDownloadManager: SongDownloadManager
 ) : Player.Listener {
 
     companion object {
@@ -407,7 +417,8 @@ class PlayerManager(
                     songId = currentTrackItem.songId,
                     title = currentTrackItem.title,
                     artist = currentTrackItem.artist,
-                    coverUrl = currentTrackItem.coverUrl,
+                    // 优先使用当前 MediaItem 解析出的封面
+                    coverUrl = _currentTrack.value?.mediaMetadata?.artworkUri?.toString() ?: currentTrackItem.coverUrl,
                     lastPositionMs = 0L,
                     durationMs = progress.duration.value
                 )
@@ -447,7 +458,22 @@ class PlayerManager(
         pendingStartPosition = startPosition
 
         activePlayJob = scope.launch {
-            if (networkGuard.blockPlaybackOnMobile()) {
+            // 本地外部音频直接播放
+            if (item.localUri != null) {
+                playbackQueue.setCurrentIndex(index)
+                saveQueueState()
+                progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
+                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
+                    ?: item.coverUrl
+                val mediaItem = item.toMediaItem(item.localUri, playbackQueue.playContext.value, artworkUri)
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                return@launch
+            }
+
+            // 本地已下载文件优先播放
+            val localRecord = downloadPreferences.findVerifiedRecord(item.songId)
+
+            if (localRecord == null && networkGuard.blockPlaybackOnMobile()) {
                 pendingStartPosition = 0L
                 return@launch
             }
@@ -460,10 +486,19 @@ class PlayerManager(
 
             roaming.prefetchOnPlay(item.songId, index)
 
+            if (localRecord != null) {
+                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
+                    ?: item.coverUrl
+                val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                return@launch
+            }
+
             // 命中预取缓存时跳过网络请求，最大限度缩短切歌间隙
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                maybeTriggerStreamCache(item)
                 return@launch
             }
 
@@ -471,6 +506,7 @@ class PlayerManager(
                 result.onSuccess { url ->
                     val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
                     controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                    maybeTriggerStreamCache(item)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
                     if (throwable is AppError.NetworkError) {
@@ -483,16 +519,51 @@ class PlayerManager(
         }
     }
 
+    private fun isWifiConnected(): Boolean = runCatching {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val network = cm?.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+    }.getOrDefault(false)
+
+    // 边听边存触发检查
+    private fun maybeTriggerStreamCache(item: QueueItem) {
+        if (item.songId <= 0L || item.localUri != null) return
+        scope.launch(Dispatchers.IO) {
+            val enabled = settingsPreferences.streamCacheEnabled.first()
+            if (!enabled) return@launch
+            val isDownloaded = downloadPreferences.findVerifiedRecord(item.songId) != null
+            if (isDownloaded) return@launch
+
+            val quality = if (isWifiConnected()) {
+                settingsPreferences.wifiQuality.first()
+            } else {
+                settingsPreferences.mobileQuality.first()
+            }
+
+            val trackInfo = DownloadTrackInfo(
+                songId = item.songId,
+                songName = item.title,
+                artistName = item.artist,
+                coverUrl = item.coverUrl
+            )
+            songDownloadManager.enqueueStreamCache(trackInfo, quality)
+        }
+    }
+
     // 临近播完时提前预取下一首链接，供 playNextOnEnded 命中缓存零等待衔接
     private fun maybePrefetchNextTrackUrl(remainingMs: Long) {
         if (remainingMs > PREFETCH_URL_WINDOW_MS) return
         if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP) return
         val nextItem = playbackQueue.nextItemByMode() ?: return
+        if (nextItem.localUri != null) return
         if (prefetchTriggeredForSongId == nextItem.songId) return
         prefetchTriggeredForSongId = nextItem.songId
 
         prefetchJob?.cancel()
         prefetchJob = scope.launch {
+            // 下一首已下载时跳过网络预取
+            if (downloadPreferences.findVerifiedRecord(nextItem.songId) != null) return@launch
             repository.getSongUrl(nextItem.songId).collect { result ->
                 result.onSuccess { url ->
                     prefetchedNextUrl = PrefetchedUrl(nextItem.songId, url)

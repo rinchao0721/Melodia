@@ -51,6 +51,7 @@ fun FullPlayerSheets(
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
+    onDownloadClick: () -> Unit,
     onSaveCollection: (Long, List<PlaylistCollectItem>) -> Unit,
     onSaveNewCollection: (String, Long) -> Unit,
     onCollectDismiss: () -> Unit,
@@ -103,6 +104,7 @@ fun FullPlayerSheets(
             onInsertSimilarSongs = onInsertSimilarSongs,
             onCollectClick = onCollectClick,
             onShareClick = onShareClick,
+            onDownloadClick = onDownloadClick,
             onDismiss = onMoreOptionsDismiss
         )
     }

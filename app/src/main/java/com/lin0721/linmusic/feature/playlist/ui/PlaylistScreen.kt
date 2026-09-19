@@ -160,6 +160,8 @@ fun PlaylistScreen(
     var showEditInfoDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddMusicSheet by remember { mutableStateOf(false) }
+    var showDownloadQualitySheet by remember { mutableStateOf(false) }
+    var pendingDownloadTrack by remember { mutableStateOf<Track?>(null) }
     var isReorderMode by remember { mutableStateOf(false) }
     var isSavingOrder by remember { mutableStateOf(false) }
     var showDiscardConfirmDialog by remember { mutableStateOf(false) }
@@ -597,9 +599,8 @@ fun PlaylistScreen(
                     },
                     isLikedSongsPlaylistView = isLikedSongsPlaylistView,
                     onShareClick = { sharePlaylistOrAlbum(state.playlist.name, state.playlist.id) },
-                    onDownloadClick = {
-                        com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中nya、")
-                    },
+                    onDownloadClick = { showDownloadQualitySheet = true },
+                    onDownloadSongClick = { pendingDownloadTrack = it },
                     onHistoryClick = {},
                     historyDates = historyRecommendState.dates,
                     historySongsLoading = historyRecommendState.songsLoading,
@@ -656,6 +657,29 @@ fun PlaylistScreen(
 
 
         val successState = uiState as? PlaylistUiState.Success
+        if (showDownloadQualitySheet && successState != null) {
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadPlaylist(
+                        successState.playlist.id, successState.playlist.name, successState.playlist.tracks, level
+                    )
+                    showDownloadQualitySheet = false
+                },
+                onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
+
+        if (pendingDownloadTrack != null) {
+            val trackToDownload = pendingDownloadTrack!!
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadTrack(trackToDownload, level)
+                    pendingDownloadTrack = null
+                },
+                onDismiss = { pendingDownloadTrack = null }
+            )
+        }
+
         if (showMoreMenuSheet && successState != null) {
             val playlist = successState.playlist
             ModalBottomSheet(
@@ -800,7 +824,7 @@ fun PlaylistScreen(
                                 title = "下载$resourceLabel"
                             ) {
                                 showMoreMenuSheet = false
-                                com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
+                                showDownloadQualitySheet = true
                             }
                         )
                         if (isManageable) {

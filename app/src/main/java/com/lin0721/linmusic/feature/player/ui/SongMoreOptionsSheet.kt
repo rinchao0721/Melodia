@@ -64,6 +64,7 @@ fun SongMoreOptionsSheet(
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
+    onDownloadClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -232,6 +233,19 @@ fun SongMoreOptionsSheet(
                             sheetState.hide()
                             onDismiss()
                             onShareClick()
+                        }
+                    }
+                )
+
+                // 下载
+                OptionRow(
+                    icon = Icons.Rounded.Download,
+                    text = "下载",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onDownloadClick()
                         }
                     }
                 )

@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -74,6 +76,7 @@ fun FullPlayerScreen(
     var showCommentsSheet by remember { mutableStateOf(false) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
+    var showDownloadQualitySheet by remember { mutableStateOf(false) }
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -106,6 +109,10 @@ fun FullPlayerScreen(
         showOutputDeviceSheet = false
     }
 
+    BackHandler(enabled = showDownloadQualitySheet) {
+        showDownloadQualitySheet = false
+    }
+
     // 全屏歌词逐字滚动需要更密的进度回调
     DisposableEffect(isLyricsFullScreen, isPlaying) {
         if (isLyricsFullScreen && isPlaying) {
@@ -129,9 +136,13 @@ fun FullPlayerScreen(
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
     val coverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
         ?.replace("?param=300y300", "") ?: ""
-    // 上一首/下一首预览封面去掉缩略图参数
-    val previousCoverUrl = previousQueueItem?.coverUrl?.replace("?param=300y300", "")
-    val nextCoverUrl = nextQueueItem?.coverUrl?.replace("?param=300y300", "")
+    // 预览封面解析
+    val previousCoverUrl = previousQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }
+    val nextCoverUrl = nextQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }
 
     fun shareCurrentSong() {
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
@@ -424,6 +435,7 @@ fun FullPlayerScreen(
                 }
             },
             onShareClick = { shareCurrentSong() },
+            onDownloadClick = { showDownloadQualitySheet = true },
             onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
             onCollectDismiss = { collectSongId = null },
@@ -443,5 +455,21 @@ fun FullPlayerScreen(
                 onNavigateToProfile(uid)
             }
         )
+
+        if (showDownloadQualitySheet) {
+            DownloadQualityPickerSheet(
+                songId = currentTrack.mediaId.toLongOrNull(),
+                maxDownloadLevel = songDetail?.privilege?.dlLevel,
+                onQualitySelected = { level ->
+                    val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
+                    val artistNames = songDetail?.ar?.joinToString("/") { it.name }?.takeIf { it.isNotBlank() } ?: artist
+                    val albumName = songDetail?.al?.name ?: ""
+                    val albumYear = com.lin0721.linmusic.core.download.yearFromEpochMillis(songDetail?.publishTime ?: 0)
+                    viewModel.downloadCurrentSong(songId, title, artistNames, albumName, coverUrl, albumYear, level)
+                    showDownloadQualitySheet = false
+                },
+                onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
     }
 }

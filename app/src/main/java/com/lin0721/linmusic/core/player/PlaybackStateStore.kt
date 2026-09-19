@@ -34,7 +34,7 @@ class PlaybackStateStore(
         val metadata = MediaMetadata.Builder()
             .setTitle(lastState.title)
             .setArtist(lastState.artist)
-            .setArtworkUri(Uri.parse(lastState.coverUrl))
+            .setArtworkUri(lastState.coverUrl.takeIf { it.isNotBlank() }?.let { Uri.parse(it) })
             .setExtras(bundle)
             .build()
 

@@ -5,5 +5,5 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val playerModule = module {
-    single { PlayerManager(androidContext(), get(), get(), get()) }
+    single { PlayerManager(androidContext(), get(), get(), get(), get(), get(), get()) }
 }

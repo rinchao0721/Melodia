@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -281,7 +282,7 @@ private fun MiniPlayerSlidingContent(
                         key = item.songId.toString(),
                         title = item.title,
                         artist = item.artist,
-                        coverUrl = item.coverUrl,
+                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                         connectedDevice = null,
                         translationXProvider = { state.offsetX - state.containerWidthPx }
                     )
@@ -305,7 +306,7 @@ private fun MiniPlayerSlidingContent(
                         key = if (item.songId == previousQueueItem?.songId) "${item.songId}-next" else item.songId.toString(),
                         title = item.title,
                         artist = item.artist,
-                        coverUrl = item.coverUrl,
+                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                         connectedDevice = null,
                         translationXProvider = { state.offsetX + state.containerWidthPx }
                     )

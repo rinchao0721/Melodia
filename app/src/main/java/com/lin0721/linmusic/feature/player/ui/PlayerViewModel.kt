@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
@@ -76,7 +78,8 @@ class PlayerViewModel(
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
     private val settingsPreferences: SettingsPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songDownloadManager: SongDownloadManager
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -112,6 +115,28 @@ class PlayerViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = "standard"
         )
+
+    // 下载当前播放歌曲
+    fun downloadCurrentSong(
+        songId: Long,
+        songName: String,
+        artistName: String,
+        albumName: String,
+        coverUrl: String?,
+        albumYear: Int,
+        level: String
+    ) {
+        viewModelScope.launch {
+            if (songId <= 0) {
+                _toastEvent.emit("歌曲信息不完整，无法下载")
+                return@launch
+            }
+            songDownloadManager.enqueueSingle(
+                DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear), level
+            )
+            _toastEvent.emit("已加入下载队列")
+        }
+    }
 
     // 更新当前环境的音质设置并重新加载当前歌曲播放
     fun updateQuality(quality: String) {
