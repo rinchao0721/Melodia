@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
+import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,22 @@ private fun resolveDisplayPath(context: android.content.Context, uriString: Stri
     }.getOrElse {
         DocumentFile.fromTreeUri(context, uri)?.name ?: "自定义目录"
     }
+}
+
+private fun resolveInitialFolderUri(uriString: String?): Uri {
+    if (!uriString.isNullOrBlank()) {
+        return Uri.parse(uriString)
+    }
+    runCatching {
+        val defaultDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "Melodia")
+        if (!defaultDir.exists()) {
+            defaultDir.mkdirs()
+        }
+    }
+    return DocumentsContract.buildDocumentUri(
+        "com.android.externalstorage.documents",
+        "primary:Music/Melodia"
+    )
 }
 
 @Composable
@@ -98,7 +115,10 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                 SettingsRow(
                     title = "下载目录",
                     subtitle = downloadFolderSubtitle,
-                    onClick = { folderPickerLauncher.launch(null) }
+                    onClick = {
+                        val initialUri = resolveInitialFolderUri(downloadFolderUri)
+                        folderPickerLauncher.launch(initialUri)
+                    }
                 )
                 HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 SettingsSwitchRow(
