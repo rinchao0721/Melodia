@@ -30,6 +30,7 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
     val showCreateEntry by viewModel.showCreateEntry.collectAsStateWithLifecycle()
     val fullScreenLyricTextSize by viewModel.fullScreenLyricTextSize.collectAsStateWithLifecycle()
     val fullScreenLyricAlignment by viewModel.fullScreenLyricAlignment.collectAsStateWithLifecycle()
+    val fullScreenKaraokeAdvancedEffect by viewModel.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle()
 
     var showAlignmentSheet by remember { mutableStateOf(false) }
     val alignmentLabel = when (fullScreenLyricAlignment) {
@@ -75,6 +76,13 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                         title = "歌词对齐方式",
                         subtitle = alignmentLabel,
                         onClick = { showAlignmentSheet = true }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "逐字歌词流光动效",
+                        subtitle = "开启柔和渐变推进边缘",
+                        checked = fullScreenKaraokeAdvancedEffect,
+                        onCheckedChange = { viewModel.updateFullScreenKaraokeAdvancedEffect(it) }
                     )
                 }
             }

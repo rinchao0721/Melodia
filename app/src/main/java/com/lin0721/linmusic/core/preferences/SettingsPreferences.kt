@@ -88,6 +88,8 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION = booleanPreferencesKey("full_screen_lyric_show_translation")
         // 全屏歌词副文本展示模式 ("translation", "roma", "none")，默认 "translation"
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
+        // 逐字歌词流光动效，默认 true
+        private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -408,6 +410,17 @@ class SettingsPreferences(private val context: Context) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE] = mode
             prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = mode != "none"
+        }
+    }
+
+    // 逐字歌词流光动效 Flow
+    val fullScreenKaraokeAdvancedEffect: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] ?: true
+    }
+
+    suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
         }
     }
 }

@@ -94,6 +94,8 @@ class SettingsViewModel(
 
     val fullScreenLyricSecondaryMode = settingsPreferences.fullScreenLyricSecondaryMode.asState("translation")
 
+    val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
+
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
@@ -234,6 +236,8 @@ class SettingsViewModel(
     fun updateFullScreenLyricShowTranslation(show: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricShowTranslation(show) }
     
     fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
+    
+    fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

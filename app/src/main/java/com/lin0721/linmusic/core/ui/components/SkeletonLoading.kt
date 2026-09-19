@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
@@ -92,7 +93,8 @@ fun CoverPlaceholder(modifier: Modifier = Modifier) {
 fun AntiFlickerCoverImage(
     url: String,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    onImageLoaded: ((android.graphics.Bitmap) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var isLoaded by remember(url) { mutableStateOf(false) }
@@ -118,6 +120,16 @@ fun AntiFlickerCoverImage(
                         is AsyncImagePainter.State.Success -> {
                             isLoaded = true
                             isError = false
+                            val drawable = state.result.drawable
+                            val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                ?: try {
+                                    drawable.toBitmap()
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            if (bitmap != null) {
+                                onImageLoaded?.invoke(bitmap)
+                            }
                         }
                         is AsyncImagePainter.State.Error -> {
                             isLoaded = false

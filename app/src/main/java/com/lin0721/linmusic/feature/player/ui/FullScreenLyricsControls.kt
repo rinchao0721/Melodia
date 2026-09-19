@@ -235,6 +235,8 @@ fun FullScreenLyricsSettingsSheet(
     onSecondaryModeChange: (String) -> Unit,
     hasTranslation: Boolean,
     hasRoma: Boolean,
+    advancedKaraokeEffect: Boolean = true,
+    onAdvancedKaraokeEffectChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -372,6 +374,40 @@ fun FullScreenLyricsSettingsSheet(
                         Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
+
+            // 逐字歌词流光动效
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onAdvancedKaraokeEffectChange(!advancedKaraokeEffect) }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "逐字歌词流光动效",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "开启柔和渐变推进边缘",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+                Switch(
+                    checked = advancedKaraokeEffect,
+                    onCheckedChange = onAdvancedKaraokeEffectChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                )
             }
         }
     }

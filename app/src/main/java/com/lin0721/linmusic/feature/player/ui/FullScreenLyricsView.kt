@@ -84,6 +84,7 @@ fun FullScreenLyricsView(
     val fullScreenLyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
+    val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
@@ -243,6 +244,7 @@ fun FullScreenLyricsView(
                 fontSize = fullScreenLyricTextSize,
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
+                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 onSeek = handleSeek,
                 onLyricClick = { line ->
                     timerJob?.cancel()
@@ -286,6 +288,10 @@ fun FullScreenLyricsView(
                 },
                 hasTranslation = hasTranslation,
                 hasRoma = hasRoma,
+                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                onAdvancedKaraokeEffectChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+                },
                 onDismiss = { showSettingsSheet = false }
             )
         }

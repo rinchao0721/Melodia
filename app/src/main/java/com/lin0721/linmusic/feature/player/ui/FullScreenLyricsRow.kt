@@ -38,6 +38,7 @@ fun FullScreenLyricsRow(
     fontSize: Int = 22,
     alignment: String = "left",
     secondaryMode: String = "translation",
+    advancedKaraokeEffect: Boolean = true,
     onClick: () -> Unit
 ) {
     val textAlign = when (alignment) {
@@ -58,19 +59,33 @@ fun FullScreenLyricsRow(
     val mainFontSize = fontSize.sp
     val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
 
-    val targetScale = if (isCurrent) 1.15f
-                      else if (isCenterTarget) 1.05f
-                      else (1f - distance * 0.05f).coerceAtLeast(0.82f)
+    val targetScale = when {
+        isCurrent -> 1.12f
+        isCenterTarget -> 1.04f
+        else -> when (distance) {
+            1 -> 0.98f
+            2 -> 0.94f
+            else -> 0.90f
+        }
+    }
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = 0.76f, stiffness = 320f),
         label = "fs_lyric_scale_$index"
     )
 
-    val targetAlpha = if (isCurrent) 1f else if (isCenterTarget) 0.95f else 0.85f
+    val targetAlpha = when {
+        isCurrent -> 1f
+        isCenterTarget -> 0.95f
+        else -> when (distance) {
+            1 -> 0.65f
+            2 -> 0.45f
+            else -> 0.28f
+        }
+    }
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(250),
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
         label = "fs_lyric_alpha_$index"
     )
 
@@ -108,7 +123,8 @@ fun FullScreenLyricsRow(
                 inactiveColor = highlightColor.copy(alpha = 0.5f),
                 activeColor = Color.White,
                 fontSize = mainFontSize,
-                textAlign = textAlign
+                textAlign = textAlign,
+                advancedEffect = advancedKaraokeEffect
              )
         } else {
             Text(

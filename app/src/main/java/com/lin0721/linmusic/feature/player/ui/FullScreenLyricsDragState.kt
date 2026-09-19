@@ -95,8 +95,8 @@ class FullScreenLyricsDragState(
                     targetValue = 0f,
                     initialVelocity = velocity,
                     animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
+                        dampingRatio = 0.80f,
+                        stiffness = 380f
                     )
                 ) { value, _ ->
                     offsetY = value.coerceAtLeast(0f)

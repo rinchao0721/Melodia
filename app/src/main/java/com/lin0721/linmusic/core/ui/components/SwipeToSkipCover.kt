@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -31,8 +32,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // 拖动超过容器宽度这个比例，或松手时甩动速度超过阈值，判定为确认切歌
 private const val SwipeConfirmFraction = 0.32f
@@ -428,17 +431,43 @@ private fun SwipeCoverLayer(
     contentPadding: Dp,
     translationXProvider: () -> Float
 ) {
+    var isTransparentCover by remember(url) {
+        mutableStateOf(CoverContourShadowHelper.isTransparent(url) == true)
+    }
+    val scope = rememberCoroutineScope()
+
     AntiFlickerCoverImage(
         url = url,
         contentScale = contentScale,
+        onImageLoaded = { bitmap ->
+            scope.launch(Dispatchers.Default) {
+                val isTrans = CoverContourShadowHelper.detectIsTransparentCover(bitmap)
+                CoverContourShadowHelper.markTransparency(url, isTrans)
+                if (isTrans != isTransparentCover) {
+                    withContext(Dispatchers.Main) {
+                        isTransparentCover = isTrans
+                    }
+                }
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { translationX = translationXProvider() }
             .padding(horizontal = contentPadding)
             .aspectRatio(1f)
             .then(
-                if (elevation > 0.dp) Modifier.shadow(elevation = elevation, shape = shape, clip = false) else Modifier
+                if (!isTransparentCover && elevation > 0.dp) {
+                    Modifier.shadow(elevation = elevation, shape = shape, clip = false)
+                } else {
+                    Modifier
+                }
             )
-            .clip(shape)
+            .then(
+                if (!isTransparentCover) {
+                    Modifier.clip(shape)
+                } else {
+                    Modifier
+                }
+            )
     )
 }

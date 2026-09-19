@@ -2,12 +2,18 @@ package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -17,8 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
 
@@ -57,7 +63,8 @@ fun KaraokeLyricRow(
     inactiveColor: Color,
     activeColor: Color,
     fontSize: TextUnit = 22.sp,
-    textAlign: TextAlign = TextAlign.Start
+    textAlign: TextAlign = TextAlign.Start,
+    advancedEffect: Boolean = true
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
@@ -144,71 +151,154 @@ fun KaraokeLyricRow(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // 顶层高亮（已激活）歌词，通过 Path 对每一行分别建立独立的裁剪矩形，防止单行歌词折行时产生漏光和干扰
-        Text(
-            text = line.text,
-            fontSize = fontSize,
-            fontWeight = FontWeight.ExtraBold,
-            color = activeColor,
-            textAlign = textAlign,
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    val info = lyricLayoutInfo
-                    if (info == null) {
-                        alpha = 0f
-                    } else {
-                        alpha = 1f
-                        clip = true
-                        shape = object : Shape {
-                            override fun createOutline(
-                                size: Size,
-                                layoutDirection: LayoutDirection,
-                                density: Density
-                            ): Outline {
-                                val path = androidx.compose.ui.graphics.Path()
-                                val relativeProgress = currentPositionProviderState.value() - line.timeMs
+        // 顶层高亮歌词
+        if (advancedEffect) {
+            Text(
+                text = line.text,
+                fontSize = fontSize,
+                fontWeight = FontWeight.ExtraBold,
+                color = activeColor,
+                textAlign = textAlign,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        val info = lyricLayoutInfo ?: return@drawWithContent
+                        val relativeProgress = currentPositionProviderState.value() - line.timeMs
+                        val featherPx = 18.dp.toPx()
 
-                                info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
-                                    val lastWordOnLine = info.wordLayouts.lastOrNull { it.lineIndex == lineIndex }
-                                    var maxRight = lineLayout.left
+                        // 逐行进行流光渐变推进遮罩擦除
+                        info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
+                            val lastWordOnLine = info.wordLayouts.lastOrNull { it.lineIndex == lineIndex }
+                            var maxRight = lineLayout.left
 
-                                    if (lastWordOnLine != null && relativeProgress >= lastWordOnLine.endMs) {
-                                        // 整行已唱完，直接拉满高亮
-                                        maxRight = lineLayout.right
-                                    } else {
-                                        info.wordLayouts.forEach { word ->
-                                            if (word.lineIndex == lineIndex) {
-                                                if (relativeProgress >= word.endMs) {
-                                                    maxRight = maxRight.coerceAtLeast(word.right)
-                                                } else if (relativeProgress in word.startMs..word.endMs) {
-                                                    // 在当前唱到的字词内进行线性像素高亮插值
-                                                    val ratio = (relativeProgress - word.startMs).toFloat() / (word.endMs - word.startMs)
-                                                    val currentWordRight = word.left + (word.right - word.left) * ratio
-                                                    maxRight = maxRight.coerceAtLeast(currentWordRight)
-                                                }
-                                            }
+                            if (lastWordOnLine != null && relativeProgress >= lastWordOnLine.endMs) {
+                                maxRight = lineLayout.right
+                            } else {
+                                info.wordLayouts.forEach { word ->
+                                    if (word.lineIndex == lineIndex) {
+                                        if (relativeProgress >= word.endMs) {
+                                            maxRight = maxRight.coerceAtLeast(word.right)
+                                        } else if (relativeProgress in word.startMs..word.endMs) {
+                                            val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
+                                            val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
+                                            val currentWordRight = word.left + (word.right - word.left) * ratio
+                                            maxRight = maxRight.coerceAtLeast(currentWordRight)
                                         }
                                     }
-
-                                    // 如果当前行存在已播放高亮范围，则将其生成裁剪矩形加入到 Path 中
-                                    if (maxRight > lineLayout.left) {
-                                        path.addRect(
-                                            Rect(
-                                                left = lineLayout.left,
-                                                top = lineLayout.top,
-                                                right = maxRight.coerceIn(lineLayout.left, lineLayout.right),
-                                                bottom = lineLayout.bottom
-                                            )
-                                        )
-                                    }
                                 }
+                            }
 
-                                return Outline.Generic(path)
+                            if (maxRight < lineLayout.right) {
+                                val fadeStart = (maxRight - featherPx).coerceAtLeast(lineLayout.left)
+                                val fadeEnd = maxRight.coerceAtMost(lineLayout.right)
+
+                                if (fadeEnd < lineLayout.right) {
+                                    drawRect(
+                                        color = Color.Black,
+                                        topLeft = Offset(fadeEnd, lineLayout.top),
+                                        size = Size(lineLayout.right - fadeEnd, lineLayout.bottom - lineLayout.top),
+                                        blendMode = BlendMode.DstOut
+                                    )
+                                }
+                                if (fadeEnd > fadeStart) {
+                                    drawRect(
+                                        brush = Brush.horizontalGradient(
+                                            colors = listOf(Color.Transparent, Color.Black),
+                                            startX = fadeStart,
+                                            endX = fadeEnd
+                                        ),
+                                        topLeft = Offset(fadeStart, lineLayout.top),
+                                        size = Size(fadeEnd - fadeStart, lineLayout.bottom - lineLayout.top),
+                                        blendMode = BlendMode.DstOut
+                                    )
+                                }
+                            }
+                        }
+
+                        // 当前字词呼吸光晕
+                        info.wordLayouts.forEach { word ->
+                            if (relativeProgress in word.startMs..word.endMs) {
+                                val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
+                                val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
+                                val pulse = kotlin.math.sin(ratio * kotlin.math.PI).toFloat()
+                                if (pulse > 0f) {
+                                    drawRect(
+                                        color = Color.White.copy(alpha = 0.22f * pulse),
+                                        topLeft = Offset(word.left, word.top),
+                                        size = Size(word.right - word.left, word.bottom - word.top),
+                                        blendMode = BlendMode.Plus
+                                    )
+                                }
                             }
                         }
                     }
-                }
-        )
+            )
+        } else {
+            Text(
+                text = line.text,
+                fontSize = fontSize,
+                fontWeight = FontWeight.ExtraBold,
+                color = activeColor,
+                textAlign = textAlign,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        val info = lyricLayoutInfo
+                        if (info == null) {
+                            alpha = 0f
+                        } else {
+                            alpha = 1f
+                            clip = true
+                            shape = object : Shape {
+                                override fun createOutline(
+                                    size: Size,
+                                    layoutDirection: LayoutDirection,
+                                    density: Density
+                                ): Outline {
+                                    val path = androidx.compose.ui.graphics.Path()
+                                    val relativeProgress = currentPositionProviderState.value() - line.timeMs
+
+                                    info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
+                                        val lastWordOnLine = info.wordLayouts.lastOrNull { it.lineIndex == lineIndex }
+                                        var maxRight = lineLayout.left
+
+                                        if (lastWordOnLine != null && relativeProgress >= lastWordOnLine.endMs) {
+                                            maxRight = lineLayout.right
+                                        } else {
+                                            info.wordLayouts.forEach { word ->
+                                                if (word.lineIndex == lineIndex) {
+                                                    if (relativeProgress >= word.endMs) {
+                                                        maxRight = maxRight.coerceAtLeast(word.right)
+                                                    } else if (relativeProgress in word.startMs..word.endMs) {
+                                                        val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
+                                                        val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
+                                                        val currentWordRight = word.left + (word.right - word.left) * ratio
+                                                        maxRight = maxRight.coerceAtLeast(currentWordRight)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (maxRight > lineLayout.left) {
+                                            path.addRect(
+                                                Rect(
+                                                    left = lineLayout.left,
+                                                    top = lineLayout.top,
+                                                    right = maxRight.coerceIn(lineLayout.left, lineLayout.right),
+                                                    bottom = lineLayout.bottom
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    return Outline.Generic(path)
+                                }
+                            }
+                        }
+                    }
+            )
+        }
     }
 }
