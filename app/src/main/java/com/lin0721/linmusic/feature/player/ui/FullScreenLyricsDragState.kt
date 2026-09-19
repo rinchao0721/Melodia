@@ -132,21 +132,14 @@ class FullScreenLyricsDragState(
             }
         }
 
-        // 列表已滚到顶仍继续下拉时，多余位移转为整页下移
+        // 歌词列表区域不触发下拉关闭，避免浏览与定位歌词时误关界面；下拉关闭由顶部 Header 负责
         override fun onPostScroll(
             consumed: Offset,
             available: Offset,
             source: NestedScrollSource
         ): Offset {
             markGestureStart(source)
-
-            val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-            return if (available.y > 0f && isAtTop && source == NestedScrollSource.UserInput) {
-                offsetY += available.y * damping()
-                Offset(0f, available.y)
-            } else {
-                Offset.Zero
-            }
+            return Offset.Zero
         }
 
         override suspend fun onPreFling(available: Velocity): Velocity {

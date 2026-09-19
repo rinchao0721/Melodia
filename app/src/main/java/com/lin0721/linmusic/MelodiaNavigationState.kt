@@ -99,23 +99,28 @@ class MelodiaNavigationState(
     var searchAutoFocus by mutableStateOf(false)
         private set
 
-    // 记录从全屏播放器发起跳转时所在 tab 的栈深；当前栈深大于该深度时表示处于从播放器打开的二级页面中
+    // 记录从全屏播放器发起跳转时所在 tab 的栈深与歌曲 ID；当前栈深大于该深度时表示处于从播放器打开的二级页面中
     var playerNavTargetStackDepth by mutableIntStateOf(-1)
+        private set
+
+    var playerNavOriginMediaId by mutableStateOf<String?>(null)
         private set
 
     val isNavigatingFromPlayer: Boolean
         get() = playerNavTargetStackDepth != -1 && activeStack.size > playerNavTargetStackDepth
 
 
-    fun navigateFromPlayer(action: () -> Unit) {
+    fun navigateFromPlayer(originMediaId: String? = null, action: () -> Unit) {
         if (playerNavTargetStackDepth == -1) {
             playerNavTargetStackDepth = activeStack.size
+            playerNavOriginMediaId = originMediaId
         }
         action()
     }
 
     fun resetPlayerNavigation() {
         playerNavTargetStackDepth = -1
+        playerNavOriginMediaId = null
     }
 
     fun navigateTo(screen: Screen) {
@@ -126,7 +131,7 @@ class MelodiaNavigationState(
                     resetStackToRoot(screen)
                     return
                 }
-                playerNavTargetStackDepth = -1
+                resetPlayerNavigation()
                 activeTab = screen
             }
             else -> {
@@ -142,7 +147,7 @@ class MelodiaNavigationState(
             val willExitPlayerNav = isNavigatingFromPlayer && (activeStack.size - 1) <= playerNavTargetStackDepth
             activeStack.removeAt(activeStack.lastIndex)
             if (willExitPlayerNav) {
-                playerNavTargetStackDepth = -1
+                resetPlayerNavigation()
             }
             return willExitPlayerNav
         }

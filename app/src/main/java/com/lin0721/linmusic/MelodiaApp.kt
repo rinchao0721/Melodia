@@ -96,19 +96,27 @@ fun MelodiaApp() {
         }
     }
 
+    LaunchedEffect(currentTrack?.mediaId) {
+        val originId = navigation.playerNavOriginMediaId
+        val currentId = currentTrack?.mediaId
+        if (originId != null && currentId != null && currentId != originId) {
+            navigation.resetPlayerNavigation()
+        }
+    }
+
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级
     // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统
-    val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen ||
+    val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
             showCreateSheet || navigation.showMusicNewWorks || navigation.canNavigateBack ||
             navigation.activeTab != Screen.Home
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
-            navigation.isNavigatingFromPlayer -> handleBack()
             playerSheet.isOpen -> {
                 navigation.resetPlayerNavigation()
                 playerSheet.animateTo(false, 0f)
             }
+            navigation.isNavigatingFromPlayer -> handleBack()
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
             navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
@@ -304,19 +312,19 @@ fun MelodiaApp() {
                 playerSheet.animateTo(false, velocity, offset)
             },
             onArtistClick = { artistId ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openArtist(artistId)
                 }
                 playerSheet.animateTo(false, 0f)
             },
             onAlbumClick = { albumId ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openPlaylist(albumId, isAlbum = true)
                 }
                 playerSheet.animateTo(false, 0f)
             },
             onNavigateToProfile = { uid ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openProfile(uid)
                 }
                 playerSheet.animateTo(false, 0f)
