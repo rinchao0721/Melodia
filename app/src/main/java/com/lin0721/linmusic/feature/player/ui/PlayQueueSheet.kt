@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -328,7 +329,12 @@ fun PlayQueueSheet(
                             enableDismissFromStartToEnd = false
                         ) {
                             DraggableSongRow(
-                                data = SongRowData(id = item.songId, title = item.title, artist = item.artist, coverUrl = item.coverUrl),
+                                data = SongRowData(
+                                    id = item.songId,
+                                    title = item.title,
+                                    artist = item.artist,
+                                    coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                ),
                                 isCurrent = false,
                                 isPlaying = false,
                                 isPlayed = true,
@@ -352,7 +358,14 @@ fun PlayQueueSheet(
                         if (isRoaming) {
                             // 漫游模式下禁用侧滑删除
                             DraggableSongRow(
-                                data = SongRowData(id = queue[currentIndex].songId, title = queue[currentIndex].title, artist = queue[currentIndex].artist, coverUrl = queue[currentIndex].coverUrl),
+                                data = SongRowData(
+                                    id = queue[currentIndex].songId,
+                                    title = queue[currentIndex].title,
+                                    artist = queue[currentIndex].artist,
+                                    coverUrl = rememberQueueItemCoverUrl(
+                                        queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
+                                    )
+                                ),
                                 isCurrent = true,
                                 isPlaying = isPlaying,
                                 isPlayed = false,
@@ -378,7 +391,14 @@ fun PlayQueueSheet(
                                 enableDismissFromStartToEnd = false
                             ) {
                                 DraggableSongRow(
-                                    data = SongRowData(id = queue[currentIndex].songId, title = queue[currentIndex].title, artist = queue[currentIndex].artist, coverUrl = queue[currentIndex].coverUrl),
+                                    data = SongRowData(
+                                        id = queue[currentIndex].songId,
+                                        title = queue[currentIndex].title,
+                                        artist = queue[currentIndex].artist,
+                                        coverUrl = rememberQueueItemCoverUrl(
+                                            queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
+                                        )
+                                    ),
                                     isCurrent = true,
                                     isPlaying = isPlaying,
                                     isPlayed = false,
@@ -430,7 +450,12 @@ fun PlayQueueSheet(
                                     enableDismissFromEndToStart = !isDraggingActive
                                 ) {
                                     DraggableSongRow(
-                                        data = SongRowData(id = item.songId, title = item.title, artist = item.artist, coverUrl = item.coverUrl),
+                                        data = SongRowData(
+                                            id = item.songId,
+                                            title = item.title,
+                                            artist = item.artist,
+                                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                        ),
                                         isCurrent = false,
                                         isPlaying = false,
                                         isPlayed = false,

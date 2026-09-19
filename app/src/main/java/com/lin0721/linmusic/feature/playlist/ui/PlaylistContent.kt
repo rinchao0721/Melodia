@@ -76,6 +76,7 @@ fun PlaylistContent(
     isLikedSongsPlaylistView: Boolean = false,
     onShareClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {},
+    onDownloadSongClick: (Track) -> Unit = {},
     onHistoryClick: () -> Unit = {},
     historyDates: List<String> = emptyList(),
     historySongsLoading: Boolean = false,
@@ -475,7 +476,8 @@ fun PlaylistContent(
             onAlbumClick = onAlbumClick,
             onRequireLogin = onRequireLogin,
             canRemoveFromPlaylist = canRemoveFromPlaylist,
-            onRemoveFromPlaylist = onRemoveFromPlaylist
+            onRemoveFromPlaylist = onRemoveFromPlaylist,
+            onDownloadClick = onDownloadSongClick
         )
     }
 

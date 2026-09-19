@@ -2,6 +2,8 @@
 <paths>
     <!-- 指定允许分享的缓存目录子路径，对应 cacheDir 中的 logs 文件夹 -->
     <cache-path name="app_logs" path="logs/" />
+    <!-- 本地音频内嵌封面提取缓存，对应 cacheDir 中的 local_covers 文件夹 -->
+    <cache-path name="local_covers" path="local_covers/" />
     <!-- 更新 APK 下载目录，对应 getExternalFilesDir(null) 中的 updates 文件夹 -->
     <external-files-path name="app_updates" path="updates/" />
 </paths>

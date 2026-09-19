@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.download.ui.DownloadProgressBanner
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
@@ -113,7 +114,17 @@ fun MelodiaBottomOverlay(
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. 浮动播放卡片
+            // 下载进度横幅
+            AnimatedVisibility(
+                visible = !isLoginScreenVisible && !isMvFullscreen,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DownloadProgressBanner(modifier = Modifier.fillMaxWidth())
+            }
+
+            // 浮动播放卡片
             AnimatedVisibility(
                 visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -143,7 +154,7 @@ fun MelodiaBottomOverlay(
                 )
             }
 
-            // 2. M3 导航栏 (在非登录状态下显示)
+            // 底部导航栏
             AnimatedVisibility(
                 visible = !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
                 enter = expandVertically() + fadeIn(),

@@ -2,6 +2,7 @@ package com.lin0721.linmusic.di
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
+import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -19,4 +20,5 @@ val localModule = module {
     single<com.lin0721.linmusic.core.network.crypto.XeapiKeyStore> {
         com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl(androidContext())
     }
+    single { DownloadPreferences(androidContext()) }
 }

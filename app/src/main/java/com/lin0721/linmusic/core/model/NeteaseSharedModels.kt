@@ -40,8 +40,20 @@ data class Track(
     @JsonNames("al", "album")
     val al: Album = Album(),
     val fee: Int = 0,
-    val publishTime: Long = 0, // 歌曲发行时间戳，部分接口在歌曲详情中包含
-    val dt: Long = 0
+    val publishTime: Long = 0,
+    val dt: Long = 0,
+    // 歌曲播放与下载权限信息
+    val privilege: SongPrivilege? = null
+)
+
+// 歌曲权限详情
+@Serializable
+data class SongPrivilege(
+    val dlLevel: String? = null,
+    val plLevel: String? = null,
+    val flLevel: String? = null,
+    val maxBrLevel: String? = null,
+    val st: Int = 0 // 小于 0 为无版权或需解锁
 )
 
 @Serializable

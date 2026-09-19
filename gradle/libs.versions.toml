@@ -22,6 +22,9 @@ coroutinesTest = "1.9.0"
 imageCropper = "4.7.0"
 zxing = "3.5.3"
 bouncycastle = "1.85.2"
+workManager = "2.10.1"
+documentfile = "1.0.1"
+taglib = "1.0.5"
 
 [libraries]
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
@@ -74,6 +77,14 @@ androidx-media3-session = { group = "androidx.media3", name = "media3-session", 
 androidx-media = { group = "androidx.media", name = "media", version.ref = "media" }
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 
+# WorkManager
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+
+# DocumentFile
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+
+# TagLib 音频标签
+taglib = { group = "io.github.kyant0", name = "taglib", version.ref = "taglib" }
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 

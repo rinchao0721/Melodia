@@ -72,8 +72,11 @@ val LibraryBlueGreenGradient = listOf(
     Color(0xFF10B981)
 )
 
-// 已下载标识的翠绿色，取自上面渐变的终点色
+// 已下载标识翠绿色
 val DownloadedGreen = Color(0xFF10B981)
+
+// SVIP 标识金色
+val SvipGold = Color(0xFFD4A017)
 
 // 首页功能入口的策展渐变。心动模式、音乐漫游这类功能本就没有对应封面，
 // 用固定色块表达

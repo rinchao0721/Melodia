@@ -217,6 +217,7 @@ fun MelodiaApp() {
                         onHomeTabSelected = { navigation.selectHomeTab(it) },
                         onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                         onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
+                        onNavigateToLocalMusic = { navigation.openLocalMusic() },
                         onBack = { handleBack() }
                     )
 

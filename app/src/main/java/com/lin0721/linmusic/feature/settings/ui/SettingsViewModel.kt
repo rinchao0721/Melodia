@@ -56,9 +56,13 @@ class SettingsViewModel(
 
     val defaultPlaylistPrivate = settingsPreferences.defaultPlaylistPrivate.asState(false)
 
-    val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(true)
+    val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(false)
 
     val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(500 * 1024 * 1024L)
+
+    val downloadFolderUri = settingsPreferences.downloadFolderUri.asState(null)
+
+    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(false)
 
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 
@@ -172,6 +176,11 @@ class SettingsViewModel(
     fun updateDefaultPlaylistPrivate(private: Boolean) = launchSave { settingsPreferences.saveDefaultPlaylistPrivate(private) }
 
     fun updateStreamCacheEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveStreamCacheEnabled(enabled) }
+
+    // null 表示重置为默认下载目录
+    fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
+
+    fun updateDownloadLyricsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadLyricsEnabled(enabled) }
 
     fun updateAudioCacheMaxSize(context: Context, size: Long) {
         viewModelScope.launch {
