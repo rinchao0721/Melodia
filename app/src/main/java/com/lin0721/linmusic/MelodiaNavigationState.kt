@@ -27,6 +27,7 @@ sealed class Screen {
     data object RecentPlay : Screen()
     data object ListenData : Screen()
     data object Cloud : Screen()
+    data object LocalMusic : Screen()
     data object Message : Screen()
     data object Account : Screen()
     // 个人主页与关注/粉丝列表
@@ -148,6 +149,10 @@ class MelodiaNavigationState {
 
     fun openCloud() {
         navigateTo(Screen.Cloud)
+    }
+
+    fun openLocalMusic() {
+        navigateTo(Screen.LocalMusic)
     }
 
     fun openMessage() {

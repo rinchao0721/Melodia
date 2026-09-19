@@ -75,6 +75,44 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
 
+// 本地音乐入口项
+@Composable
+private fun LocalMusicEntryRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+            .clip(RoundedCornerShape(PillRadius))
+            .background(MaterialTheme.colorScheme.surface)
+            .pressable(MelodiaPress.Row) { onClick() }
+            .padding(horizontal = MelodiaSpacing.md, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.LibraryMusic,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
+        Text(
+            text = "本地音乐",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer { rotationZ = 180f }
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -83,7 +121,8 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onBack: () -> Unit,
     onOpenSidebar: () -> Unit = {},
-    onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
+    onLoginScreenVisibilityChanged: (Boolean) -> Unit = {},
+    onNavigateToLocalMusic: () -> Unit = {}
 ) {
     val viewModel: LibraryViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -114,6 +153,7 @@ fun LibraryScreen(
     var showSortMenu by remember { mutableStateOf(false) }
 
     var activeOptionsItem by remember { mutableStateOf<LibraryItem?>(null) }
+    var downloadQualityTarget by remember { mutableStateOf<LibraryItem?>(null) }
     var deletePlaylistTarget by remember { mutableStateOf<LibraryItem?>(null) }
     var isReorderMode by remember { mutableStateOf(false) }
     val reorderedPlaylists = remember { mutableStateListOf<LibraryItem>() }
@@ -321,6 +361,8 @@ fun LibraryScreen(
                     selectedPlaylistOwnerFilter = selectedPlaylistOwnerFilter,
                     onSelectPlaylistOwnerFilter = { viewModel.togglePlaylistOwnerFilter(it) }
                 )
+
+                LocalMusicEntryRow(onClick = onNavigateToLocalMusic)
 
                 // 3. 混合聚合列表容器
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -541,8 +583,9 @@ fun LibraryScreen(
                     }
                 },
                 onShare = { shareItem(it) },
-                onDownload = {
-                    com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
+                onDownload = { item ->
+                    activeOptionsItem = null
+                    downloadQualityTarget = item
                 },
                 onDeletePlaylist = { playlistId ->
                     val target = (uiState as? LibraryUiState.Success)?.allItems?.find { it.id == playlistId.toString() }
@@ -559,6 +602,18 @@ fun LibraryScreen(
                 onUnsubscribeArtist = { artistId ->
                     viewModel.unsubscribeArtist(artistId)
                 }
+            )
+        }
+
+        // 批量下载音质选择
+        if (downloadQualityTarget != null) {
+            val target = downloadQualityTarget!!
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadLibraryItem(target, level)
+                    downloadQualityTarget = null
+                },
+                onDismiss = { downloadQualityTarget = null }
             )
         }
 
