@@ -56,3 +56,28 @@
 # ===== Media3 / Coil / Koin =====
 # 三者均随包提供 consumer rules：Media3 保留 Player 相关回调，Coil 保留解码器，
 # Koin 的构造函数 DSL（::X 函数引用）为编译期解析，均无需额外声明
+
+# ===== Room & WorkManager =====
+# WorkManager 内部使用 Room 保存作业状态，Room 依赖反射调用数据库实现类的无参构造函数。
+# 在开启 R8 代码优化 (proguard-android-optimize.txt) 后，未显式 keep 的构造函数会被内联或裁减，
+# 导致 WorkManager.initialize 时抛出 NoSuchMethodException: WorkDatabase_Impl.<init> [] 崩溃
+-keep class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+-keep class androidx.work.impl.WorkDatabase_Impl {
+    <init>();
+}
+-keep class androidx.work.impl.** { *; }
+-dontwarn androidx.work.impl.**
+
+# Worker 构造函数保护
+-keep class * extends androidx.work.ListenableWorker {
+    <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
+# ===== Android Parcelable & AIDL =====
+# 跨进程传输时依赖 CREATOR 反射实例化
+-keepclassmembers class * implements android.os.Parcelable {
+    static ** CREATOR;
+}
+-keep class com.hchen.superlyricapi.** { *; }
