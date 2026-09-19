@@ -375,6 +375,7 @@ fun LocalMusicScreen(
                                                     coverUrl = coverUrl,
                                                     durationText = formatFileSize(track.sizeBytes)
                                                 ),
+                                                showDownloadBadge = false,
                                                 onClick = {
                                                     if (state.isSelectionMode) viewModel.toggleSelected(track)
                                                     else viewModel.playTrack(track)
@@ -390,7 +391,7 @@ fun LocalMusicScreen(
                                                                 .size(20.dp)
                                                         )
                                                     } else {
-                                                        MelodiaIconButton(onClick = { viewModel.openTrackMenu(track) }) {
+                                                        MelodiaIconButton(onClick = { viewModel.openTrackMenu(track, coverUrl) }) {
                                                             Icon(
                                                                 Icons.Rounded.MoreVert,
                                                                 contentDescription = "更多",
@@ -414,24 +415,6 @@ fun LocalMusicScreen(
     if (state is LocalMusicUiState.Success) {
         when (val menu = state.menuState) {
             null -> Unit
-
-            is LocalMusicMenuState.Loading -> {
-                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-                ModalBottomSheet(
-                    onDismissRequest = { viewModel.closeTrackMenu() },
-                    sheetState = sheetState,
-                    containerColor = BackgroundDark,
-                    shape = BottomSheetShape,
-                    dragHandle = { MelodiaDragHandle() }
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
 
             is LocalMusicMenuState.Matched -> {
                 val track = menu.track
@@ -468,9 +451,10 @@ fun LocalMusicScreen(
 
             is LocalMusicMenuState.Unmatched -> {
                 val track = menu.track
-                val coverUrl by produceState<String?>(initialValue = null, track.uri) {
+                val fallbackCoverUrl by produceState<String?>(initialValue = null, track.uri) {
                     value = coverCache.coverUriFor(track.uri)?.toString()
                 }
+                val coverUrl = menu.coverUrl ?: fallbackCoverUrl
                 LocalTrackOptionsSheet(
                     track = track,
                     coverUrl = coverUrl,

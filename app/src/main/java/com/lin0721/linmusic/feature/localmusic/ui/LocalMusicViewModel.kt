@@ -7,6 +7,8 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.localmusic.LocalMusicRepository
 import com.lin0721.linmusic.core.localmusic.LocalTrack
+import com.lin0721.linmusic.core.model.Album
+import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -34,9 +36,8 @@ import kotlinx.coroutines.launch
 // 本地曲目操作菜单状态
 sealed class LocalMusicMenuState {
     abstract val track: LocalTrack
-    data class Loading(override val track: LocalTrack) : LocalMusicMenuState()
     data class Matched(override val track: LocalTrack, val fullTrack: Track) : LocalMusicMenuState()
-    data class Unmatched(override val track: LocalTrack) : LocalMusicMenuState()
+    data class Unmatched(override val track: LocalTrack, val coverUrl: String? = null) : LocalMusicMenuState()
 }
 
 sealed class LocalMusicUiState {
@@ -238,22 +239,28 @@ class LocalMusicViewModel(
     }
 
     // 打开曲目操作菜单
-    fun openTrackMenu(track: LocalTrack) {
+    fun openTrackMenu(track: LocalTrack, coverUrl: String? = null) {
         val state = currentSuccess() ?: return
         val songId = track.songId
         if (songId == null) {
-            _uiState.value = state.copy(menuState = LocalMusicMenuState.Unmatched(track))
+            _uiState.value = state.copy(menuState = LocalMusicMenuState.Unmatched(track, coverUrl))
             return
         }
-        _uiState.value = state.copy(menuState = LocalMusicMenuState.Loading(track))
+        val initialTrack = Track(
+            id = songId,
+            name = track.title,
+            ar = listOf(Artist(id = 0L, name = track.artist)),
+            al = Album(id = 0L, name = track.album.orEmpty(), picUrl = coverUrl.orEmpty()),
+            dt = track.durationMs
+        )
+        _uiState.value = state.copy(menuState = LocalMusicMenuState.Matched(track, initialTrack))
         viewModelScope.launch {
             playerRepository.getSongDetail(songId).collect { result ->
                 val current = currentSuccess() ?: return@collect
-                if ((current.menuState as? LocalMusicMenuState.Loading)?.track?.uri != track.uri) return@collect
+                val currentMatched = current.menuState as? LocalMusicMenuState.Matched ?: return@collect
+                if (currentMatched.track.uri != track.uri) return@collect
                 result.onSuccess { fullTrack ->
                     _uiState.value = current.copy(menuState = LocalMusicMenuState.Matched(track, fullTrack))
-                }.onFailure {
-                    _uiState.value = current.copy(menuState = LocalMusicMenuState.Unmatched(track))
                 }
             }
         }

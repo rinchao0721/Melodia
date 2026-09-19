@@ -87,6 +87,7 @@ fun SongRow(
     index: Int? = null,
     onClick: () -> Unit,
     onArtistClick: (() -> Unit)? = null,
+    showDownloadBadge: Boolean = true,
     trailingSlot: @Composable RowScope.() -> Unit = {}
 ) {
     val coverSize = if (compact) 42.dp else 48.dp
@@ -188,21 +189,23 @@ fun SongRow(
             )
         }
 
-        val downloadPreferences: DownloadPreferences = koinInject()
-        val isDownloaded by produceState(initialValue = false, data.id) {
-            downloadPreferences.downloadedQualityFor(data.id).collect { quality ->
-                value = quality != null
+        if (showDownloadBadge) {
+            val downloadPreferences: DownloadPreferences = koinInject()
+            val isDownloaded by produceState(initialValue = false, data.id) {
+                downloadPreferences.downloadedQualityFor(data.id).collect { quality ->
+                    value = quality != null
+                }
             }
-        }
-        if (isDownloaded) {
-            Icon(
-                Icons.Rounded.DownloadDone,
-                contentDescription = "已下载",
-                tint = DownloadedGreen,
-                modifier = Modifier
-                    .padding(start = MelodiaSpacing.xs)
-                    .size(16.dp)
-            )
+            if (isDownloaded) {
+                Icon(
+                    Icons.Rounded.DownloadDone,
+                    contentDescription = "已下载",
+                    tint = DownloadedGreen,
+                    modifier = Modifier
+                        .padding(start = MelodiaSpacing.xs)
+                        .size(16.dp)
+                )
+            }
         }
 
         trailingSlot()
