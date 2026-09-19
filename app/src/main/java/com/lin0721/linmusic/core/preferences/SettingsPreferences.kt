@@ -25,10 +25,14 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_DEFAULT_PLAYLIST_PRIVATE = booleanPreferencesKey("default_playlist_private")
         // 默认搜索源
         private val KEY_DEFAULT_SEARCH_SOURCE = stringPreferencesKey("default_search_source")
-        // 缓存开关 KEY，默认 true
+        // 缓存开关 KEY，默认 false
         private val KEY_STREAM_CACHE_ENABLED = booleanPreferencesKey("stream_cache_enabled")
         // 音频缓存上限大小 KEY，默认 512MB
         private val KEY_AUDIO_CACHE_MAX_SIZE = longPreferencesKey("audio_cache_max_size")
+        // 自定义下载目录（SAF tree Uri）
+        private val KEY_DOWNLOAD_FOLDER_URI = stringPreferencesKey("download_folder_uri")
+        // 下载时是否附带歌词
+        private val KEY_DOWNLOAD_LYRICS_ENABLED = booleanPreferencesKey("download_lyrics_enabled")
         // 是否使用真实 IP 伪装，默认 false
         private val KEY_USE_REAL_IP = booleanPreferencesKey("use_real_ip")
         // 自定义真实 IP 值，默认空串 ""
@@ -113,12 +117,35 @@ class SettingsPreferences(private val context: Context) {
 
     // 缓存开关设置 Flow
     val streamCacheEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
-        prefs[KEY_STREAM_CACHE_ENABLED] ?: true
+        prefs[KEY_STREAM_CACHE_ENABLED] ?: false
     }
 
     suspend fun saveStreamCacheEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_STREAM_CACHE_ENABLED] = enabled
+        }
+    }
+
+    // 自定义下载目录 Uri（SAF tree Uri 字符串），未设置时为 null，代表用默认的存储根目录 Melodia/
+    val downloadFolderUri: Flow<String?> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_DOWNLOAD_FOLDER_URI]
+    }
+
+    suspend fun saveDownloadFolderUri(uri: String?) {
+        context.settingsDataStore.edit { prefs ->
+            if (uri != null) prefs[KEY_DOWNLOAD_FOLDER_URI] = uri
+            else prefs.remove(KEY_DOWNLOAD_FOLDER_URI)
+        }
+    }
+
+    // 下载歌词配置 Flow
+    val downloadLyricsEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_DOWNLOAD_LYRICS_ENABLED] ?: false
+    }
+
+    suspend fun saveDownloadLyricsEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_DOWNLOAD_LYRICS_ENABLED] = enabled
         }
     }
 
