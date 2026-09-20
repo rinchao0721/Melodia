@@ -199,6 +199,12 @@ fun rememberSwipeToSkipDragModifier(
     )
 }
 
+private data class OutgoingSlideInfo(
+    val key: Any,
+    val coverUrl: String,
+    val direction: SwipeDirection
+)
+
 // 封面区左右滑动切歌：当前/上一首/下一首三张封面各自带着圆角与投影整体跟手平移
 @Composable
 fun SwipeToSkipCover(
@@ -242,14 +248,13 @@ fun SwipeToSkipCover(
     // 直接用实时 coverUrl/currentKey 会让"当前"这一层的画面在手势进行中被悄悄换成新歌
     var displayedCoverUrl by remember { mutableStateOf(coverUrl) }
     var displayedCurrentKey by remember { mutableStateOf(currentKey) }
+    var outgoingSlideInfo by remember { mutableStateOf<OutgoingSlideInfo?>(null) }
     if (!isTransitioning) {
         val currentKeyStr = currentKey.toString()
         val prevKeyStr = previousKey?.toString()
         val nextKeyStr = nextKey?.toString()
-        // 点击上一首/下一首切歌时外部队列索引先变，若与当前封面或Key重合则冻结预览，避免被提前顶掉
-        if ((previousCoverUrl != null && previousCoverUrl == coverUrl) ||
-            (nextCoverUrl != null && nextCoverUrl == coverUrl) ||
-            (prevKeyStr != null && prevKeyStr == currentKeyStr) ||
+        // 点击上一首/下一首切歌时外部队列索引先变，若与当前Key重合则冻结预览，避免被提前顶掉
+        if ((prevKeyStr != null && prevKeyStr == currentKeyStr) ||
             (nextKeyStr != null && nextKeyStr == currentKeyStr)
         ) {
             isTransitioning = true
@@ -268,13 +273,8 @@ fun SwipeToSkipCover(
     var syncedKey by remember { mutableStateOf(currentKey) }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
     if (!isDragActive && settleJob?.isActive != true && syncedKey != currentKey) {
-        // 拖拽确认路径已经自己在跑滑出动画，这里只需要收尾归零；外部（按钮/自动切歌）触发的
-        // 变化如果能判断出新的当前曲目就是刚才冻结住的"下一首/上一首"，就把位移摆到对应的
-        // 滑入起点，交给下面的 LaunchedEffect 播一次归位动画，跟拖拽切歌的观感保持一致
-        val matchesNext = (displayedNextKey != null && displayedNextKey.toString() == currentKey.toString()) ||
-            (displayedNextCoverUrl != null && displayedNextCoverUrl == coverUrl)
-        val matchesPrevious = (displayedPreviousKey != null && displayedPreviousKey.toString() == currentKey.toString()) ||
-            (displayedPreviousCoverUrl != null && displayedPreviousCoverUrl == coverUrl)
+        val matchesNext = displayedNextKey != null && displayedNextKey.toString() == currentKey.toString()
+        val matchesPrevious = displayedPreviousKey != null && displayedPreviousKey.toString() == currentKey.toString()
         val direction = if (isDragConfirmed) {
             null
         } else when {
@@ -282,23 +282,37 @@ fun SwipeToSkipCover(
             matchesPrevious -> SwipeDirection.PREVIOUS
             else -> null
         }
-        offsetX = when (direction) {
-            SwipeDirection.NEXT -> containerWidthPx
-            SwipeDirection.PREVIOUS -> -containerWidthPx
-            null -> 0f
+        if (direction != null) {
+            outgoingSlideInfo = OutgoingSlideInfo(
+                key = displayedCurrentKey,
+                coverUrl = displayedCoverUrl,
+                direction = direction
+            )
+            offsetX = when (direction) {
+                SwipeDirection.NEXT -> containerWidthPx
+                SwipeDirection.PREVIOUS -> -containerWidthPx
+            }
+            pendingSlideInKey = currentKey
+        } else {
+            outgoingSlideInfo = null
+            offsetX = 0f
         }
+        displayedCoverUrl = coverUrl
+        displayedCurrentKey = currentKey
+        displayedPreviousCoverUrl = previousCoverUrl
+        displayedNextCoverUrl = nextCoverUrl
+        displayedPreviousKey = previousKey
+        displayedNextKey = nextKey
         syncedKey = currentKey
         isTransitioning = false
         isDragConfirmed = false
-        if (direction != null) {
-            pendingSlideInKey = currentKey
-        }
     }
     LaunchedEffect(pendingSlideInKey) {
         if (pendingSlideInKey != null) {
             animate(offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
                 offsetX = value
             }
+            outgoingSlideInfo = null
         }
     }
 
@@ -374,29 +388,59 @@ fun SwipeToSkipCover(
         val currentKeyStr = displayedCurrentKey.toString()
 
         val layers = buildList {
-            if (previewPreviousUrl != null) {
-                val prevKeyCalculated = when {
-                    previewPrevKey != null -> {
-                        val k = previewPrevKey.toString()
-                        if (k == currentKeyStr) "$k-prev" else k
+            val outgoing = outgoingSlideInfo
+            if (outgoing != null) {
+                when (outgoing.direction) {
+                    SwipeDirection.NEXT -> {
+                        add(SwipeCoverLayerSpec("${outgoing.key}-outgoing", outgoing.coverUrl) { offsetX - containerWidthPx })
+                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl) { offsetX })
+                        val nextUrl = displayedNextCoverUrl
+                        if (nextUrl != null) {
+                            val nextK = displayedNextKey?.toString() ?: "next"
+                            add(SwipeCoverLayerSpec(nextK, nextUrl) { offsetX + containerWidthPx })
+                        }
                     }
-                    previewPreviousUrl == displayedCoverUrl -> "$previewPreviousUrl-prev"
-                    else -> previewPreviousUrl
-                }
-                add(SwipeCoverLayerSpec(prevKeyCalculated, previewPreviousUrl) { offsetX - containerWidthPx })
-            }
-            add(SwipeCoverLayerSpec(currentKeyStr, displayedCoverUrl) { offsetX })
-            if (previewNextUrl != null) {
-                val nextKeyCalculated = when {
-                    previewNxtKey != null -> {
-                        val k = previewNxtKey.toString()
-                        val prevK = previewPrevKey?.toString()
-                        if (k == prevK || k == currentKeyStr) "$k-next" else k
+                    SwipeDirection.PREVIOUS -> {
+                        val prevUrl = displayedPreviousCoverUrl
+                        if (prevUrl != null) {
+                            val prevK = displayedPreviousKey?.toString() ?: "prev"
+                            add(SwipeCoverLayerSpec(prevK, prevUrl) { offsetX - containerWidthPx })
+                        }
+                        add(SwipeCoverLayerSpec(displayedCurrentKey.toString(), displayedCoverUrl) { offsetX })
+                        add(SwipeCoverLayerSpec("${outgoing.key}-outgoing", outgoing.coverUrl) { offsetX + containerWidthPx })
                     }
-                    previewNextUrl == previewPreviousUrl || previewNextUrl == displayedCoverUrl -> "$previewNextUrl-next"
-                    else -> previewNextUrl
                 }
-                add(SwipeCoverLayerSpec(nextKeyCalculated, previewNextUrl) { offsetX + containerWidthPx })
+            } else {
+                val previewPreviousUrl = displayedPreviousCoverUrl
+                val previewNextUrl = displayedNextCoverUrl
+                val previewPrevKey = displayedPreviousKey
+                val previewNxtKey = displayedNextKey
+                val currentKeyStr = displayedCurrentKey.toString()
+
+                if (previewPreviousUrl != null) {
+                    val prevKeyCalculated = when {
+                        previewPrevKey != null -> {
+                            val k = previewPrevKey.toString()
+                            if (k == currentKeyStr) "$k-prev" else k
+                        }
+                        previewPreviousUrl == displayedCoverUrl -> "$previewPreviousUrl-prev"
+                        else -> previewPreviousUrl
+                    }
+                    add(SwipeCoverLayerSpec(prevKeyCalculated, previewPreviousUrl) { offsetX - containerWidthPx })
+                }
+                add(SwipeCoverLayerSpec(currentKeyStr, displayedCoverUrl) { offsetX })
+                if (previewNextUrl != null) {
+                    val nextKeyCalculated = when {
+                        previewNxtKey != null -> {
+                            val k = previewNxtKey.toString()
+                            val prevK = previewPrevKey?.toString()
+                            if (k == prevK || k == currentKeyStr) "$k-next" else k
+                        }
+                        previewNextUrl == previewPreviousUrl || previewNextUrl == displayedCoverUrl -> "$previewNextUrl-next"
+                        else -> previewNextUrl
+                    }
+                    add(SwipeCoverLayerSpec(nextKeyCalculated, previewNextUrl) { offsetX + containerWidthPx })
+                }
             }
         }
         layers.forEach { layer ->

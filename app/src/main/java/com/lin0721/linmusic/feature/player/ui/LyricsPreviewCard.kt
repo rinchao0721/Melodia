@@ -279,9 +279,12 @@ fun LyricsPreview(
                         transformOrigin = TransformOrigin(0f, 0.5f)
                     }
             ) {
+                val mainFontSize = if (isCurrent) 20.sp else 18.sp
+                val transFontSize = if (isCurrent) 15.sp else 14.sp
                 Text(
                     text       = line.text,
-                    fontSize   = if (isCurrent) 20.sp else 18.sp,
+                    fontSize   = mainFontSize,
+                    lineHeight = (mainFontSize.value * 1.35f).sp,
                     color      = if (isCurrent) Color.White else inactiveColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign  = TextAlign.Start,
@@ -292,7 +295,8 @@ fun LyricsPreview(
                     Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
                     Text(
                         text      = line.translation,
-                        fontSize  = if (isCurrent) 15.sp else 14.sp,
+                        fontSize  = transFontSize,
+                        lineHeight = (transFontSize.value * 1.35f).sp,
                         color     = (if (isCurrent) Color.White else inactiveColor).copy(alpha = animatedTransAlpha),
                         textAlign = TextAlign.Start,
                         modifier  = Modifier.fillMaxWidth()

@@ -144,6 +144,7 @@ fun KaraokeLyricRow(
     inactiveColor: Color,
     activeColor: Color,
     fontSize: TextUnit = 22.sp,
+    lineHeight: TextUnit = (fontSize.value * 1.35f).sp,
     textAlign: TextAlign = TextAlign.Start,
     advancedEffect: Boolean = true,
     isPlaying: Boolean = true
@@ -242,6 +243,7 @@ fun KaraokeLyricRow(
         Text(
             text = line.text,
             fontSize = fontSize,
+            lineHeight = lineHeight,
             fontWeight = FontWeight.ExtraBold,
             color = inactiveColor,
             textAlign = textAlign,
@@ -254,6 +256,7 @@ fun KaraokeLyricRow(
             Text(
                 text = line.text,
                 fontSize = fontSize,
+                lineHeight = lineHeight,
                 fontWeight = FontWeight.ExtraBold,
                 color = activeColor,
                 textAlign = textAlign,
@@ -324,6 +327,7 @@ fun KaraokeLyricRow(
             Text(
                 text = line.text,
                 fontSize = fontSize,
+                lineHeight = lineHeight,
                 fontWeight = FontWeight.ExtraBold,
                 color = activeColor,
                 textAlign = textAlign,

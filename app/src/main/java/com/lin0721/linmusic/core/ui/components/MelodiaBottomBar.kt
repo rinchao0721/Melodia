@@ -6,6 +6,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
@@ -168,7 +169,8 @@ fun MiniPlayerCard(
         displayedIsPlaying = isPlaying
     }
 
-    val miniPlayerShape = RoundedCornerShape(InfoCardRadius)
+    val miniPlayerCornerRadius = 8.dp
+    val miniPlayerShape = RoundedCornerShape(miniPlayerCornerRadius)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -261,10 +263,11 @@ fun MiniPlayerCard(
                 }
             }
             
-            // 底部进度条
+            // 底部进度条：自圆角曲线与平直直线交点开始和结束
             MiniPlayerProgress(
                 currentPositionProvider = currentPositionProvider,
-                duration = duration
+                duration = duration,
+                modifier = Modifier.padding(horizontal = miniPlayerCornerRadius)
             )
         }
     }
@@ -444,6 +447,7 @@ fun MiniPlayerProgress(
         modifier = modifier
             .fillMaxWidth()
             .height(2.dp)
+            .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.08f))
     ) {
         val currentPosition = currentPositionProvider()
@@ -452,6 +456,7 @@ fun MiniPlayerProgress(
             modifier = Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .fillMaxHeight()
+                .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.85f))
         )
     }

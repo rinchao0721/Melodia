@@ -225,7 +225,13 @@ class LocalMusicViewModel(
     }
 
     private fun toQueueItem(track: LocalTrack): QueueItem = if (track.songId != null) {
-        QueueItem(songId = track.songId, title = track.title, artist = track.artist, coverUrl = "")
+        QueueItem(
+            songId = track.songId,
+            title = track.title,
+            artist = track.artist,
+            coverUrl = "",
+            localUri = track.uri.toString()
+        )
     } else {
         // 未关联歌曲使用负数 ID 作为内部占位标识
         QueueItem(

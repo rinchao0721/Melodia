@@ -104,6 +104,11 @@ class PlayerManager(
     val playMode: StateFlow<PlayMode> = playbackQueue.playMode
     val queue: StateFlow<List<QueueItem>> = playbackQueue.items
 
+    // 当前播放队列项，便于界面提取 localUri 等额外上下文
+    val currentQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
+        if (index in items.indices) items[index] else null
+    }.stateIn(scope, SharingStarted.Eagerly, null)
+
     // 滑动切歌手势预览用：队列头尾按循环取相邻曲目，不足两首时为 null
     val previousQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
         if (items.size > 1 && index in items.indices) items[(index - 1 + items.size) % items.size] else null

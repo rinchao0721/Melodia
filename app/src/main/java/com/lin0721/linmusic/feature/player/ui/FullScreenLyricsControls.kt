@@ -5,8 +5,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -41,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,9 +71,7 @@ fun FullScreenLyricsToolbar(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.sm),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -94,8 +96,7 @@ fun FullScreenLyricsToolbar(
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.padding(start = 2.dp)
+                verticalAlignment = Alignment.Bottom
             ) {
                 Text(
                     text = badgeText,
@@ -115,7 +116,7 @@ fun FullScreenLyricsToolbar(
 
         // 右侧操作项：分享与歌词快捷设置
         Row(
-            horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onShareClick) {
@@ -449,7 +450,7 @@ fun FullScreenControls(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = MelodiaSpacing.md)
+            .padding(horizontal = MelodiaSpacing.lg)
             .padding(bottom = 20.dp)
     ) {
         // 1. 顶部插入操作工具栏（翻译/罗马音多态切换、分享、歌词设置）
@@ -464,55 +465,84 @@ fun FullScreenControls(
 
         Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
 
-        // 2. 进度条（下移至工具栏下方）
-        Slider(
-            value = progress.coerceIn(0f, 1f),
-            onValueChange = {
-                isSeeking = true
-                seekPosition = it
-            },
-            onValueChangeFinished = {
-                isSeeking = false
-                onSeek((seekPosition * duration).toLong())
-            },
-            thumb = {
-                Box(
-                    modifier = Modifier.size(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (isSeeking) 14.dp else 8.dp)
-                            .background(Color.White, CircleShape)
-                    )
-                }
-            },
-            track = { sliderState ->
-                val fraction = sliderState.value
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(1.5.dp))
-                        .background(Color.White.copy(alpha = 0.2f))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(1.5.dp))
-                            .background(Color.White)
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+        // 2. 进度条
+        var trackWidthPx by remember { mutableFloatStateOf(0f) }
+        val density = LocalDensity.current
 
-        // 3. 当前播放时间与总时长
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp)
+                .onSizeChanged { trackWidthPx = it.width.toFloat() }
+                .pointerInput(duration) {
+                    detectTapGestures(
+                        onPress = { offset ->
+                            if (trackWidthPx > 0f && duration > 0L) {
+                                isSeeking = true
+                                val newProgress = (offset.x / trackWidthPx).coerceIn(0f, 1f)
+                                seekPosition = newProgress
+                                val released = tryAwaitRelease()
+                                if (released) {
+                                    isSeeking = false
+                                    onSeek((seekPosition * duration).toLong())
+                                } else {
+                                    isSeeking = false
+                                }
+                            }
+                        }
+                    )
+                }
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        if (trackWidthPx > 0f && duration > 0L) {
+                            isSeeking = true
+                            seekPosition = (seekPosition + delta / trackWidthPx).coerceIn(0f, 1f)
+                        }
+                    },
+                    onDragStarted = { isSeeking = true },
+                    onDragStopped = {
+                        isSeeking = false
+                        onSeek((seekPosition * duration).toLong())
+                    }
+                ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // 背景底轨
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(Color.White.copy(alpha = 0.2f))
+            )
+            // 播放高亮条
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(Color.White)
+            )
+            // 进度滑块 Thumb
+            val thumbSize = if (isSeeking) 14.dp else 8.dp
+            val thumbRadiusPx = with(density) { (thumbSize / 2).toPx() }
+            val thumbOffsetPx = (progress.coerceIn(0f, 1f) * trackWidthPx - thumbRadiusPx)
+                .coerceIn(0f, (trackWidthPx - thumbRadiusPx * 2).coerceAtLeast(0f))
+            val thumbOffsetDp = with(density) { thumbOffsetPx.toDp() }
+            Box(
+                modifier = Modifier
+                    .offset(x = thumbOffsetDp)
+                    .size(thumbSize)
+                    .background(Color.White, CircleShape)
+            )
+        }
+
+        // 3. 当前播放时间与总时长（两端完全对齐进度条轨道与工具栏两端）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MelodiaSpacing.sm),
+                .padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
@@ -522,28 +552,26 @@ fun FullScreenControls(
 
         Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
 
-        // 4. 底部播放控制五键（完整保留原样）
+        // 4. 底部播放控制五键（两端严格对齐）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = MelodiaSpacing.xs, start = MelodiaSpacing.sm, end = MelodiaSpacing.sm),
+                .padding(top = MelodiaSpacing.xs),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .pressable(MelodiaPress.Icon) { onToggleShuffle() }
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .padding(start = 0.dp),
+                    .pressable(MelodiaPress.Icon) { onToggleShuffle() },
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = null,
                     tint = if (playMode == PlayMode.SHUFFLE) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
@@ -618,16 +646,16 @@ fun FullScreenControls(
 
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .pressable(MelodiaPress.Icon) { onToggleRepeat() }
-                    .clip(CircleShape),
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .pressable(MelodiaPress.Icon) { onToggleRepeat() },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
                     imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     contentDescription = null,
                     tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }

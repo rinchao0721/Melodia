@@ -59,6 +59,9 @@ fun FullScreenLyricsRow(
     }
     val mainFontSize = fontSize.sp
     val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
+    val mainLineHeight = (fontSize * 1.35f).sp
+    val translationLineHeight = (translationFontSize.value * 1.35f).sp
+    val spacingBetween = (fontSize * 0.28f).coerceIn(6f, 14f).dp
 
     val targetScale = when {
         isCurrent -> 1.12f
@@ -124,6 +127,7 @@ fun FullScreenLyricsRow(
                 inactiveColor = highlightColor.copy(alpha = 0.5f),
                 activeColor = Color.White,
                 fontSize = mainFontSize,
+                lineHeight = mainLineHeight,
                 textAlign = textAlign,
                 advancedEffect = advancedKaraokeEffect,
                 isPlaying = isPlaying
@@ -132,6 +136,7 @@ fun FullScreenLyricsRow(
             Text(
                 text = line.text,
                 fontSize = mainFontSize,
+                lineHeight = mainLineHeight,
                 color = if (isCurrent) Color.White else highlightColor,
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = textAlign,
@@ -144,10 +149,11 @@ fun FullScreenLyricsRow(
             else -> null
         }
         if (secondaryText != null) {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(spacingBetween))
             Text(
                 text = secondaryText,
                 fontSize = translationFontSize,
+                lineHeight = translationLineHeight,
                 color = if (isCurrent) Color.White else highlightColor,
                 textAlign = textAlign,
                 modifier = Modifier.fillMaxWidth()

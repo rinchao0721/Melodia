@@ -81,6 +81,7 @@ fun FullPlayerScreen(
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
     val currentQueueIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
+    val currentQueueItem by viewModel.playerManager.currentQueueItem.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
@@ -156,8 +157,12 @@ fun FullPlayerScreen(
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val coverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
-        ?.replace("?param=300y300", "") ?: ""
+    val rawCoverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
+        ?.replace("?param=300y300", "").orEmpty()
+    val fallbackCoverUrl = currentQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }.orEmpty()
+    val coverUrl = rawCoverUrl.ifBlank { fallbackCoverUrl }
     // 预览封面解析
     val previousCoverUrl = previousQueueItem?.let {
         rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
@@ -172,9 +177,7 @@ fun FullPlayerScreen(
     val nextKeyStr = nextQueueItem?.songId?.toString()
     var displayedTitle by remember { mutableStateOf(title) }
     var displayedArtist by remember { mutableStateOf(artist) }
-    if ((previousCoverUrl != null && previousCoverUrl == coverUrl) ||
-        (nextCoverUrl != null && nextCoverUrl == coverUrl) ||
-        (previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
+    if ((previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
         (nextKeyStr != null && nextKeyStr == currentTrack.mediaId)
     ) {
         // 队列已经先切过去，曲目数据还没跟上，先保留原文字，等 currentTrack 落地后再刷新
