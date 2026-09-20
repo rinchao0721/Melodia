@@ -39,6 +39,7 @@ fun FullScreenLyricsRow(
     alignment: String = "left",
     secondaryMode: String = "translation",
     advancedKaraokeEffect: Boolean = true,
+    isPlaying: Boolean = true,
     onClick: () -> Unit
 ) {
     val textAlign = when (alignment) {
@@ -124,7 +125,8 @@ fun FullScreenLyricsRow(
                 activeColor = Color.White,
                 fontSize = mainFontSize,
                 textAlign = textAlign,
-                advancedEffect = advancedKaraokeEffect
+                advancedEffect = advancedKaraokeEffect,
+                isPlaying = isPlaying
              )
         } else {
             Text(

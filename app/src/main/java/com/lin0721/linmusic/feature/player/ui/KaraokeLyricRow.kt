@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import kotlinx.coroutines.isActive
 
 private const val TAG = "KaraokeLyricRow"
 
@@ -50,8 +52,87 @@ private class LineLayout(
 
 private class LyricLayoutInfo(
     val wordLayouts: List<WordLayout>,
-    val lineLayouts: List<LineLayout>
+    val lineLayouts: List<LineLayout>,
+    val wordsByLine: List<List<WordLayout>>
 )
+
+// 基于高精度系统时钟的时钟插值器，将播放器底层轮询进度转换为 60/120fps 平滑进度
+private class LyricTimeInterpolator {
+    private var basePositionMs: Long = 0L
+    private var anchorRealtimeNano: Long = 0L
+    private var lastObservedRawPosition: Long = -1L
+
+    fun getSmoothPosition(rawPosition: Long, isPlaying: Boolean): Long {
+        val nowNano = SystemClock.elapsedRealtimeNanos()
+        if (rawPosition != lastObservedRawPosition) {
+            lastObservedRawPosition = rawPosition
+            basePositionMs = rawPosition
+            anchorRealtimeNano = nowNano
+        }
+        return if (isPlaying) {
+            val elapsedMs = (nowNano - anchorRealtimeNano) / 1_000_000L
+            val clampedElapsed = elapsedMs.coerceIn(0L, 500L)
+            basePositionMs + clampedElapsed
+        } else {
+            basePositionMs
+        }
+    }
+}
+
+// 计算单行当前进度的擦除右边界，包含词内比例与词间过渡
+private fun calculateLineProgressRight(
+    lineIndex: Int,
+    lineLayout: LineLayout,
+    info: LyricLayoutInfo,
+    relativeProgress: Long
+): Float {
+    val wordsOnLine = info.wordsByLine.getOrElse(lineIndex) { emptyList() }
+    val lastWordOnLine = wordsOnLine.lastOrNull() ?: return lineLayout.left
+    if (relativeProgress >= lastWordOnLine.endMs) {
+        return lineLayout.right
+    }
+    val firstWord = wordsOnLine.first()
+    if (relativeProgress < firstWord.startMs) {
+        return lineLayout.left
+    }
+
+    var maxRight = lineLayout.left
+    for (i in wordsOnLine.indices) {
+        val word = wordsOnLine[i]
+        if (relativeProgress in word.startMs..word.endMs) {
+            val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
+            val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
+            val currentWordRight = word.left + (word.right - word.left) * ratio
+            maxRight = maxRight.coerceAtLeast(currentWordRight)
+            break
+        } else if (relativeProgress > word.endMs) {
+            maxRight = maxRight.coerceAtLeast(word.right)
+            if (i + 1 < wordsOnLine.size) {
+                val nextWord = wordsOnLine[i + 1]
+                if (relativeProgress < nextWord.startMs) {
+                    val gapDuration = (nextWord.startMs - word.endMs).coerceAtLeast(1)
+                    if (gapDuration <= 300) {
+                        val gapRatio = (relativeProgress - word.endMs).toFloat() / gapDuration
+                        val bridgeX = word.right + (nextWord.left - word.right) * gapRatio
+                        maxRight = maxRight.coerceAtLeast(bridgeX)
+                    } else {
+                        val bridgeTime = 60L
+                        val gapElapsed = relativeProgress - word.endMs
+                        if (gapElapsed < bridgeTime) {
+                            val gapRatio = gapElapsed.toFloat() / bridgeTime
+                            val bridgeX = word.right + (nextWord.left - word.right) * gapRatio
+                            maxRight = maxRight.coerceAtLeast(bridgeX)
+                        } else {
+                            maxRight = maxRight.coerceAtLeast(nextWord.left)
+                        }
+                    }
+                    break
+                }
+            }
+        }
+    }
+    return maxRight.coerceIn(lineLayout.left, lineLayout.right)
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // 逐字高亮（卡拉OK式）歌词行
@@ -64,10 +145,23 @@ fun KaraokeLyricRow(
     activeColor: Color,
     fontSize: TextUnit = 22.sp,
     textAlign: TextAlign = TextAlign.Start,
-    advancedEffect: Boolean = true
+    advancedEffect: Boolean = true,
+    isPlaying: Boolean = true
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
+    val timeInterpolator = remember(line) { LyricTimeInterpolator() }
+    var frameTick by remember(line) { mutableLongStateOf(0L) }
+
+    LaunchedEffect(isPlaying, line) {
+        if (isPlaying) {
+            while (isActive) {
+                withFrameNanos { frameNano ->
+                    frameTick = frameNano
+                }
+            }
+        }
+    }
 
     // 在排版结果解析后，仅计算并缓存一次每个字词与行的物理渲染坐标，彻底避免每帧重复调用 getBoundingBox 的 JNI 开销
     val lyricLayoutInfo = remember(line, textLayoutResult) {
@@ -126,7 +220,11 @@ fun KaraokeLyricRow(
                 )
             }
 
-            LyricLayoutInfo(wordLayouts, lineLayouts)
+            val wordsByLine = (0 until layout.lineCount).map { lineIndex ->
+                wordLayouts.filter { it.lineIndex == lineIndex }
+            }
+
+            LyricLayoutInfo(wordLayouts, lineLayouts, wordsByLine)
         }
     }
 
@@ -163,32 +261,19 @@ fun KaraokeLyricRow(
                     .fillMaxWidth()
                     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                     .drawWithContent {
+                        val unused = frameTick
                         drawContent()
                         val info = lyricLayoutInfo ?: return@drawWithContent
-                        val relativeProgress = currentPositionProviderState.value() - line.timeMs
+                        val smoothPosition = timeInterpolator.getSmoothPosition(
+                            currentPositionProviderState.value(),
+                            isPlaying
+                        )
+                        val relativeProgress = smoothPosition - line.timeMs
                         val featherPx = 18.dp.toPx()
 
                         // 逐行进行流光渐变推进遮罩擦除
                         info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
-                            val lastWordOnLine = info.wordLayouts.lastOrNull { it.lineIndex == lineIndex }
-                            var maxRight = lineLayout.left
-
-                            if (lastWordOnLine != null && relativeProgress >= lastWordOnLine.endMs) {
-                                maxRight = lineLayout.right
-                            } else {
-                                info.wordLayouts.forEach { word ->
-                                    if (word.lineIndex == lineIndex) {
-                                        if (relativeProgress >= word.endMs) {
-                                            maxRight = maxRight.coerceAtLeast(word.right)
-                                        } else if (relativeProgress in word.startMs..word.endMs) {
-                                            val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
-                                            val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
-                                            val currentWordRight = word.left + (word.right - word.left) * ratio
-                                            maxRight = maxRight.coerceAtLeast(currentWordRight)
-                                        }
-                                    }
-                                }
-                            }
+                            val maxRight = calculateLineProgressRight(lineIndex, lineLayout, info, relativeProgress)
 
                             if (maxRight < lineLayout.right) {
                                 val fadeStart = (maxRight - featherPx).coerceAtLeast(lineLayout.left)
@@ -245,6 +330,7 @@ fun KaraokeLyricRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer {
+                        val unused = frameTick
                         val info = lyricLayoutInfo
                         if (info == null) {
                             alpha = 0f
@@ -258,35 +344,20 @@ fun KaraokeLyricRow(
                                     density: Density
                                 ): Outline {
                                     val path = androidx.compose.ui.graphics.Path()
-                                    val relativeProgress = currentPositionProviderState.value() - line.timeMs
+                                    val smoothPosition = timeInterpolator.getSmoothPosition(
+                                        currentPositionProviderState.value(),
+                                        isPlaying
+                                    )
+                                    val relativeProgress = smoothPosition - line.timeMs
 
                                     info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
-                                        val lastWordOnLine = info.wordLayouts.lastOrNull { it.lineIndex == lineIndex }
-                                        var maxRight = lineLayout.left
-
-                                        if (lastWordOnLine != null && relativeProgress >= lastWordOnLine.endMs) {
-                                            maxRight = lineLayout.right
-                                        } else {
-                                            info.wordLayouts.forEach { word ->
-                                                if (word.lineIndex == lineIndex) {
-                                                    if (relativeProgress >= word.endMs) {
-                                                        maxRight = maxRight.coerceAtLeast(word.right)
-                                                    } else if (relativeProgress in word.startMs..word.endMs) {
-                                                        val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
-                                                        val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
-                                                        val currentWordRight = word.left + (word.right - word.left) * ratio
-                                                        maxRight = maxRight.coerceAtLeast(currentWordRight)
-                                                    }
-                                                }
-                                            }
-                                        }
-
+                                        val maxRight = calculateLineProgressRight(lineIndex, lineLayout, info, relativeProgress)
                                         if (maxRight > lineLayout.left) {
                                             path.addRect(
                                                 Rect(
                                                     left = lineLayout.left,
                                                     top = lineLayout.top,
-                                                    right = maxRight.coerceIn(lineLayout.left, lineLayout.right),
+                                                    right = maxRight,
                                                     bottom = lineLayout.bottom
                                                 )
                                             )

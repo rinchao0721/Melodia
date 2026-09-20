@@ -245,6 +245,7 @@ fun FullScreenLyricsView(
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                isPlaying = isPlaying,
                 onSeek = handleSeek,
                 onLyricClick = { line ->
                     timerJob?.cancel()

@@ -72,6 +72,7 @@ fun ColumnScope.FullScreenLyricsList(
     alignment: String = "left",
     secondaryMode: String = "translation",
     advancedKaraokeEffect: Boolean = true,
+    isPlaying: Boolean = true,
     onSeek: (Long) -> Unit,
     onLyricClick: (LyricLine) -> Unit
 ) {
@@ -190,6 +191,7 @@ fun ColumnScope.FullScreenLyricsList(
                         alignment = alignment,
                         secondaryMode = secondaryMode,
                         advancedKaraokeEffect = advancedKaraokeEffect,
+                        isPlaying = isPlaying,
                         onClick = { onLyricClick(line) }
                     )
                 }
