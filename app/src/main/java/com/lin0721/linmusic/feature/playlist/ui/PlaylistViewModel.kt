@@ -90,8 +90,7 @@ class PlaylistViewModel(
         initialValue = null
     )
 
-    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
-    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
@@ -123,7 +122,7 @@ class PlaylistViewModel(
 
     fun loadLikedSongIds() {
         viewModelScope.launch {
-            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it }
+            loadLikedSongIdsUseCase()
         }
     }
 
@@ -351,7 +350,7 @@ class PlaylistViewModel(
 
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -360,9 +359,11 @@ class PlaylistViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = _likedSongIds.value,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
-                onLikedChanged = { _likedSongIds.value = it }
+                onLikedChanged = { newLiked ->
+                    songLikeRepository.syncLikedSongIds(newLiked)
+                }
             )
             // 停留在“我喜欢的音乐”歌单时需重新拉取列表，使被取消红心的歌曲从当前页消失
             val successState = _uiState.value as? PlaylistUiState.Success
@@ -375,7 +376,7 @@ class PlaylistViewModel(
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -724,13 +725,6 @@ class PlaylistViewModel(
                 result.fold(
                     onSuccess = {
                         _toastEvent.emit(if (isLike) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
-                        val currentLiked = _likedSongIds.value.toMutableSet()
-                        if (isLike) {
-                            currentLiked.add(songId)
-                        } else {
-                            currentLiked.remove(songId)
-                        }
-                        _likedSongIds.value = currentLiked
 
                         val successState = _uiState.value as? PlaylistUiState.Success
                         if (successState != null) {

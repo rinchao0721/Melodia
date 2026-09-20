@@ -180,45 +180,49 @@ class PlayerViewModel(
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
-    private val likedSongIds = mutableSetOf<Long>()
-    private var likedListLoaded = false
-
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
     private var currentSongId: Long = -1L
 
     init {
         loadLikedSongIds()
+        observeLikedState()
         observeTrackChanges()
         observePosition()
     }
 
+    private fun observeLikedState() {
+        viewModelScope.launch {
+            combine(
+                playerManager.currentTrack.map { it?.mediaId?.toLongOrNull() ?: -1L },
+                songLikeRepository.likedSongIds
+            ) { songId, likedIds ->
+                songId > 0L && songId in likedIds
+            }.distinctUntilChanged()
+                .collect { isLiked ->
+                    _songDetailState.update { it.copy(isLiked = isLiked) }
+                }
+        }
+    }
+
     private fun loadLikedSongIds() {
         viewModelScope.launch {
-            val ids = loadLikedSongIdsUseCase() ?: return@launch
-            likedSongIds.clear()
-            likedSongIds.addAll(ids)
-            likedListLoaded = true
-            if (currentSongId != -1L) {
-                _songDetailState.update { it.copy(isLiked = currentSongId in likedSongIds) }
+            userPreferences.userProfile.collect { profile ->
+                if (profile != null) {
+                    loadLikedSongIdsUseCase()
+                }
             }
         }
     }
 
     fun toggleLike() {
         val songId = currentSongId
-        if (songId == -1L) return
+        if (songId <= 0L) return
 
         val newLiked = !_songDetailState.value.isLiked
-        _songDetailState.update { it.copy(isLiked = newLiked) }
-
         viewModelScope.launch {
             songLikeRepository.likeSong(songId, newLiked).collect { result ->
-                result.onSuccess {
-                    if (newLiked) likedSongIds.add(songId) else likedSongIds.remove(songId)
-                }.onFailure {
-                    // 回滚
-                    _songDetailState.update { it.copy(isLiked = !newLiked) }
+                result.onFailure {
                     _toastEvent.emit(it.toUserMessage(resourceProvider))
                 }
             }
@@ -228,7 +232,7 @@ class PlayerViewModel(
     // 打开"收藏到歌单"面板前先拉取歌单勾选状态
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, likedSongIds) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -237,12 +241,10 @@ class PlayerViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = likedSongIds,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
-                    likedSongIds.clear()
-                    likedSongIds.addAll(newLiked)
-                    _songDetailState.update { it.copy(isLiked = currentSongId in likedSongIds) }
+                    songLikeRepository.syncLikedSongIds(newLiked)
                 }
             )
         }
@@ -250,7 +252,7 @@ class PlayerViewModel(
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, likedSongIds) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -262,8 +264,8 @@ class PlayerViewModel(
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
-                        clearState()
-                        _songDetailState.update { it.copy(isLiked = songId in likedSongIds) }
+                        val isLiked = songId > 0L && songId in songLikeRepository.likedSongIds.value
+                        clearState(isLiked)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
@@ -277,8 +279,8 @@ class PlayerViewModel(
         }
     }
 
-    private fun clearState() {
-        _songDetailState.value = PlayerSongDetailState()
+    private fun clearState(isLiked: Boolean = false) {
+        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked)
         _currentLyricIndex.value = -1
     }
 

@@ -63,7 +63,6 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val likedSongIdsCache = mutableSetOf<Long>()
     private var isLikedListLoaded = false
 
     private var player: Player? = null
@@ -122,6 +121,12 @@ class MelodiaPlaybackService : MediaSessionService() {
 
         ensureNotificationChannel()
         setMediaNotificationProvider(MelodiaNotificationProvider())
+
+        serviceScope.launch {
+            songLikeRepository.likedSongIds.collect {
+                updateMediaSessionButtons()
+            }
+        }
 
         // 允许跨协议重定向（如 HTTPS 到 HTTP）
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
@@ -297,20 +302,13 @@ class MelodiaPlaybackService : MediaSessionService() {
     private fun checkAndFetchLikedStatus(songId: Long) {
         serviceScope.launch {
             val profile = userPreferences.userProfile.first()
-            if (profile != null) {
-                if (!isLikedListLoaded) {
-                    songLikeRepository.getLikedSongIds(profile.uid).collect { result ->
-                        result.onSuccess { ids ->
-                            likedSongIdsCache.clear()
-                            likedSongIdsCache.addAll(ids)
-                            isLikedListLoaded = true
-                            updateMediaSessionButtons()
-                        }.onFailure {
-                            AppLogger.w(TAG, "获取已喜欢歌曲列表失败，红心状态可能不同步", it)
-                        }
+            if (profile != null && !isLikedListLoaded) {
+                songLikeRepository.getLikedSongIds(profile.uid).collect { result ->
+                    result.onSuccess {
+                        isLikedListLoaded = true
+                    }.onFailure {
+                        AppLogger.w(TAG, "获取已喜欢歌曲列表失败，红心状态可能不同步", it)
                     }
-                } else {
-                    updateMediaSessionButtons()
                 }
             } else {
                 updateMediaSessionButtons()
@@ -320,36 +318,16 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     private fun toggleLike(songId: Long) {
         serviceScope.launch {
-            val profile = userPreferences.userProfile.first() ?: return@launch
-            val isLiked = songId in likedSongIdsCache
+            val isLiked = songId in songLikeRepository.likedSongIds.value
             val targetLiked = !isLiked
-
-            // 乐观更新
-            if (targetLiked) {
-                likedSongIdsCache.add(songId)
-            } else {
-                likedSongIdsCache.remove(songId)
-            }
-            updateMediaSessionButtons()
-
-            songLikeRepository.likeSong(songId, targetLiked).collect { result ->
-                result.onFailure {
-                    // 回滚
-                    if (targetLiked) {
-                        likedSongIdsCache.remove(songId)
-                    } else {
-                        likedSongIdsCache.add(songId)
-                    }
-                    updateMediaSessionButtons()
-                }
-            }
+            songLikeRepository.likeSong(songId, targetLiked).collect { }
         }
     }
 
     @OptIn(UnstableApi::class)
     private fun buildLikeButton(): CommandButton {
         val songId = exoPlayer?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
-        val isLiked = songId != -1L && songId in likedSongIdsCache
+        val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
         val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
         val displayName = if (isLiked) "取消喜欢" else "喜欢"
 
@@ -532,7 +510,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             )
 
             val songId = currentItem?.mediaId?.toLongOrNull() ?: -1L
-            val isLiked = songId != -1L && songId in likedSongIdsCache
+            val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
             val likeIconRes = if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
             val likeTitle = if (isLiked) "取消喜欢" else "喜欢"
             val likeAction = actionFactory.createCustomAction(

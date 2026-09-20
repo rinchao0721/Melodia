@@ -19,6 +19,7 @@ import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
+import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
@@ -50,6 +51,7 @@ class HomeViewModel(
     private val authRepository: AuthRepository,
     private val resourceProvider: ResourceProvider,
     private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
+    private val songLikeRepository: SongLikeRepository,
     private val songCollectDelegate: SongCollectDelegate
 ) : ViewModel() {
 
@@ -67,8 +69,7 @@ class HomeViewModel(
 
     // mini 栏"收藏到歌单"弹层，跟全屏播放页共用同一套 SongCollectDelegate 机制，各自持一份独立实例；
     // 用 StateFlow 而不是普通 Set，mini 栏爱心图标要跟着这份数据变化重组
-    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
-    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
     init {
@@ -77,13 +78,17 @@ class HomeViewModel(
             playerManager.initController()
         }
         viewModelScope.launch {
-            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it.toSet() }
+            userProfile.collect { profile ->
+                if (profile != null) {
+                    loadLikedSongIdsUseCase()
+                }
+            }
         }
     }
 
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -92,10 +97,10 @@ class HomeViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = _likedSongIds.value,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
-                    _likedSongIds.value = newLiked
+                    songLikeRepository.syncLikedSongIds(newLiked)
                 }
             )
         }
@@ -103,7 +108,7 @@ class HomeViewModel(
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
