@@ -342,9 +342,10 @@ fun FullPlayerScreen(
                 onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                 onCommentsClick = { showCommentsSheet = true },
                 onRetryComments = viewModel::retryComments,
-                onFollowArtistClick = { viewModel.toggleArtistFollow() },
+                onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
                 onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick
+                onAlbumClick = onAlbumClick,
+                onSelectArtist = { index -> viewModel.selectArtist(index) }
             )
         }
 
