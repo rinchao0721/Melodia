@@ -81,6 +81,7 @@ import org.koin.androidx.compose.koinViewModel
 fun PlaylistScreen(
     playlistId: Long,
     isAlbum: Boolean = false,
+    showTopBar: Boolean = true,
     viewModel: PlaylistViewModel = koinViewModel(),
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
@@ -509,6 +510,7 @@ fun PlaylistScreen(
                     PlaylistContent(
                         playlist       = state.playlist,
                         trackPlayCounts = state.trackPlayCounts,
+                        showTopBar     = showTopBar,
                         canRemoveFromPlaylist = isOwnedPlaylist,
                         onRemoveFromPlaylist = { songId ->
                             viewModel.removeTrackFromPlaylist(state.playlist.id, songId)

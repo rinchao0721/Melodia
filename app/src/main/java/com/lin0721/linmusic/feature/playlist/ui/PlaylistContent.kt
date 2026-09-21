@@ -46,6 +46,7 @@ fun PlaylistContent(
     collectState: PlaylistCollectState,
     isLoggedIn: Boolean,
     recommendedSongs: List<Track>,
+    showTopBar: Boolean = true,
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
@@ -143,10 +144,11 @@ fun PlaylistContent(
     // 从封面提取的主色调，默认为深灰色
     var dominantColor by remember { mutableStateOf(FallbackBase) }
 
-    // 获取系统状态栏高度
+    // 获取系统状态栏高度；嵌入到平板双栏详情栏时（showTopBar=false）不在系统状态栏下，不计入
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Overlay 总高度：状态栏 + 操作区(56dp)
-    val overlayHeight = TOP_BAR_HEIGHT + statusBarHeight
+    val effectiveStatusBarHeight = if (showTopBar) statusBarHeight else 0.dp
+    // Overlay 总高度：状态栏 + 操作区(56dp)，无顶栏时仍保留 56dp 作为吸底播放按钮/搜索栏的定位基准
+    val overlayHeight = TOP_BAR_HEIGHT + effectiveStatusBarHeight
 
     var pendingLocateTrackId by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(pendingLocateTrackId, filteredTracks) {
@@ -219,7 +221,7 @@ fun PlaylistContent(
                     coverSize           = coverSize,
                     coverAlpha          = coverAlpha,
                     progress            = progress,
-                    statusBarHeight     = statusBarHeight,
+                    statusBarHeight     = effectiveStatusBarHeight,
                     dominantColor       = dominantColor,
                     onColorCalculated   = { dominantColor = it },
                     onPlayAll              = onPlayAll,
@@ -354,15 +356,17 @@ fun PlaylistContent(
             )
         }
 
-        // ── 3. 固定 Overlay ───────────────────────────────────────────────
-        PlaylistTopBar(
-            title           = playlist.name,
-            progress        = progress,
-            overlayHeight   = overlayHeight,
-            statusBarHeight = statusBarHeight,
-            dominantColor   = dominantColor,
-            onBack          = onBack
-        )
+        // ── 3. 固定 Overlay（平板双栏详情栏内嵌入时不需要顶栏，由右栏容器自己处理返回）────
+        if (showTopBar) {
+            PlaylistTopBar(
+                title           = playlist.name,
+                progress        = progress,
+                overlayHeight   = overlayHeight,
+                statusBarHeight = effectiveStatusBarHeight,
+                dominantColor   = dominantColor,
+                onBack          = onBack
+            )
+        }
 
         // 播放按钮跟手滑动、到位后锁停
         if (!isDailyRecommend) {
