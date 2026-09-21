@@ -25,13 +25,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 
-// 双列紧凑横条，一屏放得下六条。
-private const val MAX_ITEMS = 6
+// 紧凑横条列表，固定 3 行；手机 2 列、平板（Expanded）3 列
+private const val MAX_ROWS = 3
 private val RowHeight = 56.dp
 
 @Composable
@@ -40,6 +42,8 @@ fun RecentPlaySection(
     onClick: (RecentPlaylist) -> Unit
 ) {
     if (items.isEmpty()) return
+
+    val columns = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) 3 else 2
 
     Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
         Text(
@@ -54,7 +58,7 @@ fun RecentPlaySection(
             modifier = Modifier.padding(horizontal = HomeEdgePadding),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            items.take(MAX_ITEMS).chunked(2).forEach { rowItems ->
+            items.take(columns * MAX_ROWS).chunked(columns).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(9.dp)
@@ -66,8 +70,10 @@ fun RecentPlaySection(
                             onClick = { onClick(item) }
                         )
                     }
-                    // 奇数条时补等宽占位，避免最后一条被拉成整行
-                    if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
+                    // 残行补齐等宽占位，避免最后一行被拉宽
+                    repeat(columns - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
