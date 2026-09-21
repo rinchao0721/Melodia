@@ -44,6 +44,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
 
 private val SidebarWidth = 310.dp
 
@@ -73,6 +75,8 @@ fun MelodiaApp() {
     var isMvFullscreen by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
+    // 平板适配断点，顶层下发供 MelodiaBottomOverlay 及后续各阶段消费
+    val windowSizeClass = rememberMelodiaWindowSizeClass()
 
     val hazeState = remember { HazeState() }
     val density = LocalDensity.current
@@ -104,6 +108,7 @@ fun MelodiaApp() {
 
     val isDrawerDraggable = userProfile != null && (sidebar.isOpen || sidebar.isTouchStartingAtEdge)
 
+    CompositionLocalProvider(LocalMelodiaWindowSizeClass provides windowSizeClass) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -311,6 +316,7 @@ fun MelodiaApp() {
                 onInstall = { updateManager.retryInstall() }
             )
         }
+    }
     }
 }
 

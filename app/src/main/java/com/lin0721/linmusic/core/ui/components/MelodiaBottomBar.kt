@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -431,7 +432,8 @@ fun MiniPlayerProgress(
     }
 }
 
-//底部导航栏  
+//底部导航栏。expanded=true 时用于平板宽屏下的独立悬浮卡片（圆角、不贴屏幕边缘），
+//expanded=false 时是手机上贴底通栏的现状实现
 @Composable
 fun MelodiaNavigationBar(
     currentScreen: Screen,
@@ -439,16 +441,18 @@ fun MelodiaNavigationBar(
     onCreateClick: () -> Unit,
     isCreateMenuOpen: Boolean,
     showCreateEntry: Boolean = true,
+    expanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Surface(
         color = BackgroundDark,
+        shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                .then(if (expanded) Modifier else Modifier.navigationBarsPadding())
                 .height(60.dp)
                 .padding(top = 12.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically

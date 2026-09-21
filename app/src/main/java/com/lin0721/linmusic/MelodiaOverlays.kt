@@ -31,9 +31,14 @@ import com.lin0721.linmusic.feature.create.ui.CreatePopupMenu
 import com.lin0721.linmusic.feature.player.ui.FullPlayerScreen
 import dev.chrisbanes.haze.HazeState
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
 val LocalBottomOverlayInset = staticCompositionLocalOf { 0.dp }
+
+// Expanded 断点下迷你播放悬浮组件的固定宽度，真机验证后可再调整这个数值
+private val ExpandedMiniPlayerWidth = 240.dp
 
 // ────────────────────────────────────────────────────────────────────────────
 // 底部浮层：创建菜单弹出层 + 悬浮播放卡片 + M3 导航栏
@@ -96,54 +101,108 @@ fun MelodiaBottomOverlay(
         }
 
         // 悬浮播放卡片 + 导航栏：实际占用高度上报出去，供页面内容计算底部留白
-        Column(
+        val windowSizeClass = LocalMelodiaWindowSizeClass.current
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .onSizeChanged {
                     onOverlayHeightChanged(with(density) { it.height.toDp() })
-                },
-            horizontalAlignment = Alignment.CenterHorizontally
+                }
         ) {
-            // 1. 浮动播放卡片
-            AnimatedVisibility(
-                visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                MiniPlayerCard(
-                    hazeState = hazeState,
-                    currentTrack = currentTrack,
-                    isPlaying = isPlaying,
-                    currentPositionProvider = currentPositionProvider,
-                    duration = duration,
-                    onTogglePlay = onTogglePlay,
-                    onNext = onNext,
-                    onClick = onMiniPlayerClick,
-                    onDrag = onMiniPlayerDrag,
-                    onDragEnd = onMiniPlayerDragEnd,
-                    previousQueueItem = previousQueueItem,
-                    nextQueueItem = nextQueueItem,
-                    onPrevious = onMiniPlayerPrevious,
+            if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
+                // 平板宽屏：Tab 组件 + 迷你播放组件左右并排，两个独立悬浮卡片，
+                // 都不贴屏幕边缘；系统手势条避让在这一层统一处理一次
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = MelodiaSpacing.sm)
-                )
-            }
+                        .padding(bottom = MelodiaSpacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    AnimatedVisibility(
+                        visible = !isLoginScreenVisible && !isMvFullscreen,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut(),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        MelodiaNavigationBar(
+                            currentScreen = currentScreen,
+                            onNavigate = onNavigate,
+                            onCreateClick = onCreateClick,
+                            isCreateMenuOpen = showCreateSheet,
+                            showCreateEntry = showCreateEntry,
+                            expanded = true
+                        )
+                    }
 
-            // 2. M3 导航栏 (在非登录状态下显示)
-            AnimatedVisibility(
-                visible = !isLoginScreenVisible && !isMvFullscreen,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                MelodiaNavigationBar(
-                    currentScreen = currentScreen,
-                    onNavigate = onNavigate,
-                    onCreateClick = onCreateClick,
-                    isCreateMenuOpen = showCreateSheet,
-                    showCreateEntry = showCreateEntry
-                )
+                    AnimatedVisibility(
+                        visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        MiniPlayerCard(
+                            hazeState = hazeState,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            currentPositionProvider = currentPositionProvider,
+                            duration = duration,
+                            onTogglePlay = onTogglePlay,
+                            onNext = onNext,
+                            onClick = onMiniPlayerClick,
+                            onDrag = onMiniPlayerDrag,
+                            onDragEnd = onMiniPlayerDragEnd,
+                            previousQueueItem = previousQueueItem,
+                            nextQueueItem = nextQueueItem,
+                            onPrevious = onMiniPlayerPrevious,
+                            modifier = Modifier.width(ExpandedMiniPlayerWidth)
+                        )
+                    }
+                }
+            } else {
+                // 手机：迷你播放卡在上、导航栏在下，垂直堆叠（现状不变）
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AnimatedVisibility(
+                        visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen,
+                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MiniPlayerCard(
+                            hazeState = hazeState,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            currentPositionProvider = currentPositionProvider,
+                            duration = duration,
+                            onTogglePlay = onTogglePlay,
+                            onNext = onNext,
+                            onClick = onMiniPlayerClick,
+                            onDrag = onMiniPlayerDrag,
+                            onDragEnd = onMiniPlayerDragEnd,
+                            previousQueueItem = previousQueueItem,
+                            nextQueueItem = nextQueueItem,
+                            onPrevious = onMiniPlayerPrevious,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MelodiaSpacing.sm)
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = !isLoginScreenVisible && !isMvFullscreen,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        MelodiaNavigationBar(
+                            currentScreen = currentScreen,
+                            onNavigate = onNavigate,
+                            onCreateClick = onCreateClick,
+                            isCreateMenuOpen = showCreateSheet,
+                            showCreateEntry = showCreateEntry
+                        )
+                    }
+                }
             }
         }
     }
