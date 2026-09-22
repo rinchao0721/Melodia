@@ -53,6 +53,8 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
         // 与其他应用同时播放，默认 false
         private val KEY_PLAY_WITH_OTHER_APPS = booleanPreferencesKey("play_with_other_apps")
+        // 外部音视频停止后自动恢复，默认 true
+        private val KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION = booleanPreferencesKey("resume_after_external_interruption")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -230,6 +232,17 @@ class SettingsPreferences(private val context: Context) {
     suspend fun savePlayWithOtherApps(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_PLAY_WITH_OTHER_APPS] = enabled
+        }
+    }
+
+    // 外部音视频停止后自动恢复 Flow
+    val resumeAfterExternalInterruption: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: true
+    }
+
+    suspend fun saveResumeAfterExternalInterruption(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] = enabled
         }
     }
 

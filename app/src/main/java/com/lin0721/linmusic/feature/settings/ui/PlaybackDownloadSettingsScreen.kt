@@ -60,6 +60,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
+    val resumeAfterExternalInterruption by viewModel.resumeAfterExternalInterruption.collectAsStateWithLifecycle()
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
@@ -100,6 +101,13 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "开启后不被其他应用打断播放",
                     checked = playWithOtherApps,
                     onCheckedChange = { viewModel.updatePlayWithOtherApps(it) }
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                SettingsSwitchRow(
+                    title = "外部音视频停止后自动恢复",
+                    subtitle = "被其他音视频打断暂停后，在对方停止播放时尝试自动继续",
+                    checked = resumeAfterExternalInterruption,
+                    onCheckedChange = { viewModel.updateResumeAfterExternalInterruption(it) }
                 )
             }
         }

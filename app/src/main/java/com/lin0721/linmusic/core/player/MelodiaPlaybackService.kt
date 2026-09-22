@@ -61,6 +61,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
     private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
+    private val externalInterruptionResumeController: ExternalInterruptionResumeController by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
@@ -257,7 +258,15 @@ class MelodiaPlaybackService : MediaSessionService() {
             forwardingPlayer.notifyMetadataChanged()
         }
 
-        // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态
+        externalInterruptionResumeController.start(
+            scope = serviceScope,
+            onResumeRequested = {
+                playerManager.resume()
+                exoPlayer?.play()
+            }
+        )
+
+        // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态，并监听焦点变化
         localExoPlayer.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 super.onMediaItemTransition(mediaItem, reason)
@@ -265,6 +274,19 @@ class MelodiaPlaybackService : MediaSessionService() {
                 mediaItem?.mediaId?.toLongOrNull()?.let { songId ->
                     checkAndFetchLikedStatus(songId)
                 } ?: updateMediaSessionButtons()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                super.onPlayWhenReadyChanged(playWhenReady, reason)
+                if (!playWhenReady) {
+                    if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
+                        externalInterruptionResumeController.onAudioFocusLoss()
+                    } else {
+                        externalInterruptionResumeController.onUserOrSystemPause()
+                    }
+                } else {
+                    externalInterruptionResumeController.onPlaybackStarted()
+                }
             }
         })
     }
@@ -282,6 +304,7 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
+        externalInterruptionResumeController.release()
         externalLyricCoordinator.onMetadataChanged = null
         externalLyricCoordinator.release()
         playerManager.release()

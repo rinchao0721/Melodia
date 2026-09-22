@@ -68,6 +68,8 @@ class SettingsViewModel(
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
+    val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
+
     val wifiOnlyPlay = settingsPreferences.wifiOnlyPlay.asState(false)
 
     val mobileAlert = settingsPreferences.mobileAlert.asState(true)
@@ -218,6 +220,8 @@ class SettingsViewModel(
     fun updateAutoPlayNext(enabled: Boolean) = launchSave { settingsPreferences.saveAutoPlayNext(enabled) }
 
     fun updatePlayWithOtherApps(enabled: Boolean) = launchSave { settingsPreferences.savePlayWithOtherApps(enabled) }
+
+    fun updateResumeAfterExternalInterruption(enabled: Boolean) = launchSave { settingsPreferences.saveResumeAfterExternalInterruption(enabled) }
 
     fun updateWifiOnlyPlay(enabled: Boolean) = launchSave { settingsPreferences.saveWifiOnlyPlay(enabled) }
 
