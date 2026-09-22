@@ -5,13 +5,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
-
-// 平板常驻播放面板宽度：竖屏 340dp / 横屏 400dp（设计文档 6.3 节建议值，真机验证后可再调）
-private val PanelWidthPortrait = 340.dp
-private val PanelWidthLandscape = 400.dp
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 
 // Expanded 断点下的播放器展开态：不整屏覆盖，铺在一个固定宽度的常驻侧栏里，与内容区
 // 左右并排（容器结构见 MelodiaApp.kt）。内容原样复用 FullPlayerScreen，onClose/onDragClose
@@ -32,12 +27,7 @@ fun PlayerDockPanel(
 ) {
     if (currentTrack == null) return
 
-    val configuration = LocalConfiguration.current
-    val panelWidth = if (configuration.screenWidthDp < configuration.screenHeightDp) {
-        PanelWidthPortrait
-    } else {
-        PanelWidthLandscape
-    }
+    val panelWidth = rememberMelodiaPlayerPanelWidth()
 
     Box(
         modifier = Modifier

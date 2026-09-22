@@ -33,12 +33,10 @@ import dev.chrisbanes.haze.HazeState
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
 val LocalBottomOverlayInset = staticCompositionLocalOf { 0.dp }
-
-// Expanded 断点下迷你播放悬浮组件的固定宽度，真机验证后可再调整这个数值
-private val ExpandedMiniPlayerWidth = 240.dp
 
 // ────────────────────────────────────────────────────────────────────────────
 // 底部浮层：创建菜单弹出层 + 悬浮播放卡片 + M3 导航栏
@@ -50,6 +48,7 @@ fun MelodiaBottomOverlay(
     showCreateSheet: Boolean,
     isLoginScreenVisible: Boolean,
     isMvFullscreen: Boolean,
+    isPanelExpanded: Boolean = false,
     currentTrack: MediaItem?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
@@ -137,8 +136,9 @@ fun MelodiaBottomOverlay(
                         )
                     }
 
+                    // 面板展开时右侧已经有完整播放器，迷你播放条隐藏，避免同一首歌重复显示两遍
                     AnimatedVisibility(
-                        visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen,
+                        visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isPanelExpanded,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
@@ -156,7 +156,9 @@ fun MelodiaBottomOverlay(
                             previousQueueItem = previousQueueItem,
                             nextQueueItem = nextQueueItem,
                             onPrevious = onMiniPlayerPrevious,
-                            modifier = Modifier.width(ExpandedMiniPlayerWidth)
+                            expanded = true,
+                            // 和右侧展开态面板同宽，两者上下贴齐
+                            modifier = Modifier.width(rememberMelodiaPlayerPanelWidth())
                         )
                     }
                 }

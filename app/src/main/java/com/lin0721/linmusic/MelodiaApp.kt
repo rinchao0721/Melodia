@@ -257,6 +257,7 @@ fun MelodiaApp() {
                             showCreateSheet = showCreateSheet,
                             isLoginScreenVisible = isLoginScreenVisible,
                             isMvFullscreen = isMvFullscreen,
+                            isPanelExpanded = isPanelExpanded,
                             currentTrack = currentTrack,
                             isPlaying = isPlaying,
                             currentPositionProvider = currentPositionProvider,

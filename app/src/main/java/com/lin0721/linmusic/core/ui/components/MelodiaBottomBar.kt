@@ -50,6 +50,7 @@ import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
@@ -93,7 +94,8 @@ fun MiniPlayerCard(
     onDragEnd: ((Float) -> Unit)? = null,
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
-    onPrevious: () -> Unit = {}
+    onPrevious: () -> Unit = {},
+    expanded: Boolean = false
 ) {
     if (currentTrack == null) return
 
@@ -118,13 +120,14 @@ fun MiniPlayerCard(
         }
     }
 
-    // 平滑过渡背景色变化；base 取自 Vibrant，本身偏亮，卡片背景需要压暗一档才不会太扎眼
+    // 平滑过渡背景色变化；base 取自 Vibrant，本身偏亮，卡片背景需要压暗一档才不会太扎眼。
+    // 平板宽屏下悬浮在深色页面背景上，压暗幅度收窄一档，避免浅色封面取色后和背景融在一起
     val animatedBase by animateColorAsState(
         targetValue = colorPalette.base,
         animationSpec = tween(800),
         label = "mini_player_base"
     )
-    val fillColor = remember(animatedBase) { animatedBase.darken(0.35f) }
+    val fillColor = remember(animatedBase, expanded) { animatedBase.darken(if (expanded) 0.20f else 0.35f) }
     val lightBlob = remember(animatedBase) { animatedBase.lighten(0.05f) }
     val darkBlob = remember(animatedBase) { animatedBase.darken(0.15f) }
 
@@ -155,7 +158,7 @@ fun MiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(InfoCardRadius))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
+            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), RoundedCornerShape(InfoCardRadius))
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -198,7 +201,12 @@ fun MiniPlayerCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+                    .padding(
+                        start = 12.dp,
+                        end = 6.dp,
+                        top = if (expanded) 10.dp else 6.dp,
+                        bottom = if (expanded) 10.dp else 6.dp
+                    )
             ) {
                 // 封面+歌名歌手整体跟手平移，播放/下一首按钮不参与滑动
                 val connectedDevice = rememberCurrentOutputDevice()
@@ -213,7 +221,7 @@ fun MiniPlayerCard(
                     connectedDevice = connectedDevice,
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .height(if (expanded) 52.dp else 44.dp)
                 )
 
                 // 播放/暂停按钮
@@ -444,16 +452,26 @@ fun MelodiaNavigationBar(
     expanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // 平板宽屏下用 SurfaceDark（比页面背景 BackgroundDark 亮一档）+ 描边，
+    // 避免和几乎所有页面都在用的 BackgroundDark 背景融为一体
     Surface(
-        color = BackgroundDark,
+        color = if (expanded) SurfaceDark else BackgroundDark,
         shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (expanded) {
+                    Modifier.border(0.5.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(InfoCardRadius))
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (expanded) Modifier else Modifier.navigationBarsPadding())
-                .height(60.dp)
+                .height(if (expanded) 68.dp else 60.dp)
                 .padding(top = 12.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
