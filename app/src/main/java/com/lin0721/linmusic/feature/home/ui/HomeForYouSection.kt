@@ -41,14 +41,18 @@ import com.lin0721.linmusic.core.ui.theme.EntryHeartGradient
 import com.lin0721.linmusic.core.ui.theme.EntryHotGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRadarGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRoamingGradient
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 
-private val EntryCardSize = 132.dp
+// 平板下卡片略微放大，手机不变
+private val EntryCardSizeCompact = 132.dp
+private val EntryCardSizeExpanded = 160.dp
 
 // 一个功能入口。这几个功能没有对应的封面资源，一律用策展色表达，
 // 不再从推荐歌单里借图——借来的封面跟点进去的功能毫无关系。
@@ -74,6 +78,12 @@ fun ForYouSection(
     onRadarClick: (Long) -> Unit,
     onRoamingClick: () -> Unit
 ) {
+    val entryCardSize = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) {
+        EntryCardSizeExpanded
+    } else {
+        EntryCardSizeCompact
+    }
+
     val hotlist = remember(toplists) {
         toplists.firstOrNull { it.name.contains("热") } ?: toplists.firstOrNull()
     }
@@ -158,7 +168,7 @@ fun ForYouSection(
             items(entries, key = { it.key }) { entry ->
                 Box(
                     modifier = Modifier
-                        .size(EntryCardSize)
+                        .size(entryCardSize)
                         .pressable(MelodiaPress.Card) { entry.onClick() }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(Brush.linearGradient(entry.gradient))

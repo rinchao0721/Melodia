@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -145,43 +146,45 @@ fun ProfileScreen(
                         }
                     }
 
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
-                    ) {
-                        item(key = "header_info") {
-                            ProfileHeaderInfo(
-                                userInfo = state.userInfo,
-                                isSelf = state.isSelf,
-                                onFollowClick = { viewModel.toggleFollow() },
-                                onFollowsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWS) },
-                                onFollowedsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWEDS) }
-                            )
-                        }
-                        item(key = "tab_bar") {
-                            ProfileTabBar(
-                                selectedTab = state.selectedTab,
-                                onTabSelected = { viewModel.selectTab(it) }
-                            )
-                        }
-                        when (state.selectedTab) {
-                            0 -> profilePlaylistItems(
-                                playlists = state.playlists,
-                                isLoading = state.playlistsLoadingMore,
-                                onPlaylistClick = onPlaylistClick
-                            )
-                            1 -> profileEventItems(
-                                events = state.events,
-                                isLoading = state.eventsLoadingMore
-                            )
-                            2 -> profileRecordItems(
-                                items = state.rankItems,
-                                isLoading = state.rankLoading,
-                                subTab = state.rankSubTab,
-                                onSubTabSelected = { viewModel.selectRankSubTab(it) },
-                                showPlayCount = state.isSelf
-                            )
+                    AdaptiveContentWidth(modifier = Modifier.weight(1f)) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+                        ) {
+                            item(key = "header_info") {
+                                ProfileHeaderInfo(
+                                    userInfo = state.userInfo,
+                                    isSelf = state.isSelf,
+                                    onFollowClick = { viewModel.toggleFollow() },
+                                    onFollowsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWS) },
+                                    onFollowedsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWEDS) }
+                                )
+                            }
+                            item(key = "tab_bar") {
+                                ProfileTabBar(
+                                    selectedTab = state.selectedTab,
+                                    onTabSelected = { viewModel.selectTab(it) }
+                                )
+                            }
+                            when (state.selectedTab) {
+                                0 -> profilePlaylistItems(
+                                    playlists = state.playlists,
+                                    isLoading = state.playlistsLoadingMore,
+                                    onPlaylistClick = onPlaylistClick
+                                )
+                                1 -> profileEventItems(
+                                    events = state.events,
+                                    isLoading = state.eventsLoadingMore
+                                )
+                                2 -> profileRecordItems(
+                                    items = state.rankItems,
+                                    isLoading = state.rankLoading,
+                                    subTab = state.rankSubTab,
+                                    onSubTabSelected = { viewModel.selectRankSubTab(it) },
+                                    showPlayCount = state.isSelf
+                                )
+                            }
                         }
                     }
                 }

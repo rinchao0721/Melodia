@@ -3,9 +3,11 @@ package com.lin0721.linmusic
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -135,6 +137,7 @@ fun MelodiaBottomOverlay(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
                             .navigationBarsPadding()
                             .padding(horizontal = MelodiaSpacing.sm)
                             .padding(bottom = MelodiaSpacing.sm),
@@ -145,7 +148,7 @@ fun MelodiaBottomOverlay(
                             visible = !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut(),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
                             MelodiaNavigationBar(
                                 currentScreen = currentScreen,
@@ -153,15 +156,20 @@ fun MelodiaBottomOverlay(
                                 onCreateClick = onCreateClick,
                                 isCreateMenuOpen = showCreateSheet,
                                 showCreateEntry = showCreateEntry,
-                                expanded = true
+                                expanded = true,
+                                modifier = Modifier.fillMaxHeight()
                             )
                         }
 
-                        // 面板展开时右侧已经有完整播放器，迷你播放条隐藏，避免同一首歌重复显示两遍
+                        // 面板展开时右侧已经有完整播放器，迷你播放条隐藏，避免同一首歌重复显示两遍。
+                        // 收缩/展开动画跟常驻侧栏面板（MelodiaApp.kt 的 isPanelVisible）用完全相同的
+                        // expandHorizontally()/shrinkHorizontally() 默认参数，保证两侧宽度变化的时序同步，
+                        // 避免一边平滑挤压、另一边淡出到底突然消失导致导航栏宽度跳变
                         AnimatedVisibility(
                             visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen && !isPanelExpanded,
-                            enter = fadeIn(),
-                            exit = fadeOut()
+                            enter = fadeIn() + expandHorizontally(),
+                            exit = fadeOut() + shrinkHorizontally(),
+                            modifier = Modifier.fillMaxHeight()
                         ) {
                             MiniPlayerCard(
                                 hazeState = hazeState,
@@ -182,7 +190,9 @@ fun MelodiaBottomOverlay(
                                 onLikeClick = onMiniPlayerLikeClick,
                                 expanded = true,
                                 // 和右侧展开态面板同宽，两者上下贴齐
-                                modifier = Modifier.width(rememberMelodiaPlayerPanelWidth())
+                                modifier = Modifier
+                                    .width(rememberMelodiaPlayerPanelWidth())
+                                    .fillMaxHeight()
                             )
                         }
                     }

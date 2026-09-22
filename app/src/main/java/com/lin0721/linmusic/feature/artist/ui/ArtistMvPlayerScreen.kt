@@ -114,6 +114,10 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.model.ArtistMv
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.androidx.compose.koinViewModel
@@ -170,7 +174,16 @@ fun ArtistMvPlayerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
 
-    var isFullscreen by remember { mutableStateOf(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) }
+    // 平板 Expanded 横屏：视频与评论区左右并排常驻展示，不强制进沉浸式全屏
+    // （手机横屏维持“转屏即全屏”的原有习惯，见下方 LaunchedEffect(configuration.orientation)）
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val orientationClass = LocalMelodiaOrientationClass.current
+    val useLandscapeSplitLayout = windowSizeClass == MelodiaWindowSizeClass.Expanded &&
+            orientationClass == MelodiaOrientationClass.Landscape
+
+    var isFullscreen by remember {
+        mutableStateOf(configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && !useLandscapeSplitLayout)
+    }
 
     // 系统"自动旋转"开关：只有用户开启了这个开关，转横屏才会自动进全屏；关闭时只能靠手动按钮
     val systemAutoRotateEnabled = remember {
@@ -223,9 +236,11 @@ fun ArtistMvPlayerScreen(
         onCommentsVisibilityChanged(showCommentsSection)
     }
 
-    // 设备物理方向变化 -> 自动联动全屏态
-    LaunchedEffect(configuration.orientation) {
-        isFullscreen = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 设备物理方向变化 -> 自动联动全屏态（平板 Expanded 横屏走并排布局，不联动）
+    LaunchedEffect(configuration.orientation, useLandscapeSplitLayout) {
+        if (!useLandscapeSplitLayout) {
+            isFullscreen = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        }
     }
 
     // 全屏态变化 -> 隐藏/显示系统栏、通知外层隐藏/显示底部导航栏、并把强制转向"放开"为自由感应
@@ -754,253 +769,262 @@ fun ArtistMvPlayerScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Crossfade(targetState = isFullscreen, label = "mv_fullscreen_toggle") { fullscreen ->
-        if (fullscreen) {
-            VideoArea(Modifier.fillMaxSize())
-        } else {
-            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-                VideoArea(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+    // 信息面板：歌曲信息/关注区/简介/评论预览/相关 MV 列表 + 展开态评论区，
+    // 手机竖屏与平板横屏并排布局共用同一份内容，只是外层容器（Column 权重 vs Row 权重）不同
+    @Composable
+    fun InfoAndCommentsPanel(modifier: Modifier) {
+        Box(
+            modifier = modifier.background(BackgroundDark)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+            ) {
+                item(key = "info") {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            text = mvDetail?.name ?: mvName,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 17.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = buildString {
+                                append(formatFansCount(mvDetail?.playCount ?: 0))
+                                append("次播放")
+                                if (!mvDetail?.publishTime.isNullOrBlank()) {
+                                    append(" · ")
+                                    append(mvDetail?.publishTime)
+                                }
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(BackgroundDark)
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp)
+                item(key = "channel_actions_card") {
+                    val detail = mvDetail
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(14.dp)
                     ) {
-                    item(key = "info") {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                            Text(
-                                text = mvDetail?.name ?: mvName,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 17.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = buildString {
-                                    append(formatFansCount(mvDetail?.playCount ?: 0))
-                                    append("次播放")
-                                    if (!mvDetail?.publishTime.isNullOrBlank()) {
-                                        append(" · ")
-                                        append(mvDetail?.publishTime)
+                        if (detail != null && detail.artistId > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("${artistAvatar}?param=100y100")
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = detail.artistName,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onArtistClick(detail.artistId) }
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onArtistClick(detail.artistId) }
+                                ) {
+                                    Text(
+                                        text = detail.artistName,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 13.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (fansCount > 0) {
+                                        Text(
+                                            text = "${formatFansCount(fansCount)}位听众",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp
+                                        )
                                     }
-                                },
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                MelodiaButton(
+                                    onClick = { viewModel.toggleArtistFollow() },
+                                    colors = if (isArtistFollowed) {
+                                        ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    },
+                                    shape = RoundedCornerShape(50),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    Text(if (isArtistFollowed) "已关注" else "关注", fontSize = 13.sp)
+                                }
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            MvActionButton(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.ThumbUp,
+                                label = if ((detail?.likedCount ?: 0) > 0) formatFansCount(detail!!.likedCount) else "点赞",
+                                active = detail?.isLiked == true,
+                                onClick = { viewModel.toggleLike(mvId) }
+                            )
+                            MvActionButton(
+                                modifier = Modifier.weight(1f),
+                                icon = if (detail?.isSubscribed == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                label = "收藏",
+                                active = detail?.isSubscribed == true,
+                                onClick = { viewModel.toggleSubscribe(mvId) }
+                            )
+                            MvActionButton(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.Share,
+                                label = "分享",
+                                active = false,
+                                onClick = {
+                                    val shareText = "《${detail?.name ?: mvName}》- ${detail?.artistName.orEmpty()} https://music.163.com/mv?id=$mvId"
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, shareText)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "分享 MV"))
+                                }
                             )
                         }
                     }
+                }
 
-                    item(key = "channel_actions_card") {
-                        val detail = mvDetail
+                val briefDesc = mvDetail?.briefDesc
+                if (!briefDesc.isNullOrBlank()) {
+                    item(key = "description") {
+                        var expanded by remember { mutableStateOf(false) }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .clip(RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surface)
-                                .padding(14.dp)
+                                .clickable { expanded = !expanded }
+                                .padding(12.dp)
                         ) {
-                            if (detail != null && detail.artistId > 0) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data("${artistAvatar}?param=100y100")
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = detail.artistName,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .clickable { onArtistClick(detail.artistId) }
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { onArtistClick(detail.artistId) }
-                                    ) {
-                                        Text(
-                                            text = detail.artistName,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 13.sp,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        if (fansCount > 0) {
-                                            Text(
-                                                text = "${formatFansCount(fansCount)}位听众",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.width(8.dp))
-                                    MelodiaButton(
-                                        onClick = { viewModel.toggleArtistFollow() },
-                                        colors = if (isArtistFollowed) {
-                                            ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        } else {
-                                            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                        },
-                                        shape = RoundedCornerShape(50),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(if (isArtistFollowed) "已关注" else "关注", fontSize = 13.sp)
-                                    }
-                                }
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 12.dp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                MvActionButton(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.ThumbUp,
-                                    label = if ((detail?.likedCount ?: 0) > 0) formatFansCount(detail!!.likedCount) else "点赞",
-                                    active = detail?.isLiked == true,
-                                    onClick = { viewModel.toggleLike(mvId) }
-                                )
-                                MvActionButton(
-                                    modifier = Modifier.weight(1f),
-                                    icon = if (detail?.isSubscribed == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                    label = "收藏",
-                                    active = detail?.isSubscribed == true,
-                                    onClick = { viewModel.toggleSubscribe(mvId) }
-                                )
-                                MvActionButton(
-                                    modifier = Modifier.weight(1f),
-                                    icon = Icons.Default.Share,
-                                    label = "分享",
-                                    active = false,
-                                    onClick = {
-                                        val shareText = "《${detail?.name ?: mvName}》- ${detail?.artistName.orEmpty()} https://music.163.com/mv?id=$mvId"
-                                        val intent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, shareText)
-                                        }
-                                        context.startActivity(Intent.createChooser(intent, "分享 MV"))
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    val briefDesc = mvDetail?.briefDesc
-                    if (!briefDesc.isNullOrBlank()) {
-                        item(key = "description") {
-                            var expanded by remember { mutableStateOf(false) }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .clickable { expanded = !expanded }
-                                    .padding(12.dp)
-                            ) {
-                                Text(
-                                    text = briefDesc,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 13.sp,
-                                    lineHeight = 19.sp,
-                                    maxLines = if (expanded) Int.MAX_VALUE else 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = if (expanded) "收起" else "更多",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 12.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    item(key = "comments") {
-                        CommentsPreviewCard(
-                            commentsState = commentsState,
-                            cardColor = MaterialTheme.colorScheme.surface,
-                            onClick = { showCommentsSection = true },
-                            onRetry = { viewModel.loadComments(mvId) }
-                        )
-                    }
-
-                    if (relatedMvs.isNotEmpty()) {
-                        item(key = "related_header") {
                             Text(
-                                text = "该歌手更多 MV",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 16.sp,
+                                text = briefDesc,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
+                                maxLines = if (expanded) Int.MAX_VALUE else 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (expanded) "收起" else "更多",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 12.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
-                        items(relatedMvs, key = { it.id }) { mv ->
-                            RelatedMvRow(mv = mv, onClick = { onMvClick(mv.id, mv.name) })
-                        }
                     }
                 }
 
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showCommentsSection,
-                    enter = slideInVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeIn(tween(ScreenSlideDurationMs, easing = LinearEasing)),
-                    exit = slideOutVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeOut(tween(ScreenSlideDurationMs, easing = LinearEasing))
-                ) {
-                    MvInlineCommentsView(
+                item(key = "comments") {
+                    CommentsPreviewCard(
                         commentsState = commentsState,
-                        composerState = composerState,
-                        currentUserId = userProfile?.uid,
-                        bottomOverlayInset = 0.dp,
-                        onLikeComment = { comment ->
-                            if (userProfile == null) {
-                                ToastManager.showToast("请先登录账号")
-                            } else {
-                                viewModel.likeComment(comment)
-                            }
-                        },
-                        onSubmitComment = { content, target ->
-                            if (target != null) {
-                                viewModel.submitCommentReply(target.commentId, content)
-                            } else {
-                                viewModel.submitComment(content)
-                            }
-                        },
-                        onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                        onExpandFloor = { comment ->
-                            showCommentFloor = true
-                            viewModel.openCommentFloor(comment)
-                        },
-                        onSortChange = viewModel::changeCommentSort,
-                        onLoadMore = viewModel::loadMoreComments,
-                        onRetry = { viewModel.loadComments(mvId) },
-                        onClose = { showCommentsSection = false },
-                        onRequireLogin = { ToastManager.showToast("请先登录账号") },
-                        onUserClick = onNavigateToProfile
+                        cardColor = MaterialTheme.colorScheme.surface,
+                        onClick = { showCommentsSection = true },
+                        onRetry = { viewModel.loadComments(mvId) }
                     )
                 }
+
+                if (relatedMvs.isNotEmpty()) {
+                    item(key = "related_header") {
+                        Text(
+                            text = "该歌手更多 MV",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 16.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                        )
+                    }
+                    items(relatedMvs, key = { it.id }) { mv ->
+                        RelatedMvRow(mv = mv, onClick = { onMvClick(mv.id, mv.name) })
+                    }
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showCommentsSection,
+                enter = slideInVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeIn(tween(ScreenSlideDurationMs, easing = LinearEasing)),
+                exit = slideOutVertically(tween(ScreenSlideDurationMs, easing = LinearEasing)) { it } + fadeOut(tween(ScreenSlideDurationMs, easing = LinearEasing))
+            ) {
+                MvInlineCommentsView(
+                    commentsState = commentsState,
+                    composerState = composerState,
+                    currentUserId = userProfile?.uid,
+                    bottomOverlayInset = 0.dp,
+                    onLikeComment = { comment ->
+                        if (userProfile == null) {
+                            ToastManager.showToast("请先登录账号")
+                        } else {
+                            viewModel.likeComment(comment)
+                        }
+                    },
+                    onSubmitComment = { content, target ->
+                        if (target != null) {
+                            viewModel.submitCommentReply(target.commentId, content)
+                        } else {
+                            viewModel.submitComment(content)
+                        }
+                    },
+                    onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                    onExpandFloor = { comment ->
+                        showCommentFloor = true
+                        viewModel.openCommentFloor(comment)
+                    },
+                    onSortChange = viewModel::changeCommentSort,
+                    onLoadMore = viewModel::loadMoreComments,
+                    onRetry = { viewModel.loadComments(mvId) },
+                    onClose = { showCommentsSection = false },
+                    onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                    onUserClick = onNavigateToProfile
+                )
             }
         }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Crossfade(targetState = isFullscreen, label = "mv_fullscreen_toggle") { fullscreen ->
+        if (fullscreen) {
+            VideoArea(Modifier.fillMaxSize())
+        } else if (useLandscapeSplitLayout) {
+            // 平板 Expanded 横屏：视频与评论区左右并排常驻展示
+            Row(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                VideoArea(Modifier.weight(1.4f).fillMaxHeight())
+                InfoAndCommentsPanel(Modifier.weight(1f).fillMaxHeight())
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                VideoArea(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+                InfoAndCommentsPanel(Modifier.weight(1f).fillMaxWidth())
+            }
         }
         }
 

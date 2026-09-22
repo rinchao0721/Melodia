@@ -492,7 +492,9 @@ fun MelodiaNavigationBar(
             .fillMaxWidth()
             .then(
                 if (expanded) {
-                    Modifier.border(0.5.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(InfoCardRadius))
+                    Modifier
+                        .fillMaxHeight()
+                        .border(0.5.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(InfoCardRadius))
                 } else {
                     Modifier
                 }
@@ -501,8 +503,13 @@ fun MelodiaNavigationBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (expanded) Modifier else Modifier.navigationBarsPadding())
-                .height(if (expanded) 68.dp else 60.dp)
+                .then(
+                    if (expanded) {
+                        Modifier.fillMaxHeight()
+                    } else {
+                        Modifier.navigationBarsPadding().height(60.dp)
+                    }
+                )
                 .padding(top = 12.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -53,6 +53,8 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
@@ -364,11 +366,17 @@ private fun RadioDetailHeader(
 // 详情页节目行：左侧期号，与主页那种带播放按钮的行区分开
 @Composable
 private fun RadioProgramRow(program: PodcastProgram, onClick: () -> Unit) {
+    // 平板 Expanded 断点下行高/封面/字号统一加码，结构不变
+    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val coverSize = if (isExpanded) 58.dp else 50.dp
+    val verticalPadding = if (isExpanded) 13.dp else 9.dp
+    val titleFontSize = if (isExpanded) 15.sp else 13.sp
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = PodcastEdgePadding, vertical = 9.dp),
+            .padding(horizontal = PodcastEdgePadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -382,7 +390,7 @@ private fun RadioProgramRow(program: PodcastProgram, onClick: () -> Unit) {
         SubcomposeAsyncImage(
             model = program.coverUrl.withPodcastCoverParam("160y160"),
             contentDescription = program.name,
-            modifier = Modifier.size(50.dp).clip(RoundedCornerShape(RadiusCompact)),
+            modifier = Modifier.size(coverSize).clip(RoundedCornerShape(RadiusCompact)),
             contentScale = ContentScale.Crop,
             loading = { CoverPlaceholder() },
             error = { CoverPlaceholder() }
@@ -391,7 +399,7 @@ private fun RadioProgramRow(program: PodcastProgram, onClick: () -> Unit) {
             Text(
                 text = program.name,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
+                fontSize = titleFontSize,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 18.sp,
                 maxLines = 2,

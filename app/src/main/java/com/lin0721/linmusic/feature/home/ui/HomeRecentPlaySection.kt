@@ -25,14 +25,16 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 
-// 紧凑横条列表，固定 3 行；手机 2 列、平板（Expanded）3 列
+// 紧凑横条列表，固定 3 行；手机 2 列、平板竖屏 3 列、平板横屏 4 列
 private const val MAX_ROWS = 3
 private val RowHeight = 56.dp
 
@@ -43,7 +45,13 @@ fun RecentPlaySection(
 ) {
     if (items.isEmpty()) return
 
-    val columns = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) 3 else 2
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val orientationClass = LocalMelodiaOrientationClass.current
+    val columns = when {
+        windowSizeClass == MelodiaWindowSizeClass.Expanded && orientationClass == MelodiaOrientationClass.Landscape -> 4
+        windowSizeClass == MelodiaWindowSizeClass.Expanded -> 3
+        else -> 2
+    }
 
     Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
         Text(

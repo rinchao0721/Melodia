@@ -59,6 +59,8 @@ import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.feature.player.ui.PlayerDockPanel
 
 private val SidebarWidth = 310.dp
@@ -98,6 +100,8 @@ fun MelodiaApp() {
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     // 平板适配断点，顶层下发供 MelodiaBottomOverlay 及后续各阶段消费
     val windowSizeClass = rememberMelodiaWindowSizeClass()
+    // 方向维度，与宽度断点独立组合
+    val orientationClass = rememberMelodiaOrientationClass()
     // Expanded 断点下播放器是否展开为常驻侧栏面板；与手机端 playerSheet 完全独立的状态机。
     // 面板在任意页面都保持展开态（不局限于 Tab 根页面），参照 Spotify 平板版
     var isPanelExpanded by remember { mutableStateOf(false) }
@@ -149,7 +153,10 @@ fun MelodiaApp() {
 
     val isDrawerDraggable = userProfile != null && (sidebar.isOpen || sidebar.isTouchStartingAtEdge)
 
-    CompositionLocalProvider(LocalMelodiaWindowSizeClass provides windowSizeClass) {
+    CompositionLocalProvider(
+        LocalMelodiaWindowSizeClass provides windowSizeClass,
+        LocalMelodiaOrientationClass provides orientationClass
+    ) {
     Box(
         modifier = Modifier
             .fillMaxSize()

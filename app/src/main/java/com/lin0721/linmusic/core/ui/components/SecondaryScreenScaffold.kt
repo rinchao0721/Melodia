@@ -55,11 +55,11 @@ fun SecondaryScreenScaffold(
         },
         containerColor = BackgroundDark
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            content = content
-        )
+        AdaptiveContentWidth(modifier = Modifier.padding(innerPadding)) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                content = content
+            )
+        }
     }
 }

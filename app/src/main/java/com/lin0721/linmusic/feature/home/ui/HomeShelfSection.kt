@@ -40,20 +40,41 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
 
-// 卡片数超过这个量就改横向滚动。服务端单个区块能给到 18 张，两列平铺会让一个货架吃掉两三屏，
-// 滑半天还在同一个货架里；横向滚动既压住高度又不用截断内容。
-private const val GRID_MAX_CARDS = 6
+// 网格列数与网格/横向滚动切换阈值按断点取值：
+// 手机 2 列 3 行不变；平板竖屏 4 列 2 行；平板横屏可用宽度更富余，6 列 2 行
+private const val GRID_COLUMNS_COMPACT = 2
+private const val GRID_COLUMNS_EXPANDED_PORTRAIT = 4
+private const val GRID_COLUMNS_EXPANDED_LANDSCAPE = 6
+private const val GRID_MAX_ROWS_COMPACT = 3
+private const val GRID_MAX_ROWS_EXPANDED = 2
 
 private val GridGap = 12.dp
-private val HorizontalCardWidth = 150.dp
+private val HorizontalCardWidthCompact = 150.dp
+private val HorizontalCardWidthExpanded = 200.dp
 
 internal val HomeEdgePadding = 20.dp
 
-// 一个货架：标题 + 卡片区。卡片少走两列网格，多则横向滚动。
-// 两列用手写 Row 而非懒加载网格——垂直懒加载容器嵌进外层 LazyColumn 会因无界高度约束崩溃；
+@Composable
+private fun rememberShelfGridColumns(): Int {
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val orientationClass = LocalMelodiaOrientationClass.current
+    return when {
+        windowSizeClass == MelodiaWindowSizeClass.Expanded && orientationClass == MelodiaOrientationClass.Landscape ->
+            GRID_COLUMNS_EXPANDED_LANDSCAPE
+        windowSizeClass == MelodiaWindowSizeClass.Expanded -> GRID_COLUMNS_EXPANDED_PORTRAIT
+        else -> GRID_COLUMNS_COMPACT
+    }
+}
+
+// 一个货架：标题 + 卡片区。卡片少走网格，多则横向滚动。
+// 网格用手写 Row 而非懒加载网格——垂直懒加载容器嵌进外层 LazyColumn 会因无界高度约束崩溃；
 // 横向 LazyRow 方向不同，宽度有界，可以安全嵌套。
 @Composable
 fun HomeShelfSection(
@@ -61,6 +82,12 @@ fun HomeShelfSection(
     onCardClick: (HomeCard) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val columns = rememberShelfGridColumns()
+    val maxRows = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) GRID_MAX_ROWS_EXPANDED else GRID_MAX_ROWS_COMPACT
+    val gridMaxCards = columns * maxRows
+    val horizontalCardWidth = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) HorizontalCardWidthExpanded else HorizontalCardWidthCompact
+
     Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
         Text(
             text = shelf.title,
@@ -72,9 +99,9 @@ fun HomeShelfSection(
             modifier = Modifier.padding(start = HomeEdgePadding, end = HomeEdgePadding, bottom = 13.dp)
         )
 
-        if (shelf.cards.size <= GRID_MAX_CARDS) {
+        if (shelf.cards.size <= gridMaxCards) {
             Column(modifier = Modifier.padding(horizontal = HomeEdgePadding)) {
-                shelf.cards.chunked(2).forEachIndexed { rowIndex, rowCards ->
+                shelf.cards.chunked(columns).forEachIndexed { rowIndex, rowCards ->
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(GridGap)
@@ -82,13 +109,15 @@ fun HomeShelfSection(
                         rowCards.forEachIndexed { colIndex, card ->
                             HomeShelfCard(
                                 card = card,
-                                rank = (rowIndex * 2 + colIndex + 1).takeIf { shelf.showRank },
+                                rank = (rowIndex * columns + colIndex + 1).takeIf { shelf.showRank },
                                 modifier = Modifier.weight(1f),
                                 onClick = { onCardClick(card) }
                             )
                         }
-                        // 奇数张时补等宽占位，避免最后一张被拉伸成整行
-                        if (rowCards.size == 1) Spacer(modifier = Modifier.weight(1f))
+                        // 不满一整行时补等宽占位，避免最后一张/几张被拉伸
+                        repeat(columns - rowCards.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -106,7 +135,7 @@ fun HomeShelfSection(
                     HomeShelfCard(
                         card = card,
                         rank = (index + 1).takeIf { shelf.showRank },
-                        modifier = Modifier.width(HorizontalCardWidth),
+                        modifier = Modifier.width(horizontalCardWidth),
                         onClick = { onCardClick(card) }
                     )
                 }

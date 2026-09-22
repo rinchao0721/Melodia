@@ -45,6 +45,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import org.koin.androidx.compose.koinViewModel
 
 // 精品歌单播放量简易格式化，与 feature/playlist 的同名函数逻辑一致但不跨域引用，保持模块边界干净
@@ -114,8 +115,9 @@ fun PlaylistCategoryScreen(
                         if (shouldLoadMore) viewModel.loadMore()
                     }
 
+                    val columns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 4, expandedLandscape = 6)
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(columns),
                         state = gridState,
                         horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
                         verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),

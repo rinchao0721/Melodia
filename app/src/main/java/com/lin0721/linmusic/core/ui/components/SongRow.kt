@@ -61,7 +61,9 @@ import coil.request.ImageRequest
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -90,12 +92,39 @@ fun SongRow(
     showDownloadBadge: Boolean = true,
     trailingSlot: @Composable RowScope.() -> Unit = {}
 ) {
-    val coverSize = if (compact) 42.dp else 48.dp
+    // 平板 Expanded 断点下行高/封面/字号统一加码，结构不变
+    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val coverSize = when {
+        compact && isExpanded -> 50.dp
+        compact -> 42.dp
+        isExpanded -> 56.dp
+        else -> 48.dp
+    }
     val coverShape: Shape = RoundedCornerShape(RadiusCompact)
-    val titleFontSize = if (compact) 13.sp else 15.sp
-    val artistFontSize = if (compact) 11.sp else 13.sp
-    val coverSpacing = if (compact) 10.dp else 12.dp
-    val verticalPadding = if (compact) 9.dp else 10.dp
+    val titleFontSize = when {
+        compact && isExpanded -> 15.sp
+        compact -> 13.sp
+        isExpanded -> 17.sp
+        else -> 15.sp
+    }
+    val artistFontSize = when {
+        compact && isExpanded -> 12.sp
+        compact -> 11.sp
+        isExpanded -> 14.sp
+        else -> 13.sp
+    }
+    val coverSpacing = when {
+        compact && isExpanded -> 12.dp
+        compact -> 10.dp
+        isExpanded -> 14.dp
+        else -> 12.dp
+    }
+    val verticalPadding = when {
+        compact && isExpanded -> 13.dp
+        compact -> 9.dp
+        isExpanded -> 14.dp
+        else -> 10.dp
+    }
 
     Row(
         modifier = Modifier
