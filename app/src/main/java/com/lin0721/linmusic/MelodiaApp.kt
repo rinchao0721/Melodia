@@ -1,15 +1,24 @@
 package com.lin0721.linmusic
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,6 +44,8 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
+import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.update.UpdateManager
 import com.lin0721.linmusic.core.update.UpdateUiState
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -45,7 +56,9 @@ import dev.chrisbanes.haze.haze
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
+import com.lin0721.linmusic.feature.player.ui.PlayerDockPanel
 
 private val SidebarWidth = 310.dp
 
@@ -77,6 +90,10 @@ fun MelodiaApp() {
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     // 平板适配断点，顶层下发供 MelodiaBottomOverlay 及后续各阶段消费
     val windowSizeClass = rememberMelodiaWindowSizeClass()
+    // Expanded 断点下播放器是否展开为常驻侧栏面板；与手机端 playerSheet 完全独立的状态机。
+    // 面板在任意页面都保持展开态（不局限于 Tab 根页面），参照 Spotify 平板版
+    var isPanelExpanded by remember { mutableStateOf(false) }
+    val isPanelVisible = windowSizeClass == MelodiaWindowSizeClass.Expanded && isPanelExpanded
 
     val hazeState = remember { HazeState() }
     val density = LocalDensity.current
@@ -90,7 +107,9 @@ fun MelodiaApp() {
         }
     }
 
-    // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级
+    // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
+    // 平板常驻播放面板不占用返回键——面板作为常驻工具栏跨页面持续展开（贴合 Spotify），
+    // 只能通过自身的收起箭头/下拉手势关闭，返回键始终只处理内容导航
     val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
 
     BackHandler(enabled = isAnyOverlayOpen) {
@@ -179,82 +198,135 @@ fun MelodiaApp() {
                 }
                 .background(BackgroundDark)
         ) {
-            CompositionLocalProvider(LocalBottomOverlayInset provides bottomOverlayHeight) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
-                ) {
-                    MelodiaNavHost(
-                        currentScreen = navigation.currentScreen,
-                        homeViewModel = viewModel,
-                        homeTab = navigation.homeTab,
-                        showMusicNewWorks = navigation.showMusicNewWorks,
-                        searchAutoFocus = navigation.searchAutoFocus,
-                        onOpenSidebar = { sidebar.open() },
-                        onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
-                        onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
-                        onNavigateToArtist = { id -> navigation.openArtist(id) },
-                        onNavigateToRadio = { id -> navigation.openRadio(id) },
-                        onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
-                        onMvFullscreenChanged = { isMvFullscreen = it },
-                        onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
-                        onNavigateToProfile = { uid -> navigation.openProfile(uid) },
-                        onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
-                        onHomeTabSelected = { navigation.selectHomeTab(it) },
-                        onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
-                        onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
-                        onBack = { handleBack() }
-                    )
-
-                    // 创建菜单遮罩
-                    if (showCreateSheet) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.4f))
-                                .pressable(MelodiaPress.None) { showCreateSheet = false }
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+            ) {
+                CompositionLocalProvider(LocalBottomOverlayInset provides bottomOverlayHeight) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .then(
+                                if (isPanelVisible) {
+                                    Modifier
+                                        .clip(RoundedCornerShape(InfoCardRadius))
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
+                    ) {
+                        MelodiaNavHost(
+                            currentScreen = navigation.currentScreen,
+                            homeViewModel = viewModel,
+                            homeTab = navigation.homeTab,
+                            showMusicNewWorks = navigation.showMusicNewWorks,
+                            searchAutoFocus = navigation.searchAutoFocus,
+                            onOpenSidebar = { sidebar.open() },
+                            onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
+                            onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
+                            onNavigateToArtist = { id -> navigation.openArtist(id) },
+                            onNavigateToRadio = { id -> navigation.openRadio(id) },
+                            onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
+                            onMvFullscreenChanged = { isMvFullscreen = it },
+                            onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
+                            onNavigateToProfile = { uid -> navigation.openProfile(uid) },
+                            onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
+                            onHomeTabSelected = { navigation.selectHomeTab(it) },
+                            onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
+                            onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
+                            onBack = { handleBack() }
                         )
+
+                        // 创建菜单遮罩
+                        if (showCreateSheet) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.4f))
+                                    .pressable(MelodiaPress.None) { showCreateSheet = false }
+                            )
+                        }
+
+                        // 放置在应用了平移 graphicsLayer 的主 Box 内部的底部
+                        MelodiaBottomOverlay(
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            currentScreen = navigation.currentScreen,
+                            showCreateSheet = showCreateSheet,
+                            isLoginScreenVisible = isLoginScreenVisible,
+                            isMvFullscreen = isMvFullscreen,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            currentPositionProvider = currentPositionProvider,
+                            duration = duration,
+                            hazeState = hazeState,
+                            onTogglePlay = { viewModel.togglePlayPause() },
+                            onNext = { viewModel.playerManager.playNext() },
+                            onMiniPlayerClick = {
+                                if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
+                                    isPanelExpanded = true
+                                } else {
+                                    playerSheet.animateTo(true, 0f)
+                                }
+                            },
+                            onMiniPlayerDrag = { delta ->
+                                if (windowSizeClass != MelodiaWindowSizeClass.Expanded) playerSheet.onDrag(delta)
+                            },
+                            onMiniPlayerDragEnd = { velocity ->
+                                if (windowSizeClass != MelodiaWindowSizeClass.Expanded) playerSheet.onDragEnd(velocity)
+                            },
+                            previousQueueItem = previousQueueItem,
+                            nextQueueItem = nextQueueItem,
+                            onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
+                            onCreateDismiss = { showCreateSheet = false },
+                            onNavigate = { navigation.openTab(it) },
+                            onCreateClick = { showCreateSheet = !showCreateSheet },
+                            showCreateEntry = showCreateEntry,
+                            onOverlayHeightChanged = { bottomOverlayHeight = it }
+                        )
+
+                        // 侧边栏打开时的遮罩与点击收起事件
+                        if (sidebar.progress > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.4f * sidebar.progress))
+                                    .pressable(
+                                        style = MelodiaPress.None,
+                                        enabled = sidebar.isOpen,
+                                        onClick = { sidebar.close() }
+                                    )
+                            )
+                        }
                     }
+                }
 
-                    // 放置在应用了平移 graphicsLayer 的主 Box 内部的底部
-                    MelodiaBottomOverlay(
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                        currentScreen = navigation.currentScreen,
-                        showCreateSheet = showCreateSheet,
-                        isLoginScreenVisible = isLoginScreenVisible,
-                        isMvFullscreen = isMvFullscreen,
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        currentPositionProvider = currentPositionProvider,
-                        duration = duration,
-                        hazeState = hazeState,
-                        onTogglePlay = { viewModel.togglePlayPause() },
-                        onNext = { viewModel.playerManager.playNext() },
-                        onMiniPlayerClick = { playerSheet.animateTo(true, 0f) },
-                        onMiniPlayerDrag = { delta -> playerSheet.onDrag(delta) },
-                        onMiniPlayerDragEnd = { velocity -> playerSheet.onDragEnd(velocity) },
-                        previousQueueItem = previousQueueItem,
-                        nextQueueItem = nextQueueItem,
-                        onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
-                        onCreateDismiss = { showCreateSheet = false },
-                        onNavigate = { navigation.openTab(it) },
-                        onCreateClick = { showCreateSheet = !showCreateSheet },
-                        showCreateEntry = showCreateEntry,
-                        onOverlayHeightChanged = { bottomOverlayHeight = it }
-                    )
-
-                    // 侧边栏打开时的遮罩与点击收起事件
-                    if (sidebar.progress > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.4f * sidebar.progress))
-                                .pressable(
-                                    style = MelodiaPress.None,
-                                    enabled = sidebar.isOpen,
-                                    onClick = { sidebar.close() }
-                                )
+                // 平板常驻播放面板：Expanded + 展开态时显示，任意页面都保持展开（参照 Spotify 平板版）
+                AnimatedVisibility(
+                    visible = isPanelVisible,
+                    enter = fadeIn() + expandHorizontally(),
+                    exit = fadeOut() + shrinkHorizontally()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(InfoCardRadius))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
+                    ) {
+                        PlayerDockPanel(
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            currentPositionProvider = currentPositionProvider,
+                            duration = duration,
+                            onTogglePlay = { viewModel.togglePlayPause() },
+                            onSeek = { viewModel.playerManager.seekTo(it) },
+                            onClose = { isPanelExpanded = false },
+                            onDragClose = { _, _ -> isPanelExpanded = false },
+                            onArtistClick = { artistId -> navigation.openArtist(artistId) },
+                            onAlbumClick = { albumId -> navigation.openPlaylist(albumId, isAlbum = true) },
+                            onNavigateToProfile = { uid -> navigation.openProfile(uid) }
                         )
                     }
                 }

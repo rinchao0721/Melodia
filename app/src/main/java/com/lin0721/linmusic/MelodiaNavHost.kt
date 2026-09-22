@@ -10,11 +10,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
-import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
-import com.lin0721.linmusic.feature.library.ui.LibraryExpandedLayout
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -102,23 +99,14 @@ fun MelodiaNavHost(
                 )
             }
             is Screen.Library -> {
-                if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) {
-                    LibraryExpandedLayout(
-                        onArtistClick = onNavigateToArtist,
-                        onNavigateToProfile = onNavigateToProfile,
-                        onOpenSidebar = onOpenSidebar,
-                        onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
-                    )
-                } else {
-                    com.lin0721.linmusic.feature.library.ui.LibraryScreen(
-                        onPlaylistClick = { id -> onNavigateToPlaylist(id, false) },
-                        onArtistClick = onNavigateToArtist,
-                        onAlbumClick = { id -> onNavigateToPlaylist(id, true) },
-                        onBack = onBack,
-                        onOpenSidebar = onOpenSidebar,
-                        onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
-                    )
-                }
+                com.lin0721.linmusic.feature.library.ui.LibraryScreen(
+                    onPlaylistClick = { id -> onNavigateToPlaylist(id, false) },
+                    onArtistClick = onNavigateToArtist,
+                    onAlbumClick = { id -> onNavigateToPlaylist(id, true) },
+                    onBack = onBack,
+                    onOpenSidebar = onOpenSidebar,
+                    onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
+                )
             }
             is Screen.Settings -> {
                 com.lin0721.linmusic.feature.settings.ui.SettingsScreen(
