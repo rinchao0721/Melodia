@@ -2,9 +2,20 @@ package com.lin0721.linmusic.feature.player.ui
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
+import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
+import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
+import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -25,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -56,6 +69,9 @@ fun FullPlayerScreen(
     val viewModel: PlayerViewModel = koinViewModel()
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
+    // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
+    // 歌词区/顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
+    val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentLyricIndex by viewModel.currentLyricIndex.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
@@ -65,6 +81,7 @@ fun FullPlayerScreen(
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
     val currentQueueIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
+    val currentQueueItem by viewModel.playerManager.currentQueueItem.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
@@ -72,8 +89,13 @@ fun FullPlayerScreen(
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
     var showTimerSheet by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
+    var showCommentFloor by remember { mutableStateOf(false) }
+    val composerState by viewModel.composerState.collectAsStateWithLifecycle()
+    val floorState by viewModel.floorState.collectAsStateWithLifecycle()
+    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
+    var showDownloadQualitySheet by remember { mutableStateOf(false) }
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -102,8 +124,16 @@ fun FullPlayerScreen(
         showCommentsSheet = false
     }
 
+    BackHandler(enabled = showCommentFloor) {
+        showCommentFloor = false
+    }
+
     BackHandler(enabled = showOutputDeviceSheet) {
         showOutputDeviceSheet = false
+    }
+
+    BackHandler(enabled = showDownloadQualitySheet) {
+        showDownloadQualitySheet = false
     }
 
     // 全屏歌词逐字滚动需要更密的进度回调
@@ -127,11 +157,34 @@ fun FullPlayerScreen(
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val coverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
-        ?.replace("?param=300y300", "") ?: ""
-    // 上一首/下一首预览封面去掉缩略图参数
-    val previousCoverUrl = previousQueueItem?.coverUrl?.replace("?param=300y300", "")
-    val nextCoverUrl = nextQueueItem?.coverUrl?.replace("?param=300y300", "")
+    val rawCoverUrl = currentTrack.mediaMetadata.artworkUri?.toString()
+        ?.replace("?param=300y300", "").orEmpty()
+    val fallbackCoverUrl = currentQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }.orEmpty()
+    val coverUrl = rawCoverUrl.ifBlank { fallbackCoverUrl }
+    // 预览封面解析
+    val previousCoverUrl = previousQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }
+    val nextCoverUrl = nextQueueItem?.let {
+        rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
+    }
+
+    // 歌名/歌手要跟封面一起冻结：队列已经先切过去、currentTrack 还没跟上时，
+    // 直接用实时值会让封面下方的文字在滑动/切歌过程中先于封面硬跳
+    val previousKeyStr = previousQueueItem?.songId?.toString()
+    val nextKeyStr = nextQueueItem?.songId?.toString()
+    var displayedTitle by remember { mutableStateOf(title) }
+    var displayedArtist by remember { mutableStateOf(artist) }
+    if ((previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
+        (nextKeyStr != null && nextKeyStr == currentTrack.mediaId)
+    ) {
+        // 队列已经先切过去，曲目数据还没跟上，先保留原文字，等 currentTrack 落地后再刷新
+    } else {
+        displayedTitle = title
+        displayedArtist = artist
+    }
 
     fun shareCurrentSong() {
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
@@ -232,7 +285,7 @@ fun FullPlayerScreen(
             modifier = Modifier.fillMaxSize().haze(hazeState),
             contentPadding = PaddingValues(
                 top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
-                bottom = 80.dp
+                bottom = 80.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             )
         ) {
             fullPlayerPlaybackSection(
@@ -242,14 +295,16 @@ fun FullPlayerScreen(
                 previousCoverUrl = previousCoverUrl,
                 nextCoverUrl = nextCoverUrl,
                 onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
+                onCancelSwipe = viewModel.playerManager::cancelPendingSkip,
                 currentKey = currentTrack.mediaId,
                 previousKey = previousQueueItem?.songId?.toString(),
                 nextKey = nextQueueItem?.songId?.toString(),
-                title = title,
-                artist = artist,
+                title = displayedTitle,
+                artist = displayedArtist,
                 playContext = playContext,
                 currentLyricIndex = currentLyricIndex,
                 isPlaying = isPlaying,
+                playWhenReady = playWhenReady,
                 currentPositionProvider = currentPositionProvider,
                 duration = duration,
                 playMode = playMode,
@@ -287,9 +342,10 @@ fun FullPlayerScreen(
                 onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                 onCommentsClick = { showCommentsSheet = true },
                 onRetryComments = viewModel::retryComments,
-                onFollowArtistClick = { viewModel.toggleArtistFollow() },
+                onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
                 onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick
+                onAlbumClick = onAlbumClick,
+                onSelectArtist = { index -> viewModel.selectArtist(index) }
             )
         }
 
@@ -303,6 +359,8 @@ fun FullPlayerScreen(
             isLiked = songDetailState.isLiked,
             onToggleLike = viewModel::toggleLike,
             backgroundColor = colors.base,
+            currentPositionProvider = currentPositionProvider,
+            duration = duration,
             onArtistClick = {
                 songDetail?.ar?.firstOrNull()?.id?.let { id ->
                     onArtistClick(id)
@@ -353,7 +411,6 @@ fun FullPlayerScreen(
             collectSongId = collectSongId,
             collectState = collectState,
             showTimerSheet = showTimerSheet,
-            showCommentsSheet = showCommentsSheet,
             showOutputDeviceSheet = showOutputDeviceSheet,
             queue = queue,
             currentQueueIndex = currentQueueIndex,
@@ -365,7 +422,6 @@ fun FullPlayerScreen(
             coverUrl = coverUrl,
             sleepTimerRemaining = sleepTimerRemaining,
             activeQuality = activeQuality,
-            commentsState = commentsState,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
             onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },
@@ -424,6 +480,7 @@ fun FullPlayerScreen(
                 }
             },
             onShareClick = { shareCurrentSong() },
+            onDownloadClick = { showDownloadQualitySheet = true },
             onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
             onCollectDismiss = { collectSongId = null },
@@ -433,15 +490,80 @@ fun FullPlayerScreen(
                 showTimerSheet = false
             },
             onTimerDismiss = { showTimerSheet = false },
-            onLikeComment = viewModel::likeComment,
-            onRetryComments = { viewModel.retryComments() },
-            onCommentsDismiss = { showCommentsSheet = false },
             onOutputDeviceSelected = { deviceId -> viewModel.playerManager.setPreferredAudioDevice(deviceId) },
-            onOutputDeviceDismiss = { showOutputDeviceSheet = false },
-            onNavigateToProfile = { uid ->
-                showCommentsSheet = false
-                onNavigateToProfile(uid)
-            }
+            onOutputDeviceDismiss = { showOutputDeviceSheet = false }
         )
+
+        AnimatedVisibility(
+            visible = showCommentsSheet,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            CommentFullScreen(
+                commentsState = commentsState,
+                currentUserId = userProfile?.uid,
+                composerState = composerState,
+                onBack = { showCommentsSheet = false },
+                onSortChange = viewModel::changeCommentSort,
+                onLikeComment = viewModel::likeComment,
+                onUserClick = { uid ->
+                    showCommentsSheet = false
+                    onNavigateToProfile(uid)
+                },
+                onExpandFloor = { comment ->
+                    showCommentFloor = true
+                    viewModel.openCommentFloor(comment)
+                },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                onSubmitComment = { content, target ->
+                    if (target != null) {
+                        viewModel.submitCommentReply(target.commentId, content)
+                    } else {
+                        viewModel.submitComment(content)
+                    }
+                },
+                onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                onLoadMore = viewModel::loadMoreComments,
+                onRetry = { viewModel.retryComments() }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showCommentFloor,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            CommentFloorScreen(
+                floorState = floorState,
+                currentUserId = userProfile?.uid,
+                composerState = composerState,
+                onBack = { showCommentFloor = false },
+                onLoadMore = viewModel::loadMoreCommentFloor,
+                onSubmitReply = { parentCommentId, content ->
+                    viewModel.submitCommentReply(parentCommentId, content)
+                },
+                onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                onLikeClick = { comment -> viewModel.likeComment(comment) },
+                onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
+                onUserClick = onNavigateToProfile
+            )
+        }
+
+        if (showDownloadQualitySheet) {
+            DownloadQualityPickerSheet(
+                songId = currentTrack.mediaId.toLongOrNull(),
+                maxDownloadLevel = songDetail?.privilege?.dlLevel,
+                onQualitySelected = { level ->
+                    val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
+                    val artistNames = songDetail?.ar?.joinToString("/") { it.name }?.takeIf { it.isNotBlank() } ?: artist
+                    val albumName = songDetail?.al?.name ?: ""
+                    val albumYear = com.lin0721.linmusic.core.download.yearFromEpochMillis(songDetail?.publishTime ?: 0)
+                    viewModel.downloadCurrentSong(songId, title, artistNames, albumName, coverUrl, albumYear, level)
+                    showDownloadQualitySheet = false
+                },
+                onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
     }
 }

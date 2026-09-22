@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -21,8 +27,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.darken
 
 // 播放页顶栏，仅在封面滚出视野后显示歌名与快捷操作
 @Composable
@@ -36,70 +43,90 @@ fun FullPlayerTopBar(
     isLiked: Boolean = false,
     onToggleLike: () -> Unit = {},
     backgroundColor: Color = Color.Transparent,
+    currentPositionProvider: () -> Long = { 0L },
+    duration: Long = 0L,
     onArtistClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    if (showTitle) {
-        Row(
-            modifier = modifier
+    // 跟 mini 栏同样的后处理：压暗后纯色铺底，不做光斑/模糊
+    val fillColor = remember(backgroundColor) { backgroundColor.darken(0.35f) }
+
+    AnimatedVisibility(
+        visible = showTitle,
+        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { -it / 3 },
+        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it / 3 },
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
                 .fillMaxWidth()
-                .background(backgroundColor)
-                .statusBarsPadding()
-                .padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .background(fillColor)
         ) {
-            MelodiaIconButton(onClick = onClose) {
-                Icon(
-                    Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            ) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee()
-                )
-                Text(
-                    text = artist,
-                    color = TextGray,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = if (onArtistClick != null) Modifier.clickable(onClick = onArtistClick) else Modifier
-                )
-            }
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.sm),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                MelodiaIconButton(onClick = onToggleLike) {
+                MelodiaIconButton(onClick = onClose) {
                     Icon(
-                        if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        Icons.Rounded.KeyboardArrowDown,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
-                MelodiaIconButton(onClick = onTogglePlay) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp)
+                ) {
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
                     )
+                    Text(
+                        text = artist,
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (onArtistClick != null) Modifier.clickable(onClick = onArtistClick) else Modifier
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+                ) {
+                    MelodiaIconButton(onClick = onToggleLike) {
+                        Icon(
+                            if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    MelodiaIconButton(onClick = onTogglePlay) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
+            // 边缘进度条，跟 mini 栏同一个组件
+            MiniPlayerProgress(
+                currentPositionProvider = currentPositionProvider,
+                duration = duration
+            )
         }
     }
 }

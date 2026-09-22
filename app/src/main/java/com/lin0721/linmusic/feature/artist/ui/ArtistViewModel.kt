@@ -68,8 +68,7 @@ class ArtistViewModel(
         }
     }
 
-    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
-    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
@@ -85,7 +84,7 @@ class ArtistViewModel(
 
     fun loadLikedSongIds() {
         viewModelScope.launch {
-            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it }
+            loadLikedSongIdsUseCase()
         }
     }
 
@@ -285,7 +284,7 @@ class ArtistViewModel(
 
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -294,16 +293,18 @@ class ArtistViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = _likedSongIds.value,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
-                onLikedChanged = { _likedSongIds.value = it }
+                onLikedChanged = { newLiked ->
+                    songLikeRepository.syncLikedSongIds(newLiked)
+                }
             )
         }
     }
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -313,9 +314,6 @@ class ArtistViewModel(
             songLikeRepository.likeSong(songId, like).collect { result ->
                 result.onSuccess {
                     _toastEvent.emit(if (like) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
-                    val currentLiked = _likedSongIds.value.toMutableSet()
-                    if (like) currentLiked.add(songId) else currentLiked.remove(songId)
-                    _likedSongIds.value = currentLiked
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }

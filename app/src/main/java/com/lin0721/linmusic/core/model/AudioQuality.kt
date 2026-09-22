@@ -4,6 +4,7 @@ package com.lin0721.linmusic.core.model
 fun getQualityDisplayName(quality: String): String {
     return when (quality) {
         "standard" -> "标准"
+        "higher" -> "较高"
         "exhigh" -> "极高"
         "lossless" -> "无损 (FLAC)"
         "hires" -> "Hi-Res"

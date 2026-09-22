@@ -1,17 +1,13 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.OpenInFull
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -24,25 +20,39 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.lighten
+import com.lin0721.linmusic.core.ui.theme.saturate
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 
-// 卡片尺寸比全屏背景小得多，模糊半径按比例调小，避免整块糊成一片看不出光斑层次
 private val LYRICS_CARD_BLUR_RADIUS = 32.dp
 
+private val ShowLyricsButtonHeight = 36.dp
+private val ShowLyricsButtonTopGap = MelodiaSpacing.md
+
+// 歌词预览区尺寸估算跟滚动定位共用同一套常量，避免两处数值漂移
+private val LyricItemSpacing = 14.dp
+private val LyricItemHeightNoTransEst = 36.dp
+private val LyricItemHeightWithTransEst = 56.dp
+private val LyricItemStride = LyricItemHeightNoTransEst + LyricItemSpacing
+private const val VisibleLyricLines = 4
+// 基准高度按「4 行单语原文」估算；当前行如果换行或带翻译，会在这个基准上动态往高长
+private val LyricsBaseViewportHeight = LyricItemHeightNoTransEst * VisibleLyricLines + LyricItemSpacing * (VisibleLyricLines - 1)
+private val LyricTranslationExtraHeight = 24.dp
+
 // ────────────────────────────────────────────────────────────────────────────
-// 折叠播放页的歌词预览卡（流体光雾背景 + 自动滚动预览列表）
+// 折叠播放页的歌词预览卡（哑光渐变背景 + 自动滚动预览列表 + 底部展开按钮）
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun LyricsCard(
@@ -50,39 +60,9 @@ fun LyricsCard(
     currentIndex: Int,
     isLoading: Boolean,
     base: Color,
-    highlightColor: Color,
     onOpenFullScreen: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "fluid_mesh")
-
-    // 左上角光斑动画
-    val lightCenterX by infiniteTransition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "light_x"
-    )
-    val lightCenterY by infiniteTransition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(14000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "light_y"
-    )
-    val lightRadiusScale by infiniteTransition.animateFloat(
-        initialValue = 0.75f,
-        targetValue = 0.90f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "light_radius"
-    )
 
     // 右下角光斑动画
     val darkCenterX by infiniteTransition.animateFloat(
@@ -113,20 +93,32 @@ fun LyricsCard(
         label = "dark_radius"
     )
 
-    val fillColor = remember(base) { base.darken(0.35f) }
-    val lightBlob = remember(base) { base.lighten(0.05f) }
-    val darkBlob = remember(base) { base.darken(0.15f) }
+    val vividBase = remember(base) { base.saturate(0.6f) }
+    val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
+    val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
+    // 未唱到的歌词颜色跟全屏歌词页的 textHighlight 用同一套配方，背景用的 vividBase 幅度较小，
+    // 文字这里单独再提一档饱和度+明度，不然混完白会发灰
+    val textVividBase = remember(base) { base.saturate(0.8f).lighten(1.0f) }
+    val inactiveLyricColor = remember(textVividBase) { lerp(textVividBase, Color.White, 0.5f) }
 
-    val cardWidth = (LocalConfiguration.current.screenWidthDp - 32).dp
-    val cardHeight = cardWidth * 0.88f
+    // 当前行实际换行数，由 LyricsPreview 里当前行 Text 的 onTextLayout 回报，用来动态撑高预览区
+    var currentLineWrapLines by remember { mutableIntStateOf(1) }
+    val hasCurrentTranslation = lyrics.getOrNull(currentIndex)?.translation != null
+    val extraWrapLines = (currentLineWrapLines - 1).coerceAtLeast(0)
+    val targetViewportHeight = LyricsBaseViewportHeight +
+        LyricItemHeightNoTransEst * extraWrapLines +
+        (if (hasCurrentTranslation) LyricTranslationExtraHeight else 0.dp)
+    val animatedViewportHeight by animateDpAsState(
+        targetValue   = targetViewportHeight,
+        animationSpec = tween(300, easing = FastOutSlowInEasing),
+        label         = "lyrics_viewport_height"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
-            .height(cardHeight)
             .clip(RoundedCornerShape(InfoCardRadius))
-            .clickable(onClick = onOpenFullScreen)
     ) {
         Box(
             modifier = Modifier
@@ -136,9 +128,6 @@ fun LyricsCard(
                     val baseSize = size.minDimension
                     drawSingleHueMesh(
                         fill = fillColor,
-                        lightBlob = lightBlob,
-                        lightCenter = Offset(size.width * lightCenterX, size.height * lightCenterY),
-                        lightRadius = baseSize * lightRadiusScale,
                         darkBlob = darkBlob,
                         darkCenter = Offset(size.width * darkCenterX, size.height * darkCenterY),
                         darkRadius = baseSize * darkRadiusScale
@@ -147,50 +136,56 @@ fun LyricsCard(
         )
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "歌词",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Icon(
-                    Icons.Rounded.OpenInFull,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .clickable { onOpenFullScreen() }
-                        .padding(MelodiaSpacing.xs)
-                )
-            }
+            Text(
+                "歌词预览",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
 
             Spacer(modifier = Modifier.height(MelodiaSpacing.md))
 
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
+            Box(modifier = Modifier.height(animatedViewportHeight)) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                } else {
+                    LyricsPreview(
+                        lyrics = lyrics,
+                        currentIndex = currentIndex,
+                        inactiveColor = inactiveLyricColor,
+                        onCurrentLineLayout = { currentLineWrapLines = it }
                     )
                 }
-            } else {
-                LyricsPreview(
-                    lyrics = lyrics,
-                    currentIndex = currentIndex,
-                    highlightColor = highlightColor
+            }
+
+            Spacer(modifier = Modifier.height(ShowLyricsButtonTopGap))
+
+            MelodiaButton(
+                onClick = onOpenFullScreen,
+                modifier = Modifier.height(ShowLyricsButtonHeight),
+                shape = RoundedCornerShape(percent = 50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                contentPadding = PaddingValues(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+            ) {
+                Text(
+                    "显示歌词",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -201,12 +196,13 @@ fun LyricsCard(
 fun LyricsPreview(
     lyrics: List<LyricLine>,
     currentIndex: Int,
-    highlightColor: Color
+    inactiveColor: Color,
+    onCurrentLineLayout: (Int) -> Unit
 ) {
-    val itemSpacingDp = 14.dp
-    val itemHeightNoDpEst    = 36.dp
-    val itemHeightWithTransDpEst = 56.dp
-    val itemStrideDp      = itemHeightNoDpEst + itemSpacingDp
+    val itemSpacingDp = LyricItemSpacing
+    val itemHeightNoDpEst    = LyricItemHeightNoTransEst
+    val itemHeightWithTransDpEst = LyricItemHeightWithTransEst
+    val itemStrideDp      = LyricItemStride
 
     val density       = LocalDensity.current
     val lazyListState = rememberLazyListState()
@@ -244,6 +240,9 @@ fun LyricsPreview(
         contentPadding = PaddingValues(top = 0.dp, bottom = with(density) { (cardHeightPx / 2).toDp() })
     ) {
         itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
+            // 纯音乐段的空白占位行不占用预览区域，避免滚动时出现大段空隙
+            if (line.text.isBlank()) return@itemsIndexed
+
             val isCurrent = index == currentIndex
             val distance  = kotlin.math.abs(index - currentIndex).coerceAtMost(4)
 
@@ -256,14 +255,14 @@ fun LyricsPreview(
             )
 
             val targetAlpha = if (isCurrent) 1f
-                              else (0.55f - distance * 0.1f).coerceAtLeast(0.2f)
+                              else (0.85f - distance * 0.12f).coerceAtLeast(0.4f)
             val animatedAlpha by animateFloatAsState(
                 targetValue   = targetAlpha,
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
                 label         = "lyric_alpha_$index"
             )
 
-            val targetTransAlpha = 0.65f
+            val targetTransAlpha = if (isCurrent) 0.85f else 0.7f
             val animatedTransAlpha by animateFloatAsState(
                 targetValue   = targetTransAlpha,
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
@@ -280,20 +279,25 @@ fun LyricsPreview(
                         transformOrigin = TransformOrigin(0f, 0.5f)
                     }
             ) {
+                val mainFontSize = if (isCurrent) 20.sp else 18.sp
+                val transFontSize = if (isCurrent) 15.sp else 14.sp
                 Text(
                     text       = line.text,
-                    fontSize   = 20.sp,
-                    color      = if (isCurrent) Color.White else highlightColor,
+                    fontSize   = mainFontSize,
+                    lineHeight = (mainFontSize.value * 1.35f).sp,
+                    color      = if (isCurrent) Color.White else inactiveColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign  = TextAlign.Start,
+                    onTextLayout = { if (isCurrent) onCurrentLineLayout(it.lineCount) },
                     modifier   = Modifier.fillMaxWidth()
                 )
                 if (line.translation != null) {
                     Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
                     Text(
                         text      = line.translation,
-                        fontSize  = 15.sp,
-                        color     = Color.White.copy(alpha = animatedTransAlpha),
+                        fontSize  = transFontSize,
+                        lineHeight = (transFontSize.value * 1.35f).sp,
+                        color     = (if (isCurrent) Color.White else inactiveColor).copy(alpha = animatedTransAlpha),
                         textAlign = TextAlign.Start,
                         modifier  = Modifier.fillMaxWidth()
                     )

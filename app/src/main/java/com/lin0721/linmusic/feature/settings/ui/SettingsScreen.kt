@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.*
@@ -59,7 +60,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     var activeSubMenu by remember { mutableStateOf<SettingsSubMenu?>(null) }
 
-    BackHandler(enabled = activeSubMenu != null) {
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    BackHandler(enabled = activeSubMenu != null && !LocalGlobalOverlayOpen.current) {
         activeSubMenu = null
     }
     

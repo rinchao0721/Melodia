@@ -90,13 +90,20 @@ class PlaybackRepositoryImpl(
                         } else {
                             // 解析翻译歌词列表（优先使用 ytlrc，其次使用 tlyric）
                             val translationLines = LyricParser.parseLrc(response.ytlrc?.lyric ?: response.tlyric?.lyric ?: "")
+                            // 解析罗马音歌词列表
+                            val romaLines = LyricParser.parseLrc(response.romalrc?.lyric ?: "")
                             lines.map { line ->
                                 // 寻找在 150ms 内与原词时间戳最接近的翻译行
                                 val matchedTranslation = translationLines
                                     .filter { kotlin.math.abs(it.timeMs - line.timeMs) < 150 }
                                     .minByOrNull { kotlin.math.abs(it.timeMs - line.timeMs) }
                                     ?.text
-                                line.copy(translation = matchedTranslation)
+                                // 寻找在 150ms 内与原词时间戳最接近的罗马音行
+                                val matchedRoma = romaLines
+                                    .filter { kotlin.math.abs(it.timeMs - line.timeMs) < 150 }
+                                    .minByOrNull { kotlin.math.abs(it.timeMs - line.timeMs) }
+                                    ?.text
+                                line.copy(translation = matchedTranslation, roma = matchedRoma)
                             }
                         }
                     }

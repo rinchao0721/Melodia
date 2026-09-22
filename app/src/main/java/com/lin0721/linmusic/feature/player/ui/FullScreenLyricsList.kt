@@ -1,9 +1,13 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -64,29 +68,45 @@ fun ColumnScope.FullScreenLyricsList(
     viewportHeightPx: Float,
     onViewportHeightChange: (Float) -> Unit,
     gestureModifier: Modifier,
+    fontSize: Int = 22,
+    alignment: String = "left",
+    secondaryMode: String = "translation",
+    advancedKaraokeEffect: Boolean = true,
+    isPlaying: Boolean = true,
     onSeek: (Long) -> Unit,
     onLyricClick: (LyricLine) -> Unit
 ) {
     val density = LocalDensity.current
 
-    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx) {
+    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode) {
         if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
             val itemStridePx = with(density) { 66.dp.toPx() }
             val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
 
             if (currentIndex < linesAboveCentre) {
-                lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
+                lazyListState.springScrollToCentre(
+                    targetIndex = 0,
+                    desiredOffsetPx = 0,
+                    fallbackScrollOffsetPx = 0
+                )
                 return@LaunchedEffect
             }
 
-            val hasTranslation = lyrics[currentIndex].translation != null
-            val itemHeightPx = with(density) {
-                if (hasTranslation) 96.dp.toPx() else 54.dp.toPx()
+            val currentLine = lyrics[currentIndex]
+            val hasSecondary = when (secondaryMode) {
+                "translation" -> currentLine.translation != null
+                "roma" -> currentLine.roma != null
+                else -> false
             }
-            val centreOffsetPx = -((viewportHeightPx - itemHeightPx) / 2f).toInt()
-            lazyListState.animateScrollToItem(
-                index = currentIndex,
-                scrollOffset = centreOffsetPx
+            val itemHeightPx = with(density) {
+                if (hasSecondary) 96.dp.toPx() else 54.dp.toPx()
+            }
+            val desiredOffsetPx = ((viewportHeightPx - itemHeightPx) / 2f).toInt()
+            val centreOffsetPx = -desiredOffsetPx
+            lazyListState.springScrollToCentre(
+                targetIndex = currentIndex,
+                desiredOffsetPx = desiredOffsetPx,
+                fallbackScrollOffsetPx = centreOffsetPx
             )
         }
     }
@@ -148,7 +168,11 @@ fun ColumnScope.FullScreenLyricsList(
                     top = 0.dp,
                     bottom = with(density) { (viewportHeightPx / 2f).toDp() }
                 ),
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = when (alignment) {
+                    "center" -> Alignment.CenterHorizontally
+                    "right" -> Alignment.End
+                    else -> Alignment.Start
+                }
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
                     val isCurrent = index == currentIndex
@@ -163,6 +187,11 @@ fun ColumnScope.FullScreenLyricsList(
                         distance = distance,
                         highlightColor = highlightColor,
                         currentPositionProvider = currentPositionProvider,
+                        fontSize = fontSize,
+                        alignment = alignment,
+                        secondaryMode = secondaryMode,
+                        advancedKaraokeEffect = advancedKaraokeEffect,
+                        isPlaying = isPlaying,
                         onClick = { onLyricClick(line) }
                     )
                 }
@@ -185,8 +214,8 @@ fun ColumnScope.FullScreenLyricsList(
 private fun CenterTargetLine(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(),
-        exit = fadeOut(),
+        enter = fadeIn(spring(dampingRatio = 0.85f, stiffness = 300f)),
+        exit = fadeOut(tween(180)),
         modifier = modifier
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -211,8 +240,16 @@ private fun PlayCapsule(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200)),
-        exit = fadeOut(tween(200)),
+        enter = fadeIn(spring(dampingRatio = 0.82f, stiffness = 380f)) +
+                scaleIn(
+                    initialScale = 0.82f,
+                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f)
+                ),
+        exit = fadeOut(tween(160)) +
+               scaleOut(
+                   targetScale = 0.85f,
+                   animationSpec = tween(160)
+               ),
         modifier = modifier
     ) {
         if (targetLine != null) {
@@ -240,4 +277,43 @@ private fun PlayCapsule(
             }
         }
     }
+}
+
+// 物理弹簧阻尼居中平滑滚动
+private suspend fun LazyListState.springScrollToCentre(
+    targetIndex: Int,
+    desiredOffsetPx: Int,
+    fallbackScrollOffsetPx: Int,
+    dampingRatio: Float = 0.82f,
+    stiffness: Float = 360f
+) {
+    val layoutInfo = this.layoutInfo
+    val visibleItem = layoutInfo.visibleItemsInfo.find { it.index == targetIndex }
+
+    if (visibleItem != null) {
+        val currentOffset = visibleItem.offset
+        val deltaToScroll = (currentOffset - desiredOffsetPx).toFloat()
+
+        if (kotlin.math.abs(deltaToScroll) > 1f) {
+            var previousValue = 0f
+            val anim = Animatable(0f)
+            val springSpec = spring<Float>(
+                dampingRatio = dampingRatio,
+                stiffness = stiffness
+            )
+            this.scroll {
+                anim.animateTo(
+                    targetValue = deltaToScroll,
+                    animationSpec = springSpec
+                ) {
+                    val delta = this.value - previousValue
+                    scrollBy(delta)
+                    previousValue = this.value
+                }
+            }
+            return
+        }
+    }
+
+    this.animateScrollToItem(index = targetIndex, scrollOffset = fallbackScrollOffsetPx)
 }

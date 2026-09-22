@@ -45,6 +45,39 @@
 # ===== 网易云加密 =====
 # NeteaseCrypto 走标准 javax.crypto，无反射，无需 keep；此处仅声明以备查
 
+# XeapiCrypto 用 BouncyCastleProvider 做 X25519 密钥协商，BC 内部通过字符串反射
+# 注册 SPI 实现类，不 keep 会被 R8 当死代码裁掉，导致 release 包
+# getInstance("X25519", bcProvider) 抛 NoSuchAlgorithmException（评论等 xeapi
+# 接口必崩，仅正式混淆包复现，debug 包无法复现）
+-keep class org.bouncycastle.** { *; }
+-keepclassmembers class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
 # ===== Media3 / Coil / Koin =====
 # 三者均随包提供 consumer rules：Media3 保留 Player 相关回调，Coil 保留解码器，
 # Koin 的构造函数 DSL（::X 函数引用）为编译期解析，均无需额外声明
+
+# ===== Room & WorkManager =====
+# WorkManager 内部使用 Room 保存作业状态，Room 依赖反射调用数据库实现类的无参构造函数。
+# 在开启 R8 代码优化 (proguard-android-optimize.txt) 后，未显式 keep 的构造函数会被内联或裁减，
+# 导致 WorkManager.initialize 时抛出 NoSuchMethodException: WorkDatabase_Impl.<init> [] 崩溃
+-keep class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+-keep class androidx.work.impl.WorkDatabase_Impl {
+    <init>();
+}
+-keep class androidx.work.impl.** { *; }
+-dontwarn androidx.work.impl.**
+
+# Worker 构造函数保护
+-keep class * extends androidx.work.ListenableWorker {
+    <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
+# ===== Android Parcelable & AIDL =====
+# 跨进程传输时依赖 CREATOR 反射实例化
+-keepclassmembers class * implements android.os.Parcelable {
+    static ** CREATOR;
+}
+-keep class com.hchen.superlyricapi.** { *; }

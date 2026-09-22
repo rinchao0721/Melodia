@@ -14,16 +14,21 @@ kotlinxSerialization = "1.7.3"
 koin = "4.0.0"
 coil = "2.7.0"
 media3 = "1.6.0"
+media = "1.7.0"
 haze = "0.6.2"
 datastore = "1.1.2"
-palette = "1.0.0"
 # 与 Kotlin 2.2.x 捆绑的协程版本保持一致，仅测试期使用
 coroutinesTest = "1.9.0"
 imageCropper = "4.7.0"
 zxing = "3.5.3"
-
+bouncycastle = "1.85.2"
+workManager = "2.10.1"
+documentfile = "1.0.1"
+taglib = "1.0.5"
 
 [libraries]
+bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
@@ -69,11 +74,17 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 # Media3
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+androidx-media = { group = "androidx.media", name = "media", version.ref = "media" }
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 
-# Palette（封面取色）
-androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
+# WorkManager
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
+# DocumentFile
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+
+# TagLib 音频标签
+taglib = { group = "io.github.kyant0", name = "taglib", version.ref = "taglib" }
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 

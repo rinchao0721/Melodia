@@ -45,7 +45,7 @@ fun RecentPlaySection(
 
     val columns = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) 3 else 2
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
         Text(
             text = "最近播放",
             color = MaterialTheme.colorScheme.onSurface,

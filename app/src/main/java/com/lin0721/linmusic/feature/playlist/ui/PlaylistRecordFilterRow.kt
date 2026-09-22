@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -34,12 +33,14 @@ fun PlaylistRecordFilterRow(
             .background(MaterialTheme.colorScheme.background)
             .padding(vertical = 12.dp),
         contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         items(allFilters, key = { it }) { filter ->
             val isSelected = filter == selectedHistoryDate
             Box(
                 modifier = Modifier
+                    .height(36.dp)
                     .pressable(MelodiaPress.Pill) {
                         onSelectedHistoryDateChange(filter)
                         if (filter == "最近一周") {
@@ -52,7 +53,7 @@ fun PlaylistRecordFilterRow(
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f)
                     )
-                    .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

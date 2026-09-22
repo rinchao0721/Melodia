@@ -67,8 +67,7 @@ class CloudViewModel(
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
-    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
-    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
     val uploadTasks: StateFlow<List<UploadTask>> = uploadManager.state
@@ -110,7 +109,7 @@ class CloudViewModel(
 
     private fun loadLikedSongIds() {
         viewModelScope.launch {
-            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it }
+            loadLikedSongIdsUseCase()
         }
     }
 
@@ -183,17 +182,12 @@ class CloudViewModel(
     // 喜欢是即时切换，不像添加到歌单/重新匹配那样需要跳到下一个浮层，直接收起面板
     fun toggleLike() {
         val song = (_overlay.value as? CloudOverlay.Options)?.song ?: return
-        val isLike = song.songId !in _likedSongIds.value
+        val isLike = song.songId !in songLikeRepository.likedSongIds.value
         _overlay.value = CloudOverlay.Hidden
 
         viewModelScope.launch {
             songLikeRepository.likeSong(song.songId, isLike).first()
                 .onSuccess {
-                    _likedSongIds.value = if (isLike) {
-                        _likedSongIds.value + song.songId
-                    } else {
-                        _likedSongIds.value - song.songId
-                    }
                     _toastEvent.emit(if (isLike) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
                 }
                 .onFailure { e ->
@@ -312,7 +306,7 @@ class CloudViewModel(
         val song = (_overlay.value as? CloudOverlay.Options)?.song ?: return
         _overlay.value = CloudOverlay.AddToPlaylist(song)
         viewModelScope.launch {
-            songCollectDelegate.prepare(song.songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(song.songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -321,16 +315,18 @@ class CloudViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = _likedSongIds.value,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
-                onLikedChanged = { _likedSongIds.value = it }
+                onLikedChanged = { newLiked ->
+                    songLikeRepository.syncLikedSongIds(newLiked)
+                }
             )
         }
     }
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 

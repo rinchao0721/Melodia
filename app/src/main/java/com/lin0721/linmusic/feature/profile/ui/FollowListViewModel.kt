@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
 private const val PAGE_SIZE = 30
 
+@Serializable
 enum class FollowListMode {
     FOLLOWS,
     FOLLOWEDS

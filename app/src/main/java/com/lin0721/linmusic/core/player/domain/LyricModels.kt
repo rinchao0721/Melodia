@@ -13,6 +13,7 @@ data class LyricLine(
     val durationMs: Long = 0, // 新增：整行歌词的持续发音时间
     val text: String,
     val translation: String? = null,
+    val roma: String? = null,
     val words: List<WordInfo> = emptyList() // 如果是普通LRC则此列表为空；YRC则填入单字列表
 )
 

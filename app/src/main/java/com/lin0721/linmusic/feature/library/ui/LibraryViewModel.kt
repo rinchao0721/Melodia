@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepository
@@ -21,8 +24,13 @@ import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.Collator
+import java.util.Locale
 
 private const val TAG = "LibraryViewModel"
+
+// 中文排序用 Collator 而非裸字符串比较，Android 上 Locale.CHINA 的默认强度即按拼音排序
+private val zhCollator: Collator = Collator.getInstance(Locale.CHINA)
 
 enum class LibraryItemType {
     PLAYLIST, ARTIST, ALBUM, MV
@@ -52,7 +60,7 @@ enum class LibraryPlaylistOwnerFilter {
 }
 
 enum class LibrarySortOrder {
-    RECENTLY_PLAYED, CREATE_TIME, NAME
+    RECENTLY_PLAYED, NAME, CUSTOM
 }
 
 class LibraryViewModel(
@@ -67,7 +75,8 @@ class LibraryViewModel(
     val playerManager: PlayerManager,
     private val context: Context,
     private val resourceProvider: ResourceProvider,
-    private val playlistMutationBus: PlaylistMutationBus
+    private val playlistMutationBus: PlaylistMutationBus,
+    private val songDownloadManager: SongDownloadManager
 ) : ViewModel() {
 
     private val sharedPrefs = context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
@@ -93,7 +102,7 @@ class LibraryViewModel(
     private val _selectedPlaylistOwnerFilter = MutableStateFlow<LibraryPlaylistOwnerFilter?>(null)
     val selectedPlaylistOwnerFilter: StateFlow<LibraryPlaylistOwnerFilter?> = _selectedPlaylistOwnerFilter.asStateFlow()
 
-    private val _sortOrder = MutableStateFlow(LibrarySortOrder.RECENTLY_PLAYED)
+    private val _sortOrder = MutableStateFlow(getSortOrderFromPrefs())
     val sortOrder: StateFlow<LibrarySortOrder> = _sortOrder.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
@@ -168,6 +177,15 @@ class LibraryViewModel(
 
     private fun saveCustomPlaylistOrderToPrefs(order: List<String>) {
         sharedPrefs.edit().putString("custom_playlist_order", order.joinToString(",")).apply()
+    }
+
+    private fun getSortOrderFromPrefs(): LibrarySortOrder {
+        val raw = sharedPrefs.getString("sort_order", null)
+        return raw?.let { runCatching { LibrarySortOrder.valueOf(it) }.getOrNull() } ?: LibrarySortOrder.RECENTLY_PLAYED
+    }
+
+    private fun saveSortOrderToPrefs(order: LibrarySortOrder) {
+        sharedPrefs.edit().putString("sort_order", order.name).apply()
     }
 
     private fun getGridViewFromPrefs(): Boolean {
@@ -347,43 +365,27 @@ class LibraryViewModel(
 
         val sortedUnpinned = when (sort) {
             LibrarySortOrder.RECENTLY_PLAYED -> {
-                if (customOrderMap.isNotEmpty()) {
-                    unpinnedItems.sortedWith(compareBy<LibraryItem> { item ->
-                        if (item.type == LibraryItemType.PLAYLIST) {
-                            customOrderMap[item.id] ?: Int.MAX_VALUE
-                        } else {
-                            Int.MAX_VALUE
-                        }
-                    }.thenByDescending { it.updateTime })
-                } else {
-                    unpinnedItems.sortedByDescending { it.updateTime }
-                }
-            }
-            LibrarySortOrder.CREATE_TIME -> {
                 unpinnedItems.sortedByDescending { it.updateTime }
             }
             LibrarySortOrder.NAME -> {
-                unpinnedItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+                unpinnedItems.sortedWith(compareBy(zhCollator) { it.title })
+            }
+            LibrarySortOrder.CUSTOM -> {
+                // 未进入过自定义顺序的条目（新歌单、首次纳入排序的特殊条目）排在最前面，而非末尾
+                unpinnedItems.sortedWith(compareBy<LibraryItem> { item ->
+                    if (item.type == LibraryItemType.PLAYLIST) {
+                        customOrderMap[item.id] ?: -1
+                    } else {
+                        Int.MAX_VALUE
+                    }
+                }.thenByDescending { it.updateTime })
             }
         }
 
         val finalList = pinnedItems + sortedUnpinned
 
-        val listWithoutSpecial = finalList.filter { it.id != "-2" && !it.isLikedSongs }
-        val likedSongsItem = finalList.find { it.isLikedSongs }
-        val recordItem = finalList.find { it.id == "-2" }
-
-        val finalListAdjusted = mutableListOf<LibraryItem>()
-        if (likedSongsItem != null) {
-            finalListAdjusted.add(likedSongsItem)
-        }
-        if (recordItem != null) {
-            finalListAdjusted.add(recordItem)
-        }
-        finalListAdjusted.addAll(listWithoutSpecial)
-
         _uiState.update { current ->
-            if (current is LibraryUiState.Success) current.copy(filteredItems = finalListAdjusted) else current
+            if (current is LibraryUiState.Success) current.copy(filteredItems = finalList) else current
         }
     }
 
@@ -441,6 +443,7 @@ class LibraryViewModel(
 
     fun updateSortOrder(order: LibrarySortOrder) {
         _sortOrder.value = order
+        saveSortOrderToPrefs(order)
         applyFilterAndSort()
     }
 
@@ -458,12 +461,24 @@ class LibraryViewModel(
     }
 
     fun savePlaylistOrder(orderedItems: List<LibraryItem>) {
-        val playlistIds = orderedItems.filter { it.type == LibraryItemType.PLAYLIST && it.id != "-2" && !it.isLikedSongs }.map { it.id }
+        val playlistIds = orderedItems.filter { it.type == LibraryItemType.PLAYLIST }.map { it.id }
         saveCustomPlaylistOrderToPrefs(playlistIds)
+        _sortOrder.value = LibrarySortOrder.CUSTOM
+        saveSortOrderToPrefs(LibrarySortOrder.CUSTOM)
         applyFilterAndSort()
         viewModelScope.launch {
             _toastEvent.emit("歌单排序已保存")
         }
+    }
+
+    // 拖拽调整排序页的初始顺序：沿用已保存的自定义顺序，未纳入过的条目排在最前面
+    fun getPlaylistsForReorder(): List<LibraryItem> {
+        val state = _uiState.value as? LibraryUiState.Success ?: return emptyList()
+        val playlists = state.allItems.filter { it.type == LibraryItemType.PLAYLIST }
+        val customOrderMap = getCustomPlaylistOrderFromPrefs().mapIndexed { index, id -> id to index }.toMap()
+        return playlists.sortedWith(
+            compareBy<LibraryItem> { customOrderMap[it.id] ?: -1 }.thenByDescending { it.updateTime }
+        )
     }
 
     fun deletePlaylist(playlistId: Long) {
@@ -512,6 +527,40 @@ class LibraryViewModel(
                 result.onSuccess {
                     _toastEvent.emit("已取消关注歌手")
                     loadLibraryData()
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    // 批量下载歌单或专辑
+    fun downloadLibraryItem(item: LibraryItem, level: String) {
+        val id = item.id.toLongOrNull()
+        if (id == null) {
+            viewModelScope.launch { _toastEvent.emit("歌单/专辑信息不完整，无法下载") }
+            return
+        }
+        val isAlbum = item.type == LibraryItemType.ALBUM
+        val detailFlow = if (isAlbum) playlistRepository.getAlbumDetail(id) else playlistRepository.getPlaylistDetail(id)
+        viewModelScope.launch {
+            detailFlow.collect { result ->
+                result.onSuccess { detail ->
+                    if (detail.tracks.isEmpty()) {
+                        _toastEvent.emit(if (isAlbum) "该专辑没有可下载的歌曲" else "该歌单没有可下载的歌曲")
+                    } else {
+                        val tracks = detail.tracks.map { track ->
+                            DownloadTrackInfo(
+                                track.id, track.name, track.ar.joinToString("/") { it.name },
+                                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
+                                yearFromEpochMillis(track.publishTime)
+                            )
+                        }
+                        songDownloadManager.enqueueBatch(
+                            tracks, level, batchTag = "library_${item.type}_$id", batchLabel = item.title
+                        )
+                        _toastEvent.emit("已将 ${tracks.size} 首歌曲加入下载队列")
+                    }
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }

@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -56,11 +58,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 // 歌曲行的轻量 UI 数据模型，各调用方把自己的领域模型（Track/QueueItem 等）映射到这里
 data class SongRowData(
@@ -82,6 +87,7 @@ fun SongRow(
     index: Int? = null,
     onClick: () -> Unit,
     onArtistClick: (() -> Unit)? = null,
+    showDownloadBadge: Boolean = true,
     trailingSlot: @Composable RowScope.() -> Unit = {}
 ) {
     val coverSize = if (compact) 42.dp else 48.dp
@@ -181,6 +187,25 @@ fun SongRow(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = MelodiaSpacing.sm)
             )
+        }
+
+        if (showDownloadBadge) {
+            val downloadPreferences: DownloadPreferences = koinInject()
+            val isDownloaded by produceState(initialValue = false, data.id) {
+                downloadPreferences.downloadedQualityFor(data.id).collect { quality ->
+                    value = quality != null
+                }
+            }
+            if (isDownloaded) {
+                Icon(
+                    Icons.Rounded.DownloadDone,
+                    contentDescription = "已下载",
+                    tint = DownloadedGreen,
+                    modifier = Modifier
+                        .padding(start = MelodiaSpacing.xs)
+                        .size(16.dp)
+                )
+            }
         }
 
         trailingSlot()

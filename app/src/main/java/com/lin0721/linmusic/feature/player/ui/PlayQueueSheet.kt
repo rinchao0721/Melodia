@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -67,6 +68,7 @@ fun PlayQueueSheet(
     playMode: PlayMode,
     playContext: String?,
     isPlaying: Boolean,
+    sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
     onRemoveAtIndex: (Int) -> Unit,
     onMoveItem: (from: Int, to: Int) -> Unit,
@@ -74,6 +76,7 @@ fun PlayQueueSheet(
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onShowTimerClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -326,7 +329,12 @@ fun PlayQueueSheet(
                             enableDismissFromStartToEnd = false
                         ) {
                             DraggableSongRow(
-                                data = SongRowData(id = item.songId, title = item.title, artist = item.artist, coverUrl = item.coverUrl),
+                                data = SongRowData(
+                                    id = item.songId,
+                                    title = item.title,
+                                    artist = item.artist,
+                                    coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                ),
                                 isCurrent = false,
                                 isPlaying = false,
                                 isPlayed = true,
@@ -350,7 +358,14 @@ fun PlayQueueSheet(
                         if (isRoaming) {
                             // 漫游模式下禁用侧滑删除
                             DraggableSongRow(
-                                data = SongRowData(id = queue[currentIndex].songId, title = queue[currentIndex].title, artist = queue[currentIndex].artist, coverUrl = queue[currentIndex].coverUrl),
+                                data = SongRowData(
+                                    id = queue[currentIndex].songId,
+                                    title = queue[currentIndex].title,
+                                    artist = queue[currentIndex].artist,
+                                    coverUrl = rememberQueueItemCoverUrl(
+                                        queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
+                                    )
+                                ),
                                 isCurrent = true,
                                 isPlaying = isPlaying,
                                 isPlayed = false,
@@ -376,7 +391,14 @@ fun PlayQueueSheet(
                                 enableDismissFromStartToEnd = false
                             ) {
                                 DraggableSongRow(
-                                    data = SongRowData(id = queue[currentIndex].songId, title = queue[currentIndex].title, artist = queue[currentIndex].artist, coverUrl = queue[currentIndex].coverUrl),
+                                    data = SongRowData(
+                                        id = queue[currentIndex].songId,
+                                        title = queue[currentIndex].title,
+                                        artist = queue[currentIndex].artist,
+                                        coverUrl = rememberQueueItemCoverUrl(
+                                            queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
+                                        )
+                                    ),
                                     isCurrent = true,
                                     isPlaying = isPlaying,
                                     isPlayed = false,
@@ -428,7 +450,12 @@ fun PlayQueueSheet(
                                     enableDismissFromEndToStart = !isDraggingActive
                                 ) {
                                     DraggableSongRow(
-                                        data = SongRowData(id = item.songId, title = item.title, artist = item.artist, coverUrl = item.coverUrl),
+                                        data = SongRowData(
+                                            id = item.songId,
+                                            title = item.title,
+                                            artist = item.artist,
+                                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                        ),
                                         isCurrent = false,
                                         isPlaying = false,
                                         isPlayed = false,
@@ -486,9 +513,17 @@ fun PlayQueueSheet(
             BottomActionRow(
                 playMode = playMode,
                 playContext = playContext,
+                sleepTimerRemaining = sleepTimerRemaining,
                 onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
-                onDisableIntelligence = onDisableIntelligence
+                onDisableIntelligence = onDisableIntelligence,
+                onShowTimerClick = {
+                    scope.launch {
+                        sheetState.hide()
+                        onDismiss()
+                        onShowTimerClick()
+                    }
+                }
             )
         }
     }
@@ -621,9 +656,11 @@ private fun SectionLabel(text: String) {
 private fun BottomActionRow(
     playMode: PlayMode,
     playContext: String?,
+    sleepTimerRemaining: Long,
     onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
-    onDisableIntelligence: () -> Unit
+    onDisableIntelligence: () -> Unit,
+    onShowTimerClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -670,8 +707,16 @@ private fun BottomActionRow(
                 fontSize = 13.sp
             )
         }
+        val timerText = if (sleepTimerRemaining > 0L) {
+            val totalSeconds = sleepTimerRemaining / 1000L
+            val mins = totalSeconds / 60
+            val secs = totalSeconds % 60
+            "%d:%02d".format(mins, secs)
+        } else {
+            "定时器"
+        }
         MelodiaButton(
-            onClick = { },
+            onClick = onShowTimerClick,
             colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
@@ -680,7 +725,7 @@ private fun BottomActionRow(
         ) {
             Icon(Icons.Outlined.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("定时器", color = Color.White, fontSize = 13.sp)
+            Text(timerText, color = Color.White, fontSize = 13.sp)
         }
     }
 }

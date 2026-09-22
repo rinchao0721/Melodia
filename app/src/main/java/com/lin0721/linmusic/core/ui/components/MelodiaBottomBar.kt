@@ -6,6 +6,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
@@ -13,6 +14,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -23,11 +26,9 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -47,11 +49,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -65,17 +67,12 @@ import com.lin0721.linmusic.core.ui.theme.NavPillSelected
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.lighten
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
-import com.lin0721.linmusic.feature.player.ui.drawSingleHueMesh
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
-
-// 光斑位置固定不做动画，跟大卡片/全屏背景那种游走效果区分开，
-// 避免小尺寸下持续重绘、观感也容易显得杂
-private val MINI_PLAYER_BLUR_RADIUS = 28.dp
 
 //悬浮播放控制卡片
 
@@ -95,6 +92,9 @@ fun MiniPlayerCard(
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
     onPrevious: () -> Unit = {},
+    onCancelPendingSkip: () -> Boolean = { false },
+    isLiked: Boolean = false,
+    onLikeClick: () -> Unit = {},
     expanded: Boolean = false
 ) {
     if (currentTrack == null) return
@@ -127,23 +127,42 @@ fun MiniPlayerCard(
         animationSpec = tween(800),
         label = "mini_player_base"
     )
-    val fillColor = remember(animatedBase, expanded) { animatedBase.darken(if (expanded) 0.20f else 0.35f) }
-    val lightBlob = remember(animatedBase) { animatedBase.lighten(0.05f) }
-    val darkBlob = remember(animatedBase) { animatedBase.darken(0.15f) }
+    val fillColor = remember(animatedBase, expanded) { animatedBase.darken(if (expanded) 0.20f else 0.45f) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
     val swipeState = rememberSwipeToSkipCoverState()
+    val swipeDirection = swipeState.syncCurrentKey(
+        key = currentTrack.mediaId,
+        previousKey = previousQueueItem?.songId?.toString(),
+        nextKey = nextQueueItem?.songId?.toString()
+    )
     var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
     var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }
+    // "当前"这一层同样要冻结：过渡期间网络请求随时可能落地，直接用实时 currentTrack
+    // 会让画面在手势进行中被悄悄换成新歌（封面/歌名瞬间跳变）
+    var displayedCurrentTrack by remember { mutableStateOf(currentTrack) }
     if (!swipeState.isTransitioning) {
         displayedPreviousQueueItem = previousQueueItem
         displayedNextQueueItem = nextQueueItem
+        displayedCurrentTrack = currentTrack
     }
     val canSwipeToPrevious = displayedPreviousQueueItem != null
     val canSwipeToNext = displayedNextQueueItem != null
-    // currentTrack 真正切换后再把位移归零、解除冻结
-    swipeState.syncCurrentKey(currentTrack.mediaId)
+    val displayedCleanCoverUrl = remember(displayedCurrentTrack.mediaMetadata.artworkUri) {
+        displayedCurrentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    }
+    var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
+    if (swipeDirection != null) {
+        pendingSlideInKey = currentTrack.mediaId
+    }
+    LaunchedEffect(pendingSlideInKey) {
+        if (pendingSlideInKey != null) {
+            animate(swipeState.offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
+                swipeState.offsetX = value
+            }
+        }
+    }
 
     // 图标显示做一层去抖：暂停状态维持不到 400ms 就又变回播放的话，不体现在图标上
     var displayedIsPlaying by remember { mutableStateOf(isPlaying) }
@@ -154,11 +173,20 @@ fun MiniPlayerCard(
         displayedIsPlaying = isPlaying
     }
 
+    val miniPlayerCornerRadius = 8.dp
+    val miniPlayerShape = RoundedCornerShape(miniPlayerCornerRadius)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(InfoCardRadius))
-            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), RoundedCornerShape(InfoCardRadius))
+            // 弥散阴影让卡片从纯黑背景上浮起来，避免边缘跟背景生硬贴死
+            .shadow(
+                elevation = 16.dp,
+                shape = miniPlayerShape,
+                ambientColor = Color.Black.copy(alpha = 0.4f),
+                spotColor = Color.Black.copy(alpha = 0.4f)
+            )
+            .clip(miniPlayerShape)
+            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -174,7 +202,8 @@ fun MiniPlayerCard(
                     canSwipeToPrevious = canSwipeToPrevious,
                     canSwipeToNext = canSwipeToNext,
                     onConfirmPrevious = onPrevious,
-                    onConfirmNext = onNext
+                    onConfirmNext = onNext,
+                    onCancelPending = onCancelPendingSkip
                 )
             )
             .clickable(onClick = onClick)
@@ -182,19 +211,7 @@ fun MiniPlayerCard(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .blur(MINI_PLAYER_BLUR_RADIUS)
-                .drawBehind {
-                    val baseSize = size.minDimension
-                    drawSingleHueMesh(
-                        fill = fillColor,
-                        lightBlob = lightBlob,
-                        lightCenter = Offset(size.width * 0.15f, size.height * 0.2f),
-                        lightRadius = baseSize * 0.9f,
-                        darkBlob = darkBlob,
-                        darkCenter = Offset(size.width * 0.95f, size.height * 1.0f),
-                        darkRadius = baseSize * 0.6f
-                    )
-                }
+                .background(fillColor)
         )
         Column {
             Row(
@@ -212,10 +229,10 @@ fun MiniPlayerCard(
                 val connectedDevice = rememberCurrentOutputDevice()
                 MiniPlayerSlidingContent(
                     state = swipeState,
-                    currentKey = currentTrack.mediaId,
-                    currentTitle = currentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
-                    currentArtist = currentTrack.mediaMetadata.artist?.toString().orEmpty(),
-                    currentCoverUrl = cleanCoverUrl,
+                    currentKey = displayedCurrentTrack.mediaId,
+                    currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
+                    currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                    currentCoverUrl = displayedCleanCoverUrl,
                     previousQueueItem = displayedPreviousQueueItem,
                     nextQueueItem = displayedNextQueueItem,
                     connectedDevice = connectedDevice,
@@ -224,30 +241,42 @@ fun MiniPlayerCard(
                         .height(if (expanded) 52.dp else 44.dp)
                 )
 
-                // 播放/暂停按钮
-                MelodiaIconButton(onClick = onTogglePlay) {
-                    Icon(
-                        imageVector = if (displayedIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = "播放/暂停",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                // 下一首按钮
-                MelodiaIconButton(onClick = onNext) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "下一首",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
+                    // 收藏到歌单按钮：图标跟着"是否已在我喜欢的音乐里"变化，具体收藏到哪些歌单由弹层里的勾选决定
+                    MelodiaIconButton(onClick = onLikeClick) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = "收藏到歌单",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    // 播放/暂停按钮
+                    MelodiaIconButton(onClick = onTogglePlay) {
+                        Icon(
+                            imageVector = if (displayedIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = "播放/暂停",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    // 下一首按钮
+                    MelodiaIconButton(onClick = onNext) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "下一首",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
             
-            // 底部进度条
+            // 底部进度条：自圆角曲线与平直直线交点开始和结束
             MiniPlayerProgress(
                 currentPositionProvider = currentPositionProvider,
-                duration = duration
+                duration = duration,
+                modifier = Modifier.padding(horizontal = miniPlayerCornerRadius)
             )
         }
     }
@@ -290,7 +319,7 @@ private fun MiniPlayerSlidingContent(
                         key = item.songId.toString(),
                         title = item.title,
                         artist = item.artist,
-                        coverUrl = item.coverUrl,
+                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                         connectedDevice = null,
                         translationXProvider = { state.offsetX - state.containerWidthPx }
                     )
@@ -314,7 +343,7 @@ private fun MiniPlayerSlidingContent(
                         key = if (item.songId == previousQueueItem?.songId) "${item.songId}-next" else item.songId.toString(),
                         title = item.title,
                         artist = item.artist,
-                        coverUrl = item.coverUrl,
+                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                         connectedDevice = null,
                         translationXProvider = { state.offsetX + state.containerWidthPx }
                     )
@@ -402,7 +431,7 @@ private fun MiniPlayerContentRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = TextGray,
+                    color = Color.White.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -427,6 +456,7 @@ fun MiniPlayerProgress(
         modifier = modifier
             .fillMaxWidth()
             .height(2.dp)
+            .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.08f))
     ) {
         val currentPosition = currentPositionProvider()
@@ -435,7 +465,8 @@ fun MiniPlayerProgress(
             modifier = Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .fillMaxHeight()
-                .background(NeteaseRed)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.85f))
         )
     }
 }

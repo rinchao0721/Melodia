@@ -81,6 +81,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        aidl = true
     }
     testOptions {
         unitTests {
@@ -124,14 +125,18 @@ dependencies {
     // Image loading - Coil
     implementation(libs.coil.compose)
 
-    // Media3
+    // Media3 & Media
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.taglib)
     implementation(libs.haze)
-    implementation(libs.androidx.palette)
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)
+    implementation(libs.bouncycastle)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

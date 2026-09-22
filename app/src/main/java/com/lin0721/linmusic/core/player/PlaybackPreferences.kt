@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.core.player
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -17,14 +19,22 @@ import kotlinx.serialization.json.Json
 
 private const val TAG = "PlaybackPreferences"
 
-private val Context.dataStore by preferencesDataStore(name = "playback_prefs")
+// 播放进度/队列频繁写入，异常断电等意外中断最容易损坏该文件；损坏时回退空数据而非崩溃
+private val Context.dataStore by preferencesDataStore(
+    name = "playback_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "播放偏好数据损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 data class PlaybackState(
     val songId: Long = -1,
     val title: String = "",
     val artist: String = "",
     val coverUrl: String = "",
-    val lastPositionMs: Long = 0
+    val lastPositionMs: Long = 0,
+    val durationMs: Long = 0
 )
 
 data class QueueState(
@@ -41,6 +51,7 @@ class PlaybackPreferences(private val context: Context) {
         private val KEY_ARTIST = stringPreferencesKey("last_song_artist")
         private val KEY_COVER = stringPreferencesKey("last_song_cover")
         private val KEY_POSITION = longPreferencesKey("last_position_ms")
+        private val KEY_DURATION = longPreferencesKey("last_duration_ms")
         private val KEY_PLAY_MODE = stringPreferencesKey("play_mode")
         private val KEY_QUEUE = stringPreferencesKey("play_queue")
         private val KEY_QUEUE_INDEX = intPreferencesKey("queue_index")
@@ -54,7 +65,8 @@ class PlaybackPreferences(private val context: Context) {
             title = prefs[KEY_TITLE] ?: "",
             artist = prefs[KEY_ARTIST] ?: "",
             coverUrl = prefs[KEY_COVER] ?: "",
-            lastPositionMs = prefs[KEY_POSITION] ?: 0
+            lastPositionMs = prefs[KEY_POSITION] ?: 0,
+            durationMs = prefs[KEY_DURATION] ?: 0
         )
     }
 
@@ -72,6 +84,7 @@ class PlaybackPreferences(private val context: Context) {
             prefs[KEY_ARTIST] = state.artist
             prefs[KEY_COVER] = state.coverUrl
             prefs[KEY_POSITION] = state.lastPositionMs
+            prefs[KEY_DURATION] = state.durationMs
         }
     }
 

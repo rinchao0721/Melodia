@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
@@ -23,9 +25,14 @@ import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -33,16 +40,28 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+
+// 单个艺人的完整状态数据
+data class ArtistCardItem(
+    val artistId: Long,
+    val artistName: String,
+    val artistDetail: ArtistDetailInfo? = null,
+    val fansCount: Long? = null,
+    val isFollowed: Boolean = false,
+    val isLoading: Boolean = false
+)
 
 // 当前播放歌曲的详情聚合状态：歌词/歌曲详情/歌手资料等异步分别到达，各自保留独立的 loading/nullable 语义
 data class PlayerSongDetailState(
@@ -53,14 +72,24 @@ data class PlayerSongDetailState(
     val isSongWikiLoading: Boolean = false,
     val similarArtists: List<ArtistInfo> = emptyList(),
     val isSimilarArtistsLoading: Boolean = false,
-    val artistDetail: ArtistDetailInfo? = null,
-    val isArtistDetailLoading: Boolean = false,
-    val artistFansCount: Long? = null,
     val artistAlbums: List<ArtistAlbum> = emptyList(),
     val isArtistAlbumsLoading: Boolean = false,
     val isLiked: Boolean = false,
-    val isArtistFollowed: Boolean = false
-)
+    val artists: List<ArtistCardItem> = emptyList(),
+    val selectedArtistIndex: Int = 0
+) {
+    val currentArtistItem: ArtistCardItem?
+        get() = artists.getOrNull(selectedArtistIndex) ?: artists.firstOrNull()
+
+    val artistDetail: ArtistDetailInfo?
+        get() = currentArtistItem?.artistDetail
+    val isArtistDetailLoading: Boolean
+        get() = currentArtistItem?.isLoading ?: false
+    val artistFansCount: Long?
+        get() = currentArtistItem?.fansCount
+    val isArtistFollowed: Boolean
+        get() = currentArtistItem?.isFollowed ?: false
+}
 
 private const val TAG = "PlayerViewModel"
 
@@ -76,7 +105,8 @@ class PlayerViewModel(
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
     private val settingsPreferences: SettingsPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songDownloadManager: SongDownloadManager
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -113,6 +143,28 @@ class PlayerViewModel(
             initialValue = "standard"
         )
 
+    // 下载当前播放歌曲
+    fun downloadCurrentSong(
+        songId: Long,
+        songName: String,
+        artistName: String,
+        albumName: String,
+        coverUrl: String?,
+        albumYear: Int,
+        level: String
+    ) {
+        viewModelScope.launch {
+            if (songId <= 0) {
+                _toastEvent.emit("歌曲信息不完整，无法下载")
+                return@launch
+            }
+            songDownloadManager.enqueueSingle(
+                DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear), level
+            )
+            _toastEvent.emit("已加入下载队列")
+        }
+    }
+
     // 更新当前环境的音质设置并重新加载当前歌曲播放
     fun updateQuality(quality: String) {
         viewModelScope.launch {
@@ -131,14 +183,24 @@ class PlayerViewModel(
     private val _songDetailState = MutableStateFlow(PlayerSongDetailState())
     val songDetailState: StateFlow<PlayerSongDetailState> = _songDetailState.asStateFlow()
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
-    val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
+    private val commentsController = CommentsSectionController(
+        scope = viewModelScope,
+        repository = commentRepository,
+        onToast = { message -> _toastEvent.emit(message) },
+        resourceProvider = resourceProvider
+    )
+    val commentsState: StateFlow<CommentsState> = commentsController.commentsState
+    val composerState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentComposerState> = commentsController.composerState
+    val floorState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentFloorState> = commentsController.floorState
+
+    val userProfile = userPreferences.userProfile.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
-
-    private val likedSongIds = mutableSetOf<Long>()
-    private var likedListLoaded = false
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
@@ -146,36 +208,43 @@ class PlayerViewModel(
 
     init {
         loadLikedSongIds()
+        observeLikedState()
         observeTrackChanges()
         observePosition()
     }
 
+    private fun observeLikedState() {
+        viewModelScope.launch {
+            combine(
+                playerManager.currentTrack.map { it?.mediaId?.toLongOrNull() ?: -1L },
+                songLikeRepository.likedSongIds
+            ) { songId, likedIds ->
+                songId > 0L && songId in likedIds
+            }.distinctUntilChanged()
+                .collect { isLiked ->
+                    _songDetailState.update { it.copy(isLiked = isLiked) }
+                }
+        }
+    }
+
     private fun loadLikedSongIds() {
         viewModelScope.launch {
-            val ids = loadLikedSongIdsUseCase() ?: return@launch
-            likedSongIds.clear()
-            likedSongIds.addAll(ids)
-            likedListLoaded = true
-            if (currentSongId != -1L) {
-                _songDetailState.update { it.copy(isLiked = currentSongId in likedSongIds) }
+            userPreferences.userProfile.collect { profile ->
+                if (profile != null) {
+                    loadLikedSongIdsUseCase()
+                }
             }
         }
     }
 
     fun toggleLike() {
         val songId = currentSongId
-        if (songId == -1L) return
+        if (songId <= 0L) return
 
         val newLiked = !_songDetailState.value.isLiked
-        _songDetailState.update { it.copy(isLiked = newLiked) }
-
         viewModelScope.launch {
             songLikeRepository.likeSong(songId, newLiked).collect { result ->
-                result.onSuccess {
-                    if (newLiked) likedSongIds.add(songId) else likedSongIds.remove(songId)
-                }.onFailure {
-                    // 回滚
-                    _songDetailState.update { it.copy(isLiked = !newLiked) }
+                result.onFailure {
                     _toastEvent.emit(it.toUserMessage(resourceProvider))
                 }
             }
@@ -185,7 +254,7 @@ class PlayerViewModel(
     // 打开"收藏到歌单"面板前先拉取歌单勾选状态
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, likedSongIds) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -194,12 +263,10 @@ class PlayerViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = likedSongIds,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
-                    likedSongIds.clear()
-                    likedSongIds.addAll(newLiked)
-                    _songDetailState.update { it.copy(isLiked = currentSongId in likedSongIds) }
+                    songLikeRepository.syncLikedSongIds(newLiked)
                 }
             )
         }
@@ -207,7 +274,7 @@ class PlayerViewModel(
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, likedSongIds) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -219,25 +286,24 @@ class PlayerViewModel(
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
-                        clearState()
-                        _songDetailState.update { it.copy(isLiked = songId in likedSongIds) }
+                        val isLiked = songId > 0L && songId in songLikeRepository.likedSongIds.value
+                        clearState(isLiked)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
                             launch { loadLyrics(songId) }
                             launch { loadSongDetail(songId) }
                             launch { loadSongWiki(songId) }
-                            launch { loadComments(songId) }
+                            launch { commentsController.load("R_SO_4_$songId") }
                         }
                     }
                 }
         }
     }
 
-    private fun clearState() {
-        _songDetailState.value = PlayerSongDetailState()
+    private fun clearState(isLiked: Boolean = false) {
+        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked)
         _currentLyricIndex.value = -1
-        _commentsState.value = CommentsState.Loading
     }
 
     private fun observePosition() {
@@ -266,12 +332,39 @@ class PlayerViewModel(
         playerRepository.getSongDetail(songId).collect { result ->
             result.onSuccess { track ->
                 _songDetailState.update { it.copy(songDetail = track) }
-                val primaryArtistId = track.ar.firstOrNull()?.id
-                if (primaryArtistId != null && primaryArtistId > 0) {
+                val validArtists = track.ar.filter { it.id > 0 }
+                if (validArtists.isNotEmpty()) {
+                    val initialItems = validArtists.map { ar ->
+                        ArtistCardItem(
+                            artistId = ar.id,
+                            artistName = ar.name,
+                            isLoading = true
+                        )
+                    }
+                    _songDetailState.update {
+                        it.copy(
+                            artists = initialItems,
+                            selectedArtistIndex = 0
+                        )
+                    }
                     coroutineScope {
-                        launch { loadSimilarArtists(primaryArtistId) }
-                        launch { loadArtistDetail(primaryArtistId) }
-                        launch { loadArtistAlbums(primaryArtistId) }
+                        // 并发异步加载全部艺人的卡片详情与关注状态
+                        validArtists.forEach { ar ->
+                            launch { loadSingleArtistCard(ar.id) }
+                        }
+                        // 优先加载首位聚焦艺人的更多专辑与类似推荐
+                        val firstId = validArtists.first().id
+                        launch { loadArtistAlbums(firstId) }
+                        launch { loadSimilarArtists(firstId) }
+                    }
+                } else {
+                    _songDetailState.update {
+                        it.copy(
+                            artists = emptyList(),
+                            selectedArtistIndex = 0,
+                            artistAlbums = emptyList(),
+                            similarArtists = emptyList()
+                        )
                     }
                 }
             }
@@ -299,41 +392,41 @@ class PlayerViewModel(
         _songDetailState.update { it.copy(isSimilarArtistsLoading = false) }
     }
 
-    private suspend fun loadArtistDetail(artistId: Long) = coroutineScope {
-        // 异步加载歌手粉丝数量作为每月听众数
-        launch { loadArtistFansCount(artistId) }
-        // 异步加载当前用户是否关注了该歌手
-        launch { loadArtistFollowState(artistId) }
-        _songDetailState.update { it.copy(isArtistDetailLoading = true) }
-        artistRepository.getArtistDetail(artistId).collect { result ->
-            result.onSuccess { detail ->
-                _songDetailState.update { it.copy(artistDetail = detail) }
-            }.onFailure {
-                _songDetailState.update { it.copy(artistDetail = null) }
+    // 并发拉取单个艺人的详细资料、粉丝量与关注状态
+    private suspend fun loadSingleArtistCard(artistId: Long) = coroutineScope {
+        var detail: ArtistDetailInfo? = null
+        var fans: Long? = null
+        var followed = false
+
+        val detailJob = launch {
+            artistRepository.getArtistDetail(artistId).collect { res ->
+                detail = res.getOrNull()
             }
         }
-        _songDetailState.update { it.copy(isArtistDetailLoading = false) }
-    }
-
-    // 异步加载歌手关注状态
-    private suspend fun loadArtistFollowState(artistId: Long) {
-        artistRepository.checkArtistFollowed(artistId).collect { result ->
-            result.onSuccess { followed ->
-                _songDetailState.update { it.copy(isArtistFollowed = followed) }
-            }.onFailure {
-                _songDetailState.update { it.copy(isArtistFollowed = false) }
+        val fansJob = launch {
+            artistRepository.getArtistFansCount(artistId).collect { res ->
+                fans = res.getOrNull()
             }
         }
-    }
-
-    // 异步获取歌手粉丝数
-    private suspend fun loadArtistFansCount(artistId: Long) {
-        artistRepository.getArtistFansCount(artistId).collect { result ->
-            result.onSuccess { count ->
-                _songDetailState.update { it.copy(artistFansCount = count) }
-            }.onFailure {
-                _songDetailState.update { it.copy(artistFansCount = null) }
+        val followJob = launch {
+            artistRepository.checkArtistFollowed(artistId).collect { res ->
+                followed = res.getOrDefault(false)
             }
+        }
+        joinAll(detailJob, fansJob, followJob)
+
+        _songDetailState.update { state ->
+            val updated = state.artists.map { item ->
+                if (item.artistId == artistId) {
+                    item.copy(
+                        artistDetail = detail,
+                        fansCount = fans,
+                        isFollowed = followed,
+                        isLoading = false
+                    )
+                } else item
+            }
+            state.copy(artists = updated)
         }
     }
 
@@ -365,85 +458,68 @@ class PlayerViewModel(
         return result
     }
 
-    private suspend fun loadComments(songId: Long) {
-        _commentsState.value = CommentsState.Loading
-        commentRepository.getComments(songId, limit = 20).collect { result ->
-            result.onSuccess { response ->
-                _commentsState.value = CommentsState.Success(
-                    hotComments = response.hotComments,
-                    comments = response.comments,
-                    total = response.total
-                )
-            }.onFailure { error ->
-                _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
-            }
-        }
-    }
-
     fun retryComments() {
-        val songId = currentSongId
-        if (songId != -1L) {
-            viewModelScope.launch { loadComments(songId) }
-        }
+        commentsController.retry()
     }
 
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
-            val profile = userPreferences.userProfile.first()
-            if (profile == null) {
+            if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
-
-            val currentState = _commentsState.value as? CommentsState.Success ?: return@launch
-            
-            val songId = currentSongId
-            if (songId == -1L) return@launch
-            val threadId = "R_SO_4_$songId"
-            val targetLike = !comment.liked
-
-            val updatedComments = currentState.comments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            val updatedHotComments = currentState.hotComments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            _commentsState.value = CommentsState.Success(
-                hotComments = updatedHotComments,
-                comments = updatedComments,
-                total = currentState.total
-            )
-
-            commentRepository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
-                result.onFailure { e ->
-                    _commentsState.value = currentState
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+            commentsController.like(comment)
         }
     }
 
-    // 切换歌手的关注状态
-    fun toggleArtistFollow() {
-        val songDetail = _songDetailState.value.songDetail ?: return
-        val artistId = songDetail.ar.firstOrNull()?.id ?: return
+    fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
+    fun loadMoreComments() = commentsController.loadMore()
+    fun submitComment(content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+
+    fun submitCommentReply(parentCommentId: Long, content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+    fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
+    fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
+    fun loadMoreCommentFloor() = commentsController.loadMoreFloor()
+    fun closeCommentFloor() = commentsController.closeFloor()
+
+    private var artistRelatedJob: Job? = null
+
+    // 切换聚焦选中的艺人，并联动刷新下方的更多专辑与类似艺人
+    fun selectArtist(index: Int) {
+        val state = _songDetailState.value
+        if (index < 0 || index >= state.artists.size || index == state.selectedArtistIndex) return
+        _songDetailState.update { it.copy(selectedArtistIndex = index) }
+        val targetArtist = state.artists[index]
+        artistRelatedJob?.cancel()
+        artistRelatedJob = viewModelScope.launch {
+            launch { loadArtistAlbums(targetArtist.artistId) }
+            launch { loadSimilarArtists(targetArtist.artistId) }
+        }
+    }
+
+    // 切换指定歌手的关注状态（未传则针对当前选中的艺人）
+    fun toggleArtistFollow(targetArtistId: Long? = null) {
+        val state = _songDetailState.value
+        val artistId = targetArtistId ?: state.currentArtistItem?.artistId ?: return
         if (artistId <= 0) return
 
-        val targetFollow = !_songDetailState.value.isArtistFollowed
+        val targetItem = state.artists.find { it.artistId == artistId } ?: state.currentArtistItem ?: return
+        val targetFollow = !targetItem.isFollowed
         viewModelScope.launch {
             artistRepository.subscribeArtist(artistId, targetFollow).collect { result ->
                 result.onSuccess {
-                    _songDetailState.update { it.copy(isArtistFollowed = targetFollow) }
+                    _songDetailState.update { currState ->
+                        val updated = currState.artists.map { item ->
+                            if (item.artistId == artistId) item.copy(isFollowed = targetFollow) else item
+                        }
+                        currState.copy(artists = updated)
+                    }
                 }
             }
         }

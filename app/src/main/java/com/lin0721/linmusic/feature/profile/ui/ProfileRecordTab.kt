@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
@@ -101,16 +102,18 @@ private fun ProfileRankSubTabs(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         RANK_SUB_TABS.forEachIndexed { index, title ->
             val isSelected = index == subTab
             Box(
                 modifier = Modifier
+                    .height(36.dp)
                     .pressable(MelodiaPress.Pill) { onSubTabSelected(index) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f))
-                    .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

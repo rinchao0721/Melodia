@@ -56,11 +56,17 @@ class SettingsViewModel(
 
     val defaultPlaylistPrivate = settingsPreferences.defaultPlaylistPrivate.asState(false)
 
-    val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(true)
+    val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(false)
 
     val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(500 * 1024 * 1024L)
 
+    val downloadFolderUri = settingsPreferences.downloadFolderUri.asState(null)
+
+    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(false)
+
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
+
+    val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
     val wifiOnlyPlay = settingsPreferences.wifiOnlyPlay.asState(false)
 
@@ -79,6 +85,24 @@ class SettingsViewModel(
     val lyricTextSize = settingsPreferences.lyricTextSize.asState(14)
 
     val lyricTextColor = settingsPreferences.lyricTextColor.asState("#FFFFFF")
+
+    val fullScreenLyricTextSize = settingsPreferences.fullScreenLyricTextSize.asState(22)
+
+    val fullScreenLyricAlignment = settingsPreferences.fullScreenLyricAlignment.asState("left")
+
+    val fullScreenLyricShowTranslation = settingsPreferences.fullScreenLyricShowTranslation.asState(true)
+
+    val fullScreenLyricSecondaryMode = settingsPreferences.fullScreenLyricSecondaryMode.asState("translation")
+
+    val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
+
+    val superLyricEnabled = settingsPreferences.superLyricEnabled.asState(false)
+
+    val lyricInfoEnabled = settingsPreferences.lyricInfoEnabled.asState(true)
+
+    val bluetoothLyricEnabled = settingsPreferences.bluetoothLyricEnabled.asState(false)
+
+    val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
 
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
@@ -171,6 +195,11 @@ class SettingsViewModel(
 
     fun updateStreamCacheEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveStreamCacheEnabled(enabled) }
 
+    // null 表示重置为默认下载目录
+    fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
+
+    fun updateDownloadLyricsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadLyricsEnabled(enabled) }
+
     fun updateAudioCacheMaxSize(context: Context, size: Long) {
         viewModelScope.launch {
             settingsPreferences.saveAudioCacheMaxSize(size)
@@ -187,6 +216,8 @@ class SettingsViewModel(
     }
 
     fun updateAutoPlayNext(enabled: Boolean) = launchSave { settingsPreferences.saveAutoPlayNext(enabled) }
+
+    fun updatePlayWithOtherApps(enabled: Boolean) = launchSave { settingsPreferences.savePlayWithOtherApps(enabled) }
 
     fun updateWifiOnlyPlay(enabled: Boolean) = launchSave { settingsPreferences.saveWifiOnlyPlay(enabled) }
 
@@ -205,6 +236,24 @@ class SettingsViewModel(
     fun updateLyricTextSize(size: Int) = launchSave { settingsPreferences.saveLyricTextSize(size) }
 
     fun updateLyricTextColor(color: String) = launchSave { settingsPreferences.saveLyricTextColor(color) }
+
+    fun updateFullScreenLyricTextSize(size: Int) = launchSave { settingsPreferences.saveFullScreenLyricTextSize(size) }
+
+    fun updateFullScreenLyricAlignment(alignment: String) = launchSave { settingsPreferences.saveFullScreenLyricAlignment(alignment) }
+    
+    fun updateFullScreenLyricShowTranslation(show: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricShowTranslation(show) }
+    
+    fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
+    
+    fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+
+    fun updateSuperLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSuperLyricEnabled(enabled) }
+
+    fun updateLyricInfoEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricInfoEnabled(enabled) }
+
+    fun updateBluetoothLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveBluetoothLyricEnabled(enabled) }
+
+    fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

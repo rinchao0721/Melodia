@@ -15,6 +15,9 @@ object NeteaseEndpoints {
     // eapi 路由改写到的移动端主机，用于绕开 PC 端风控
     const val EAPI_HOST = "interface.music.163.com"
 
+    // xeapi 路由改写到的第三个独立主机（发表/回复/删除评论等写操作专用）
+    const val XEAPI_HOST = "interface3.music.163.com"
+
     // 判定是否为网易域名，决定是否注入 X-Real-IP 等地域伪装头
     const val DOMAIN_SUFFIX = "163.com"
 

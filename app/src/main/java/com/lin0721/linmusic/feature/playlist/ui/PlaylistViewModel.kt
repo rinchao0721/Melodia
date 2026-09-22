@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.download.DownloadTrackInfo
+import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -26,7 +29,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.comment.ui.CommentsState
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
@@ -60,7 +68,8 @@ class PlaylistViewModel(
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
-    private val searchRepository: SearchRepository
+    private val searchRepository: SearchRepository,
+    private val songDownloadManager: SongDownloadManager
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -81,13 +90,19 @@ class PlaylistViewModel(
         initialValue = null
     )
 
-    private val _likedSongIds = MutableStateFlow<Set<Long>>(emptySet())
-    val likedSongIds: StateFlow<Set<Long>> = _likedSongIds.asStateFlow()
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
 
-    private val _commentsState = MutableStateFlow<CommentsState>(CommentsState.Loading)
-    val commentsState: StateFlow<CommentsState> = _commentsState.asStateFlow()
+    private val commentsController = CommentsSectionController(
+        scope = viewModelScope,
+        repository = commentRepository,
+        onToast = { message -> _toastEvent.emit(message) },
+        resourceProvider = resourceProvider
+    )
+    val commentsState: StateFlow<CommentsState> = commentsController.commentsState
+    val composerState: StateFlow<CommentComposerState> = commentsController.composerState
+    val floorState: StateFlow<CommentFloorState> = commentsController.floorState
 
     // 历史日推（每日推荐/听歌排行）浏览状态
     private val _historyRecommendState = MutableStateFlow(HistoryRecommendState())
@@ -107,7 +122,7 @@ class PlaylistViewModel(
 
     fun loadLikedSongIds() {
         viewModelScope.launch {
-            loadLikedSongIdsUseCase()?.let { _likedSongIds.value = it }
+            loadLikedSongIdsUseCase()
         }
     }
 
@@ -335,7 +350,7 @@ class PlaylistViewModel(
 
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -344,9 +359,11 @@ class PlaylistViewModel(
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
-                likedSongIds = _likedSongIds.value,
+                likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
-                onLikedChanged = { _likedSongIds.value = it }
+                onLikedChanged = { newLiked ->
+                    songLikeRepository.syncLikedSongIds(newLiked)
+                }
             )
             // 停留在“我喜欢的音乐”歌单时需重新拉取列表，使被取消红心的歌曲从当前页消失
             val successState = _uiState.value as? PlaylistUiState.Success
@@ -359,7 +376,7 @@ class PlaylistViewModel(
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, _likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -578,68 +595,34 @@ class PlaylistViewModel(
     private fun commentThreadId(id: Long): String = if (isAlbumMode) "R_AL_3_$id" else "A_PL_0_$id"
 
     fun loadPlaylistComments(playlistId: Long) {
-        viewModelScope.launch {
-            _commentsState.value = CommentsState.Loading
-            val threadId = commentThreadId(playlistId)
-            commentRepository.getComments(threadId, limit = 20).collect { result ->
-                result.onSuccess { response ->
-                    _commentsState.value = CommentsState.Success(
-                        hotComments = response.hotComments,
-                        comments = response.comments,
-                        total = response.total
-                    )
-                }.onFailure { error ->
-                    _commentsState.value = CommentsState.Error(error.toUserMessage(resourceProvider))
-                }
-            }
-        }
+        commentsController.load(commentThreadId(playlistId))
     }
 
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
-            val profile = userProfile.value
-            if (profile == null) {
+            if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
-
-            val currentState = _commentsState.value as? CommentsState.Success ?: return@launch
-            
-            val successState = _uiState.value as? PlaylistUiState.Success ?: return@launch
-            val playlistId = successState.playlist.id
-            val threadId = commentThreadId(playlistId)
-            val targetLike = !comment.liked
-
-            val updatedComments = currentState.comments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            val updatedHotComments = currentState.hotComments.map {
-                if (it.commentId == comment.commentId) {
-                    it.copy(
-                        liked = targetLike,
-                        likedCount = it.likedCount + if (targetLike) 1 else -1
-                    )
-                } else it
-            }
-            _commentsState.value = CommentsState.Success(
-                hotComments = updatedHotComments,
-                comments = updatedComments,
-                total = currentState.total
-            )
-
-            commentRepository.likeComment(threadId, comment.commentId, targetLike).collect { result ->
-                result.onFailure { e ->
-                    _commentsState.value = currentState
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
-                }
-            }
+            commentsController.like(comment)
         }
     }
+
+    fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
+    fun loadMoreComments() = commentsController.loadMore()
+    fun submitComment(content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+
+    fun submitCommentReply(parentCommentId: Long, content: String) {
+        val profile = userProfile.value ?: return
+        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+    }
+    fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
+    fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
+    fun loadMoreCommentFloor() = commentsController.loadMoreFloor()
+    fun closeCommentFloor() = commentsController.closeFloor()
 
     // 加载历史日推可用日期
     fun loadHistoryDates() {
@@ -742,13 +725,6 @@ class PlaylistViewModel(
                 result.fold(
                     onSuccess = {
                         _toastEvent.emit(if (isLike) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
-                        val currentLiked = _likedSongIds.value.toMutableSet()
-                        if (isLike) {
-                            currentLiked.add(songId)
-                        } else {
-                            currentLiked.remove(songId)
-                        }
-                        _likedSongIds.value = currentLiked
 
                         val successState = _uiState.value as? PlaylistUiState.Success
                         if (successState != null) {
@@ -968,6 +944,39 @@ class PlaylistViewModel(
                 }
             }
         }
+    }
+
+    // 批量下载歌单曲目
+    fun downloadPlaylist(playlistId: Long, playlistName: String, tracks: List<Track>, level: String) {
+        if (tracks.isEmpty()) {
+            viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
+            return
+        }
+        val downloadTracks = tracks.map { track ->
+            DownloadTrackInfo(
+                track.id, track.name, track.ar.joinToString("/") { it.name },
+                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
+                yearFromEpochMillis(track.publishTime)
+            )
+        }
+        songDownloadManager.enqueueBatch(
+            downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
+        )
+        viewModelScope.launch { _toastEvent.emit("已将 ${downloadTracks.size} 首歌曲加入下载队列") }
+    }
+
+    // 下载单首歌曲
+    fun downloadTrack(track: Track, level: String) {
+        val downloadTrack = DownloadTrackInfo(
+            track.id,
+            track.name,
+            track.ar.joinToString("/") { it.name },
+            track.al.name,
+            track.al.picUrl.takeIf { it.isNotBlank() },
+            yearFromEpochMillis(track.publishTime)
+        )
+        songDownloadManager.enqueueSingle(downloadTrack, level)
+        viewModelScope.launch { _toastEvent.emit("已加入下载队列") }
     }
 }
 

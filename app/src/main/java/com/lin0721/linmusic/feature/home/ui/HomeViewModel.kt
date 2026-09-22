@@ -18,6 +18,11 @@ import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
+import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
+import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -44,7 +49,10 @@ class HomeViewModel(
     val playerManager: PlayerManager,
     private val userPreferences: UserPreferences,
     private val authRepository: AuthRepository,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
+    private val songLikeRepository: SongLikeRepository,
+    private val songCollectDelegate: SongCollectDelegate
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -59,10 +67,48 @@ class HomeViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // mini 栏"收藏到歌单"弹层，跟全屏播放页共用同一套 SongCollectDelegate 机制，各自持一份独立实例；
+    // 用 StateFlow 而不是普通 Set，mini 栏爱心图标要跟着这份数据变化重组
+    val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
+    val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+
     init {
         loadHomeData()
         viewModelScope.launch {
             playerManager.initController()
+        }
+        viewModelScope.launch {
+            userProfile.collect { profile ->
+                if (profile != null) {
+                    loadLikedSongIdsUseCase()
+                }
+            }
+        }
+    }
+
+    fun prepareCollectDialog(songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+        }
+    }
+
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+        viewModelScope.launch {
+            songCollectDelegate.save(
+                songId = songId,
+                items = items,
+                likedSongIds = songLikeRepository.likedSongIds.value,
+                onToast = { _toastEvent.emit(it) },
+                onLikedChanged = { newLiked ->
+                    songLikeRepository.syncLikedSongIds(newLiked)
+                }
+            )
+        }
+    }
+
+    fun createPlaylistAndAddSong(name: String, songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -301,7 +347,7 @@ class HomeViewModel(
                             val items = listOf(currentItem) + tracks.map { track ->
                                 QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = "intelligence")
+                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已开启心动模式")
                         } else {
                             _toastEvent.emit("获取心动推荐失败")
@@ -322,7 +368,7 @@ class HomeViewModel(
                                                         val items = listOf(currentItem) + tracks.map { track ->
                                                             QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = "intelligence")
+                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已从《${firstSong.name}》开启心动模式")
                         }.onFailure {
                             _toastEvent.emit(it.toUserMessage(resourceProvider))

@@ -27,6 +27,10 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val showDesktopLrc by viewModel.showDesktopLrc.collectAsStateWithLifecycle()
     val lyricTextSize by viewModel.lyricTextSize.collectAsStateWithLifecycle()
     val lyricTextColor by viewModel.lyricTextColor.collectAsStateWithLifecycle()
+    val superLyricEnabled by viewModel.superLyricEnabled.collectAsStateWithLifecycle()
+    val lyricInfoEnabled by viewModel.lyricInfoEnabled.collectAsStateWithLifecycle()
+    val bluetoothLyricEnabled by viewModel.bluetoothLyricEnabled.collectAsStateWithLifecycle()
+    val lyriconEnabled by viewModel.lyriconEnabled.collectAsStateWithLifecycle()
 
     var showSizeSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
@@ -63,6 +67,38 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         title = "悬浮歌词颜色",
                         subtitle = colorLabel,
                         onClick = { showColorSheet = true }
+                    )
+                }
+            }
+
+            item {
+                SettingsGroupCard("外部与系统歌词") {
+                    SettingsSwitchRow(
+                        title = "SuperLyric 实时歌词（测试）",
+                        subtitle = "通过系统 Binder 服务向状态栏或歌词插件广播实时歌词",
+                        checked = superLyricEnabled,
+                        onCheckedChange = { viewModel.updateSuperLyricEnabled(it) }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "LyricInfo 系统歌词（测试）",
+                        subtitle = "向系统媒体会话元数据注入整轨歌词 JSON，供锁屏岛等插件读取",
+                        checked = lyricInfoEnabled,
+                        onCheckedChange = { viewModel.updateLyricInfoEnabled(it) }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "车载蓝牙歌词（测试）",
+                        subtitle = "播放时将当前行歌词实时同步至蓝牙设备标题栏，暂停时恢复原曲名",
+                        checked = bluetoothLyricEnabled,
+                        onCheckedChange = { viewModel.updateBluetoothLyricEnabled(it) }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "Lyricon 词幕投屏（测试）",
+                        subtitle = "向 Lyricon 独立词幕服务同步当前播放曲目与歌词进度",
+                        checked = lyriconEnabled,
+                        onCheckedChange = { viewModel.updateLyriconEnabled(it) }
                     )
                 }
             }

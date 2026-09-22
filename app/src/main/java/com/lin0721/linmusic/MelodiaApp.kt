@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -72,10 +73,15 @@ fun MelodiaApp() {
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
+    // 迷你播放条按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying
+    val miniPlayerShowPause by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentPositionState = viewModel.playerManager.currentPosition.collectAsStateWithLifecycle()
     val currentPositionProvider = { currentPositionState.value }
     val duration by viewModel.playerManager.duration.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val collectState by viewModel.collectState.collectAsStateWithLifecycle()
+    val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
+    val isMiniPlayerLiked = currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
@@ -86,6 +92,8 @@ fun MelodiaApp() {
     var isLoginScreenVisible by remember { mutableStateOf(false) }
     // MV 播放页是否处于全屏态：全屏时隐藏底部导航栏/悬浮播放条，避免盖住视频
     var isMvFullscreen by remember { mutableStateOf(false) }
+    // MV 播放页评论区是否展开：展开时临时隐藏悬浮 MiniPlayer，为评论区和输入栏让出空间
+    var isMvCommentsOpen by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     // 平板适配断点，顶层下发供 MelodiaBottomOverlay 及后续各阶段消费
@@ -94,6 +102,8 @@ fun MelodiaApp() {
     // 面板在任意页面都保持展开态（不局限于 Tab 根页面），参照 Spotify 平板版
     var isPanelExpanded by remember { mutableStateOf(false) }
     val isPanelVisible = windowSizeClass == MelodiaWindowSizeClass.Expanded && isPanelExpanded
+    // mini 栏爱心按钮触发的"收藏到歌单"弹层，非 null 时显示
+    var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
 
     val hazeState = remember { HazeState() }
     val density = LocalDensity.current
@@ -107,21 +117,33 @@ fun MelodiaApp() {
         }
     }
 
+    LaunchedEffect(currentTrack?.mediaId) {
+        val originId = navigation.playerNavOriginMediaId
+        val currentId = currentTrack?.mediaId
+        if (originId != null && currentId != null && currentId != originId) {
+            navigation.resetPlayerNavigation()
+        }
+    }
+
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
+    // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统。
     // 平板常驻播放面板不占用返回键——面板作为常驻工具栏跨页面持续展开（贴合 Spotify），
     // 只能通过自身的收起箭头/下拉手势关闭，返回键始终只处理内容导航
-    val isAnyOverlayOpen = navigation.isNavigatingFromPlayer || playerSheet.isOpen || sidebar.isOpen || showCreateSheet || navigation.canNavigateBack
+    val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
+            showCreateSheet || navigation.showMusicNewWorks || navigation.canNavigateBack ||
+            navigation.activeTab != Screen.Home
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
-            navigation.isNavigatingFromPlayer -> handleBack()
             playerSheet.isOpen -> {
                 navigation.resetPlayerNavigation()
                 playerSheet.animateTo(false, 0f)
             }
+            navigation.isNavigatingFromPlayer -> handleBack()
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
-            navigation.canNavigateBack -> handleBack()
+            navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
+            navigation.canNavigateBack || navigation.activeTab != Screen.Home -> handleBack()
         }
     }
 
@@ -202,7 +224,10 @@ fun MelodiaApp() {
                 modifier = Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
             ) {
-                CompositionLocalProvider(LocalBottomOverlayInset provides bottomOverlayHeight) {
+                CompositionLocalProvider(
+                    LocalBottomOverlayInset provides bottomOverlayHeight,
+                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || showCreateSheet)
+                ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -231,12 +256,14 @@ fun MelodiaApp() {
                             onNavigateToRadio = { id -> navigation.openRadio(id) },
                             onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
                             onMvFullscreenChanged = { isMvFullscreen = it },
+                            onMvCommentsVisibilityChanged = { isMvCommentsOpen = it },
                             onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
                             onNavigateToProfile = { uid -> navigation.openProfile(uid) },
                             onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
                             onHomeTabSelected = { navigation.selectHomeTab(it) },
                             onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                             onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
+                            onNavigateToLocalMusic = { navigation.openLocalMusic() },
                             onBack = { handleBack() }
                         )
 
@@ -257,9 +284,10 @@ fun MelodiaApp() {
                             showCreateSheet = showCreateSheet,
                             isLoginScreenVisible = isLoginScreenVisible,
                             isMvFullscreen = isMvFullscreen,
+                            isMvCommentsOpen = isMvCommentsOpen,
                             isPanelExpanded = isPanelExpanded,
                             currentTrack = currentTrack,
-                            isPlaying = isPlaying,
+                            isPlaying = miniPlayerShowPause,
                             currentPositionProvider = currentPositionProvider,
                             duration = duration,
                             hazeState = hazeState,
@@ -281,6 +309,15 @@ fun MelodiaApp() {
                             previousQueueItem = previousQueueItem,
                             nextQueueItem = nextQueueItem,
                             onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
+                            onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
+                            isMiniPlayerLiked = isMiniPlayerLiked,
+                            onMiniPlayerLikeClick = {
+                                val songId = currentTrack?.mediaId?.toLongOrNull()
+                                if (songId != null) {
+                                    miniCollectSongId = songId
+                                    viewModel.prepareCollectDialog(songId)
+                                }
+                            },
                             onCreateDismiss = { showCreateSheet = false },
                             onNavigate = { navigation.openTab(it) },
                             onCreateClick = { showCreateSheet = !showCreateSheet },
@@ -353,19 +390,19 @@ fun MelodiaApp() {
                 playerSheet.animateTo(false, velocity, offset)
             },
             onArtistClick = { artistId ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openArtist(artistId)
                 }
                 playerSheet.animateTo(false, 0f)
             },
             onAlbumClick = { albumId ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openPlaylist(albumId, isAlbum = true)
                 }
                 playerSheet.animateTo(false, 0f)
             },
             onNavigateToProfile = { uid ->
-                navigation.navigateFromPlayer {
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openProfile(uid)
                 }
                 playerSheet.animateTo(false, 0f)
@@ -387,6 +424,17 @@ fun MelodiaApp() {
                 onIgnore = { updateManager.ignoreCurrentVersion() },
                 onStartDownload = { updateManager.startDownload() },
                 onInstall = { updateManager.retryInstall() }
+            )
+        }
+
+        // 7. mini 栏爱心按钮触发的"收藏到歌单"弹层，跟全屏播放页共用同一个组件
+        miniCollectSongId?.let { songId ->
+            PlaylistCollectSheet(
+                songId = songId,
+                collectState = collectState,
+                onDismiss = { miniCollectSongId = null },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }
     }

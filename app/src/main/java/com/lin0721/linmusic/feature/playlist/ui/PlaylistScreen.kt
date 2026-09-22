@@ -28,7 +28,10 @@ import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
-import com.lin0721.linmusic.core.comment.ui.CommentsBottomSheet
+import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
+import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
+import com.lin0721.linmusic.core.model.CommentItem
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -63,6 +66,7 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
@@ -155,11 +159,16 @@ fun PlaylistScreen(
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
+    var showCommentFloor by remember { mutableStateOf(false) }
+    val composerState by viewModel.composerState.collectAsStateWithLifecycle()
+    val floorState by viewModel.floorState.collectAsStateWithLifecycle()
     var showMoreMenuSheet by remember { mutableStateOf(false) }
     var showImportTargetSheet by remember { mutableStateOf(false) }
     var showEditInfoDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddMusicSheet by remember { mutableStateOf(false) }
+    var showDownloadQualitySheet by remember { mutableStateOf(false) }
+    var pendingDownloadTrack by remember { mutableStateOf<Track?>(null) }
     var isReorderMode by remember { mutableStateOf(false) }
     var isSavingOrder by remember { mutableStateOf(false) }
     var showDiscardConfirmDialog by remember { mutableStateOf(false) }
@@ -174,7 +183,10 @@ fun PlaylistScreen(
         }
     }
 
-    BackHandler(enabled = isReorderMode) {
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    val isGlobalOverlayOpen = LocalGlobalOverlayOpen.current
+
+    BackHandler(enabled = isReorderMode && !isGlobalOverlayOpen) {
         if (!isSavingOrder) {
             if (isOrderChanged) {
                 showDiscardConfirmDialog = true
@@ -182,6 +194,14 @@ fun PlaylistScreen(
                 isReorderMode = false
             }
         }
+    }
+
+    BackHandler(enabled = showCommentsSheet && !isGlobalOverlayOpen) {
+        showCommentsSheet = false
+    }
+
+    BackHandler(enabled = showCommentFloor && !isGlobalOverlayOpen) {
+        showCommentFloor = false
     }
 
     LaunchedEffect(historyRecommendState.selectedDate) {
@@ -597,9 +617,8 @@ fun PlaylistScreen(
                     },
                     isLikedSongsPlaylistView = isLikedSongsPlaylistView,
                     onShareClick = { sharePlaylistOrAlbum(state.playlist.name, state.playlist.id) },
-                    onDownloadClick = {
-                        com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中nya、")
-                    },
+                    onDownloadClick = { showDownloadQualitySheet = true },
+                    onDownloadSongClick = { pendingDownloadTrack = it },
                     onHistoryClick = {},
                     historyDates = historyRecommendState.dates,
                     historySongsLoading = historyRecommendState.songsLoading,
@@ -643,12 +662,55 @@ fun PlaylistScreen(
             )
         }
 
-        if (showCommentsSheet) {
-            CommentsBottomSheet(
+        AnimatedVisibility(
+            visible = showCommentsSheet,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            CommentFullScreen(
                 commentsState = commentsState,
+                currentUserId = userProfile?.uid,
+                composerState = composerState,
+                onBack = { showCommentsSheet = false },
+                onSortChange = viewModel::changeCommentSort,
                 onLikeComment = viewModel::likeComment,
-                onDismiss = { showCommentsSheet = false },
-                onRetry = { viewModel.loadPlaylistComments(playlistId) },
+                onUserClick = onNavigateToProfile,
+                onExpandFloor = { comment ->
+                    showCommentFloor = true
+                    viewModel.openCommentFloor(comment)
+                },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                onSubmitComment = { content, target ->
+                    if (target != null) {
+                        viewModel.submitCommentReply(target.commentId, content)
+                    } else {
+                        viewModel.submitComment(content)
+                    }
+                },
+                onRequireLogin = { showLoginSheet = true },
+                onLoadMore = viewModel::loadMoreComments,
+                onRetry = { viewModel.loadPlaylistComments(playlistId) }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showCommentFloor,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            CommentFloorScreen(
+                floorState = floorState,
+                currentUserId = userProfile?.uid,
+                composerState = composerState,
+                onBack = { showCommentFloor = false },
+                onLoadMore = viewModel::loadMoreCommentFloor,
+                onSubmitReply = { parentCommentId, content ->
+                    viewModel.submitCommentReply(parentCommentId, content)
+                },
+                onRequireLogin = { showLoginSheet = true },
+                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                onLikeClick = { comment -> viewModel.likeComment(comment) },
+                onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
                 onUserClick = onNavigateToProfile
             )
         }
@@ -656,6 +718,29 @@ fun PlaylistScreen(
 
 
         val successState = uiState as? PlaylistUiState.Success
+        if (showDownloadQualitySheet && successState != null) {
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadPlaylist(
+                        successState.playlist.id, successState.playlist.name, successState.playlist.tracks, level
+                    )
+                    showDownloadQualitySheet = false
+                },
+                onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
+
+        if (pendingDownloadTrack != null) {
+            val trackToDownload = pendingDownloadTrack!!
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadTrack(trackToDownload, level)
+                    pendingDownloadTrack = null
+                },
+                onDismiss = { pendingDownloadTrack = null }
+            )
+        }
+
         if (showMoreMenuSheet && successState != null) {
             val playlist = successState.playlist
             ModalBottomSheet(
@@ -800,7 +885,7 @@ fun PlaylistScreen(
                                 title = "下载$resourceLabel"
                             ) {
                                 showMoreMenuSheet = false
-                                com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
+                                showDownloadQualitySheet = true
                             }
                         )
                         if (isManageable) {

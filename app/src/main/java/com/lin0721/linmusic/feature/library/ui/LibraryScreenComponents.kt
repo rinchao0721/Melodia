@@ -98,7 +98,7 @@ fun LibraryFilterPillsRow(
     val fadeOutSpec = spring<Float>(stiffness = Spring.StiffnessMedium)
 
     LazyRow(
-        modifier = modifier.padding(top = MelodiaSpacing.sm),
+        modifier = modifier.padding(top = MelodiaSpacing.sm, bottom = 10.dp),
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -138,11 +138,12 @@ fun LibraryFilterPillsRow(
             Box(
                 modifier = Modifier
                     .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
+                    .height(36.dp)
                     .pressable(MelodiaPress.Pill) { onSelect(filter) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(bgColor)
                     .animateContentSize(spring(stiffness = Spring.StiffnessMedium))
-                    .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -169,10 +170,11 @@ fun LibraryFilterPillsRow(
                 Box(
                     modifier = Modifier
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
+                        .height(36.dp)
                         .pressable(MelodiaPress.Pill) { onSelectPlaylistOwnerFilter(ownerFilter) }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(bgColor)
-                        .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+                        .padding(horizontal = 18.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

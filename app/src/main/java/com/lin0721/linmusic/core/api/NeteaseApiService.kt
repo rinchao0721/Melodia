@@ -24,13 +24,13 @@ interface NeteaseApiService {
     ): LogoutApiResponse
 
     // 获取二维码登录 key
-    @POST("/eapi/login/qrcode/unikey")
+    @POST("/weapi/login/qrcode/unikey")
     suspend fun getQrKey(
         @Body body: QrKeyRequest = QrKeyRequest()
     ): QrKeyResponse
 
     // 轮询二维码扫码状态；登录成功时 Cookie 经由 Set-Cookie 响应头下发，故需拿到原始 Response 读取头部
-    @POST("/eapi/login/qrcode/client/login")
+    @POST("/weapi/login/qrcode/client/login")
     suspend fun checkQrStatus(
         @Body body: QrCheckRequest
     ): Response<QrCheckResponse>
@@ -72,9 +72,9 @@ data class LogoutApiResponse(
 
 // ======================= 二维码登录 =======================
 
-// type 固定为 3，网易云二维码登录约定值
+// type 固定为 1，网易云 Web/PC 二维码登录标准参数
 @Serializable
-data class QrKeyRequest(val type: Int = 3)
+data class QrKeyRequest(val type: Int = 1)
 
 @Serializable
 data class QrKeyResponse(
@@ -85,7 +85,7 @@ data class QrKeyResponse(
 @Serializable
 data class QrCheckRequest(
     val key: String,
-    val type: Int = 3
+    val type: Int = 1
 )
 
 // code: 800 二维码过期 / 801 等待扫码 / 802 待确认 / 803 授权成功

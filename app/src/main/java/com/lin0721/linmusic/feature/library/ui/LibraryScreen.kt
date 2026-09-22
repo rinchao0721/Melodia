@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
@@ -75,6 +76,44 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
 
+// 本地音乐入口项
+@Composable
+private fun LocalMusicEntryRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+            .clip(RoundedCornerShape(PillRadius))
+            .background(MaterialTheme.colorScheme.surface)
+            .pressable(MelodiaPress.Row) { onClick() }
+            .padding(horizontal = MelodiaSpacing.md, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.LibraryMusic,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
+        Text(
+            text = "本地音乐",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer { rotationZ = 180f }
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -83,7 +122,8 @@ fun LibraryScreen(
     onAlbumClick: (Long) -> Unit,
     onBack: () -> Unit,
     onOpenSidebar: () -> Unit = {},
-    onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
+    onLoginScreenVisibilityChanged: (Boolean) -> Unit = {},
+    onNavigateToLocalMusic: () -> Unit = {}
 ) {
     val viewModel: LibraryViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -114,11 +154,13 @@ fun LibraryScreen(
     var showSortMenu by remember { mutableStateOf(false) }
 
     var activeOptionsItem by remember { mutableStateOf<LibraryItem?>(null) }
+    var downloadQualityTarget by remember { mutableStateOf<LibraryItem?>(null) }
     var deletePlaylistTarget by remember { mutableStateOf<LibraryItem?>(null) }
     var isReorderMode by remember { mutableStateOf(false) }
     val reorderedPlaylists = remember { mutableStateListOf<LibraryItem>() }
 
-    BackHandler(enabled = isReorderMode) {
+    // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
+    BackHandler(enabled = isReorderMode && !LocalGlobalOverlayOpen.current) {
         isReorderMode = false
     }
 
@@ -322,159 +364,152 @@ fun LibraryScreen(
                     onSelectPlaylistOwnerFilter = { viewModel.togglePlaylistOwnerFilter(it) }
                 )
 
-                // 3. 排序与视图展示状态栏
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.pressable(MelodiaPress.Pill) { showSortMenu = true },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.SwapVert,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = when (sortOrder) {
-                                LibrarySortOrder.RECENTLY_PLAYED -> "最近播放"
-                                LibrarySortOrder.CREATE_TIME -> "创建时间"
-                                LibrarySortOrder.NAME -> "字母排序"
-                            },
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                LocalMusicEntryRow(onClick = onNavigateToLocalMusic)
 
-
-                    }
-
-                    MelodiaIconButton(
-                        onClick = { viewModel.updateGridView(!isGridView) },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isGridView) Icons.AutoMirrored.Rounded.List else Icons.Rounded.GridView,
-                            contentDescription = "切换视图",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                // 4. 混合聚合列表
-                when (val state = uiState) {
-                    is LibraryUiState.Loading -> {
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    is LibraryUiState.Error -> {
-                        Box(
-                            modifier = Modifier.weight(1f).fillMaxWidth().padding(MelodiaSpacing.xl),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = state.message,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(MelodiaSpacing.md))
-                                MelodiaButton(
-                                    onClick = { viewModel.loadLibraryData() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text("重试", color = MaterialTheme.colorScheme.onPrimary)
-                                }
+                // 3. 混合聚合列表容器
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when (val state = uiState) {
+                        is LibraryUiState.Loading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         }
-                    }
-                    is LibraryUiState.Success -> {
-                        if (state.filteredItems.isEmpty()) {
+                        is LibraryUiState.Error -> {
                             Box(
-                                modifier = Modifier.weight(1f).fillMaxWidth().padding(MelodiaSpacing.xl),
+                                modifier = Modifier.fillMaxSize().padding(MelodiaSpacing.xl),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = if (searchQuery.isNotEmpty()) "未找到相关收藏项" else "列表为空，快去添加吧！",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        } else if (isGridView) {
-                            LazyColumn(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = MelodiaSpacing.xs, start = MelodiaSpacing.md, end = MelodiaSpacing.md)
-                            ) {
-                                val rows = state.filteredItems.chunked(3)
-                                items(rows, key = { row -> row.joinToString(separator = "_") { it.id } }) { row ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = state.message,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 14.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(MelodiaSpacing.md))
+                                    MelodiaButton(
+                                        onClick = { viewModel.loadLibraryData() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        row.forEach { item ->
-                                            LibraryGridItem(
-                                                item = item,
-                                                modifier = Modifier.weight(1f),
-                                                onClick = {
-                                                    if (item.type == LibraryItemType.PLAYLIST) {
-                                                        onPlaylistClick(item.id.toLong())
-                                                    } else if (item.type == LibraryItemType.ARTIST) {
-                                                        onArtistClick(item.id.toLong())
-                                                    } else {
-                                                        onAlbumClick(item.id.toLong())
-                                                    }
-                                                },
-                                                onLongClick = {
-                                                    if (item.id != "-2") {
-                                                        activeOptionsItem = item
-                                                    }
-                                                }
-                                            )
-                                        }
-                                        repeat(3 - row.size) {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
+                                        Text("重试", color = MaterialTheme.colorScheme.onPrimary)
                                     }
-                                    Spacer(modifier = Modifier.height(12.dp))
                                 }
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = MelodiaSpacing.xs)
-                            ) {
-                                items(state.filteredItems, key = { "${it.type}_${it.id}" }) { item ->
-                                    LibraryItemRow(
-                                        item = item,
-                                        onClick = {
-                                            if (item.type == LibraryItemType.PLAYLIST) {
-                                                onPlaylistClick(item.id.toLong())
-                                            } else if (item.type == LibraryItemType.ARTIST) {
-                                                onArtistClick(item.id.toLong())
-                                            } else {
-                                                onAlbumClick(item.id.toLong())
+                        }
+                        is LibraryUiState.Success -> {
+                            if (state.filteredItems.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().padding(MelodiaSpacing.xl),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (searchQuery.isNotEmpty()) "未找到相关收藏项" else "列表为空，快去添加吧！",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 14.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else if (isGridView) {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = 8.dp, start = MelodiaSpacing.md, end = MelodiaSpacing.md)
+                                ) {
+                                    item(key = "library_sort_bar") {
+                                        LibrarySortAndFilterBar(
+                                            sortOrder = sortOrder,
+                                            isGridView = isGridView,
+                                            onSortClick = { showSortMenu = true },
+                                            onToggleGridView = { viewModel.updateGridView(!isGridView) },
+                                            modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
+                                        )
+                                    }
+                                    val rows = state.filteredItems.chunked(3)
+                                    items(rows, key = { row -> row.joinToString(separator = "_") { it.id } }) { row ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            row.forEach { item ->
+                                                LibraryGridItem(
+                                                    item = item,
+                                                    modifier = Modifier.weight(1f),
+                                                    onClick = {
+                                                        if (item.type == LibraryItemType.PLAYLIST) {
+                                                            onPlaylistClick(item.id.toLong())
+                                                        } else if (item.type == LibraryItemType.ARTIST) {
+                                                            onArtistClick(item.id.toLong())
+                                                        } else {
+                                                            onAlbumClick(item.id.toLong())
+                                                        }
+                                                    },
+                                                    onLongClick = {
+                                                        if (item.id != "-2") {
+                                                            activeOptionsItem = item
+                                                        }
+                                                    }
+                                                )
                                             }
-                                        },
-                                        onLongClick = {
-                                            if (item.id != "-2") {
-                                                activeOptionsItem = item
+                                            repeat(3 - row.size) {
+                                                Spacer(modifier = Modifier.weight(1f))
                                             }
                                         }
-                                    )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = 8.dp)
+                                ) {
+                                    item(key = "library_sort_bar") {
+                                        LibrarySortAndFilterBar(
+                                            sortOrder = sortOrder,
+                                            isGridView = isGridView,
+                                            onSortClick = { showSortMenu = true },
+                                            onToggleGridView = { viewModel.updateGridView(!isGridView) },
+                                            modifier = Modifier.padding(start = MelodiaSpacing.md, end = MelodiaSpacing.md, bottom = MelodiaSpacing.sm)
+                                        )
+                                    }
+                                    items(state.filteredItems, key = { "${it.type}_${it.id}" }) { item ->
+                                        LibraryItemRow(
+                                            item = item,
+                                            onClick = {
+                                                if (item.type == LibraryItemType.PLAYLIST) {
+                                                    onPlaylistClick(item.id.toLong())
+                                                } else if (item.type == LibraryItemType.ARTIST) {
+                                                    onArtistClick(item.id.toLong())
+                                                } else {
+                                                    onAlbumClick(item.id.toLong())
+                                                }
+                                            },
+                                            onLongClick = {
+                                                if (item.id != "-2") {
+                                                    activeOptionsItem = item
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
+                    // 吸顶边缘纯黑弥散阴影
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.85f),
+                                        Color.Black.copy(alpha = 0.35f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
@@ -539,19 +574,14 @@ fun LibraryScreen(
                 onDismiss = { activeOptionsItem = null },
                 onTogglePin = { viewModel.togglePin(it) },
                 onEditOrder = {
-                    val successState = uiState as? LibraryUiState.Success
-                    if (successState != null) {
-                        val playlistsToSort = successState.allItems.filter {
-                            it.type == LibraryItemType.PLAYLIST && it.id != "-2" && !it.isLikedSongs
-                        }
-                        reorderedPlaylists.clear()
-                        reorderedPlaylists.addAll(playlistsToSort)
-                        isReorderMode = true
-                    }
+                    reorderedPlaylists.clear()
+                    reorderedPlaylists.addAll(viewModel.getPlaylistsForReorder())
+                    isReorderMode = true
                 },
                 onShare = { shareItem(it) },
-                onDownload = {
-                    com.lin0721.linmusic.core.ui.components.ToastManager.showToast("批量下载开发中naya")
+                onDownload = { item ->
+                    activeOptionsItem = null
+                    downloadQualityTarget = item
                 },
                 onDeletePlaylist = { playlistId ->
                     val target = (uiState as? LibraryUiState.Success)?.allItems?.find { it.id == playlistId.toString() }
@@ -568,6 +598,18 @@ fun LibraryScreen(
                 onUnsubscribeArtist = { artistId ->
                     viewModel.unsubscribeArtist(artistId)
                 }
+            )
+        }
+
+        // 批量下载音质选择
+        if (downloadQualityTarget != null) {
+            val target = downloadQualityTarget!!
+            com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
+                onQualitySelected = { level ->
+                    viewModel.downloadLibraryItem(target, level)
+                    downloadQualityTarget = null
+                },
+                onDismiss = { downloadQualityTarget = null }
             )
         }
 
@@ -814,3 +856,52 @@ private fun LibraryReorderView(
     }
 }
 
+@Composable
+private fun LibrarySortAndFilterBar(
+    sortOrder: LibrarySortOrder,
+    isGridView: Boolean,
+    onSortClick: () -> Unit,
+    onToggleGridView: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.pressable(MelodiaPress.Pill) { onSortClick() },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SwapVert,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = when (sortOrder) {
+                    LibrarySortOrder.RECENTLY_PLAYED -> "最近播放"
+                    LibrarySortOrder.NAME -> "字母排序"
+                    LibrarySortOrder.CUSTOM -> "自定义"
+                },
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        MelodiaIconButton(
+            onClick = onToggleGridView,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = if (isGridView) Icons.AutoMirrored.Rounded.List else Icons.Rounded.GridView,
+                contentDescription = "切换视图",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}

@@ -6,11 +6,13 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +51,10 @@ fun PlaylistSongOptionsSheet(
     showArtistOption: Boolean = true,
     // 仅当前歌单创建者可从歌单中移除歌曲，由调用方按登录态与创建者身份算好传入
     canRemoveFromPlaylist: Boolean = false,
-    onRemoveFromPlaylist: (Long) -> Unit = {}
+    onRemoveFromPlaylist: (Long) -> Unit = {},
+    onDownloadClick: ((Track) -> Unit)? = null,
+    // 额外操作项
+    extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -69,8 +74,16 @@ fun PlaylistSongOptionsSheet(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val coverModel = remember(track.al.picUrl) {
+                    val url = track.al.picUrl
+                    if (url.startsWith("http://") || url.startsWith("https://")) {
+                        "$url?param=150y150"
+                    } else {
+                        url
+                    }
+                }
                 SubcomposeAsyncImage(
-                    model = "${track.al.picUrl}?param=150y150",
+                    model = coverModel,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     loading = { CoverPlaceholder() },
@@ -148,6 +161,17 @@ fun PlaylistSongOptionsSheet(
                     }
                 )
 
+                if (onDownloadClick != null) {
+                    OptionRow(
+                        icon = Icons.Default.Download,
+                        text = "下载",
+                        onClick = {
+                            onDismiss()
+                            onDownloadClick(track)
+                        }
+                    )
+                }
+
                 if (showArtistOption) {
                     val artistsText = track.ar.joinToString(" • ") { it.name }
                     OptionRow(
@@ -155,8 +179,11 @@ fun PlaylistSongOptionsSheet(
                         text = "歌手: $artistsText",
                         onClick = {
                             onDismiss()
-                            track.ar.firstOrNull()?.id?.let { artistId ->
+                            val artistId = track.ar.firstOrNull()?.id ?: 0L
+                            if (artistId > 0) {
                                 onArtistClick(artistId)
+                            } else {
+                                ToastManager.showToast("暂无歌手信息")
                             }
                         }
                     )
@@ -185,6 +212,8 @@ fun PlaylistSongOptionsSheet(
                         }
                     }
                 )
+
+                extraOptions()
             }
         }
     }

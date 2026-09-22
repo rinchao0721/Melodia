@@ -35,16 +35,20 @@ class PlaybackProgressTracker(
         _duration.value = durationMs
     }
 
-    // 时长未就绪时 Media3 会返回负值，归零避免进度条读到脏数据
+    // 从控制器同步最新时长，控制器未就绪时保留已有有效时长
     fun updateDurationFromController() {
         val dur = controller.duration
-        _duration.value = if (dur > 0L) dur else 0L
+        if (dur > 0L) {
+            _duration.value = dur
+        }
     }
 
-    // 立即重置当前进度与时长，避免上一首歌曲的数据在加载新歌期间残留导致进度条闪烁
-    fun resetTo(startPosition: Long) {
+    // 立即重置当前进度与时长，避免上一首歌曲的数据在加载新歌期间残留导致进度条闪烁；断点续播可保留已有时长
+    fun resetTo(startPosition: Long, preserveDuration: Boolean = false) {
         _currentPosition.value = startPosition
-        _duration.value = 0L
+        if (!preserveDuration) {
+            _duration.value = 0L
+        }
     }
 
     fun start(isPlaying: () -> Boolean, onTick: suspend (positionMs: Long) -> Unit) {

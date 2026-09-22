@@ -26,9 +26,10 @@ fun LazyListScope.fullPlayerInfoSection(
     onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
-    onFollowArtistClick: () -> Unit,
+    onFollowArtistClick: (Long?) -> Unit,
     onArtistClick: (Long) -> Unit,
-    onAlbumClick: (Long) -> Unit = {}
+    onAlbumClick: (Long) -> Unit = {},
+    onSelectArtist: (Int) -> Unit = {}
 ) {
     val lyrics = songState.lyrics
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
@@ -40,7 +41,7 @@ fun LazyListScope.fullPlayerInfoSection(
         "lyrics" to Pair(!songState.isLyricsLoading, lyrics.isNotEmpty() && !isPureMusic),
         "comments_preview" to Pair(commentsState !is CommentsState.Loading, true),
         "song_detail" to Pair(!songState.isSongWikiLoading, songWiki != null),
-        "about_artist" to Pair(!songState.isArtistDetailLoading, artistDetail != null),
+        "about_artist" to Pair(!songState.isArtistDetailLoading, artistDetail != null || songState.artists.any { it.artistDetail != null }),
         "artist_albums" to Pair(!songState.isArtistAlbumsLoading, songState.artistAlbums.isNotEmpty()),
         "similar_artists" to Pair(!songState.isSimilarArtistsLoading, songState.similarArtists.isNotEmpty())
     )
@@ -57,7 +58,6 @@ fun LazyListScope.fullPlayerInfoSection(
                         currentIndex = currentLyricIndex,
                         isLoading = false,
                         base = colors.base,
-                        highlightColor = colors.textHighlight,
                         onOpenFullScreen = onOpenFullScreenLyrics
                     )
                 }
@@ -81,14 +81,27 @@ fun LazyListScope.fullPlayerInfoSection(
                     )
                 }
             }
-            "about_artist" -> if (artistDetail != null) {
+            "about_artist" -> if (songState.artists.isNotEmpty()) {
+                item(key = "about_artist") {
+                    FullPlayerItemEnterAnimation {
+                        AboutArtistPagerCard(
+                            artists = songState.artists,
+                            selectedIndex = songState.selectedArtistIndex,
+                            onSelectArtist = onSelectArtist,
+                            onFollowArtistClick = { artistId -> onFollowArtistClick(artistId) },
+                            cardColor = MaterialTheme.colorScheme.surface,
+                            onArtistClick = onArtistClick
+                        )
+                    }
+                }
+            } else if (artistDetail != null) {
                 item(key = "about_artist") {
                     FullPlayerItemEnterAnimation {
                         AboutArtistCard(
                             artistDetail = artistDetail,
                             fansCount = songState.artistFansCount,
                             isFollowed = songState.isArtistFollowed,
-                            onFollowClick = onFollowArtistClick,
+                            onFollowClick = { onFollowArtistClick(artistDetail.id) },
                             cardColor = MaterialTheme.colorScheme.surface,
                             onClick = { onArtistClick(artistDetail.id) }
                         )
@@ -99,7 +112,7 @@ fun LazyListScope.fullPlayerInfoSection(
                 FullPlayerItemEnterAnimation {
                     ArtistAlbumsCard(
                         albums = songState.artistAlbums,
-                        artistName = songState.artistDetail?.name,
+                        artistName = songState.currentArtistItem?.artistName ?: songState.artistDetail?.name,
                         cardColor = MaterialTheme.colorScheme.surface,
                         onAlbumClick = onAlbumClick
                     )

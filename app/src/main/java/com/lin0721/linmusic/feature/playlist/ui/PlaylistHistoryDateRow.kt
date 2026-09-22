@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -15,7 +14,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -38,7 +38,8 @@ fun PlaylistHistoryDateRow(
             .background(MaterialTheme.colorScheme.background)
             .padding(vertical = 12.dp),
         contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         this@LazyRow.items(allDates, key = { it }) { date ->
             val isSelected = date == selectedHistoryDate
@@ -51,11 +52,8 @@ fun PlaylistHistoryDateRow(
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(PillRadius))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f)
-                    )
-                    .clickable {
+                    .height(36.dp)
+                    .pressable(MelodiaPress.Pill) {
                         onSelectedHistoryDateChange(date)
                         if (date == "今天") {
                             onLoadDailyRecommend()
@@ -63,7 +61,11 @@ fun PlaylistHistoryDateRow(
                             onLoadHistoryDetail(date)
                         }
                     }
-                    .padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm),
+                    .clip(RoundedCornerShape(PillRadius))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f)
+                    )
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

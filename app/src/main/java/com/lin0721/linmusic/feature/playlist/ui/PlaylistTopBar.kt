@@ -1,7 +1,10 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -10,12 +13,14 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -28,6 +33,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.darken
 import kotlin.math.roundToInt
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -42,15 +48,36 @@ fun PlaylistTopBar(
     overlayHeight: Dp,
     statusBarHeight: Dp,
     dominantColor: Color,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onScrollToTop: () -> Unit = {}
 ) {
+    val isScrolled = progress > 0f
+    // 取色完成时颜色平滑过渡，不直接跳变；跟顶栏同样的后处理，压暗一档再用
+    val animatedDominant by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(800),
+        label = "playlist_topbar_color"
+    )
+    val fillColor = remember(animatedDominant) { animatedDominant.darken(0.35f) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(overlayHeight)
-            .background(dominantColor.copy(alpha = progress))
-            .padding(top = statusBarHeight) // 内容区域被挤到状态栏下方
+            .background(fillColor.copy(alpha = progress))
             .zIndex(8f)
+            // 页面滚动显色后拦截空白点击，触发返回顶部并防止手势穿透到下方歌曲
+            .then(
+                if (isScrolled) {
+                    Modifier.pointerInput(onScrollToTop) {
+                        detectTapGestures {
+                            onScrollToTop()
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .padding(top = statusBarHeight) // 内容区域被挤到状态栏下方
     ) {
         // 返回键
         MelodiaIconButton(
@@ -130,8 +157,12 @@ fun PlaylistReorderTopBar(
             .fillMaxWidth()
             .height(overlayHeight)
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = statusBarHeight)
             .zIndex(8f)
+            // 拦截排序顶栏空白处点击，防止手势穿透到底层列表
+            .pointerInput(Unit) {
+                detectTapGestures { }
+            }
+            .padding(top = statusBarHeight)
     ) {
         // 左侧取消
         com.lin0721.linmusic.core.ui.components.MelodiaTextButton(

@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.player.ui
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,6 +43,11 @@ import dev.chrisbanes.haze.hazeChild
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import org.koin.compose.koinInject
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全屏歌词页：承载下拉关闭手势与滚动跟随状态，装配顶栏、歌词列表与播放控制
@@ -73,6 +79,53 @@ fun FullScreenLyricsView(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var timerJob by remember { mutableStateOf<Job?>(null) }
+
+    val settingsPreferences: SettingsPreferences = koinInject()
+    val fullScreenLyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
+    val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
+    val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
+    val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+
+    val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
+    val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
+    var showSettingsSheet by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val handleShareLyrics: () -> Unit = {
+        val currentLyricText = lyrics.getOrNull(currentIndex)?.text?.takeIf { it.isNotBlank() }
+        val shareText = if (currentLyricText != null) {
+            "「$currentLyricText」\n——《$title》$artist"
+        } else {
+            "《$title》- $artist"
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareText)
+        }
+        context.startActivity(Intent.createChooser(intent, "分享歌词"))
+    }
+
+    val handleToggleSecondaryMode: () -> Unit = {
+        val nextMode = when {
+            hasTranslation && hasRoma -> when (fullScreenLyricSecondaryMode) {
+                "translation" -> "roma"
+                "roma" -> "none"
+                else -> "translation"
+            }
+            hasTranslation -> when (fullScreenLyricSecondaryMode) {
+                "translation" -> "none"
+                else -> "translation"
+            }
+            hasRoma -> when (fullScreenLyricSecondaryMode) {
+                "roma" -> "none"
+                else -> "roma"
+            }
+            else -> "none"
+        }
+        scope.launch {
+            settingsPreferences.saveFullScreenLyricSecondaryMode(nextMode)
+        }
+    }
 
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -155,6 +208,10 @@ fun FullScreenLyricsView(
                 translationY = dragState.offsetY
             }
             .clip(RoundedCornerShape(topStart = topCornerRadius, topEnd = topCornerRadius))
+            // 拦截全屏歌词页空白处点击，防止手势穿透到底层播放器
+            .pointerInput(Unit) {
+                detectTapGestures { }
+            }
     ) {
 
         Column(
@@ -184,6 +241,11 @@ fun FullScreenLyricsView(
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
                 gestureModifier = gestureModifier,
+                fontSize = fullScreenLyricTextSize,
+                alignment = fullScreenLyricAlignment,
+                secondaryMode = fullScreenLyricSecondaryMode,
+                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                isPlaying = isPlaying,
                 onSeek = handleSeek,
                 onLyricClick = { line ->
                     timerJob?.cancel()
@@ -201,7 +263,37 @@ fun FullScreenLyricsView(
                 onPlayPrevious = onPlayPrevious,
                 playMode = playMode,
                 onToggleShuffle = onToggleShuffle,
-                onToggleRepeat = onToggleRepeat
+                onToggleRepeat = onToggleRepeat,
+                secondaryMode = fullScreenLyricSecondaryMode,
+                hasTranslation = hasTranslation,
+                hasRoma = hasRoma,
+                onToggleSecondaryMode = handleToggleSecondaryMode,
+                onShareLyrics = handleShareLyrics,
+                onLyricsSettingsClick = { showSettingsSheet = true }
+            )
+        }
+
+        if (showSettingsSheet) {
+            FullScreenLyricsSettingsSheet(
+                fontSize = fullScreenLyricTextSize,
+                onFontSizeChange = { size ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricTextSize(size) }
+                },
+                alignment = fullScreenLyricAlignment,
+                onAlignmentChange = { align ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricAlignment(align) }
+                },
+                secondaryMode = fullScreenLyricSecondaryMode,
+                onSecondaryModeChange = { mode ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
+                },
+                hasTranslation = hasTranslation,
+                hasRoma = hasRoma,
+                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                onAdvancedKaraokeEffectChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+                },
+                onDismiss = { showSettingsSheet = false }
             )
         }
     }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -496,6 +498,98 @@ fun AboutArtistCard(
                                     isExpanded = !isExpanded
                                 }
                             }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// 多艺人关于卡片轮播组件：单艺人时直接展示，多艺人时支持横向手势滑动与分页指示点
+@Composable
+fun AboutArtistPagerCard(
+    artists: List<ArtistCardItem>,
+    selectedIndex: Int,
+    onSelectArtist: (Int) -> Unit,
+    onFollowArtistClick: (Long) -> Unit,
+    cardColor: Color = MaterialTheme.colorScheme.surface,
+    onArtistClick: (Long) -> Unit = {}
+) {
+    val validArtists = remember(artists) {
+        artists.filter { item ->
+            val detail = item.artistDetail
+            detail != null && (detail.cover.isNotBlank() || detail.avatar.isNotBlank())
+        }
+    }
+    if (validArtists.isEmpty()) return
+
+    if (validArtists.size == 1) {
+        val single = validArtists.first()
+        AboutArtistCard(
+            artistDetail = single.artistDetail!!,
+            fansCount = single.fansCount,
+            isFollowed = single.isFollowed,
+            onFollowClick = { onFollowArtistClick(single.artistId) },
+            cardColor = cardColor,
+            onClick = { onArtistClick(single.artistId) }
+        )
+    } else {
+        val initialPage = remember(validArtists) {
+            val curId = artists.getOrNull(selectedIndex)?.artistId
+            val foundIdx = validArtists.indexOfFirst { it.artistId == curId }
+            if (foundIdx >= 0) foundIdx else 0
+        }
+        val pagerState = rememberPagerState(
+            initialPage = initialPage,
+            pageCount = { validArtists.size }
+        )
+
+        LaunchedEffect(pagerState.currentPage) {
+            val targetItem = validArtists.getOrNull(pagerState.currentPage)
+            if (targetItem != null) {
+                val originalIndex = artists.indexOfFirst { it.artistId == targetItem.artistId }
+                if (originalIndex >= 0) {
+                    onSelectArtist(originalIndex)
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+                val item = validArtists[page]
+                AboutArtistCard(
+                    artistDetail = item.artistDetail!!,
+                    fansCount = item.fansCount,
+                    isFollowed = item.isFollowed,
+                    onFollowClick = { onFollowArtistClick(item.artistId) },
+                    cardColor = cardColor,
+                    onClick = { onArtistClick(item.artistId) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 卡片底部居中分页指示圆点
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
+            ) {
+                repeat(validArtists.size) { index ->
+                    val isSelected = pagerState.currentPage == index
+                    Box(
+                        modifier = Modifier
+                            .size(if (isSelected) 6.dp else 5.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isSelected) Color.White else Color.White.copy(alpha = 0.25f)
+                            )
                     )
                 }
             }

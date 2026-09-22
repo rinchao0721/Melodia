@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,12 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 
-// 侧边栏二级页通用脚手架：返回箭头 + 标题的顶栏，内容区由各页自行填充
+// 侧边栏二级页通用脚手架
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecondaryScreenScaffold(
     title: String,
     onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
     Scaffold(
@@ -47,6 +49,7 @@ fun SecondaryScreenScaffold(
                         )
                     }
                 },
+                actions = actions,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
             )
         },

@@ -31,12 +31,14 @@ fun MelodiaNavHost(
     onNavigateToRadio: (Long) -> Unit,
     onNavigateToMv: (Long, String) -> Unit,
     onMvFullscreenChanged: (Boolean) -> Unit,
+    onMvCommentsVisibilityChanged: (Boolean) -> Unit = {},
     onNavigateToPlaylistCategory: (String) -> Unit,
     onNavigateToProfile: (Long) -> Unit,
     onNavigateToFollowList: (Long, FollowListMode) -> Unit,
     onHomeTabSelected: (Int) -> Unit,
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToLocalMusic: () -> Unit,
     onBack: () -> Unit
 ) {
     AnimatedContent(
@@ -105,6 +107,15 @@ fun MelodiaNavHost(
                     onAlbumClick = { id -> onNavigateToPlaylist(id, true) },
                     onBack = onBack,
                     onOpenSidebar = onOpenSidebar,
+                    onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged,
+                    onNavigateToLocalMusic = onNavigateToLocalMusic
+                )
+            }
+            is Screen.LocalMusic -> {
+                com.lin0721.linmusic.feature.localmusic.ui.LocalMusicScreen(
+                    onBack = onBack,
+                    onArtistClick = onNavigateToArtist,
+                    onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
                     onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
                 )
             }
@@ -137,6 +148,7 @@ fun MelodiaNavHost(
                     onArtistClick = onNavigateToArtist,
                     onMvClick = onNavigateToMv,
                     onFullscreenChanged = onMvFullscreenChanged,
+                    onCommentsVisibilityChanged = onMvCommentsVisibilityChanged,
                     onNavigateToProfile = onNavigateToProfile
                 )
             }

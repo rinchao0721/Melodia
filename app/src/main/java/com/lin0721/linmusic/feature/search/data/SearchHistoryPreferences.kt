@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.feature.search.data
 
 import android.content.Context
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
@@ -14,7 +16,13 @@ import kotlinx.serialization.json.Json
 private const val TAG = "SearchHistoryPreferences"
 private const val MAX_HISTORY_SIZE = 20
 
-private val Context.searchHistoryDataStore by preferencesDataStore(name = "search_history_prefs")
+private val Context.searchHistoryDataStore by preferencesDataStore(
+    name = "search_history_prefs",
+    corruptionHandler = ReplaceFileCorruptionHandler { ex ->
+        AppLogger.e(TAG, "搜索历史数据损坏，已重置为默认值", ex)
+        emptyPreferences()
+    }
+)
 
 // 本地搜索历史持久化，有序（最近优先）、去重、限量
 class SearchHistoryPreferences(private val context: Context) {

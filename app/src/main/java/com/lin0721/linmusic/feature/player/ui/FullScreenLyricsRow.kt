@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +25,6 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字扫色，可选附带翻译副行
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
 @Composable
 fun FullScreenLyricsRow(
@@ -37,66 +35,127 @@ fun FullScreenLyricsRow(
     distance: Int,
     highlightColor: Color,
     currentPositionProvider: () -> Long,
+    fontSize: Int = 22,
+    alignment: String = "left",
+    secondaryMode: String = "translation",
+    advancedKaraokeEffect: Boolean = true,
+    isPlaying: Boolean = true,
     onClick: () -> Unit
 ) {
-    val targetScale = if (isCurrent) 1.15f
-                      else if (isCenterTarget) 1.05f
-                      else (1f - distance * 0.05f).coerceAtLeast(0.82f)
+    val textAlign = when (alignment) {
+        "center" -> TextAlign.Center
+        "right" -> TextAlign.End
+        else -> TextAlign.Start
+    }
+    val horizontalAlignment = when (alignment) {
+        "center" -> Alignment.CenterHorizontally
+        "right" -> Alignment.End
+        else -> Alignment.Start
+    }
+    val targetTransformOrigin = when (alignment) {
+        "center" -> TransformOrigin(0.5f, 0.5f)
+        "right" -> TransformOrigin(1f, 0.5f)
+        else -> TransformOrigin(0f, 0.5f)
+    }
+    val mainFontSize = fontSize.sp
+    val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
+    val mainLineHeight = (fontSize * 1.35f).sp
+    val translationLineHeight = (translationFontSize.value * 1.35f).sp
+    val spacingBetween = (fontSize * 0.28f).coerceIn(6f, 14f).dp
+
+    val targetScale = when {
+        isCurrent -> 1.12f
+        isCenterTarget -> 1.04f
+        else -> when (distance) {
+            1 -> 0.98f
+            2 -> 0.94f
+            else -> 0.90f
+        }
+    }
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = 0.76f, stiffness = 320f),
         label = "fs_lyric_scale_$index"
     )
 
-    val targetAlpha = if (isCurrent) 1f
-                      else if (isCenterTarget) 0.85f
-                      else (0.65f - distance * 0.08f).coerceAtLeast(0.2f)
+    val targetAlpha = when {
+        isCurrent -> 1f
+        isCenterTarget -> 0.95f
+        else -> when (distance) {
+            1 -> 0.65f
+            2 -> 0.45f
+            else -> 0.28f
+        }
+    }
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(250),
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
         label = "fs_lyric_alpha_$index"
     )
 
+    val widthFraction = if (alignment == "center") 0.9f else 0.85f
+    val paddingStart = when (alignment) {
+        "center" -> 24.dp
+        "left" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+    val paddingEnd = when (alignment) {
+        "center" -> 24.dp
+        "right" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+
     Column(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .padding(start = MelodiaSpacing.md)
+            .fillMaxWidth(widthFraction)
+            .padding(start = paddingStart, end = paddingEnd)
             .graphicsLayer {
                 scaleX = animatedScale
                 scaleY = animatedScale
                 alpha = animatedAlpha
-                transformOrigin = TransformOrigin(0f, 0.5f)
+                transformOrigin = targetTransformOrigin
             }
             .pressable(MelodiaPress.None) {
                 onClick()
             },
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = horizontalAlignment
     ) {
         if (isCurrent && line.words.isNotEmpty()) {
             KaraokeLyricRow(
                 line = line,
                 currentPositionProvider = currentPositionProvider,
-                inactiveColor = Color.White.copy(alpha = 0.35f),
+                inactiveColor = highlightColor.copy(alpha = 0.5f),
                 activeColor = Color.White,
-                fontSize = 22.sp
+                fontSize = mainFontSize,
+                lineHeight = mainLineHeight,
+                textAlign = textAlign,
+                advancedEffect = advancedKaraokeEffect,
+                isPlaying = isPlaying
              )
         } else {
             Text(
                 text = line.text,
-                fontSize = 22.sp,
+                fontSize = mainFontSize,
+                lineHeight = mainLineHeight,
                 color = if (isCurrent) Color.White else highlightColor,
                 fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Start,
+                textAlign = textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        if (line.translation != null) {
-            Spacer(modifier = Modifier.height(6.dp))
+        val secondaryText = when (secondaryMode) {
+            "translation" -> line.translation
+            "roma" -> line.roma
+            else -> null
+        }
+        if (secondaryText != null) {
+            Spacer(modifier = Modifier.height(spacingBetween))
             Text(
-                text = line.translation,
-                fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
+                text = secondaryText,
+                fontSize = translationFontSize,
+                lineHeight = translationLineHeight,
+                color = if (isCurrent) Color.White else highlightColor,
+                textAlign = textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
         }
