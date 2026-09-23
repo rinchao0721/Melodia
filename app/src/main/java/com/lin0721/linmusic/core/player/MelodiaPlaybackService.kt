@@ -53,6 +53,7 @@ import org.koin.android.ext.android.inject
 private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
+private const val PLAYBACK_CHANNEL_NAME = "正在播放"
 
 class MelodiaPlaybackService : MediaSessionService() {
 
@@ -79,7 +80,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             if (manager?.getNotificationChannel(PLAYBACK_CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
                     PLAYBACK_CHANNEL_ID,
-                    "正在播放",
+                    PLAYBACK_CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     description = "控制正在播放的音乐"
@@ -579,6 +580,9 @@ class MelodiaPlaybackService : MediaSessionService() {
             action: String,
             extras: Bundle
         ): Boolean = false
+
+        override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo =
+            MediaNotification.Provider.NotificationChannelInfo(PLAYBACK_CHANNEL_ID, PLAYBACK_CHANNEL_NAME)
     }
 }
 
