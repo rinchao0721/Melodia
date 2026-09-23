@@ -92,6 +92,12 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
+        // 全屏歌词行与行间距 (dp)，默认 24
+        private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
+        // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
+        private val KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING = intPreferencesKey("full_screen_lyric_secondary_spacing")
+        // 全屏播放页信息卡片顺序与显隐，格式见 FullPlayerCardLayout
+        private val KEY_FULL_PLAYER_CARD_LAYOUT = stringPreferencesKey("full_player_card_layout")
         // 启用 SuperLyric 实时歌词，默认 false
         private val KEY_SUPER_LYRIC_ENABLED = booleanPreferencesKey("super_lyric_enabled")
         // 启用 LyricInfo 系统歌词注入，默认 true
@@ -442,6 +448,39 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
+        }
+    }
+
+    // 全屏歌词行与行间距 Flow
+    val fullScreenLyricLineSpacing: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_LINE_SPACING] ?: 24
+    }
+
+    suspend fun saveFullScreenLyricLineSpacing(spacing: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_LINE_SPACING] = spacing
+        }
+    }
+
+    // 全屏歌词原文与翻译/罗马音间距 Flow
+    val fullScreenLyricSecondarySpacing: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING] ?: 6
+    }
+
+    suspend fun saveFullScreenLyricSecondarySpacing(spacing: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING] = spacing
+        }
+    }
+
+    // 全屏播放页信息卡片顺序与显隐 Flow
+    val fullPlayerCardLayout: Flow<List<FullPlayerCardSetting>> = context.settingsDataStore.data.map { prefs ->
+        FullPlayerCardLayout.decode(prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
+    }
+
+    suspend fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = FullPlayerCardLayout.encode(layout)
         }
     }
 

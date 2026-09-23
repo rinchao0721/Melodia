@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -96,6 +97,8 @@ fun FullPlayerScreen(
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
+    var showCardEditorSheet by remember { mutableStateOf(false) }
+    val cardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -130,6 +133,10 @@ fun FullPlayerScreen(
 
     BackHandler(enabled = showOutputDeviceSheet) {
         showOutputDeviceSheet = false
+    }
+
+    BackHandler(enabled = showCardEditorSheet) {
+        showCardEditorSheet = false
     }
 
     BackHandler(enabled = showDownloadQualitySheet) {
@@ -198,6 +205,15 @@ fun FullPlayerScreen(
     val listState = rememberLazyListState()
     val hazeState = remember { HazeState() }
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
+    val allCardsHidden = cardLayout.none { it.visible }
+    val fillTail = MelodiaSpacing.md + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val fillGap = rememberFullPlayerFillGap(
+        listState = listState,
+        enabled = allCardsHidden,
+        gapCount = FullPlayerFillGapCount,
+        contentKeys = FullPlayerPlaybackItemKeys,
+        bottomReserve = fillTail
+    )
 
     // 手势状态同时被内联逻辑和嵌套滚动连接读写，持有 MutableState 本体便于透传
     val offsetYState = remember { mutableStateOf(0f) }
@@ -285,7 +301,8 @@ fun FullPlayerScreen(
             modifier = Modifier.fillMaxSize().haze(hazeState),
             contentPadding = PaddingValues(
                 top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
-                bottom = 80.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) +
+                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             )
         ) {
             fullPlayerPlaybackSection(
@@ -331,7 +348,9 @@ fun FullPlayerScreen(
                 onOutputDeviceClick = { showOutputDeviceSheet = true },
                 onQueueClick = { showQueueSheet = true },
                 onShareClick = { shareCurrentSong() },
-                connectedDevice = connectedDevice
+                connectedDevice = connectedDevice,
+                fillGap = if (allCardsHidden) fillGap else null,
+                fillTail = fillTail
             )
 
             fullPlayerInfoSection(
@@ -339,11 +358,13 @@ fun FullPlayerScreen(
                 colors = colors,
                 commentsState = commentsState,
                 currentLyricIndex = currentLyricIndex,
+                cardLayout = cardLayout,
                 onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                 onCommentsClick = { showCommentsSheet = true },
                 onRetryComments = viewModel::retryComments,
                 onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
                 onArtistClick = onArtistClick,
+                onEditCardsClick = { showCardEditorSheet = true },
                 onAlbumClick = onAlbumClick,
                 onSelectArtist = { index -> viewModel.selectArtist(index) }
             )
@@ -563,6 +584,14 @@ fun FullPlayerScreen(
                     showDownloadQualitySheet = false
                 },
                 onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
+
+        if (showCardEditorSheet) {
+            FullPlayerCardEditorSheet(
+                layout = cardLayout,
+                onLayoutChange = viewModel::saveFullPlayerCardLayout,
+                onDismiss = { showCardEditorSheet = false }
             )
         }
     }

@@ -85,6 +85,8 @@ fun FullScreenLyricsView(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+    val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
+    val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
@@ -244,6 +246,8 @@ fun FullScreenLyricsView(
                 fontSize = fullScreenLyricTextSize,
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
+                lineSpacing = fullScreenLyricLineSpacing,
+                secondarySpacing = fullScreenLyricSecondarySpacing,
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 isPlaying = isPlaying,
                 onSeek = handleSeek,
@@ -278,6 +282,14 @@ fun FullScreenLyricsView(
                 fontSize = fullScreenLyricTextSize,
                 onFontSizeChange = { size ->
                     scope.launch { settingsPreferences.saveFullScreenLyricTextSize(size) }
+                },
+                lineSpacing = fullScreenLyricLineSpacing,
+                onLineSpacingChange = { spacing ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricLineSpacing(spacing) }
+                },
+                secondarySpacing = fullScreenLyricSecondarySpacing,
+                onSecondarySpacingChange = { spacing ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricSecondarySpacing(spacing) }
                 },
                 alignment = fullScreenLyricAlignment,
                 onAlignmentChange = { align ->
