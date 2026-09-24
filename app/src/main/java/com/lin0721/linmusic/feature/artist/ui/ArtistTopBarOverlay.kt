@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 
 private val TOP_BAR_HEIGHT = 56.dp
 
@@ -29,7 +30,7 @@ fun ArtistTopBarOverlay(
     dominantColor: Color,
     onBack: () -> Unit
 ) {
-    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarHeight = melodiaStatusBarTopPadding()
     val overlayHeight = TOP_BAR_HEIGHT + statusBarHeight
     val overlayBgAlpha = progress
     val isCollapsed = progress >= 0.8f

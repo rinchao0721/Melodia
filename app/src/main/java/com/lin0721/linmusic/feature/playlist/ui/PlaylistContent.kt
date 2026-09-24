@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -154,7 +155,7 @@ fun PlaylistContent(
     var dominantColor by remember { mutableStateOf(FallbackBase) }
 
     // 获取系统状态栏高度
-    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBarHeight = melodiaStatusBarTopPadding()
     // Overlay 总高度：状态栏 + 操作区(56dp)
     val overlayHeight = TOP_BAR_HEIGHT + statusBarHeight
 

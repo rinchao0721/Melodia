@@ -41,6 +41,13 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
 val LocalBottomOverlayInset = staticCompositionLocalOf { 0.dp }
 
+// Expanded 下底栏与迷你条共用的固定高度，取迷你条自然高度（上下内边距 10dp×2 + 内容 52dp + 进度条 2dp），
+// 也是播放面板向上生长的起始高度。不用 IntrinsicSize：迷你条隐藏后导航栏会回落到自身较矮的高度
+internal val ExpandedBottomBarHeight = 74.dp
+
+// 面板让位后 Tab 栏在内容卡片内的最大宽度
+private val ExpandedNavigationBarMaxWidth = 560.dp
+
 // 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
 // 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
 // 导致返回键没有先关掉全局浮层，而是直接改动了浮层底下页面的内部状态
@@ -57,7 +64,8 @@ fun MelodiaBottomOverlay(
     isLoginScreenVisible: Boolean,
     isMvFullscreen: Boolean,
     isMvCommentsOpen: Boolean = false,
-    isPanelExpanded: Boolean = false,
+    // 平板播放面板是否已让位（内容区已收窄、面板常驻右侧）
+    isPanelDocked: Boolean = false,
     currentTrack: MediaItem?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
@@ -137,11 +145,10 @@ fun MelodiaBottomOverlay(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(IntrinsicSize.Min)
                             .navigationBarsPadding()
                             .padding(horizontal = MelodiaSpacing.sm)
-                            .padding(bottom = MelodiaSpacing.sm),
-                        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
+                            .padding(bottom = MelodiaSpacing.sm)
+                            .height(ExpandedBottomBarHeight),
                         verticalAlignment = Alignment.Bottom
                     ) {
                         AnimatedVisibility(
@@ -150,50 +157,62 @@ fun MelodiaBottomOverlay(
                             exit = shrinkVertically() + fadeOut(),
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
-                            MelodiaNavigationBar(
-                                currentScreen = currentScreen,
-                                onNavigate = onNavigate,
-                                onCreateClick = onCreateClick,
-                                isCreateMenuOpen = showCreateSheet,
-                                showCreateEntry = showCreateEntry,
-                                expanded = true,
-                                modifier = Modifier.fillMaxHeight()
-                            )
+                            // 面板收起时 Tab 栏铺满到迷你条前；面板让位后在内容卡片里居中限宽
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                MelodiaNavigationBar(
+                                    currentScreen = currentScreen,
+                                    onNavigate = onNavigate,
+                                    onCreateClick = onCreateClick,
+                                    isCreateMenuOpen = showCreateSheet,
+                                    showCreateEntry = showCreateEntry,
+                                    expanded = true,
+                                    modifier = Modifier
+                                        .then(
+                                            if (isPanelDocked) Modifier.widthIn(max = ExpandedNavigationBarMaxWidth)
+                                            else Modifier
+                                        )
+                                        .fillMaxHeight()
+                                )
+                            }
                         }
 
-                        // 面板展开时右侧已经有完整播放器，迷你播放条隐藏，避免同一首歌重复显示两遍。
-                        // 收缩/展开动画跟常驻侧栏面板（MelodiaApp.kt 的 isPanelVisible）用完全相同的
-                        // expandHorizontally()/shrinkHorizontally() 默认参数，保证两侧宽度变化的时序同步，
-                        // 避免一边平滑挤压、另一边淡出到底突然消失导致导航栏宽度跳变
-                        AnimatedVisibility(
-                            visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen && !isPanelExpanded,
-                            enter = fadeIn() + expandHorizontally(),
-                            exit = fadeOut() + shrinkHorizontally(),
-                            modifier = Modifier.fillMaxHeight()
-                        ) {
-                            MiniPlayerCard(
-                                hazeState = hazeState,
-                                currentTrack = currentTrack,
-                                isPlaying = isPlaying,
-                                currentPositionProvider = currentPositionProvider,
-                                duration = duration,
-                                onTogglePlay = onTogglePlay,
-                                onNext = onNext,
-                                onClick = onMiniPlayerClick,
-                                onDrag = onMiniPlayerDrag,
-                                onDragEnd = onMiniPlayerDragEnd,
-                                previousQueueItem = previousQueueItem,
-                                nextQueueItem = nextQueueItem,
-                                onPrevious = onMiniPlayerPrevious,
-                                onCancelPendingSkip = onCancelPendingSkip,
-                                isLiked = isMiniPlayerLiked,
-                                onLikeClick = onMiniPlayerLikeClick,
-                                expanded = true,
-                                // 和右侧展开态面板同宽，两者上下贴齐
-                                modifier = Modifier
-                                    .width(rememberMelodiaPlayerPanelWidth())
-                                    .fillMaxHeight()
-                            )
+                        // 让位期间迷你条被面板盖住，直接移出、移回，不走退场/入场动画。
+                        // 与导航栏的间距放在迷你条自身而非 spacedBy，否则入场/退场首尾会各有一次 8dp 突变
+                        if (!isPanelDocked) {
+                            AnimatedVisibility(
+                                visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
+                                enter = fadeIn() + expandHorizontally(),
+                                exit = fadeOut() + shrinkHorizontally(),
+                                modifier = Modifier.fillMaxHeight()
+                            ) {
+                                MiniPlayerCard(
+                                    hazeState = hazeState,
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaying,
+                                    currentPositionProvider = currentPositionProvider,
+                                    duration = duration,
+                                    onTogglePlay = onTogglePlay,
+                                    onNext = onNext,
+                                    onClick = onMiniPlayerClick,
+                                    onDrag = onMiniPlayerDrag,
+                                    onDragEnd = onMiniPlayerDragEnd,
+                                    previousQueueItem = previousQueueItem,
+                                    nextQueueItem = nextQueueItem,
+                                    onPrevious = onMiniPlayerPrevious,
+                                    onCancelPendingSkip = onCancelPendingSkip,
+                                    isLiked = isMiniPlayerLiked,
+                                    onLikeClick = onMiniPlayerLikeClick,
+                                    expanded = true,
+                                    // 和右侧展开态面板同宽，两者上下贴齐
+                                    modifier = Modifier
+                                        .padding(start = MelodiaSpacing.sm)
+                                        .width(rememberMelodiaPlayerPanelWidth())
+                                        .fillMaxHeight()
+                                )
+                            }
                         }
                     }
                 } else {

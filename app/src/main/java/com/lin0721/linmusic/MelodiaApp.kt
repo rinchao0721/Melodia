@@ -1,21 +1,23 @@
 package com.lin0721.linmusic
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -23,19 +25,27 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +54,7 @@ import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
+import com.lin0721.linmusic.core.ui.theme.BackgroundBlack
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -62,8 +73,32 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.feature.player.ui.PlayerDockPanel
+import com.lin0721.linmusic.core.ui.theme.PanelDockFadeFromAlpha
+import com.lin0721.linmusic.core.ui.theme.PanelDockFadeSpec
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.theme.PanelRiseSpec
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
+import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 
 private val SidebarWidth = 310.dp
+
+// 播放面板生长起点的圆角，与 MiniPlayerCard 一致，长到全高时过渡到 InfoCardRadius
+private val PanelRiseStartRadius = 8.dp
+
+// 面板生长进度走到这个比例时完全不透明，此前与底下的迷你条交叉淡入
+private const val PanelRiseFadeFraction = 0.4f
+
+// 面板生长时的可见区域：宽度不变，只裁上下边界
+private class PanelRevealShape(
+    private val top: Float,
+    private val bottom: Float,
+    private val radius: Float
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
+        Outline.Rounded(RoundRect(0f, top, size.width, bottom, CornerRadius(radius)))
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -106,6 +141,40 @@ fun MelodiaApp() {
     // 面板在任意页面都保持展开态（不局限于 Tab 根页面），参照 Spotify 平板版
     var isPanelExpanded by remember { mutableStateOf(false) }
     val isPanelVisible = windowSizeClass == MelodiaWindowSizeClass.Expanded && isPanelExpanded
+    // 面板展开分两段：rise 从迷你条位置向上长到全高（浮在内容区之上）；长满后内容区在面板遮挡下一帧切换为
+    // 让位态（宽度、页面密度、卡片边距、底栏长度同时到位），配一次轻微淡入盖住重排。
+    // 收起时先在面板遮挡下切回全宽，再让面板缩回迷你条
+    val panelRise = remember { Animatable(0f) }
+    var isPanelDocked by remember { mutableStateOf(false) }
+    val contentAlpha = remember { Animatable(1f) }
+    LaunchedEffect(isPanelVisible, windowSizeClass) {
+        if (windowSizeClass != MelodiaWindowSizeClass.Expanded) {
+            isPanelDocked = false
+            panelRise.snapTo(0f)
+            contentAlpha.snapTo(1f)
+        } else if (isPanelVisible) {
+            panelRise.animateTo(1f, PanelRiseSpec)
+            if (!isPanelDocked) {
+                isPanelDocked = true
+                contentAlpha.snapTo(PanelDockFadeFromAlpha)
+            }
+            contentAlpha.animateTo(1f, PanelDockFadeSpec)
+        } else {
+            if (isPanelDocked) {
+                isPanelDocked = false
+                contentAlpha.snapTo(PanelDockFadeFromAlpha)
+            }
+            coroutineScope {
+                launch { contentAlpha.animateTo(1f, PanelDockFadeSpec) }
+                panelRise.animateTo(0f, PanelRiseSpec)
+            }
+        }
+    }
+    val isPanelShown by remember { derivedStateOf { panelRise.value > 0f } }
+    val panelWidth = rememberMelodiaPlayerPanelWidth()
+    // 原始系统栏高度，双卡片模式下两张卡片据此避让；此处在任何 consumeWindowInsets 之外，读到的是完整值
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // mini 栏爱心按钮触发的"收藏到歌单"弹层，非 null 时显示
     var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
 
@@ -225,12 +294,16 @@ fun MelodiaApp() {
                     shape = RoundedCornerShape((sidebar.progress * 32).dp)
                     shadowElevation = (sidebar.progress * 30f)
                 }
-                .background(BackgroundDark)
+                // 面板展开时画布压暗一档，靠缝隙处的明度差勾出两张卡片轮廓
+                .background(if (isPanelDocked) BackgroundBlack else BackgroundDark)
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
-            ) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // 双卡片模式下内容卡片左侧留白
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(if (isPanelDocked) MelodiaSpacing.sm else 0.dp)
+                )
                 CompositionLocalProvider(
                     LocalBottomOverlayInset provides bottomOverlayHeight,
                     LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || showCreateSheet)
@@ -240,39 +313,50 @@ fun MelodiaApp() {
                             .weight(1f)
                             .fillMaxHeight()
                             .then(
-                                if (isPanelVisible) {
+                                if (isPanelDocked) {
+                                    // 卡片自身避开状态栏与手势条，内部修饰符式的系统栏留白随之归零，页面内容位置不跳
                                     Modifier
+                                        .padding(top = statusBarTop, bottom = navigationBarBottom)
+                                        .consumeWindowInsets(WindowInsets.statusBars.union(WindowInsets.navigationBars))
                                         .clip(RoundedCornerShape(InfoCardRadius))
-                                        .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
+                                        .background(BackgroundDark)
                                 } else {
                                     Modifier
                                 }
                             )
                             .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
+                            .graphicsLayer { alpha = contentAlpha.value }
                     ) {
-                        MelodiaNavHost(
-                            currentScreen = navigation.currentScreen,
-                            homeViewModel = viewModel,
-                            homeTab = navigation.homeTab,
-                            showMusicNewWorks = navigation.showMusicNewWorks,
-                            searchAutoFocus = navigation.searchAutoFocus,
-                            onOpenSidebar = { sidebar.open() },
-                            onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
-                            onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
-                            onNavigateToArtist = { id -> navigation.openArtist(id) },
-                            onNavigateToRadio = { id -> navigation.openRadio(id) },
-                            onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
-                            onMvFullscreenChanged = { isMvFullscreen = it },
-                            onMvCommentsVisibilityChanged = { isMvCommentsOpen = it },
-                            onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
-                            onNavigateToProfile = { uid -> navigation.openProfile(uid) },
-                            onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
-                            onHomeTabSelected = { navigation.selectHomeTab(it) },
-                            onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
-                            onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
-                            onNavigateToLocalMusic = { navigation.openLocalMusic() },
-                            onBack = { handleBack() }
-                        )
+                        // 页面密度按内容区宽度判定；底栏与面板属于外壳，仍按整屏宽度，不在此覆盖范围内
+                        ProvideMelodiaContentSizeClass(
+                            reservedWidth = if (isPanelDocked) panelWidth + MelodiaSpacing.sm * 3 else 0.dp
+                        ) {
+                            CompositionLocalProvider(LocalMelodiaSystemBarsConsumed provides isPanelDocked) {
+                                MelodiaNavHost(
+                                    currentScreen = navigation.currentScreen,
+                                    homeViewModel = viewModel,
+                                    homeTab = navigation.homeTab,
+                                    showMusicNewWorks = navigation.showMusicNewWorks,
+                                    searchAutoFocus = navigation.searchAutoFocus,
+                                    onOpenSidebar = { sidebar.open() },
+                                    onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
+                                    onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
+                                    onNavigateToArtist = { id -> navigation.openArtist(id) },
+                                    onNavigateToRadio = { id -> navigation.openRadio(id) },
+                                    onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
+                                    onMvFullscreenChanged = { isMvFullscreen = it },
+                                    onMvCommentsVisibilityChanged = { isMvCommentsOpen = it },
+                                    onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
+                                    onNavigateToProfile = { uid -> navigation.openProfile(uid) },
+                                    onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
+                                    onHomeTabSelected = { navigation.selectHomeTab(it) },
+                                    onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
+                                    onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
+                                    onNavigateToLocalMusic = { navigation.openLocalMusic() },
+                                    onBack = { handleBack() }
+                                )
+                            }
+                        }
 
                         // 创建菜单遮罩
                         if (showCreateSheet) {
@@ -292,7 +376,7 @@ fun MelodiaApp() {
                             isLoginScreenVisible = isLoginScreenVisible,
                             isMvFullscreen = isMvFullscreen,
                             isMvCommentsOpen = isMvCommentsOpen,
-                            isPanelExpanded = isPanelExpanded,
+                            isPanelDocked = isPanelDocked,
                             currentTrack = currentTrack,
                             isPlaying = miniPlayerShowPause,
                             currentPositionProvider = currentPositionProvider,
@@ -348,32 +432,52 @@ fun MelodiaApp() {
                     }
                 }
 
-                // 平板常驻播放面板：Expanded + 展开态时显示，任意页面都保持展开（参照 Spotify 平板版）
-                AnimatedVisibility(
-                    visible = isPanelVisible,
-                    enter = fadeIn() + expandHorizontally(),
-                    exit = fadeOut() + shrinkHorizontally()
+                // 播放面板让位占位：面板宽度 + 两侧间距
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(if (isPanelDocked) panelWidth + MelodiaSpacing.sm * 2 else 0.dp)
+                )
+            }
+
+            // 平板常驻播放面板：浮在内容区之上的卡片，避开状态栏与手势条，右侧与迷你条同样留 sm 边距。
+            // 卡片底边与迷你条所在行的底边只差 sm，起始矩形与迷你条重合；
+            // 内容按卡片全高布局，只动画裁剪区域，避免 FullPlayerScreen 逐帧重排
+            if (isPanelShown) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = statusBarTop, end = MelodiaSpacing.sm, bottom = navigationBarBottom)
+                        .width(panelWidth)
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            val progress = panelRise.value.coerceIn(0f, 1f)
+                            val miniBottom = size.height - MelodiaSpacing.sm.toPx()
+                            val miniTop = miniBottom - ExpandedBottomBarHeight.toPx()
+                            val radius = PanelRiseStartRadius.toPx() +
+                                (InfoCardRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
+                            clip = true
+                            shape = PanelRevealShape(
+                                top = miniTop * (1f - progress),
+                                bottom = miniBottom + (size.height - miniBottom) * progress,
+                                radius = radius
+                            )
+                            alpha = (progress / PanelRiseFadeFraction).coerceAtMost(1f)
+                        }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(InfoCardRadius))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
-                    ) {
-                        PlayerDockPanel(
-                            currentTrack = currentTrack,
-                            isPlaying = isPlaying,
-                            currentPositionProvider = currentPositionProvider,
-                            duration = duration,
-                            onTogglePlay = { viewModel.togglePlayPause() },
-                            onSeek = { viewModel.playerManager.seekTo(it) },
-                            onClose = { isPanelExpanded = false },
-                            onDragClose = { _, _ -> isPanelExpanded = false },
-                            onArtistClick = { artistId -> navigation.openArtist(artistId) },
-                            onAlbumClick = { albumId -> navigation.openPlaylist(albumId, isAlbum = true) },
-                            onNavigateToProfile = { uid -> navigation.openProfile(uid) }
-                        )
-                    }
+                    PlayerDockPanel(
+                        currentTrack = currentTrack,
+                        isPlaying = isPlaying,
+                        currentPositionProvider = currentPositionProvider,
+                        duration = duration,
+                        onTogglePlay = { viewModel.togglePlayPause() },
+                        onSeek = { viewModel.playerManager.seekTo(it) },
+                        onClose = { isPanelExpanded = false },
+                        onDragClose = { _, _ -> isPanelExpanded = false },
+                        onArtistClick = { artistId -> navigation.openArtist(artistId) },
+                        onAlbumClick = { albumId -> navigation.openPlaylist(albumId, isAlbum = true) },
+                        onNavigateToProfile = { uid -> navigation.openProfile(uid) }
+                    )
                 }
             }
         }

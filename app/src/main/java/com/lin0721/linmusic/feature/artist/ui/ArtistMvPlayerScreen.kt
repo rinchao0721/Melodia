@@ -114,8 +114,8 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.model.ArtistMv
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
-import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlinx.coroutines.delay
@@ -175,9 +175,10 @@ fun ArtistMvPlayerScreen(
     val configuration = LocalConfiguration.current
 
     // 平板 Expanded 横屏：视频与评论区左右并排常驻展示，不强制进沉浸式全屏
-    // （手机横屏维持“转屏即全屏”的原有习惯，见下方 LaunchedEffect(configuration.orientation)）
-    val windowSizeClass = LocalMelodiaWindowSizeClass.current
-    val orientationClass = LocalMelodiaOrientationClass.current
+    // （手机横屏维持“转屏即全屏”的原有习惯，见下方 LaunchedEffect(configuration.orientation)）。
+    // 判断的是设备形态与朝向，读整屏断点，不受内容区断点覆盖影响
+    val windowSizeClass = rememberMelodiaWindowSizeClass()
+    val orientationClass = rememberMelodiaOrientationClass()
     val useLandscapeSplitLayout = windowSizeClass == MelodiaWindowSizeClass.Expanded &&
             orientationClass == MelodiaOrientationClass.Landscape
 

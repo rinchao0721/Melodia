@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
@@ -67,10 +68,10 @@ fun rememberMelodiaGridColumns(
     }
 }
 
-// 平板常驻播放面板宽度：竖屏 340dp / 横屏 400dp（设计文档 6.3 节建议值，真机验证后可再调）。
+// 平板常驻播放面板宽度：竖屏 380dp / 横屏 440dp。
 // 收起态的迷你播放条与展开态的面板共用同一宽度，两者上下贴齐
-private val PlayerPanelWidthPortrait = 340.dp
-private val PlayerPanelWidthLandscape = 400.dp
+private val PlayerPanelWidthPortrait = 380.dp
+private val PlayerPanelWidthLandscape = 440.dp
 
 @Composable
 fun rememberMelodiaPlayerPanelWidth(): Dp {
@@ -79,4 +80,29 @@ fun rememberMelodiaPlayerPanelWidth(): Dp {
     } else {
         PlayerPanelWidthPortrait
     }
+}
+
+// 播放面板让位后按内容区剩余宽度重新判定断点并覆盖下发，页面密度跟着内容区实际宽度走。
+// 仍够 Expanded 时统一用竖屏密度：横屏密度按整屏宽度设计，放进被挤窄的内容区会过密。
+// 是否让位都经过同一个 Provider，避免组合结构变化导致页面状态重建
+@Composable
+fun ProvideMelodiaContentSizeClass(
+    reservedWidth: Dp,
+    content: @Composable () -> Unit
+) {
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val orientationClass = LocalMelodiaOrientationClass.current
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val isReserved = reservedWidth > 0.dp
+    val contentSizeClass = when {
+        !isReserved -> windowSizeClass
+        screenWidthDp - reservedWidth.value >= EXPANDED_MIN_WIDTH_DP -> MelodiaWindowSizeClass.Expanded
+        else -> MelodiaWindowSizeClass.Compact
+    }
+    val contentOrientationClass = if (isReserved) MelodiaOrientationClass.Portrait else orientationClass
+    CompositionLocalProvider(
+        LocalMelodiaWindowSizeClass provides contentSizeClass,
+        LocalMelodiaOrientationClass provides contentOrientationClass,
+        content = content
+    )
 }

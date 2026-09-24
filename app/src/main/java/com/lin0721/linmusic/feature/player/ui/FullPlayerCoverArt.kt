@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
@@ -49,6 +50,8 @@ fun FullPlayerCoverArt(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
+    // 在默认左右留白之外再内缩的距离，封面随之居中缩小
+    coverExtraInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
     onCancelSwipe: () -> Boolean = { false }
 ) {
@@ -164,7 +167,7 @@ fun FullPlayerCoverArt(
             currentKey = currentKey,
             previousKey = previousKey,
             nextKey = nextKey,
-            contentPadding = MelodiaSpacing.lg,
+            contentPadding = MelodiaSpacing.lg + coverExtraInset,
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 24.dp,

@@ -2,6 +2,8 @@ package com.lin0721.linmusic.feature.player.ui
 
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 
@@ -17,6 +19,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
+    // 封面额外水平内缩，面板模式下由 FullPlayerScreen 按可用高度算出
+    coverExtraInset: Dp = 0.dp,
     title: String,
     artist: String,
     playContext: String?,
@@ -61,6 +65,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 currentKey = currentKey,
                 previousKey = previousKey,
                 nextKey = nextKey,
+                coverExtraInset = coverExtraInset,
                 onCancelSwipe = onCancelSwipe
             )
         }

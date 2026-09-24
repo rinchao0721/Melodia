@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
@@ -41,6 +42,8 @@ import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
+import com.lin0721.linmusic.core.ui.theme.melodiaNavigationBarBottomPadding
+import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.Job
@@ -61,7 +64,9 @@ fun FullPlayerScreen(
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onNavigateToProfile: (Long) -> Unit = {},
-    onDragClose: (Float, Float) -> Unit = { _, _ -> }
+    onDragClose: (Float, Float) -> Unit = { _, _ -> },
+    // 平板常驻面板用：封面按可用高度收缩，保证首屏完整显示到快捷操作行；手机全屏保持按宽度撑满
+    fitCoverToViewport: Boolean = false
 ) {
     if (currentTrack == null) return
 
@@ -198,6 +203,8 @@ fun FullPlayerScreen(
     val listState = rememberLazyListState()
     val hazeState = remember { HazeState() }
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
+    val coverFitInsetPx = rememberCoverFitInsetPx(listState, enabled = fitCoverToViewport)
+    val coverExtraInset = with(LocalDensity.current) { coverFitInsetPx.toDp() }
 
     // 手势状态同时被内联逻辑和嵌套滚动连接读写，持有 MutableState 本体便于透传
     val offsetYState = remember { mutableStateOf(0f) }
@@ -284,8 +291,8 @@ fun FullPlayerScreen(
             state = listState,
             modifier = Modifier.fillMaxSize().haze(hazeState),
             contentPadding = PaddingValues(
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
-                bottom = 80.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                top = melodiaStatusBarTopPadding(),
+                bottom = 80.dp + melodiaNavigationBarBottomPadding()
             )
         ) {
             fullPlayerPlaybackSection(
@@ -299,6 +306,7 @@ fun FullPlayerScreen(
                 currentKey = currentTrack.mediaId,
                 previousKey = previousQueueItem?.songId?.toString(),
                 nextKey = nextQueueItem?.songId?.toString(),
+                coverExtraInset = coverExtraInset,
                 title = displayedTitle,
                 artist = displayedArtist,
                 playContext = playContext,

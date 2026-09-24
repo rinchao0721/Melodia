@@ -71,6 +71,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
+import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import java.util.Collections
 import kotlin.math.max
 import kotlin.math.min
@@ -278,7 +279,7 @@ fun PlaylistScreen(
                     label = "playlist_reorder_transition"
                 ) { reordering ->
                 if (reordering) {
-                    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    val statusBarHeight = melodiaStatusBarTopPadding()
                     val overlayHeight = 56.dp + statusBarHeight
                     val density = LocalDensity.current
                     val haptic = LocalHapticFeedback.current
