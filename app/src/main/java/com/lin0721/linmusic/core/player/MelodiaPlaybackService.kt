@@ -15,7 +15,6 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
@@ -39,7 +38,6 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,7 +66,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private var isLikedListLoaded = false
 
     private var player: Player? = null
-    private var exoPlayer: ExoPlayer? = null
+    private var crossfadePlayer: CrossfadePlayer? = null
     private var mediaSession: MediaSession? = null
     private var sessionActivityPendingIntent: PendingIntent? = null
     private var currentCoverBitmap: Bitmap? = null
@@ -155,88 +153,28 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
-        val localExoPlayer = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dynamicDataSourceFactory))
-            .build()
-        this.exoPlayer = localExoPlayer
-
+        val mediaSourceFactory = DefaultMediaSourceFactory(dynamicDataSourceFactory)
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
             .build()
+        val sessionPlayer = CrossfadePlayer(
+            primary = ExoPlayer.Builder(this).setMediaSourceFactory(mediaSourceFactory).build(),
+            secondary = ExoPlayer.Builder(this).setMediaSourceFactory(mediaSourceFactory).build(),
+            audioAttributes = audioAttributes
+        )
+        sessionPlayer.setMetadataTransformer { base ->
+            externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
+        }
+        crossfadePlayer = sessionPlayer
 
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
-                localExoPlayer.setAudioAttributes(audioAttributes, !playWithOtherApps)
+                sessionPlayer.setHandleAudioFocus(!playWithOtherApps)
             }
         }
 
-        val forwardingPlayer = object : ForwardingPlayer(localExoPlayer) {
-            private val listeners = CopyOnWriteArrayList<Player.Listener>()
-
-            override fun addListener(listener: Player.Listener) {
-                super.addListener(listener)
-                listeners.add(listener)
-            }
-
-            override fun removeListener(listener: Player.Listener) {
-                super.removeListener(listener)
-                listeners.remove(listener)
-            }
-
-            fun notifyMetadataChanged() {
-                val metadata = mediaMetadata
-                for (listener in listeners) {
-                    listener.onMediaMetadataChanged(metadata)
-                }
-            }
-
-            override fun getMediaMetadata(): androidx.media3.common.MediaMetadata {
-                val base = super.getMediaMetadata()
-                return externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
-            }
-
-            override fun seekToNext() {
-                playerManager.playNext()
-            }
-
-            override fun seekToNextMediaItem() {
-                playerManager.playNext()
-            }
-
-            override fun seekToPrevious() {
-                playerManager.playPrevious()
-            }
-
-            override fun seekToPreviousMediaItem() {
-                playerManager.playPrevious()
-            }
-
-            override fun getAvailableCommands(): Player.Commands {
-                return super.getAvailableCommands().buildUpon()
-                    .add(Player.COMMAND_SEEK_TO_NEXT)
-                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
-                    .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-                    .build()
-            }
-
-            override fun isCommandAvailable(command: Int): Boolean {
-                return when (command) {
-                    Player.COMMAND_SEEK_TO_NEXT,
-                    Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-                    Player.COMMAND_SEEK_TO_PREVIOUS,
-                    Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> true
-                    else -> super.isCommandAvailable(command)
-                }
-            }
-
-            override fun hasNextMediaItem(): Boolean = true
-
-            override fun hasPreviousMediaItem(): Boolean = true
-        }
-            
-        player = forwardingPlayer
+        player = sessionPlayer
 
         // 点击通知时跳转回应用；REORDER_TO_FRONT 避免每次新建 Activity 实例导致重新加载
         val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
@@ -250,25 +188,25 @@ class MelodiaPlaybackService : MediaSessionService() {
         )
         sessionActivityPendingIntent = pendingIntent
 
-        mediaSession = MediaSession.Builder(this, forwardingPlayer)
+        mediaSession = MediaSession.Builder(this, sessionPlayer)
             .setCallback(CustomSessionCallback())
             .setSessionActivity(pendingIntent)
             .build()
 
         externalLyricCoordinator.onMetadataChanged = {
-            forwardingPlayer.notifyMetadataChanged()
+            sessionPlayer.notifyMetadataChanged()
         }
 
         externalInterruptionResumeController.start(
             scope = serviceScope,
             onResumeRequested = {
                 playerManager.resume()
-                exoPlayer?.play()
+                sessionPlayer.play()
             }
         )
 
         // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态，并监听焦点变化
-        localExoPlayer.addListener(object : Player.Listener {
+        sessionPlayer.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 super.onMediaItemTransition(mediaItem, reason)
                 loadCoverBitmap(mediaItem?.mediaMetadata?.artworkUri)
@@ -317,8 +255,8 @@ class MelodiaPlaybackService : MediaSessionService() {
             release()
             mediaSession = null
         }
-        exoPlayer?.release()
-        exoPlayer = null
+        crossfadePlayer?.release()
+        crossfadePlayer = null
         player = null
         super.onDestroy()
     }
@@ -350,7 +288,7 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     @OptIn(UnstableApi::class)
     private fun buildLikeButton(): CommandButton {
-        val songId = exoPlayer?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
+        val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
         val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
         val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
         val displayName = if (isLiked) "取消喜欢" else "喜欢"
@@ -484,7 +422,7 @@ class MelodiaPlaybackService : MediaSessionService() {
                         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                             .firstOrNull { it.id == deviceId }
                     }
-                    exoPlayer?.setPreferredAudioDevice(targetDevice)
+                    crossfadePlayer?.setPreferredAudioDevice(targetDevice)
                     return com.google.common.util.concurrent.Futures.immediateFuture(
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     )

@@ -3,11 +3,13 @@ package com.lin0721.linmusic.core.player
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -21,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,9 +39,6 @@ private const val TAG = "PlayerManager"
 
 // 网络类失败原地重试同一首的退避间隔，耗尽后转为等待网络恢复
 private val NETWORK_RETRY_DELAYS_MS = longArrayOf(2000L, 5000L, 10000L)
-
-// 距当前曲目结束的下一首链接预取阈值，用于消除播完到起播下一首之间的网络等待间隙
-private const val PREFETCH_URL_WINDOW_MS = 8000L
 
 // 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
 private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
@@ -134,6 +134,22 @@ class PlayerManager(
     // 播放中周期性保存的上次时间戳
     private var lastPeriodicSaveElapsedMs: Long = 0L
 
+    // 切歌交叉淡化设置，由 DataStore 持续同步
+    @Volatile private var crossfadeEnabled = false
+    @Volatile private var crossfadeDurationMs = CrossfadePolicy.DEFAULT_DURATION_MS
+
+    // 已提前触发自动交叉淡化的歌曲，防止随后到达的 ENDED 再推进一次队列
+    private var autoCrossfadeTriggeredSongId: Long = -1L
+    private var pendingAutoFadeMs: Long = 0L
+    private var autoCrossfadeScheduledSongId: Long = -1L
+    private var autoCrossfadeJob: Job? = null
+    private val edgeAnalyzer = TrackEdgeAnalyzer(context)
+
+    // 最近一次下发的播放源 (songId, uri)，供尾部分析读取当前歌的实际音频
+    private var requestedSource: Pair<Long, String>? = null
+    // 下一首的有效开头 (songId, 起播位置)，随自动切歌传给服务
+    private var pendingStartOffset: Pair<Long, Long>? = null
+
     private var prefetchJob: Job? = null
     private var prefetchedNextUrl: PrefetchedUrl? = null
     private var prefetchTriggeredForSongId: Long = -1L
@@ -165,6 +181,13 @@ class PlayerManager(
             }
         }
 
+        scope.launch {
+            settingsPreferences.crossfadeEnabled.collect { crossfadeEnabled = it }
+        }
+        scope.launch {
+            settingsPreferences.crossfadeDurationMs.collect { crossfadeDurationMs = it }
+        }
+
         progress.start(
             isPlaying = { _isPlaying.value },
             onTick = { positionMs ->
@@ -174,6 +197,7 @@ class PlayerManager(
                     val remainingMs = dur - positionMs
                     roaming.onProgressTick(songId, remainingMs)
                     maybePrefetchNextTrackUrl(remainingMs)
+                    maybeScheduleAutoCrossfade(songId, remainingMs, dur)
                     maybeCheckStreamCacheProgress(songId, positionMs, dur)
                 }
 
@@ -480,7 +504,8 @@ class PlayerManager(
         startPosition: Long = 0,
         networkRetryAttempt: Int = 0,
         prefetchedUrl: String? = null,
-        playWhenReady: Boolean = true
+        playWhenReady: Boolean = true,
+        autoTransition: Boolean = false
     ) {
         val item = playbackQueue.itemAt(index) ?: return
 
@@ -500,7 +525,7 @@ class PlayerManager(
                 val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(item.localUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -526,7 +551,7 @@ class PlayerManager(
                 val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -534,7 +559,7 @@ class PlayerManager(
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 pendingSkipFromIndex = null
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -542,11 +567,11 @@ class PlayerManager(
                 result.onSuccess { url ->
                     val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
                     pendingSkipFromIndex = null
-                    controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
+                    controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
                     if (throwable is AppError.NetworkError) {
-                        handleNetworkFailure(index, startPosition, networkRetryAttempt, playWhenReady)
+                        handleNetworkFailure(index, startPosition, networkRetryAttempt, playWhenReady, autoTransition)
                     } else {
                         skipToNextOnError(index)
                     }
@@ -615,7 +640,7 @@ class PlayerManager(
 
     // 临近播完时提前预取下一首链接，供 playNextOnEnded 命中缓存零等待衔接
     private fun maybePrefetchNextTrackUrl(remainingMs: Long) {
-        if (remainingMs > PREFETCH_URL_WINDOW_MS) return
+        if (remainingMs > CrossfadePolicy.prefetchWindowMs(crossfadeEnabled)) return
         if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP) return
         val nextItem = playbackQueue.nextItemByMode() ?: return
         if (nextItem.localUri != null) return
@@ -642,16 +667,99 @@ class PlayerManager(
         val nextItem = playbackQueue.itemAt(nextIndex)
         val cachedUrl = prefetchedNextUrl?.takeIf { it.songId == nextItem?.songId }?.url
         prefetchedNextUrl = null
-        fetchUrlAndPlay(nextIndex, prefetchedUrl = cachedUrl)
+        fetchUrlAndPlay(nextIndex, prefetchedUrl = cachedUrl, autoTransition = true)
+    }
+
+    // 临近结尾时分析当前歌的有效结尾与下一首的有效开头，在"有效结尾 - 淡化时长"处精确触发自动切歌；
+    // 仅 Wi-Fi 下预分析，否则按歌曲时长倒推
+    private fun maybeScheduleAutoCrossfade(songId: Long, remainingMs: Long, durationMs: Long) {
+        if (!canAutoCrossfade()) return
+        if (autoCrossfadeScheduledSongId == songId || autoCrossfadeTriggeredSongId == songId) return
+        if (remainingMs > CrossfadePolicy.ANALYSIS_WINDOW_MS) return
+        autoCrossfadeScheduledSongId = songId
+        autoCrossfadeJob?.cancel()
+        autoCrossfadeJob = scope.launch {
+            val analyze = isWifiConnected()
+            val sourceUri = requestedSource?.takeIf { it.first == songId }?.second
+            // 尾部与下一首开头并行分析
+            val endDeferred = async {
+                if (analyze && sourceUri != null) edgeAnalyzer.effectiveEndMs(songId.toString(), sourceUri, durationMs) else null
+            }
+            val startDeferred = async { if (analyze) analyzeNextTrackStart() else null }
+            val effectiveEndMs = endDeferred.await()?.coerceAtMost(durationMs) ?: durationMs
+            val nextStart = startDeferred.await()
+            val fadeMs = CrossfadePolicy.autoFadeMs(crossfadeDurationMs, effectiveEndMs)
+            if (fadeMs <= 0L) return@launch
+            val triggerMs = CrossfadePolicy.triggerPositionMs(effectiveEndMs, fadeMs)
+            AppLogger.i(TAG, "自动交叉淡化已排期 songId=$songId end=$effectiveEndMs/$durationMs fadeMs=$fadeMs nextStart=$nextStart")
+
+            // 按真实位置分段等待，拖动进度、暂停后自动顺延；越过有效结尾则交给 ENDED 兜底
+            while (true) {
+                if (!canAutoCrossfade() || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return@launch
+                val positionMs = controllerHolder.currentPosition
+                if (positionMs >= effectiveEndMs) return@launch
+                if (!_isPlaying.value) {
+                    delay(500L)
+                    continue
+                }
+                val waitMs = triggerMs - positionMs
+                if (waitMs <= 0L) break
+                delay(waitMs.coerceAtMost(1000L))
+            }
+
+            autoCrossfadeTriggeredSongId = songId
+            pendingAutoFadeMs = effectiveEndMs - controllerHolder.currentPosition
+            AppLogger.i(TAG, "触发自动交叉淡化 songId=$songId fadeMs=$pendingAutoFadeMs")
+            playNextOnEnded()
+        }
+    }
+
+    private fun canAutoCrossfade(): Boolean =
+        crossfadeEnabled && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP && playbackQueue.size > 1
+
+    private suspend fun analyzeNextTrackStart(): Long? {
+        val nextItem = playbackQueue.nextItemByMode() ?: return null
+        val uri = nextItem.localUri
+            ?: downloadPreferences.findVerifiedRecord(nextItem.songId)?.mediaStoreUri
+            ?: run {
+                prefetchJob?.join()
+                prefetchedNextUrl?.takeIf { it.songId == nextItem.songId }?.url
+            }
+            ?: return null
+        val startMs = edgeAnalyzer.effectiveStartMs(nextItem.songId.toString(), uri) ?: return null
+        pendingStartOffset = nextItem.songId to startMs
+        return startMs
+    }
+
+    private fun MediaItem.withCrossfade(autoTransition: Boolean, startPosition: Long): MediaItem {
+        val songId = mediaId.toLongOrNull()
+        val uri = localConfiguration?.uri?.toString()
+        if (songId != null && uri != null) requestedSource = songId to uri
+        val fadeMs = CrossfadePolicy.fadeMsFor(
+            autoTransition = autoTransition,
+            enabled = crossfadeEnabled,
+            isPlaying = _isPlaying.value,
+            startPositionMs = startPosition,
+            autoFadeMs = pendingAutoFadeMs
+        )
+        if (fadeMs <= 0L) return this
+        val startOffsetMs = pendingStartOffset?.takeIf { it.first == songId }?.second ?: 0L
+        val extras = Bundle(mediaMetadata.extras ?: Bundle()).apply {
+            putLong(CrossfadePolicy.EXTRA_CROSSFADE_MS, fadeMs)
+            if (startOffsetMs > 0L) putLong(CrossfadePolicy.EXTRA_CROSSFADE_START_MS, startOffsetMs)
+        }
+        return buildUpon()
+            .setMediaMetadata(mediaMetadata.buildUpon().setExtras(extras).build())
+            .build()
     }
 
     // 网络类失败原地重试同一首（退避延迟），重试耗尽后不放弃，转为等待网络恢复自动续播
-    private fun handleNetworkFailure(index: Int, startPosition: Long, attempt: Int, playWhenReady: Boolean) {
+    private fun handleNetworkFailure(index: Int, startPosition: Long, attempt: Int, playWhenReady: Boolean, autoTransition: Boolean) {
         if (attempt < NETWORK_RETRY_DELAYS_MS.size) {
             val delayMs = NETWORK_RETRY_DELAYS_MS[attempt]
             activePlayJob = scope.launch {
                 delay(delayMs)
-                fetchUrlAndPlay(index, startPosition, attempt + 1, playWhenReady = playWhenReady)
+                fetchUrlAndPlay(index, startPosition, attempt + 1, playWhenReady = playWhenReady, autoTransition = autoTransition)
             }
             return
         }
@@ -768,6 +876,17 @@ class PlayerManager(
         AppLogger.i(TAG, "切歌: songId=${mediaItem?.mediaId} reason=${transitionReasonName(reason)}")
         reportPlayedTrack()
         resetTrackTiming()
+        // 同一首歌之后再次播放时仍需能触发自动淡化
+        val newSongId = mediaItem?.mediaId?.toLongOrNull()
+        if (newSongId != autoCrossfadeTriggeredSongId) {
+            autoCrossfadeTriggeredSongId = -1L
+            pendingAutoFadeMs = 0L
+        }
+        if (newSongId != autoCrossfadeScheduledSongId) {
+            autoCrossfadeJob?.cancel()
+            autoCrossfadeScheduledSongId = -1L
+        }
+        if (pendingStartOffset?.first != newSongId) pendingStartOffset = null
         _currentTrack.value = mediaItem
         playbackQueue.setPlayContext(mediaItem?.mediaMetadata?.extras?.getString("playContext"))
         if (mediaItem != null) {
@@ -786,6 +905,11 @@ class PlayerManager(
         }
     }
 
+    // 交叉淡化接管时状态始终为 READY，不会再触发 onPlaybackStateChanged，时长需随时间线补取
+    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+        progress.updateDurationFromController()
+    }
+
     override fun onPlaybackStateChanged(playbackState: Int) {
         AppLogger.i(TAG, "播放状态变化: ${playbackStateName(playbackState)}")
         if (playbackState == Player.STATE_READY) {
@@ -794,6 +918,11 @@ class PlayerManager(
         }
         // 单曲循环由 ExoPlayer REPEAT_MODE_ONE 处理，不会到达 STATE_ENDED
         if (playbackState == Player.STATE_ENDED && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP) {
+            val endedSongId = _currentTrack.value?.mediaId?.toLongOrNull()
+            if (endedSongId != null && endedSongId == autoCrossfadeTriggeredSongId) {
+                AppLogger.i(TAG, "已提前触发交叉淡化，忽略 ENDED songId=$endedSongId")
+                return
+            }
             playNextOnEnded()
         }
     }

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.player.CrossfadePolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -55,6 +56,10 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_PLAY_WITH_OTHER_APPS = booleanPreferencesKey("play_with_other_apps")
         // 外部音视频停止后自动恢复，默认 true
         private val KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION = booleanPreferencesKey("resume_after_external_interruption")
+        // 切歌交叉淡化，默认 false
+        private val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
+        // 自动切歌交叉淡化时长 (ms)，默认 3000
+        private val KEY_CROSSFADE_DURATION_MS = intPreferencesKey("crossfade_duration_ms")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -249,6 +254,28 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveResumeAfterExternalInterruption(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] = enabled
+        }
+    }
+
+    // 切歌交叉淡化开关 Flow
+    val crossfadeEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_CROSSFADE_ENABLED] ?: false
+    }
+
+    suspend fun saveCrossfadeEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_CROSSFADE_ENABLED] = enabled
+        }
+    }
+
+    // 自动切歌交叉淡化时长 Flow
+    val crossfadeDurationMs: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_CROSSFADE_DURATION_MS] ?: CrossfadePolicy.DEFAULT_DURATION_MS
+    }
+
+    suspend fun saveCrossfadeDurationMs(durationMs: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_CROSSFADE_DURATION_MS] = CrossfadePolicy.normalizeDurationMs(durationMs)
         }
     }
 
