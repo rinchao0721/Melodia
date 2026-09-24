@@ -32,6 +32,16 @@ data class QueueItem(
             .setUri(url)
             .setMediaId(songId.toString())
             .setMediaMetadata(metadata)
+            .setCustomCacheKey(streamCacheKey(url))
             .build()
+    }
+
+    // 网络链接带时效签名（路径时间戳 + 查询参数），默认以完整 URL 作缓存 key 会导致每次换新链接都缓存不命中；
+    // 改用 songId + 文件名（音频文件摘要，按音质区分）作稳定 key，本地 Uri 仍沿用默认 key
+    private fun streamCacheKey(url: String): String? {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "http" && uri.scheme != "https") return null
+        val fileName = uri.lastPathSegment?.takeIf { it.isNotBlank() } ?: return null
+        return "$songId/$fileName"
     }
 }

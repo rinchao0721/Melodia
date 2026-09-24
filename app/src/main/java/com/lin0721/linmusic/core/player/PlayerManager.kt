@@ -128,6 +128,9 @@ class PlayerManager(
     // 断点续播暂存位置，用于在底层触发切歌转场时防止进度被重置为 0
     private var pendingStartPosition: Long = 0L
 
+    // 已对该曲目做过一次"换新链接原地续播"的错误恢复，恢复后真正播起来才清空，防止同一首反复重试
+    private var streamErrorRecoverySongId: Long? = null
+
     // 播放中周期性保存的上次时间戳
     private var lastPeriodicSaveElapsedMs: Long = 0L
 
@@ -472,7 +475,13 @@ class PlayerManager(
         stateStore.saveQueue(playbackQueue)
     }
 
-    private fun fetchUrlAndPlay(index: Int, startPosition: Long = 0, networkRetryAttempt: Int = 0, prefetchedUrl: String? = null) {
+    private fun fetchUrlAndPlay(
+        index: Int,
+        startPosition: Long = 0,
+        networkRetryAttempt: Int = 0,
+        prefetchedUrl: String? = null,
+        playWhenReady: Boolean = true
+    ) {
         val item = playbackQueue.itemAt(index) ?: return
 
         activePlayJob?.cancel()
@@ -491,7 +500,7 @@ class PlayerManager(
                 val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(item.localUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -517,7 +526,7 @@ class PlayerManager(
                 val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -525,7 +534,7 @@ class PlayerManager(
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 pendingSkipFromIndex = null
-                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -533,11 +542,11 @@ class PlayerManager(
                 result.onSuccess { url ->
                     val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
                     pendingSkipFromIndex = null
-                    controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+                    controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition, playWhenReady)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
                     if (throwable is AppError.NetworkError) {
-                        handleNetworkFailure(index, startPosition, networkRetryAttempt)
+                        handleNetworkFailure(index, startPosition, networkRetryAttempt, playWhenReady)
                     } else {
                         skipToNextOnError(index)
                     }
@@ -637,12 +646,12 @@ class PlayerManager(
     }
 
     // 网络类失败原地重试同一首（退避延迟），重试耗尽后不放弃，转为等待网络恢复自动续播
-    private fun handleNetworkFailure(index: Int, startPosition: Long, attempt: Int) {
+    private fun handleNetworkFailure(index: Int, startPosition: Long, attempt: Int, playWhenReady: Boolean) {
         if (attempt < NETWORK_RETRY_DELAYS_MS.size) {
             val delayMs = NETWORK_RETRY_DELAYS_MS[attempt]
             activePlayJob = scope.launch {
                 delay(delayMs)
-                fetchUrlAndPlay(index, startPosition, attempt + 1)
+                fetchUrlAndPlay(index, startPosition, attempt + 1, playWhenReady = playWhenReady)
             }
             return
         }
@@ -650,7 +659,7 @@ class PlayerManager(
         val songId = playbackQueue.itemAt(index)?.songId
         AppLogger.e(TAG, "网络异常重试 $attempt 次后仍失败，等待网络恢复后自动续播 songId=$songId index=$index")
         networkGuard.awaitNetworkRecovery {
-            fetchUrlAndPlay(index, startPosition)
+            fetchUrlAndPlay(index, startPosition, playWhenReady = playWhenReady)
         }
     }
 
@@ -746,6 +755,7 @@ class PlayerManager(
         _isPlaying.value = isPlaying
         if (isPlaying) {
             consecutiveErrors = 0
+            streamErrorRecoverySongId = null
             trackLastPauseElapsedMs?.let { trackPausedAccumMs += SystemClock.elapsedRealtime() - it }
             trackLastPauseElapsedMs = null
         } else {
@@ -791,10 +801,28 @@ class PlayerManager(
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=${_currentTrack.value?.mediaId}", error)
+        if (tryRecoverStreamError(error)) return
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
         skipToNextOnError(playbackQueue.currentIndex.value)
+    }
+
+    // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；
+    // 此时先原地换新链接、从断点位置续播当前曲目，同一首只尝试一次，仍失败才走跳过下一首的兜底
+    private fun tryRecoverStreamError(error: PlaybackException): Boolean {
+        if (error.errorCode !in PlaybackException.ERROR_CODE_IO_UNSPECIFIED until PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED) return false
+        val index = playbackQueue.currentIndex.value
+        val item = playbackQueue.itemAt(index) ?: return false
+        if (item.localUri != null) return false
+        if (_currentTrack.value?.mediaId?.toLongOrNull() != item.songId) return false
+        if (streamErrorRecoverySongId == item.songId) return false
+        streamErrorRecoverySongId = item.songId
+
+        val position = controllerHolder.currentPositionOrNull ?: progress.currentPosition.value
+        AppLogger.i(TAG, "播放链接疑似失效，换新链接原地续播 songId=${item.songId} positionMs=$position")
+        fetchUrlAndPlay(index, position, playWhenReady = _playWhenReady.value)
+        return true
     }
 
     private fun playbackStateName(state: Int) = when (state) {

@@ -70,14 +70,14 @@ class MediaControllerHolder(private val context: Context) {
             Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
 
-    // 装载并起播单个曲目，支持从断点位置直接起播
-    fun playItem(mediaItem: MediaItem, mode: PlayMode, startPosition: Long) {
+    // 装载并起播单个曲目，支持从断点位置直接起播；playWhenReady=false 时只装载不起播
+    fun playItem(mediaItem: MediaItem, mode: PlayMode, startPosition: Long, playWhenReady: Boolean = true) {
         controller?.apply {
             repeatMode = if (mode == PlayMode.SINGLE_LOOP)
                 Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             setMediaItem(mediaItem, startPosition.coerceAtLeast(0L))
             prepare()
-            play()
+            if (playWhenReady) play() else pause()
         }
     }
 
