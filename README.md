@@ -14,12 +14,26 @@
 
 ## 截图预览
 
+### 手机
+
 <div align="center">
-  <img src="docs/screenshots/home.png" width="19%" alt="首页" />
-  <img src="docs/screenshots/search.png" width="19%" alt="搜索" />
-  <img src="docs/screenshots/library.png" width="19%" alt="音乐库" />
-  <img src="docs/screenshots/player.png" width="19%" alt="播放器" />
-  <img src="docs/screenshots/lyrics.png" width="19%" alt="歌词" />
+  <img src="docs/screenshots/home.webp" width="19%" alt="首页" />
+  <img src="docs/screenshots/library.webp" width="19%" alt="音乐库" />
+  <img src="docs/screenshots/player.webp" width="19%" alt="播放器" />
+  <img src="docs/screenshots/lyrics.webp" width="19%" alt="歌词" />
+  <img src="docs/screenshots/profile.webp" width="19%" alt="个人主页" />
+</div>
+
+### 平板
+
+<div align="center">
+  <img src="docs/screenshots/tablet-portrait-home.webp" width="32%" alt="平板竖屏首页" />
+  <img src="docs/screenshots/tablet-portrait-panel.webp" width="32%" alt="平板竖屏播放侧栏" />
+</div>
+<div align="center">
+  <img src="docs/screenshots/tablet-landscape-panel.webp" width="32%" alt="平板横屏播放侧栏" />
+  <img src="docs/screenshots/tablet-fullscreen-lyrics.webp" width="32%" alt="平板全屏播放页歌词" />
+  <img src="docs/screenshots/tablet-fullscreen-info.webp" width="32%" alt="平板全屏播放页歌曲信息" />
 </div>
 
 ---
