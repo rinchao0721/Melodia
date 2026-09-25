@@ -106,20 +106,19 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                     )
                     HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                     SettingsSwitchRow(
-                        title = "OPPO 流体云歌词（测试）",
-                        subtitle = "通过 Android 16 实时更新通知，在 ColorOS 16 流体云 / 状态栏胶囊中显示当前歌词",
+                        title = "状态栏歌词胶囊（测试）",
+                        subtitle = "Android 16+ 实时更新通知，支持 ColorOS 流体云、三星 Now Bar、Pixel 状态栏等",
                         checked = fluidCloudLyricEnabled,
                         onCheckedChange = { enabled ->
                             if (enabled && !FluidCloudLyricNotifier.isSupported()) {
                                 android.widget.Toast.makeText(
                                     context,
-                                    "需要 Android 16 及以上系统（ColorOS 16+）",
+                                    "需要 Android 16 及以上系统",
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                                 return@SettingsSwitchRow
                             }
                             viewModel.updateFluidCloudLyricEnabled(enabled)
-                            // 用户在系统里关闭过「实时更新」时，引导到授权页重新开启，否则通知只会以普通形式出现
                             if (enabled && !FluidCloudLyricNotifier.canPostPromoted(context)) {
                                 FluidCloudLyricNotifier.buildManagePromotedIntent(context)?.let { intent ->
                                     runCatching { context.startActivity(intent) }

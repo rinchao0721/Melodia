@@ -301,7 +301,6 @@ class ExternalLyricCoordinator(
         SuperLyricHelper.sendLyric(data)
     }
 
-    // 流体云胶囊只在播放中展示；暂停、停止或关闭开关时移除，避免残留一条不再更新的常驻通知
     private fun refreshFluidCloudLyric() {
         if (!isFluidCloudLyricEnabled || currentSongId == -1L || !playerManager.isPlaying.value) {
             fluidCloudNotifier.dismiss()
