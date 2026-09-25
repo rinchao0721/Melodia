@@ -34,6 +34,9 @@ class FluidCloudLyricNotifier(private val context: Context) {
         private const val CHANNEL_NAME = "流体云歌词"
         // 普通通知不随进程退出而消失；每次刷新都会重置计时，进程被杀后胶囊最多残留这么久
         private const val STALE_TIMEOUT_MS = 10 * 60 * 1000L
+        // Settings.ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS，当前 compileSdk 未暴露该常量，直接使用字面值
+        private const val ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS =
+            "android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS"
 
         @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.BAKLAVA)
         fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
@@ -48,7 +51,7 @@ class FluidCloudLyricNotifier(private val context: Context) {
         // 跳转到系统「实时更新」授权页，用户关闭过该权限时引导重新开启
         fun buildManagePromotedIntent(context: Context): Intent? {
             if (!isSupported()) return null
-            return Intent(Settings.ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS).apply {
+            return Intent(ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS).apply {
                 putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
@@ -124,7 +127,6 @@ class FluidCloudLyricNotifier(private val context: Context) {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setSilent(true)
             .setShowWhen(false)
             .setLocalOnly(true)
             .setTimeoutAfter(STALE_TIMEOUT_MS)
