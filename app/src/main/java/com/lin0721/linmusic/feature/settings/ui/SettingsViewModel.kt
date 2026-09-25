@@ -110,6 +110,8 @@ class SettingsViewModel(
 
     val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
 
+    val fluidCloudLyricEnabled = settingsPreferences.fluidCloudLyricEnabled.asState(false)
+
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
@@ -266,6 +268,8 @@ class SettingsViewModel(
     fun updateBluetoothLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveBluetoothLyricEnabled(enabled) }
 
     fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
+
+    fun updateFluidCloudLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFluidCloudLyricEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

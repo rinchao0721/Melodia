@@ -12,11 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.player.external.FluidCloudLyricNotifier
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -31,6 +33,8 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val lyricInfoEnabled by viewModel.lyricInfoEnabled.collectAsStateWithLifecycle()
     val bluetoothLyricEnabled by viewModel.bluetoothLyricEnabled.collectAsStateWithLifecycle()
     val lyriconEnabled by viewModel.lyriconEnabled.collectAsStateWithLifecycle()
+    val fluidCloudLyricEnabled by viewModel.fluidCloudLyricEnabled.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var showSizeSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
@@ -99,6 +103,28 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "向 Lyricon 独立词幕服务同步当前播放曲目与歌词进度",
                         checked = lyriconEnabled,
                         onCheckedChange = { viewModel.updateLyriconEnabled(it) }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "状态栏歌词胶囊（测试）",
+                        subtitle = "Android 16+ 实时更新通知，支持 ColorOS 流体云、三星 Now Bar、Pixel 状态栏等",
+                        checked = fluidCloudLyricEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled && !FluidCloudLyricNotifier.isSupported()) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "需要 Android 16 及以上系统",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                return@SettingsSwitchRow
+                            }
+                            viewModel.updateFluidCloudLyricEnabled(enabled)
+                            if (enabled && !FluidCloudLyricNotifier.canPostPromoted(context)) {
+                                FluidCloudLyricNotifier.buildManagePromotedIntent(context)?.let { intent ->
+                                    runCatching { context.startActivity(intent) }
+                                }
+                            }
+                        }
                     )
                 }
             }

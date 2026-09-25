@@ -111,6 +111,8 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
         // 启用 Lyricon 词幕协议，默认 false
         private val KEY_LYRICON_ENABLED = booleanPreferencesKey("lyricon_enabled")
+        // 启用状态栏歌词胶囊 (Android 16 实时更新通知)，默认 false
+        private val KEY_FLUID_CLOUD_LYRIC_ENABLED = booleanPreferencesKey("fluid_cloud_lyric_enabled")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -552,6 +554,17 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveLyriconEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_LYRICON_ENABLED] = enabled
+        }
+    }
+
+    // 状态栏歌词胶囊 Flow
+    val fluidCloudLyricEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FLUID_CLOUD_LYRIC_ENABLED] ?: false
+    }
+
+    suspend fun saveFluidCloudLyricEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FLUID_CLOUD_LYRIC_ENABLED] = enabled
         }
     }
 }
