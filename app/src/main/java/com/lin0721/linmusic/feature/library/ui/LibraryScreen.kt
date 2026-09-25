@@ -56,6 +56,7 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.foundation.gestures.*
 import androidx.compose.animation.core.*
@@ -410,6 +411,7 @@ fun LibraryScreen(
                                     )
                                 }
                             } else if (isGridView) {
+                                val gridColumns = rememberMelodiaGridColumns(compact = 3, expandedPortrait = 5, expandedLandscape = 7)
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = 8.dp, start = MelodiaSpacing.md, end = MelodiaSpacing.md)
@@ -423,7 +425,7 @@ fun LibraryScreen(
                                             modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
                                         )
                                     }
-                                    val rows = state.filteredItems.chunked(3)
+                                    val rows = state.filteredItems.chunked(gridColumns)
                                     items(rows, key = { row -> row.joinToString(separator = "_") { it.id } }) { row ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -449,7 +451,7 @@ fun LibraryScreen(
                                                     }
                                                 )
                                             }
-                                            repeat(3 - row.size) {
+                                            repeat(gridColumns - row.size) {
                                                 Spacer(modifier = Modifier.weight(1f))
                                             }
                                         }

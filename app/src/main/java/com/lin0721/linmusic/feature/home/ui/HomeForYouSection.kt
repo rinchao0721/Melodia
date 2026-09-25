@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,14 +45,19 @@ import com.lin0721.linmusic.core.ui.theme.EntryHeartGradient
 import com.lin0721.linmusic.core.ui.theme.EntryHotGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRadarGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRoamingGradient
+import com.lin0721.linmusic.core.ui.theme.LayoutReflowDurationMs
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 
-private val EntryCardSize = 132.dp
+// 平板下卡片略微放大，手机不变
+private val EntryCardSizeCompact = 132.dp
+private val EntryCardSizeExpanded = 160.dp
 
 // 一个功能入口。这几个功能没有对应的封面资源，一律用策展色表达，
 // 不再从推荐歌单里借图——借来的封面跟点进去的功能毫无关系。
@@ -72,8 +81,20 @@ fun ForYouSection(
     onHotlistClick: (Long) -> Unit,
     onIntelligenceClick: () -> Unit,
     onRadarClick: (Long) -> Unit,
-    onRoamingClick: () -> Unit
+    onRoamingClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    // 平板播放面板开合时断点会切换，方块尺寸平滑过渡而非一帧跳变
+    val entryCardSize by animateDpAsState(
+        targetValue = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) {
+            EntryCardSizeExpanded
+        } else {
+            EntryCardSizeCompact
+        },
+        animationSpec = tween(LayoutReflowDurationMs, easing = FastOutSlowInEasing),
+        label = "for_you_entry_size"
+    )
+
     val hotlist = remember(toplists) {
         toplists.firstOrNull { it.name.contains("热") } ?: toplists.firstOrNull()
     }
@@ -142,7 +163,7 @@ fun ForYouSection(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
+    Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
         Text(
             text = "为你推荐",
             color = MaterialTheme.colorScheme.onSurface,
@@ -158,7 +179,7 @@ fun ForYouSection(
             items(entries, key = { it.key }) { entry ->
                 Box(
                     modifier = Modifier
-                        .size(EntryCardSize)
+                        .size(entryCardSize)
                         .pressable(MelodiaPress.Card) { entry.onClick() }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(Brush.linearGradient(entry.gradient))

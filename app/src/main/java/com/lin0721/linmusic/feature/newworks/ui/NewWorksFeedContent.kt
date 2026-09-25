@@ -57,6 +57,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksMv
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import java.util.Locale
@@ -127,8 +128,9 @@ private fun NewWorksFeedGrid(
         if (shouldLoadMore) onLoadMore()
     }
 
+    val columns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 4, expandedLandscape = 6)
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(columns),
         state = gridState,
         horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),

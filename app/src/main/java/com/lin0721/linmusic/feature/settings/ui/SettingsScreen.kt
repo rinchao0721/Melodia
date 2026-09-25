@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
@@ -107,10 +108,8 @@ fun SettingsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+        AdaptiveContentWidth(
+            modifier = Modifier.padding(innerPadding)
         ) {
             // 使用 AnimatedContent 实现主菜单和子菜单的平滑切换动画
             AnimatedContent(

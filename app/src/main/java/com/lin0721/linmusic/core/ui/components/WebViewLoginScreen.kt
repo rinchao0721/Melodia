@@ -36,6 +36,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
+// 网易登录页"手机号登录"按钮用内联 style="width: Nvh; height: Mvh" 按视口高度算宽高
+private const val LOGIN_BUTTON_FIX_JS = """
+(function() {
+  try {
+    var btn = document.querySelector('[data-log*="btn_h5_login_method"]');
+    if (btn) {
+      btn.style.setProperty('width', '86%', 'important');
+      btn.style.setProperty('height', '48px', 'important');
+    }
+  } catch (e) {}
+})();
+"""
+
 /**
  * 网页授权登录界面
  */
@@ -88,100 +101,101 @@ fun WebViewLoginScreen(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
-					)
-				},
-				navigationIcon = {
-					MelodiaIconButton(onClick = onClose) {
-						Icon(
-							imageVector = Icons.Default.Close,
-							contentDescription = "关闭",
-							tint = Color.White
-						)
-					}
-				},
-				colors = TopAppBarDefaults.topAppBarColors(
-					containerColor = BackgroundBlack
-				)
-			)
-		},
+                    )
+                },
+                navigationIcon = {
+                    MelodiaIconButton(onClick = onClose) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "关闭",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = BackgroundBlack
+                )
+            )
+        },
         containerColor = WebLoginBackground // 容器底色改为网页同款浅灰，彻底避免键盘弹出或加载时闪黑屏/白屏
-	) { paddingValues ->
-		Box(
-			modifier = Modifier
-				.fillMaxSize()
-				.padding(paddingValues)
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
                 .background(WebLoginBackground) // 外层容器底色一致
-		) {
-			if (readyToLoadWebView) {
-			AndroidView(
-				factory = { context ->
-					WebView(context).apply {
-						// 完全隔离容器：初始化前清空旧状态
-						CookieManager.getInstance().let { manager ->
-							manager.setAcceptCookie(true)
-							manager.setAcceptThirdPartyCookies(this, true)
-							manager.removeAllCookies(null)
-							manager.flush()
-						}
+        ) {
+            if (readyToLoadWebView) {
+                AndroidView(
+                    factory = { context ->
+                        WebView(context).apply {
+                            // 完全隔离容器：初始化前清空旧状态
+                            CookieManager.getInstance().let { manager ->
+                                manager.setAcceptCookie(true)
+                                manager.setAcceptThirdPartyCookies(this, true)
+                                manager.removeAllCookies(null)
+                                manager.flush()
+                            }
 
-                        // 将 WebView 底色置为浅灰，防止 resize 布局重绘时闪烁
-                        setBackgroundColor(android.graphics.Color.parseColor("#F5F5F7"))
+                            // 将 WebView 底色置为浅灰，防止 resize 布局重绘时闪烁
+                            setBackgroundColor(android.graphics.Color.parseColor("#F5F5F7"))
 
-                        webChromeClient = WebChromeClient()
-						
-						settings.apply {
-							javaScriptEnabled = true
-							domStorageEnabled = true
-							loadWithOverviewMode = true
-							useWideViewPort = true
-							mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-							// 净化 UA
-							userAgentString = baseUA
-						}
+                            webChromeClient = WebChromeClient()
 
-						webViewClient = object : WebViewClient() {
-							override fun onPageFinished(view: WebView?, url: String?) {
-								// 实时提取 Token (MUSIC_U)
-								checkCookies(onLoginSuccess)
-                                isLoading = false // 页面完全加载渲染完成后，关闭加载指示器
-							}
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                loadWithOverviewMode = true
+                                useWideViewPort = true
+                                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                // 净化 UA
+                                userAgentString = baseUA
+                            }
 
-							override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
-								checkCookies(onLoginSuccess)
-							}
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    // 实时提取 Token (MUSIC_U)
+                                    checkCookies(onLoginSuccess)
+                                    isLoading = false // 页面完全加载渲染完成后，关闭加载指示器
+                                    view?.evaluateJavascript(LOGIN_BUTTON_FIX_JS, null)
+                                }
 
-							override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-								return false
-							}
-						}
-						
-						loadUrl(loginUrl, resolvedHeaders)
-					}
-				},
-				modifier = Modifier.fillMaxSize()
-			)
-			}
+                                override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                                    checkCookies(onLoginSuccess)
+                                }
 
-			// 加载过渡
-			AnimatedVisibility(
-				visible = isLoading,
-				enter = fadeIn(),
-				exit = fadeOut(),
-				modifier = Modifier.fillMaxSize()
-			) {
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                    return false
+                                }
+                            }
+
+                            loadUrl(loginUrl, resolvedHeaders)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // 加载过渡
+            AnimatedVisibility(
+                visible = isLoading,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize()
+            ) {
                 // 加载页背景也改成网页同款浅灰，保持视觉过渡一致
                 Box(modifier = Modifier.fillMaxSize().background(WebLoginBackground), contentAlignment = Alignment.Center) {
-					CircularProgressIndicator(color = NeteaseRed)
-				}
-			}
-		}
-	}
+                    CircularProgressIndicator(color = NeteaseRed)
+                }
+            }
+        }
+    }
 }
 
 private fun checkCookies(onLoginSuccess: (String) -> Unit) {
     val cookieManager = CookieManager.getInstance()
     val cookies = cookieManager.getCookie(NeteaseEndpoints.WEB_BASE_URL)
-    
+
     // 状态同步：一旦检测到 MUSIC_U= 则视为成功
     if (cookies != null && cookies.contains("MUSIC_U=")) {
         onLoginSuccess(cookies)

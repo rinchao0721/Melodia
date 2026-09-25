@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.layout.onSizeChanged
@@ -75,6 +76,10 @@ fun ColumnScope.FullScreenLyricsList(
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     isPlaying: Boolean = true,
+    // 以下为宽屏播放器用：关掉居中线与播放胶囊、关掉列表自带拖动（由外层按命中规则接管）、上报每行文字范围
+    showSeekGuide: Boolean = true,
+    userScrollEnabled: Boolean = true,
+    onLineTextBounds: ((index: Int, bounds: Rect) -> Unit)? = null,
     onSeek: (Long) -> Unit,
     onLyricClick: (LyricLine) -> Unit
 ) {
@@ -153,7 +158,7 @@ fun ColumnScope.FullScreenLyricsList(
             )
         } else {
             CenterTargetLine(
-                visible = isUserScrolling,
+                visible = isUserScrolling && showSeekGuide,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
@@ -162,6 +167,7 @@ fun ColumnScope.FullScreenLyricsList(
 
             LazyColumn(
                 state = lazyListState,
+                userScrollEnabled = userScrollEnabled,
                 modifier = Modifier
                     .fillMaxSize()
                     .then(gestureModifier)
@@ -179,7 +185,7 @@ fun ColumnScope.FullScreenLyricsList(
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
                     val isCurrent = index == currentIndex
-                    val isCenterTarget = index == centerLineIndex && isUserScrolling
+                    val isCenterTarget = index == centerLineIndex && isUserScrolling && showSeekGuide
                     val distance = kotlin.math.abs(index - currentIndex).coerceAtMost(5)
 
                     FullScreenLyricsRow(
@@ -196,13 +202,14 @@ fun ColumnScope.FullScreenLyricsList(
                         secondarySpacing = secondarySpacing,
                         advancedKaraokeEffect = advancedKaraokeEffect,
                         isPlaying = isPlaying,
+                        onTextBoundsInRoot = onLineTextBounds?.let { report -> { bounds -> report(index, bounds) } },
                         onClick = { onLyricClick(line) }
                     )
                 }
             }
 
             PlayCapsule(
-                visible = isUserScrolling && centerLineIndex in lyrics.indices,
+                visible = isUserScrolling && showSeekGuide && centerLineIndex in lyrics.indices,
                 targetLine = lyrics.getOrNull(centerLineIndex),
                 onSeek = onSeek,
                 modifier = Modifier

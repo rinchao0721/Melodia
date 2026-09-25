@@ -53,6 +53,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
+import com.lin0721.linmusic.core.ui.theme.melodiaNavigationBarBottomPadding
 
 // 评论区底部常驻输入栏：随软键盘升降，支持直接发表主评论与针对指定用户的回复
 @Composable
@@ -92,9 +94,15 @@ fun CommentInputBar(
     val density = LocalDensity.current
     val imeBottom = WindowInsets.ime.getBottom(density)
     val bottomPadding = if (imeBottom > 0) {
-        WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+        val imePadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+        // 外层卡片已让出手势条时，键盘高度里这一截不在卡片内，需扣掉
+        if (LocalMelodiaSystemBarsConsumed.current) {
+            (imePadding - WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()).coerceAtLeast(0.dp)
+        } else {
+            imePadding
+        }
     } else {
-        val navBarsPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val navBarsPadding = melodiaNavigationBarBottomPadding()
         if (bottomOverlayInset > 0.dp) bottomOverlayInset else navBarsPadding
     }
 

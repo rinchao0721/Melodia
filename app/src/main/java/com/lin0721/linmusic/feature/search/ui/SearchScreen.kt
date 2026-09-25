@@ -85,6 +85,7 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
@@ -691,8 +692,9 @@ private fun DiscoveryContent(
             }
         }
         is DiscoveryUiState.Success -> {
+            val columns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 4, expandedLandscape = 6)
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Fixed(columns),
                 horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
                 contentPadding = PaddingValues(

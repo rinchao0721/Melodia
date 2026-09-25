@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ViewSidebar
+import androidx.compose.material.icons.outlined.ViewSidebar
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -20,27 +22,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
-import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
-import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 封面区：播放来源标题栏 + 方形封面，加载成功后回传取色结果
+private val SidebarToggleGap = 4.dp
+
+// 封面区：播放来源标题栏 + 方形封面
 @Composable
 fun FullPlayerCoverArt(
     coverUrl: String,
-    title: String,
     playContext: String?,
     onClose: () -> Unit,
-    onPaletteExtracted: (PlayerBackdropPalette) -> Unit,
     onMoreClick: () -> Unit = {},
     previousCoverUrl: String? = null,
     nextCoverUrl: String? = null,
@@ -49,111 +48,31 @@ fun FullPlayerCoverArt(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
+    // 在默认左右留白之外再内缩的距离，封面随之居中缩小
+    coverExtraInset: Dp = 0.dp,
+    // 平板常驻面板用：侧栏与全屏互切，为 null 时不显示该按钮
+    onToggleSidebarFullscreen: (() -> Unit)? = null,
+    isSidebarFullscreen: Boolean = false,
     modifier: Modifier = Modifier,
     onCancelSwipe: () -> Boolean = { false }
 ) {
-    val context = LocalContext.current
-
-    // 取色跟封面显示解码完全脱钩，单独发一次固定尺寸的请求
-    LaunchedEffect(coverUrl) {
-        if (coverUrl.isNotEmpty()) {
-            onPaletteExtracted(extractBackdropPaletteFromUrl(context, coverUrl))
-        }
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = MelodiaSpacing.md, bottom = MelodiaSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
+        FullPlayerSourceBar(
+            playContext = playContext,
+            onClose = onClose,
+            onMoreClick = onMoreClick,
+            onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+            isSidebarFullscreen = isSidebarFullscreen,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MelodiaSpacing.lg)
-                .padding(bottom = 44.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            MelodiaIconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .size(32.dp)
-                    .offset(x = (-4).dp)
-            ) {
-                Icon(
-                    Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-            AnimatedContent(
-                targetState = playContext,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(260)) +
-                            slideInVertically(animationSpec = tween(260)) { height -> height / 3 })
-                        .togetherWith(
-                            fadeOut(animationSpec = tween(200)) +
-                                    slideOutVertically(animationSpec = tween(200)) { height -> -height / 3 }
-                        ).using(
-                            SizeTransform(
-                                clip = false,
-                                sizeAnimationSpec = { _, _ -> tween(280) }
-                            )
-                        )
-                },
-                label = "play_source_transition",
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.weight(1f)
-            ) { context ->
-                val (sourceText, detailText) = when (context) {
-                    null -> "NOW PLAYING" to null
-                    "搜索" -> "播放自" to "搜索"
-                    "每日推荐" -> "播放自" to "每日推荐"
-                    "历史日推" -> "播放自" to "历史日推"
-                    "intelligence" -> "播放自" to "心动模式"
-                    else -> "播放自歌单" to context
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = sourceText,
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (detailText != null) {
-                        Text(
-                            text = "“$detailText”",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-            MelodiaIconButton(
-                onClick = onMoreClick,
-                modifier = Modifier
-                    .size(32.dp)
-                    .offset(x = 4.dp)
-            ) {
-                Icon(
-                    Icons.Default.MoreVert,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
+                .padding(bottom = 44.dp)
+        )
 
         SwipeToSkipCover(
             coverUrl = coverUrl,
@@ -164,12 +83,128 @@ fun FullPlayerCoverArt(
             currentKey = currentKey,
             previousKey = previousKey,
             nextKey = nextKey,
-            contentPadding = MelodiaSpacing.lg,
+            contentPadding = MelodiaSpacing.lg + coverExtraInset,
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 24.dp,
             modifier = Modifier.fillMaxWidth(),
             onCancelPending = onCancelSwipe
         )
+    }
+}
+
+// 播放来源标题栏：侧栏/全屏切换、收起、播放来源、更多
+@Composable
+fun FullPlayerSourceBar(
+    playContext: String?,
+    onClose: () -> Unit,
+    onMoreClick: () -> Unit,
+    onToggleSidebarFullscreen: (() -> Unit)?,
+    isSidebarFullscreen: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onToggleSidebarFullscreen != null) {
+            MelodiaIconButton(
+                onClick = onToggleSidebarFullscreen,
+                modifier = Modifier
+                    .size(32.dp)
+                    .offset(x = (-4).dp)
+            ) {
+                Icon(
+                    if (isSidebarFullscreen) Icons.Filled.ViewSidebar else Icons.Outlined.ViewSidebar,
+                    contentDescription = if (isSidebarFullscreen) "收回侧栏" else "展开全屏",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(SidebarToggleGap))
+        }
+        MelodiaIconButton(
+            onClick = onClose,
+            modifier = Modifier
+                .size(32.dp)
+                .offset(x = (-4).dp)
+        ) {
+            Icon(
+                Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        AnimatedContent(
+            targetState = playContext,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(260)) +
+                        slideInVertically(animationSpec = tween(260)) { height -> height / 3 })
+                    .togetherWith(
+                        fadeOut(animationSpec = tween(200)) +
+                                slideOutVertically(animationSpec = tween(200)) { height -> -height / 3 }
+                    ).using(
+                        SizeTransform(
+                            clip = false,
+                            sizeAnimationSpec = { _, _ -> tween(280) }
+                        )
+                    )
+            },
+            label = "play_source_transition",
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.weight(1f)
+        ) { context ->
+            val (sourceText, detailText) = when (context) {
+                null -> "NOW PLAYING" to null
+                "搜索" -> "播放自" to "搜索"
+                "每日推荐" -> "播放自" to "每日推荐"
+                "历史日推" -> "播放自" to "历史日推"
+                "intelligence" -> "播放自" to "心动模式"
+                else -> "播放自歌单" to context
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = sourceText,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (detailText != null) {
+                    Text(
+                        text = "“$detailText”",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        // 左侧多了切换按钮时右侧补等宽留白，播放来源标题保持居中
+        if (onToggleSidebarFullscreen != null) {
+            Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
+        }
+        MelodiaIconButton(
+            onClick = onMoreClick,
+            modifier = Modifier
+                .size(32.dp)
+                .offset(x = 4.dp)
+        ) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }

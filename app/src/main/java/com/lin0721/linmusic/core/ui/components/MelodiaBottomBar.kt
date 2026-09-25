@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -52,6 +53,7 @@ import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -92,7 +94,8 @@ fun MiniPlayerCard(
     onPrevious: () -> Unit = {},
     onCancelPendingSkip: () -> Boolean = { false },
     isLiked: Boolean = false,
-    onLikeClick: () -> Unit = {}
+    onLikeClick: () -> Unit = {},
+    expanded: Boolean = false
 ) {
     if (currentTrack == null) return
 
@@ -117,13 +120,14 @@ fun MiniPlayerCard(
         }
     }
 
-    // 平滑过渡背景色变化；base 取自 Vibrant，本身偏亮，卡片背景需要压暗一档才不会太扎眼
+    // 平滑过渡背景色变化；base 取自 Vibrant，本身偏亮，卡片背景需要压暗一档才不会太扎眼。
+    // 平板宽屏下悬浮在深色页面背景上，压暗幅度收窄一档，避免浅色封面取色后和背景融在一起
     val animatedBase by animateColorAsState(
         targetValue = colorPalette.base,
         animationSpec = tween(800),
         label = "mini_player_base"
     )
-    val fillColor = remember(animatedBase) { animatedBase.darken(0.45f) }
+    val fillColor = remember(animatedBase, expanded) { animatedBase.darken(if (expanded) 0.20f else 0.45f) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -182,7 +186,7 @@ fun MiniPlayerCard(
                 spotColor = Color.Black.copy(alpha = 0.4f)
             )
             .clip(miniPlayerShape)
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), miniPlayerShape)
+            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -214,7 +218,12 @@ fun MiniPlayerCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+                    .padding(
+                        start = 12.dp,
+                        end = 6.dp,
+                        top = if (expanded) 10.dp else 6.dp,
+                        bottom = if (expanded) 10.dp else 6.dp
+                    )
             ) {
                 // 封面+歌名歌手整体跟手平移，播放/下一首按钮不参与滑动
                 val connectedDevice = rememberCurrentOutputDevice()
@@ -229,7 +238,7 @@ fun MiniPlayerCard(
                     connectedDevice = connectedDevice,
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .height(if (expanded) 52.dp else 44.dp)
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
@@ -462,7 +471,8 @@ fun MiniPlayerProgress(
     }
 }
 
-//底部导航栏  
+//底部导航栏。expanded=true 时用于平板宽屏下的独立悬浮卡片（圆角、不贴屏幕边缘），
+//expanded=false 时是手机上贴底通栏的现状实现
 @Composable
 fun MelodiaNavigationBar(
     currentScreen: Screen,
@@ -470,17 +480,36 @@ fun MelodiaNavigationBar(
     onCreateClick: () -> Unit,
     isCreateMenuOpen: Boolean,
     showCreateEntry: Boolean = true,
+    expanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // 平板宽屏下用 SurfaceDark（比页面背景 BackgroundDark 亮一档）+ 描边，
+    // 避免和几乎所有页面都在用的 BackgroundDark 背景融为一体
     Surface(
-        color = BackgroundDark,
-        modifier = modifier.fillMaxWidth()
+        color = if (expanded) SurfaceDark else BackgroundDark,
+        shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (expanded) {
+                    Modifier
+                        .fillMaxHeight()
+                        .border(0.5.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(InfoCardRadius))
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(60.dp)
+                .then(
+                    if (expanded) {
+                        Modifier.fillMaxHeight()
+                    } else {
+                        Modifier.navigationBarsPadding().height(60.dp)
+                    }
+                )
                 .padding(top = 12.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

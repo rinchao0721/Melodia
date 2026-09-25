@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.home.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,23 +27,39 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 
-// 双列紧凑横条，一屏放得下六条。
-private const val MAX_ITEMS = 6
+// 紧凑横条列表，固定 3 行；手机 2 列、平板竖屏 3 列、平板横屏 4 列
+private const val MAX_ROWS = 3
 private val RowHeight = 56.dp
+private val ItemGap = 9.dp
 
 @Composable
 fun RecentPlaySection(
     items: List<RecentPlaylist>,
-    onClick: (RecentPlaylist) -> Unit
+    onClick: (RecentPlaylist) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
+    val windowSizeClass = LocalMelodiaWindowSizeClass.current
+    val orientationClass = LocalMelodiaOrientationClass.current
+    val columns = when {
+        windowSizeClass == MelodiaWindowSizeClass.Expanded && orientationClass == MelodiaOrientationClass.Landscape -> 4
+        windowSizeClass == MelodiaWindowSizeClass.Expanded -> 3
+        else -> 2
+    }
+
+    val shownItems = items.take(columns * MAX_ROWS)
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
         Text(
             text = "最近播放",
             color = MaterialTheme.colorScheme.onSurface,
@@ -50,25 +68,28 @@ fun RecentPlaySection(
             modifier = Modifier.padding(start = HomeEdgePadding, end = HomeEdgePadding, bottom = 13.dp)
         )
 
-        Column(
-            modifier = Modifier.padding(horizontal = HomeEdgePadding),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = HomeEdgePadding),
+            horizontalArrangement = Arrangement.spacedBy(ItemGap),
+            verticalArrangement = Arrangement.spacedBy(ItemGap),
+            maxItemsInEachRow = columns
         ) {
-            items.take(MAX_ITEMS).chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp)
-                ) {
-                    rowItems.forEach { item ->
-                        RecentPlayRow(
-                            item = item,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onClick(item) }
-                        )
-                    }
-                    // 奇数条时补等宽占位，避免最后一条被拉成整行
-                    if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
+            shownItems.forEach { item ->
+                key(item.id) {
+                    RecentPlayRow(
+                        item = item,
+                        modifier = Modifier
+                            .weight(1f)
+                            .homeReflowBounds(),
+                        onClick = { onClick(item) }
+                    )
                 }
+            }
+            // 残行补齐等宽占位，避免最后一行被拉宽
+            repeat((columns - shownItems.size % columns) % columns) {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

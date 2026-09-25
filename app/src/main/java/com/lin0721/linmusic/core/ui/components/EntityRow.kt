@@ -28,7 +28,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 
 enum class EntityCoverShape { Rounded, Circle }
 
@@ -51,12 +53,18 @@ fun EntityRow(
         EntityCoverShape.Rounded -> RoundedCornerShape(RadiusCompact)
         EntityCoverShape.Circle -> CircleShape
     }
+    // 平板 Expanded 断点下行高/封面/字号统一加码，结构不变，视觉比例继续照抄 SongRow
+    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val coverSize = if (isExpanded) 56.dp else 48.dp
+    val verticalPadding = if (isExpanded) 14.dp else 10.dp
+    val titleFontSize = if (isExpanded) 17.sp else 15.sp
+    val subtitleFontSize = if (isExpanded) 14.sp else 13.sp
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = MelodiaSpacing.md, vertical = 10.dp),
+            .padding(horizontal = MelodiaSpacing.md, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val context = LocalContext.current
@@ -76,7 +84,7 @@ fun EntityRow(
             contentScale = ContentScale.Crop,
             loading = { CoverPlaceholder() },
             error = { CoverPlaceholder() },
-            modifier = Modifier.size(48.dp).clip(shape)
+            modifier = Modifier.size(coverSize).clip(shape)
         )
         Spacer(Modifier.width(12.dp))
 
@@ -85,7 +93,7 @@ fun EntityRow(
                 text = data.title,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
+                fontSize = titleFontSize,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -94,7 +102,7 @@ fun EntityRow(
                 Text(
                     text = data.subtitle,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
+                    fontSize = subtitleFontSize,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
