@@ -72,6 +72,8 @@ fun ColumnScope.FullScreenLyricsList(
     fontSize: Int = 22,
     alignment: String = "left",
     secondaryMode: String = "translation",
+    lineSpacing: Int = 24,
+    secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     isPlaying: Boolean = true,
     // 以下为宽屏播放器用：关掉居中线与播放胶囊、关掉列表自带拖动（由外层按命中规则接管）、上报每行文字范围
@@ -83,9 +85,10 @@ fun ColumnScope.FullScreenLyricsList(
 ) {
     val density = LocalDensity.current
 
-    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode) {
+    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode, lineSpacing, secondarySpacing) {
         if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
-            val itemStridePx = with(density) { 66.dp.toPx() }
+            // 估算值以默认间距（行距 24dp、副文本距 6dp）为基准，按用户设置的差值修正
+            val itemStridePx = with(density) { (66 + lineSpacing - 24).coerceAtLeast(1).dp.toPx() }
             val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
 
             if (currentIndex < linesAboveCentre) {
@@ -104,7 +107,7 @@ fun ColumnScope.FullScreenLyricsList(
                 else -> false
             }
             val itemHeightPx = with(density) {
-                if (hasSecondary) 96.dp.toPx() else 54.dp.toPx()
+                if (hasSecondary) (96 + secondarySpacing - 6).dp.toPx() else 54.dp.toPx()
             }
             val desiredOffsetPx = ((viewportHeightPx - itemHeightPx) / 2f).toInt()
             val centreOffsetPx = -desiredOffsetPx
@@ -169,7 +172,7 @@ fun ColumnScope.FullScreenLyricsList(
                     .fillMaxSize()
                     .then(gestureModifier)
                     .onSizeChanged { onViewportHeightChange(it.height.toFloat()) },
-                verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(lineSpacing.coerceAtLeast(0).dp),
                 contentPadding = PaddingValues(
                     top = 0.dp,
                     bottom = with(density) { (viewportHeightPx / 2f).toDp() }
@@ -196,6 +199,7 @@ fun ColumnScope.FullScreenLyricsList(
                         fontSize = fontSize,
                         alignment = alignment,
                         secondaryMode = secondaryMode,
+                        secondarySpacing = secondarySpacing,
                         advancedKaraokeEffect = advancedKaraokeEffect,
                         isPlaying = isPlaying,
                         onTextBoundsInRoot = onLineTextBounds?.let { report -> { bounds -> report(index, bounds) } },

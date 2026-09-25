@@ -3,6 +3,8 @@ package com.lin0721.linmusic.feature.player.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
+import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -162,6 +164,19 @@ class PlayerViewModel(
                 DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear), level
             )
             _toastEvent.emit("已加入下载队列")
+        }
+    }
+
+    // 全屏播放页信息卡片顺序与显隐
+    val fullPlayerCardLayout: StateFlow<List<FullPlayerCardSetting>> = settingsPreferences.fullPlayerCardLayout.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = FullPlayerCardLayout.DEFAULT
+    )
+
+    fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
+        viewModelScope.launch {
+            settingsPreferences.saveFullPlayerCardLayout(layout)
         }
     }
 

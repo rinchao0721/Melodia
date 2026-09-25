@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -22,7 +23,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -83,6 +86,9 @@ fun PlaylistHeaderItem(
     // 播放按钮在根坐标系下的实时位置（用于顶层叠加的按钮跟手滑动、到位后锁停）
     onPlayButtonPositioned: (Float) -> Unit = {}
 ) {
+    var showDescriptionSheet by remember { mutableStateOf(false) }
+    var hasDescOverflow by remember(playlist.description) { mutableStateOf(false) }
+
     val todayStr = remember {
         java.text.SimpleDateFormat("yyyy年MM月dd日", java.util.Locale.getDefault()).format(java.util.Date())
     }
@@ -187,8 +193,44 @@ fun PlaylistHeaderItem(
                         }
                         if (!playlist.description.isNullOrBlank()) {
                             Spacer(Modifier.height(MelodiaSpacing.xs))
-                            Text(playlist.description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                text = playlist.description,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { textLayoutResult ->
+                                    if (textLayoutResult.hasVisualOverflow) {
+                                        hasDescOverflow = true
+                                    }
+                                },
+                                modifier = if (hasDescOverflow) {
+                                    Modifier.clickable { showDescriptionSheet = true }
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            if (hasDescOverflow) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clickable { showDescriptionSheet = true }
+                                        .padding(top = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "展开",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                        contentDescription = "展开完整介绍",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                     Spacer(Modifier.height(MelodiaSpacing.xs))
@@ -294,5 +336,12 @@ fun PlaylistHeaderItem(
                         }
                     }
                 }
+    }
+
+    if (showDescriptionSheet) {
+        PlaylistDescriptionSheet(
+            playlist = playlist,
+            onDismiss = { showDescriptionSheet = false }
+        )
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.animation.slideOutVertically
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
+import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -126,6 +127,8 @@ fun FullPlayerScreen(
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
+    var showCardEditorSheet by remember { mutableStateOf(false) }
+    val cardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -160,6 +163,10 @@ fun FullPlayerScreen(
 
     BackHandler(enabled = showOutputDeviceSheet) {
         showOutputDeviceSheet = false
+    }
+
+    BackHandler(enabled = showCardEditorSheet) {
+        showCardEditorSheet = false
     }
 
     BackHandler(enabled = showDownloadQualitySheet) {
@@ -242,6 +249,15 @@ fun FullPlayerScreen(
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
     val coverFitInsetPx = rememberCoverFitInsetPx(listState, enabled = fitCoverToViewport)
     val coverExtraInset = with(LocalDensity.current) { coverFitInsetPx.toDp() }
+    val allCardsHidden = cardLayout.none { it.visible }
+    val fillTail = MelodiaSpacing.md + melodiaNavigationBarBottomPadding()
+    val fillGap = rememberFullPlayerFillGap(
+        listState = listState,
+        enabled = allCardsHidden,
+        gapCount = FullPlayerFillGapCount,
+        contentKeys = FullPlayerPlaybackItemKeys,
+        bottomReserve = fillTail
+    )
 
     val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
     val fullscreenProgress: () -> Float = { sidebarFullscreenProgress?.invoke()?.coerceIn(0f, 1f) ?: 0f }
@@ -376,7 +392,7 @@ fun FullPlayerScreen(
                         .haze(hazeState),
                     contentPadding = PaddingValues(
                         top = melodiaStatusBarTopPadding(),
-                        bottom = 80.dp + melodiaNavigationBarBottomPadding()
+                        bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )
                 ) {
                     fullPlayerPlaybackSection(
@@ -421,7 +437,9 @@ fun FullPlayerScreen(
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
-                        connectedDevice = connectedDevice
+                        connectedDevice = connectedDevice,
+                        fillGap = if (allCardsHidden) fillGap else null,
+                        fillTail = fillTail
                     )
 
                     fullPlayerInfoSection(
@@ -429,11 +447,13 @@ fun FullPlayerScreen(
                         colors = colors,
                         commentsState = commentsState,
                         currentLyricIndex = currentLyricIndex,
+                        cardLayout = cardLayout,
                         onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
                         onArtistClick = onArtistClick,
+                        onEditCardsClick = { showCardEditorSheet = true },
                         onAlbumClick = onAlbumClick,
                         onSelectArtist = { index -> viewModel.selectArtist(index) }
                     )
@@ -550,12 +570,14 @@ fun FullPlayerScreen(
                         songState = songDetailState,
                         colors = colors,
                         commentsState = commentsState,
+                        cardLayout = cardLayout,
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
                         onArtistClick = onArtistClick,
                         onAlbumClick = onAlbumClick,
-                        onSelectArtist = { index -> viewModel.selectArtist(index) }
+                        onSelectArtist = { index -> viewModel.selectArtist(index) },
+                        onEditCardsClick = { showCardEditorSheet = true }
                     )
                 },
                 modifier = Modifier
@@ -756,6 +778,14 @@ fun FullPlayerScreen(
                     showDownloadQualitySheet = false
                 },
                 onDismiss = { showDownloadQualitySheet = false }
+            )
+        }
+
+        if (showCardEditorSheet) {
+            FullPlayerCardEditorSheet(
+                layout = cardLayout,
+                onLayoutChange = viewModel::saveFullPlayerCardLayout,
+                onDismiss = { showCardEditorSheet = false }
             )
         }
     }

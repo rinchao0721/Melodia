@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.player.CrossfadePolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -53,6 +54,12 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
         // 与其他应用同时播放，默认 false
         private val KEY_PLAY_WITH_OTHER_APPS = booleanPreferencesKey("play_with_other_apps")
+        // 外部音视频停止后自动恢复，默认 true
+        private val KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION = booleanPreferencesKey("resume_after_external_interruption")
+        // 切歌交叉淡化，默认 false
+        private val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
+        // 自动切歌交叉淡化时长 (ms)，默认 3000
+        private val KEY_CROSSFADE_DURATION_MS = intPreferencesKey("crossfade_duration_ms")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -90,6 +97,12 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
+        // 全屏歌词行与行间距 (dp)，默认 24
+        private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
+        // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
+        private val KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING = intPreferencesKey("full_screen_lyric_secondary_spacing")
+        // 全屏播放页信息卡片顺序与显隐，格式见 FullPlayerCardLayout
+        private val KEY_FULL_PLAYER_CARD_LAYOUT = stringPreferencesKey("full_player_card_layout")
         // 启用 SuperLyric 实时歌词，默认 false
         private val KEY_SUPER_LYRIC_ENABLED = booleanPreferencesKey("super_lyric_enabled")
         // 启用 LyricInfo 系统歌词注入，默认 true
@@ -230,6 +243,39 @@ class SettingsPreferences(private val context: Context) {
     suspend fun savePlayWithOtherApps(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_PLAY_WITH_OTHER_APPS] = enabled
+        }
+    }
+
+    // 外部音视频停止后自动恢复 Flow
+    val resumeAfterExternalInterruption: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: true
+    }
+
+    suspend fun saveResumeAfterExternalInterruption(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] = enabled
+        }
+    }
+
+    // 切歌交叉淡化开关 Flow
+    val crossfadeEnabled: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_CROSSFADE_ENABLED] ?: false
+    }
+
+    suspend fun saveCrossfadeEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_CROSSFADE_ENABLED] = enabled
+        }
+    }
+
+    // 自动切歌交叉淡化时长 Flow
+    val crossfadeDurationMs: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_CROSSFADE_DURATION_MS] ?: CrossfadePolicy.DEFAULT_DURATION_MS
+    }
+
+    suspend fun saveCrossfadeDurationMs(durationMs: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_CROSSFADE_DURATION_MS] = CrossfadePolicy.normalizeDurationMs(durationMs)
         }
     }
 
@@ -429,6 +475,39 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
+        }
+    }
+
+    // 全屏歌词行与行间距 Flow
+    val fullScreenLyricLineSpacing: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_LINE_SPACING] ?: 24
+    }
+
+    suspend fun saveFullScreenLyricLineSpacing(spacing: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_LINE_SPACING] = spacing
+        }
+    }
+
+    // 全屏歌词原文与翻译/罗马音间距 Flow
+    val fullScreenLyricSecondarySpacing: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING] ?: 6
+    }
+
+    suspend fun saveFullScreenLyricSecondarySpacing(spacing: Int) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING] = spacing
+        }
+    }
+
+    // 全屏播放页信息卡片顺序与显隐 Flow
+    val fullPlayerCardLayout: Flow<List<FullPlayerCardSetting>> = context.settingsDataStore.data.map { prefs ->
+        FullPlayerCardLayout.decode(prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
+    }
+
+    suspend fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = FullPlayerCardLayout.encode(layout)
         }
     }
 

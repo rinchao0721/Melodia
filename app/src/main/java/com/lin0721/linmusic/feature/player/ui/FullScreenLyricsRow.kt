@@ -46,6 +46,7 @@ fun FullScreenLyricsRow(
     fontSize: Int = 22,
     alignment: String = "left",
     secondaryMode: String = "translation",
+    secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     isPlaying: Boolean = true,
     // 宽屏按下点命中判定用：上报本行文字实际占据的范围（根坐标），离开组合时上报 Rect.Zero
@@ -90,7 +91,7 @@ fun FullScreenLyricsRow(
     val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val mainLineHeight = (fontSize * 1.35f).sp
     val translationLineHeight = (translationFontSize.value * 1.35f).sp
-    val spacingBetween = (fontSize * 0.28f).coerceIn(6f, 14f).dp
+    val spacingBetween = secondarySpacing.coerceAtLeast(0).dp
 
     val targetScale = when {
         isCurrent -> 1.12f

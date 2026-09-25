@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.darken
@@ -38,7 +36,6 @@ import com.lin0721.linmusic.core.player.domain.lyricLineKey
 
 private val LYRICS_CARD_BLUR_RADIUS = 32.dp
 
-private val ShowLyricsButtonHeight = 36.dp
 private val ShowLyricsButtonTopGap = MelodiaSpacing.md
 
 // 歌词预览区尺寸估算跟滚动定位共用同一套常量，避免两处数值漂移
@@ -172,22 +169,7 @@ fun LyricsCard(
 
             Spacer(modifier = Modifier.height(ShowLyricsButtonTopGap))
 
-            MelodiaButton(
-                onClick = onOpenFullScreen,
-                modifier = Modifier.height(ShowLyricsButtonHeight),
-                shape = RoundedCornerShape(percent = 50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                contentPadding = PaddingValues(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
-            ) {
-                Text(
-                    "显示歌词",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            PlayerCapsuleButton(text = "显示歌词", onClick = onOpenFullScreen)
         }
     }
 }

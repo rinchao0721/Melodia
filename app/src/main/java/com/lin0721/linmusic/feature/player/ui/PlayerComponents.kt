@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
@@ -77,5 +78,30 @@ fun MiniPlayer(
                 }
             }
         }
+    }
+}
+
+// 播放页通用白底胶囊按钮（显示歌词、编辑卡片、恢复默认）
+@Composable
+fun PlayerCapsuleButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    MelodiaButton(
+        onClick = onClick,
+        modifier = modifier.height(36.dp),
+        enabled = enabled,
+        shape = RoundedCornerShape(percent = 50),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            contentColor = Color.Black,
+            disabledContainerColor = Color.White.copy(alpha = 0.12f),
+            disabledContentColor = Color.White.copy(alpha = 0.38f)
+        ),
+        contentPadding = PaddingValues(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+    ) {
+        Text(text = text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }

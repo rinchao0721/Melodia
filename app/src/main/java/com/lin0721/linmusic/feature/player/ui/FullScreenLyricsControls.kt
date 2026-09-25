@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,8 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -148,7 +148,9 @@ fun LyricCapsuleSlider(
     value: Int,
     onValueChange: (Int) -> Unit,
     valueRange: ClosedFloatingPointRange<Float> = 16f..32f,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startLabel: String = "A",
+    endLabel: String = "A"
 ) {
     var componentWidthPx by remember { mutableFloatStateOf(1f) }
     val progressFraction = remember(value, valueRange) {
@@ -198,7 +200,7 @@ fun LyricCapsuleSlider(
                 .background(MaterialTheme.colorScheme.primary)
         )
 
-        // 胶囊两端字号视觉指示符
+        // 胶囊两端视觉指示符
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -207,13 +209,13 @@ fun LyricCapsuleSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "A",
+                text = startLabel,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White.copy(alpha = 0.85f)
             )
             Text(
-                text = "A",
+                text = endLabel,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White.copy(alpha = 0.85f)
@@ -222,14 +224,57 @@ fun LyricCapsuleSlider(
     }
 }
 
+@Composable
+private fun LyricSliderSetting(
+    label: String,
+    valueText: String,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    startLabel: String = "A",
+    endLabel: String = "A"
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+            Text(
+                text = valueText,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        LyricCapsuleSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            startLabel = startLabel,
+            endLabel = endLabel
+        )
+    }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// 全屏歌词快捷设置弹窗（字号大小、对齐方式、副文本展示）
+// 全屏歌词快捷设置弹窗（字号、行间距、对齐方式、副文本展示）
 // ────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullScreenLyricsSettingsSheet(
     fontSize: Int,
     onFontSizeChange: (Int) -> Unit,
+    lineSpacing: Int,
+    onLineSpacingChange: (Int) -> Unit,
+    secondarySpacing: Int,
+    onSecondarySpacingChange: (Int) -> Unit,
     alignment: String,
     onAlignmentChange: (String) -> Unit,
     secondaryMode: String,
@@ -261,6 +306,7 @@ fun FullScreenLyricsSettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = MelodiaSpacing.lg)
                 .padding(bottom = MelodiaSpacing.lg)
@@ -273,32 +319,33 @@ fun FullScreenLyricsSettingsSheet(
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
             )
 
-            // 字号调节（iOS 风格胶囊滑块）
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("歌词字号大小", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
-                    Text(
-                        text = "${fontSize} sp",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                LyricCapsuleSlider(
-                    value = fontSize,
-                    onValueChange = onFontSizeChange,
-                    valueRange = 16f..32f
-                )
-            }
+            LyricSliderSetting(
+                label = "歌词字号大小",
+                valueText = "${fontSize} sp",
+                value = fontSize,
+                onValueChange = onFontSizeChange,
+                valueRange = 16f..32f
+            )
+
+            LyricSliderSetting(
+                label = "歌词行间距",
+                valueText = "${lineSpacing} dp",
+                value = lineSpacing,
+                onValueChange = onLineSpacingChange,
+                valueRange = 8f..48f,
+                startLabel = "窄",
+                endLabel = "宽"
+            )
+
+            LyricSliderSetting(
+                label = "歌词与翻译/音译间距",
+                valueText = "${secondarySpacing} dp",
+                value = secondarySpacing,
+                onValueChange = onSecondarySpacingChange,
+                valueRange = 0f..24f,
+                startLabel = "窄",
+                endLabel = "宽"
+            )
 
             Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
 
