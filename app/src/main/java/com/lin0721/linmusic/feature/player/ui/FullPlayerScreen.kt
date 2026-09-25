@@ -64,7 +64,7 @@ import org.koin.androidx.compose.koinViewModel
 // 侧栏→全屏铺开到这个进度时竖排列表淡出完毕，宽屏两栏从这里开始淡入
 private const val WideCrossfadeSplit = 0.6f
 
-// 竖屏全屏时内容列占卡片宽度的比例，参照 Spotify 平板竖屏全屏播放页
+// 竖屏全屏时内容列占卡片宽度的比例
 private const val PortraitFullscreenColumnFraction = 0.62f
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +82,8 @@ fun FullPlayerScreen(
     onAlbumClick: (Long) -> Unit,
     onNavigateToProfile: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
+    // 手机全屏：封面按可用高度收缩，快捷操作行需让开导航栏
+    fitCoverAboveNavigationBar: Boolean = false,
     // 以下为平板常驻面板用，手机全屏保持默认值
     // 封面按可用高度收缩，保证首屏完整显示到快捷操作行
     fitCoverToViewport: Boolean = false,
@@ -247,10 +249,16 @@ fun FullPlayerScreen(
     val listState = rememberLazyListState()
     val hazeState = remember { HazeState() }
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
-    val coverFitInsetPx = rememberCoverFitInsetPx(listState, enabled = fitCoverToViewport)
-    val coverExtraInset = with(LocalDensity.current) { coverFitInsetPx.toDp() }
+    val density = LocalDensity.current
+    val navigationBarBottomPadding = melodiaNavigationBarBottomPadding()
+    val coverFitInsetPx = rememberCoverFitInsetPx(
+        listState = listState,
+        enabled = fitCoverToViewport || fitCoverAboveNavigationBar,
+        bottomReservePx = if (fitCoverAboveNavigationBar) with(density) { navigationBarBottomPadding.toPx() } else 0f
+    )
+    val coverExtraInset = with(density) { coverFitInsetPx.toDp() }
     val allCardsHidden = cardLayout.none { it.visible }
-    val fillTail = MelodiaSpacing.md + melodiaNavigationBarBottomPadding()
+    val fillTail = MelodiaSpacing.md + navigationBarBottomPadding
     val fillGap = rememberFullPlayerFillGap(
         listState = listState,
         enabled = allCardsHidden,

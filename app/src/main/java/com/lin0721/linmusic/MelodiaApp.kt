@@ -138,7 +138,7 @@ fun MelodiaApp() {
     // 方向维度，与宽度断点独立组合
     val orientationClass = rememberMelodiaOrientationClass()
     // Expanded 断点下播放器是否展开为常驻侧栏面板；与手机端 playerSheet 完全独立的状态机。
-    // 面板在任意页面都保持展开态（不局限于 Tab 根页面），参照 Spotify 平板版
+    // 面板在任意页面都保持展开态（不局限于 Tab 根页面）
     var isPanelExpanded by remember { mutableStateOf(false) }
     val isPanelVisible = windowSizeClass == MelodiaWindowSizeClass.Expanded && isPanelExpanded
     // 面板展开分两段：rise 从迷你条位置向上长到全高（浮在内容区之上）；长满后内容区在面板遮挡下一帧切换为
@@ -201,7 +201,7 @@ fun MelodiaApp() {
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
     // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统。
-    // 平板常驻播放面板不占用返回键——面板作为常驻工具栏跨页面持续展开（贴合 Spotify），
+    // 平板常驻播放面板不占用返回键——面板作为常驻工具栏跨页面持续展开，
     // 只能通过自身的收起箭头/下拉手势关闭，返回键始终只处理内容导航
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
             showCreateSheet || navigation.showMusicNewWorks || navigation.canNavigateBack ||

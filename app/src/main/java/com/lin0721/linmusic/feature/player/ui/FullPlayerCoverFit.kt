@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.collectLatest
 private const val FIT_ANCHOR_KEY = "actions"
 private val CoverMinEdge = 160.dp
 
+// 沿用上次校正结果起步，避免手机播放页每次打开时封面再缩一下
+private var lastSettledInsetPx = 0f
+
 // 布局停止变化这么久才校正一次：单行歌词切换、条目入场都带尺寸动画，动画中途的偏移不可信
 private const val SETTLE_DELAY_MS = 250L
 
@@ -30,15 +33,19 @@ private val FitHysteresis = 24.dp
 // 锚点条目还没被排进视口时，每轮在越界量之外多收的量，让它尽快进入可见区
 private val AnchorProbeStep = 48.dp
 
-// 按快捷操作行底部相对视口底边的越界量反推封面额外内缩（内缩 1px，封面高度少 2px）。
+// 按快捷操作行底部相对视口底边（再让出 bottomReservePx）的越界量反推封面额外内缩（内缩 1px，封面高度少 2px）。
 // 只在列表停在顶部、且布局已稳定时校正，滚动中和动画中保持当前值
 @Composable
-fun rememberCoverFitInsetPx(listState: LazyListState, enabled: Boolean): Float {
-    var insetPx by remember { mutableFloatStateOf(0f) }
+fun rememberCoverFitInsetPx(
+    listState: LazyListState,
+    enabled: Boolean,
+    bottomReservePx: Float = 0f
+): Float {
+    var insetPx by remember { mutableFloatStateOf(lastSettledInsetPx) }
     if (!enabled) return 0f
 
     val density = LocalDensity.current
-    LaunchedEffect(listState, density) {
+    LaunchedEffect(listState, density, bottomReservePx) {
         val minEdgePx = with(density) { CoverMinEdge.toPx() }
         val defaultPaddingPx = with(density) { MelodiaSpacing.lg.toPx() }
         val reservePx = with(density) { FitReserve.toPx() }
@@ -52,9 +59,10 @@ fun rememberCoverFitInsetPx(listState: LazyListState, enabled: Boolean): Float {
             if (items.isEmpty()) return@collectLatest
 
             val anchor = items.firstOrNull { it.key == FIT_ANCHOR_KEY }
+            val fitEndPx = info.viewportEndOffset - bottomReservePx.coerceAtLeast(0f)
             // 正值为需要多收的封面高度，负值为可以放回的高度
             val heightDeltaPx = if (anchor != null) {
-                val overflowPx = (anchor.offset + anchor.size - info.viewportEndOffset).toFloat()
+                val overflowPx = anchor.offset + anchor.size - fitEndPx
                 when {
                     overflowPx > 0f -> overflowPx + reservePx
                     -overflowPx > reservePx + hysteresisPx -> overflowPx + reservePx
@@ -62,13 +70,16 @@ fun rememberCoverFitInsetPx(listState: LazyListState, enabled: Boolean): Float {
                 }
             } else {
                 val last = items.last()
-                (last.offset + last.size - info.viewportEndOffset).toFloat().coerceAtLeast(0f) + probeStepPx
+                (last.offset + last.size - fitEndPx).coerceAtLeast(0f) + probeStepPx
             }
             if (heightDeltaPx == 0f) return@collectLatest
 
             val maxInsetPx = ((info.viewportSize.width - defaultPaddingPx * 2 - minEdgePx) / 2f).coerceAtLeast(0f)
             val next = (insetPx + heightDeltaPx / 2f).coerceIn(0f, maxInsetPx)
-            if (next != insetPx) insetPx = next
+            if (next != insetPx) {
+                insetPx = next
+                lastSettledInsetPx = next
+            }
         }
     }
     return insetPx

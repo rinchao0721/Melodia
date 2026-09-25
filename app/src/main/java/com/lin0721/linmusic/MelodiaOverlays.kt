@@ -311,7 +311,8 @@ fun MelodiaFullPlayerOverlay(
                 isPlayerOpen = isPlayerOpen,
                 onArtistClick = onArtistClick,
                 onAlbumClick = onAlbumClick,
-                onNavigateToProfile = onNavigateToProfile
+                onNavigateToProfile = onNavigateToProfile,
+                fitCoverAboveNavigationBar = true
             )
         }
     }
