@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.player.ui
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -14,7 +15,6 @@ import androidx.compose.animation.slideOutVertically
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
-import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -26,29 +26,45 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
+import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
+import com.lin0721.linmusic.core.ui.theme.PanelReflowFadeFromAlpha
+import com.lin0721.linmusic.core.ui.theme.PanelReflowFadeSpec
+import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.melodiaNavigationBarBottomPadding
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+
+// 侧栏→全屏铺开到这个进度时竖排列表淡出完毕，宽屏两栏从这里开始淡入
+private const val WideCrossfadeSplit = 0.6f
+
+// 竖屏全屏时内容列占卡片宽度的比例，参照 Spotify 平板竖屏全屏播放页
+private const val PortraitFullscreenColumnFraction = 0.62f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,8 +81,17 @@ fun FullPlayerScreen(
     onAlbumClick: (Long) -> Unit,
     onNavigateToProfile: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
-    // 平板常驻面板用：封面按可用高度收缩，保证首屏完整显示到快捷操作行；手机全屏保持按宽度撑满
-    fitCoverToViewport: Boolean = false
+    // 以下为平板常驻面板用，手机全屏保持默认值
+    // 封面按可用高度收缩，保证首屏完整显示到快捷操作行
+    fitCoverToViewport: Boolean = false,
+    // 播放内容列的最大宽度，超出部分只铺背景、内容列居中
+    contentMaxWidth: Dp = Dp.Unspecified,
+    onToggleSidebarFullscreen: (() -> Unit)? = null,
+    isSidebarFullscreen: Boolean = false,
+    // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
+    // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
+    sidebarFullscreenProgress: (() -> Float)? = null,
+    fullscreenContentWidth: Dp = Dp.Unspecified
 ) {
     if (currentTrack == null) return
 
@@ -141,9 +166,12 @@ fun FullPlayerScreen(
         showDownloadQualitySheet = false
     }
 
-    // 全屏歌词逐字滚动需要更密的进度回调
-    DisposableEffect(isLyricsFullScreen, isPlaying) {
-        if (isLyricsFullScreen && isPlaying) {
+    // 宽屏两栏的歌词区当前是否在组合中（滑到卡片区后移出）
+    var isWideLyricsVisible by remember { mutableStateOf(false) }
+
+    // 全屏歌词与宽屏歌词区的逐字滚动都需要更密的进度回调
+    DisposableEffect(isLyricsFullScreen || isWideLyricsVisible, isPlaying) {
+        if ((isLyricsFullScreen || isWideLyricsVisible) && isPlaying) {
             viewModel.playerManager.setPositionUpdateInterval(50L)
         } else {
             viewModel.playerManager.setPositionUpdateInterval(1000L)
@@ -176,6 +204,15 @@ fun FullPlayerScreen(
         rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri).replace("?param=300y300", "")
     }
 
+    // 取色跟封面显示解码完全脱钩，单独发一次固定尺寸的请求；放在宿主里，竖排与宽屏两栏排版共用一份结果
+    LaunchedEffect(coverUrl) {
+        if (coverUrl.isNotEmpty()) {
+            val palette = extractBackdropPaletteFromUrl(context, coverUrl)
+            colorPalette = palette
+            PaletteMemoryCache.put(currentTrack.mediaId, palette)
+        }
+    }
+
     // 歌名/歌手要跟封面一起冻结：队列已经先切过去、currentTrack 还没跟上时，
     // 直接用实时值会让封面下方的文字在滑动/切歌过程中先于封面硬跳
     val previousKeyStr = previousQueueItem?.songId?.toString()
@@ -205,6 +242,34 @@ fun FullPlayerScreen(
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
     val coverFitInsetPx = rememberCoverFitInsetPx(listState, enabled = fitCoverToViewport)
     val coverExtraInset = with(LocalDensity.current) { coverFitInsetPx.toDp() }
+
+    val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
+    val fullscreenProgress: () -> Float = { sidebarFullscreenProgress?.invoke()?.coerceIn(0f, 1f) ?: 0f }
+    val canUseWideLayout = sidebarFullscreenProgress != null && isLandscape && fullscreenContentWidth.isSpecified
+    val showColumnLayout by remember(canUseWideLayout) {
+        derivedStateOf { !canUseWideLayout || fullscreenProgress() < WideCrossfadeSplit }
+    }
+    val showWideLayout by remember(canUseWideLayout) {
+        derivedStateOf { canUseWideLayout && fullscreenProgress() > WideCrossfadeSplit }
+    }
+    // 竖屏全屏：铺开到位后竖排列表放宽到卡片宽度的一定比例并居中，这一帧重排用一次轻微淡入盖住
+    val fullscreenColumnMaxWidth = if (fullscreenContentWidth.isSpecified) {
+        fullscreenContentWidth * PortraitFullscreenColumnFraction
+    } else {
+        Dp.Unspecified
+    }
+    val isColumnFullscreenWidth by remember(sidebarFullscreenProgress, isLandscape) {
+        derivedStateOf { sidebarFullscreenProgress != null && !isLandscape && fullscreenProgress() >= 1f }
+    }
+    val columnReflowAlpha = remember { Animatable(1f) }
+    var hasSettledColumnWidth by remember { mutableStateOf(false) }
+    LaunchedEffect(isColumnFullscreenWidth) {
+        if (hasSettledColumnWidth) {
+            columnReflowAlpha.snapTo(PanelReflowFadeFromAlpha)
+            columnReflowAlpha.animateTo(1f, PanelReflowFadeSpec)
+        }
+        hasSettledColumnWidth = true
+    }
 
     // 手势状态同时被内联逻辑和嵌套滚动连接读写，持有 MutableState 本体便于透传
     val offsetYState = remember { mutableStateOf(0f) }
@@ -284,109 +349,229 @@ fun FullPlayerScreen(
         PlayerBackdrop(
             base = colors.base,
             mode = BackdropMode.Collapsed,
-            translationYProvider = { scrollMetrics.backgroundTranslationY }
+            translationYProvider = { if (showColumnLayout) scrollMetrics.backgroundTranslationY else 0f }
         )
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().haze(hazeState),
-            contentPadding = PaddingValues(
-                top = melodiaStatusBarTopPadding(),
-                bottom = 80.dp + melodiaNavigationBarBottomPadding()
-            )
-        ) {
-            fullPlayerPlaybackSection(
-                songState = songDetailState,
-                colors = colors,
-                coverUrl = coverUrl,
-                previousCoverUrl = previousCoverUrl,
-                nextCoverUrl = nextCoverUrl,
-                onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
-                onCancelSwipe = viewModel.playerManager::cancelPendingSkip,
-                currentKey = currentTrack.mediaId,
-                previousKey = previousQueueItem?.songId?.toString(),
-                nextKey = nextQueueItem?.songId?.toString(),
-                coverExtraInset = coverExtraInset,
-                title = displayedTitle,
-                artist = displayedArtist,
-                playContext = playContext,
-                currentLyricIndex = currentLyricIndex,
-                isPlaying = isPlaying,
-                playWhenReady = playWhenReady,
-                currentPositionProvider = currentPositionProvider,
-                duration = duration,
-                playMode = playMode,
-                onClose = onClose,
-                onPaletteExtracted = {
-                    colorPalette = it
-                    PaletteMemoryCache.put(currentTrack.mediaId, it)
-                },
-                onMoreClick = { showMoreOptionsSheet = true },
-                onToggleLike = viewModel::toggleLike,
-                onArtistClick = {
-                    songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                        onArtistClick(id)
+        // 竖排列表：手机、侧栏与竖屏全屏。横屏铺开时贴右固定不动、随进度淡出，让位给宽屏两栏
+        if (showColumnLayout) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val crossfade = if (canUseWideLayout) {
+                            (1f - fullscreenProgress() / WideCrossfadeSplit).coerceIn(0f, 1f)
+                        } else {
+                            1f
+                        }
+                        alpha = crossfade * columnReflowAlpha.value
                     }
-                },
-                onSeek = onSeek,
-                onTogglePlay = onTogglePlay,
-                onPlayNext = viewModel.playerManager::playNext,
-                onPlayPrevious = viewModel.playerManager::playPrevious,
-                onToggleShuffle = viewModel.playerManager::toggleShuffle,
-                onToggleRepeat = viewModel.playerManager::toggleRepeat,
-                onDisableRoaming = { viewModel.playerManager.disableRoaming() },
-                onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
-                onOutputDeviceClick = { showOutputDeviceSheet = true },
-                onQueueClick = { showQueueSheet = true },
-                onShareClick = { shareCurrentSong() },
-                connectedDevice = connectedDevice
-            )
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .align(if (canUseWideLayout) Alignment.TopEnd else Alignment.TopCenter)
+                        .fillMaxHeight()
+                        .widthIn(max = if (isColumnFullscreenWidth) fullscreenColumnMaxWidth else contentMaxWidth)
+                        .fillMaxWidth()
+                        .haze(hazeState),
+                    contentPadding = PaddingValues(
+                        top = melodiaStatusBarTopPadding(),
+                        bottom = 80.dp + melodiaNavigationBarBottomPadding()
+                    )
+                ) {
+                    fullPlayerPlaybackSection(
+                        songState = songDetailState,
+                        colors = colors,
+                        coverUrl = coverUrl,
+                        previousCoverUrl = previousCoverUrl,
+                        nextCoverUrl = nextCoverUrl,
+                        onSwipeToPrevious = viewModel.playerManager::skipToPrevious,
+                        onCancelSwipe = viewModel.playerManager::cancelPendingSkip,
+                        currentKey = currentTrack.mediaId,
+                        previousKey = previousQueueItem?.songId?.toString(),
+                        nextKey = nextQueueItem?.songId?.toString(),
+                        coverExtraInset = coverExtraInset,
+                        onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+                        isSidebarFullscreen = isSidebarFullscreen,
+                        title = displayedTitle,
+                        artist = displayedArtist,
+                        playContext = playContext,
+                        currentLyricIndex = currentLyricIndex,
+                        isPlaying = isPlaying,
+                        playWhenReady = playWhenReady,
+                        currentPositionProvider = currentPositionProvider,
+                        duration = duration,
+                        playMode = playMode,
+                        onClose = onClose,
+                        onMoreClick = { showMoreOptionsSheet = true },
+                        onToggleLike = viewModel::toggleLike,
+                        onArtistClick = {
+                            songDetail?.ar?.firstOrNull()?.id?.let { id ->
+                                onArtistClick(id)
+                            }
+                        },
+                        onSeek = onSeek,
+                        onTogglePlay = onTogglePlay,
+                        onPlayNext = viewModel.playerManager::playNext,
+                        onPlayPrevious = viewModel.playerManager::playPrevious,
+                        onToggleShuffle = viewModel.playerManager::toggleShuffle,
+                        onToggleRepeat = viewModel.playerManager::toggleRepeat,
+                        onDisableRoaming = { viewModel.playerManager.disableRoaming() },
+                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+                        onOutputDeviceClick = { showOutputDeviceSheet = true },
+                        onQueueClick = { showQueueSheet = true },
+                        onShareClick = { shareCurrentSong() },
+                        connectedDevice = connectedDevice
+                    )
 
-            fullPlayerInfoSection(
-                songState = songDetailState,
-                colors = colors,
-                commentsState = commentsState,
-                currentLyricIndex = currentLyricIndex,
-                onOpenFullScreenLyrics = { isLyricsFullScreen = true },
-                onCommentsClick = { showCommentsSheet = true },
-                onRetryComments = viewModel::retryComments,
-                onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
-                onArtistClick = onArtistClick,
-                onAlbumClick = onAlbumClick,
-                onSelectArtist = { index -> viewModel.selectArtist(index) }
-            )
+                    fullPlayerInfoSection(
+                        songState = songDetailState,
+                        colors = colors,
+                        commentsState = commentsState,
+                        currentLyricIndex = currentLyricIndex,
+                        onOpenFullScreenLyrics = { isLyricsFullScreen = true },
+                        onCommentsClick = { showCommentsSheet = true },
+                        onRetryComments = viewModel::retryComments,
+                        onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
+                        onArtistClick = onArtistClick,
+                        onAlbumClick = onAlbumClick,
+                        onSelectArtist = { index -> viewModel.selectArtist(index) }
+                    )
+                }
+
+                FullPlayerTopBar(
+                    onClose = onClose,
+                    title = title,
+                    artist = artist,
+                    showTitle = scrollMetrics.showTitleInBar,
+                    isPlaying = isPlaying,
+                    onTogglePlay = onTogglePlay,
+                    isLiked = songDetailState.isLiked,
+                    onToggleLike = viewModel::toggleLike,
+                    backgroundColor = colors.base,
+                    currentPositionProvider = currentPositionProvider,
+                    duration = duration,
+                    onArtistClick = {
+                        songDetail?.ar?.firstOrNull()?.id?.let { id ->
+                            onArtistClick(id)
+                        }
+                    },
+                    modifier = Modifier.draggable(
+                        orientation = Orientation.Vertical,
+                        state = rememberDraggableState { delta ->
+                            offsetY = (offsetY + delta).coerceAtLeast(0f)
+                        },
+                        onDragStarted = {
+                            isGestureStartedAtTop = true
+                        },
+                        onDragStopped = { velocity ->
+                            handleDragRelease(velocity = velocity)
+                        }
+                    )
+                )
+            }
         }
 
-        FullPlayerTopBar(
-            onClose = onClose,
-            title = title,
-            artist = artist,
-            showTitle = scrollMetrics.showTitleInBar,
-            isPlaying = isPlaying,
-            onTogglePlay = onTogglePlay,
-            isLiked = songDetailState.isLiked,
-            onToggleLike = viewModel::toggleLike,
-            backgroundColor = colors.base,
-            currentPositionProvider = currentPositionProvider,
-            duration = duration,
-            onArtistClick = {
-                songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                    onArtistClick(id)
-                }
-            },
-            modifier = Modifier.draggable(
-                orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta ->
-                    offsetY = (offsetY + delta).coerceAtLeast(0f)
+        // 宽屏两栏：按全屏最终宽度排一次、贴右放置，铺开过程中卡片左边缘逐步露出，同时淡入
+        if (showWideLayout) {
+            FullPlayerWideLayout(
+                sourceBar = { barModifier ->
+                    FullPlayerSourceBar(
+                        playContext = playContext,
+                        onClose = onClose,
+                        onMoreClick = { showMoreOptionsSheet = true },
+                        onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+                        isSidebarFullscreen = isSidebarFullscreen,
+                        modifier = barModifier
+                    )
                 },
-                onDragStarted = {
-                    isGestureStartedAtTop = true
+                cover = { coverModifier ->
+                    SwipeToSkipCover(
+                        coverUrl = coverUrl,
+                        previousCoverUrl = previousCoverUrl,
+                        nextCoverUrl = nextCoverUrl,
+                        onConfirmPrevious = viewModel.playerManager::skipToPrevious,
+                        onConfirmNext = viewModel.playerManager::playNext,
+                        currentKey = currentTrack.mediaId,
+                        previousKey = previousQueueItem?.songId?.toString(),
+                        nextKey = nextQueueItem?.songId?.toString(),
+                        contentScale = ContentScale.Crop,
+                        shape = RoundedCornerShape(RadiusCompact),
+                        elevation = 24.dp,
+                        modifier = coverModifier,
+                        onCancelPending = viewModel.playerManager::cancelPendingSkip
+                    )
                 },
-                onDragStopped = { velocity ->
-                    handleDragRelease(velocity = velocity)
-                }
+                playbackControls = {
+                    SongInfo(
+                        title = displayedTitle,
+                        artist = displayedArtist,
+                        isLiked = songDetailState.isLiked,
+                        onToggleLike = viewModel::toggleLike,
+                        onArtistClick = {
+                            songDetail?.ar?.firstOrNull()?.id?.let { id -> onArtistClick(id) }
+                        }
+                    )
+                    ProgressSection(
+                        currentPositionProvider = currentPositionProvider,
+                        duration = if (duration > 0L) duration else (songDetail?.dt ?: 0L),
+                        onSeek = onSeek
+                    )
+                    PlaybackControls(
+                        isPlaying = playWhenReady,
+                        onTogglePlay = onTogglePlay,
+                        onPlayNext = viewModel.playerManager::playNext,
+                        onPlayPrevious = viewModel.playerManager::playPrevious,
+                        onToggleShuffle = viewModel.playerManager::toggleShuffle,
+                        onToggleRepeat = viewModel.playerManager::toggleRepeat,
+                        playMode = playMode,
+                        isRoaming = playContext == "similar_roaming",
+                        onDisableRoaming = { viewModel.playerManager.disableRoaming() },
+                        isIntelligence = playContext == "intelligence",
+                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() }
+                    )
+                    ActionButtons(
+                        onOutputDeviceClick = { showOutputDeviceSheet = true },
+                        onQueueClick = { showQueueSheet = true },
+                        onShareClick = { shareCurrentSong() },
+                        connectedDevice = connectedDevice
+                    )
+                },
+                lyrics = songDetailState.lyrics,
+                isLyricsLoading = songDetailState.isLyricsLoading,
+                currentLyricIndex = currentLyricIndex,
+                highlightColor = colors.textHighlight,
+                currentPositionProvider = currentPositionProvider,
+                isPlaying = isPlaying,
+                onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
+                onLyricsVisibleChange = { isWideLyricsVisible = it },
+                infoCards = {
+                    fullPlayerInfoGrid(
+                        songState = songDetailState,
+                        colors = colors,
+                        commentsState = commentsState,
+                        onCommentsClick = { showCommentsSheet = true },
+                        onRetryComments = viewModel::retryComments,
+                        onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
+                        onArtistClick = onArtistClick,
+                        onAlbumClick = onAlbumClick,
+                        onSelectArtist = { index -> viewModel.selectArtist(index) }
+                    )
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .wrapContentWidth(align = Alignment.End, unbounded = true)
+                    .width(fullscreenContentWidth)
+                    .padding(
+                        top = melodiaStatusBarTopPadding(),
+                        bottom = melodiaNavigationBarBottomPadding()
+                    )
+                    .graphicsLayer {
+                        alpha = ((fullscreenProgress() - WideCrossfadeSplit) / (1f - WideCrossfadeSplit))
+                            .coerceIn(0f, 1f)
+                    }
             )
-        )
+        }
 
         FullPlayerLyricsOverlay(
             visible = isLyricsFullScreen,

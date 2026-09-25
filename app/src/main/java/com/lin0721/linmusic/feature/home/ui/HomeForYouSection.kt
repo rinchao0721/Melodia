@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +45,7 @@ import com.lin0721.linmusic.core.ui.theme.EntryHeartGradient
 import com.lin0721.linmusic.core.ui.theme.EntryHotGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRadarGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRoamingGradient
+import com.lin0721.linmusic.core.ui.theme.LayoutReflowDurationMs
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -76,13 +81,19 @@ fun ForYouSection(
     onHotlistClick: (Long) -> Unit,
     onIntelligenceClick: () -> Unit,
     onRadarClick: (Long) -> Unit,
-    onRoamingClick: () -> Unit
+    onRoamingClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val entryCardSize = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) {
-        EntryCardSizeExpanded
-    } else {
-        EntryCardSizeCompact
-    }
+    // 平板播放面板开合时断点会切换，方块尺寸平滑过渡而非一帧跳变
+    val entryCardSize by animateDpAsState(
+        targetValue = if (LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded) {
+            EntryCardSizeExpanded
+        } else {
+            EntryCardSizeCompact
+        },
+        animationSpec = tween(LayoutReflowDurationMs, easing = FastOutSlowInEasing),
+        label = "for_you_entry_size"
+    )
 
     val hotlist = remember(toplists) {
         toplists.firstOrNull { it.name.contains("热") } ?: toplists.firstOrNull()
@@ -152,7 +163,7 @@ fun ForYouSection(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
+    Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
         Text(
             text = "为你推荐",
             color = MaterialTheme.colorScheme.onSurface,

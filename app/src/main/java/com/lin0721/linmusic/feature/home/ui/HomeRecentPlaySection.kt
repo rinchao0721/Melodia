@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.home.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,11 +39,13 @@ import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 // 紧凑横条列表，固定 3 行；手机 2 列、平板竖屏 3 列、平板横屏 4 列
 private const val MAX_ROWS = 3
 private val RowHeight = 56.dp
+private val ItemGap = 9.dp
 
 @Composable
 fun RecentPlaySection(
     items: List<RecentPlaylist>,
-    onClick: (RecentPlaylist) -> Unit
+    onClick: (RecentPlaylist) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
 
@@ -53,7 +57,9 @@ fun RecentPlaySection(
         else -> 2
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
+    val shownItems = items.take(columns * MAX_ROWS)
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.sm)) {
         Text(
             text = "最近播放",
             color = MaterialTheme.colorScheme.onSurface,
@@ -62,27 +68,28 @@ fun RecentPlaySection(
             modifier = Modifier.padding(start = HomeEdgePadding, end = HomeEdgePadding, bottom = 13.dp)
         )
 
-        Column(
-            modifier = Modifier.padding(horizontal = HomeEdgePadding),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = HomeEdgePadding),
+            horizontalArrangement = Arrangement.spacedBy(ItemGap),
+            verticalArrangement = Arrangement.spacedBy(ItemGap),
+            maxItemsInEachRow = columns
         ) {
-            items.take(columns * MAX_ROWS).chunked(columns).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp)
-                ) {
-                    rowItems.forEach { item ->
-                        RecentPlayRow(
-                            item = item,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onClick(item) }
-                        )
-                    }
-                    // 残行补齐等宽占位，避免最后一行被拉宽
-                    repeat(columns - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
+            shownItems.forEach { item ->
+                key(item.id) {
+                    RecentPlayRow(
+                        item = item,
+                        modifier = Modifier
+                            .weight(1f)
+                            .homeReflowBounds(),
+                        onClick = { onClick(item) }
+                    )
                 }
+            }
+            // 残行补齐等宽占位，避免最后一行被拉宽
+            repeat((columns - shownItems.size % columns) % columns) {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

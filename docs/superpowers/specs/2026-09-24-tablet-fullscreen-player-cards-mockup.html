@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全屏播放器卡片布局</title>
+<style>
+  :root {
+    --page: #0b0b0c;
+    --text: #f2f2f2;
+    --muted: #9a9aa0;
+    --line: #26262b;
+    --canvas: #0a0a0a;
+    --backdrop: linear-gradient(180deg, #7b4a60 0%, #3a2433 48%, #1b1219 100%);
+    --cover: linear-gradient(135deg, #f7b8d4 0%, #e4b3e6 38%, #b9c5f0 70%, #9fd0f2 100%);
+    --cardbg: rgba(0, 0, 0, .28);
+    --good: #7ed09a;
+    --bad: #f08a8a;
+    --accent: #d33a31;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--page); color: var(--text); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; padding: 32px 16px 64px; }
+  .wrap { max-width: 1160px; margin: 0 auto; }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header p { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.7; }
+  section { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--line); }
+  .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .tag { font-size: 13px; font-weight: 700; background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 8px; }
+  .head h2 { font-size: 18px; font-weight: 700; }
+  .desc { color: var(--muted); font-size: 13px; line-height: 1.7; margin-top: 8px; }
+  .pc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-top: 12px; font-size: 12.5px; line-height: 1.7; }
+  .pc b { font-weight: 600; }
+  .pc .p b { color: var(--good); }
+  .pc .c b { color: var(--bad); }
+  .frames { display: flex; gap: 28px; margin-top: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  .device { position: relative; background: var(--canvas); border-radius: 18px; outline: 8px solid #d9d6cf; overflow: hidden; flex: none; }
+  .device.land { width: 640px; height: 400px; }
+  .device.port { width: 400px; height: 640px; }
+  .status, .gesture { position: absolute; left: 0; right: 0; height: 12px; }
+  .status { top: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; font-size: 7px; color: #ddd; }
+  .gesture { bottom: 0; display: flex; justify-content: center; align-items: center; }
+  .gesture i { width: 110px; height: 3px; border-radius: 2px; background: #eee; }
+  .card { position: absolute; top: 12px; bottom: 12px; left: 4px; right: 4px; border-radius: 8px; overflow: hidden; background: var(--backdrop); }
+
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 34px; display: flex; align-items: center; padding: 0 12px; }
+  .topbar .l, .topbar .r { width: 56px; display: flex; gap: 6px; align-items: center; }
+  .topbar .r { justify-content: flex-end; }
+  .topbar .mid { flex: 1; text-align: center; line-height: 1.3; }
+  .topbar .mid small { display: block; font-size: 7px; color: rgba(255,255,255,.7); }
+  .topbar .mid span { font-size: 8.5px; font-weight: 700; }
+  svg.i { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  svg.i.f { fill: #fff; stroke: none; }
+
+  .cover { background: var(--cover); border-radius: 4px; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.35); flex: none; }
+  .cover::after { content: "Lover"; position: absolute; top: 14%; left: 0; right: 0; text-align: center; font-family: "Brush Script MT", "Segoe Script", cursive; color: #c0395f; font-size: 2.2em; transform: rotate(-8deg); }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .title { font-weight: 800; }
+  .artist { color: rgba(255,255,255,.72); margin-top: 2px; }
+  .progress { height: 3px; border-radius: 2px; background: rgba(255,255,255,.22); position: relative; }
+  .progress::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 38%; border-radius: 2px; background: #fff; }
+  .progress::after { content: ""; position: absolute; left: 38%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fff; }
+  .times { display: flex; justify-content: space-between; color: rgba(255,255,255,.7); font-size: 7px; margin-top: 4px; }
+  .controls { display: flex; align-items: center; justify-content: space-between; }
+  .play { border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+  .play svg { fill: #111; stroke: none; }
+  .actions { display: flex; justify-content: space-between; align-items: center; }
+  .actions .g { display: flex; gap: 14px; }
+
+  .lyrics { overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%); display: flex; flex-direction: column; justify-content: center; }
+  .lyrics p { color: rgba(255,255,255,.38); font-weight: 700; line-height: 1.35; }
+  .lyrics p small { display: block; font-weight: 500; opacity: .85; margin-top: 2px; }
+  .lyrics p.cur { color: #fff; }
+
+  /* 信息卡片 */
+  .ic { background: var(--cardbg); border-radius: 8px; padding: 9px 10px; }
+  .ic h4 { font-size: 9px; font-weight: 700; display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  .ic h4 em { font-style: normal; font-weight: 500; color: rgba(255,255,255,.6); }
+  .cm { display: flex; gap: 6px; font-size: 7px; line-height: 1.5; }
+  .cm .av { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg,#8a6f9e,#e0b8c9); flex: none; }
+  .cm b { font-size: 7.5px; display: block; }
+  .cm span { color: rgba(255,255,255,.75); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 7.5px; }
+  .kv dt { color: rgba(255,255,255,.6); }
+  .artist-card .photo { height: 64px; border-radius: 6px; background: linear-gradient(160deg,#c9a38f,#6b4a5c 70%); margin-bottom: 6px; position: relative; }
+  .artist-card .photo span { position: absolute; left: 8px; bottom: 6px; font-size: 10px; font-weight: 800; }
+  .artist-card .meta { display: flex; justify-content: space-between; align-items: center; font-size: 7px; color: rgba(255,255,255,.75); }
+  .follow { font-size: 7px; border: 1px solid rgba(255,255,255,.6); border-radius: 10px; padding: 1px 7px; color: #fff; }
+  .dots { display: flex; justify-content: center; gap: 3px; margin-top: 5px; }
+  .dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .dots i.on { background: #fff; width: 10px; border-radius: 2px; }
+  .row { display: flex; gap: 6px; overflow: hidden; }
+  .alb { flex: none; width: 44px; font-size: 6.5px; color: rgba(255,255,255,.8); }
+  .alb div { width: 44px; height: 44px; border-radius: 4px; margin-bottom: 3px; }
+  .sim { flex: none; width: 38px; text-align: center; font-size: 6.5px; color: rgba(255,255,255,.8); }
+  .sim div { width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 3px; }
+
+  .tabs { display: flex; gap: 6px; }
+  .tabs span { font-size: 8.5px; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: rgba(255,255,255,.12); color: rgba(255,255,255,.75); }
+  .tabs span.on { background: #fff; color: #1a1a1a; }
+
+  .note { position: absolute; background: rgba(0,0,0,.6); border: 1px dashed rgba(255,255,255,.4); color: #eee; font-size: 8px; border-radius: 4px; padding: 2px 6px; z-index: 2; }
+  .scrollbar { position: absolute; width: 3px; border-radius: 2px; background: rgba(255,255,255,.35); }
+
+  @media (max-width: 720px) {
+    .pc { grid-template-columns: 1fr; }
+    .device.land { transform: scale(.52); transform-origin: top left; margin-bottom: -192px; margin-right: -307px; }
+    .device.port { transform: scale(.6); transform-origin: top left; margin-bottom: -256px; margin-right: -160px; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="sb" viewBox="0 0 24 24"><path fill="#fff" d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><g fill="#fff" stroke="none"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></g></symbol>
+  <symbol id="heart" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></symbol>
+  <symbol id="shuf" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+  <symbol id="prev" viewBox="0 0 24 24"><path fill="#fff" stroke="none" d="M6 5h2v14H6zM20 5v14L9 12z"/></symbol>
+  <symbol id="next" viewBox="0 0 24 24"><path fill="#fff" stroke="none" d="M16 5h2v14h-2zM4 5v14l11-7z"/></symbol>
+  <symbol id="rep" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></symbol>
+  <symbol id="playi" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="dev" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="3"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
+  <symbol id="queue" viewBox="0 0 24 24"><path d="M3 6h14M3 12h14M3 18h10M19 14v6M16 17h6"/></symbol>
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header>
+    <h1>全屏播放器（方案 B）· 评论与艺人等卡片放在哪</h1>
+    <p>B 方案右侧已有大块滚动歌词，原来的"歌词预览"卡片不再需要。剩下需要安排的卡片按现有顺序是：评论预览、歌曲信息、关于艺人（多位艺人时可左右滑）、艺人专辑、相似艺人。设备按 0.5 倍 dp 绘制，歌词、评论均为示意文字。</p>
+  </header>
+
+  <!-- B1 -->
+  <section>
+    <div class="head"><span class="tag">B1</span><h2>左栏向下滑出卡片</h2></div>
+    <p class="desc">左栏就是现在侧栏里的那一列：第一屏是封面和控件，往下滑依次出现评论、歌曲信息、关于艺人、专辑、相似艺人。右侧歌词始终固定不动。竖屏时整页可滑，歌词区下方接着出现卡片。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　直接复用现有播放器列表，卡片组件和顺序都不用改，工作量最小；边看歌词边翻卡片互不干扰。</div>
+      <div class="c"><b>缺点</b>　卡片挤在约 420dp 宽的左栏里，横屏大屏上显得窄；卡片藏在控件下方，不滑就看不到。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏 · 左栏下滑后</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div style="position:absolute; top:36px; bottom:10px; left:20px; width:214px; display:flex; flex-direction:column; gap:7px; overflow:hidden;">
+              <div class="actions" style="opacity:.6"><svg class="i" viewBox="0 0 24 24"><use href="#dev"/></svg><div class="g"><svg class="i" viewBox="0 0 24 24"><use href="#share"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#queue"/></svg></div></div>
+              <div class="ic"><h4><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><use href="#chat"/></svg>评论 <em>(98626)</em></h4><div class="cm"><div class="av"></div><div><b>夏夜听歌的人</b><span>第一次听就循环了一整晚，副歌一出来整个人都醒了。</span></div></div></div>
+              <div class="ic"><h4>歌曲信息</h4><dl class="kv"><dt>专辑</dt><dd>Lover</dd><dt>发行</dt><dd>2019-08-23</dd><dt>时长</dt><dd>2:58</dd></dl></div>
+              <div class="ic artist-card"><h4>关于艺人</h4><div class="photo"><span>Taylor Swift</span></div><div class="meta"><span>粉丝 1234.5 万</span><span class="follow">+ 关注</span></div><div class="dots"><i class="on"></i><i></i></div></div>
+              <div class="ic"><h4>艺人专辑</h4><div class="row"><div class="alb"><div style="background:linear-gradient(135deg,#f6c0d6,#9fd0f2)"></div>Lover</div><div class="alb"><div style="background:linear-gradient(135deg,#222,#666)"></div>reputation</div><div class="alb"><div style="background:linear-gradient(135deg,#d6c7b4,#8b7a66)"></div>1989</div><div class="alb"><div style="background:linear-gradient(135deg,#2b3a5a,#7b8fb8)"></div>Midnights</div></div></div>
+            </div>
+            <div class="scrollbar" style="left:238px; top:120px; height:90px;"></div>
+            <div class="lyrics" style="position:absolute; top:40px; bottom:14px; left:268px; right:28px; gap:14px;">
+              <p style="font-size:15px;">霓虹在雨后的玻璃上晕开<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:15px;">我们把车停在没有名字的路口<small style="font-size:9px;">示意翻译行</small></p>
+              <p class="cur" style="font-size:19px;">夏夜的风吹过街角那盏灯<small style="font-size:10px;">示意翻译行</small></p>
+              <p style="font-size:15px;">谁也没有先开口说再见<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:15px;">只剩收音机里反复的副歌<small style="font-size:9px;">示意翻译行</small></p>
+            </div>
+            <span class="note" style="left:470px; top:352px;">左栏已向下滑动，右侧歌词不动</span>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏 · 整页下滑后</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div class="lyrics" style="position:absolute; top:40px; height:150px; left:28px; right:28px; gap:10px;">
+              <p style="font-size:15px;">我们把车停在没有名字的路口</p>
+              <p class="cur" style="font-size:18px;">夏夜的风吹过街角那盏灯</p>
+              <p style="font-size:15px;">谁也没有先开口说再见</p>
+            </div>
+            <div style="position:absolute; top:200px; left:24px; right:24px; display:flex; flex-direction:column; gap:8px;">
+              <div class="ic"><h4><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><use href="#chat"/></svg>评论 <em>(98626)</em></h4><div class="cm"><div class="av"></div><div><b>夏夜听歌的人</b><span>第一次听就循环了一整晚，副歌一出来整个人都醒了。</span></div></div></div>
+              <div class="ic"><h4>歌曲信息</h4><dl class="kv"><dt>专辑</dt><dd>Lover</dd><dt>发行</dt><dd>2019-08-23</dd><dt>时长</dt><dd>2:58</dd></dl></div>
+              <div class="ic artist-card"><h4>关于艺人</h4><div class="photo" style="height:90px"><span>Taylor Swift</span></div><div class="meta"><span>粉丝 1234.5 万</span><span class="follow">+ 关注</span></div><div class="dots"><i class="on"></i><i></i></div></div>
+              <div class="ic"><h4>艺人专辑</h4><div class="row"><div class="alb"><div style="background:linear-gradient(135deg,#f6c0d6,#9fd0f2)"></div>Lover</div><div class="alb"><div style="background:linear-gradient(135deg,#222,#666)"></div>reputation</div><div class="alb"><div style="background:linear-gradient(135deg,#d6c7b4,#8b7a66)"></div>1989</div><div class="alb"><div style="background:linear-gradient(135deg,#2b3a5a,#7b8fb8)"></div>Midnights</div><div class="alb"><div style="background:linear-gradient(135deg,#6b8f5a,#c6d8a0)"></div>folklore</div></div></div>
+            </div>
+            <span class="note" style="left:24px; top:180px;">紧凑播放区已随整页滑出屏幕</span>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B2 -->
+  <section>
+    <div class="head"><span class="tag">B2</span><h2>右栏标签页切换</h2></div>
+    <p class="desc">右栏顶部加一排标签：歌词 / 评论 / 详情，默认停在歌词。评论页展示评论列表，详情页把歌曲信息、关于艺人、专辑、相似艺人排成两列网格。左栏只保留封面和控件，不再滚动。竖屏同理，标签在下方大区域的顶部。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　卡片拿到右栏整块宽区域，能排两列、信息更舒展；入口一眼可见，不用靠滑动去发现。</div>
+      <div class="c"><b>缺点</b>　切到评论或详情时看不到歌词；右栏要新做标签切换和两列网格，工作量比 B1 大。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏 · 详情标签</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div style="position:absolute; top:38px; bottom:14px; left:24px; width:210px; display:flex; flex-direction:column; justify-content:center; gap:10px;">
+              <div class="cover" style="width:170px; height:170px; align-self:center; font-size:14px;"></div>
+              <div class="title-row"><div><div class="title" style="font-size:14px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><use href="#heart"/></svg></div>
+              <div><div class="progress"></div><div class="times"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24"><use href="#shuf"/></svg>
+                <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#prev"/></svg>
+                <div class="play" style="width:38px;height:38px;"><svg viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#playi"/></svg></div>
+                <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#next"/></svg>
+                <svg class="i" viewBox="0 0 24 24"><use href="#rep"/></svg>
+              </div>
+            </div>
+            <div style="position:absolute; top:40px; bottom:14px; left:262px; right:20px;">
+              <div class="tabs"><span>歌词</span><span>评论</span><span class="on">详情</span></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+                <div class="ic artist-card" style="grid-row: span 2;"><h4>关于艺人</h4><div class="photo" style="height:120px"><span>Taylor Swift</span></div><div class="meta"><span>粉丝 1234.5 万</span><span class="follow">+ 关注</span></div><p style="font-size:7px; color:rgba(255,255,255,.7); margin-top:6px; line-height:1.5;">这里是艺人简介的示意文字，展示前两三行，点开查看完整介绍。</p><div class="dots"><i class="on"></i><i></i></div></div>
+                <div class="ic"><h4>歌曲信息</h4><dl class="kv"><dt>专辑</dt><dd>Lover</dd><dt>发行</dt><dd>2019-08-23</dd><dt>时长</dt><dd>2:58</dd></dl></div>
+                <div class="ic"><h4>艺人专辑</h4><div class="row"><div class="alb"><div style="background:linear-gradient(135deg,#f6c0d6,#9fd0f2)"></div>Lover</div><div class="alb"><div style="background:linear-gradient(135deg,#222,#666)"></div>reputation</div><div class="alb"><div style="background:linear-gradient(135deg,#d6c7b4,#8b7a66)"></div>1989</div></div></div>
+                <div class="ic" style="grid-column: span 2;"><h4>相似艺人</h4><div class="row" style="gap:10px;"><div class="sim"><div style="background:linear-gradient(135deg,#d99,#955)"></div>艺人甲</div><div class="sim"><div style="background:linear-gradient(135deg,#9bd,#468)"></div>艺人乙</div><div class="sim"><div style="background:linear-gradient(135deg,#bd9,#584)"></div>艺人丙</div><div class="sim"><div style="background:linear-gradient(135deg,#dc9,#865)"></div>艺人丁</div><div class="sim"><div style="background:linear-gradient(135deg,#c9d,#648)"></div>艺人戊</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏 · 评论标签</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div style="position:absolute; top:44px; left:24px; right:24px; display:flex; gap:18px; align-items:center;">
+              <div class="cover" style="width:130px; height:130px; font-size:11px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+                <div class="title-row"><div><div class="title" style="font-size:15px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><use href="#heart"/></svg></div>
+                <div><div class="progress"></div><div class="times"><span>1:12</span><span>2:58</span></div></div>
+                <div class="controls">
+                  <svg class="i" viewBox="0 0 24 24"><use href="#shuf"/></svg>
+                  <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#prev"/></svg>
+                  <div class="play" style="width:36px;height:36px;"><svg viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#playi"/></svg></div>
+                  <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#next"/></svg>
+                  <svg class="i" viewBox="0 0 24 24"><use href="#rep"/></svg>
+                </div>
+              </div>
+            </div>
+            <div style="position:absolute; top:196px; left:24px; right:24px; bottom:16px; display:flex; flex-direction:column; gap:10px;">
+              <div class="tabs"><span>歌词</span><span class="on">评论</span><span>详情</span></div>
+              <div class="ic" style="display:flex; flex-direction:column; gap:10px;">
+                <h4><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><use href="#chat"/></svg>评论 <em>(98626)</em></h4>
+                <div class="cm"><div class="av"></div><div><b>夏夜听歌的人</b><span>第一次听就循环了一整晚，副歌一出来整个人都醒了。</span></div></div>
+                <div class="cm"><div class="av" style="background:linear-gradient(135deg,#6f8f9e,#b8d3e0)"></div><div><b>路过的风</b><span>开车的时候听这首，窗外的路灯刚好一盏一盏亮起来。</span></div></div>
+                <div class="cm"><div class="av" style="background:linear-gradient(135deg,#9e8a6f,#e0cfb8)"></div><div><b>今天也在循环</b><span>前奏响起那一秒就知道今天会是个好日子。</span></div></div>
+                <div class="cm"><div class="av" style="background:linear-gradient(135deg,#7e6f9e,#c9b8e0)"></div><div><b>不睡觉的猫</b><span>凌晨三点收藏了，明天起来继续听。</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B3 -->
+  <section>
+    <div class="head"><span class="tag">B3</span><h2>右栏歌词下方接卡片</h2></div>
+    <p class="desc">右栏是一个可滚动区域：第一屏是歌词，继续往下滑，歌词区整体滑出，下面接着两列卡片网格。左栏封面和控件保持固定。竖屏为整块下方区域同样的结构。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　卡片能用右栏的宽区域排两列；不用标签，内容一条线滑下去，和手机上"往下滑看更多"的习惯一致。</div>
+      <div class="c"><b>缺点</b>　歌词本身会自动滚动，和外层整块下滑是两层滚动，手势容易打架，需要做嵌套滚动处理；滑到卡片时歌词就看不到了。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏 · 右栏下滑到卡片</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div style="position:absolute; top:38px; bottom:14px; left:24px; width:210px; display:flex; flex-direction:column; justify-content:center; gap:10px;">
+              <div class="cover" style="width:170px; height:170px; align-self:center; font-size:14px;"></div>
+              <div class="title-row"><div><div class="title" style="font-size:14px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><use href="#heart"/></svg></div>
+              <div><div class="progress"></div><div class="times"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24"><use href="#shuf"/></svg>
+                <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#prev"/></svg>
+                <div class="play" style="width:38px;height:38px;"><svg viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#playi"/></svg></div>
+                <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#next"/></svg>
+                <svg class="i" viewBox="0 0 24 24"><use href="#rep"/></svg>
+              </div>
+            </div>
+            <div style="position:absolute; top:38px; bottom:10px; left:262px; right:20px; overflow:hidden;">
+              <div class="lyrics" style="height:70px; gap:6px; opacity:.8;">
+                <p style="font-size:13px;">谁也没有先开口说再见</p>
+                <p style="font-size:13px;">只剩收音机里反复的副歌</p>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;">
+                <div class="ic" style="grid-column: span 2;"><h4><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><use href="#chat"/></svg>评论 <em>(98626)</em></h4><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"><div class="cm"><div class="av"></div><div><b>夏夜听歌的人</b><span>第一次听就循环了一整晚，副歌一出来整个人都醒了。</span></div></div><div class="cm"><div class="av" style="background:linear-gradient(135deg,#6f8f9e,#b8d3e0)"></div><div><b>路过的风</b><span>开车的时候听这首，窗外的路灯刚好一盏一盏亮起来。</span></div></div></div></div>
+                <div class="ic artist-card"><h4>关于艺人</h4><div class="photo" style="height:80px"><span>Taylor Swift</span></div><div class="meta"><span>粉丝 1234.5 万</span><span class="follow">+ 关注</span></div><div class="dots"><i class="on"></i><i></i></div></div>
+                <div class="ic"><h4>歌曲信息</h4><dl class="kv"><dt>专辑</dt><dd>Lover</dd><dt>发行</dt><dd>2019-08-23</dd><dt>时长</dt><dd>2:58</dd></dl><h4 style="margin-top:10px;">艺人专辑</h4><div class="row"><div class="alb"><div style="background:linear-gradient(135deg,#f6c0d6,#9fd0f2)"></div>Lover</div><div class="alb"><div style="background:linear-gradient(135deg,#222,#666)"></div>reputation</div></div></div>
+              </div>
+            </div>
+            <div class="scrollbar" style="right:10px; top:150px; height:80px;"></div>
+            <span class="note" style="left:420px; top:354px;">歌词区已上滑，下面接两列卡片</span>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏 · 下方区域下滑到卡片</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i"><use href="#sb"/></svg><svg class="i" viewBox="0 0 24 24"><use href="#down"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i"><use href="#more"/></svg></div>
+            </div>
+            <div style="position:absolute; top:44px; left:24px; right:24px; display:flex; gap:18px; align-items:center;">
+              <div class="cover" style="width:130px; height:130px; font-size:11px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+                <div class="title-row"><div><div class="title" style="font-size:15px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><use href="#heart"/></svg></div>
+                <div><div class="progress"></div><div class="times"><span>1:12</span><span>2:58</span></div></div>
+                <div class="controls">
+                  <svg class="i" viewBox="0 0 24 24"><use href="#shuf"/></svg>
+                  <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#prev"/></svg>
+                  <div class="play" style="width:36px;height:36px;"><svg viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#playi"/></svg></div>
+                  <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="#next"/></svg>
+                  <svg class="i" viewBox="0 0 24 24"><use href="#rep"/></svg>
+                </div>
+              </div>
+            </div>
+            <div style="position:absolute; top:190px; left:24px; right:24px; bottom:14px; overflow:hidden;">
+              <div class="lyrics" style="height:60px; gap:6px; opacity:.8;">
+                <p style="font-size:14px;">谁也没有先开口说再见</p>
+                <p style="font-size:14px;">只剩收音机里反复的副歌</p>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;">
+                <div class="ic" style="grid-column: span 2;"><h4><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><use href="#chat"/></svg>评论 <em>(98626)</em></h4><div class="cm"><div class="av"></div><div><b>夏夜听歌的人</b><span>第一次听就循环了一整晚，副歌一出来整个人都醒了。</span></div></div></div>
+                <div class="ic artist-card"><h4>关于艺人</h4><div class="photo" style="height:90px"><span>Taylor Swift</span></div><div class="meta"><span>粉丝 1234.5 万</span><span class="follow">+ 关注</span></div><div class="dots"><i class="on"></i><i></i></div></div>
+                <div class="ic"><h4>歌曲信息</h4><dl class="kv"><dt>专辑</dt><dd>Lover</dd><dt>发行</dt><dd>2019-08-23</dd><dt>时长</dt><dd>2:58</dd></dl></div>
+                <div class="ic" style="grid-column: span 2;"><h4>相似艺人</h4><div class="row" style="gap:10px;"><div class="sim"><div style="background:linear-gradient(135deg,#d99,#955)"></div>艺人甲</div><div class="sim"><div style="background:linear-gradient(135deg,#9bd,#468)"></div>艺人乙</div><div class="sim"><div style="background:linear-gradient(135deg,#bd9,#584)"></div>艺人丙</div><div class="sim"><div style="background:linear-gradient(135deg,#dc9,#865)"></div>艺人丁</div><div class="sim"><div style="background:linear-gradient(135deg,#c9d,#648)"></div>艺人戊</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

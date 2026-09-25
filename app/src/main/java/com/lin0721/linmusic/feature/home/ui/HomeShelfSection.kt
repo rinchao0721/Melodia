@@ -1,11 +1,14 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,18 +27,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LayoutReflowDurationMs
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -55,7 +64,11 @@ private const val GRID_COLUMNS_EXPANDED_LANDSCAPE = 6
 private const val GRID_MAX_ROWS_COMPACT = 3
 private const val GRID_MAX_ROWS_EXPANDED = 2
 
+// 封面解码尺寸固定，与链接请求的 400y400 对齐，不随卡片宽度变化
+private const val SHELF_COVER_DECODE_SIZE_PX = 400
+
 private val GridGap = 12.dp
+private val GridRowGap = 14.dp
 private val HorizontalCardWidthCompact = 150.dp
 private val HorizontalCardWidthExpanded = 200.dp
 
@@ -74,7 +87,8 @@ private fun rememberShelfGridColumns(): Int {
 }
 
 // 一个货架：标题 + 卡片区。卡片少走网格，多则横向滚动。
-// 网格用手写 Row 而非懒加载网格——垂直懒加载容器嵌进外层 LazyColumn 会因无界高度约束崩溃；
+// 网格用 FlowRow 而非懒加载网格——垂直懒加载容器嵌进外层 LazyColumn 会因无界高度约束崩溃；
+// 所有卡片同处一个父级，列数变化时卡片保持身份，才能平滑过渡到新位置。
 // 横向 LazyRow 方向不同，宽度有界，可以安全嵌套。
 @Composable
 fun HomeShelfSection(
@@ -86,7 +100,12 @@ fun HomeShelfSection(
     val columns = rememberShelfGridColumns()
     val maxRows = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) GRID_MAX_ROWS_EXPANDED else GRID_MAX_ROWS_COMPACT
     val gridMaxCards = columns * maxRows
-    val horizontalCardWidth = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) HorizontalCardWidthExpanded else HorizontalCardWidthCompact
+    // 平板播放面板开合时断点会切换，横向卡片宽度平滑过渡而非一帧跳变
+    val horizontalCardWidth by animateDpAsState(
+        targetValue = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) HorizontalCardWidthExpanded else HorizontalCardWidthCompact,
+        animationSpec = tween(LayoutReflowDurationMs, easing = FastOutSlowInEasing),
+        label = "shelf_horizontal_card_width"
+    )
 
     Column(modifier = modifier.fillMaxWidth().padding(top = MelodiaSpacing.lg)) {
         Text(
@@ -100,25 +119,31 @@ fun HomeShelfSection(
         )
 
         if (shelf.cards.size <= gridMaxCards) {
-            Column(modifier = Modifier.padding(horizontal = HomeEdgePadding)) {
-                shelf.cards.chunked(columns).forEachIndexed { rowIndex, rowCards ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(GridGap)
-                    ) {
-                        rowCards.forEachIndexed { colIndex, card ->
-                            HomeShelfCard(
-                                card = card,
-                                rank = (rowIndex * columns + colIndex + 1).takeIf { shelf.showRank },
-                                modifier = Modifier.weight(1f),
-                                onClick = { onCardClick(card) }
-                            )
-                        }
-                        // 不满一整行时补等宽占位，避免最后一张/几张被拉伸
-                        repeat(columns - rowCards.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = HomeEdgePadding)
+                    .padding(bottom = GridRowGap),
+                horizontalArrangement = Arrangement.spacedBy(GridGap),
+                verticalArrangement = Arrangement.spacedBy(GridRowGap),
+                maxItemsInEachRow = columns
+            ) {
+                shelf.cards.forEachIndexed { index, card ->
+                    // 服务端会把同一资源投放到多个位次，key 必须带类型与下标才不会撞
+                    key("${card::class.simpleName}_${card.id}_$index") {
+                        HomeShelfCard(
+                            card = card,
+                            rank = (index + 1).takeIf { shelf.showRank },
+                            modifier = Modifier
+                                .weight(1f)
+                                .homeReflowBounds(),
+                            onClick = { onCardClick(card) }
+                        )
                     }
+                }
+                // 不满一整行时补等宽占位，避免最后一张/几张被拉伸
+                repeat((columns - shelf.cards.size % columns) % columns) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         } else {
@@ -158,8 +183,16 @@ private fun HomeShelfCard(
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(RadiusCompact))
         ) {
+            // 平板让位切换密度后卡片尺寸会变，固定解码尺寸才能继续命中内存缓存，不闪占位图
+            val context = LocalContext.current
+            val coverRequest = remember(card.coverUrl) {
+                ImageRequest.Builder(context)
+                    .data(card.coverUrl.withCoverParam("400y400"))
+                    .size(SHELF_COVER_DECODE_SIZE_PX)
+                    .build()
+            }
             SubcomposeAsyncImage(
-                model = card.coverUrl.withCoverParam("400y400"),
+                model = coverRequest,
                 contentDescription = card.title,
                 modifier = Modifier.fillMaxWidth().aspectRatio(1f),
                 contentScale = ContentScale.Crop,

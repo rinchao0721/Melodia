@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>平板全屏播放器方案</title>
+<style>
+  :root {
+    --page: #0b0b0c;
+    --text: #f2f2f2;
+    --muted: #9a9aa0;
+    --line: #26262b;
+    --canvas: #0a0a0a;
+    --backdrop: linear-gradient(180deg, #7b4a60 0%, #3a2433 48%, #1b1219 100%);
+    --cover: linear-gradient(135deg, #f7b8d4 0%, #e4b3e6 38%, #b9c5f0 70%, #9fd0f2 100%);
+    --good: #7ed09a;
+    --bad: #f08a8a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header p { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.7; }
+  section { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--line); }
+  .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .tag { font-size: 13px; font-weight: 700; background: #d33a31; color: #fff; border-radius: 6px; padding: 2px 8px; }
+  .head h2 { font-size: 18px; font-weight: 700; }
+  .desc { color: var(--muted); font-size: 13px; line-height: 1.7; margin-top: 8px; }
+  .pc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-top: 12px; font-size: 12.5px; line-height: 1.7; }
+  .pc b { font-weight: 600; }
+  .pc .p b { color: var(--good); }
+  .pc .c b { color: var(--bad); }
+  .frames { display: flex; gap: 28px; margin-top: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  /* 设备：0.5 倍 dp。横屏 1280x800 → 640x400，竖屏 800x1280 → 400x640 */
+  .device {
+    position: relative;
+    background: var(--canvas);
+    border-radius: 18px;
+    outline: 8px solid #d9d6cf;
+    overflow: hidden;
+    flex: none;
+  }
+  .device.land { width: 640px; height: 400px; }
+  .device.port { width: 400px; height: 640px; }
+  .status, .gesture { position: absolute; left: 0; right: 0; height: 12px; }
+  .status { top: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; font-size: 7px; color: #ddd; }
+  .gesture { bottom: 0; display: flex; justify-content: center; align-items: center; }
+  .gesture i { width: 110px; height: 3px; border-radius: 2px; background: #eee; }
+  .card {
+    position: absolute; top: 12px; bottom: 12px; left: 4px; right: 4px;
+    border-radius: 8px; overflow: hidden; background: var(--backdrop);
+  }
+
+  /* 顶栏 */
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 34px; display: flex; align-items: center; padding: 0 12px; }
+  .topbar .l, .topbar .r { width: 56px; display: flex; gap: 6px; align-items: center; }
+  .topbar .r { justify-content: flex-end; }
+  .topbar .mid { flex: 1; text-align: center; line-height: 1.3; }
+  .topbar .mid small { display: block; font-size: 7px; color: rgba(255,255,255,.7); }
+  .topbar .mid span { font-size: 8.5px; font-weight: 700; }
+  svg.i { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  svg.i.f { fill: #fff; stroke: none; }
+
+  .cover {
+    background: var(--cover); border-radius: 4px; position: relative; overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,.35); flex: none;
+  }
+  .cover::after {
+    content: "Lover"; position: absolute; top: 14%; left: 0; right: 0; text-align: center;
+    font-family: "Brush Script MT", "Segoe Script", cursive; color: #c0395f; font-size: 2.2em; transform: rotate(-8deg);
+  }
+
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .title { font-weight: 800; letter-spacing: .2px; }
+  .artist { color: rgba(255,255,255,.72); margin-top: 2px; }
+  .mini-lyric { color: #fff; font-weight: 600; opacity: .95; }
+  .progress { height: 3px; border-radius: 2px; background: rgba(255,255,255,.22); position: relative; }
+  .progress::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 38%; border-radius: 2px; background: #fff; }
+  .progress::after { content: ""; position: absolute; left: 38%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fff; }
+  .times { display: flex; justify-content: space-between; color: rgba(255,255,255,.7); }
+  .controls { display: flex; align-items: center; justify-content: space-between; }
+  .play { border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+  .play svg { fill: #111; stroke: none; }
+  .actions { display: flex; justify-content: space-between; align-items: center; }
+  .actions .g { display: flex; gap: 14px; }
+
+  .lyrics { overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%); }
+  .lyrics p { color: rgba(255,255,255,.38); font-weight: 700; line-height: 1.35; }
+  .lyrics p small { display: block; font-weight: 500; opacity: .85; margin-top: 2px; }
+  .lyrics p.cur { color: #fff; }
+
+  .note { position: absolute; background: rgba(0,0,0,.55); border: 1px dashed rgba(255,255,255,.35); color: #ddd; font-size: 8px; border-radius: 4px; padding: 2px 6px; }
+
+  @media (max-width: 720px) {
+    .pc { grid-template-columns: 1fr; }
+    .device.land { transform: scale(.52); transform-origin: top left; margin-bottom: -192px; margin-right: -307px; }
+    .device.port { transform: scale(.6); transform-origin: top left; margin-bottom: -256px; margin-right: -160px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>平板全屏播放器 · 三个布局方向</h1>
+    <p>点侧栏面板左上角的侧栏按钮进入全屏后的样子。设备按 0.5 倍 dp 绘制（横屏 1280×800dp、竖屏 800×1280dp），卡片沿用双卡片风格：避开状态栏与手势条、四周 8dp、圆角 16dp，背景为封面取色。歌词为示意文字。</p>
+  </header>
+
+  <!-- 方案 A -->
+  <section>
+    <div class="head"><span class="tag">A</span><h2>左封面、右信息</h2></div>
+    <p class="desc">横屏：左半边按高度撑满的大封面，右半边依次是歌名歌手、单行歌词、进度条、播放控件、快捷操作，整体垂直居中。竖屏：退化为上下排列，封面按宽度放大。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　横屏空间利用最好，封面最大，信息层级和侧栏一致，用户不用重新熟悉。</div>
+      <div class="c"><b>缺点</b>　横竖屏是两套排版，竖屏和侧栏的差别主要只是变大；看歌词仍要点进歌词页。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:40px; bottom:16px; left:20px; right:20px; display:flex; gap:28px; align-items:center;">
+              <div class="cover" style="width:300px; height:300px; font-size:18px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:12px; padding-right:8px;">
+                <div class="title-row"><div><div class="title" style="font-size:19px;">Cruel Summer</div><div class="artist" style="font-size:10px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+                <div class="mini-lyric" style="font-size:10px;">夏夜的风吹过街角那盏灯</div>
+                <div><div class="progress"></div><div class="times" style="font-size:7.5px; margin-top:5px;"><span>1:12</span><span>2:58</span></div></div>
+                <div class="controls">
+                  <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                  <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                  <div class="play" style="width:46px;height:46px;"><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M8 5v14l11-7z"/></svg></div>
+                  <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                  <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+                </div>
+                <div class="actions"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="3"/></svg><div class="g"><svg class="i" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M3 6h14M3 12h14M3 18h10M19 14v6M16 17h6"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:56px; left:40px; right:40px; display:flex; flex-direction:column; gap:14px;">
+              <div class="cover" style="width:100%; aspect-ratio:1; font-size:22px;"></div>
+              <div class="title-row" style="margin-top:6px;"><div><div class="title" style="font-size:19px;">Cruel Summer</div><div class="artist" style="font-size:10px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+              <div class="mini-lyric" style="font-size:10px;">夏夜的风吹过街角那盏灯</div>
+              <div><div class="progress"></div><div class="times" style="font-size:7.5px; margin-top:5px;"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                <div class="play" style="width:50px;height:50px;"><svg viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M8 5v14l11-7z"/></svg></div>
+                <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+              </div>
+              <div class="actions"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="3"/></svg><div class="g"><svg class="i" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M3 6h14M3 12h14M3 18h10M19 14v6M16 17h6"/></svg></div></div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 方案 B -->
+  <section>
+    <div class="head"><span class="tag">B</span><h2>左播放、右歌词</h2></div>
+    <p class="desc">横屏：左侧一列是封面加控件（和侧栏内容一致），右侧大面积实时滚动歌词，当前句高亮、下方带翻译。竖屏：上方一行紧凑播放区（小封面 + 歌名 + 控件），下方整块是歌词。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　全屏多出来的空间用来看歌词，用途明确；横竖屏都能边看歌词边操作，不用再进单独的歌词页。</div>
+      <div class="c"><b>缺点</b>　纯音乐、无歌词的歌右侧会空，要另做空态；歌词列表要做平板尺寸与点击跳转等适配，工作量最大。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:38px; bottom:14px; left:24px; width:210px; display:flex; flex-direction:column; justify-content:center; gap:10px;">
+              <div class="cover" style="width:170px; height:170px; align-self:center; font-size:14px;"></div>
+              <div class="title-row"><div><div class="title" style="font-size:14px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+              <div><div class="progress"></div><div class="times" style="font-size:7px; margin-top:4px;"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                <div class="play" style="width:38px;height:38px;"><svg viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M8 5v14l11-7z"/></svg></div>
+                <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                <svg class="i" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+              </div>
+            </div>
+            <div class="lyrics" style="position:absolute; top:40px; bottom:14px; left:268px; right:28px; display:flex; flex-direction:column; justify-content:center; gap:14px;">
+              <p style="font-size:15px;">霓虹在雨后的玻璃上晕开<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:15px;">我们把车停在没有名字的路口<small style="font-size:9px;">示意翻译行</small></p>
+              <p class="cur" style="font-size:19px;">夏夜的风吹过街角那盏灯<small style="font-size:10px;">示意翻译行</small></p>
+              <p style="font-size:15px;">谁也没有先开口说再见<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:15px;">只剩收音机里反复的副歌<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:15px;">天快亮时影子被拉得很长</p>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:44px; left:24px; right:24px; display:flex; gap:18px; align-items:center;">
+              <div class="cover" style="width:130px; height:130px; font-size:11px;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+                <div class="title-row"><div><div class="title" style="font-size:15px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+                <div><div class="progress"></div><div class="times" style="font-size:7px; margin-top:4px;"><span>1:12</span><span>2:58</span></div></div>
+                <div class="controls">
+                  <svg class="i" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                  <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                  <div class="play" style="width:36px;height:36px;"><svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M8 5v14l11-7z"/></svg></div>
+                  <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                  <svg class="i" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="lyrics" style="position:absolute; top:200px; bottom:20px; left:28px; right:28px; display:flex; flex-direction:column; justify-content:center; gap:16px;">
+              <p style="font-size:17px;">霓虹在雨后的玻璃上晕开<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:17px;">我们把车停在没有名字的路口<small style="font-size:9px;">示意翻译行</small></p>
+              <p class="cur" style="font-size:21px;">夏夜的风吹过街角那盏灯<small style="font-size:10px;">示意翻译行</small></p>
+              <p style="font-size:17px;">谁也没有先开口说再见<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:17px;">只剩收音机里反复的副歌<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:17px;">天快亮时影子被拉得很长<small style="font-size:9px;">示意翻译行</small></p>
+              <p style="font-size:17px;">我把那首歌存进了夏天</p>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 方案 C -->
+  <section>
+    <div class="head"><span class="tag">C</span><h2>居中单列放大</h2></div>
+    <p class="desc">沿用侧栏的竖排结构，内容列按可用高度整体放大并居中，两侧只铺封面取色背景。横竖屏同一套排版，只是放大比例不同。</p>
+    <div class="pc">
+      <div class="p"><b>优点</b>　改动最小、最稳；和当前的临时全屏效果一致，只是把内容列放大，开合动画也最顺。</div>
+      <div class="c"><b>缺点</b>　横屏两侧留空多，空间利用差；全屏和侧栏的差异不明显，进入全屏的收益较小。</div>
+    </div>
+    <div class="frames">
+      <div>
+        <div class="frame-label">横屏</div>
+        <div class="device land">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:36px; bottom:12px; left:50%; width:230px; margin-left:-115px; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+              <div class="cover" style="width:186px; height:186px; align-self:center; font-size:15px;"></div>
+              <div class="title-row" style="margin-top:4px;"><div><div class="title" style="font-size:14px;">Cruel Summer</div><div class="artist" style="font-size:9px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+              <div class="mini-lyric" style="font-size:8.5px;">夏夜的风吹过街角那盏灯</div>
+              <div><div class="progress"></div><div class="times" style="font-size:7px; margin-top:4px;"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                <div class="play" style="width:36px;height:36px;"><svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M8 5v14l11-7z"/></svg></div>
+                <svg class="i f" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                <svg class="i" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+              </div>
+            </div>
+            <span class="note" style="left:40px; top:190px;">两侧只铺背景</span>
+            <span class="note" style="right:40px; top:190px;">两侧只铺背景</span>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="frame-label">竖屏</div>
+        <div class="device port">
+          <div class="status"><span>1:17</span><span>▾ ▮</span></div>
+          <div class="card">
+            <div class="topbar">
+              <div class="l"><svg class="i f" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm12 0v14h4V5z"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+              <div class="mid"><small>播放自歌单</small><span>“Taylor Swift”</span></div>
+              <div class="r"><svg class="i f" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>
+            </div>
+            <div style="position:absolute; top:40px; bottom:24px; left:50%; width:300px; margin-left:-150px; display:flex; flex-direction:column; justify-content:center; gap:14px;">
+              <div class="cover" style="width:100%; aspect-ratio:1; font-size:20px;"></div>
+              <div class="title-row" style="margin-top:4px;"><div><div class="title" style="font-size:18px;">Cruel Summer</div><div class="artist" style="font-size:10px;">Taylor Swift</div></div><svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></div>
+              <div class="mini-lyric" style="font-size:10px;">夏夜的风吹过街角那盏灯</div>
+              <div><div class="progress"></div><div class="times" style="font-size:7.5px; margin-top:5px;"><span>1:12</span><span>2:58</span></div></div>
+              <div class="controls">
+                <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+                <div class="play" style="width:46px;height:46px;"><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M8 5v14l11-7z"/></svg></div>
+                <svg class="i f" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+                <svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+              </div>
+              <div class="actions"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="3"/></svg><div class="g"><svg class="i" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><svg class="i" viewBox="0 0 24 24"><path d="M3 6h14M3 12h14M3 18h10M19 14v6M16 17h6"/></svg></div></div>
+            </div>
+          </div>
+          <div class="gesture"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

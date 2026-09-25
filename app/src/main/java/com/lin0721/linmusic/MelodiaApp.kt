@@ -42,8 +42,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -73,14 +75,12 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.feature.player.ui.PlayerDockPanel
-import com.lin0721.linmusic.core.ui.theme.PanelDockFadeFromAlpha
-import com.lin0721.linmusic.core.ui.theme.PanelDockFadeSpec
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.theme.PanelFullscreenSpec
 import com.lin0721.linmusic.core.ui.theme.PanelRiseSpec
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
+import kotlin.math.roundToInt
 
 private val SidebarWidth = 310.dp
 
@@ -142,36 +142,37 @@ fun MelodiaApp() {
     var isPanelExpanded by remember { mutableStateOf(false) }
     val isPanelVisible = windowSizeClass == MelodiaWindowSizeClass.Expanded && isPanelExpanded
     // 面板展开分两段：rise 从迷你条位置向上长到全高（浮在内容区之上）；长满后内容区在面板遮挡下一帧切换为
-    // 让位态（宽度、页面密度、卡片边距、底栏长度同时到位），配一次轻微淡入盖住重排。
-    // 收起时先在面板遮挡下切回全宽，再让面板缩回迷你条
+    // 让位态（宽度、页面密度、卡片边距、底栏长度同时到位）。收起时先在面板遮挡下切回全宽，再让面板缩回迷你条
     val panelRise = remember { Animatable(0f) }
     var isPanelDocked by remember { mutableStateOf(false) }
-    val contentAlpha = remember { Animatable(1f) }
+    // 面板铺满全屏：由面板左上角的侧栏按钮切换；面板收起或离开 Expanded 时一并退出
+    var isPanelFullscreen by remember { mutableStateOf(false) }
+    val panelFullscreen = remember { Animatable(0f) }
     LaunchedEffect(isPanelVisible, windowSizeClass) {
+        if (!isPanelVisible) isPanelFullscreen = false
         if (windowSizeClass != MelodiaWindowSizeClass.Expanded) {
             isPanelDocked = false
             panelRise.snapTo(0f)
-            contentAlpha.snapTo(1f)
+            panelFullscreen.snapTo(0f)
         } else if (isPanelVisible) {
             panelRise.animateTo(1f, PanelRiseSpec)
-            if (!isPanelDocked) {
-                isPanelDocked = true
-                contentAlpha.snapTo(PanelDockFadeFromAlpha)
-            }
-            contentAlpha.animateTo(1f, PanelDockFadeSpec)
+            isPanelDocked = true
         } else {
-            if (isPanelDocked) {
-                isPanelDocked = false
-                contentAlpha.snapTo(PanelDockFadeFromAlpha)
-            }
-            coroutineScope {
-                launch { contentAlpha.animateTo(1f, PanelDockFadeSpec) }
-                panelRise.animateTo(0f, PanelRiseSpec)
-            }
+            isPanelDocked = false
+            panelRise.animateTo(0f, PanelRiseSpec)
         }
     }
     val isPanelShown by remember { derivedStateOf { panelRise.value > 0f } }
+    var hasPanelBeenShown by remember { mutableStateOf(false) }
+    LaunchedEffect(isPanelShown) {
+        if (isPanelShown) hasPanelBeenShown = true
+    }
+    LaunchedEffect(isPanelFullscreen) {
+        panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, PanelFullscreenSpec)
+    }
     val panelWidth = rememberMelodiaPlayerPanelWidth()
+    // 主页面内容层的实际宽度，用于算出播放面板铺满全屏时的卡片宽度
+    var contentLayerWidth by remember { mutableStateOf(0.dp) }
     // 原始系统栏高度，双卡片模式下两张卡片据此避让；此处在任何 consumeWindowInsets 之外，读到的是完整值
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -218,6 +219,11 @@ fun MelodiaApp() {
             navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
             navigation.canNavigateBack || navigation.activeTab != Screen.Home -> handleBack()
         }
+    }
+
+    // 全屏态下返回键先收回侧栏；注册在上面的通用返回处理之后，优先级更高
+    BackHandler(enabled = isPanelFullscreen) {
+        isPanelFullscreen = false
     }
 
     val isDrawerDraggable = userProfile != null && (sidebar.isOpen || sidebar.isTouchStartingAtEdge)
@@ -288,6 +294,7 @@ fun MelodiaApp() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .onSizeChanged { contentLayerWidth = with(density) { it.width.toDp() } }
                 .graphicsLayer {
                     translationX = sidebar.offsetX
                     clip = true
@@ -325,7 +332,6 @@ fun MelodiaApp() {
                                 }
                             )
                             .then(if (playerSheet.isOpen) Modifier.haze(hazeState) else Modifier)
-                            .graphicsLayer { alpha = contentAlpha.value }
                     ) {
                         // 页面密度按内容区宽度判定；底栏与面板属于外壳，仍按整屏宽度，不在此覆盖范围内
                         ProvideMelodiaContentSizeClass(
@@ -442,13 +448,25 @@ fun MelodiaApp() {
 
             // 平板常驻播放面板：浮在内容区之上的卡片，避开状态栏与手势条，右侧与迷你条同样留 sm 边距。
             // 卡片底边与迷你条所在行的底边只差 sm，起始矩形与迷你条重合；
-            // 内容按卡片全高布局，只动画裁剪区域，避免 FullPlayerScreen 逐帧重排
-            if (isPanelShown) {
+            // 内容按卡片全高布局，只动画裁剪区域，避免 FullPlayerScreen 逐帧重排。
+            // 全屏时左边缘向左推到距屏幕左边 sm 处，宽度只在布局阶段读进度
+            if ((isPanelShown || hasPanelBeenShown) && windowSizeClass == MelodiaWindowSizeClass.Expanded) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        // 首次展开后保留组合，收起时不测量也不摆放（不绘制、不接收触摸），再次展开无需重建整个播放器
+                        .then(if (isPanelShown) Modifier else Modifier.layout { _, _ -> layout(0, 0) {} })
                         .padding(top = statusBarTop, end = MelodiaSpacing.sm, bottom = navigationBarBottom)
-                        .width(panelWidth)
+                        .layout { measurable, constraints ->
+                            val sidebarWidthPx = panelWidth.roundToPx()
+                            val fullscreenWidthPx = constraints.maxWidth - MelodiaSpacing.sm.roundToPx()
+                            val progress = panelFullscreen.value.coerceIn(0f, 1f)
+                            val width = (sidebarWidthPx + (fullscreenWidthPx - sidebarWidthPx) * progress)
+                                .roundToInt()
+                                .coerceAtLeast(sidebarWidthPx)
+                            val placeable = measurable.measure(Constraints.fixed(width, constraints.maxHeight))
+                            layout(width, constraints.maxHeight) { placeable.place(0, 0) }
+                        }
                         .fillMaxHeight()
                         .graphicsLayer {
                             val progress = panelRise.value.coerceIn(0f, 1f)
@@ -474,9 +492,24 @@ fun MelodiaApp() {
                         onSeek = { viewModel.playerManager.seekTo(it) },
                         onClose = { isPanelExpanded = false },
                         onDragClose = { _, _ -> isPanelExpanded = false },
-                        onArtistClick = { artistId -> navigation.openArtist(artistId) },
-                        onAlbumClick = { albumId -> navigation.openPlaylist(albumId, isAlbum = true) },
-                        onNavigateToProfile = { uid -> navigation.openProfile(uid) }
+                        // 跳转的页面在内容区打开，全屏态下先收回侧栏让它可见
+                        onArtistClick = { artistId ->
+                            isPanelFullscreen = false
+                            navigation.openArtist(artistId)
+                        },
+                        onAlbumClick = { albumId ->
+                            isPanelFullscreen = false
+                            navigation.openPlaylist(albumId, isAlbum = true)
+                        },
+                        onNavigateToProfile = { uid ->
+                            isPanelFullscreen = false
+                            navigation.openProfile(uid)
+                        },
+                        isFullscreen = isPanelFullscreen,
+                        onToggleFullscreen = { isPanelFullscreen = !isPanelFullscreen },
+                        fullscreenProgress = { panelFullscreen.value },
+                        // 与上面铺开宽度的计算一致：左右各留 sm
+                        fullscreenWidth = contentLayerWidth - MelodiaSpacing.sm * 2
                     )
                 }
             }

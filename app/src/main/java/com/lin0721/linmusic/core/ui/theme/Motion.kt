@@ -29,12 +29,18 @@ const val ContentSwitchDurationMs = 300
 // 全屏页滑入滑出（如网页登录页覆盖/退出）
 const val ScreenSlideDurationMs = 320
 
-// 平板常驻播放面板：先从迷你条位置向上长到全高（rise），再在面板遮挡下一帧切换内容区让位（dock），收起时倒序
+// 平板常驻播放面板：先从迷你条位置向上长到全高，再在面板遮挡下一帧切换内容区让位，收起时倒序
 val PanelRiseSpec = tween<Float>(300, easing = FastOutSlowInEasing)
 
-// 让位切换那一帧内容区重排一次，用一次轻微淡入盖住：从 PanelDockFadeFromAlpha 回到不透明
-const val PanelDockFadeFromAlpha = 0.5f
-val PanelDockFadeSpec = tween<Float>(150, easing = LinearEasing)
+// 平板竖屏全屏播放页内容列放宽那一帧重排一次，用一次轻微淡入盖住：从 PanelReflowFadeFromAlpha 回到不透明
+const val PanelReflowFadeFromAlpha = 0.5f
+val PanelReflowFadeSpec = tween<Float>(150, easing = LinearEasing)
+
+// 播放面板在侧栏与全屏之间切换：左边缘向左铺满 / 收回
+val PanelFullscreenSpec = tween<Float>(320, easing = FastOutSlowInEasing)
+
+// 平板播放面板开合导致页面列数、卡片尺寸整体切换时，卡片与区块从旧位置/尺寸过渡到新排版的时长
+const val LayoutReflowDurationMs = 300
 
 // 封面左右滑动切歌：确认切换滑出/未达阈值回弹共用同一档弹簧手感，与全屏播放器展开收起一致
 val SwipeCoverSpringSpec: SpringSpec<Float> = spring(

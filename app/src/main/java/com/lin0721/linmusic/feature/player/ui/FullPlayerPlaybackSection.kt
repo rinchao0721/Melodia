@@ -21,6 +21,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     nextKey: Any? = null,
     // 封面额外水平内缩，面板模式下由 FullPlayerScreen 按可用高度算出
     coverExtraInset: Dp = 0.dp,
+    onToggleSidebarFullscreen: (() -> Unit)? = null,
+    isSidebarFullscreen: Boolean = false,
     title: String,
     artist: String,
     playContext: String?,
@@ -32,7 +34,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
     duration: Long,
     playMode: PlayMode,
     onClose: () -> Unit,
-    onPaletteExtracted: (PlayerBackdropPalette) -> Unit,
     onMoreClick: () -> Unit,
     onToggleLike: () -> Unit,
     onArtistClick: () -> Unit,
@@ -53,10 +54,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
         FullPlayerItemEnterAnimation {
             FullPlayerCoverArt(
                 coverUrl = coverUrl,
-                title = title,
                 playContext = playContext,
                 onClose = onClose,
-                onPaletteExtracted = onPaletteExtracted,
                 onMoreClick = onMoreClick,
                 previousCoverUrl = previousCoverUrl,
                 nextCoverUrl = nextCoverUrl,
@@ -66,6 +65,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 previousKey = previousKey,
                 nextKey = nextKey,
                 coverExtraInset = coverExtraInset,
+                onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+                isSidebarFullscreen = isSidebarFullscreen,
                 onCancelSwipe = onCancelSwipe
             )
         }

@@ -3,7 +3,7 @@ package com.lin0721.linmusic.core.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,7 +28,8 @@ fun rememberMelodiaWindowSizeClass(): MelodiaWindowSizeClass {
     }
 }
 
-val LocalMelodiaWindowSizeClass = staticCompositionLocalOf { MelodiaWindowSizeClass.Compact }
+// 平板播放面板开合时内容区会覆盖下发新值，用 compositionLocalOf 只重组真正读取它的组件，而非整棵页面树
+val LocalMelodiaWindowSizeClass = compositionLocalOf { MelodiaWindowSizeClass.Compact }
 
 // 方向维度，与宽度断点独立组合使用。横屏下可用宽度更大、可用高度更矮，
 // 部分模块（首页货架密度、MV 播放页视频+评论布局等）需要在同为 Expanded 的前提下再区分横竖屏
@@ -49,7 +50,7 @@ fun rememberMelodiaOrientationClass(): MelodiaOrientationClass {
     }
 }
 
-val LocalMelodiaOrientationClass = staticCompositionLocalOf { MelodiaOrientationClass.Portrait }
+val LocalMelodiaOrientationClass = compositionLocalOf { MelodiaOrientationClass.Portrait }
 
 // 网格列数按断点取值的通用工具，各调用点自带一套
 // compact/expandedPortrait/expandedLandscape 数值，避免各处重复写 when 分支
