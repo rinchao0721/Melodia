@@ -244,7 +244,7 @@ fun SongRow(
 // 播放中标识：歌名前的三根音柱。animate 为 false（暂停）时，各自定格在暂停那一刻的高度上，而不是跳到另一套固定姿态；
 // 用 Animatable 手动循环而非 InfiniteTransition，是因为暂停时需要保留 value 原地冻结，恢复播放时也从当前高度接着动
 @Composable
-private fun PlayingEqualizerBars(color: Color, animate: Boolean) {
+fun PlayingEqualizerBars(color: Color, animate: Boolean) {
     val bar1 = remember { Animatable(4f) }
     val bar2 = remember { Animatable(13f) }
     val bar3 = remember { Animatable(8f) }

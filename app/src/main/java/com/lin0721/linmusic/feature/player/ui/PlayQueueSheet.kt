@@ -51,6 +51,7 @@ import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
+import com.lin0721.linmusic.core.ui.components.SwipeDeleteBackground
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.SurfaceLight
 import com.lin0721.linmusic.core.ui.theme.TextGray
@@ -526,19 +527,6 @@ fun PlayQueueSheet(
                 }
             )
         }
-    }
-}
-
-@Composable
-private fun SwipeDeleteBackground() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(NeteaseRed)
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.CenterEnd
-    ) {
-        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White)
     }
 }
 

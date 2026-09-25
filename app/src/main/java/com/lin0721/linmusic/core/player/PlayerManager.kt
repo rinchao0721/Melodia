@@ -301,6 +301,20 @@ class PlayerManager(
         saveQueueState()
     }
 
+    // 插播到"下一首"并立即从指定位置播放，保留原队列
+    fun playNextNow(item: QueueItem, startPosition: Long = 0L) {
+        val targetIndex = if (playbackQueue.isEmpty) {
+            playbackQueue.replaceAll(listOf(item), 0)
+            0
+        } else {
+            playbackQueue.insertNext(listOf(item))
+            playbackQueue.currentIndex.value + 1
+        }
+        consecutiveErrors = 0
+        saveQueueState()
+        fetchUrlAndPlay(targetIndex, startPosition.coerceAtLeast(0L))
+    }
+
     fun playNext() {
         if (playbackQueue.isEmpty) return
         consecutiveErrors = 0

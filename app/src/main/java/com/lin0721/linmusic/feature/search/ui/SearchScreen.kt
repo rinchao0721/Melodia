@@ -117,7 +117,8 @@ fun SearchScreen(
     onOpenSidebar: () -> Unit = {},
     onPlaylistClick: (id: Long, isAlbum: Boolean) -> Unit = { _, _ -> },
     onArtistClick: (id: Long) -> Unit = {},
-    onPlaylistCategoryClick: (category: String) -> Unit = {}
+    onPlaylistCategoryClick: (category: String) -> Unit = {},
+    onOpenRecognition: () -> Unit = {}
 ) {
     val discoveryState by viewModel.discoveryState.collectAsStateWithLifecycle()
     val inputState by viewModel.inputState.collectAsStateWithLifecycle()
@@ -210,7 +211,7 @@ fun SearchScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            MelodiaIconButton(onClick = { /* 听歌识曲，暂不实现 */ }) {
+            MelodiaIconButton(onClick = onOpenRecognition) {
                 Icon(
                     Icons.Rounded.MusicNote,
                     contentDescription = "听歌识曲",

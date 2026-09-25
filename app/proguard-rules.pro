@@ -53,6 +53,13 @@
 -keepclassmembers class org.bouncycastle.** { *; }
 -dontwarn org.bouncycastle.**
 
+# ===== WebView JS 桥 =====
+# AfpFingerprintEngine 的回调由 JS 按方法名调用，被混淆后 release 包桥接失效
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepattributes JavascriptInterface
+
 # ===== Media3 / Coil / Koin =====
 # 三者均随包提供 consumer rules：Media3 保留 Player 相关回调，Coil 保留解码器，
 # Koin 的构造函数 DSL（::X 函数引用）为编译期解析，均无需额外声明

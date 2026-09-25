@@ -1,7 +1,13 @@
 package com.lin0721.linmusic
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -55,6 +61,9 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
+import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundBlack
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -125,6 +134,8 @@ fun MelodiaApp() {
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
 
     var showCreateSheet by remember { mutableStateOf(false) }
+    // 听歌识曲全屏覆盖层，盖住底栏与迷你播放条
+    var showRecognition by remember { mutableStateOf(false) }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
     // MV 播放页是否处于全屏态：全屏时隐藏底部导航栏/悬浮播放条，避免盖住视频
@@ -359,6 +370,7 @@ fun MelodiaApp() {
                                     onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                                     onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
                                     onNavigateToLocalMusic = { navigation.openLocalMusic() },
+                                    onOpenRecognition = { showRecognition = true },
                                     onBack = { handleBack() }
                                 )
                             }
@@ -553,6 +565,57 @@ fun MelodiaApp() {
             },
             modifier = Modifier.zIndex(1f)
         )
+
+        // 放在 Toast 之前，识别页上仍能看到提示
+        AnimatedVisibility(
+            visible = showRecognition,
+            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        ) {
+            RecognitionScreen(
+                onClose = { showRecognition = false },
+                backHandlerEnabled = !playerSheet.isOpen,
+                miniPlayer = { modifier ->
+                    MiniPlayerCard(
+                        currentTrack = currentTrack,
+                        isPlaying = miniPlayerShowPause,
+                        currentPositionProvider = currentPositionProvider,
+                        duration = duration,
+                        onTogglePlay = { viewModel.togglePlayPause() },
+                        onNext = { viewModel.playerManager.playNext() },
+                        onClick = {
+                            if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
+                                // 平板播放面板位于内容层，会被识别页挡住，只能先收起识别页
+                                showRecognition = false
+                                isPanelExpanded = true
+                            } else {
+                                // 全屏播放页层级高于识别页，收起后回到识别页
+                                playerSheet.animateTo(true, 0f)
+                            }
+                        },
+                        onDrag = { delta ->
+                            if (windowSizeClass != MelodiaWindowSizeClass.Expanded) playerSheet.onDrag(delta)
+                        },
+                        onDragEnd = { velocity ->
+                            if (windowSizeClass != MelodiaWindowSizeClass.Expanded) playerSheet.onDragEnd(velocity)
+                        },
+                        previousQueueItem = previousQueueItem,
+                        nextQueueItem = nextQueueItem,
+                        onPrevious = { viewModel.playerManager.skipToPrevious() },
+                        onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
+                        isLiked = isMiniPlayerLiked,
+                        onLikeClick = {
+                            val songId = currentTrack?.mediaId?.toLongOrNull()
+                            if (songId != null) {
+                                miniCollectSongId = songId
+                                viewModel.prepareCollectDialog(songId)
+                            }
+                        },
+                        modifier = modifier
+                    )
+                }
+            )
+        }
 
         // 5. 全局自定义 Toast 提示
         MelodiaToastHost(toastMessage = toastMessage)

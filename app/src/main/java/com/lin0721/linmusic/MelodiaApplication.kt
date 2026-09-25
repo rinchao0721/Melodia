@@ -16,6 +16,7 @@ import com.lin0721.linmusic.di.localModule
 import com.lin0721.linmusic.di.localMusicModule
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.playerModule
+import com.lin0721.linmusic.di.recognitionModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.di.updateModule
 import com.lin0721.linmusic.di.viewModelModule
@@ -65,7 +66,7 @@ class MelodiaApplication : Application() {
             androidContext(this@MelodiaApplication)
             modules(
                 networkModule, repositoryModule, viewModelModule, playerModule,
-                localModule, updateModule, downloadModule, localMusicModule
+                localModule, updateModule, downloadModule, localMusicModule, recognitionModule
             )
         }
 

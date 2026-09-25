@@ -39,6 +39,7 @@ fun MelodiaNavHost(
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToLocalMusic: () -> Unit,
+    onOpenRecognition: () -> Unit,
     onBack: () -> Unit
 ) {
     AnimatedContent(
@@ -97,7 +98,8 @@ fun MelodiaNavHost(
                     onOpenSidebar = onOpenSidebar,
                     onPlaylistClick = onNavigateToPlaylist,
                     onArtistClick = onNavigateToArtist,
-                    onPlaylistCategoryClick = onNavigateToPlaylistCategory
+                    onPlaylistCategoryClick = onNavigateToPlaylistCategory,
+                    onOpenRecognition = onOpenRecognition
                 )
             }
             is Screen.Library -> {
