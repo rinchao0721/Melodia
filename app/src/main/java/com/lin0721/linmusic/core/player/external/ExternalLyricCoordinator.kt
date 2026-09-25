@@ -32,6 +32,7 @@ class ExternalLyricCoordinator(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val lyriconAdapter = LyriconAdapter(context)
+    private val fluidCloudNotifier = FluidCloudLyricNotifier(context)
 
     private var lyricFetchJob: Job? = null
 
@@ -51,6 +52,7 @@ class ExternalLyricCoordinator(
     private var isLyricInfoEnabled = false
     private var isBluetoothLyricEnabled = false
     private var isLyriconEnabled = false
+    private var isFluidCloudLyricEnabled = false
     private var isShowTranslation = true
 
     var onMetadataChanged: (() -> Unit)? = null
@@ -110,6 +112,13 @@ class ExternalLyricCoordinator(
         }
 
         scope.launch {
+            settingsPreferences.fluidCloudLyricEnabled.collectLatest { enabled ->
+                isFluidCloudLyricEnabled = enabled
+                refreshFluidCloudLyric()
+            }
+        }
+
+        scope.launch {
             settingsPreferences.fullScreenLyricShowTranslation.collectLatest { show ->
                 isShowTranslation = show
                 rebuildLyricInfo()
@@ -118,6 +127,7 @@ class ExternalLyricCoordinator(
                 }
                 onMetadataChanged?.invoke()
                 dispatchSuperLyricCurrentLine()
+                refreshFluidCloudLyric()
             }
         }
     }
@@ -175,6 +185,7 @@ class ExternalLyricCoordinator(
                                 )
                             }
                             dispatchSuperLyricCurrentLine()
+                            refreshFluidCloudLyric()
                         }.onFailure {
                             AppLogger.w(TAG, "外部歌词加载失败: songId=$songId", it)
                         }
@@ -186,6 +197,7 @@ class ExternalLyricCoordinator(
         } else {
             onMetadataChanged?.invoke()
         }
+        refreshFluidCloudLyric()
     }
 
     private fun handlePlayStateChanged(isPlaying: Boolean) {
@@ -210,6 +222,7 @@ class ExternalLyricCoordinator(
         if (isLyriconEnabled) {
             lyriconAdapter.updatePlaybackState(isPlaying, playerManager.currentPosition.value)
         }
+        refreshFluidCloudLyric()
     }
 
     private fun handlePositionChanged(positionMs: Long) {
@@ -223,6 +236,7 @@ class ExternalLyricCoordinator(
                         updateBluetoothTitleForIndex(newIndex)
                         onMetadataChanged?.invoke()
                     }
+                    refreshFluidCloudLyric()
                 }
             }
         }
@@ -287,6 +301,21 @@ class ExternalLyricCoordinator(
         SuperLyricHelper.sendLyric(data)
     }
 
+    // 流体云胶囊只在播放中展示；暂停、停止或关闭开关时移除，避免残留一条不再更新的常驻通知
+    private fun refreshFluidCloudLyric() {
+        if (!isFluidCloudLyricEnabled || currentSongId == -1L || !playerManager.isPlaying.value) {
+            fluidCloudNotifier.dismiss()
+            return
+        }
+        val line = currentLines.getOrNull(currentLyricIndex)
+        fluidCloudNotifier.show(
+            title = originalTitle,
+            artist = originalArtist,
+            lyric = line?.text,
+            translation = if (isShowTranslation) line?.translation else null
+        )
+    }
+
     private fun rebuildLyricInfo() {
         if (!isLyricInfoEnabled || currentSongId == -1L || currentLines.isEmpty()) {
             currentLyricInfoJson = ""
@@ -344,6 +373,7 @@ class ExternalLyricCoordinator(
             SuperLyricHelper.unregisterPublisher()
         }
         lyriconAdapter.release()
+        fluidCloudNotifier.dismiss()
         lyricFetchJob?.cancel()
         scope.cancel()
         onMetadataChanged = null
