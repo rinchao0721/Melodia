@@ -59,3 +59,5 @@ CLAUDE.md
 *_PLAN.md
 REFACTOR_ROADMAP.md
 RELEASE_SIGNING.md
+# Gradle updateDaemonJvm 在本地生成的后台进程 JDK 约束，不纳入版本管理
+gradle/gradle-daemon-jvm.properties
