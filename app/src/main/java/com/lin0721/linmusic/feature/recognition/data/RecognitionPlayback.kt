@@ -12,6 +12,9 @@ interface RecognitionPlayback {
     val positionMs: Flow<Long>
 
     fun isPlaying(): Boolean
+
+    // 从通知等无界面入口冷启动时，先连上播放服务并等上次的队列恢复完成
+    suspend fun ensureReady()
     fun pause()
     fun resume()
 
@@ -32,6 +35,11 @@ class PlayerManagerRecognitionPlayback(
 
     // 用 playWhenReady 而非 isPlaying：弱网缓冲中也算在播，否则识别时漏暂停
     override fun isPlaying(): Boolean = playerManager.playWhenReady.value
+
+    override suspend fun ensureReady() {
+        playerManager.initController()
+        playerManager.awaitQueueRestored()
+    }
 
     override fun pause() = playerManager.pause()
 

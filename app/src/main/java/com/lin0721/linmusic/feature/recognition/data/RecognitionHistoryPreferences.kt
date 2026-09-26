@@ -7,11 +7,13 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.feature.recognition.domain.RecognitionCandidate
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionHistoryEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 private const val TAG = "RecognitionHistoryPreferences"
 internal const val MAX_RECOGNITION_HISTORY = 100
@@ -41,6 +43,20 @@ class RecognitionHistoryPreferences(private val context: Context) {
             val updated = prependCapped(decode(prefs[KEY_HISTORY]), entry, MAX_RECOGNITION_HISTORY)
             prefs[KEY_HISTORY] = json.encodeToString(updated)
         }
+    }
+
+    suspend fun record(candidate: RecognitionCandidate, recognizedAt: Long = System.currentTimeMillis()) {
+        add(
+            RecognitionHistoryEntry(
+                id = UUID.randomUUID().toString(),
+                songId = candidate.songId,
+                title = candidate.title,
+                artists = candidate.artists,
+                coverUrl = candidate.coverUrl,
+                startTimeMs = candidate.startTimeMs,
+                recognizedAt = recognizedAt
+            )
+        )
     }
 
     suspend fun remove(id: String) {

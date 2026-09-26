@@ -72,6 +72,7 @@ import com.lin0721.linmusic.feature.player.ui.formatTime
 import com.lin0721.linmusic.feature.recognition.domain.AttemptStatus
 import com.lin0721.linmusic.feature.recognition.domain.MatchAttempt
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionCandidate
+import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionNowPlaying
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionProgress
 import com.lin0721.linmusic.feature.recognition.engine.RecognitionSession
@@ -94,21 +95,47 @@ private fun Headline(title: String, subtitle: String?) {
 @Composable
 internal fun RecognitionListeningContent(
     progress: RecognitionProgress,
+    mode: RecognitionMode?,
+    showModeSwitch: Boolean,
+    onSwitchMode: (RecognitionMode) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val recordedSeconds = (progress.recordedMs / 1000).toInt()
     val matching = progress.attempts.lastOrNull { it.status == AttemptStatus.MATCHING }
-    val subtitle = when {
+    val progressText = when {
         matching != null -> "已录 $recordedSeconds 秒 · 正在匹配第 ${progress.attempts.indexOf(matching) + 1} 个片段"
         progress.recordedMs < RecognitionSession.WINDOW_SECONDS * 1000L -> "已录 $recordedSeconds 秒 · 满 3 秒开始匹配"
         else -> "已录 $recordedSeconds 秒"
     }
+    val isPlayback = mode == RecognitionMode.PLAYBACK
+    val roundText = if (progress.round > 1) "第 ${progress.round} 轮 · $progressText" else progressText
+    val subtitle = if (isPlayback) "识别手机正在播放的声音 · $roundText" else roundText
 
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(28.dp))
+        if (showModeSwitch && mode != null) {
+            Spacer(Modifier.height(MelodiaSpacing.md))
+            RecognitionModeSwitch(selected = mode, onSelect = onSwitchMode)
+            Spacer(Modifier.height(MelodiaSpacing.lg))
+        } else {
+            Spacer(Modifier.height(28.dp))
+        }
         Headline(title = "正在聆听", subtitle = subtitle)
-        Spacer(Modifier.height(72.dp))
+        if (isPlayback) {
+            Spacer(Modifier.height(MelodiaSpacing.md))
+            Surface(shape = RoundedCornerShape(12.dp), color = SurfaceDark.copy(alpha = 0.6f)) {
+                Text(
+                    text = "可以切回正在播放的 App，识别在后台继续，结果会以通知提醒",
+                    color = TextGray,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                )
+            }
+            Spacer(Modifier.height(28.dp))
+        } else {
+            Spacer(Modifier.height(if (showModeSwitch) 48.dp else 72.dp))
+        }
         RecognitionWaveform(
             levels = progress.levels,
             highlightStartSecond = matching?.startSecond,
@@ -418,11 +445,12 @@ private fun HitPositionBar(fraction: Float) {
 internal fun RecognitionFailedContent(
     reason: RecognitionFailedReason,
     progress: RecognitionProgress,
+    mode: RecognitionMode?,
     onRetry: () -> Unit,
     onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (title, subtitle) = failureCopy(reason, progress)
+    val (title, subtitle) = failureCopy(reason, progress, mode)
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Spacer(Modifier.height(28.dp))
         Headline(title = title, subtitle = subtitle)
@@ -471,14 +499,29 @@ internal fun RecognitionFailedContent(
     }
 }
 
-private fun failureCopy(reason: RecognitionFailedReason, progress: RecognitionProgress): Pair<String, String?> =
+private fun failureCopy(
+    reason: RecognitionFailedReason,
+    progress: RecognitionProgress,
+    mode: RecognitionMode?
+): Pair<String, String?> =
     when (reason) {
-        RecognitionFailedReason.NOT_FOUND ->
-            "未识别到" to "录满 ${RecognitionSession.MAX_SECONDS} 秒，${progress.attempts.size} 个片段都没有匹配结果"
-        RecognitionFailedReason.SILENT -> "未识别到" to "没有采集到声音，请靠近音源或检查麦克风"
+        RecognitionFailedReason.NOT_FOUND -> "未识别到" to if (progress.round > 1) {
+            "录了 ${progress.round} 轮，每轮 ${RecognitionSession.MAX_SECONDS} 秒，都没有匹配结果"
+        } else {
+            "录满 ${RecognitionSession.MAX_SECONDS} 秒，${progress.attempts.size} 个片段都没有匹配结果"
+        }
+        RecognitionFailedReason.SILENT -> "未识别到" to if (mode == RecognitionMode.PLAYBACK) {
+            "没有录到声音，可能是对方 App 禁止了内录，可改用麦克风重试"
+        } else {
+            "没有采集到声音，请靠近音源或检查麦克风"
+        }
         RecognitionFailedReason.NETWORK -> "识别失败" to "网络异常，请检查网络后重试"
         RecognitionFailedReason.ENGINE_UNAVAILABLE -> "识别失败" to "识别组件加载失败，请确认系统 WebView 可用"
-        RecognitionFailedReason.RECORDER_UNAVAILABLE -> "识别失败" to "麦克风不可用，可能正被其他应用占用"
+        RecognitionFailedReason.RECORDER_UNAVAILABLE -> "识别失败" to if (mode == RecognitionMode.PLAYBACK) {
+            "内录启动失败，请重试"
+        } else {
+            "麦克风不可用，可能正被其他应用占用"
+        }
         RecognitionFailedReason.STOPPED -> "识别已停止" to "已开始播放所选歌曲"
         RecognitionFailedReason.UNKNOWN -> "识别失败" to "出现未知错误，请重试"
     }

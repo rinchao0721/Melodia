@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
@@ -67,13 +68,14 @@ import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import org.koin.androidx.compose.koinViewModel
 
 private const val TAG = "RecognitionScreen"
 
 private val MiniPlayerMaxWidth = 680.dp
 
-// 听歌识曲全屏覆盖层：出现即开始聆听，离开时释放 WebView 并按需恢复播放
+// 听歌识曲全屏覆盖层：先选麦克风 / 内录再开始；离开时释放 WebView 并按需恢复播放，后台内录不受影响
 @Composable
 fun RecognitionScreen(
     onClose: () -> Unit,
@@ -92,12 +94,43 @@ fun RecognitionScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val activeMode by viewModel.activeMode.collectAsStateWithLifecycle()
+    val pendingOpenResult by viewModel.pendingOpenResult.collectAsStateWithLifecycle()
+    // 授权弹窗返回后要继续的识别方式
+    var pendingMode by rememberSaveable { mutableStateOf<RecognitionMode?>(null) }
+
     fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
+    val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            viewModel.startPlayback(result.resultCode, data)
+        } else {
+            viewModel.onPlaybackConsentDenied()
+        }
+    }
+
+    fun requestProjection() {
+        val manager = context.getSystemService(MediaProjectionManager::class.java)
+        runCatching { projectionLauncher.launch(manager.createScreenCaptureIntent()) }
+            .onFailure {
+                AppLogger.e(TAG, "无法打开录屏授权", it)
+                viewModel.onPlaybackConsentDenied()
+            }
+    }
+
+    // 两种方式都需要录音权限，内录还要再过一道录屏授权
+    fun proceed(mode: RecognitionMode) {
+        when (mode) {
+            RecognitionMode.MICROPHONE -> viewModel.startMicrophone()
+            RecognitionMode.PLAYBACK -> requestProjection()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            viewModel.start()
+            proceed(pendingMode ?: RecognitionMode.MICROPHONE)
         } else {
             // 拒绝后仍不需要展示理由，说明用户勾了"不再询问"，只能去系统设置开启
             val activity = context as? Activity
@@ -107,13 +140,17 @@ fun RecognitionScreen(
         }
     }
 
-    fun startWithPermission() {
-        if (hasMicPermission()) viewModel.start() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    fun begin(mode: RecognitionMode) {
+        pendingMode = mode
+        if (hasMicPermission()) proceed(mode) else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     LaunchedEffect(Unit) {
         viewModel.onOpened()
-        startWithPermission()
+    }
+
+    LaunchedEffect(pendingOpenResult) {
+        if (pendingOpenResult) viewModel.onOpenResultRequested()
     }
 
     DisposableEffect(Unit) {
@@ -122,6 +159,7 @@ fun RecognitionScreen(
 
     // 从系统设置授权回来后自动开始；普通授权弹窗关闭也会触发 ON_RESUME，那条路径已由权限回调负责，不能重复启动
     val currentState by rememberUpdatedState(uiState)
+    val currentPendingMode by rememberUpdatedState(pendingMode)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             val state = currentState
@@ -130,11 +168,25 @@ fun RecognitionScreen(
                 state.permanentlyDenied &&
                 hasMicPermission()
             ) {
-                viewModel.start()
+                proceed(currentPendingMode ?: RecognitionMode.MICROPHONE)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Android 10 以下没有内录，跳过选择直接用麦克风
+    val choosing = uiState as? RecognitionUiState.ChoosingMode
+    if (choosing != null) {
+        if (viewModel.playbackSupported) {
+            RecognitionModeChooserSheet(
+                lastMode = choosing.lastMode,
+                onChoose = { begin(it) },
+                onDismiss = onClose
+            )
+        } else {
+            LaunchedEffect(Unit) { begin(RecognitionMode.MICROPHONE) }
+        }
     }
 
     BackHandler(enabled = backHandlerEnabled) {
@@ -173,10 +225,10 @@ fun RecognitionScreen(
                             label = "recognition_state"
                         ) { state ->
                             when (state) {
-                                RecognitionUiState.Idle -> Box(Modifier.fillMaxSize())
+                                RecognitionUiState.Idle, is RecognitionUiState.ChoosingMode -> Box(Modifier.fillMaxSize())
                                 is RecognitionUiState.PermissionRequired -> RecognitionPermissionContent(
                                     permanentlyDenied = state.permanentlyDenied,
-                                    onRequestPermission = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                                    onRequestPermission = { begin(pendingMode ?: RecognitionMode.MICROPHONE) },
                                     onOpenSettings = {
                                         val intent = Intent(
                                             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -188,19 +240,26 @@ fun RecognitionScreen(
                                 )
                                 is RecognitionUiState.Listening -> RecognitionListeningContent(
                                     progress = state.progress,
-                                    onCancel = onClose
+                                    mode = activeMode,
+                                    showModeSwitch = viewModel.playbackSupported,
+                                    onSwitchMode = { begin(it) },
+                                    onCancel = {
+                                        viewModel.cancelCurrent()
+                                        onClose()
+                                    }
                                 )
                                 is RecognitionUiState.Found -> RecognitionFoundContent(
                                     state = state,
                                     nowPlaying = nowPlaying,
                                     positionProvider = { positionState.value },
                                     onOpen = viewModel::openCandidate,
-                                    onRetry = { startWithPermission() }
+                                    onRetry = { begin(activeMode ?: RecognitionMode.MICROPHONE) }
                                 )
                                 is RecognitionUiState.Failed -> RecognitionFailedContent(
                                     reason = state.reason,
                                     progress = state.progress,
-                                    onRetry = { startWithPermission() },
+                                    mode = activeMode,
+                                    onRetry = { begin(activeMode ?: RecognitionMode.MICROPHONE) },
                                     onOpenHistory = { showHistory = true }
                                 )
                             }

@@ -6,4 +6,5 @@
     <string name="app_error_unauthorized">请先登录</string>
     <string name="app_error_parse">数据解析失败</string>
     <string name="app_error_biz_default">操作失败，请重试</string>
+    <string name="recognition_tile_label">识曲</string>
 </resources>

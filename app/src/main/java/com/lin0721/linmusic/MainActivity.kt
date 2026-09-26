@@ -2,6 +2,8 @@ package com.lin0721.linmusic
 
 import android.Manifest
 import android.content.Intent
+import com.lin0721.linmusic.feature.recognition.service.ACTION_OPEN_RECOGNITION_RESULT
+import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +25,7 @@ import org.koin.android.ext.android.inject
 class MainActivity : ComponentActivity() {
 
     private val settingsPreferences: SettingsPreferences by inject()
+    private val playbackRecognitionState: PlaybackRecognitionState by inject()
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -35,6 +38,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
         requestNotificationPermissionIfNeeded()
+        handleRecognitionIntent(intent)
 
         // 监听悬浮歌词开关
         lifecycleScope.launch {
@@ -51,6 +55,18 @@ class MainActivity : ComponentActivity() {
             MelodiaTheme {
                 MelodiaApp()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleRecognitionIntent(intent)
+    }
+
+    // 点开识曲结果通知：交给界面层打开识别页展示该结果
+    private fun handleRecognitionIntent(intent: Intent?) {
+        if (intent?.action == ACTION_OPEN_RECOGNITION_RESULT) {
+            playbackRecognitionState.requestOpenResult()
         }
     }
 

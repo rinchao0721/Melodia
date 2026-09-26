@@ -25,6 +25,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -161,6 +162,11 @@ class PlayerManager(
     private var trackPausedAccumMs: Long = 0L
     private var trackLastPauseElapsedMs: Long? = null
 
+    // 冷启动时队列异步恢复，插播前须等它完成，否则插入的歌会被恢复结果覆盖
+    private val queueRestored = CompletableDeferred<Unit>()
+
+    suspend fun awaitQueueRestored() = queueRestored.await()
+
     init {
         AppLogger.i(TAG, "PlayerManager 初始化 instanceId=${System.identityHashCode(this)}")
         networkGuard.register()
@@ -168,8 +174,12 @@ class PlayerManager(
         scope.launch {
             playbackQueue.setPlayMode(stateStore.loadPlayMode())
             // 恢复队列
-            val qs = stateStore.loadQueueState()
-            playbackQueue.restore(qs.queue, qs.currentIndex, qs.playContext)
+            try {
+                val qs = stateStore.loadQueueState()
+                playbackQueue.restore(qs.queue, qs.currentIndex, qs.playContext)
+            } finally {
+                queueRestored.complete(Unit)
+            }
         }
 
         // 监听 playMode 同步，newValue != oldValue 判定防止死循环写入

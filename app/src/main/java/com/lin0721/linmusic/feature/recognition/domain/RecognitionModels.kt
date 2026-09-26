@@ -13,6 +13,9 @@ data class RecognitionCandidate(
     val durationMs: Long
 )
 
+// 麦克风识别外放声音；内录识别本机其他 App 正在播放的声音（Android 10+）
+enum class RecognitionMode { MICROPHONE, PLAYBACK }
+
 // 播放器当前曲目，用于识别结果卡片标出"正在播放"
 data class RecognitionNowPlaying(
     val songId: Long,
@@ -27,8 +30,9 @@ data class MatchAttempt(
     val status: AttemptStatus
 )
 
-// levels 每格对应固定时长的音量 RMS，只含已录部分
+// levels 每格对应固定时长的音量 RMS，只含已录部分；round 为第几轮录制（内录未命中会自动再录一轮）
 data class RecognitionProgress(
+    val round: Int = 1,
     val levels: List<Float> = emptyList(),
     val recordedMs: Long = 0L,
     val attempts: List<MatchAttempt> = emptyList()

@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.recognition.ui
 
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionCandidate
+import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionProgress
 
 enum class RecognitionFailedReason {
@@ -16,6 +17,9 @@ enum class RecognitionFailedReason {
 
 sealed interface RecognitionUiState {
     data object Idle : RecognitionUiState
+
+    // 进入识别页时的方式选择弹窗；lastMode 用于标出「上次使用」
+    data class ChoosingMode(val lastMode: RecognitionMode?) : RecognitionUiState
 
     data class PermissionRequired(val permanentlyDenied: Boolean) : RecognitionUiState
 

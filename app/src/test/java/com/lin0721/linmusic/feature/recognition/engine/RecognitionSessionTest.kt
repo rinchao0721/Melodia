@@ -86,6 +86,15 @@ class RecognitionSessionTest {
     }
 
     @Test
+    fun `轮次写入进度并在结束后保留`() = runTest {
+        val session = RecognitionSession(FakeCapture(0.2f), RecordingFingerprinter(), round = 2) { _, _ -> emptyList() }
+        assertEquals(2, session.progress.value.round)
+
+        assertEquals(RecognitionOutcome.NotFound, session.run())
+        assertEquals(2, session.progress.value.round)
+    }
+
+    @Test
     fun `全静音输入不计算指纹直接返回Silent`() = runTest {
         val fingerprinter = RecordingFingerprinter()
         val session = RecognitionSession(FakeCapture(0f), fingerprinter) { _, _ ->

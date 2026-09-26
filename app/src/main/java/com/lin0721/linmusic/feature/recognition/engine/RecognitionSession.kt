@@ -24,12 +24,14 @@ fun interface AudioMatcher {
 class RecognitionSession(
     private val capture: AudioCapture,
     private val fingerprinter: FingerprintGenerator,
+    round: Int = 1,
+    // 放在最后以便测试里用尾随 lambda 传入
     private val matcher: AudioMatcher
 ) {
 
     private data class RecordingState(val samples: Int = 0, val finished: Boolean = false)
 
-    private val _progress = MutableStateFlow(RecognitionProgress())
+    private val _progress = MutableStateFlow(RecognitionProgress(round = round))
     val progress: StateFlow<RecognitionProgress> = _progress.asStateFlow()
 
     suspend fun run(): RecognitionOutcome = coroutineScope {

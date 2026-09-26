@@ -63,6 +63,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
+import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BackgroundBlack
@@ -136,6 +137,12 @@ fun MelodiaApp() {
     var showCreateSheet by remember { mutableStateOf(false) }
     // 听歌识曲全屏覆盖层，盖住底栏与迷你播放条
     var showRecognition by remember { mutableStateOf(false) }
+    // 点了后台内录的结果通知
+    val playbackRecognitionState: PlaybackRecognitionState = koinInject()
+    val pendingRecognitionResult by playbackRecognitionState.pendingOpenResult.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingRecognitionResult) {
+        if (pendingRecognitionResult) showRecognition = true
+    }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
     // MV 播放页是否处于全屏态：全屏时隐藏底部导航栏/悬浮播放条，避免盖住视频

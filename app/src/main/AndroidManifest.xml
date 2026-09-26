@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -77,6 +78,36 @@
             android:name=".feature.cloud.upload.CloudUploadService"
             android:foregroundServiceType="dataSync"
             android:enabled="true"
+            android:exported="false" />
+
+        <!-- 听歌识曲后台内录 -->
+        <service
+            android:name=".feature.recognition.service.PlaybackRecognitionService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
+
+        <service
+            android:name=".feature.recognition.service.RecognitionTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/recognition_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- 透明跳板：taskAffinity 置空，避免把 Melodia 主任务带到前台 -->
+        <activity
+            android:name=".feature.recognition.service.ProjectionConsentActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Melodia.Translucent" />
+
+        <receiver
+            android:name=".feature.recognition.service.RecognitionActionReceiver"
             android:exported="false" />
 
         <activity
