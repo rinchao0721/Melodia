@@ -30,7 +30,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
         contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
     ) {
         item {
-            SettingsGroupCard("网络连接") {
+            SettingsGroupCard(SettingsSubMenu.NETWORK.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "仅 Wi-Fi 网络下联网播放",
                     subtitle = "开启后，在移动网络环境将无法播放在线曲目",
@@ -48,7 +48,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            SettingsGroupCard("网络代理") {
+            SettingsGroupCard(SettingsSubMenu.NETWORK.sectionTitles[1]) {
                 SettingsSwitchRow(
                     title = "使用国内 IP 地址",
                     subtitle = "在海外IP可能会受到限制，可开启此处尝试解决",

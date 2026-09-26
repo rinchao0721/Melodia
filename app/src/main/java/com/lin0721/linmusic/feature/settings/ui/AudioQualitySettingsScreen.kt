@@ -36,7 +36,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
         contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
     ) {
         item {
-            SettingsGroupCard("默认音质") {
+            SettingsGroupCard(SettingsSubMenu.AUDIO_QUALITY.sectionTitles[0]) {
                 SettingsRow(
                     title = "Wi-Fi 环境播放音质",
                     subtitle = getQualityDisplayName(wifiQuality),

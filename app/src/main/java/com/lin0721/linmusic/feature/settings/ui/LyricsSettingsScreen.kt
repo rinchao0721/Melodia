@@ -20,6 +20,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,9 +32,13 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val lyricInfoEnabled by viewModel.lyricInfoEnabled.collectAsStateWithLifecycle()
     val bluetoothLyricEnabled by viewModel.bluetoothLyricEnabled.collectAsStateWithLifecycle()
     val lyriconEnabled by viewModel.lyriconEnabled.collectAsStateWithLifecycle()
+    val fullScreenLyricTextSize by viewModel.fullScreenLyricTextSize.collectAsStateWithLifecycle()
+    val fullScreenLyricAlignment by viewModel.fullScreenLyricAlignment.collectAsStateWithLifecycle()
+    val fullScreenKaraokeAdvancedEffect by viewModel.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle()
 
     var showSizeSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
+    var showAlignmentSheet by remember { mutableStateOf(false) }
 
     val sizeLabel = "${lyricTextSize} sp"
     val colorLabel = when (lyricTextColor) {
@@ -42,6 +47,11 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
         "#10B981" -> "绿色"
         else -> lyricTextColor
     }
+    val alignmentLabel = when (fullScreenLyricAlignment) {
+        "center" -> "居中对齐"
+        "right" -> "右对齐"
+        else -> "左对齐"
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -49,7 +59,50 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
             contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
         ) {
             item {
-                SettingsGroupCard("悬浮歌词") {
+                SettingsGroupCard(SettingsSubMenu.LYRICS.sectionTitles[0]) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("歌词字号大小", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+                            Text(
+                                text = "${fullScreenLyricTextSize} sp",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        LyricCapsuleSlider(
+                            value = fullScreenLyricTextSize,
+                            onValueChange = { viewModel.updateFullScreenLyricTextSize(it) },
+                            valueRange = 16f..32f
+                        )
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsRow(
+                        title = "歌词对齐方式",
+                        subtitle = alignmentLabel,
+                        onClick = { showAlignmentSheet = true }
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "逐字歌词流光动效",
+                        subtitle = "开启柔和渐变推进边缘",
+                        checked = fullScreenKaraokeAdvancedEffect,
+                        onCheckedChange = { viewModel.updateFullScreenKaraokeAdvancedEffect(it) }
+                    )
+                }
+            }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.LYRICS.sectionTitles[1]) {
                     SettingsSwitchRow(
                         title = "启用桌面悬浮歌词",
                         subtitle = "返回桌面时以悬浮窗形态展示当前播放词句",
@@ -72,7 +125,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
             }
 
             item {
-                SettingsGroupCard("外部与系统歌词") {
+                SettingsGroupCard(SettingsSubMenu.LYRICS.sectionTitles[2]) {
                     SettingsSwitchRow(
                         title = "SuperLyric 实时歌词（测试）",
                         subtitle = "通过系统 Binder 服务向状态栏或歌词插件广播实时歌词",
@@ -100,6 +153,71 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         checked = lyriconEnabled,
                         onCheckedChange = { viewModel.updateLyriconEnabled(it) }
                     )
+                }
+            }
+        }
+
+        if (showAlignmentSheet) {
+            val alignments = listOf(
+                "left" to "左对齐",
+                "center" to "居中对齐",
+                "right" to "右对齐"
+            )
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+            ModalBottomSheet(
+                onDismissRequest = { showAlignmentSheet = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.background,
+                shape = BottomSheetShape,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(DragHandleShape)
+                            .background(Color.White.copy(alpha = 0.3f))
+                    )
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
+                ) {
+                    Text(
+                        text = "选择歌词对齐方式",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(bottom = MelodiaSpacing.md)
+                    )
+
+                    alignments.forEach { (key, label) ->
+                        val isSelected = fullScreenLyricAlignment == key
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.updateFullScreenLyricAlignment(key)
+                                    showAlignmentSheet = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 15.sp
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
                 }
             }
         }

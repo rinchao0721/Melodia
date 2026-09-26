@@ -104,7 +104,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
         contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
     ) {
         item {
-            SettingsGroupCard("播放参数") {
+            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "自动播放推荐新歌",
                     subtitle = "当前曲目播放完毕后自动接入相似推荐",
@@ -164,7 +164,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
             }
         }
         item {
-            SettingsGroupCard("下载与缓存") {
+            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[1]) {
                 SettingsSwitchRow(
                     title = "边听边存",
                     subtitle = "在线播放时自动以当前音质保存歌曲到「边听边存」目录",

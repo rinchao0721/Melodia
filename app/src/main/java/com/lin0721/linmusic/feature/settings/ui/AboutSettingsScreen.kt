@@ -75,7 +75,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
             val autoCheckUpdateEnabled by viewModel.autoCheckUpdateEnabled.collectAsStateWithLifecycle()
             val allowPrereleaseChannel by viewModel.allowPrereleaseChannel.collectAsStateWithLifecycle()
 
-            SettingsGroupCard("版本更新") {
+            SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[0]) {
                 SettingsRow(
                     title = "检查更新",
                     subtitle = "前往 GitHub 获取最新安装包",
@@ -99,7 +99,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            SettingsGroupCard("应用说明与协议") {
+            SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[1]) {
                 Text(
                     text = "Melodia 是一款基于 Jetpack Compose 构建的第三方网易云音乐播放器。\n\n" +
                             "本项目基于开源协议发布。",
@@ -128,7 +128,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            SettingsGroupCard("诊断与日志") {
+            SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[2]) {
                 val logLevelStr by viewModel.logLevel.collectAsStateWithLifecycle()
                 val currentLogLevel = runCatching { AppLogger.LogLevel.valueOf(logLevelStr) }
                     .getOrDefault(AppLogger.LogLevel.WARN)
@@ -222,7 +222,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            SettingsGroupCard("特别感谢") {
+            SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[3]) {
                 Text(
                     text = "本项目的开发与运行离不开以下优秀开源项目：\n\n" +
                             "• NeteaseCloudMusicApi\n" +

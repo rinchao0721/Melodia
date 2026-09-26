@@ -40,16 +40,18 @@ import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 定义多级菜单类型。subtitle 是子页面前两个设置项标题的预览，仅用于主菜单入口展示
-enum class SettingsSubMenu(val title: String, val subtitle: String, val icon: ImageVector) {
-    PLAYBACK_DOWNLOAD("播放与下载", "自动播放推荐新歌、边听边存", Icons.Outlined.PlayCircleOutline),
-    AUDIO_QUALITY("音质", "Wi-Fi 环境播放音质、移动网络环境播放音质", Icons.Outlined.HighQuality),
-    PRIVACY("隐私设置", "", Icons.Outlined.PrivacyTip),
-    STORAGE("储存空间", "清理应用缓存、最大音频缓存上限", Icons.Outlined.Storage),
-    NETWORK("网络设置", "仅 Wi-Fi 网络下联网播放、流量播放警告提示", Icons.Outlined.Wifi),
-    EXTENSIONS("扩展", "启用系统锁屏显示、车载模式蓝牙自动启动", Icons.Outlined.Extension),
-    LYRICS("歌词设置", "启用桌面悬浮歌词、悬浮歌词字号", Icons.Outlined.Subtitles),
-    ABOUT("关于", "检查更新、自动检查更新", Icons.Outlined.Info)
+// 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
+enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
+    PLAYBACK_DOWNLOAD("播放与下载", listOf("播放参数", "下载与缓存"), Icons.Outlined.PlayCircleOutline),
+    AUDIO_QUALITY("音质", listOf("默认音质"), Icons.Outlined.HighQuality),
+    PRIVACY("隐私设置", emptyList(), Icons.Outlined.PrivacyTip),
+    STORAGE("储存空间", listOf("存储管理"), Icons.Outlined.Storage),
+    NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
+    EXTENSIONS("扩展", listOf("悬浮与桌面", "设备与集成", "底部导航栏"), Icons.Outlined.Extension),
+    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词"), Icons.Outlined.Subtitles),
+    ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
+
+    val subtitle: String get() = sectionTitles.take(2).joinToString("、")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

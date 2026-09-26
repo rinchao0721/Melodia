@@ -76,7 +76,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
             contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
         ) {
             item {
-                SettingsGroupCard("存储管理") {
+                SettingsGroupCard(SettingsSubMenu.STORAGE.sectionTitles[0]) {
                     CacheUsageBar(
                         totalSize = totalCacheSize,
                         audioCacheSize = audioCacheSize,
