@@ -62,8 +62,12 @@ class SearchViewModel(
     private val _inputState = MutableStateFlow(SearchInputState())
     val inputState: StateFlow<SearchInputState> = _inputState.asStateFlow()
 
-    private val _isSearchActive = MutableStateFlow(false)
-    val isSearchActive: StateFlow<Boolean> = _isSearchActive.asStateFlow()
+    private val _mode = MutableStateFlow(SearchMode.Discovery)
+    val mode: StateFlow<SearchMode> = _mode.asStateFlow()
+
+    // 热搜第一名的首条单曲，头部卡取色与播放用
+    private val _featuredTrack = MutableStateFlow<Track?>(null)
+    val featuredTrack: StateFlow<Track?> = _featuredTrack.asStateFlow()
 
     private val _selectedType = MutableStateFlow(SearchType.SONG)
     val selectedType: StateFlow<SearchType> = _selectedType.asStateFlow()
@@ -167,13 +171,24 @@ class SearchViewModel(
                 return@launch
             }
 
+            val hotSearches = hotSearchResult?.getOrNull() ?: emptyList()
             _discoveryState.value = DiscoveryUiState.Success(
                 defaultKeyword = keywordResult?.getOrNull() ?: "搜索你想听的",
-                hotSearches = hotSearchResult?.getOrNull() ?: emptyList(),
+                hotSearches = hotSearches,
                 playlistTags = tagsResult?.getOrNull() ?: emptyList()
             )
             failures.firstOrNull()?.let { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+            hotSearches.firstOrNull()?.let { loadFeaturedTrack(it.keyword) }
         }
+    }
+
+    private suspend fun loadFeaturedTrack(keyword: String) {
+        _featuredTrack.value = null
+        repository.search(keyword, SearchType.SONG, offset = 0, limit = 1).firstOrNull()
+            ?.getOrNull()
+            ?.items
+            ?.firstNotNullOfOrNull { (it as? SearchResultItem.SongItem)?.track }
+            ?.let { _featuredTrack.value = it }
     }
 
     // 发现页加载失败时的重试入口，UI 层错误态按钮调用
@@ -191,11 +206,18 @@ class SearchViewModel(
     }
 
     fun activateSearch() {
-        _isSearchActive.value = true
+        if (_mode.value == SearchMode.Discovery) _mode.value = SearchMode.Typing
     }
 
-    fun deactivateSearch() {
-        _isSearchActive.value = false
+    // 结果页点输入框回到输入面板改词，已加载结果保留
+    fun editQuery() {
+        if (_mode.value != SearchMode.Results) return
+        _mode.value = SearchMode.Typing
+        requestSuggestions(_inputState.value.query)
+    }
+
+    fun cancelSearch() {
+        _mode.value = SearchMode.Discovery
         resetSearchState()
     }
 
@@ -207,41 +229,34 @@ class SearchViewModel(
         _resultsByType.values.forEach { it.value = SearchResultsUiState.Idle }
     }
 
+    // 输入只拉联想，提交才搜索
     fun updateQuery(newQuery: String) {
         _inputState.value = _inputState.value.copy(query = newQuery)
-        searchJob?.cancel()
-        suggestJob?.cancel()
+        if (_mode.value == SearchMode.Results) _mode.value = SearchMode.Typing
+        requestSuggestions(newQuery)
+    }
 
-        if (newQuery.isBlank()) {
-            _inputState.value = _inputState.value.copy(isSuggesting = false, suggestions = emptyList())
-            offsetByType.clear()
-            _resultsByType.values.forEach { it.value = SearchResultsUiState.Idle }
+    private fun requestSuggestions(query: String) {
+        suggestJob?.cancel()
+        if (query.isBlank()) {
+            _inputState.value = _inputState.value.copy(suggestions = emptyList(), suggestionQuery = "")
             return
         }
-
-        _inputState.value = _inputState.value.copy(isSuggesting = true)
         suggestJob = viewModelScope.launch {
             delay(300)
-            repository.getSuggestions(newQuery).firstOrNull()?.onSuccess { suggestions ->
-                _inputState.value = _inputState.value.copy(suggestions = suggestions)
+            repository.getSuggestions(query).firstOrNull()?.onSuccess { suggestions ->
+                _inputState.value = _inputState.value.copy(suggestions = suggestions, suggestionQuery = query)
             }
-        }
-
-        searchJob = viewModelScope.launch {
-            delay(400)
-            offsetByType.clear()
-            runSearch(newQuery, _selectedType.value, isLoadMore = false)
         }
     }
 
-    // 明确提交搜索：选中联想词 / 历史词 / 热搜词，写入历史并立即执行（不走防抖）
-    // 热搜/精品歌单等入口是在发现页（isSearchActive 尚为 false）触发的，必须一并置为激活态，
-    // 否则 query 已经写入但 UI 判断展示结果区的条件不满足，页面停留在发现页看起来像没反应
+    // 提交搜索：写入历史并立即执行
     fun searchWithKeyword(keyword: String) {
+        if (keyword.isBlank()) return
         searchJob?.cancel()
         suggestJob?.cancel()
-        _isSearchActive.value = true
-        _inputState.value = _inputState.value.copy(query = keyword, isSuggesting = false, suggestions = emptyList())
+        _mode.value = SearchMode.Results
+        _inputState.value = SearchInputState(query = keyword)
         viewModelScope.launch { historyPreferences.addKeyword(keyword) }
 
         // 关键词已更换，其余 Tab 缓存的旧结果失效，切回时会重新拉取
@@ -320,6 +335,16 @@ class SearchViewModel(
 
     fun clearHistory() {
         viewModelScope.launch { historyPreferences.clear() }
+    }
+
+    fun removeHistory(keyword: String) {
+        viewModelScope.launch { historyPreferences.removeKeyword(keyword) }
+    }
+
+    fun playFeaturedTrack() {
+        val track = _featuredTrack.value ?: return
+        val item = QueueItem(track.id, track.name, track.ar.joinToString { it.name }, track.al.picUrl)
+        playerManager.playQueue(listOf(item), 0, "搜索")
     }
 
     fun playSong(track: Track) {

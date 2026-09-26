@@ -16,6 +16,7 @@ import com.lin0721.linmusic.feature.search.domain.SearchPageResult
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
 import com.lin0721.linmusic.feature.search.domain.SearchType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 
 private const val TAG = "SearchRepositoryImpl"
+private const val MAX_ARTIST_SUGGESTIONS = 2
+private const val MAX_ALBUM_SUGGESTIONS = 2
 
 class SearchRepositoryImpl(
     private val apiService: SearchApi,
@@ -88,14 +91,60 @@ class SearchRepositoryImpl(
         }
     )
 
-    override fun getSuggestions(keyword: String): Flow<Result<List<SearchSuggestion>>> = apiFlow(
-        request = { apiService.getSearchSuggest(SearchSuggestRequest(s = keyword)) },
-        isSuccess = { it.isSuccess },
-        code = { it.code },
-        transform = { response ->
-            (response.result?.allMatch ?: emptyList()).map { SearchSuggestion(it.keyword) }
+    // 两路联想并发，任一成功即出结果
+    override fun getSuggestions(keyword: String): Flow<Result<List<SearchSuggestion>>> = flow {
+        val request = SearchSuggestRequest(s = keyword)
+        val (entityResult, keywordResult) = coroutineScope {
+            val entity = async { suggestCatching { apiService.getSearchSuggestWeb(request) } }
+            val keywords = async { suggestCatching { apiService.getSearchSuggest(request) } }
+            entity.await() to keywords.await()
         }
-    )
+
+        val entityData = entityResult.getOrNull()?.takeIf { it.isSuccess }?.result
+        val keywordData = keywordResult.getOrNull()?.takeIf { it.isSuccess }
+        if (entityData == null && keywordData == null) {
+            val error = keywordResult.exceptionOrNull() ?: entityResult.exceptionOrNull()
+            AppLogger.w(TAG, "getSuggestions 两路联想均失败", error)
+            emit(Result.failure(error?.let(::mapToAppError) ?: AppError.BizError(keywordResult.getOrNull()?.code ?: 0, null)))
+            return@flow
+        }
+
+        val artists = contentFilter.filterBlockedArtists(entityData?.artists.orEmpty()) { listOf(it.id) }
+            .filter { it.name.isNotBlank() }
+            .take(MAX_ARTIST_SUGGESTIONS)
+            .map { artist ->
+                SearchSuggestion.ArtistMatch(
+                    id = artist.id,
+                    text = artist.name,
+                    avatarUrl = artist.picUrl?.takeIf { it.isNotBlank() } ?: artist.img1v1Url.orEmpty()
+                )
+            }
+        val albums = contentFilter.filterBlockedArtists(entityData?.albums.orEmpty()) { listOfNotNull(it.artist?.id) }
+            .filter { it.name.isNotBlank() }
+            .take(MAX_ALBUM_SUGGESTIONS)
+            .map { album ->
+                SearchSuggestion.AlbumMatch(id = album.id, text = album.name, artistName = album.artist?.name.orEmpty())
+            }
+        val keywords = keywordData?.result?.allMatch.orEmpty()
+            .map { it.keyword }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { SearchSuggestion.Keyword(it) }
+
+        emit(Result.success(artists + albums + keywords))
+    }.catch { e ->
+        AppLogger.e(TAG, "getSuggestions 请求异常", e)
+        emit(Result.failure(mapToAppError(e)))
+    }
+
+    // 联想随输入频繁取消，不能像 runCatching 那样吞掉取消异常
+    private suspend fun <T> suggestCatching(block: suspend () -> T): Result<T> = try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
     override fun getHotSearches(): Flow<Result<List<HotSearch>>> = apiFlow(
         request = { apiService.getHotSearchDetail() },

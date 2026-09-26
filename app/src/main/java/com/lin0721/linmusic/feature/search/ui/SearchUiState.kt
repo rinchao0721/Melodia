@@ -30,9 +30,14 @@ sealed interface SearchResultsUiState {
     data class Error(val message: String) : SearchResultsUiState
 }
 
-// 搜索输入框与联想词状态
+enum class SearchMode { Discovery, Typing, Results }
+
+// suggestionQuery 为联想所属关键词，防止旧联想套在新输入上
 data class SearchInputState(
     val query: String = "",
-    val isSuggesting: Boolean = false,
-    val suggestions: List<SearchSuggestion> = emptyList()
-)
+    val suggestions: List<SearchSuggestion> = emptyList(),
+    val suggestionQuery: String = ""
+) {
+    val currentSuggestions: List<SearchSuggestion>
+        get() = if (suggestionQuery == query) suggestions else emptyList()
+}

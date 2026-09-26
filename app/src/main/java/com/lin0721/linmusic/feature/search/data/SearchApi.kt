@@ -10,6 +10,7 @@ import com.lin0721.linmusic.feature.search.data.dto.HotSearchDetailResponse
 import com.lin0721.linmusic.feature.search.data.dto.SearchDefaultResponse
 import com.lin0721.linmusic.feature.search.data.dto.SearchSuggestRequest
 import com.lin0721.linmusic.feature.search.data.dto.SearchSuggestResponse
+import com.lin0721.linmusic.feature.search.data.dto.SearchSuggestWebResponse
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -51,4 +52,10 @@ interface SearchApi {
     suspend fun getSearchSuggest(
         @Body body: SearchSuggestRequest
     ): SearchSuggestResponse
+
+    // 搜索联想实体：歌手/专辑等（真机核实：weapi）
+    @POST("/weapi/search/suggest/web")
+    suspend fun getSearchSuggestWeb(
+        @Body body: SearchSuggestRequest
+    ): SearchSuggestWebResponse
 }
