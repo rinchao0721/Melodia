@@ -29,6 +29,14 @@ fun Color.saturate(amount: Float): Color {
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
+// 只给有色 base 提饱和度：中性 base 只带 NEUTRAL_BASE_CHROMA 的轻微色调，提饱和度会放大成明显偏色；
+// 两个色度档位之间线性过渡，切歌渐变的中间色不跳变
+fun Color.saturateIfChromatic(amount: Float): Color {
+    val chroma = maxOf(red, green, blue) - minOf(red, green, blue)
+    val weight = ((chroma - NEUTRAL_BASE_CHROMA) / (MIN_BASE_CHROMA - NEUTRAL_BASE_CHROMA)).coerceIn(0f, 1f)
+    return saturate(amount * weight)
+}
+
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF282828)
 val SurfaceLight = Color(0xFF3E3E3E)

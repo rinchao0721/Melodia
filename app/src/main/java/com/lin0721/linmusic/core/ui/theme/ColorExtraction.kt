@@ -8,18 +8,21 @@ import androidx.core.graphics.drawable.toBitmap
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.core.ui.theme.vibrant.VibrantPalette
 import com.lin0721.linmusic.core.ui.theme.vibrant.VibrantSwatch
 import com.lin0721.linmusic.core.ui.theme.vibrant.defaultVibrantFilter
-import com.lin0721.linmusic.core.ui.theme.vibrant.generateVibrantPalette
+import com.lin0721.linmusic.core.ui.theme.vibrant.hslToRgb
 import com.lin0721.linmusic.core.ui.theme.vibrant.medianCutQuantize
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 private const val TAG = "ColorExtraction"
 
-// 全屏播放器背景色系统的唯一契约：swatches 是 node-vibrant 算法的完整 6 色板，
-// base/textHighlight 是从 swatches 派生出的、播放器 UI 直接消费的两个值
+// 全屏播放器背景色系统的唯一契约：base/textHighlight 是播放器 UI 直接消费的两个值
 data class PlayerBackdropPalette(
-    val swatches: VibrantPalette,
     val base: Color,
     val textHighlight: Color,
 )
@@ -30,14 +33,12 @@ data class PlayerBackdropPalette(
 private const val MEANINGFUL_CHROMA = 0.06f
 
 // 缓存未命中或取色异常时的兜底色板，迷你播放器与全屏播放器共用以保证配色一致
-private val EmptyVibrantPalette = VibrantPalette(null, null, null, null, null, null)
 val FallbackBackdropPalette = PlayerBackdropPalette(
-    swatches = EmptyVibrantPalette,
     base = FallbackBase,
     textHighlight = lerp(FallbackBase, Color.White, 0.85f),
 )
 
-// 取色算法对齐 node-vibrant 默认配置：64 色量化、quality=5 等比例降采样
+// 量化参数对齐 node-vibrant 默认配置：64 色量化、quality=5 等比例降采样
 private const val VIBRANT_COLOR_COUNT = 64
 private const val VIBRANT_QUALITY = 5
 
@@ -66,7 +67,7 @@ suspend fun extractBaseColorFromUrl(context: Context, url: String): Color {
     return extractBackdropPaletteFromUrl(context, url).base
 }
 
-// 内部核心逻辑：解码好的位图 → 按 quality 等比例降采样 → node-vibrant 量化+生成 6 色板 → 挑 base。
+// 内部核心逻辑：解码好的位图 → 按 quality 等比例降采样 → 中位切分量化 → 挑 base。
 // 只应由上面的 *FromUrl 系列调用，不要在业务代码里直接复用某个显示用 AsyncImage 的解码结果——
 // 那正是取色不一致的根源
 private fun extractBackdropPalette(drawable: android.graphics.drawable.Drawable): PlayerBackdropPalette {
@@ -79,21 +80,17 @@ private fun extractBackdropPalette(drawable: android.graphics.drawable.Drawable)
         val quantized = medianCutQuantize(pixels, VIBRANT_COLOR_COUNT, ::defaultVibrantFilter)
         if (quantized.isEmpty()) return FallbackBackdropPalette
 
-        // 灰阶判定放在 generator 之前：整张图都没有色度信号时，不让 generator 去矬子里拔将军——
-        // 它内部按 HSL 饱和度匹配区间，同一张纯白封面照样会被放大误导，选出一个"看起来鲜艳"的候选
+        // 整张图都没有色度信号时直接给纯灰，不带任何色调
         if (isGrayscaleSwatches(quantized)) {
             val base = grayscaleBaseColor(quantized)
             return PlayerBackdropPalette(
-                swatches = EmptyVibrantPalette,
                 base = base,
                 textHighlight = lerp(base, Color.White, 0.85f),
             )
         }
 
-        val palette = generateVibrantPalette(quantized)
-        val base = pickBaseColor(palette)
+        val base = pickBaseColor(quantized)
         PlayerBackdropPalette(
-            swatches = palette,
             base = base,
             textHighlight = lerp(base, Color.White, 0.85f),
         )
@@ -123,36 +120,104 @@ internal fun grayscaleBaseColor(swatches: List<VibrantSwatch>): Color {
     return Color(android.graphics.Color.HSVToColor(floatArrayOf(0f, 0f, lightness)))
 }
 
-// base 明度下限——DarkVibrant/DarkMuted 的目标明度只有 0.26，黑白基调的封面（比如乐队
-// 黑白硬照）落到这两个分类时，只要还有一丝色度、没触发整图灰阶判定，就会原样把这个很暗的
-// 颜色当 base，肉眼看基本就是纯黑。
+// 纸白与纯黑：封面留白/高光与暗部，不参与任何分组
+private const val PAPER_WHITE_LIGHTNESS = 0.9f
+private const val INK_BLACK_LIGHTNESS = 0.1f
+
+// 低于此色度的候选肉眼看就是白/灰（如 AIR 翅膀的淡灰蓝），归入中性组。
+// 暗色的色度上限天然随明度收窄（深藏青只有 0.09），明度低于 NEUTRAL_FULL_LIGHTNESS 时门槛按比例降低
+private const val NEUTRAL_CHROMA = 0.13f
+private const val NEUTRAL_FULL_LIGHTNESS = 0.5f
+
+// 彩色比灰白更抢眼，中性组面积须达到最大彩色组的这个倍数才胜出。
+// 实测封面比值在 1.45 与 1.71（AIR）之间有明显断层
+private const val NEUTRAL_WIN_RATIO = 1.6f
+
+// 色相分组半径，hsl[0] 取值 0..1
+private const val HUE_GROUP_RADIUS = 20f / 360f
+
+// 组内代表色偏向深色的程度，深色更适合做深色背景
+private const val DARK_PREFERENCE_POWER = 2
+
+// 最终 base 只保留色相，色度/明度统一钳到固定区间（区间取自 Spotify 实测背景色），
+// 避免高饱和封面过艳、低饱和封面发灰
+internal const val MIN_BASE_CHROMA = 0.15f
+private const val MAX_BASE_CHROMA = 0.30f
 private const val MIN_BASE_LIGHTNESS = 0.2f
+private const val MAX_BASE_LIGHTNESS = 0.5f
 
-// 提亮用线性 RGB 朝白混合，不走 HSL 色相重建——色度很低的候选，色相在极低色度下数值本身
-// 就不稳定，重建色相反而会把这点数值噪声放大成一个跟原图无关的颜色（比如黑白封面提亮后发蓝）
-private const val LOW_LIGHTNESS_LIFT_RATIO = 0.25f
+// 中性组胜出时只带一点封面整体色调
+internal const val NEUTRAL_BASE_CHROMA = 0.06f
 
-// node-vibrant 本身只产出 6 个平行分类，不产出"主色"，base 的优先级是 Melodia 自己定义的：
-// 鲜艳系优先于柔和系，同一系里正常明度优先于亮/暗变体
-internal fun pickBaseColor(palette: VibrantPalette): Color {
-    val candidates = listOfNotNull(
-        palette.vibrant, palette.lightVibrant, palette.darkVibrant,
-        palette.muted, palette.lightMuted, palette.darkMuted,
-    )
+// 规则对齐 Spotify 实测效果：面积最大的色系胜出（中性组按 NEUTRAL_WIN_RATIO 折算后与各彩色色相组比面积），
+// 胜出组里挑一个偏深的真实颜色取色相
+internal fun pickBaseColor(swatches: List<VibrantSwatch>): Color {
+    val candidates = swatches.filter {
+        it.population > 0 && it.hsl[2] >= INK_BLACK_LIGHTNESS && it.hsl[2] < PAPER_WHITE_LIGHTNESS
+    }
     if (candidates.isEmpty()) return FallbackBase
 
-    // 整图色度检查通过了才会走到这，但 generator 内部按 HSL 饱和度匹配区间，
-    // 仍可能选出一个色度依然很低的候选（同样的放大问题）——这里再用色度兜一层底
-    if (isGrayscaleSwatches(candidates)) {
-        return grayscaleBaseColor(candidates)
+    val (neutral, chromatic) = candidates.partition {
+        it.chroma < NEUTRAL_CHROMA * min(1f, it.hsl[2] / NEUTRAL_FULL_LIGHTNESS)
+    }
+    val neutralArea = neutral.sumOf { it.population }
+
+    var bestGroup = emptyList<VibrantSwatch>()
+    var bestArea = 0
+    for (seed in chromatic) {
+        val group = chromatic.filter { hueDistance(seed.hsl[0], it.hsl[0]) <= HUE_GROUP_RADIUS }
+        val area = group.sumOf { it.population }
+        if (area > bestArea) {
+            bestGroup = group
+            bestArea = area
+        }
     }
 
-    val chosen = candidates.first()
-    return if (chosen.hsl[2] < MIN_BASE_LIGHTNESS) {
-        lerp(chosen.rgb, Color.White, LOW_LIGHTNESS_LIFT_RATIO)
-    } else {
-        chosen.rgb
+    if (bestGroup.isEmpty() || neutralArea >= bestArea * NEUTRAL_WIN_RATIO) {
+        val lightness = neutral.sumOf { it.hsl[2].toDouble() * it.population }.toFloat() / neutralArea
+        val hue = weightedMeanHue(neutral)
+            ?: return lightness.coerceIn(MIN_BASE_LIGHTNESS, MAX_BASE_LIGHTNESS).let { Color(it, it, it) }
+        return normalizedColor(hue, NEUTRAL_BASE_CHROMA, lightness)
     }
+
+    val chosen = bestGroup.maxBy { swatch ->
+        var darkness = 1f
+        repeat(DARK_PREFERENCE_POWER) { darkness *= 1f - swatch.hsl[2] }
+        swatch.population * darkness
+    }
+    return normalizedColor(
+        chosen.hsl[0],
+        chosen.chroma.coerceIn(MIN_BASE_CHROMA, MAX_BASE_CHROMA),
+        chosen.hsl[2],
+    )
+}
+
+// 在 HSL 空间按目标色度反推饱和度：直接改明度而保持饱和度不变，会让压暗的浅色反而变艳
+private fun normalizedColor(hue: Float, chroma: Float, lightness: Float): Color {
+    val l = lightness.coerceIn(MIN_BASE_LIGHTNESS, MAX_BASE_LIGHTNESS)
+    val s = (chroma / (1f - abs(2f * l - 1f))).coerceIn(0f, 1f)
+    val (r, g, b) = hslToRgb(hue, s, l)
+    return Color(r, g, b)
+}
+
+// 色相是环形量，按面积×色度加权求向量平均；纯灰候选色相无意义，权重自然为 0
+private fun weightedMeanHue(swatches: List<VibrantSwatch>): Float? {
+    var x = 0.0
+    var y = 0.0
+    for (swatch in swatches) {
+        val weight = swatch.population.toDouble() * swatch.chroma
+        val angle = swatch.hsl[0] * 2.0 * PI
+        x += weight * cos(angle)
+        y += weight * sin(angle)
+    }
+    if (x == 0.0 && y == 0.0) return null
+    val hue = (atan2(y, x) / (2.0 * PI)).toFloat()
+    return if (hue < 0f) hue + 1f else hue
+}
+
+private fun hueDistance(a: Float, b: Float): Float {
+    val d = abs(a - b) % 1f
+    return min(d, 1f - d)
 }
 
 object PaletteMemoryCache {

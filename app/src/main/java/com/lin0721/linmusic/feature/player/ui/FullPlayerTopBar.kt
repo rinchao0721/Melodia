@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.darken
 
 // 播放页顶栏，仅在封面滚出视野后显示歌名与快捷操作
 @Composable
@@ -48,9 +47,7 @@ fun FullPlayerTopBar(
     onArtistClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // 跟 mini 栏同样的后处理：压暗后纯色铺底，不做光斑/模糊
-    val fillColor = remember(backgroundColor) { backgroundColor.darken(0.35f) }
-
+    // 与全屏背景顶部同色纯色铺底，不做光斑/模糊
     AnimatedVisibility(
         visible = showTitle,
         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { -it / 3 },
@@ -60,7 +57,7 @@ fun FullPlayerTopBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(fillColor)
+                .background(backgroundColor)
         ) {
             Row(
                 modifier = Modifier

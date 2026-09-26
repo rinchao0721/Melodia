@@ -5,7 +5,6 @@ import com.lin0721.linmusic.core.ui.theme.isGrayscaleSwatches
 import com.lin0721.linmusic.core.ui.theme.pickBaseColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,68 +66,102 @@ class VibrantPaletteTest {
         assertTrue(swatches.isEmpty())
     }
 
-    @Test
-    fun `generator对双色图像只标记真实命中的分类不合成假色`() {
-        val pixels = IntArray(400) { i -> if (i < 300) argb(230, 30, 30) else argb(30, 30, 230) }
-        val swatches = medianCutQuantize(pixels, 64, ::defaultVibrantFilter)
+    private fun hex(rgb: Int, population: Int) = VibrantSwatch(
+        androidx.compose.ui.graphics.Color(0xFF000000.toInt() or rgb),
+        population,
+    )
 
-        val palette = generateVibrantPalette(swatches)
-        assertNotNull(palette.vibrant)
-        // 两个候选饱和度都超过 Muted 上限、明度都落不进 Light/Dark 区间：
-        // 不再借用 Vibrant 的色相合成假的 Muted/LightVibrant/DarkVibrant，如实保持 null
-        assertNull(palette.muted)
-        assertNull(palette.lightVibrant)
-        assertNull(palette.darkVibrant)
+    private fun hslOf(color: androidx.compose.ui.graphics.Color) =
+        rgbToHsl((color.red * 255f).toInt(), (color.green * 255f).toInt(), (color.blue * 255f).toInt())
+
+    private fun chromaOf(color: androidx.compose.ui.graphics.Color) =
+        maxOf(color.red, color.green, color.blue) - minOf(color.red, color.green, color.blue)
+
+    private fun assertSameHue(expected: VibrantSwatch, actual: androidx.compose.ui.graphics.Color) {
+        assertEquals(expected.hsl[0], hslOf(actual)[0], 0.01f)
     }
 
     @Test
-    fun `base优先取Vibrant分类`() {
-        val vibrant = VibrantSwatch(androidx.compose.ui.graphics.Color(0.9f, 0.1f, 0.1f), 100)
-        val muted = VibrantSwatch(androidx.compose.ui.graphics.Color(0.4f, 0.35f, 0.3f), 50)
-        val palette = VibrantPalette(
-            vibrant = vibrant, lightVibrant = null, darkVibrant = null,
-            muted = muted, lightMuted = null, darkMuted = null,
-        )
-        assertEquals(vibrant.rgb, pickBaseColor(palette))
+    fun `大面积色系胜过小面积高饱和点缀`() {
+        val largeBrown = hex(0x966F41, 300)
+        val tinyVividPink = hex(0xDC6F93, 10)
+        assertSameHue(largeBrown, pickBaseColor(listOf(largeBrown, tinyVividPink)))
     }
 
     @Test
-    fun `六个候选饱和度都过低时base退化为中性灰`() {
-        fun lowSaturation(l: Float) = VibrantSwatch(
-            androidx.compose.ui.graphics.Color(l, l, l), 10,
-        )
-        val palette = VibrantPalette(
-            vibrant = lowSaturation(0.5f), lightVibrant = null, darkVibrant = null,
-            muted = lowSaturation(0.5f), lightMuted = null, darkMuted = null,
-        )
-        val base = pickBaseColor(palette)
-        assertEquals(base.red, base.green, 0.001f)
-        assertEquals(base.green, base.blue, 0.001f)
+    fun `胜出色系内偏向挑选深色的颜色`() {
+        // CLANNAD 实测：红色头发与肤色同属暖色组，面积更大的浅肤色不应胜过深红
+        val peach = hex(0xF0B08D, 81)
+        val red = hex(0x9E4848, 61)
+        val coral = hex(0xCA6556, 26)
+        assertSameHue(red, pickBaseColor(listOf(peach, red, coral)))
     }
 
     @Test
-    fun `空色板时base回退到FallbackBase`() {
-        val empty = VibrantPalette(null, null, null, null, null, null)
-        assertEquals(FallbackBase, pickBaseColor(empty))
+    fun `肉眼近白的淡色区域面积占优时base只带轻微色调`() {
+        // AIR 实测：淡灰蓝羽翼色度低于中性阈值，面积约为金发色系的 1.7 倍
+        val paleBlue = hex(0xCCD4EC, 100)
+        val paleBlue2 = hex(0xBFC8DE, 45)
+        val gold = hex(0xC28548, 84)
+        val base = pickBaseColor(listOf(paleBlue, paleBlue2, gold))
+        assertEquals(0.06f, chromaOf(base), 0.01f)
+        assertTrue("应带淡蓝色调，实际 rgb=(${base.red},${base.green},${base.blue})", base.blue > base.red)
     }
 
     @Test
-    fun `候选明度过低时自动提亮且不改变色相方向`() {
-        // 黑白基调封面常见的暗色候选：有色度（不会触发整图灰阶判定），但明度很低，
-        // 原样使用肉眼看基本就是纯黑
-        val darkRed = VibrantSwatch(androidx.compose.ui.graphics.Color(40 / 255f, 10 / 255f, 10 / 255f), 100)
-        val palette = VibrantPalette(
-            vibrant = darkRed, lightVibrant = null, darkVibrant = null,
-            muted = null, lightMuted = null, darkMuted = null,
-        )
-        val base = pickBaseColor(palette)
-        val hsl = rgbToHsl((base.red * 255f).toInt(), (base.green * 255f).toInt(), (base.blue * 255f).toInt())
+    fun `灰白面积仅略大于彩色时仍取彩色`() {
+        // 红白对半封面实测：灰白 0.37 对红色 0.32
+        val gray = hex(0xC4C4C4, 37)
+        val red = hex(0xA02D26, 32)
+        assertSameHue(red, pickBaseColor(listOf(gray, red)))
+    }
 
-        assertTrue("提亮后明度应该比原来的 0.098 明显更高", hsl[2] > 0.098f + 0.1f)
-        // 用线性 RGB 朝白混合而不是重建 HSL 色相：验证红色分量依然是三个通道里最高的，
-        // 没有在提亮过程中变成别的颜色（这正是之前用 hslToRgb 重建色相导致"变蓝"的回归点）
-        assertTrue("提亮后应该还是偏红，不能变成别的颜色，实际 rgb=(${base.red},${base.green},${base.blue})",
-            base.red > base.green && base.red > base.blue)
+    @Test
+    fun `纯灰中性组输出无色相的灰`() {
+        val base = pickBaseColor(listOf(hex(0x808080, 100), hex(0xC28548, 10)))
+        assertEquals(base.red, base.green, 0.002f)
+        assertEquals(base.green, base.blue, 0.002f)
+    }
+
+    @Test
+    fun `高饱和浅色压到区间内且色相不变不会变艳`() {
+        // 風の夢实测：淡粉底色压明度时不能被放大成大红
+        val lightPink = hex(0xF4ACAC, 100)
+        val base = pickBaseColor(listOf(lightPink))
+        assertEquals(0.5f, hslOf(base)[2], 0.01f)
+        assertTrue(chromaOf(base) <= 0.30f + 0.01f)
+        assertSameHue(lightPink, base)
+    }
+
+    @Test
+    fun `低饱和暗色提到区间内且色相不变`() {
+        val darkBrown = hex(0x391F19, 100)
+        val base = pickBaseColor(listOf(darkBrown))
+        assertEquals(0.2f, hslOf(base)[2], 0.01f)
+        assertTrue(chromaOf(base) >= 0.15f - 0.01f)
+        assertSameHue(darkBrown, base)
+    }
+
+    @Test
+    fun `暗色低色度候选不被误判为中性且纯黑不参与分组`() {
+        // 暗色封面实测：暗褐色度只有 0.11，按绝对色度门槛会被当成灰
+        val darkBrown = hex(0x2F2614, 100)
+        val gray = hex(0x808080, 60)
+        val black = hex(0x040404, 1000)
+        assertSameHue(darkBrown, pickBaseColor(listOf(darkBrown, gray, black)))
+    }
+
+    @Test
+    fun `纸白不参与分组`() {
+        val paper = hex(0xFCFCF4, 1000)
+        val red = hex(0x9E4848, 10)
+        assertSameHue(red, pickBaseColor(listOf(paper, red)))
+    }
+
+    @Test
+    fun `无候选时base回退到FallbackBase`() {
+        assertEquals(FallbackBase, pickBaseColor(emptyList()))
+        assertEquals(FallbackBase, pickBaseColor(listOf(hex(0xFCFCFC, 100))))
     }
 
     @Test
@@ -145,8 +178,7 @@ class VibrantPaletteTest {
         // 色度判定不应该被上面那种放大误导，仍然正确识别为灰阶信号
         assertTrue(isGrayscaleSwatches(swatches))
 
-        val palette = generateVibrantPalette(swatches)
-        val base = pickBaseColor(palette)
+        val base = pickBaseColor(swatches)
         assertEquals(base.red, base.green, 0.001f)
         assertEquals(base.green, base.blue, 0.001f)
     }

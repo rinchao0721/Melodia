@@ -120,7 +120,7 @@ fun MiniPlayerCard(
         }
     }
 
-    // 平滑过渡背景色变化；base 取自 Vibrant，本身偏亮，卡片背景需要压暗一档才不会太扎眼。
+    // 平滑过渡背景色变化；卡片背景在 base 基础上再压暗一档才不会太扎眼。
     // 平板宽屏下悬浮在深色页面背景上，压暗幅度收窄一档，避免浅色封面取色后和背景融在一起
     val animatedBase by animateColorAsState(
         targetValue = colorPalette.base,

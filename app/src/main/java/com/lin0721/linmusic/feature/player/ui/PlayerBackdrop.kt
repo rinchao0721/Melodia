@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.saturate
+import com.lin0721.linmusic.core.ui.theme.saturateIfChromatic
 
 enum class BackdropMode { Collapsed, Immersive }
 
@@ -92,8 +92,8 @@ fun PlayerBackdrop(
             )
             val gradientEndY = with(density) { gradientEndYDp.dp.toPx() }
 
-            // 跟歌单页顶栏/搜索栏/大封面渐变同一套处理：base 直接用太亮，先压暗一档
-            val fillColor = remember(base) { base.darken(0.35f) }
+            // base 本身已偏深且明度有上限，直接铺底不再压暗
+            val fillColor = base
 
             Box(
                 modifier = modifier
@@ -145,7 +145,7 @@ fun PlayerBackdrop(
                 label = "dark_radius"
             )
 
-            val vividBase = remember(base) { base.saturate(0.6f) }
+            val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
             val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
             val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
 

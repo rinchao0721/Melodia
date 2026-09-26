@@ -30,7 +30,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.lighten
-import com.lin0721.linmusic.core.ui.theme.saturate
+import com.lin0721.linmusic.core.ui.theme.saturateIfChromatic
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 
@@ -90,12 +90,12 @@ fun LyricsCard(
         label = "dark_radius"
     )
 
-    val vividBase = remember(base) { base.saturate(0.6f) }
+    val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
     val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
     val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
     // 未唱到的歌词颜色跟全屏歌词页的 textHighlight 用同一套配方，背景用的 vividBase 幅度较小，
     // 文字这里单独再提一档饱和度+明度，不然混完白会发灰
-    val textVividBase = remember(base) { base.saturate(0.8f).lighten(1.0f) }
+    val textVividBase = remember(base) { base.saturateIfChromatic(0.8f).lighten(1.0f) }
     val inactiveLyricColor = remember(textVividBase) { lerp(textVividBase, Color.White, 0.5f) }
 
     // 当前行实际换行数，由 LyricsPreview 里当前行 Text 的 onTextLayout 回报，用来动态撑高预览区
