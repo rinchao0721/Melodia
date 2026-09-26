@@ -72,6 +72,7 @@ data class PlayerSongDetailState(
     val isLyricsLoading: Boolean = false,
     val songWiki: SongWikiData? = null,
     val isSongWikiLoading: Boolean = false,
+    val chorusStartMs: Long? = null,
     val similarArtists: List<ArtistInfo> = emptyList(),
     val isSimilarArtistsLoading: Boolean = false,
     val artistAlbums: List<ArtistAlbum> = emptyList(),
@@ -309,6 +310,7 @@ class PlayerViewModel(
                             launch { loadLyrics(songId) }
                             launch { loadSongDetail(songId) }
                             launch { loadSongWiki(songId) }
+                            launch { loadChorus(songId) }
                             launch { commentsController.load("R_SO_4_$songId") }
                         }
                     }
@@ -393,6 +395,14 @@ class PlayerViewModel(
             _songDetailState.update { it.copy(songWiki = result.getOrNull()) }
         }
         _songDetailState.update { it.copy(isSongWikiLoading = false) }
+    }
+
+    // 本地歌曲 id 为负
+    private suspend fun loadChorus(songId: Long) {
+        if (songId <= 0L) return
+        playerRepository.getChorusStartTime(songId).collect { result ->
+            _songDetailState.update { it.copy(chorusStartMs = result.getOrNull()) }
+        }
     }
 
     private suspend fun loadSimilarArtists(artistId: Long) {

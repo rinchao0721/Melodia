@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,7 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
+import com.lin0721.linmusic.feature.player.domain.SongMusicMemory
 import com.lin0721.linmusic.feature.player.domain.SongWikiCreatorRole
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
@@ -51,7 +53,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 fun SongDetailCard(
     songWiki: SongWikiData?,
     songDetail: Track?,
-    cardColor: Color
+    cardColor: Color,
+    onAlbumClick: (Long) -> Unit = {}
 ) {
     var showCreatorsSheet by remember { mutableStateOf(false) }
 
@@ -95,7 +98,14 @@ fun SongDetailCard(
 
                     val albumName = songWiki.album.ifEmpty { songDetail?.al?.name.orEmpty() }
                     if (albumName.isNotEmpty()) {
-                        SongDetailRow(label = "专辑", value = albumName)
+                        val albumId = songDetail?.al?.id ?: 0L
+                        SongDetailRow(
+                            label = "专辑",
+                            value = albumName,
+                            onClick = if (albumId > 0L) {
+                                { onAlbumClick(albumId) }
+                            } else null
+                        )
                     }
 
                     if (songWiki.language.isNotEmpty()) {
@@ -121,19 +131,14 @@ fun SongDetailCard(
                         SongDetailRow(label = "影综", value = songWiki.entertainment)
                     }
 
-                    if (songWiki.background.isNotEmpty()) {
-                        SongDetailRow(
-                            label = "歌曲背景",
-                            value = songWiki.background,
-                            maxLines = 15
-                        )
-                    }
-
                     if (songWiki.awards.isNotEmpty()) {
                         SongDetailRow(
-                            label = "所获奖项",
-                            value = songWiki.awards,
-                            maxLines = 15
+                            label = "获奖成就",
+                            value = songWiki.awards.joinToString(" / "),
+                            maxLines = 15,
+                            supportingText = if (songWiki.awardTotal > songWiki.awards.size) {
+                                "共 ${songWiki.awardTotal} 项"
+                            } else null
                         )
                     }
 
@@ -160,6 +165,64 @@ fun SongDetailCard(
         }
     }
 }
+
+@Composable
+fun MusicMemoryCard(
+    memory: SongMusicMemory,
+    cardColor: Color
+) {
+    val emphasis = SpanStyle(color = Color.White, fontWeight = FontWeight.Medium)
+    val text = remember(memory) { buildMusicMemoryText(memory, emphasis) }
+    if (text.isEmpty()) return
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+        shape = RoundedCornerShape(InfoCardRadius),
+        color = cardColor
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "回忆坐标",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = text,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                lineHeight = 24.sp
+            )
+        }
+    }
+}
+
+// 日期只取「2026.08.06 22:39」的日期部分，时刻由 period 表达
+internal fun buildMusicMemoryText(memory: SongMusicMemory, emphasis: SpanStyle): AnnotatedString =
+    buildAnnotatedString {
+        val date = memory.firstListenDate.substringBefore(' ').trim()
+        if (date.isNotEmpty()) {
+            append(date)
+            val moment = listOf(memory.season, memory.period)
+                .filter { it.isNotEmpty() }
+                .joinToString("的")
+            if (moment.isNotEmpty()) {
+                append("，一个")
+                withStyle(emphasis) { append(moment) }
+            }
+            append("，你第一次听到这首歌。")
+        }
+        if (memory.playCount > 0) {
+            append(if (date.isNotEmpty()) "至今播放 " else "这首歌你已播放 ")
+            withStyle(emphasis) { append("${memory.playCount} 次") }
+            val analogy = memory.playCountText.trimEnd('。', '，', '！', '.', ',', '!')
+            if (analogy.isNotEmpty()) append("，$analogy")
+            append("。")
+        }
+    }
 
 // "制作"详情面板：按角色分组展示词曲编曲等制作人员
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,6 +292,7 @@ fun SongDetailRow(
     value: String,
     showChevron: Boolean = false,
     maxLines: Int = 3,
+    supportingText: String? = null,
     onClick: (() -> Unit)? = null
 ) {
     Row(
@@ -246,15 +310,24 @@ fun SongDetailRow(
             modifier = Modifier.width(70.dp)
         )
 
-        Text(
-            text = value,
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (supportingText != null) {
+                Text(
+                    text = supportingText,
+                    color = TextGray.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
 
         if (showChevron) {
             Icon(

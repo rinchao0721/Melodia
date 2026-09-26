@@ -10,12 +10,23 @@ data class SongWikiData(
     val creators: String = "",
     val creatorRoles: List<SongWikiCreatorRole> = emptyList(),
     val entertainment: String = "",
-    val background: String = "",
-    val awards: String = ""
+    val awards: List<String> = emptyList(),
+    // 可能多于 awards 实际列出的条数
+    val awardTotal: Int = 0,
+    val musicMemory: SongMusicMemory? = null
 )
 
 // 制作人员单个角色（如"作词"）及其对应的艺人名单
 data class SongWikiCreatorRole(
     val roleName: String,
     val artistNames: List<String>
+)
+
+// 回忆坐标，缺失项为空串或 0
+data class SongMusicMemory(
+    val firstListenDate: String,
+    val season: String,
+    val period: String,
+    val playCount: Int,
+    val playCountText: String
 )

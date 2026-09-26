@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
+import com.lin0721.linmusic.feature.player.domain.SongMusicMemory
 import com.lin0721.linmusic.feature.player.domain.SongWikiCreatorRole
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import kotlinx.coroutines.async
@@ -36,6 +37,17 @@ class PlayerRepositoryImpl(
         isSuccess = { it.isSuccess },
         code = { it.code },
         transform = { it.songs }
+    )
+
+    override fun getChorusStartTime(songId: Long): Flow<Result<Long?>> = apiFlow(
+        request = { apiService.getSongChorus(SongChorusRequest(ids = "[$songId]")) },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { response ->
+            response.chorus
+                .filter { it.id == songId && it.startTime > 0L }
+                .minOfOrNull { it.startTime }
+        }
     )
 
     // 获取合并后的歌曲详情与百科信息
@@ -84,8 +96,9 @@ class PlayerRepositoryImpl(
             var language = ""
             var bpm = ""
             var entertainment = ""
-            var background = ""
-            var awards = ""
+            var awards = emptyList<String>()
+            var awardTotal = 0
+            var musicMemory: SongMusicMemory? = null
 
             // 解析百科简要信息中的 Block 列表
             wikiResult?.data?.blocks?.forEach { block ->
@@ -108,39 +121,17 @@ class PlayerRepositoryImpl(
                                     .filter { it.isNotEmpty() }
                                     .joinToString(" / ")
                             }
-                        }
-                    }
-                } else if (block.code == "SONG_PLAY_ABOUT_WIKI") {
-                    // 解析歌曲百科模块，提取歌曲背景描述以及所获奖项/荣誉
-                    block.creatives.forEach { creative ->
-                        val creativeType = creative.creativeType
-                        val creativeTitle = creative.uiElement?.mainTitle?.title ?: ""
-
-                        val descriptions = mutableListOf<String>()
-                        creative.uiElement?.descriptions?.forEach { desc ->
-                            if (desc.description.isNotEmpty()) {
-                                descriptions.add(desc.description)
-                            }
-                        }
-                        creative.resources.forEach { res ->
-                            res.uiElement?.descriptions?.forEach { desc ->
-                                if (desc.description.isNotEmpty()) {
-                                    descriptions.add(desc.description)
-                                }
-                            }
-                        }
-                        val contentText = descriptions.joinToString("\n")
-
-                        if (creativeType == "background" || creativeTitle.contains("背景") || creativeTitle.contains("故事")) {
-                            if (contentText.isNotEmpty()) {
-                                background = contentText
-                            }
-                        } else if (creativeType == "awards" || creativeTitle.contains("奖项") || creativeTitle.contains("获奖") || creativeTitle.contains("荣誉") || creativeTitle.contains("排行")) {
-                            if (contentText.isNotEmpty()) {
-                                awards = contentText
+                            "songAward" -> {
+                                awards = creative.resources.mapNotNull { it.uiElement?.mainTitle?.title }
+                                    .filter { it.isNotEmpty() }
+                                awardTotal = creative.uiElement?.buttons?.firstOrNull()?.text
+                                    ?.filter { it.isDigit() }
+                                    ?.toIntOrNull() ?: 0
                             }
                         }
                     }
+                } else if (block.code == "SONG_PLAY_ABOUT_MUSIC_MEMORY") {
+                    musicMemory = parseMusicMemory(block)
                 }
             }
 
@@ -162,8 +153,9 @@ class PlayerRepositoryImpl(
                     creators = creatorsStr,
                     creatorRoles = creatorRoles,
                     entertainment = entertainment,
-                    background = background,
-                    awards = awards
+                    awards = awards,
+                    awardTotal = awardTotal,
+                    musicMemory = musicMemory
                 )
             ))
         }
@@ -171,4 +163,23 @@ class PlayerRepositoryImpl(
         AppLogger.e(TAG, "getSongWiki 请求异常 songId=$songId", e)
         emit(Result.failure(mapToAppError(e)))
     }
+}
+
+// 首次收听与累计播放都缺失时返回 null，卡片不展示
+internal fun parseMusicMemory(block: SongWikiBlock): SongMusicMemory? {
+    val resources = block.creatives.flatMap { it.resources }
+    val firstListen = resources.firstOrNull { it.resourceType == "FIRST_LISTEN" }
+        ?.resourceExt?.musicFirstListenDto
+    val totalPlay = resources.firstOrNull { it.resourceType == "TOTAL_PLAY" }
+        ?.resourceExt?.musicTotalPlayDto
+    val date = firstListen?.date?.trim().orEmpty()
+    val playCount = totalPlay?.playCount?.coerceAtLeast(0) ?: 0
+    if (date.isEmpty() && playCount == 0) return null
+    return SongMusicMemory(
+        firstListenDate = date,
+        season = firstListen?.season?.trim().orEmpty(),
+        period = firstListen?.period?.trim().orEmpty(),
+        playCount = playCount,
+        playCountText = totalPlay?.text?.trim().orEmpty()
+    )
 }

@@ -24,6 +24,12 @@ interface PlayerApi {
     suspend fun getSongCreators(
         @Body body: SongCreatorsRequest
     ): SongCreatorsResponse
+
+    // 获取副歌时间段（公开接口）
+    @POST("/eapi/song/chorus")
+    suspend fun getSongChorus(
+        @Body body: SongChorusRequest
+    ): SongChorusResponse
 }
 
 // ======================= 歌曲详情 DTO =======================
@@ -77,6 +83,9 @@ data class SongWikiCreative(
 
 @Serializable
 data class SongWikiResource(
+    // 回忆坐标里区分 FIRST_LISTEN / TOTAL_PLAY
+    val resourceType: String = "",
+    val resourceExt: SongWikiResourceExt? = null,
     val uiElement: SongWikiUiElement? = null
 )
 
@@ -84,7 +93,34 @@ data class SongWikiResource(
 data class SongWikiUiElement(
     val mainTitle: SongWikiMainTitle? = null,
     val textLinks: List<SongWikiTextLink> = emptyList(),
-    val descriptions: List<SongWikiDescription> = emptyList() // 百科描述列表，用于提取歌曲背景、所获奖项等
+    // 获奖成就的按钮文案是总数，如「3项」
+    val buttons: List<SongWikiButton> = emptyList()
+)
+
+@Serializable
+data class SongWikiButton(
+    val text: String = ""
+)
+
+@Serializable
+data class SongWikiResourceExt(
+    val musicFirstListenDto: MusicFirstListenDto? = null,
+    val musicTotalPlayDto: MusicTotalPlayDto? = null
+)
+
+// date 形如「2026.08.06 22:39」，season/period 如「夏末」「深夜」
+@Serializable
+data class MusicFirstListenDto(
+    val date: String = "",
+    val season: String = "",
+    val period: String = ""
+)
+
+// text 是服务端的类比文案，如「如同看了3600字的诗」
+@Serializable
+data class MusicTotalPlayDto(
+    val playCount: Int = 0,
+    val text: String = ""
 )
 
 @Serializable
@@ -95,11 +131,6 @@ data class SongWikiMainTitle(
 @Serializable
 data class SongWikiTextLink(
     val text: String = ""
-)
-
-@Serializable
-data class SongWikiDescription(
-    val description: String = "" // 具体的描述内容文本
 )
 
 // ======================= 歌曲创作者 DTO =======================
@@ -131,4 +162,28 @@ data class SongCreatorRole(
 @Serializable
 data class CreatorMeta(
     val artistName: String = ""
+)
+
+// ======================= 副歌时间 DTO =======================
+
+// ids 是 JSON 数组的字符串形式，如 "[186016]"
+@Serializable
+data class SongChorusRequest(
+    val ids: String
+)
+
+@Serializable
+data class SongChorusResponse(
+    val code: Int = 0,
+    val chorus: List<SongChorusItem> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+// startTime/endTime 单位毫秒
+@Serializable
+data class SongChorusItem(
+    val id: Long = 0L,
+    val startTime: Long = 0L,
+    val endTime: Long = 0L
 )

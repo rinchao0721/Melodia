@@ -119,7 +119,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
         ProgressSection(
             currentPositionProvider = currentPositionProvider,
             duration = displayDuration,
-            onSeek = onSeek
+            onSeek = onSeek,
+            chorusStartMs = songState.chorusStartMs
         )
     }
 

@@ -543,7 +543,8 @@ fun FullPlayerScreen(
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
                         duration = if (duration > 0L) duration else (songDetail?.dt ?: 0L),
-                        onSeek = onSeek
+                        onSeek = onSeek,
+                        chorusStartMs = songDetailState.chorusStartMs
                     )
                     PlaybackControls(
                         isPlaying = playWhenReady,

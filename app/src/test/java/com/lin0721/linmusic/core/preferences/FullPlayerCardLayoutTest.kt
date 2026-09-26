@@ -18,6 +18,7 @@ class FullPlayerCardLayoutTest {
             FullPlayerCardSetting(FullPlayerCard.COMMENTS_PREVIEW, visible = false),
             FullPlayerCardSetting(FullPlayerCard.LYRICS, visible = true),
             FullPlayerCardSetting(FullPlayerCard.SONG_DETAIL, visible = false),
+            FullPlayerCardSetting(FullPlayerCard.MUSIC_MEMORY, visible = false),
             FullPlayerCardSetting(FullPlayerCard.ARTIST_ALBUMS, visible = true),
             FullPlayerCardSetting(FullPlayerCard.ABOUT_ARTIST, visible = true)
         )
@@ -31,6 +32,7 @@ class FullPlayerCardLayoutTest {
             FullPlayerCardSetting(FullPlayerCard.SONG_DETAIL, visible = false),
             FullPlayerCardSetting(FullPlayerCard.LYRICS, visible = true),
             FullPlayerCardSetting(FullPlayerCard.COMMENTS_PREVIEW, visible = true),
+            FullPlayerCardSetting(FullPlayerCard.MUSIC_MEMORY, visible = true),
             FullPlayerCardSetting(FullPlayerCard.ABOUT_ARTIST, visible = true),
             FullPlayerCardSetting(FullPlayerCard.ARTIST_ALBUMS, visible = true),
             FullPlayerCardSetting(FullPlayerCard.SIMILAR_ARTISTS, visible = true)

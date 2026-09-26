@@ -5,6 +5,7 @@ enum class FullPlayerCard(val key: String, val title: String) {
     LYRICS("lyrics", "歌词"),
     COMMENTS_PREVIEW("comments_preview", "评论"),
     SONG_DETAIL("song_detail", "歌曲百科"),
+    MUSIC_MEMORY("music_memory", "回忆坐标"),
     ABOUT_ARTIST("about_artist", "关于艺人"),
     ARTIST_ALBUMS("artist_albums", "艺人专辑"),
     SIMILAR_ARTISTS("similar_artists", "相似艺人");

@@ -42,6 +42,7 @@ private fun visibleInfoCards(
         FullPlayerCard.LYRICS -> Pair(!songState.isLyricsLoading, lyrics.isNotEmpty() && !isPureMusic)
         FullPlayerCard.COMMENTS_PREVIEW -> Pair(commentsState !is CommentsState.Loading, true)
         FullPlayerCard.SONG_DETAIL -> Pair(!songState.isSongWikiLoading, songState.songWiki != null)
+        FullPlayerCard.MUSIC_MEMORY -> Pair(!songState.isSongWikiLoading, songState.songWiki?.musicMemory != null)
         FullPlayerCard.ABOUT_ARTIST -> Pair(
             !songState.isArtistDetailLoading,
             songState.artistDetail != null || songState.artists.any { it.artistDetail != null }
@@ -60,7 +61,7 @@ private fun visibleInfoCards(
     return VisibleInfoCards(cards, allSettled = true)
 }
 
-// 播放器信息区（竖排）：歌词卡、评论预览、歌曲详情、歌手简介、歌手专辑、相似歌手，按用户配置排序
+// 播放器信息区（竖排）：歌词卡、评论预览、歌曲详情、回忆坐标、歌手简介、歌手专辑、相似歌手，按用户配置排序
 fun LazyListScope.fullPlayerInfoSection(
     songState: PlayerSongDetailState,
     colors: PlayerBackdropPalette,
@@ -214,8 +215,15 @@ private fun FullPlayerInfoCard(
         FullPlayerCard.SONG_DETAIL -> SongDetailCard(
             songWiki = songState.songWiki,
             songDetail = songState.songDetail,
-            cardColor = MaterialTheme.colorScheme.surface
+            cardColor = MaterialTheme.colorScheme.surface,
+            onAlbumClick = onAlbumClick
         )
+        FullPlayerCard.MUSIC_MEMORY -> songState.songWiki?.musicMemory?.let { memory ->
+            MusicMemoryCard(
+                memory = memory,
+                cardColor = MaterialTheme.colorScheme.surface
+            )
+        }
         FullPlayerCard.ABOUT_ARTIST -> {
             val artistDetail = songState.artistDetail
             if (songState.artists.isNotEmpty()) {

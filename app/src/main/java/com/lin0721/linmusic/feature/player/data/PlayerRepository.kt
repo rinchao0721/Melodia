@@ -14,4 +14,7 @@ interface PlayerRepository {
 
     // 获取合并后的歌曲详情与百科信息
     fun getSongWiki(songId: Long): Flow<Result<SongWikiData>>
+
+    // 第一段副歌的起始时间（毫秒），没有副歌数据时为 null
+    fun getChorusStartTime(songId: Long): Flow<Result<Long?>>
 }
