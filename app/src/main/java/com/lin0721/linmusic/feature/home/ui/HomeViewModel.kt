@@ -15,7 +15,7 @@ import com.lin0721.linmusic.feature.home.data.PersonalizedData
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
-import com.lin0721.linmusic.R
+import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -187,7 +187,7 @@ class HomeViewModel(
             } else {
                 Result.failure(
                     blockPageResult.exceptionOrNull()
-                        ?: RuntimeException(resourceProvider.getString(R.string.app_error_biz_default))
+                        ?: RuntimeException(resourceProvider.getString(AppString.ErrorBizDefault))
                 )
             }
         }

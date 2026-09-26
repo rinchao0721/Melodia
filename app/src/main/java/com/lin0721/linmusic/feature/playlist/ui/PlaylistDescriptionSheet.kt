@@ -63,10 +63,11 @@ fun PlaylistDescriptionSheet(
                         fontWeight = FontWeight.Bold,
                         maxLines = 2
                     )
-                    if (playlist.creator != null && playlist.creator.nickname.isNotBlank()) {
+                    val creator = playlist.creator
+                    if (creator != null && creator.nickname.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = playlist.creator.nickname,
+                            text = creator.nickname,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             maxLines = 1

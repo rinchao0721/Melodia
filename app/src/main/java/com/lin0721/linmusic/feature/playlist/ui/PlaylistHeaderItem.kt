@@ -168,8 +168,9 @@ fun PlaylistHeaderItem(
                     } else if (playlist.id == -2L) {
                         Text("网易云个人听歌记录统计", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     } else {
-                        val creatorModifier = if (playlist.creator != null && playlist.creator.userId > 0L) {
-                            Modifier.clickable { onCreatorClick(playlist.creator.userId) }
+                        val creator = playlist.creator
+                        val creatorModifier = if (creator != null && creator.userId > 0L) {
+                            Modifier.clickable { onCreatorClick(creator.userId) }
                         } else {
                             Modifier
                         }
@@ -177,26 +178,27 @@ fun PlaylistHeaderItem(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = creatorModifier
                         ) {
-                            if (playlist.creator != null) {
+                            if (creator != null) {
                                 AsyncImage(
-                                    model = "${playlist.creator.avatarUrl}?param=50y50",
+                                    model = "${creator.avatarUrl}?param=50y50",
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(20.dp)
                                         .clip(CircleShape)
                                 )
                                 Spacer(Modifier.width(6.dp))
-                                Text(playlist.creator.nickname, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text(creator.nickname, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             } else {
                                 Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text("为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         }
-                        if (!playlist.description.isNullOrBlank()) {
+                        val description = playlist.description
+                        if (!description.isNullOrBlank()) {
                             Spacer(Modifier.height(MelodiaSpacing.xs))
                             Text(
-                                text = playlist.description,
+                                text = description,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 maxLines = 2,

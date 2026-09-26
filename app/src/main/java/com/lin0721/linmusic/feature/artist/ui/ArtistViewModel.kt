@@ -17,6 +17,7 @@ import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
+import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import kotlinx.coroutines.async
@@ -139,7 +140,7 @@ class ArtistViewModel(
                 } else {
                     val err = (detailResult.exceptionOrNull() ?: topSongsResult.exceptionOrNull())
                         ?.toUserMessage(resourceProvider)
-                        ?: resourceProvider.getString(com.lin0721.linmusic.R.string.app_error_biz_default)
+                        ?: resourceProvider.getString(AppString.ErrorBizDefault)
                     _uiState.value = ArtistUiState.Error(err)
                 }
             } catch (e: Exception) {

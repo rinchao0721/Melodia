@@ -2,9 +2,9 @@ package com.lin0721.linmusic.feature.podcast.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlayerManager
@@ -70,7 +70,7 @@ class PodcastViewModel(
                 if (programs == null) {
                     _uiState.value = PodcastUiState.Error(
                         programsResult.exceptionOrNull()?.toUserMessage(resourceProvider)
-                            ?: resourceProvider.getString(R.string.app_error_biz_default)
+                            ?: resourceProvider.getString(AppString.ErrorBizDefault)
                     )
                     return@launch
                 }

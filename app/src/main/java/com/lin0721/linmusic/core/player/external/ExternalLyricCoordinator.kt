@@ -291,11 +291,13 @@ class ExternalLyricCoordinator(
             .setAlbum(originalAlbum)
             .setLyric(lyricLine)
 
-        if (isShowTranslation && !line.translation.isNullOrBlank()) {
-            data.setTranslation(SuperLyricLine(line.translation, line.timeMs, lineEndTime))
+        val translation = line.translation
+        if (isShowTranslation && !translation.isNullOrBlank()) {
+            data.setTranslation(SuperLyricLine(translation, line.timeMs, lineEndTime))
         }
-        if (!line.roma.isNullOrBlank()) {
-            data.setSecondary(SuperLyricLine(line.roma, line.timeMs, lineEndTime))
+        val roma = line.roma
+        if (!roma.isNullOrBlank()) {
+            data.setSecondary(SuperLyricLine(roma, line.timeMs, lineEndTime))
         }
 
         SuperLyricHelper.sendLyric(data)

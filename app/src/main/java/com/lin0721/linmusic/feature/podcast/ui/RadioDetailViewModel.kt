@@ -2,8 +2,8 @@ package com.lin0721.linmusic.feature.podcast.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlayerManager
@@ -58,7 +58,7 @@ class RadioDetailViewModel(
                 if (detail == null) {
                     _uiState.value = RadioDetailUiState.Error(
                         detailResult.exceptionOrNull()?.toUserMessage(resourceProvider)
-                            ?: resourceProvider.getString(R.string.app_error_biz_default)
+                            ?: resourceProvider.getString(AppString.ErrorBizDefault)
                     )
                     return@launch
                 }
@@ -130,7 +130,7 @@ class RadioDetailViewModel(
                 _uiState.value = latest.copy(isSubscribing = false)
                 _toastEvent.emit(
                     result?.exceptionOrNull()?.toUserMessage(resourceProvider)
-                        ?: resourceProvider.getString(R.string.app_error_biz_default)
+                        ?: resourceProvider.getString(AppString.ErrorBizDefault)
                 )
             }
         }

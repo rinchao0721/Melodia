@@ -9,8 +9,10 @@ import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
+import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
+import com.lin0721.linmusic.core.log.init
 import com.lin0721.linmusic.core.update.UpdateManager
 import com.lin0721.linmusic.di.downloadModule
 import com.lin0721.linmusic.di.localModule
@@ -40,6 +42,7 @@ class MelodiaApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // 尽早初始化，覆盖 Koin/Coil 启动阶段的崩溃与日志
+        AppEnvironment.isDebug = BuildConfig.DEBUG
         AppLogger.init(this)
         CrashHandler.init(this)
 
