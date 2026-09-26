@@ -124,6 +124,7 @@ dependencies {
 
     // Image loading - Coil
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     // Media3 & Media
     implementation(libs.androidx.media3.exoplayer)

@@ -13,9 +13,10 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.ServiceCompat
 import androidx.core.content.IntentCompat
-import androidx.core.graphics.drawable.toBitmap
-import coil.imageLoader
-import coil.request.ImageRequest
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.recognition.data.RecognitionHistoryPreferences
 import com.lin0721.linmusic.feature.recognition.data.RecognitionPreferences
@@ -169,7 +170,7 @@ class PlaybackRecognitionService : Service() {
                 .data("$url?param=200y200")
                 .allowHardware(false)
                 .build()
-            imageLoader.execute(request).drawable?.toBitmap()
+            imageLoader.execute(request).image?.toBitmap()
         }.onFailure { AppLogger.w(TAG, "通知封面加载失败", it) }.getOrNull()
     }
 

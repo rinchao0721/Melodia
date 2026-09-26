@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
@@ -29,8 +28,10 @@ import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
-import coil.Coil
-import coil.request.ImageRequest
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
 import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -100,10 +101,10 @@ class MelodiaPlaybackService : MediaSessionService() {
                     .data(coverUri)
                     .allowHardware(false)
                     .build()
-                val result = Coil.imageLoader(this@MelodiaPlaybackService).execute(request)
-                val drawable = result.drawable
-                if (drawable is BitmapDrawable) {
-                    currentCoverBitmap = drawable.bitmap
+                val result = SingletonImageLoader.get(this@MelodiaPlaybackService).execute(request)
+                val bitmap = result.image?.toBitmap()
+                if (bitmap != null) {
+                    currentCoverBitmap = bitmap
                     withContext(Dispatchers.Main) {
                         updateMediaSessionButtons()
                     }

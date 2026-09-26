@@ -4,7 +4,7 @@ coreKtx = "1.10.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
-lifecycleRuntimeKtx = "2.6.1"
+lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.8.0"
 kotlin = "2.2.10"
 composeBom = "2026.02.01"
@@ -12,7 +12,9 @@ okhttp = "4.12.0"
 retrofit = "2.11.0"
 kotlinxSerialization = "1.7.3"
 koin = "4.0.0"
-coil = "2.7.0"
+coil = "3.3.0"
+# 与 Compose BOM 2026.02.01（Compose 1.10）同代，且兼容 Kotlin 2.2.x
+composeMultiplatform = "1.10.3"
 media3 = "1.11.1"
 media = "1.7.0"
 haze = "0.6.2"
@@ -69,7 +71,8 @@ koin-android = { group = "io.insert-koin", name = "koin-android" }
 koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose" }
 
 # Coil (图片加载)
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Media3
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
@@ -95,3 +98,4 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

@@ -3,10 +3,11 @@ package com.lin0721.linmusic
 import android.app.Application
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import coil.Coil
-import coil.ImageLoader
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.request.crossfade
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.android.ext.android.inject
@@ -43,21 +45,21 @@ class MelodiaApplication : Application() {
 
         val imageLoader = ImageLoader.Builder(this)
             .memoryCache {
-                MemoryCache.Builder(this)
-                    .maxSizePercent(0.15)
+                MemoryCache.Builder()
+                    .maxSizePercent(this, 0.15)
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
+                    .directory(cacheDir.resolve("image_cache").toOkioPath())
                     .maxSizePercent(0.02)
                     .build()
             }
-            .decoderDispatcher(Dispatchers.IO.limitedParallelism(4))
-            .fetcherDispatcher(Dispatchers.IO.limitedParallelism(8))
+            .decoderCoroutineContext(Dispatchers.IO.limitedParallelism(4))
+            .fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(8))
             .crossfade(true)
             .build()
-        Coil.setImageLoader(imageLoader)
+        SingletonImageLoader.setSafe { imageLoader }
         // 在后台线程强制触发 DiskLruCache.initialize()，避免首次图片加载时锁竞争
         Thread { imageLoader.diskCache }.start()
 

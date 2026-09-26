@@ -389,7 +389,7 @@ class SettingsViewModel(
 
     // ─── 深度缓存清理 ───
 
-    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    @OptIn(coil3.annotation.ExperimentalCoilApi::class)
     fun clearApplicationCache(context: Context) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -398,7 +398,7 @@ class SettingsViewModel(
                 AudioCacheManager.clearCache(context)
 
                 // 1. 清理 Coil 图片缓存
-                val imageLoader = coil.Coil.imageLoader(context)
+                val imageLoader = coil3.SingletonImageLoader.get(context)
                 imageLoader.memoryCache?.clear()
                 imageLoader.diskCache?.clear()
 
@@ -467,11 +467,11 @@ class SettingsViewModel(
         }
     }
 
-    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    @OptIn(coil3.annotation.ExperimentalCoilApi::class)
     fun clearImageCacheOnly(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val imageLoader = coil.Coil.imageLoader(context)
+                val imageLoader = coil3.SingletonImageLoader.get(context)
                 imageLoader.memoryCache?.clear()
                 imageLoader.diskCache?.clear()
             }.onFailure { AppLogger.e(TAG, "清理图片缓存失败", it) }

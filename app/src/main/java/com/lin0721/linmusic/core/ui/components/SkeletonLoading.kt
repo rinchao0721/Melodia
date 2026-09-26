@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
@@ -39,9 +38,11 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.SurfaceLight
 
@@ -120,13 +121,11 @@ fun AntiFlickerCoverImage(
                         is AsyncImagePainter.State.Success -> {
                             isLoaded = true
                             isError = false
-                            val drawable = state.result.drawable
-                            val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                                ?: try {
-                                    drawable.toBitmap()
-                                } catch (e: Exception) {
-                                    null
-                                }
+                            val bitmap = try {
+                                state.result.image.toBitmap()
+                            } catch (e: Exception) {
+                                null
+                            }
                             if (bitmap != null) {
                                 onImageLoaded?.invoke(bitmap)
                             }

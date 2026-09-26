@@ -4,9 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.core.graphics.drawable.toBitmap
-import coil.imageLoader
-import coil.request.ImageRequest
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.theme.vibrant.VibrantSwatch
 import com.lin0721.linmusic.core.ui.theme.vibrant.defaultVibrantFilter
@@ -55,8 +56,8 @@ suspend fun extractBackdropPaletteFromUrl(context: Context, url: String): Player
             .size(DECODE_MAX_DIMENSION, DECODE_MAX_DIMENSION)
             .allowHardware(false)
             .build()
-        val drawable = context.imageLoader.execute(request).drawable ?: return FallbackBackdropPalette
-        extractBackdropPalette(drawable)
+        val bitmap = context.imageLoader.execute(request).image?.toBitmap() ?: return FallbackBackdropPalette
+        extractBackdropPalette(bitmap)
     } catch (e: Exception) {
         AppLogger.d(TAG, "取色请求失败，使用默认深灰色板", e)
         FallbackBackdropPalette
@@ -70,9 +71,8 @@ suspend fun extractBaseColorFromUrl(context: Context, url: String): Color {
 // 内部核心逻辑：解码好的位图 → 按 quality 等比例降采样 → 中位切分量化 → 挑 base。
 // 只应由上面的 *FromUrl 系列调用，不要在业务代码里直接复用某个显示用 AsyncImage 的解码结果——
 // 那正是取色不一致的根源
-private fun extractBackdropPalette(drawable: android.graphics.drawable.Drawable): PlayerBackdropPalette {
+private fun extractBackdropPalette(bitmap: Bitmap): PlayerBackdropPalette {
     return try {
-        val bitmap = drawable.toBitmap()
         val scaled = scaleDownByQuality(bitmap, VIBRANT_QUALITY)
         val pixels = IntArray(scaled.width * scaled.height)
         scaled.getPixels(pixels, 0, scaled.width, 0, 0, scaled.width, scaled.height)
