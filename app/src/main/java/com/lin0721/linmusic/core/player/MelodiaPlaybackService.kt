@@ -158,9 +158,17 @@ class MelodiaPlaybackService : MediaSessionService() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
             .build()
+        // 耳机拔出 / 蓝牙耳机断开（如收回耳机盒）时系统发出 AUDIO_BECOMING_NOISY，需自动暂停，避免外放；
+        // 两台都开启：交叉淡化期间淡出方和缓冲中的新歌也要一起停
         val sessionPlayer = CrossfadePlayer(
-            primary = ExoPlayer.Builder(this).setMediaSourceFactory(mediaSourceFactory).build(),
-            secondary = ExoPlayer.Builder(this).setMediaSourceFactory(mediaSourceFactory).build(),
+            primary = ExoPlayer.Builder(this)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .setHandleAudioBecomingNoisy(true)
+                .build(),
+            secondary = ExoPlayer.Builder(this)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .setHandleAudioBecomingNoisy(true)
+                .build(),
             audioAttributes = audioAttributes
         )
         sessionPlayer.setMetadataTransformer { base ->
