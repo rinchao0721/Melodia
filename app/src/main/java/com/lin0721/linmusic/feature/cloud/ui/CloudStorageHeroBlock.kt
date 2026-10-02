@@ -27,13 +27,15 @@ import com.lin0721.linmusic.feature.cloud.domain.CloudQuota
 import com.lin0721.linmusic.feature.cloud.domain.formatWholeGigabytes
 
 private val HeroHeight = 108.dp
-private val HeroMinRedWidthRatio = 0.12f
+private const val HeroMinRedWidthRatio = 0.12f
+private const val HeroMinDarkWidthRatio = 0.3f
 
 // 容量巨型色块海报：红块宽度按已用占比拉伸，内叠大号数字；深灰块承载文字说明
 @Composable
 fun CloudStorageHeroBlock(quota: CloudQuota, modifier: Modifier = Modifier) {
-    // 已用占比过低时红块给个最小宽度，否则大号数字会被裁到看不清
-    val redWeight = quota.usedRatio.coerceAtLeast(HeroMinRedWidthRatio)
+    // 两块都要留最小宽度：红块太窄大号数字会被裁掉；深灰块在容量用满（usedRatio=1）时
+    // 权重会变成 0，Modifier.weight 要求 > 0，否则直接抛 IllegalArgumentException 闪退
+    val redWeight = quota.usedRatio.coerceIn(HeroMinRedWidthRatio, 1f - HeroMinDarkWidthRatio)
     val darkWeight = 1f - redWeight
 
     Row(
