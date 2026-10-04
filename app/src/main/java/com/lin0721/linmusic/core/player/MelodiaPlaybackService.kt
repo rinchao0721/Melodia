@@ -54,6 +54,7 @@ private const val NOTIFICATION_ID = 1001
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
 private const val PLAYBACK_CHANNEL_NAME = "正在播放"
 
+@OptIn(UnstableApi::class)
 class MelodiaPlaybackService : MediaSessionService() {
 
     private val playerManager: PlayerManager by inject()
@@ -485,12 +486,12 @@ class MelodiaPlaybackService : MediaSessionService() {
             val artist = metadata?.artist?.toString() ?: ""
 
             val isPlaying = session.player.isPlaying
-            val playPauseIconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            val playPauseIconRes = if (isPlaying) R.drawable.ic_notification_pause else R.drawable.ic_notification_play
             val playPauseTitle = if (isPlaying) "暂停" else "播放"
 
             val prevAction = actionFactory.createMediaAction(
                 session,
-                IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_previous),
+                IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_notification_previous),
                 "上一首",
                 Player.COMMAND_SEEK_TO_PREVIOUS
             )
@@ -502,14 +503,14 @@ class MelodiaPlaybackService : MediaSessionService() {
             )
             val nextAction = actionFactory.createMediaAction(
                 session,
-                IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_next),
+                IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_notification_next),
                 "下一首",
                 Player.COMMAND_SEEK_TO_NEXT
             )
 
             val songId = currentItem?.mediaId?.toLongOrNull() ?: -1L
             val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
-            val likeIconRes = if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
+            val likeIconRes = R.drawable.ic_notification_favorite
             val likeTitle = if (isLiked) "取消喜欢" else "喜欢"
             val likeAction = actionFactory.createCustomAction(
                 session,
@@ -559,6 +560,4 @@ class MelodiaPlaybackService : MediaSessionService() {
             MediaNotification.Provider.NotificationChannelInfo(PLAYBACK_CHANNEL_ID, PLAYBACK_CHANNEL_NAME)
     }
 }
-
-
 
