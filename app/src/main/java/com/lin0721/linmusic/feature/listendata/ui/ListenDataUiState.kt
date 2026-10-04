@@ -9,7 +9,7 @@ import com.lin0721.linmusic.feature.listendata.domain.YearStat
 enum class ListenTab(val label: String) {
     TODAY("今日"),
     WEEK("本周"),
-    MONTH("本月"),
+    MONTH("月度"),
     YEAR("年度")
 }
 
