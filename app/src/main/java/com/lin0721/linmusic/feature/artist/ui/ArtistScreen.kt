@@ -38,11 +38,18 @@ fun ArtistScreen(
     onAlbumClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activePageState by viewModel.pageState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
+    val displayedSuccess = viewModel.successStateFor(artistId)
+    val displayedPageState = if (viewModel.isCurrentArtist(artistId)) {
+        activePageState
+    } else {
+        viewModel.pageStateFor(artistId)
+    }
 
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
@@ -51,37 +58,17 @@ fun ArtistScreen(
         viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
     }
     LaunchedEffect(artistId) {
-        viewModel.loadArtistData(artistId)
+        viewModel.loadArtistDataIfNeeded(artistId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        when (val state = uiState) {
-            is ArtistUiState.Loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            }
-            is ArtistUiState.Error -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("加载失败", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(MelodiaSpacing.sm))
-                        Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                        Spacer(Modifier.height(MelodiaSpacing.md))
-                        MelodiaButton(
-                            onClick = { viewModel.loadArtistData(artistId) },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Text("重试", color = MaterialTheme.colorScheme.onPrimary)
-                        }
-                        MelodiaTextButton(onClick = onBack) { Text("返回", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
-                }
-            }
-            is ArtistUiState.Success -> {
+        when {
+            displayedSuccess != null -> {
+                val state = displayedSuccess
                 val blockedArtistIds by viewModel.blockedArtistIds.collectAsStateWithLifecycle()
                 ArtistContent(
                     artist = state.artist,
+                    pageState = displayedPageState,
                     isFollowed = state.isFollowed,
                     fansCount = state.fansCount,
                     topSongs = state.topSongs,
@@ -126,8 +113,36 @@ fun ArtistScreen(
                     },
                     onLoadMoreAlbums = { viewModel.loadMoreAlbums() },
                     onLoadAllSongsIfNeeded = { viewModel.loadAllSongsIfNeeded() },
-                    onLoadMoreAllSongs = { viewModel.loadMoreAllSongs() }
+                    onLoadMoreAllSongs = { viewModel.loadMoreAllSongs() },
+                    onTabSelected = { tab -> viewModel.selectTab(state.artist.id, tab) },
+                    onMusicSubTabSelected = { tab -> viewModel.selectMusicSubTab(state.artist.id, tab) },
+                    onScrollPositionChanged = { index, offset ->
+                        viewModel.saveScrollPosition(state.artist.id, index, offset)
+                    }
                 )
+            }
+            uiState is ArtistUiState.Error && viewModel.isCurrentArtist(artistId) -> {
+                val state = uiState as ArtistUiState.Error
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("加载失败", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(MelodiaSpacing.sm))
+                        Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Spacer(Modifier.height(MelodiaSpacing.md))
+                        MelodiaButton(
+                            onClick = { viewModel.loadArtistData(artistId) },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("重试", color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                        MelodiaTextButton(onClick = onBack) { Text("返回", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                }
+            }
+            else -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
 

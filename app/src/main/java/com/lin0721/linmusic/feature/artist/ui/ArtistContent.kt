@@ -30,6 +30,7 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 @Composable
 fun ArtistContent(
     artist: ArtistDetailInfo,
+    pageState: ArtistPageState,
     isFollowed: Boolean,
     fansCount: Long,
     topSongs: List<Track>,
@@ -60,10 +61,16 @@ fun ArtistContent(
     onRequireLogin: () -> Unit,
     onLoadMoreAlbums: () -> Unit,
     onLoadAllSongsIfNeeded: () -> Unit,
-    onLoadMoreAllSongs: () -> Unit
+    onLoadMoreAllSongs: () -> Unit,
+    onTabSelected: (Int) -> Unit,
+    onMusicSubTabSelected: (Int) -> Unit,
+    onScrollPositionChanged: (Int, Int) -> Unit
 ) {
     val density = LocalDensity.current
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = pageState.firstVisibleItemIndex,
+        initialFirstVisibleItemScrollOffset = pageState.firstVisibleItemScrollOffset
+    )
 
     var showMoreMenuSheet by remember { mutableStateOf(false) }
 
@@ -97,13 +104,20 @@ fun ArtistContent(
 
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showBioDialog by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) }
-    var musicSubTab by remember { mutableStateOf(0) }
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
 
+    DisposableEffect(artist.id, listState) {
+        onDispose {
+            onScrollPositionChanged(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset
+            )
+        }
+    }
+
     // 首次切到「全部歌曲」子 Tab 时触发加载
-    LaunchedEffect(musicSubTab) {
-        if (musicSubTab == 1) onLoadAllSongsIfNeeded()
+    LaunchedEffect(pageState.musicSubTab) {
+        if (pageState.musicSubTab == 1) onLoadAllSongsIfNeeded()
     }
 
     // 滚动到底部附近，按当前 Tab 触发对应区块的分页加载
@@ -115,10 +129,10 @@ fun ArtistContent(
             total > 0 && lastVisible >= total - 5
         }
     }
-    LaunchedEffect(shouldLoadMore, selectedTab, musicSubTab) {
+    LaunchedEffect(shouldLoadMore, pageState.selectedTab, pageState.musicSubTab) {
         if (!shouldLoadMore) return@LaunchedEffect
-        when (selectedTab) {
-            0 -> if (musicSubTab == 1) onLoadMoreAllSongs()
+        when (pageState.selectedTab) {
+            0 -> if (pageState.musicSubTab == 1) onLoadMoreAllSongs()
             1 -> onLoadMoreAlbums()
         }
     }
@@ -159,7 +173,7 @@ fun ArtistContent(
                         onFollowClick = onFollowClick,
                         onMoreClick = { showMoreMenuSheet = true },
                         onPlayAll = {
-                            val queue = if (musicSubTab == 1 && allSongs.isNotEmpty()) allSongs else topSongs
+                            val queue = if (pageState.musicSubTab == 1 && allSongs.isNotEmpty()) allSongs else topSongs
                             queue.firstOrNull()?.let { onPlaySong(it, queue) }
                         }
                     )
@@ -167,18 +181,18 @@ fun ArtistContent(
 
                 item(key = "tab_bar") {
                     ArtistTabBar(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it }
+                        selectedTab = pageState.selectedTab,
+                        onTabSelected = onTabSelected
                     )
                 }
 
                 // 根据选中的 Tab 呈现对应内容
-                when (selectedTab) {
+                when (pageState.selectedTab) {
                     0 -> artistMusicTab(
                         hotSongs = topSongs,
                         allSongs = allSongs,
-                        musicSubTab = musicSubTab,
-                        onMusicSubTabSelected = { musicSubTab = it },
+                        musicSubTab = pageState.musicSubTab,
+                        onMusicSubTabSelected = onMusicSubTabSelected,
                         allSongsLoadingMore = allSongsLoadingMore,
                         likedSongIds = likedSongIds,
                         currentTrackId = currentTrackId,
