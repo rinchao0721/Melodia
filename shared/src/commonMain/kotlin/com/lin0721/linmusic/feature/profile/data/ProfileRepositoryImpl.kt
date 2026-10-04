@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.profile.data
 
+import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.feature.profile.domain.ProfileEventInfo
 import com.lin0721.linmusic.feature.profile.domain.ProfileEventPage
@@ -8,8 +9,12 @@ import com.lin0721.linmusic.feature.profile.domain.ProfileFollowUserItem
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistPage
+import com.lin0721.linmusic.feature.profile.domain.ProfilePrivacyRestricted
 import com.lin0721.linmusic.feature.profile.domain.ProfileUserInfo
+import com.lin0721.linmusic.feature.profile.domain.isFollowListPrivacyResponse
+import com.lin0721.linmusic.feature.profile.domain.isListeningRankPrivacyResponse
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class ProfileRepositoryImpl(
     private val profileApi: ProfileApi
@@ -110,6 +115,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message?.takeIf(String::isNotBlank) ?: it.msg },
         transform = { response ->
             ProfileFollowListPage(
                 users = response.follow.map { user ->
@@ -124,7 +130,7 @@ class ProfileRepositoryImpl(
                 hasMore = response.more
             )
         }
-    )
+    ).mapProfilePrivacyRestriction(AppError.BizError::isFollowListPrivacyResponse)
 
     override fun getUserFolloweds(uid: Long, offset: Int, limit: Int): Flow<Result<ProfileFollowListPage>> = apiFlow(
         request = {
@@ -141,6 +147,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message?.takeIf(String::isNotBlank) ?: it.msg },
         transform = { response ->
             ProfileFollowListPage(
                 users = response.followeds.map { user ->
@@ -155,7 +162,7 @@ class ProfileRepositoryImpl(
                 hasMore = response.more
             )
         }
-    )
+    ).mapProfilePrivacyRestriction(AppError.BizError::isFollowListPrivacyResponse)
 
     override fun getUserEvents(uid: Long, time: Long, limit: Int): Flow<Result<ProfileEventPage>> = apiFlow(
         request = {
@@ -201,6 +208,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message?.takeIf(String::isNotBlank) ?: it.msg },
         transform = { response ->
             val targetList = if (type == 1) response.weekData else response.allData
             targetList.map { record ->
@@ -213,5 +221,16 @@ class ProfileRepositoryImpl(
                 )
             }
         }
-    )
+    ).mapProfilePrivacyRestriction(AppError.BizError::isListeningRankPrivacyResponse)
+}
+
+private fun <T> Flow<Result<T>>.mapProfilePrivacyRestriction(
+    isRestricted: (AppError.BizError) -> Boolean
+): Flow<Result<T>> = map { result ->
+    val error = result.exceptionOrNull()
+    if (error is AppError.BizError && isRestricted(error)) {
+        Result.failure(ProfilePrivacyRestricted)
+    } else {
+        result
+    }
 }

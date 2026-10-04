@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
 import com.lin0721.linmusic.feature.profile.domain.ProfileFollowUserItem
+import com.lin0721.linmusic.feature.profile.domain.isProfilePrivacyRestricted
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +25,8 @@ enum class FollowListMode {
 
 sealed interface FollowListUiState {
     data object Loading : FollowListUiState
+
+    data object Hidden : FollowListUiState
 
     data class Success(
         val users: List<ProfileFollowUserItem>,
@@ -78,7 +81,11 @@ class FollowListViewModel(
                 }
                 .onFailure { error ->
                     val defaultMsg = if (mode == FollowListMode.FOLLOWS) "获取关注列表失败" else "获取粉丝列表失败"
-                    _uiState.value = FollowListUiState.Error(error.message ?: defaultMsg)
+                    _uiState.value = if (error.isProfilePrivacyRestricted()) {
+                        FollowListUiState.Hidden
+                    } else {
+                        FollowListUiState.Error(error.message ?: defaultMsg)
+                    }
                 }
         }
     }

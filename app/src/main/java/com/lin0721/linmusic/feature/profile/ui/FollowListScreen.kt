@@ -84,6 +84,18 @@ fun FollowListScreen(
                 }
             }
 
+            FollowListUiState.Hidden -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptyState(
+                        icon = Icons.Rounded.People,
+                        title = "已隐藏"
+                    )
+                }
+            }
+
             is FollowListUiState.Error -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
