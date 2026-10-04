@@ -31,6 +31,20 @@ private const val TAG = "ArtistViewModel"
 // 分页区块每页拉取数量
 private const val ALBUMS_PAGE_SIZE = 20
 private const val ALL_SONGS_PAGE_SIZE = 50
+private const val MAX_CACHED_ARTISTS = 8
+
+data class ArtistPageState(
+    val selectedTab: Int = 0,
+    val musicSubTab: Int = 0,
+    val firstVisibleItemIndex: Int = 0,
+    val firstVisibleItemScrollOffset: Int = 0
+)
+
+private data class CachedArtistState(
+    val uiState: ArtistUiState.Success,
+    val albumOffset: Int,
+    val allSongsOffset: Int
+)
 
 class ArtistViewModel(
     private val songCollectDelegate: SongCollectDelegate,
@@ -49,6 +63,13 @@ class ArtistViewModel(
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
+
+    private val _pageState = MutableStateFlow(ArtistPageState())
+    val pageState: StateFlow<ArtistPageState> = _pageState.asStateFlow()
+
+    // 同一导航栈中可能连续打开多个歌手页。按歌手分别保留页面数据与位置，返回时恢复各自现场。
+    private val cachedArtistStates = mutableMapOf<Long, CachedArtistState>()
+    private val pageStates = mutableMapOf<Long, ArtistPageState>()
 
     val userProfile = userPreferences.userProfile.stateIn(
         scope = viewModelScope,
@@ -90,8 +111,29 @@ class ArtistViewModel(
         }
     }
 
+    // 从专辑详情或下一级相似艺人返回时，优先恢复该歌手自己的数据与页面现场。
+    fun loadArtistDataIfNeeded(artistId: Long) {
+        val state = _uiState.value
+        if (currentArtistId == artistId && state is ArtistUiState.Success && state.artist.id == artistId) return
+
+        cacheCurrentArtistState()
+        cachedArtistStates[artistId]?.let { cached ->
+            currentArtistId = artistId
+            albumOffset = cached.albumOffset
+            allSongsOffset = cached.allSongsOffset
+            _pageState.value = pageStates[artistId] ?: ArtistPageState()
+            _uiState.value = cached.uiState
+            return
+        }
+        loadArtistData(artistId)
+    }
+
     fun loadArtistData(artistId: Long) {
+        if (currentArtistId != artistId) {
+            cacheCurrentArtistState()
+        }
         currentArtistId = artistId
+        _pageState.value = pageStates[artistId] ?: ArtistPageState()
         albumOffset = 0
         allSongsOffset = 0
         _uiState.value = ArtistUiState.Loading
@@ -120,9 +162,8 @@ class ArtistViewModel(
                     val albumsPage = albumsResult.getOrNull()
                     val similar = similarResult.getOrDefault(emptyList())
 
-                    albumOffset = albumsPage?.albums?.size ?: 0
-
-                    _uiState.value = ArtistUiState.Success(
+                    val loadedAlbumOffset = albumsPage?.albums?.size ?: 0
+                    val success = ArtistUiState.Success(
                         artist = detail,
                         isFollowed = isFollowed,
                         fansCount = fans,
@@ -131,16 +172,90 @@ class ArtistViewModel(
                         albumsHasMore = albumsPage?.hasMore ?: false,
                         similarArtists = similar
                     )
+                    cacheArtistState(artistId, CachedArtistState(
+                        uiState = success,
+                        albumOffset = loadedAlbumOffset,
+                        allSongsOffset = 0
+                    ))
+                    if (currentArtistId == artistId) {
+                        albumOffset = loadedAlbumOffset
+                        allSongsOffset = 0
+                        _uiState.value = success
+                    }
                 } else {
                     val err = (detailResult.exceptionOrNull() ?: topSongsResult.exceptionOrNull())
                         ?.toUserMessage(resourceProvider)
                         ?: resourceProvider.getString(AppString.ErrorBizDefault)
-                    _uiState.value = ArtistUiState.Error(err)
+                    if (currentArtistId == artistId) _uiState.value = ArtistUiState.Error(err)
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "歌手详情页加载最终失败 artistId=$artistId", e)
-                _uiState.value = ArtistUiState.Error(e.toUserMessage(resourceProvider))
+                if (currentArtistId == artistId) {
+                    _uiState.value = ArtistUiState.Error(e.toUserMessage(resourceProvider))
+                }
             }
+        }
+    }
+
+    fun selectTab(artistId: Long, tab: Int) {
+        updatePageState(artistId) { it.copy(selectedTab = tab) }
+    }
+
+    fun selectMusicSubTab(artistId: Long, tab: Int) {
+        updatePageState(artistId) { it.copy(musicSubTab = tab) }
+    }
+
+    fun saveScrollPosition(artistId: Long, firstVisibleItemIndex: Int, firstVisibleItemScrollOffset: Int) {
+        updatePageState(artistId) {
+            it.copy(
+                firstVisibleItemIndex = firstVisibleItemIndex,
+                firstVisibleItemScrollOffset = firstVisibleItemScrollOffset
+            )
+        }
+    }
+
+    private fun updatePageState(artistId: Long, transform: (ArtistPageState) -> ArtistPageState) {
+        val current = if (currentArtistId == artistId) {
+            _pageState.value
+        } else {
+            pageStates[artistId] ?: ArtistPageState()
+        }
+        val updated = transform(current)
+        pageStates.remove(artistId)
+        pageStates[artistId] = updated
+        trimArtistCaches()
+        if (currentArtistId == artistId) _pageState.value = updated
+    }
+
+    private fun cacheCurrentArtistState() {
+        val artistId = currentArtistId
+        val state = _uiState.value as? ArtistUiState.Success ?: return
+        if (artistId == 0L || state.artist.id != artistId) return
+        pageStates[artistId] = _pageState.value
+        cacheArtistState(artistId, CachedArtistState(
+            uiState = state,
+            albumOffset = albumOffset,
+            allSongsOffset = allSongsOffset
+        ))
+    }
+
+    private fun cacheArtistState(artistId: Long, state: CachedArtistState) {
+        cachedArtistStates.remove(artistId)
+        cachedArtistStates[artistId] = state
+        trimArtistCaches()
+    }
+
+    private fun trimArtistCaches() {
+        while (cachedArtistStates.size > MAX_CACHED_ARTISTS) {
+            val oldestId = cachedArtistStates.keys.firstOrNull { it != currentArtistId }
+                ?: cachedArtistStates.keys.first()
+            cachedArtistStates.remove(oldestId)
+            pageStates.remove(oldestId)
+        }
+        while (pageStates.size > MAX_CACHED_ARTISTS) {
+            val oldestId = pageStates.keys.firstOrNull { it != currentArtistId }
+                ?: pageStates.keys.first()
+            pageStates.remove(oldestId)
         }
     }
 
@@ -148,13 +263,16 @@ class ArtistViewModel(
     fun loadMoreAlbums() {
         val state = _uiState.value as? ArtistUiState.Success ?: return
         if (!state.albumsHasMore || state.albumsLoadingMore) return
+        val requestedArtistId = state.artist.id
+        val requestedOffset = albumOffset
         _uiState.value = state.copy(albumsLoadingMore = true)
         viewModelScope.launch {
-            artistRepository.getArtistAlbums(currentArtistId, limit = ALBUMS_PAGE_SIZE, offset = albumOffset)
+            artistRepository.getArtistAlbums(requestedArtistId, limit = ALBUMS_PAGE_SIZE, offset = requestedOffset)
                 .first()
                 .onSuccess { page ->
-                    albumOffset += page.albums.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onSuccess
+                    albumOffset = requestedOffset + page.albums.size
                     _uiState.value = latest.copy(
                         albums = latest.albums + page.albums,
                         albumsHasMore = page.hasMore,
@@ -162,8 +280,9 @@ class ArtistViewModel(
                     )
                 }
                 .onFailure { e ->
-                    AppLogger.w(TAG, "加载更多专辑失败 artistId=$currentArtistId", e)
+                    AppLogger.w(TAG, "加载更多专辑失败 artistId=$requestedArtistId", e)
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onFailure
                     _uiState.value = latest.copy(albumsLoadingMore = false)
                 }
         }
@@ -173,13 +292,15 @@ class ArtistViewModel(
     fun loadAllSongsIfNeeded() {
         val state = _uiState.value as? ArtistUiState.Success ?: return
         if (state.allSongsLoaded || state.allSongsLoadingMore) return
+        val requestedArtistId = state.artist.id
         _uiState.value = state.copy(allSongsLoadingMore = true)
         viewModelScope.launch {
-            artistRepository.getArtistAllSongs(currentArtistId, offset = 0, limit = ALL_SONGS_PAGE_SIZE)
+            artistRepository.getArtistAllSongs(requestedArtistId, offset = 0, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
-                    allSongsOffset = page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onSuccess
+                    allSongsOffset = page.songs.size
                     _uiState.value = latest.copy(
                         allSongs = page.songs,
                         allSongsHasMore = page.hasMore,
@@ -188,8 +309,9 @@ class ArtistViewModel(
                     )
                 }
                 .onFailure { e ->
-                    AppLogger.w(TAG, "加载全部歌曲失败 artistId=$currentArtistId", e)
+                    AppLogger.w(TAG, "加载全部歌曲失败 artistId=$requestedArtistId", e)
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onFailure
                     _uiState.value = latest.copy(allSongsLoadingMore = false, allSongsLoaded = true)
                 }
         }
@@ -199,13 +321,16 @@ class ArtistViewModel(
     fun loadMoreAllSongs() {
         val state = _uiState.value as? ArtistUiState.Success ?: return
         if (!state.allSongsHasMore || state.allSongsLoadingMore) return
+        val requestedArtistId = state.artist.id
+        val requestedOffset = allSongsOffset
         _uiState.value = state.copy(allSongsLoadingMore = true)
         viewModelScope.launch {
-            artistRepository.getArtistAllSongs(currentArtistId, offset = allSongsOffset, limit = ALL_SONGS_PAGE_SIZE)
+            artistRepository.getArtistAllSongs(requestedArtistId, offset = requestedOffset, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
-                    allSongsOffset += page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onSuccess
+                    allSongsOffset = requestedOffset + page.songs.size
                     _uiState.value = latest.copy(
                         allSongs = latest.allSongs + page.songs,
                         allSongsHasMore = page.hasMore,
@@ -213,8 +338,9 @@ class ArtistViewModel(
                     )
                 }
                 .onFailure { e ->
-                    AppLogger.w(TAG, "加载更多全部歌曲失败 artistId=$currentArtistId", e)
+                    AppLogger.w(TAG, "加载更多全部歌曲失败 artistId=$requestedArtistId", e)
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
+                    if (currentArtistId != requestedArtistId || latest.artist.id != requestedArtistId) return@onFailure
                     _uiState.value = latest.copy(allSongsLoadingMore = false)
                 }
         }

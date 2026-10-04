@@ -38,6 +38,7 @@ fun ArtistScreen(
     onAlbumClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pageState by viewModel.pageState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
@@ -51,7 +52,7 @@ fun ArtistScreen(
         viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
     }
     LaunchedEffect(artistId) {
-        viewModel.loadArtistData(artistId)
+        viewModel.loadArtistDataIfNeeded(artistId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -82,6 +83,7 @@ fun ArtistScreen(
                 val blockedArtistIds by viewModel.blockedArtistIds.collectAsStateWithLifecycle()
                 ArtistContent(
                     artist = state.artist,
+                    pageState = pageState,
                     isFollowed = state.isFollowed,
                     fansCount = state.fansCount,
                     topSongs = state.topSongs,
@@ -126,7 +128,12 @@ fun ArtistScreen(
                     },
                     onLoadMoreAlbums = { viewModel.loadMoreAlbums() },
                     onLoadAllSongsIfNeeded = { viewModel.loadAllSongsIfNeeded() },
-                    onLoadMoreAllSongs = { viewModel.loadMoreAllSongs() }
+                    onLoadMoreAllSongs = { viewModel.loadMoreAllSongs() },
+                    onTabSelected = { tab -> viewModel.selectTab(state.artist.id, tab) },
+                    onMusicSubTabSelected = { tab -> viewModel.selectMusicSubTab(state.artist.id, tab) },
+                    onScrollPositionChanged = { index, offset ->
+                        viewModel.saveScrollPosition(state.artist.id, index, offset)
+                    }
                 )
             }
         }
