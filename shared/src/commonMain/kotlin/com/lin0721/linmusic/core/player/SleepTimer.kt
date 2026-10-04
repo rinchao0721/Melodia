@@ -7,10 +7,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.TimeSource
+
+private val sleepTimerClockOrigin = TimeSource.Monotonic.markNow()
+
+private fun monotonicNowMs(): Long = sleepTimerClockOrigin.elapsedNow().inWholeMilliseconds
 
 // 定时停止播放：按秒倒计时，归零时回调停止
 class SleepTimer(
     private val scope: CoroutineScope,
+    private val nowMs: () -> Long = ::monotonicNowMs,
     private val onFinish: () -> Unit
 ) {
 
@@ -25,12 +31,13 @@ class SleepTimer(
             _remaining.value = 0L
             return
         }
-        _remaining.value = minutes * 60 * 1000L
+        val durationMs = minutes * 60 * 1000L
+        val deadlineMs = nowMs() + durationMs
+        _remaining.value = durationMs
         job = scope.launch {
             while (_remaining.value > 0L) {
-                delay(1000L)
-                val currentVal = _remaining.value
-                val nextVal = currentVal - 1000L
+                delay(minOf(1000L, _remaining.value))
+                val nextVal = (deadlineMs - nowMs()).coerceAtLeast(0L)
                 if (nextVal <= 0L) {
                     _remaining.value = 0L
                     onFinish()
