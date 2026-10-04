@@ -3,7 +3,10 @@ package com.lin0721.linmusic.core.player
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.LyricsContent
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricsKind
+import com.lin0721.linmusic.core.player.domain.lyricsKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -53,6 +56,18 @@ class LyricsResolverTest {
         val result = resolver.lyricsWithSourceFor(1).first().getOrThrow()
         assertEquals(LyricsSource.LOCAL, result.source)
         assertEquals("本地歌词", result.lines.single().text)
+    }
+
+    @Test
+    fun `网易纯音乐状态无需歌词标识行也能保留`() = runTest {
+        val result = LyricsResolver(
+            FakePlaybackRepository(Result.success(emptyList()), LyricsKind.PURE_MUSIC),
+            readLocalLyrics = { null }, localUriOf = { null },
+            isAmllEnabled = { false }
+        ).lyricsWithSourceFor(1).first().getOrThrow()
+
+        assertEquals(LyricsKind.PURE_MUSIC, result.kind)
+        assertTrue(result.lines.isEmpty())
     }
 
     @Test
@@ -117,11 +132,14 @@ class LyricsResolverTest {
         assertEquals(failure, resolver.lyricsFor(2).first().exceptionOrNull())
     }
 
-    private class FakePlaybackRepository(private val lyrics: Result<List<LyricLine>>) : PlaybackRepository {
+    private class FakePlaybackRepository(
+        private val lyrics: Result<List<LyricLine>>,
+        private val kindOverride: LyricsKind? = null
+    ) : PlaybackRepository {
         var lyricRequests = 0
-        override fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>> {
+        override fun getLyrics(songId: Long): Flow<Result<LyricsContent>> {
             lyricRequests++
-            return flowOf(lyrics)
+            return flowOf(lyrics.map { LyricsContent(it, kindOverride ?: it.lyricsKind()) })
         }
         override fun getRawLyrics(songId: Long): Flow<Result<String>> = emptyFlow()
         override fun getSongUrl(songId: Long): Flow<Result<String>> = emptyFlow()

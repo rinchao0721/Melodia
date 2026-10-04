@@ -1,9 +1,12 @@
 package com.lin0721.linmusic.core.player
 
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.LyricsContent
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.player.domain.LyricTimeline
+import com.lin0721.linmusic.core.player.domain.LyricsKind
+import com.lin0721.linmusic.core.player.domain.lyricsKind
 import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -24,7 +27,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 // 比网易 YRC 更完整）；否则等双方到齐后一起比较，有逐字的胜出，都没逐字时取有内容的一方。
 enum class LyricsSource { AMLL, NETEASE, LOCAL }
 
-data class ResolvedLyrics(val lines: List<LyricLine>, val source: LyricsSource)
+data class ResolvedLyrics(
+    val lines: List<LyricLine>,
+    val source: LyricsSource,
+    val kind: LyricsKind
+)
 
 class LyricsResolver(
     private val playbackRepository: PlaybackRepository,
@@ -50,18 +57,21 @@ class LyricsResolver(
     fun lyricsWithSourceFor(songId: Long): Flow<Result<ResolvedLyrics>> = flow {
         val localUri = localUriOf(songId)
         if (localUri == null) {
-            if (songId > 0) emitAll(onlineLyricsFor(songId)) else emit(Result.success(ResolvedLyrics(emptyList(), LyricsSource.LOCAL)))
+            if (songId > 0) emitAll(onlineLyricsFor(songId)) else emit(
+                Result.success(ResolvedLyrics(emptyList(), LyricsSource.LOCAL, LyricsKind.UNAVAILABLE))
+            )
             return@flow
         }
         if (songId > 0) {
             val online = onlineLyricsFor(songId).first()
-            if (online.getOrNull()?.lines.orEmpty().isNotEmpty()) {
+            if (online.getOrNull()?.kind?.let { it != LyricsKind.UNAVAILABLE } == true) {
                 emit(online)
                 return@flow
             }
         }
         val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLocal).orEmpty()
-        emit(Result.success(ResolvedLyrics(LyricTimeline.prepareLines(lines), LyricsSource.LOCAL)))
+        val prepared = LyricTimeline.prepareLines(lines)
+        emit(Result.success(ResolvedLyrics(prepared, LyricsSource.LOCAL, prepared.lyricsKind())))
     }.flowOn(processingDispatcher)
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -77,7 +87,7 @@ class LyricsResolver(
                 // 窗口内优先等待 AMLL：若已带逐字时序直接定型，避免慢镜像在播放中途替换歌词
                 val amllWindowLines = withTimeoutOrNull(SELECTION_WINDOW_MS) { amll.await() }
                 if (amllWindowLines?.any { it.words.isNotEmpty() } == true) {
-                    emit(Result.success(ResolvedLyrics(amllWindowLines, LyricsSource.AMLL)))
+                    emit(Result.success(ResolvedLyrics(amllWindowLines, LyricsSource.AMLL, amllWindowLines.lyricsKind())))
                     return@coroutineScope
                 }
                 val neteaseResult = netease.await()
@@ -102,7 +112,7 @@ class LyricsResolver(
         emptyList()
     }
 
-    private suspend fun fetchNeteaseResult(songId: Long): Result<List<LyricLine>> = try {
+    private suspend fun fetchNeteaseResult(songId: Long): Result<LyricsContent> = try {
         playbackRepository.getLyrics(songId).first()
     } catch (e: CancellationException) {
         throw e
@@ -110,24 +120,25 @@ class LyricsResolver(
         Result.failure(e)
     }
 
-    internal fun choose(amll: List<LyricLine>, netease: Result<List<LyricLine>>): Result<List<LyricLine>> {
+    internal fun choose(amll: List<LyricLine>, netease: Result<LyricsContent>): Result<List<LyricLine>> {
         return chooseWithSource(amll, netease).map { it.lines }
     }
 
-    internal fun chooseWithSource(amll: List<LyricLine>, netease: Result<List<LyricLine>>): Result<ResolvedLyrics> {
+    internal fun chooseWithSource(amll: List<LyricLine>, netease: Result<LyricsContent>): Result<ResolvedLyrics> {
         val a = cleanLines(amll)
-        val n = cleanLines(netease.getOrNull().orEmpty())
-        val (lines, source) = when {
-            a.any { it.words.isNotEmpty() } -> a to LyricsSource.AMLL
-            n.any { it.words.isNotEmpty() } -> n to LyricsSource.NETEASE
-            a.isNotEmpty() -> a to LyricsSource.AMLL
-            n.isNotEmpty() -> n to LyricsSource.NETEASE
+        val neteaseContent = netease.getOrNull()
+        val n = cleanLines(neteaseContent?.lines.orEmpty())
+        val (lines, source, kind) = when {
+            a.any { it.words.isNotEmpty() } -> Triple(a, LyricsSource.AMLL, a.lyricsKind())
+            n.any { it.words.isNotEmpty() } -> Triple(n, LyricsSource.NETEASE, neteaseContent!!.kind)
+            a.isNotEmpty() -> Triple(a, LyricsSource.AMLL, a.lyricsKind())
+            n.isNotEmpty() -> Triple(n, LyricsSource.NETEASE, neteaseContent!!.kind)
             // 两边都没内容：保留网易原结果，是失败就继续向上抛
-            else -> return netease.map { ResolvedLyrics(it, LyricsSource.NETEASE) }
+            else -> return netease.map { ResolvedLyrics(it.lines, LyricsSource.NETEASE, it.kind) }
         }
         // 载入时统一做一次时间轴整理：补全行时长、把背景和声并入同组、裁掉标注误差级重叠，
         // 但保留有意为之的重叠行（对唱），这样上层才能识别出同时需要高亮的多行。
-        return Result.success(ResolvedLyrics(LyricTimeline.prepareLines(lines), source))
+        return Result.success(ResolvedLyrics(LyricTimeline.prepareLines(lines), source, kind))
     }
 }
 

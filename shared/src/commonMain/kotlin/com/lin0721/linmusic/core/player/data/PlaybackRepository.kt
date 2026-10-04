@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.player.data
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricsKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -10,6 +11,11 @@ import kotlinx.coroutines.flow.SharedFlow
 data class SongPlaybackInfo(
     val url: String,
     val isFreeTrial: Boolean = false
+)
+
+data class LyricsContent(
+    val lines: List<LyricLine>,
+    val kind: LyricsKind
 )
 
 // 播放引擎数据仓储（core 共享能力，服务于 PlayerManager/FloatingLyricService 及多个域的推荐入口）
@@ -22,7 +28,7 @@ interface PlaybackRepository {
     fun getSongPlaybackInfo(songId: Long): Flow<Result<SongPlaybackInfo>>
 
     // 获取歌曲歌词（已解析 LRC 格式）
-    fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>>
+    fun getLyrics(songId: Long): Flow<Result<LyricsContent>>
 
     // 获取歌曲原始歌词文本（优先原生 YRC 逐字，无 YRC 则回退常规 LRC）
     fun getRawLyrics(songId: Long): Flow<Result<String>>

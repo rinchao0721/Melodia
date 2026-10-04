@@ -13,6 +13,8 @@ import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
+import com.lin0721.linmusic.core.player.domain.LyricsKind
+import com.lin0721.linmusic.core.player.domain.isPureMusicMarker
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import kotlinx.coroutines.channels.BufferOverflow
@@ -65,7 +67,7 @@ class PlaybackRepositoryImpl(
     override fun getSongUrl(songId: Long): Flow<Result<String>> =
         getSongPlaybackInfo(songId).map { result -> result.map { it.url } }
 
-    override fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>> = apiFlow(
+    override fun getLyrics(songId: Long): Flow<Result<LyricsContent>> = apiFlow(
         request = {
             apiService.getLyrics(
                 LyricRequest(id = songId, tv = -1, lv = -1, rv = -1, kv = -1, ytv = -1, yrv = -1)
@@ -75,31 +77,34 @@ class PlaybackRepositoryImpl(
         code = { it.code },
         transform = { response ->
             when {
-                // 纯音乐返回带标识的单行；未收录返回空列表以隐藏卡片
-                response.nolyric -> listOf(LyricLine(timeMs = 0, text = "纯音乐"))
-                response.uncollected -> emptyList()
+                // 保留接口明确给出的语义，不再要求下游通过歌词文本反推。
+                response.nolyric -> LyricsContent(
+                    lines = listOf(LyricLine(timeMs = 0, text = "纯音乐")),
+                    kind = LyricsKind.PURE_MUSIC
+                )
+                response.uncollected -> LyricsContent(emptyList(), LyricsKind.UNAVAILABLE)
                 else -> {
                     val yrcText = response.yrc?.lyric
                     val lrcText = response.lrc?.lyric
-                    // 只识别独立的纯音乐标识，制作人员信息中的 Instrumental 不能覆盖正文。
-                    val isInstrumental = isInstrumentalLyrics(yrcText) || isInstrumentalLyrics(lrcText)
+                    val parsedYrc = yrcText?.let(LyricParser::parseYrc).orEmpty()
+                    val selectedText = if (parsedYrc.isNotEmpty()) yrcText else lrcText
+                    // 只判断最终采用的歌词源，避免备用歌词中的标识覆盖有效正文。
+                    val isInstrumental = isInstrumentalLyrics(selectedText)
                     if (isInstrumental) {
-                        listOf(LyricLine(timeMs = 0, text = "纯音乐"))
+                        LyricsContent(
+                            lines = listOf(LyricLine(timeMs = 0, text = "纯音乐")),
+                            kind = LyricsKind.PURE_MUSIC
+                        )
                     } else {
-                        val lines = if (!yrcText.isNullOrBlank()) {
-                            val parsedYrc = LyricParser.parseYrc(yrcText)
-                            if (parsedYrc.isNotEmpty()) parsedYrc else LyricParser.parseLrc(lrcText ?: "")
-                        } else {
-                            LyricParser.parseLrc(lrcText ?: "")
-                        }
+                        val lines = parsedYrc.ifEmpty { LyricParser.parseLrc(lrcText ?: "") }
                         if (lines.isEmpty()) {
-                            emptyList()
+                            LyricsContent(emptyList(), LyricsKind.UNAVAILABLE)
                         } else {
                             // 解析翻译歌词列表（优先使用 ytlrc，其次使用 tlyric）
                             val translationLines = LyricParser.parseLrc(response.ytlrc?.lyric ?: response.tlyric?.lyric ?: "")
                             // 解析罗马音歌词列表
                             val romaLines = LyricParser.parseLrc(response.romalrc?.lyric ?: "")
-                            lines.map { line ->
+                            val mergedLines = lines.map { line ->
                                 // 寻找在 150ms 内与原词时间戳最接近的翻译行
                                 val matchedTranslation = translationLines
                                     .filter { kotlin.math.abs(it.timeMs - line.timeMs) < 150 }
@@ -112,6 +117,7 @@ class PlaybackRepositoryImpl(
                                     ?.text
                                 line.copy(translation = matchedTranslation, roma = matchedRoma)
                             }
+                            LyricsContent(mergedLines, LyricsKind.LYRICS)
                         }
                     }
                 }
@@ -264,7 +270,6 @@ internal fun isInstrumentalLyrics(text: String?): Boolean {
     val lines = LyricParser.parseYrc(text).ifEmpty { LyricParser.parseLrc(text) }
         .map { it.text.trim() }.filter { it.isNotEmpty() }
     return lines.isNotEmpty() && lines.all {
-        it.equals("Instrumental", ignoreCase = true) ||
-            it == "纯音乐" || it == "纯音乐，请欣赏" || it == "纯音乐,请欣赏"
+        it.isPureMusicMarker()
     }
 }

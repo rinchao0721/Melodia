@@ -17,11 +17,14 @@ import android.widget.TextView
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricsKind
+import com.lin0721.linmusic.core.player.domain.shouldShowFloatingLyrics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -37,12 +40,18 @@ class FloatingLyricService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var lyricJob: Job? = null
     private var positionJob: Job? = null
+    private var pureMusicPreviewJob: Job? = null
 
     private var windowManager: WindowManager? = null
     private var floatingView: TextView? = null
 
     private val lyricLines = mutableListOf<LyricLine>()
     private var currentSongId = -1L
+    private var isActuallyPlaying = false
+    private var lyricsKind: LyricsKind? = null
+    private var showPureMusicPreview = false
+    private var pureMusicPreviewConsumed = false
+    private var isFloatingViewVisible = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -76,6 +85,8 @@ class FloatingLyricService : Service() {
     private fun setupFloatingWindow() {
         val view = TextView(this).apply {
             text = "Melodia 悬浮歌词"
+            alpha = 0f
+            visibility = View.INVISIBLE
             setTextColor(Color.WHITE)
             textSize = 14f
             gravity = Gravity.CENTER
@@ -148,25 +159,55 @@ class FloatingLyricService : Service() {
 
     private fun observePlayback() {
         serviceScope.launch {
+            playerManager.isPlaying.collectLatest { isPlaying ->
+                isActuallyPlaying = isPlaying
+                if (isPlaying) {
+                    startPureMusicPreviewIfNeeded()
+                } else {
+                    pureMusicPreviewJob?.cancel()
+                    showPureMusicPreview = false
+                }
+                updateFloatingViewVisibility()
+            }
+        }
+
+        serviceScope.launch {
             playerManager.currentTrack.collectLatest { mediaItem ->
                 val songId = mediaItem?.mediaId?.toLongOrNull() ?: -1L
                 if (songId != currentSongId) {
                     currentSongId = songId
                     lyricLines.clear()
+                    lyricsKind = null
+                    showPureMusicPreview = false
+                    pureMusicPreviewConsumed = false
+                    pureMusicPreviewJob?.cancel()
                     lyricJob?.cancel()
+                    updateFloatingViewVisibility()
                     if (songId != -1L) {
                         lyricJob = launch {
-                            lyricsResolver.lyricsFor(songId).collect { result ->
-                                result.onSuccess { lines ->
+                            lyricsResolver.lyricsWithSourceFor(songId).collect { result ->
+                                result.onSuccess { resolved ->
                                     lyricLines.clear()
-                                    lyricLines.addAll(lines)
+                                    lyricLines.addAll(resolved.lines)
+                                    lyricsKind = resolved.kind
+                                    if (resolved.kind == LyricsKind.PURE_MUSIC) {
+                                        floatingView?.text = "纯音乐，请欣赏"
+                                        startPureMusicPreviewIfNeeded()
+                                    } else {
+                                        showPureMusicPreview = false
+                                        pureMusicPreviewJob?.cancel()
+                                    }
+                                    updateFloatingViewVisibility()
                                 }.onFailure {
                                     AppLogger.w(TAG, "悬浮歌词拉取失败 songId=$songId", it)
+                                    lyricsKind = null
+                                    updateFloatingViewVisibility()
                                 }
                             }
                         }
                     } else {
                         floatingView?.text = "Melodia 播放器"
+                        updateFloatingViewVisibility()
                     }
                 }
             }
@@ -175,6 +216,10 @@ class FloatingLyricService : Service() {
         positionJob = serviceScope.launch {
             playerManager.currentPosition.collectLatest { positionMs ->
                 if (lyricLines.isNotEmpty()) {
+                    if (lyricsKind == LyricsKind.PURE_MUSIC) {
+                        floatingView?.text = "纯音乐，请欣赏"
+                        return@collectLatest
+                    }
                     val index = findLyricIndex(lyricLines, positionMs)
                     if (index in lyricLines.indices) {
                         floatingView?.text = lyricLines[index].text
@@ -188,6 +233,52 @@ class FloatingLyricService : Service() {
                     }
                 }
             }
+        }
+    }
+
+    private fun startPureMusicPreviewIfNeeded() {
+        if (!isActuallyPlaying || lyricsKind != LyricsKind.PURE_MUSIC || pureMusicPreviewConsumed || showPureMusicPreview) {
+            return
+        }
+        showPureMusicPreview = true
+        pureMusicPreviewJob?.cancel()
+        pureMusicPreviewJob = serviceScope.launch {
+            delay(3_000L)
+            showPureMusicPreview = false
+            pureMusicPreviewConsumed = true
+            updateFloatingViewVisibility()
+        }
+    }
+
+    private fun updateFloatingViewVisibility() {
+        val view = floatingView ?: return
+        val shouldShow = shouldShowFloatingLyrics(
+            isPlaying = isActuallyPlaying,
+            hasTrack = currentSongId != -1L,
+            lyricsKind = lyricsKind,
+            showPureMusicPreview = showPureMusicPreview
+        )
+        if (shouldShow == isFloatingViewVisible) return
+        isFloatingViewVisible = shouldShow
+
+        view.animate().cancel()
+        if (shouldShow) {
+            view.visibility = View.VISIBLE
+            view.translationY = -8f * resources.displayMetrics.density
+            view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(180L)
+                .start()
+        } else {
+            view.animate()
+                .alpha(0f)
+                .translationY(-8f * resources.displayMetrics.density)
+                .setDuration(150L)
+                .withEndAction {
+                    if (!isFloatingViewVisible) view.visibility = View.INVISIBLE
+                }
+                .start()
         }
     }
 
@@ -210,6 +301,7 @@ class FloatingLyricService : Service() {
     override fun onDestroy() {
         lyricJob?.cancel()
         positionJob?.cancel()
+        pureMusicPreviewJob?.cancel()
         serviceScope.cancel()
         floatingView?.let {
             windowManager?.removeView(it)

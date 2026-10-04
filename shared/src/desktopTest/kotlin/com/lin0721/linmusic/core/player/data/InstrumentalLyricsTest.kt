@@ -24,6 +24,8 @@ class InstrumentalLyricsTest {
     @Test
     fun standaloneInstrumentalMarkersAreRecognized() {
         assertTrue(isInstrumentalLyrics("[00:00.00]纯音乐，请欣赏"))
+        assertTrue(isInstrumentalLyrics("[00:00.00]（纯音乐，请欣赏）"))
+        assertTrue(isInstrumentalLyrics("[00:00.00] [ Instrumental ] "))
         assertTrue(isInstrumentalLyrics("[00:00.00]Instrumental"))
         assertTrue(isInstrumentalLyrics("[0,1000](0,1000,0)纯音乐"))
         assertFalse(isInstrumentalLyrics(null))
