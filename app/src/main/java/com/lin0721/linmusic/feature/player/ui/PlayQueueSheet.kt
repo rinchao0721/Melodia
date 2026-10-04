@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
@@ -687,10 +688,7 @@ private fun BottomActionRow(
             )
         }
         val timerText = if (sleepTimerRemaining > 0L) {
-            val totalSeconds = sleepTimerRemaining / 1000L
-            val mins = totalSeconds / 60
-            val secs = totalSeconds % 60
-            "%d:%02d".format(mins, secs)
+            formatSleepTimerRemaining(sleepTimerRemaining)
         } else {
             "定时器"
         }
