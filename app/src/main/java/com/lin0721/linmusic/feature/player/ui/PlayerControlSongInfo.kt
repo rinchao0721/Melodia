@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -44,7 +45,9 @@ fun SongInfo(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
-                modifier = Modifier.basicMarquee()
+                modifier = Modifier
+                    .basicMarquee()
+                    .copySongTitleOnLongPress(title)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(

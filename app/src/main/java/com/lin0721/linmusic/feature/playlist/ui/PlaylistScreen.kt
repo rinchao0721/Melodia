@@ -532,6 +532,7 @@ fun PlaylistScreen(
                 } else {
                     PlaylistContent(
                         playlist       = state.playlist,
+                        isAlbum        = isAlbum,
                         trackPlayCounts = state.trackPlayCounts,
                         canRemoveFromPlaylist = isOwnedPlaylist,
                         onRemoveFromPlaylist = { songId ->

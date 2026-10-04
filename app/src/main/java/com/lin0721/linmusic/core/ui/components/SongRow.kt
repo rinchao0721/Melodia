@@ -64,6 +64,7 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
@@ -180,7 +181,9 @@ fun SongRow(
                     fontSize = titleFontSize,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .copySongTitleOnLongPress(data.title)
                 )
                 if (!data.platformTag.isNullOrBlank()) {
                     Spacer(Modifier.width(6.dp))
@@ -406,7 +409,8 @@ fun DraggableSongRow(
                 fontSize = 14.sp,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.copySongTitleOnLongPress(data.title)
             )
             Spacer(Modifier.height(2.dp))
             Text(

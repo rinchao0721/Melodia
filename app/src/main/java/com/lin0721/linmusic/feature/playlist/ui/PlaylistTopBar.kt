@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.interaction.copyTextOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.darken
@@ -43,6 +44,7 @@ import kotlin.math.roundToInt
 @Composable
 fun PlaylistTopBar(
     title: String,
+    copyTitleOnLongPress: Boolean = false,
     progress: Float,
     overlayHeight: Dp,
     statusBarHeight: Dp,
@@ -103,6 +105,13 @@ fun PlaylistTopBar(
                 .padding(horizontal = 60.dp)
                 .offset(y = titleOffsetY)
                 .alpha(titleAlpha)
+                .then(
+                    if (copyTitleOnLongPress) {
+                        Modifier.copyTextOnLongPress(title, clipboardLabel = "专辑名")
+                    } else {
+                        Modifier
+                    }
+                )
         )
     }
 }
@@ -215,4 +224,3 @@ fun PlaylistReorderTopBar(
         }
     }
 }
-

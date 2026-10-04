@@ -48,6 +48,7 @@ import coil3.request.allowHardware
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.interaction.copyTextOnLongPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.darken
@@ -62,6 +63,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 @Composable
 fun PlaylistHeaderItem(
     playlist: PlaylistDetail,
+    copyTitleOnLongPress: Boolean = false,
     coverSize: Dp,
     coverAlpha: Float,
     progress: Float,
@@ -162,7 +164,15 @@ fun PlaylistHeaderItem(
         Column(modifier = Modifier.padding(horizontal = MelodiaSpacing.md)) {
                     Text(playlist.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold,
                         fontSize = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.alpha(titleAlpha))
+                        modifier = Modifier
+                            .alpha(titleAlpha)
+                            .then(
+                                if (copyTitleOnLongPress) {
+                                    Modifier.copyTextOnLongPress(playlist.name, clipboardLabel = "专辑名")
+                                } else {
+                                    Modifier
+                                }
+                            ))
                     Spacer(Modifier.height(6.dp))
                     if (playlist.id == -1L) {
                         Text(displayDateStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)

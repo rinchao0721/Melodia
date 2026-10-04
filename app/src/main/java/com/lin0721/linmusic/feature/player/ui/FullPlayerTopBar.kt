@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -86,7 +87,9 @@ fun FullPlayerTopBar(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        modifier = Modifier.basicMarquee()
+                        modifier = Modifier
+                            .basicMarquee()
+                            .copySongTitleOnLongPress(title)
                     )
                     Text(
                         text = artist,

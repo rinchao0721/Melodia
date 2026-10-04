@@ -26,6 +26,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -77,7 +78,8 @@ fun CloudSongRow(
                 color = Color.White,
                 fontSize = 14.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.copySongTitleOnLongPress(song.name)
             )
             Text(
                 text = "${song.artist} · ${song.fileSizeText}",

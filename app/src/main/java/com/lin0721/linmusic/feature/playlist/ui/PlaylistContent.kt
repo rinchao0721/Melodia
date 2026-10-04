@@ -48,6 +48,7 @@ private val COVER_MAX_SIZE = 260.dp
 @Composable
 fun PlaylistContent(
     playlist: PlaylistDetail,
+    isAlbum: Boolean = false,
     currentTrackId: String?,
     isPlaying: Boolean,
     likedSongIds: Set<Long>,
@@ -239,6 +240,7 @@ fun PlaylistContent(
                 ) {
                     PlaylistHeaderItem(
                         playlist            = playlist,
+                        copyTitleOnLongPress = isAlbum,
                         coverSize           = coverSize,
                         coverAlpha          = coverAlpha,
                         progress            = progress,
@@ -385,6 +387,7 @@ fun PlaylistContent(
         // ── 3. 固定 Overlay ───────────────────────────────────────────────
         PlaylistTopBar(
             title           = playlist.name,
+            copyTitleOnLongPress = isAlbum,
             progress        = if (searchFullyRevealed) 1f else progress,
             overlayHeight   = overlayHeight,
             statusBarHeight = statusBarHeight,
@@ -494,4 +497,3 @@ fun PlaylistContent(
         )
     }
 }
-

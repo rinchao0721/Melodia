@@ -31,6 +31,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.TextGray
@@ -136,7 +137,8 @@ fun MusicSongRow(index: Int, track: Track, isCurrent: Boolean, onClick: () -> Un
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.copySongTitleOnLongPress(track.name)
             )
             Text(
                 text = listOf(track.ar.joinToString("/") { it.name }, track.al.name)

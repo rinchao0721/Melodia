@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -103,7 +104,8 @@ fun PlaylistSongOptionsSheet(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.copySongTitleOnLongPress(track.name)
                     )
                     Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
                     Text(

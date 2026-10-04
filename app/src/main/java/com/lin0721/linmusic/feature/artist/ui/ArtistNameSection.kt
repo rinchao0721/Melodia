@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
+import com.lin0721.linmusic.core.ui.interaction.copyTextOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 顶占位透明高，用于显示出大图 Header，底部叠加歌手名与译名
@@ -54,7 +55,8 @@ fun ArtistNameSection(artist: ArtistDetailInfo, progress: Float, tintColor: Colo
                 fontWeight = FontWeight.Black,
                 lineHeight = 48.sp,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.copyTextOnLongPress(artist.name, clipboardLabel = "歌手名")
             )
 
             Spacer(Modifier.height(6.dp))

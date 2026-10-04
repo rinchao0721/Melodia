@@ -328,7 +328,11 @@ fun MelodiaFullPlayerOverlay(
 @Composable
 fun MelodiaToastHost(toastMessage: String?) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        // zIndex 必须设在与播放器同层的宿主上；只设给内部 Toast 无法跨越
+        // FullPlayerOverlay(zIndex=1) 的兄弟层级，会导致播放页/全屏歌词中提示被遮住。
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(999f),
         contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(
@@ -343,6 +347,7 @@ fun MelodiaToastHost(toastMessage: String?) {
             ) + fadeOut(tween(200)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .padding(horizontal = MelodiaSpacing.md)
                 .padding(bottom = 120.dp) // 位于底部浮岛上方
                 .zIndex(999f)
         ) {

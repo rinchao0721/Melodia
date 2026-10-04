@@ -46,6 +46,7 @@ import androidx.compose.ui.window.Dialog
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.interaction.copySongTitleOnLongPress
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +133,8 @@ fun SongMoreOptionsSheet(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.copySongTitleOnLongPress(title)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(

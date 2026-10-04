@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.R
@@ -38,6 +39,7 @@ fun CustomToast(message: String) {
     Row(
         modifier = Modifier
             .wrapContentWidth()
+            .widthIn(max = 400.dp)
             .heightIn(min = 40.dp)
             .clip(RoundedCornerShape(PillRadius))
             .background(ToastBackground)
@@ -67,7 +69,9 @@ fun CustomToast(message: String) {
             text = message,
             color = Color.White,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

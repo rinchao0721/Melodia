@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.interaction.copyTextOnLongPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 
@@ -68,6 +69,7 @@ fun ArtistTopBarOverlay(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(horizontal = 60.dp)
+                    .copyTextOnLongPress(artistName, clipboardLabel = "歌手名")
             )
         }
     }
