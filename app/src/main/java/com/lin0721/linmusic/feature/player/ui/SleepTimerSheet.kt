@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
+import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -57,7 +58,11 @@ fun SleepTimerSheet(
         ) {
             if (!isCustomMode) {
                 Text(
-                    text = "定时关闭",
+                    text = if (sleepTimerRemaining > 0L) {
+                        "定时关闭 (${formatSleepTimerRemaining(sleepTimerRemaining)})"
+                    } else {
+                        "定时关闭"
+                    },
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
