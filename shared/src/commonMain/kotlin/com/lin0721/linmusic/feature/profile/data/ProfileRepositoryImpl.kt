@@ -110,6 +110,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message ?: it.msg },
         transform = { response ->
             ProfileFollowListPage(
                 users = response.follow.map { user ->
@@ -141,6 +142,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message ?: it.msg },
         transform = { response ->
             ProfileFollowListPage(
                 users = response.followeds.map { user ->
@@ -201,6 +203,7 @@ class ProfileRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
+        msg = { it.message ?: it.msg },
         transform = { response ->
             val targetList = if (type == 1) response.weekData else response.allData
             targetList.map { record ->

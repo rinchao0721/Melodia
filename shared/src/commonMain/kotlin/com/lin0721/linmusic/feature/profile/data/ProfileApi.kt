@@ -156,6 +156,8 @@ data class ProfileUserFollowedsRequest(
 @Serializable
 data class ProfileFollowListResponse(
     val code: Int,
+    val message: String? = null,
+    val msg: String? = null,
     val follow: List<ProfileUserBasic> = emptyList(),
     val followeds: List<ProfileUserBasic> = emptyList(), // 根据是关注列表还是粉丝列表，字段可能不同
     val more: Boolean = false
@@ -206,6 +208,8 @@ data class ProfileListeningRankRequest(
 @Serializable
 data class ProfileListeningRankResponse(
     val code: Int,
+    val message: String? = null,
+    val msg: String? = null,
     val weekData: List<ProfileListenRecord> = emptyList(),
     val allData: List<ProfileListenRecord> = emptyList()
 ) {

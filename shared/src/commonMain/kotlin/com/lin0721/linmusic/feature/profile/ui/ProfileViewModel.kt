@@ -8,6 +8,7 @@ import com.lin0721.linmusic.feature.profile.domain.ProfileEventInfo
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
 import com.lin0721.linmusic.feature.profile.domain.ProfileUserInfo
+import com.lin0721.linmusic.feature.profile.domain.isProfilePrivacyRestricted
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -241,8 +242,11 @@ class ProfileViewModel(
                     )
                 }
                 .onFailure { error ->
-                    _toastEvent.emit(error.message ?: "加载听歌排行失败")
                     val latest = _uiState.value as? ProfileUiState.Success ?: return@onFailure
+                    // 只有可确认的隐私响应静默处理；网络或未知业务错误仍反馈给用户。
+                    if (latest.isSelf || !error.isProfilePrivacyRestricted()) {
+                        _toastEvent.emit(error.message ?: "加载听歌排行失败")
+                    }
                     _uiState.value = latest.copy(
                         rankLoading = false,
                         rankLoaded = true
