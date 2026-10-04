@@ -57,6 +57,8 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationEvent
 
 // 单个艺人的完整状态数据
 data class ArtistCardItem(
@@ -114,7 +116,8 @@ class PlayerViewModel(
     private val settingsPreferences: SettingsPreferences,
     private val resourceProvider: ResourceProvider,
     private val songDownloadManager: SongDownloader,
-    private val lyricsResolver: LyricsResolver
+    private val lyricsResolver: LyricsResolver,
+    private val libraryCollectionMutationBus: LibraryCollectionMutationBus
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -600,6 +603,19 @@ class PlayerViewModel(
                         }
                         currState.copy(artists = updated)
                     }
+                    val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                    libraryCollectionMutationBus.emit(
+                        ownerUid,
+                        LibraryCollectionMutationEvent.ArtistChanged(
+                            id = artistId,
+                            isCollected = targetFollow,
+                            name = targetItem.artistName,
+                            coverUrl = targetItem.artistDetail?.avatar
+                                ?.ifBlank { targetItem.artistDetail.cover }
+                                .orEmpty(),
+                            updateTime = System.currentTimeMillis()
+                        )
+                    )
                 }
             }
         }

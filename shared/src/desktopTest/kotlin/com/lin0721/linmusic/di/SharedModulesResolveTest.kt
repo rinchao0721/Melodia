@@ -12,6 +12,7 @@ import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -72,7 +73,8 @@ class SharedModulesResolveTest {
                 PlaylistRepositoryImpl::class, PlaybackRepositoryImpl::class, PlayerRepositoryImpl::class,
                 SettingsRepositoryImpl::class, CreateRepositoryImpl::class, CreatePlaylistAndAddSongUseCase::class,
                 UpdatePlaylistCoverUseCase::class, SongCollectDelegate::class, SyncProfileAfterLoginUseCase::class,
-                LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, ProfileRepositoryImpl::class,
+                LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, LibraryCollectionMutationBus::class,
+                ProfileRepositoryImpl::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

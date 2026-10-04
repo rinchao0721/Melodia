@@ -12,6 +12,8 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationEvent
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
@@ -38,7 +40,8 @@ class ArtistViewModel(
     private val songLikeRepository: SongLikeRepository,
     val playerManager: PlaybackController,
     private val userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val libraryCollectionMutationBus: LibraryCollectionMutationBus
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ArtistUiState>(ArtistUiState.Loading)
@@ -224,6 +227,17 @@ class ArtistViewModel(
             artistRepository.subscribeArtist(artistId, targetSubscribe).collect { result ->
                 result.onSuccess {
                     _uiState.value = currentState.copy(isFollowed = targetSubscribe)
+                    val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                    libraryCollectionMutationBus.emit(
+                        ownerUid,
+                        LibraryCollectionMutationEvent.ArtistChanged(
+                            id = artistId,
+                            isCollected = targetSubscribe,
+                            name = currentState.artist.name,
+                            coverUrl = currentState.artist.avatar.ifBlank { currentState.artist.cover },
+                            updateTime = System.currentTimeMillis()
+                        )
+                    )
                     val msg = if (targetSubscribe) "已关注歌手" else "已取消关注歌手"
                     _toastEvent.emit(msg)
                 }.onFailure { e ->

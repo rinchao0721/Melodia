@@ -14,6 +14,8 @@ import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationEvent
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
@@ -81,7 +83,8 @@ class LibraryViewModel(
     private val playlistMutationBus: PlaylistMutationBus,
     private val songDownloadManager: SongDownloader,
     private val recentRepository: RecentRepository,
-    private val playbackRepository: PlaybackRepository
+    private val playbackRepository: PlaybackRepository,
+    private val libraryCollectionMutationBus: LibraryCollectionMutationBus
 ) : ViewModel() {
 
     private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
@@ -121,6 +124,7 @@ class LibraryViewModel(
                 if (profile != null) {
                     loadLibraryData(profile)
                 } else {
+                    libraryCollectionMutationBus.clear()
                     _uiState.value = LibraryUiState.Loading
                 }
             }
@@ -168,6 +172,14 @@ class LibraryViewModel(
         viewModelScope.launch {
             playbackRepository.playlistRecorded.collect {
                 refreshRecentPlaylists()
+            }
+        }
+
+        viewModelScope.launch {
+            libraryCollectionMutationBus.events.collect { mutation ->
+                if (userProfile.value?.uid == mutation.ownerUid) {
+                    applyCollectionMutation(mutation.event)
+                }
             }
         }
     }
@@ -336,6 +348,8 @@ class LibraryViewModel(
                     )
                 }
 
+                // 网络响应可能是收藏操作前的缓存；加载完后再合并本次会话中的最新变更。
+                libraryCollectionMutationBus.latestEvents(profile.uid).forEach(::applyCollectionMutation)
                 applyFilterAndSort()
 
             } catch (e: Exception) {
@@ -562,8 +576,19 @@ class LibraryViewModel(
         viewModelScope.launch {
             playlistRepository.subscribeAlbum(albumId, subscribe = false).collect { result ->
                 result.onSuccess {
+                    removeCollectionItem(albumId, LibraryItemType.ALBUM)
+                    val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                    libraryCollectionMutationBus.emit(
+                        ownerUid,
+                        LibraryCollectionMutationEvent.AlbumChanged(
+                            id = albumId,
+                            isCollected = false,
+                            name = "",
+                            artistNames = "",
+                            coverUrl = ""
+                        )
+                    )
                     _toastEvent.emit("已取消收藏专辑")
-                    loadLibraryData()
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }
@@ -575,13 +600,103 @@ class LibraryViewModel(
         viewModelScope.launch {
             artistRepository.subscribeArtist(artistId, subscribe = false).collect { result ->
                 result.onSuccess {
+                    removeCollectionItem(artistId, LibraryItemType.ARTIST)
+                    val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                    libraryCollectionMutationBus.emit(
+                        ownerUid,
+                        LibraryCollectionMutationEvent.ArtistChanged(
+                            id = artistId,
+                            isCollected = false,
+                            name = "",
+                            coverUrl = ""
+                        )
+                    )
                     _toastEvent.emit("已取消关注歌手")
-                    loadLibraryData()
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }
             }
         }
+    }
+
+    // 取消收藏/关注成功后直接更新本地列表。立即重拉服务端列表可能命中缓存，
+    // 会把刚删掉的条目短暂加回来，导致界面看起来没有实时刷新。
+    private fun removeCollectionItem(itemId: Long, itemType: LibraryItemType) {
+        val current = _uiState.value as? LibraryUiState.Success ?: return
+        val id = itemId.toString()
+        val updatedItems = current.allItems.filterNot { it.id == id && it.type == itemType }
+        if (updatedItems.size == current.allItems.size) return
+
+        _uiState.value = current.copy(
+            allItems = updatedItems,
+            artistCount = if (itemType == LibraryItemType.ARTIST) {
+                (current.artistCount - 1).coerceAtLeast(0)
+            } else {
+                current.artistCount
+            },
+            albumCount = if (itemType == LibraryItemType.ALBUM) {
+                (current.albumCount - 1).coerceAtLeast(0)
+            } else {
+                current.albumCount
+            }
+        )
+        applyFilterAndSort()
+    }
+
+    private fun applyCollectionMutation(event: LibraryCollectionMutationEvent) {
+        when (event) {
+            is LibraryCollectionMutationEvent.ArtistChanged -> {
+                if (!event.isCollected) {
+                    removeCollectionItem(event.id, LibraryItemType.ARTIST)
+                } else {
+                    addCollectionItem(
+                        LibraryItem(
+                            id = event.id.toString(),
+                            title = event.name,
+                            subtitle = "歌手",
+                            coverUrl = event.coverUrl,
+                            type = LibraryItemType.ARTIST,
+                            updateTime = event.updateTime
+                        )
+                    )
+                }
+            }
+            is LibraryCollectionMutationEvent.AlbumChanged -> {
+                if (!event.isCollected) {
+                    removeCollectionItem(event.id, LibraryItemType.ALBUM)
+                } else {
+                    addCollectionItem(
+                        LibraryItem(
+                            id = event.id.toString(),
+                            title = event.name,
+                            subtitle = "专辑 · ${event.artistNames}",
+                            coverUrl = event.coverUrl,
+                            type = LibraryItemType.ALBUM,
+                            updateTime = event.updateTime
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun addCollectionItem(item: LibraryItem) {
+        val current = _uiState.value as? LibraryUiState.Success ?: return
+        val exists = current.allItems.any { it.id == item.id && it.type == item.type }
+        // 详情接口不提供收藏时间。用当前时间补齐，否则默认“最近”排序会把新收藏条目放到列表最底部。
+        val visibleItem = if (!exists && item.updateTime <= 0L) {
+            item.copy(updateTime = System.currentTimeMillis())
+        } else {
+            item
+        }
+        val updatedItems = current.allItems
+            .filterNot { it.id == item.id && it.type == item.type } + visibleItem
+        _uiState.value = current.copy(
+            allItems = updatedItems,
+            artistCount = if (!exists && item.type == LibraryItemType.ARTIST) current.artistCount + 1 else current.artistCount,
+            albumCount = if (!exists && item.type == LibraryItemType.ALBUM) current.albumCount + 1 else current.albumCount
+        )
+        applyFilterAndSort()
     }
 
     // 批量下载歌单或专辑

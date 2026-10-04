@@ -20,6 +20,8 @@ import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import com.lin0721.linmusic.feature.home.data.HomeRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationEvent
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -71,7 +73,8 @@ class PlaylistViewModel(
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
     private val searchRepository: SearchRepository,
-    private val songDownloadManager: SongDownloader
+    private val songDownloadManager: SongDownloader,
+    private val libraryCollectionMutationBus: LibraryCollectionMutationBus
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -656,6 +659,20 @@ class PlaylistViewModel(
                 result.onSuccess {
                     _uiState.update { state ->
                         if (state is PlaylistUiState.Success) state.copy(isSubscribed = targetSubscribe) else state
+                    }
+                    if (isAlbumMode) {
+                        val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                        libraryCollectionMutationBus.emit(
+                            ownerUid,
+                            LibraryCollectionMutationEvent.AlbumChanged(
+                                id = successState.playlist.id,
+                                isCollected = targetSubscribe,
+                                name = successState.playlist.name,
+                                artistNames = successState.playlist.artists.joinToString(" • ") { it.name },
+                                coverUrl = successState.playlist.coverImgUrl,
+                                updateTime = System.currentTimeMillis()
+                            )
+                        )
                     }
                     _toastEvent.emit(if (targetSubscribe) "已收藏$resourceLabel" else "已取消收藏$resourceLabel")
                 }.onFailure { e ->

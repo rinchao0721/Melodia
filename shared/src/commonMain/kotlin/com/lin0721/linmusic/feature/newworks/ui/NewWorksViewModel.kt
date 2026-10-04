@@ -13,6 +13,8 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationBus
+import com.lin0721.linmusic.feature.library.domain.LibraryCollectionMutationEvent
 import com.lin0721.linmusic.feature.newworks.data.NewWorksRepository
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksTrack
@@ -49,7 +51,8 @@ class NewWorksViewModel(
     private val songCollectDelegate: SongCollectDelegate,
     private val songLikeRepository: SongLikeRepository,
     private val userPreferences: UserPreferences,
-    private val libraryRepository: LibraryRepository
+    private val libraryRepository: LibraryRepository,
+    private val libraryCollectionMutationBus: LibraryCollectionMutationBus
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<NewWorksUiState>(NewWorksUiState.Loading)
@@ -178,6 +181,18 @@ class NewWorksViewModel(
                 playlistRepository.subscribeAlbum(release.id, subscribe = !inLibrary).firstOrNull()
                     ?.onSuccess {
                         libraryAlbumIds.update { if (inLibrary) it - release.id else it + release.id }
+                        val ownerUid = userPreferences.userProfile.first()?.uid ?: return@onSuccess
+                        libraryCollectionMutationBus.emit(
+                            ownerUid,
+                            LibraryCollectionMutationEvent.AlbumChanged(
+                                id = release.id,
+                                isCollected = !inLibrary,
+                                name = release.title,
+                                artistNames = release.artistName,
+                                coverUrl = release.coverUrl,
+                                updateTime = System.currentTimeMillis()
+                            )
+                        )
                         _toastEvent.emit(if (inLibrary) "已取消收藏专辑" else "已收藏专辑")
                     }
                     ?.onFailure { e -> _toastEvent.emit(e.toUserMessage(resourceProvider)) }
