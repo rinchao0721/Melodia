@@ -2,6 +2,9 @@ package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -19,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +35,7 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
+import kotlinx.coroutines.launch
 
 // ────────────────────────────────────────────────────────────────────────────
 // "定时关闭"睡眠定时器弹层（预设选项 + 自定义时间滚轮）
@@ -43,18 +48,56 @@ fun SleepTimerSheet(
     onDismiss: () -> Unit
 ) {
     val timerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val dismissThresholdPx = remember(density) { with(density) { 48.dp.toPx() } }
+    var isCustomMode by remember { mutableStateOf(false) }
+    var handleDragDistance by remember { mutableFloatStateOf(0f) }
+    val contentScrollState = rememberScrollState()
+    LaunchedEffect(isCustomMode) {
+        contentScrollState.scrollTo(0)
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = timerSheetState,
+        sheetGesturesEnabled = false,
         containerColor = MaterialTheme.colorScheme.background,
         shape = BottomSheetShape,
-        dragHandle = { MelodiaDragHandle() }
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .width(96.dp)
+                    .height(32.dp)
+                    .pointerInput(timerSheetState, onDismiss) {
+                        detectVerticalDragGestures(
+                            onDragStart = { handleDragDistance = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                handleDragDistance = (handleDragDistance + dragAmount).coerceAtLeast(0f)
+                            },
+                            onDragCancel = { handleDragDistance = 0f },
+                            onDragEnd = {
+                                if (handleDragDistance >= dismissThresholdPx) {
+                                    scope.launch {
+                                        timerSheetState.hide()
+                                        onDismiss()
+                                    }
+                                }
+                                handleDragDistance = 0f
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                MelodiaDragHandle()
+            }
+        }
     ) {
-        var isCustomMode by remember { mutableStateOf(false) }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .verticalScroll(contentScrollState)
                 .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
         ) {
             if (!isCustomMode) {
