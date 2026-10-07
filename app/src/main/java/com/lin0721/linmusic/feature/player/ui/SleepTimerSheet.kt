@@ -26,6 +26,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
+import com.lin0721.linmusic.core.player.SleepTimerSelection
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -139,8 +140,7 @@ fun SleepTimerSheet(
                 }
             } else {
                 // 自定义倒计时设置界面
-                var customHours by remember { mutableIntStateOf(0) }
-                var customMinutes by remember { mutableIntStateOf(30) }
+                var customTime by remember { mutableStateOf(SleepTimerSelection(hours = 0, minutes = 30)) }
 
                 // 返回键与标题
                 Row(
@@ -183,9 +183,9 @@ fun SleepTimerSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TimeWheelPicker(
-                            value = customHours,
+                            value = customTime.hours,
                             range = 0..23,
-                            onValueChange = { customHours = it }
+                            onValueChange = { customTime = customTime.copy(hours = it) }
                         )
                         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
                         Text(
@@ -214,9 +214,9 @@ fun SleepTimerSheet(
                     ) {
                         Spacer(modifier = Modifier.width(MelodiaSpacing.md))
                         TimeWheelPicker(
-                            value = customMinutes,
+                            value = customTime.minutes,
                             range = 0..59,
-                            onValueChange = { customMinutes = it }
+                            onValueChange = { customTime = customTime.copy(minutes = it) }
                         )
                         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
                         Text(
@@ -247,27 +247,21 @@ fun SleepTimerSheet(
                             "+30分" to 30
                         )
                         quickMinOptions.forEach { (label, delta) ->
+                            val enabled = customTime.canAdjustMinutes(delta)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(36.dp)
                                     .clip(RoundedCornerShape(PillRadius))
-                                    .background(Color.White.copy(alpha = 0.05f))
-                                    .clickable {
-                                        val totalMin = customHours * 60 + customMinutes + delta
-                                        if (totalMin >= 0) {
-                                            customHours = (totalMin / 60) % 24
-                                            customMinutes = totalMin % 60
-                                        } else {
-                                            customHours = 0
-                                            customMinutes = 0
-                                        }
+                                    .background(Color.White.copy(alpha = if (enabled) 0.05f else 0.02f))
+                                    .clickable(enabled = enabled) {
+                                        customTime = customTime.adjustMinutes(delta)
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label,
-                                    color = Color.White.copy(alpha = 0.8f),
+                                    color = Color.White.copy(alpha = if (enabled) 0.8f else 0.25f),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -286,34 +280,36 @@ fun SleepTimerSheet(
                             "重置" to 0
                         )
                         quickHourOptions.forEach { (label, delta) ->
+                            val hourDelta = delta / 60
+                            val enabled = label == "重置" || customTime.canAdjustHours(hourDelta)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(36.dp)
                                     .clip(RoundedCornerShape(PillRadius))
                                     .background(
-                                        if (label == "重置") MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f)
+                                        when {
+                                            label == "重置" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            enabled -> Color.White.copy(alpha = 0.05f)
+                                            else -> Color.White.copy(alpha = 0.02f)
+                                        }
                                     )
-                                    .clickable {
+                                    .clickable(enabled = enabled) {
                                         if (label == "重置") {
-                                            customHours = 0
-                                            customMinutes = 0
+                                            customTime = SleepTimerSelection(hours = 0, minutes = 0)
                                         } else {
-                                            val totalMin = customHours * 60 + customMinutes + delta
-                                            if (totalMin >= 0) {
-                                                customHours = (totalMin / 60) % 24
-                                                customMinutes = totalMin % 60
-                                            } else {
-                                                customHours = 0
-                                                customMinutes = 0
-                                            }
+                                            customTime = customTime.adjustHours(hourDelta)
                                         }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label,
-                                    color = if (label == "重置") MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
+                                    color = when {
+                                        label == "重置" -> MaterialTheme.colorScheme.primary
+                                        enabled -> Color.White.copy(alpha = 0.8f)
+                                        else -> Color.White.copy(alpha = 0.25f)
+                                    },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -325,7 +321,7 @@ fun SleepTimerSheet(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 // 开启定时关闭确定按钮
-                val totalTargetMinutes = customHours * 60 + customMinutes
+                val totalTargetMinutes = customTime.totalMinutes
                 MelodiaButton(
                     onClick = {
                         if (totalTargetMinutes > 0) {
@@ -362,7 +358,7 @@ fun SleepTimerSheet(
                         )
                 ) {
                     Text(
-                        text = if (totalTargetMinutes > 0) "开启定时关闭 (${customHours}时${customMinutes}分)" else "请选择时间",
+                        text = if (totalTargetMinutes > 0) "开启定时关闭 (${customTime.hours}时${customTime.minutes}分)" else "请选择时间",
                         color = if (totalTargetMinutes > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
@@ -390,6 +386,7 @@ private fun TimeWheelPicker(
         if (idx != -1) idx else 0
     }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    var isProgrammaticScroll by remember { mutableStateOf(false) }
 
     val currentSelection = remember {
         derivedStateOf {
@@ -401,7 +398,7 @@ private fun TimeWheelPicker(
     }
 
     LaunchedEffect(currentSelection.value) {
-        if (currentSelection.value in list.indices) {
+        if (!isProgrammaticScroll && currentSelection.value in list.indices) {
             onValueChange(list[currentSelection.value])
         }
     }
@@ -409,7 +406,12 @@ private fun TimeWheelPicker(
     LaunchedEffect(value) {
         val targetIndex = list.indexOf(value)
         if (targetIndex != -1 && !state.isScrollInProgress && state.firstVisibleItemIndex != targetIndex) {
-            state.animateScrollToItem(targetIndex)
+            isProgrammaticScroll = true
+            try {
+                state.animateScrollToItem(targetIndex)
+            } finally {
+                isProgrammaticScroll = false
+            }
         }
     }
 
