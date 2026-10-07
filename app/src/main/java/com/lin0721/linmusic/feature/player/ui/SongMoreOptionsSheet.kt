@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.window.Dialog
 import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -392,8 +393,7 @@ fun SongMoreOptionsSheet(
 
                 // 9. 定时关闭
                 val timerText = if (sleepTimerRemaining > 0L) {
-                    val mins = (sleepTimerRemaining + 59999L) / (60 * 1000L)
-                    "定时关闭 (${mins})"
+                    "定时关闭 (${formatSleepTimerRemaining(sleepTimerRemaining)})"
                 } else {
                     "定时关闭"
                 }
