@@ -100,7 +100,8 @@ class PlayerManager(
     private val progress = PlaybackProgressTracker(scope, controllerHolder)
     private val stateStore = PlaybackStateStore(scope, playbackPreferences)
     private val coverPreloader = TrackCoverPreloader(context)
-    private val sleepTimer = SleepTimer(scope) { pause() }
+    // elapsedRealtime 包含设备深度睡眠时间，息屏/Doze 后可按真实经过时间校准剩余值。
+    private val sleepTimer = SleepTimer(scope, SystemClock::elapsedRealtime) { pause() }
     private val roaming = SimilarRoamingController(scope, repository, settingsPreferences, playbackQueue, stateStore)
     private val networkGuard = PlaybackNetworkGuard(
         context = context,
