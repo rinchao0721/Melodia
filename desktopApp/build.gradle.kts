@@ -134,7 +134,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodia"
-            packageVersion = desktopVersion
+            // MSI 只接受 MAJOR.MINOR.BUILD，beta/rc 的 -beta.1 后缀要去掉，否则配置阶段就会报错
+            packageVersion = desktopVersion.substringBefore('-')
             vendor = "Melodia"
             description = "Melodia 音乐播放器"
             appResourcesRootDir.set(layout.buildDirectory.dir("appResources"))
