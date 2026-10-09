@@ -332,21 +332,13 @@ class MelodiaPlaybackService : MediaSessionService() {
         return listOf(buildLikeButton())
     }
 
+    // 不能在这里声明 SLOT_BACK / SLOT_FORWARD 的上/下一首按钮：Media3 一旦发现这两个槽位被占用，
+    // 会把标准的 ACTION_SKIP_TO_PREVIOUS / NEXT 从旧版 PlaybackState 里剔除，改以自定义动作下发。
+    // 一加(ColorOS/OxygenOS)的折叠态媒体卡片只认标准动作，上/下一首会显示成不可点，展开后才恢复。
+    // 省略后上/下一首由播放器可用命令自动映射为标准动作，所有系统界面都能识别。
     @OptIn(UnstableApi::class)
     private fun buildMediaButtonPreferences(): List<CommandButton> {
-        return listOf(
-            CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
-                .setDisplayName("上一首")
-                .setSlots(CommandButton.SLOT_BACK)
-                .build(),
-            CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
-                .setDisplayName("下一首")
-                .setSlots(CommandButton.SLOT_FORWARD)
-                .build(),
-            buildLikeButton()
-        )
+        return listOf(buildLikeButton())
     }
 
     private fun buildAvailableSessionCommands(): SessionCommands {
