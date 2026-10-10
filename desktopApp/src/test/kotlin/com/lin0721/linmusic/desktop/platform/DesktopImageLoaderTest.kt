@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
+
 import coil3.PlatformContext
 import java.io.File
 import java.nio.file.Files
@@ -76,7 +78,7 @@ class DesktopImageLoaderTest {
     @Test
     fun cacheLivesOutsideRoamingDataDirWhenLocalAppDataExists() {
         val local = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() } ?: return
-        assertTrue(DesktopPaths.imageCacheDir.path.startsWith(local))
-        assertEquals("image_cache", DesktopPaths.imageCacheDir.name)
+        assertTrue(AppPaths.current.imageCacheDir.path.startsWith(local))
+        assertEquals("image_cache", AppPaths.current.imageCacheDir.name)
     }
 }

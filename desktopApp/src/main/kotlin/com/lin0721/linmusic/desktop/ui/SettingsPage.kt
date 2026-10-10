@@ -70,17 +70,16 @@ import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
-import com.lin0721.linmusic.desktop.platform.AutoStart
+import com.lin0721.linmusic.desktop.platform.native.AutoStartManager
 import com.lin0721.linmusic.desktop.platform.CloseAction
 import com.lin0721.linmusic.desktop.platform.DesktopImageLoader
-import com.lin0721.linmusic.desktop.platform.DesktopPaths
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
 import com.lin0721.linmusic.desktop.platform.DesktopPreferences
-import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
+import com.lin0721.linmusic.desktop.platform.native.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
 import com.lin0721.linmusic.desktop.platform.HotkeyCombo
-import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
+import com.lin0721.linmusic.desktop.platform.native.SystemMediaSession
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
-import com.lin0721.linmusic.desktop.platform.win.User32
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -104,20 +103,16 @@ private val QualityOptions = listOf(
     "jymaster" to "超清母带"
 )
 
-// Win32 虚拟键码与 AWT 键码不一致的按键
-private const val WIN_VK_INSERT = 0x2D
-private const val WIN_VK_DELETE = 0x2E
-
 @Composable
 fun SettingsPage(modifier: Modifier = Modifier) {
     val koin = remember { GlobalContext.get() }
     val settingsPreferences = remember { koin.get<SettingsPreferences>() }
     val sourcePreferences = remember { koin.get<SourcePreferences>() }
     val desktopPreferences = remember { koin.get<DesktopPreferences>() }
-    val hotkeys = remember { koin.get<GlobalHotkeys>() }
+    val hotkeys = remember { koin.get<GlobalHotkeyService>() }
     val audioCache = remember { koin.get<AudioCache>() }
     val navigator = LocalDesktopNavigator.current
-    val smtc = remember { koin.get<SmtcSession>() }
+    val smtc = remember { koin.get<SystemMediaSession>() }
     val scope = rememberCoroutineScope()
 
     val quality by settingsPreferences.wifiQuality.collectAsState(initial = "lossless")
@@ -303,7 +298,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
 
             SettingsCard("下载") {
                 val customFolder = downloadFolder?.takeIf { it.isNotBlank() }
-                SettingRow("下载目录", subtitle = customFolder ?: DesktopPaths.defaultDownloadDir.absolutePath) {
+                SettingRow("下载目录", subtitle = customFolder ?: AppPaths.current.defaultDownloadDir.absolutePath) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (customFolder != null) {
                             TextButton(onClick = { scope.launch { settingsPreferences.saveDownloadFolderUri(null) } }) {
@@ -312,7 +307,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
                         }
                         TextButton(onClick = {
                             scope.launch {
-                                val initial = File(customFolder ?: DesktopPaths.defaultDownloadDir.absolutePath)
+                                val initial = File(customFolder ?: AppPaths.current.defaultDownloadDir.absolutePath)
                                 chooseDirectory(initial)?.let { settingsPreferences.saveDownloadFolderUri(it.absolutePath) }
                             }
                         }) {
@@ -365,10 +360,10 @@ fun SettingsPage(modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                SettingRow("日志文件", subtitle = "${formatBytes(logBytes)} · ${DesktopPaths.logDir.absolutePath}") {
+                SettingRow("日志文件", subtitle = "${formatBytes(logBytes)} · ${AppPaths.current.logDir.absolutePath}") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = {
-                            if (!openDirectory(DesktopPaths.logDir)) navigator.showMessage("无法打开日志目录")
+                            if (!openDirectory(AppPaths.current.logDir)) navigator.showMessage("无法打开日志目录")
                         }) {
                             Text("打开目录", color = DesktopColors.Accent)
                         }
@@ -611,21 +606,22 @@ private fun CloseOption(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun AutoStartRow() {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
-    // null 表示尚未读到注册表状态
+    val autoStart = remember { GlobalContext.get().get<AutoStartManager>() }
+    // null 表示尚未读到自启状态
     var enabled by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(Unit) {
-        enabled = withContext(Dispatchers.IO) { AutoStart.isEnabled() }
+        enabled = withContext(Dispatchers.IO) { autoStart.isEnabled() }
     }
     SettingRow(
         title = "开机自动启动",
-        subtitle = if (AutoStart.isSupported) null else "仅安装版可用"
+        subtitle = if (autoStart.isSupported) null else "仅安装版可用"
     ) {
         SettingSwitch(
             checked = enabled == true,
-            enabled = AutoStart.isSupported && enabled != null
+            enabled = autoStart.isSupported && enabled != null
         ) { target ->
             scope.launch {
-                val ok = withContext(Dispatchers.IO) { AutoStart.setEnabled(target) }
+                val ok = withContext(Dispatchers.IO) { autoStart.setEnabled(target) }
                 if (ok) enabled = target else navigator.showMessage("修改开机启动失败")
             }
         }
@@ -636,7 +632,7 @@ private fun AutoStartRow() {
 private fun HotkeyEditor(
     hotkeyMap: Map<HotkeyAction, HotkeyCombo?>,
     failed: Set<HotkeyAction>,
-    hotkeys: GlobalHotkeys,
+    hotkeys: GlobalHotkeyService,
     onSave: (Map<HotkeyAction, HotkeyCombo?>) -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
@@ -666,6 +662,7 @@ private fun HotkeyEditor(
                 HotkeyRecorder(
                     combo = combo,
                     isRecording = recording == action,
+                    hotkeys = hotkeys,
                     onStart = {
                         if (recording == null) hotkeys.pause()
                         recording = action
@@ -711,6 +708,7 @@ private fun HotkeyEditor(
 private fun HotkeyRecorder(
     combo: HotkeyCombo?,
     isRecording: Boolean,
+    hotkeys: GlobalHotkeyService,
     onStart: () -> Unit,
     onCancel: () -> Unit,
     onRecorded: (HotkeyCombo) -> Unit,
@@ -736,19 +734,17 @@ private fun HotkeyRecorder(
                     AwtKeyEvent.VK_CONTROL, AwtKeyEvent.VK_ALT, AwtKeyEvent.VK_SHIFT, AwtKeyEvent.VK_WINDOWS,
                     AwtKeyEvent.VK_META, AwtKeyEvent.VK_ALT_GRAPH -> Unit
                     else -> {
-                        val vk = when (awtCode) {
-                            AwtKeyEvent.VK_INSERT -> WIN_VK_INSERT
-                            AwtKeyEvent.VK_DELETE -> WIN_VK_DELETE
-                            else -> awtCode
-                        }
-                        var modifiers = 0
-                        if (event.isCtrlPressed) modifiers = modifiers or User32.MOD_CONTROL
-                        if (event.isAltPressed) modifiers = modifiers or User32.MOD_ALT
-                        if (event.isShiftPressed) modifiers = modifiers or User32.MOD_SHIFT
+                        // 键码转换属平台细节，交由热键服务处理
+                        val combo = hotkeys.toHotkeyCombo(
+                            awtKeyCode = awtCode,
+                            ctrl = event.isCtrlPressed,
+                            alt = event.isAltPressed,
+                            shift = event.isShiftPressed,
+                        )
                         when {
-                            !HotkeyCombo.isSupportedKey(vk) -> onInvalid("不支持该按键")
-                            !HotkeyCombo.isValid(modifiers, vk) -> onInvalid("快捷键需要包含 Ctrl 或 Alt")
-                            else -> onRecorded(HotkeyCombo(modifiers, vk))
+                            combo == null -> onInvalid("不支持该按键")
+                            !HotkeyCombo.isValid(combo.modifiers, combo.vk) -> onInvalid("快捷键需要包含 Ctrl 或 Alt")
+                            else -> onRecorded(combo)
                         }
                     }
                 }

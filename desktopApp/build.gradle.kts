@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 java {
@@ -30,6 +31,11 @@ dependencies {
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.jna)
     implementation(libs.jaudiotagger)
+    // Linux 系统媒体控制：MPRIS over D-Bus（纯 Java 传输，不依赖原生 libdbus）
+    implementation(libs.dbus.java.core)
+    implementation(libs.dbus.java.transport)
+    // 平台能力契约的编译期校验（校验平台覆盖度与模块注册完整性）
+    ksp(project(":processor"))
     testImplementation(libs.junit)
 }
 
@@ -81,10 +87,11 @@ abstract class CmakeDllTask @Inject constructor(private val execOps: ExecOperati
     }
 }
 
+// 原生源码按平台分目录：native-src/<platform>/<module>，编译任务与产物同样按平台区分
 val buildSmtc by tasks.registering(CmakeDllTask::class) {
     onlyIf { System.getProperty("os.name").startsWith("Windows") }
-    sourceDir.set(layout.projectDirectory.dir("native-src/smtc"))
-    cmakeBuildDir.set(layout.buildDirectory.dir("smtc"))
+    sourceDir.set(layout.projectDirectory.dir("native-src/windows/smtc"))
+    cmakeBuildDir.set(layout.buildDirectory.dir("native/windows/smtc"))
     dllName.set("melodia_smtc.dll")
     outputDll.set(layout.projectDirectory.file("native/melodia_smtc.dll"))
 }

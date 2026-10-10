@@ -1,7 +1,5 @@
 package com.lin0721.linmusic.desktop.platform
 
-import com.lin0721.linmusic.desktop.platform.win.User32
-
 enum class HotkeyAction(val label: String) {
     PlayPause("播放/暂停"),
     Previous("上一首"),
@@ -11,14 +9,22 @@ enum class HotkeyAction(val label: String) {
     ToggleDesktopLyric("桌面歌词开关")
 }
 
+// Win32 修饰键常量，与 user32 的 MOD_* 取值一致。
+// 快捷键配置模型（HotkeyAction/HotkeyCombo）是跨平台数据模型，独立于平台实现，故在此声明。
+object HotkeyModifiers {
+    const val MOD_ALT = 0x0001
+    const val MOD_CONTROL = 0x0002
+    const val MOD_SHIFT = 0x0004
+}
+
 // modifiers 为 Win32 MOD_* 组合（不含 MOD_NOREPEAT），vk 为虚拟键码，与 AWT 键码在支持的按键范围内一致
 data class HotkeyCombo(val modifiers: Int, val vk: Int) {
 
     val label: String
         get() = buildList {
-            if (modifiers and User32.MOD_CONTROL != 0) add("Ctrl")
-            if (modifiers and User32.MOD_ALT != 0) add("Alt")
-            if (modifiers and User32.MOD_SHIFT != 0) add("Shift")
+            if (modifiers and HotkeyModifiers.MOD_CONTROL != 0) add("Ctrl")
+            if (modifiers and HotkeyModifiers.MOD_ALT != 0) add("Alt")
+            if (modifiers and HotkeyModifiers.MOD_SHIFT != 0) add("Shift")
             add(keyName(vk) ?: "0x%02X".format(vk))
         }.joinToString("+")
 
@@ -54,7 +60,7 @@ data class HotkeyCombo(val modifiers: Int, val vk: Int) {
         )
 
         val defaults: Map<HotkeyAction, HotkeyCombo> = run {
-            val ctrlAlt = User32.MOD_CONTROL or User32.MOD_ALT
+            val ctrlAlt = HotkeyModifiers.MOD_CONTROL or HotkeyModifiers.MOD_ALT
             mapOf(
                 HotkeyAction.PlayPause to HotkeyCombo(ctrlAlt, 'P'.code),
                 HotkeyAction.Previous to HotkeyCombo(ctrlAlt, VK_LEFT),
@@ -75,7 +81,7 @@ data class HotkeyCombo(val modifiers: Int, val vk: Int) {
 
         // 全局热键必须带 Ctrl 或 Alt，避免单键误触
         fun isValid(modifiers: Int, vk: Int): Boolean =
-            modifiers and (User32.MOD_CONTROL or User32.MOD_ALT) != 0 && isSupportedKey(vk)
+            modifiers and (HotkeyModifiers.MOD_CONTROL or HotkeyModifiers.MOD_ALT) != 0 && isSupportedKey(vk)
 
         fun decode(raw: String): HotkeyCombo? {
             val parts = raw.split(':')

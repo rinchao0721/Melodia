@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.player.mpv
 
+import com.lin0721.linmusic.desktop.platform.native.NativeLibraryLocator
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.NativeLibrary
@@ -26,18 +27,33 @@ internal interface LibMpv : Library {
     fun mpv_error_string(error: Int): String?
 
     companion object {
-        private const val LIBRARY_NAME = "libmpv-2"
+        private val OPTIONS = mapOf(Library.OPTION_STRING_ENCODING to "UTF-8")
 
+        // 库名与搜索路径的差异由平台定位器给出，本类不含平台判断
         fun load(): LibMpv {
-            // Compose 在开发运行与安装包里都会通过该属性给出平台资源目录，DLL 放在那里
-            System.getProperty("compose.application.resources.dir")?.let {
-                NativeLibrary.addSearchPath(LIBRARY_NAME, it)
+            // mpv 要求进程 LC_NUMERIC 为 "C"，否则 mpv_create 返回空句柄
+            MpvLocale.ensureNumericLocaleC()
+            val locator = NativeLibraryLocator.current
+            // Compose 在开发运行与安装包里都会通过该属性给出平台资源目录，原生库放在那里
+            val resourcesDir = System.getProperty("compose.application.resources.dir")
+
+            // 部分平台需先把资源目录注册进 JNA 搜索路径
+            val searchRoot = locator.searchPathRoot(resourcesDir)
+            val searchName = locator.searchPathLibraryName()
+            if (searchRoot != null && searchName != null) {
+                NativeLibrary.addSearchPath(searchName, searchRoot)
             }
-            return Native.load(
-                LIBRARY_NAME,
-                LibMpv::class.java,
-                mapOf(Library.OPTION_STRING_ENCODING to "UTF-8")
-            )
+
+            // 逐个候选尝试，取第一个加载成功的
+            var lastError: UnsatisfiedLinkError? = null
+            for (name in locator.candidates(resourcesDir)) {
+                try {
+                    return Native.load(name, LibMpv::class.java, OPTIONS)
+                } catch (e: UnsatisfiedLinkError) {
+                    lastError = e
+                }
+            }
+            throw lastError ?: UnsatisfiedLinkError("未找到 libmpv")
         }
     }
 }

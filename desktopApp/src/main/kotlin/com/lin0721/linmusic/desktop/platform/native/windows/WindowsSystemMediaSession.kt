@@ -1,8 +1,9 @@
-package com.lin0721.linmusic.desktop.platform.smtc
+package com.lin0721.linmusic.desktop.platform.native.windows
 
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.desktop.platform.native.SystemMediaSession
 import com.lin0721.linmusic.desktop.ui.sizedCoverUrl
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.sun.jna.WString
@@ -19,6 +20,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
+import com.lin0721.linmusic.desktop.platform.native.DesktopPlatform
+import com.lin0721.linmusic.desktop.platform.native.PlatformImpl
 
 private const val TAG = "SmtcSession"
 
@@ -35,7 +38,8 @@ private const val SEEK_DETECT_THRESHOLD_MS = 1_500L
 private data class Metadata(val title: String, val artist: String, val album: String, val cover: String)
 
 // 系统媒体传输控制会话；DLL 调用统一在单独线程执行，保证 WinRT 套间一致
-class SmtcSession {
+@PlatformImpl(DesktopPlatform.WINDOWS)
+class WindowsSystemMediaSession : SystemMediaSession {
 
     private var library: SmtcLibrary? = null
     private var executor: ExecutorService? = null
@@ -46,11 +50,11 @@ class SmtcSession {
     private val commands = MutableSharedFlow<Pair<Int, Long>>(extraBufferCapacity = 16)
 
     private val _available = MutableStateFlow(false)
-    val available: StateFlow<Boolean> = _available.asStateFlow()
+    override val available: StateFlow<Boolean> = _available.asStateFlow()
 
     @Volatile private var enabled = true
 
-    fun start(): Boolean {
+    override fun start(): Boolean {
         if (library != null) return true
         val lib = try {
             SmtcLibrary.load()
@@ -82,12 +86,12 @@ class SmtcSession {
         return true
     }
 
-    fun setEnabled(value: Boolean) {
+    override fun setEnabled(value: Boolean) {
         enabled = value
         call { it.smtc_set_enabled(if (value) 1 else 0) }
     }
 
-    fun shutdown() {
+    override fun shutdown() {
         val worker = executor ?: return
         call { it.smtc_shutdown() }
         worker.shutdown()
@@ -99,7 +103,7 @@ class SmtcSession {
     }
 
     // 同步播放状态到系统卡片并响应卡片按钮，随调用方协程取消而结束
-    suspend fun bind(controller: PlaybackController, playerViewModel: PlayerViewModel) = coroutineScope {
+    override suspend fun bind(controller: PlaybackController, playerViewModel: PlayerViewModel) = coroutineScope {
         if (library == null) return@coroutineScope
 
         launch {

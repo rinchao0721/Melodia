@@ -1,12 +1,17 @@
-package com.lin0721.linmusic.desktop.platform.win
+package com.lin0721.linmusic.desktop.platform.native.windows
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.platform.native.WindowDecoration
+import com.lin0721.linmusic.desktop.platform.native.windows.winapi.Dwmapi
+import com.lin0721.linmusic.desktop.platform.native.windows.winapi.User32
 import com.sun.jna.Callback
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.ptr.IntByReference
 import java.awt.Window
 import java.util.concurrent.ConcurrentHashMap
+import com.lin0721.linmusic.desktop.platform.native.DesktopPlatform
+import com.lin0721.linmusic.desktop.platform.native.PlatformImpl
 
 private const val TAG = "WindowChrome"
 
@@ -18,14 +23,15 @@ private interface WndProc : Callback {
 private class Subclass(val previous: Pointer?, val proc: WndProc)
 
 // 无边框窗口的系统圆角、边框色与最小化/还原/显示/隐藏动画；非 Windows 11 上调用无副作用
-object WindowChrome {
+@PlatformImpl(DesktopPlatform.WINDOWS)
+class WindowsWindowDecoration : WindowDecoration {
 
     private val isWindows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
     private val subclasses = ConcurrentHashMap<Long, Subclass>()
 
     // 系统只给带标题栏样式的窗口播放最小化/还原等动画：补齐样式后拦截 WM_NCCALCSIZE，
     // 让客户区占满整个窗口，外观仍是无边框
-    fun enableSystemAnimations(window: Window) = withHandle(window) { hwnd ->
+    override fun enableSystemAnimations(window: Window) = withHandle(window) { hwnd ->
         val key = Pointer.nativeValue(hwnd)
         if (subclasses.containsKey(key)) return@withHandle
         val user32 = User32.INSTANCE
@@ -58,7 +64,7 @@ object WindowChrome {
         setAttribute(hwnd, Dwmapi.DWMWA_TRANSITIONS_FORCEDISABLED, 0)
     }
 
-    fun restoreWindowProc(window: Window) = withHandle(window) { hwnd ->
+    override fun restoreWindowProc(window: Window) = withHandle(window) { hwnd ->
         val entry = subclasses.remove(Pointer.nativeValue(hwnd)) ?: return@withHandle
         User32.INSTANCE.SetWindowLongPtrW(hwnd, User32.GWLP_WNDPROC, entry.previous)
     }
@@ -85,7 +91,7 @@ object WindowChrome {
     }
 
     // 最大化时取消圆角与边框；borderRgb 为 0xRRGGBB
-    fun applyFrame(window: Window, maximized: Boolean, borderRgb: Int) = withHandle(window) { hwnd ->
+    override fun applyFrame(window: Window, maximized: Boolean, borderRgb: Int) = withHandle(window) { hwnd ->
         setAttribute(
             hwnd,
             Dwmapi.DWMWA_WINDOW_CORNER_PREFERENCE,

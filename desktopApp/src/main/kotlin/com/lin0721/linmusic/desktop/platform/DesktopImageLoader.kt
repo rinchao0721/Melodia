@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
+
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -30,7 +32,7 @@ object DesktopImageLoader {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun create(context: PlatformContext, cacheDir: File = DesktopPaths.imageCacheDir, maxBytes: Long = DISK_CACHE_MAX_BYTES): ImageLoader =
+    fun create(context: PlatformContext, cacheDir: File = AppPaths.current.imageCacheDir, maxBytes: Long = DISK_CACHE_MAX_BYTES): ImageLoader =
         ImageLoader.Builder(context)
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, MEMORY_CACHE_PERCENT).build() }
             .diskCache { DiskCache.Builder().directory(cacheDir.toOkioPath()).maxSizeBytes(maxBytes).build() }

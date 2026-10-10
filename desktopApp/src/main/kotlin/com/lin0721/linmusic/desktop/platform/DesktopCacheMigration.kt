@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
+
 import com.lin0721.linmusic.core.log.AppLogger
 import java.io.File
 import java.io.IOException
@@ -11,13 +13,13 @@ object DesktopCacheMigration {
 
     // 须在首个实例确认后、缓存对象创建前调用
     fun migrateAll() {
-        val data = DesktopPaths.dataDir
-        migrate(File(data, "audio_cache"), DesktopPaths.audioCacheDir)
-        migrate(File(data, "meta_cache"), DesktopPaths.metadataCacheDir)
-        migrate(File(data, "download_tmp"), DesktopPaths.downloadTempDir)
+        val data = AppPaths.current.dataDir
+        migrate(File(data, "audio_cache"), AppPaths.current.audioCacheDir)
+        migrate(File(data, "meta_cache"), AppPaths.current.metadataCacheDir)
+        migrate(File(data, "download_tmp"), AppPaths.current.downloadTempDir)
         // 歌词缓存旧位置是 数据目录/cache/lyrics，迁完清掉空的 cache 目录
-        migrate(File(File(data, "cache"), "lyrics"), File(DesktopPaths.localCacheDir, "lyrics"))
-        File(data, "cache").takeIf { it.absoluteFile != DesktopPaths.localCacheDir.absoluteFile }?.delete()
+        migrate(File(File(data, "cache"), "lyrics"), File(AppPaths.current.cacheDir, "lyrics"))
+        File(data, "cache").takeIf { it.absoluteFile != AppPaths.current.cacheDir.absoluteFile }?.delete()
     }
 
     fun migrate(old: File, new: File) {

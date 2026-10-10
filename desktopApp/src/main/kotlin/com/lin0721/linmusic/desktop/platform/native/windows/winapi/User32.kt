@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.desktop.platform.win
+package com.lin0721.linmusic.desktop.platform.native.windows.winapi
 
 import com.sun.jna.Callback
 import com.sun.jna.Library

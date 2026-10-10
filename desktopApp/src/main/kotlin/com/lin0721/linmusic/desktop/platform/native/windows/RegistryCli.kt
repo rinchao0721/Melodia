@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.desktop.platform
+package com.lin0721.linmusic.desktop.platform.native.windows
 
 import com.lin0721.linmusic.core.log.AppLogger
 import java.util.concurrent.TimeUnit

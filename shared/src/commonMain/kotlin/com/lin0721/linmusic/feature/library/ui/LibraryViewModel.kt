@@ -199,7 +199,8 @@ class LibraryViewModel(
 
     private fun getSortOrderFromPrefs(): LibrarySortOrder {
         val raw = libraryPreferences.sortOrderName()
-        return raw?.let { runCatching { LibrarySortOrder.valueOf(it) }.getOrNull() } ?: LibrarySortOrder.RECENTLY_PLAYED
+        return raw?.let { runCatching { LibrarySortOrder.valueOf(it) }.getOrNull() }
+            ?: LibrarySortOrder.RECENTLY_PLAYED
     }
 
     private fun saveSortOrderToPrefs(order: LibrarySortOrder) {

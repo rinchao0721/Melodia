@@ -36,15 +36,20 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.di.desktopPlatformModule
 import com.lin0721.linmusic.desktop.di.desktopViewModelModule
+import com.lin0721.linmusic.desktop.di.platformModule
 import com.lin0721.linmusic.desktop.platform.CloseAction
+import com.lin0721.linmusic.desktop.platform.native.DesktopLyricBehavior
 import com.lin0721.linmusic.desktop.platform.DesktopPreferences
-import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
+import com.lin0721.linmusic.desktop.platform.native.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
+import com.lin0721.linmusic.desktop.platform.native.SystemMediaSession
+import com.lin0721.linmusic.desktop.platform.native.WindowDecoration
 import com.lin0721.linmusic.desktop.platform.MIN_WINDOW_HEIGHT
 import com.lin0721.linmusic.desktop.platform.MIN_WINDOW_WIDTH
+import com.lin0721.linmusic.desktop.platform.native.UiScale
+import com.lin0721.linmusic.desktop.ui.ProvideUiScale
 import com.lin0721.linmusic.desktop.platform.WindowBounds
 import com.lin0721.linmusic.desktop.platform.currentScreenBounds
-import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.ui.MelodiaDesktopApp
 import com.lin0721.linmusic.desktop.ui.TextInputFocus
@@ -73,12 +78,13 @@ import kotlinx.coroutines.runBlocking
 import com.lin0721.linmusic.desktop.platform.DesktopCacheMigration
 import com.lin0721.linmusic.desktop.platform.DesktopImageLoader
 import com.lin0721.linmusic.desktop.platform.DesktopLogging
-import com.lin0721.linmusic.desktop.platform.DesktopPaths
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
 import com.lin0721.linmusic.desktop.platform.SingleInstance
 import org.jetbrains.skia.Image
 import org.koin.core.context.startKoin
 import kotlin.system.exitProcess
 import java.awt.Dimension
+import kotlin.math.roundToInt
 
 private const val VOLUME_STEP = 5
 private const val SEEK_STEP_MS = 5_000L
@@ -100,13 +106,13 @@ fun main() {
     DesktopImageLoader.install()
     // 已有实例则唤起它并退出
     val activationRequests = Channel<Unit>(Channel.CONFLATED)
-    if (!SingleInstance(DesktopPaths.dataDir).acquire { activationRequests.trySend(Unit) }) {
+    if (!SingleInstance(AppPaths.current.dataDir).acquire { activationRequests.trySend(Unit) }) {
         exitProcess(0)
     }
     // 须先于缓存对象创建
     DesktopCacheMigration.migrateAll()
     val koin = startKoin {
-        modules(desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule)
+        modules(desktopPlatformModule, platformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule)
     }.koin
     val controller = koin.get<PlaybackController>()
     // 进程内常驻记录播客收听进度
@@ -115,14 +121,20 @@ fun main() {
     val settingsPreferences = koin.get<SettingsPreferences>()
     val playerViewModel = koin.get<PlayerViewModel>()
     val desktopPreferences = koin.get<DesktopPreferences>()
-    val hotkeys = koin.get<GlobalHotkeys>()
-    val smtc = koin.get<SmtcSession>()
+    val windowDecoration = koin.get<WindowDecoration>()
+    val lyricBehavior = koin.get<DesktopLyricBehavior>()
+    val hotkeys = koin.get<GlobalHotkeyService>()
+    val smtc = koin.get<SystemMediaSession>()
     val searchFocusRequests = Channel<Unit>(Channel.CONFLATED)
     // 系统媒体卡片可用时由它接管媒体键，否则回退全局热键
     val smtcActive = smtc.start()
     val savedWindow = runBlocking { desktopPreferences.loadWindow() }
-    val restoredBounds = savedWindow.bounds
-    val restoredPosition = restoredBounds?.takeIf { it.isReachableOn(currentScreenBounds()) }
+    // 旧版本以像素保存、现已改按逻辑坐标换算；恢复时夹紧到屏幕内，避免升级后窗口落在屏外
+    val screens = currentScreenBounds()
+    val restoredBounds = savedWindow.bounds?.takeIf { it.isReachableOn(screens) }?.clampInto(screens)
+    val restoredPosition = restoredBounds
+    // 桌面缩放探测（Linux 分数缩放下 AWT 恒为 1.0）；窗口几何按逻辑坐标存取，此处换算像素
+    val uiScale = UiScale.current.factor
 
     application {
         val scope = rememberCoroutineScope()
@@ -244,8 +256,13 @@ fun main() {
 
         val windowState = rememberWindowState(
             placement = if (savedWindow.maximized) WindowPlacement.Maximized else WindowPlacement.Floating,
-            size = restoredBounds?.let { DpSize(it.width.dp, it.height.dp) } ?: DEFAULT_WINDOW_SIZE,
-            position = restoredPosition?.let { WindowPosition(it.x.dp, it.y.dp) } ?: WindowPosition(Alignment.Center)
+            // 持久化的是逻辑坐标，交给 AWT 前按桌面缩放换算成像素
+            size = restoredBounds?.let {
+                DpSize((it.width * uiScale).dp, (it.height * uiScale).dp)
+            } ?: DpSize(DEFAULT_WINDOW_SIZE.width * uiScale, DEFAULT_WINDOW_SIZE.height * uiScale),
+            position = restoredPosition?.let {
+                WindowPosition((it.x * uiScale).dp, (it.y * uiScale).dp)
+            } ?: WindowPosition(Alignment.Center)
         )
         val fullscreen = rememberFullscreenState(windowState)
         val lyricsView = rememberLyricsViewState(fullscreen)
@@ -278,7 +295,10 @@ fun main() {
             }
         ) {
             LaunchedEffect(Unit) {
-                window.minimumSize = Dimension(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+                window.minimumSize = Dimension(
+                    (MIN_WINDOW_WIDTH * uiScale).roundToInt(),
+                    (MIN_WINDOW_HEIGHT * uiScale).roundToInt()
+                )
             }
             // 全屏不记；最小化时系统会把窗口挪到屏外，同样不记
             LaunchedEffect(windowState) {
@@ -291,8 +311,16 @@ fun main() {
                         if (snapshot.minimized) return@collect
                         val bounds = snapshot.awtBounds
                         when (snapshot.placement) {
-                            WindowPlacement.Floating ->
-                                desktopPreferences.saveWindow(WindowBounds(bounds.x, bounds.y, bounds.width, bounds.height), false)
+                            // AWT 像素换算回逻辑坐标后持久化
+                            WindowPlacement.Floating -> desktopPreferences.saveWindow(
+                                WindowBounds(
+                                    (bounds.x / uiScale).roundToInt(),
+                                    (bounds.y / uiScale).roundToInt(),
+                                    (bounds.width / uiScale).roundToInt(),
+                                    (bounds.height / uiScale).roundToInt()
+                                ),
+                                false
+                            )
                             WindowPlacement.Maximized -> desktopPreferences.saveWindow(null, true)
                             WindowPlacement.Fullscreen -> Unit
                         }
@@ -305,15 +333,20 @@ fun main() {
                 }
             }
             // 全屏与最大化一样不要圆角和边框线
-            WindowChromeEffect(maximized = windowState.placement != WindowPlacement.Floating)
-            MelodiaDesktopTheme {
-                MelodiaDesktopApp(
-                    windowState = windowState,
-                    fullscreen = fullscreen,
-                    lyricsView = lyricsView,
-                    searchFocusRequests = searchFocusRequests.receiveAsFlow(),
-                    onClose = closeMainWindow
-                )
+            WindowChromeEffect(
+                maximized = windowState.placement != WindowPlacement.Floating,
+                decoration = windowDecoration
+            )
+            ProvideUiScale {
+                MelodiaDesktopTheme {
+                    MelodiaDesktopApp(
+                        windowState = windowState,
+                        fullscreen = fullscreen,
+                        lyricsView = lyricsView,
+                        searchFocusRequests = searchFocusRequests.receiveAsFlow(),
+                        onClose = closeMainWindow
+                    )
+                }
             }
         }
 
@@ -323,6 +356,7 @@ fun main() {
             playerViewModel = playerViewModel,
             controller = controller,
             settingsPreferences = settingsPreferences,
+            lyricBehavior = lyricBehavior,
             onHide = { setDesktopLyric(false) }
         )
     }

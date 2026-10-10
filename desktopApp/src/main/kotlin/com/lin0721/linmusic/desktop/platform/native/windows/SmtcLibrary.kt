@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.desktop.platform.smtc
+package com.lin0721.linmusic.desktop.platform.native.windows
 
 import com.sun.jna.Callback
 import com.sun.jna.Library

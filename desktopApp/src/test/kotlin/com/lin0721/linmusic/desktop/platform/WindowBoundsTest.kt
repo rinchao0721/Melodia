@@ -92,4 +92,42 @@ class WindowBoundsTest {
         prefs.saveWindow(null, true)
         assertEquals(SavedWindow(bounds, true), prefs.loadWindow())
     }
+
+    // ── clampInto：恢复窗口时夹紧到屏幕内（旧版像素坐标按逻辑坐标换算后可能越界） ──
+
+    private val logicalScreens = listOf(
+        WindowBounds(0, 0, 2560, 1440),
+        WindowBounds(2560, 0, 2560, 1440)
+    )
+
+    @Test
+    fun clampIntoKeepsWindowAlreadyInside() {
+        val bounds = WindowBounds(100, 100, 1200, 800)
+        assertEquals(bounds, bounds.clampInto(logicalScreens))
+    }
+
+    @Test
+    fun clampIntoTranslatesWindowBackInside() {
+        // 右侧与下方都超出第二块屏幕：平移到屏内（y 上移到 116 以完整显示）
+        val bounds = WindowBounds(4798, 477, 2084, 1324)
+        assertEquals(WindowBounds(3036, 116, 2084, 1324), bounds.clampInto(logicalScreens))
+    }
+
+    @Test
+    fun clampIntoShrinksOversizedWindow() {
+        val bounds = WindowBounds(0, 0, 4000, 2000)
+        assertEquals(WindowBounds(0, 0, 2560, 1440), bounds.clampInto(logicalScreens))
+    }
+
+    @Test
+    fun clampIntoFallsBackToFirstScreenWhenFullyOutside() {
+        val bounds = WindowBounds(9000, 0, 1200, 800)
+        assertEquals(WindowBounds(1360, 0, 1200, 800), bounds.clampInto(logicalScreens))
+    }
+
+    @Test
+    fun clampIntoWithoutScreensKeepsBounds() {
+        val bounds = WindowBounds(100, 100, 1200, 800)
+        assertEquals(bounds, bounds.clampInto(emptyList()))
+    }
 }

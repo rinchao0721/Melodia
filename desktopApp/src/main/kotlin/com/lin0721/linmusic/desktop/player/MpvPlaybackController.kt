@@ -176,8 +176,9 @@ class MpvPlaybackController(
     // 保存的设备已不在系统列表里时保持跟随系统默认，偏好不清除，设备插回后下次启动仍可用
     private suspend fun restoreAudioDevice() {
         val saved = desktopPreferences.audioDevice.first()
-        _audioDevices.value = engine.audioDevices()
-        if (saved == AUTO_AUDIO_DEVICE || _audioDevices.value.none { it.name == saved }) return
+        val devices = engine.audioDevices()
+        _audioDevices.value = selectAudioDevices(devices, saved)
+        if (saved == AUTO_AUDIO_DEVICE || devices.none { it.name == saved }) return
         if (engine.setAudioDevice(saved)) _audioDevice.value = saved
     }
 
@@ -185,8 +186,10 @@ class MpvPlaybackController(
         val devices = engine.audioDevices()
         // 读取失败时返回空列表，不据此判断设备已断开
         if (devices.isEmpty()) return
-        _audioDevices.value = devices
         val current = _audioDevice.value
+        // 展示用筛选后的列表；断开判断用完整列表，避免把被筛掉的设备误认为仍在
+        _audioDevices.value = selectAudioDevices(devices, current)
+        AppLogger.i(TAG, "输出设备 ${_audioDevices.value.size}/${devices.size} 个（当前：$current）")
         if (current != AUTO_AUDIO_DEVICE && devices.none { it.name == current } && engine.setAudioDevice(AUTO_AUDIO_DEVICE)) {
             _audioDevice.value = AUTO_AUDIO_DEVICE
             _messages.tryEmit("输出设备已断开，已切回系统默认")

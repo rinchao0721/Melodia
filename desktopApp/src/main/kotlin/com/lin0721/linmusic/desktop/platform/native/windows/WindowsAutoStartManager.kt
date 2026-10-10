@@ -1,23 +1,28 @@
-package com.lin0721.linmusic.desktop.platform
+package com.lin0721.linmusic.desktop.platform.native.windows
+
+import com.lin0721.linmusic.desktop.platform.native.AutoStartManager
+import com.lin0721.linmusic.desktop.platform.native.DesktopPlatform
+import com.lin0721.linmusic.desktop.platform.native.PlatformImpl
 
 private const val RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 private const val VALUE_NAME = "Melodia"
 
 // 开机自启以注册表 Run 项为准；阻塞调用，需在 IO 线程执行
-object AutoStart {
+@PlatformImpl(DesktopPlatform.WINDOWS)
+class WindowsAutoStartManager : AutoStartManager {
 
     // jpackage 启动器注入的 exe 路径，开发环境运行时为空
-    val exePath: String? = System.getProperty("jpackage.app-path")?.takeIf { it.isNotBlank() }
+    private val exePath: String? = System.getProperty("jpackage.app-path")?.takeIf { it.isNotBlank() }
 
-    val isSupported: Boolean get() = exePath != null
+    override val isSupported: Boolean get() = exePath != null
 
-    fun isEnabled(): Boolean {
+    override fun isEnabled(): Boolean {
         if (!isSupported) return false
         val result = RegistryCli.run("query", RUN_KEY, "/v", VALUE_NAME) ?: return false
         return result.exitCode == 0 && result.output.contains(exePath!!, ignoreCase = true)
     }
 
-    fun setEnabled(enabled: Boolean): Boolean {
+    override fun setEnabled(enabled: Boolean): Boolean {
         val path = exePath ?: return false
         val result = if (enabled) {
             RegistryCli.run("add", RUN_KEY, "/v", VALUE_NAME, "/t", "REG_SZ", "/d", "\"$path\"", "/f")

@@ -82,13 +82,28 @@ app/src/main/java/com/lin0721/linmusic/
 
 desktopApp/src/main/kotlin/com/lin0721/linmusic/desktop/
 ├── Main.kt                      # 应用入口：Koin 初始化、主窗口、托盘、全局快捷键与桌面歌词窗口
-├── di/                          # 桌面平台实现与 ViewModel 注册
-├── platform/                    # 数据目录、偏好存储、Win32 热键、SMTC 桥接与窗口样式等平台适配
-├── player/                      # libmpv 的 JNA 绑定与 PlaybackController 实现
+├── di/                          # Koin 模块注册；PlatformModule.kt 是全应用唯一的平台分支点
+├── platform/                    # 跨平台通用能力（数据目录、偏好存储、日志、图片加载等），不含平台判断
+│   └── native/                  # 平台原生能力：抽象与实现分离
+│       ├── *.kt                 # 平台抽象接口：SystemMediaSession、GlobalHotkeyService、AutoStartManager、
+│       │                        #   WindowDecoration、SystemAccentProvider、DesktopLyricBehavior
+│       ├── windows/             # Windows 实现：Windows* 类 + winapi/（User32/Dwmapi）+ SmtcLibrary + RegistryCli
+│       └── linux/               # Linux 实现：当前为 no-op 占位，后续填充 MPRIS/XDG/X11 等
+├── player/                      # libmpv 的 JNA 绑定与 PlaybackController 实现（跨平台后端，不归入 platform/native）
 └── ui/                          # 三栏布局、标题栏、首页、歌单、歌手、搜索、浏览、设置、播放条与歌词
 
-desktopApp/native-src/smtc/      # SMTC 桥接 DLL 源码（C++/WinRT，CMake 构建）
+desktopApp/native-src/           # 原生源码，按平台分目录（windows/、linux/）
+desktopApp/native-src/windows/smtc/  # Windows SMTC 桥接 DLL 源码（C++/WinRT，CMake 构建）
 ```
+
+**`platform/native` 组织规则**
+
+- 根目录只放**平台抽象接口**，不放任何具体平台实现。
+- 具体实现放平台子目录：`windows/`、`linux/`；类名带平台前缀（`Windows*` / `Linux*`），Windows 的 Win32/JNA 绑定统一放 `windows/winapi/`。
+- 上层只依赖接口：`Main.kt`、`SettingsPage.kt`、`WindowChromeEffect.kt`、`DesktopLyricWindow.kt` 等只 `import platform.native.<接口>`，**禁止**直接引用 `windows/`、`linux/` 下的类。
+- **唯一分支点**：平台判断集中在 `di/PlatformModule.kt`（按 `os.name` 选择并注册接口实现）。新增平台只需新增 `platform/native/<platform>/` 并在此登记，无需改动上层。
+- 跨平台后端不归此目录：`player/mpv/` 保持原位，仅在内部按平台适配（如库名/搜索路径）。
+- 通用文件留在 `platform/` 根：`DesktopPaths`、`DesktopPreferences`、`DesktopLogging`、`HotkeyBinding` 等不属于平台原生能力，不放进 `native/`。
 
 ---
 

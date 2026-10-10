@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
+
 import java.io.File
 import java.nio.file.Files
 import org.junit.After
@@ -88,8 +90,8 @@ class DesktopCacheMigrationTest {
 
     @Test
     fun cacheDirsAreAllUnderLocalCacheDir() {
-        val local = DesktopPaths.localCacheDir
-        listOf(DesktopPaths.imageCacheDir, DesktopPaths.audioCacheDir, DesktopPaths.metadataCacheDir, DesktopPaths.downloadTempDir)
+        val local = AppPaths.current.cacheDir
+        listOf(AppPaths.current.imageCacheDir, AppPaths.current.audioCacheDir, AppPaths.current.metadataCacheDir, AppPaths.current.downloadTempDir)
             .forEach { assertEquals(local, it.parentFile) }
     }
 }

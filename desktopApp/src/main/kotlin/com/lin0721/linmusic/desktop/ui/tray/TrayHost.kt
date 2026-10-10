@@ -39,26 +39,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
-import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.platform.native.TrayIntegration
+import com.lin0721.linmusic.desktop.platform.native.TrayMenuModel
+import com.lin0721.linmusic.desktop.platform.native.TrayMenuNode
+import com.lin0721.linmusic.desktop.ui.ProvideUiScale
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.awt.GraphicsEnvironment
-import java.awt.Image
-import java.awt.MouseInfo
 import java.awt.Point
 import java.awt.Rectangle
-import java.awt.SystemTray
 import java.awt.Toolkit
-import java.awt.TrayIcon
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
-import javax.imageio.ImageIO
-
-private const val TAG = "TrayHost"
 
 // Windows 托盘提示最长 127 个字符
 private const val TOOLTIP_MAX_LENGTH = 127
+
+// 托盘图标的 PNG（带 alpha；XEmbed 托盘不吃的透明度在 SNI 下能正常显示）
+private val TrayIconPng: ByteArray? by lazy {
+    Thread.currentThread().contextClassLoader?.getResourceAsStream("melodia.png")?.use { it.readBytes() }
+}
 
 private val MenuWidth = 240.dp
 private val MenuShape = RoundedCornerShape(8.dp)
@@ -70,9 +69,9 @@ sealed interface TrayMenuEntry {
 }
 
 val isTraySupported: Boolean
-    get() = runCatching { SystemTray.isSupported() }.getOrDefault(false)
+    get() = TrayIntegration.current.supported
 
-// AWT 原生托盘菜单在 UTF-8 默认编码下无法显示中文，菜单改由 Compose 绘制
+// 图标与点击由平台能力负责（Windows=AWT；Linux=SNI），菜单仍由 Compose 绘制
 @Composable
 fun TrayHost(
     tooltip: String,
@@ -80,41 +79,64 @@ fun TrayHost(
     entries: List<TrayMenuEntry>,
     onOpenMain: () -> Unit
 ) {
-    if (!isTraySupported) return
+    val tray = remember { TrayIntegration.current }
+    if (!tray.supported) return
     var menuAnchor by remember { mutableStateOf<Point?>(null) }
     val openMain by rememberUpdatedState(onOpenMain)
-
-    val trayIcon = remember {
-        TrayIcon(loadTrayImage(), "Melodia").apply {
-            isImageAutoSize = true
-            addMouseListener(object : MouseAdapter() {
-                override fun mousePressed(e: MouseEvent) = maybeShowMenu(e)
-
-                override fun mouseReleased(e: MouseEvent) = maybeShowMenu(e)
-
-                override fun mouseClicked(e: MouseEvent) {
-                    if (e.button == MouseEvent.BUTTON1) openMain()
-                }
-
-                // TrayIcon 事件坐标在高 DPI 下不可靠，统一取指针的逻辑坐标
-                private fun maybeShowMenu(e: MouseEvent) {
-                    if (e.isPopupTrigger) menuAnchor = MouseInfo.getPointerInfo()?.location
-                }
-            })
-        }
-    }
+    val iconPng = TrayIconPng
 
     DisposableEffect(Unit) {
-        runCatching { SystemTray.getSystemTray().add(trayIcon) }
-            .onFailure { AppLogger.e(TAG, "添加托盘图标失败", it) }
-        onDispose { runCatching { SystemTray.getSystemTray().remove(trayIcon) } }
+        if (iconPng != null) {
+            tray.install(
+                tooltip = tooltip.take(TOOLTIP_MAX_LENGTH),
+                iconPng = iconPng,
+                onActivate = { _, _ -> openMain() },
+                // 锚点已由平台层换算到本应用像素空间（Linux 优先用指针坐标）
+                onContextMenu = { x, y -> menuAnchor = Point(x, y) }
+            )
+        }
+        onDispose { tray.uninstall() }
     }
     LaunchedEffect(tooltip) {
-        trayIcon.toolTip = tooltip.take(TOOLTIP_MAX_LENGTH)
+        tray.updateTooltip(tooltip.take(TOOLTIP_MAX_LENGTH))
+    }
+
+    // 菜单内容变化时同步给平台层：Linux 由托盘宿主用原生样式渲染 DBusMenu，
+    // 指纹只包含标签/勾选等可见内容，回调取最新一次组合的值
+    val menuFingerprint = menuFingerprint(header, entries)
+    val currentEntries by rememberUpdatedState(entries)
+    LaunchedEffect(menuFingerprint) {
+        tray.updateMenu(
+            TrayMenuModel(
+                header = header,
+                nodes = currentEntries.map { entry ->
+                    when (entry) {
+                        is TrayMenuEntry.Action ->
+                            TrayMenuNode.Action(entry.label, onSelect = entry.onClick)
+                        is TrayMenuEntry.Toggle ->
+                            TrayMenuNode.Toggle(entry.label, entry.checked, onSelect = { entry.onChange(!entry.checked) })
+                        TrayMenuEntry.Divider -> TrayMenuNode.Separator
+                    }
+                }
+            )
+        )
     }
 
     menuAnchor?.let { anchor ->
         TrayMenuWindow(anchor, header, entries, onDismiss = { menuAnchor = null })
+    }
+}
+
+// 菜单可见内容的指纹：标签、勾选状态与顺序（回调与实例身份不参与比较）
+private fun menuFingerprint(header: String?, entries: List<TrayMenuEntry>): String = buildString {
+    append(header)
+    entries.forEach { entry ->
+        append('\n')
+        when (entry) {
+            is TrayMenuEntry.Action -> append("A:").append(entry.label)
+            is TrayMenuEntry.Toggle -> append("T:").append(entry.label).append(':').append(entry.checked)
+            TrayMenuEntry.Divider -> append("D")
+        }
     }
 }
 
@@ -159,37 +181,40 @@ private fun TrayMenuWindow(
             window.requestFocus()
         }
 
-        // 外层留白给阴影
-        Box(Modifier.padding(8.dp)) {
-            Column(
-                Modifier.width(MenuWidth)
-                    .shadow(8.dp, MenuShape)
-                    .clip(MenuShape)
-                    .background(DesktopColors.PopupSurface)
-                    .padding(vertical = 4.dp)
-            ) {
-                if (header != null) {
-                    Text(
-                        header,
-                        color = DesktopColors.TextGray,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                    MenuDivider()
-                }
-                entries.forEach { entry ->
-                    when (entry) {
-                        is TrayMenuEntry.Action -> MenuRow(entry.label, checked = null) {
-                            dismiss()
-                            entry.onClick()
+        // 独立窗口的 Composition 不继承主窗口注入的缩放密度，这里显式保持一致
+        ProvideUiScale {
+            // 外层留白给阴影
+            Box(Modifier.padding(8.dp)) {
+                Column(
+                    Modifier.width(MenuWidth)
+                        .shadow(8.dp, MenuShape)
+                        .clip(MenuShape)
+                        .background(DesktopColors.PopupSurface)
+                        .padding(vertical = 4.dp)
+                ) {
+                    if (header != null) {
+                        Text(
+                            header,
+                            color = DesktopColors.TextGray,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                        MenuDivider()
+                    }
+                    entries.forEach { entry ->
+                        when (entry) {
+                            is TrayMenuEntry.Action -> MenuRow(entry.label, checked = null) {
+                                dismiss()
+                                entry.onClick()
+                            }
+                            is TrayMenuEntry.Toggle -> MenuRow(entry.label, checked = entry.checked) {
+                                dismiss()
+                                entry.onChange(!entry.checked)
+                            }
+                            TrayMenuEntry.Divider -> MenuDivider()
                         }
-                        is TrayMenuEntry.Toggle -> MenuRow(entry.label, checked = entry.checked) {
-                            dismiss()
-                            entry.onChange(!entry.checked)
-                        }
-                        TrayMenuEntry.Divider -> MenuDivider()
                     }
                 }
             }
@@ -248,10 +273,4 @@ private fun usableBounds(point: Point): Rectangle {
         bounds.width - insets.left - insets.right,
         bounds.height - insets.top - insets.bottom
     )
-}
-
-private fun loadTrayImage(): Image {
-    val stream = Thread.currentThread().contextClassLoader?.getResourceAsStream("melodia.png")
-    return stream?.use { runCatching { ImageIO.read(it) }.getOrNull() }
-        ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
 }

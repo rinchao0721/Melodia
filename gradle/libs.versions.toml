@@ -25,6 +25,8 @@ coroutinesTest = "1.9.0"
 coroutinesSwing = "1.10.2"
 jna = "5.17.0"
 jaudiotagger = "3.0.1"
+# Linux 系统媒体控制（MPRIS over D-Bus）
+dbusJava = "5.1.1"
 imageCropper = "4.7.0"
 zxing = "3.5.3"
 bouncycastle = "1.85.2"
@@ -34,6 +36,8 @@ taglib = "1.0.5"
 orgJson = "20230227"
 room = "2.8.5"
 ksp = "2.3.12"
+# KSP API 与 ksp 插件版本保持同一代（2.3.x 对应 Kotlin 2.2.x）
+kspApi = "2.3.12"
 
 [libraries]
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
@@ -45,6 +49,9 @@ kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 # 桌面端调用 libmpv
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jaudiotagger" }
+# D-Bus：MPRIS 的底层传输，用纯 Java unixsocket 实现，无需原生 libdbus
+dbus-java-core = { group = "com.github.hypfvieh", name = "dbus-java-core", version.ref = "dbusJava" }
+dbus-java-transport = { group = "com.github.hypfvieh", name = "dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 # 桌面端 org.json（Android 由系统提供）
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -107,6 +114,8 @@ taglib = { group = "io.github.kyant0", name = "taglib", version.ref = "taglib" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+# KSP API（供 desktopApp 的平台契约处理器编写）
+ksp-api = { group = "com.google.devtools.ksp", name = "symbol-processing-api", version.ref = "kspApi" }
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 

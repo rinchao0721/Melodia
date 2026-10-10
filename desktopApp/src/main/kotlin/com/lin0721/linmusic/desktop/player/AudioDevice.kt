@@ -40,6 +40,12 @@ interface AudioOutputControl {
 
 private const val WASAPI_PREFIX = "wasapi/"
 
+// 真实设备的后端前缀（按优先级）。
+// Linux 上同一批设备会以 pipewire/ 与 pulse/ 两种协议各出现一遍，mpv 还会附带 alsa 的
+// 大量虚拟条目（surround 声道变体、插件别名等）与 jack/sdl/openal 等后端占位项，
+// 不做筛选时面板会"设备特别多"。
+private val BACKEND_PREFIXES = listOf("pipewire/", "pulse/", WASAPI_PREFIX)
+
 private val HEADPHONE_KEYWORDS = listOf("耳机", "头戴", "headphone", "headset", "airpods", "buds", "bluetooth", "蓝牙")
 private val DISPLAY_KEYWORDS = listOf("hdmi", "displayport", "显示器", "monitor", "display audio", "nvidia high definition", "amd high definition")
 
@@ -56,14 +62,22 @@ internal fun classifyAudioDevice(name: String, description: String): AudioDevice
 // 解析 mpv 的 audio-device-list（JSON 数组）；格式不符或缺少 name 的条目跳过，系统默认置顶
 internal fun parseAudioDevices(json: String): List<AudioDevice> {
     val array = runCatching { Json.parseToJsonElement(json) }.getOrNull() as? JsonArray ?: return emptyList()
-    val devices = array.mapNotNull { element ->
+    return array.mapNotNull { element ->
         val entry = element as? JsonObject ?: return@mapNotNull null
         val name = (entry["name"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val description = (entry["description"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: name
         AudioDevice(name, description, classifyAudioDevice(name, description))
-    }.distinctBy { it.name }
-    // 列表里混有其他后端的泛称条目（如 openal），Windows 下只保留 WASAPI 设备；没有 WASAPI 时才全部保留
-    val wasapi = devices.filter { it.isSystemDefault || it.name.startsWith(WASAPI_PREFIX) }
-    val usable = if (wasapi.any { !it.isSystemDefault }) wasapi else devices
-    return usable.sortedByDescending { it.isSystemDefault }
+    }.distinctBy { it.name }.sortedByDescending { it.isSystemDefault }
+}
+
+// 从完整设备表里挑出适合展示的条目：有真实后端设备时只保留"系统默认 + 该后端"
+// （Windows 只剩 WASAPI、Linux 只剩当前声音服务），没有匹配的后端时全部保留。
+// currentName 始终保留，避免列表与当前播放状态不一致
+internal fun selectAudioDevices(devices: List<AudioDevice>, currentName: String = AUTO_AUDIO_DEVICE): List<AudioDevice> {
+    val backend = BACKEND_PREFIXES.firstOrNull { prefix ->
+        devices.any { !it.isSystemDefault && it.name.startsWith(prefix) }
+    } ?: return devices
+    return devices
+        .filter { it.isSystemDefault || it.name.startsWith(backend) || it.name == currentName }
+        .sortedByDescending { it.isSystemDefault }
 }

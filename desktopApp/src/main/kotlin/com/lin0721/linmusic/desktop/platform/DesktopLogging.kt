@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.desktop.platform.native.AppPaths
+
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.PreferencesStores
@@ -17,9 +19,9 @@ object DesktopLogging {
     const val DEBUG_PROPERTY = "melodia.debug"
 
     fun install(
-        logDir: File = DesktopPaths.logDir,
+        logDir: File = AppPaths.current.logDir,
         savedLevel: () -> String = {
-            val settings = SettingsPreferences(PreferencesStores.get(DesktopPaths.preferencesFile(PreferencesStores.SETTINGS)))
+            val settings = SettingsPreferences(PreferencesStores.get(AppPaths.current.preferencesFile(PreferencesStores.SETTINGS)))
             runBlocking { settings.logLevel.first() }
         }
     ) {
