@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,11 +47,11 @@ fun FullScreenLyricsHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(56.dp)
             .padding(
                 start = if (isLandscapeOrWide) MelodiaSpacing.lg else MelodiaSpacing.sm,
                 end = if (isLandscapeOrWide) MelodiaSpacing.lg else 6.dp
             )
-            .padding(vertical = MelodiaSpacing.md)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -74,7 +75,10 @@ fun FullScreenLyricsHeader(
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+        ) {
             Text(
                 text = title,
                 color = MaterialTheme.colorScheme.onSurface,

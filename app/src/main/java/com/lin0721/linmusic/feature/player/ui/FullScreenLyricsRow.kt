@@ -1,13 +1,29 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,17 +32,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricAlignment
@@ -53,6 +72,10 @@ fun FullScreenLyricsRow(
     advancedKaraokeEffect: Boolean = true,
     karaokeGlowEffect: Boolean = false,
     isPlaying: Boolean = true,
+    isShareMode: Boolean = false,
+    selectedLyricKeys: Set<String> = emptySet(),
+    onToggleSelect: ((String) -> Unit)? = null,
+    onLyricLongPress: ((String) -> Unit)? = null,
     // 宽屏按下点命中判定用：上报本行文字实际占据的范围（根坐标），离开组合时上报 Rect.Zero
     onTextBoundsInRoot: ((Rect) -> Unit)? = null,
     onClick: () -> Unit
@@ -114,7 +137,8 @@ fun FullScreenLyricsRow(
     val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
 
     val targetScale = when {
-        isCurrent -> 1.12f
+        isShareMode -> 1f
+        isCurrent -> 1.10f
         isCenterTarget -> 1.04f
         else -> when (distance) {
             1 -> 0.98f
@@ -124,11 +148,20 @@ fun FullScreenLyricsRow(
     }
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.76f, stiffness = 320f),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 280f),
         label = "fs_lyric_scale_$index"
     )
 
+    val mainKey = "${index}_main"
+    val secKey = "${index}_sec"
+    val bgKey = "${index}_bg"
+    val isMainSelected = mainKey in selectedLyricKeys
+    val isSecSelected = secKey in selectedLyricKeys
+    val isBgSelected = bgKey in selectedLyricKeys
+    val hasAnySelected = isMainSelected || isSecSelected || isBgSelected
+
     val targetAlpha = when {
+        isShareMode -> if (hasAnySelected) 1f else 0.45f
         isCurrent -> 1f
         isCenterTarget -> 0.95f
         else -> when (distance) {
@@ -139,11 +172,11 @@ fun FullScreenLyricsRow(
     }
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 280f),
         label = "fs_lyric_alpha_$index"
     )
 
-    val widthFraction = if (effectiveAlignment == "center") 0.9f else 0.85f
+    val widthFraction = if (effectiveAlignment == "center") 0.9f else 1f
     val paddingStart = when (effectiveAlignment) {
         "center" -> 24.dp
         "left" -> MelodiaSpacing.md
@@ -152,8 +185,39 @@ fun FullScreenLyricsRow(
     val paddingEnd = when (effectiveAlignment) {
         "center" -> 24.dp
         "right" -> MelodiaSpacing.md
-        else -> 0.dp
+        else -> MelodiaSpacing.md
     }
+
+    val checkProgress by animateFloatAsState(
+        targetValue = if (isShareMode) 1f else 0f,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        label = "fs_lyric_check_$index"
+    )
+
+    val rowHighlightAlpha by animateFloatAsState(
+        targetValue = if (isShareMode && isMainSelected) 0.12f else 0f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "fs_row_bg_$index"
+    )
+
+    val secRowHighlightAlpha by animateFloatAsState(
+        targetValue = if (isShareMode && isSecSelected) 0.12f else 0f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "fs_sec_row_bg_$index"
+    )
+
+    val bgRowHighlightAlpha by animateFloatAsState(
+        targetValue = if (isShareMode && isBgSelected) 0.12f else 0f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "fs_bg_row_bg_$index"
+    )
+
+    // 右边距预留恰好等于勾选槽宽度（32dp）：
+    // 常态下右侧预留 32dp 确保当前行即使放大 1.10x 也能在换行后完全居于屏内不超界；
+    // 分享模式下左侧勾选槽滑入 32dp，右侧边距等量缩减 32dp，可用排版宽度恒定不变，无需重排折行！
+    val shareSlotWidth = 32.dp
+    val checkSlotWidth = (shareSlotWidth.value * checkProgress).dp
+    val dynamicReservedEndMargin = (shareSlotWidth.value * (1f - checkProgress)).dp
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -162,49 +226,109 @@ fun FullScreenLyricsRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth(widthFraction)
-                .padding(start = paddingStart, end = paddingEnd)
+                .padding(
+                    start = paddingStart,
+                    end = paddingEnd + if (effectiveAlignment == "left") dynamicReservedEndMargin else 0.dp
+                )
                 .graphicsLayer {
                     scaleX = animatedScale
                     scaleY = animatedScale
                     alpha = animatedAlpha
                     transformOrigin = targetTransformOrigin
-                }
-                .pressable(MelodiaPress.None) {
-                    onClick()
                 },
             horizontalAlignment = horizontalAlignment
         ) {
-            if (isCurrent && line.words.isNotEmpty()) {
-                // 逐字高亮行拿不到排版结果，命中范围退化为整行
-                textBounds?.mainLayout = null
-                Box(modifier = reportMainBounds) {
-                    KaraokeLyricRow(
-                        line = line,
-                        currentPositionProvider = currentPositionProvider,
-                        inactiveColor = highlightColor.copy(alpha = 0.5f),
-                        activeColor = Color.White,
-                        fontSize = mainFontSize,
-                        lineHeight = mainLineHeight,
-                        textAlign = textAlign,
-                        advancedEffect = advancedKaraokeEffect,
-                        glowEffect = karaokeGlowEffect,
-                        isPlaying = isPlaying,
-                        isActive = isCurrent
+            // 主歌词行：支持平滑推移动画出现勾选框，主副行独立多选
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = rowHighlightAlpha))
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            if (isShareMode) {
+                                onToggleSelect?.invoke(mainKey)
+                            } else {
+                                onClick()
+                            }
+                        },
+                        onLongClick = {
+                            if (!isShareMode) {
+                                onLyricLongPress?.invoke(mainKey)
+                            }
+                        }
                     )
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                if (checkProgress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .width(checkSlotWidth)
+                            .height(24.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (isMainSelected) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = "已选择",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .graphicsLayer {
+                                        alpha = checkProgress.coerceIn(0f, 1f)
+                                        scaleX = 0.5f + 0.5f * checkProgress
+                                        scaleY = 0.5f + 0.5f * checkProgress
+                                    }
+                            )
+                        }
+                    }
                 }
-            } else {
-                Text(
-                    text = line.text,
-                    fontSize = mainFontSize,
-                    lineHeight = mainLineHeight,
-                    color = if (isCurrent) Color.White else highlightColor,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = textAlign,
-                    onTextLayout = { textBounds?.mainLayout = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(reportMainBounds)
-                )
+
+                Box(modifier = Modifier.weight(1f)) {
+                    if (!isShareMode && isCurrent && line.words.isNotEmpty()) {
+                        textBounds?.mainLayout = null
+                        Box(modifier = reportMainBounds) {
+                            KaraokeLyricRow(
+                                line = line,
+                                currentPositionProvider = currentPositionProvider,
+                                inactiveColor = highlightColor.copy(alpha = 0.5f),
+                                activeColor = Color.White,
+                                fontSize = mainFontSize,
+                                lineHeight = mainLineHeight,
+                                textAlign = textAlign,
+                                advancedEffect = advancedKaraokeEffect,
+                                glowEffect = karaokeGlowEffect,
+                                isPlaying = isPlaying,
+                                isActive = isCurrent
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = line.text,
+                            fontSize = mainFontSize,
+                            lineHeight = mainLineHeight,
+                            color = if (isShareMode) {
+                                if (isMainSelected) Color.White else Color.White.copy(alpha = 0.45f)
+                            } else {
+                                if (isCurrent) Color.White else highlightColor
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = textAlign,
+                            softWrap = true,
+                            onTextLayout = { textBounds?.mainLayout = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(reportMainBounds)
+                        )
+                    }
+                }
+
+                if (effectiveAlignment == "center" && checkProgress > 0f) {
+                    Spacer(modifier = Modifier.width(checkSlotWidth))
+                }
             }
 
             val secondaryText = when (secondaryMode) {
@@ -214,17 +338,78 @@ fun FullScreenLyricsRow(
             }
             if (secondaryText != null) {
                 Spacer(modifier = Modifier.height(spacingBetween))
-                Text(
-                    text = secondaryText,
-                    fontSize = translationFontSize,
-                    lineHeight = translationLineHeight,
-                    color = if (isCurrent) Color.White else highlightColor,
-                    textAlign = textAlign,
-                    onTextLayout = { textBounds?.secondaryLayout = it },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(reportSecondaryBounds)
-                )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = secRowHighlightAlpha))
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                if (isShareMode) {
+                                    onToggleSelect?.invoke(secKey)
+                                } else {
+                                    onClick()
+                                }
+                            },
+                            onLongClick = {
+                                if (!isShareMode) {
+                                    onLyricLongPress?.invoke(secKey)
+                                }
+                            }
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    if (checkProgress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .width(checkSlotWidth)
+                                .height(20.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (isSecSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .graphicsLayer {
+                                            alpha = checkProgress.coerceIn(0f, 1f)
+                                            scaleX = 0.5f + 0.5f * checkProgress
+                                            scaleY = 0.5f + 0.5f * checkProgress
+                                        }
+                                )
+                            }
+                        }
+                    }
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = secondaryText,
+                            fontSize = translationFontSize,
+                            lineHeight = translationLineHeight,
+                            color = if (isShareMode) {
+                                if (isSecSelected) Color.White else Color.White.copy(alpha = 0.45f)
+                            } else {
+                                if (isCurrent) Color.White else highlightColor
+                            },
+                            fontWeight = FontWeight.Normal,
+                            textAlign = textAlign,
+                            softWrap = true,
+                            onTextLayout = { textBounds?.secondaryLayout = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(reportSecondaryBounds)
+                        )
+                    }
+
+                    if (effectiveAlignment == "center" && checkProgress > 0f) {
+                        Spacer(modifier = Modifier.width(checkSlotWidth))
+                    }
+                }
             } else {
                 textBounds?.secondary = null
             }
@@ -236,60 +421,122 @@ fun FullScreenLyricsRow(
                 val backgroundInactiveColor = Color.White.copy(alpha = 0.22f)
                 val backgroundActiveColor = Color.White.copy(alpha = 0.82f)
                 val backgroundTextAlign = textAlign
+                val bgTextColor = if (isShareMode) {
+                    if (isBgSelected) Color.White else Color.White.copy(alpha = 0.45f)
+                } else {
+                    if (isCurrent) backgroundActiveColor else backgroundInactiveColor
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth(0.9f),
-                    horizontalAlignment = when (backgroundTextAlign) {
-                        TextAlign.Center -> Alignment.CenterHorizontally
-                        TextAlign.End -> Alignment.End
-                        else -> Alignment.Start
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = bgRowHighlightAlpha))
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                if (isShareMode) {
+                                    onToggleSelect?.invoke(bgKey)
+                                } else {
+                                    onClick()
+                                }
+                            },
+                            onLongClick = {
+                                if (!isShareMode) {
+                                    onLyricLongPress?.invoke(bgKey)
+                                }
+                            }
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
-                    if (background.words.isNotEmpty()) {
-                        KaraokeLyricRow(
-                            line = background,
-                            currentPositionProvider = currentPositionProvider,
-                            inactiveColor = backgroundInactiveColor,
-                            activeColor = backgroundActiveColor,
-                            fontSize = backgroundFontSize,
-                            lineHeight = backgroundLineHeight,
-                            textAlign = backgroundTextAlign,
-                            advancedEffect = advancedKaraokeEffect,
-                            glowEffect = karaokeGlowEffect,
-                            isPlaying = isPlaying,
-                            fontWeight = FontWeight.Bold,
-                            isActive = isCurrent
-                        )
-                    } else {
-                        Text(
-                            text = background.text,
-                            fontSize = backgroundFontSize,
-                            lineHeight = backgroundLineHeight,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = backgroundTextAlign,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    if (checkProgress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .width(checkSlotWidth)
+                                .height(20.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (isBgSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .graphicsLayer {
+                                            alpha = checkProgress.coerceIn(0f, 1f)
+                                            scaleX = 0.5f + 0.5f * checkProgress
+                                            scaleY = 0.5f + 0.5f * checkProgress
+                                        }
+                                )
+                            }
+                        }
                     }
-                    background.translation?.let {
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = it,
-                            fontSize = (fontSize - 8).coerceAtLeast(11).sp,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
-                            textAlign = backgroundTextAlign,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = when (backgroundTextAlign) {
+                            TextAlign.Center -> Alignment.CenterHorizontally
+                            TextAlign.End -> Alignment.End
+                            else -> Alignment.Start
+                        }
+                    ) {
+                        if (!isShareMode && background.words.isNotEmpty()) {
+                            KaraokeLyricRow(
+                                line = background,
+                                currentPositionProvider = currentPositionProvider,
+                                inactiveColor = backgroundInactiveColor,
+                                activeColor = backgroundActiveColor,
+                                fontSize = backgroundFontSize,
+                                lineHeight = backgroundLineHeight,
+                                textAlign = backgroundTextAlign,
+                                advancedEffect = advancedKaraokeEffect,
+                                glowEffect = karaokeGlowEffect,
+                                isPlaying = isPlaying,
+                                fontWeight = FontWeight.Bold,
+                                isActive = isCurrent
+                            )
+                        } else {
+                            Text(
+                                text = background.text,
+                                fontSize = backgroundFontSize,
+                                lineHeight = backgroundLineHeight,
+                                color = bgTextColor,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = backgroundTextAlign,
+                                softWrap = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        background.translation?.let {
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = it,
+                                fontSize = (fontSize - 8).coerceAtLeast(11).sp,
+                                color = bgTextColor,
+                                textAlign = backgroundTextAlign,
+                                softWrap = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        background.roma?.let {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = it,
+                                fontSize = (fontSize - 9).coerceAtLeast(11).sp,
+                                color = bgTextColor,
+                                textAlign = backgroundTextAlign,
+                                softWrap = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
-                    background.roma?.let {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = it,
-                            fontSize = (fontSize - 9).coerceAtLeast(11).sp,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
-                            textAlign = backgroundTextAlign,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                    if (effectiveAlignment == "center" && checkProgress > 0f) {
+                        Spacer(modifier = Modifier.width(checkSlotWidth))
                     }
                 }
             }
