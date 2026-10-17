@@ -30,6 +30,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAudioLinkOptions
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -55,6 +56,8 @@ fun PlaylistSongOptionsSheet(
     canRemoveFromPlaylist: Boolean = false,
     onRemoveFromPlaylist: (Long) -> Unit = {},
     onDownloadClick: ((Track) -> Unit)? = null,
+    // 本地曲目菜单使用本地→网易云关联入口，其余场景从网易云歌曲选择本地曲库。
+    showLocalAudioLinkOptions: Boolean = true,
     // 额外操作项
     extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -176,6 +179,8 @@ fun PlaylistSongOptionsSheet(
                         }
                     )
                 }
+
+                if (showLocalAudioLinkOptions) LocalAudioLinkOptions(track.id, track)
 
                 if (showArtistOption) {
                     val linkedArtists = track.ar.filter { it.id > 0 }.distinctBy { it.id }

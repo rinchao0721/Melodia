@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.feature.localmusic.ui.LocalMatchingSettingsEntry
+
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -168,6 +170,9 @@ private fun MainSettingsMenu(
         contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = 8.dp)
     ) {
         // 多级设置菜单入口组
+        item {
+            SettingsGroupCard("本地音频") { LocalMatchingSettingsEntry() }
+        }
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(

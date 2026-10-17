@@ -93,8 +93,9 @@ class PlaylistViewModel(
     // 离线时本机没有音频的曲目，列表据此置灰；在线时恒为空
     val unplayableIds: StateFlow<Set<Long>> = combine(
         offlinePlayability.online,
+        offlinePlayability.changes,
         _uiState.map { state -> (state as? PlaylistUiState.Success)?.playlist?.tracks?.map { it.id } }.distinctUntilChanged()
-    ) { _, ids -> ids }
+    ) { _, _, ids -> ids }
         .map { ids -> if (ids == null) emptySet() else offlinePlayability.unplayableIds(ids) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 

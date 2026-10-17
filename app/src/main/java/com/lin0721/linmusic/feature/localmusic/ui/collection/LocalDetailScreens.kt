@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -59,6 +60,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.LocalLibraryStateGate
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicUiState
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAlbumAssociationViewModel
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAlbumAssociationHost
 import com.lin0721.linmusic.feature.localmusic.ui.LocalTrackActionsHost
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalAlbumCard
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
@@ -188,6 +191,8 @@ fun LocalAlbumScreen(
     navigation: LocalMusicNavigation,
     viewModel: LocalMusicViewModel = koinViewModel()
 ) {
+    val albumAssociation: LocalAlbumAssociationViewModel = koinViewModel()
+    LocalAlbumAssociationHost(albumAssociation)
     val library by viewModel.library.collectAsStateWithLifecycle()
     val playingMediaId by viewModel.playingMediaId.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -208,7 +213,12 @@ fun LocalAlbumScreen(
                     LocalHeroHeader(
                         coverSourceUri = album.coverSourceUri,
                         onBack = navigation.onBack,
-                        actions = { LocalSelectionActions(state, album.tracks, viewModel) { confirmDelete = true } }
+                        actions = {
+                            if (!album.isUnknown) MelodiaIconButton(onClick = { albumAssociation.open(album) }) {
+                                Icon(Icons.Rounded.Link, contentDescription = "匹配网易云专辑", tint = Color.White)
+                            }
+                            LocalSelectionActions(state, album.tracks, viewModel) { confirmDelete = true }
+                        }
                     ) {
                         Row(verticalAlignment = Alignment.Bottom) {
                             LocalCover(

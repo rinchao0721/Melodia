@@ -71,6 +71,7 @@ import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import org.koin.compose.koinInject
@@ -139,7 +140,7 @@ fun LocalTrackRow(
         data = SongRowData(
             id = track.songId ?: track.mediaStoreId,
             title = track.title,
-            artist = subtitle,
+            artist = if (track.songId != null && track.source != LocalTrackSource.MELODIA_DOWNLOAD) "$subtitle · 已关联网易云" else subtitle,
             coverUrl = coverUrl,
             durationText = track.durationMs.takeIf { it > 0 }?.let(::formatTime)
         ),

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +65,7 @@ fun LocalTrackOptionsSheet(
     onDetailClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
+    onLinkOnlineClick: (() -> Unit)? = null,
     onRemoveFromPlaylistClick: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -135,6 +137,9 @@ fun LocalTrackOptionsSheet(
             }
             SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistPlay, label = "下一首播放") {
                 runThenHide(onPlayNextClick)
+            }
+            if (onLinkOnlineClick != null) SheetOptionRow(icon = Icons.Rounded.Link, label = "关联网易云歌曲") {
+                runThenHide(onLinkOnlineClick)
             }
             SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, label = "加入本地歌单") {
                 runThenHide(onAddToPlaylistClick)

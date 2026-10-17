@@ -72,6 +72,9 @@ import com.canhub.cropper.CropImageView
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.Album
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAlbumAssociationViewModel
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAlbumAssociationHost
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SelectionAction
@@ -114,6 +117,8 @@ fun PlaylistScreen(
     val addMusicSearchState by viewModel.addMusicSearchState.collectAsStateWithLifecycle()
     val isSavingInfo by viewModel.isSavingInfo.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val albumAssociation: LocalAlbumAssociationViewModel? = if (isAlbum) koinViewModel() else null
+    albumAssociation?.let { LocalAlbumAssociationHost(it) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -947,6 +952,16 @@ fun PlaylistScreen(
                         playlist.id != userProfile?.uid
 
                     val menuItems = buildList {
+                        if (isAlbum) add(PlaylistMenuItem(
+                            icon = Icons.Default.Link,
+                            title = "关联本地专辑（专辑内匹配）"
+                        ) {
+                            showMoreMenuSheet = false
+                            albumAssociation?.openOnline(Album(id = playlist.id, name = playlist.name,
+                                picUrl = playlist.coverImgUrl, artists = playlist.artists.ifEmpty {
+                                    playlist.tracks.firstOrNull()?.ar.orEmpty()
+                                }), playlist.tracks)
+                        })
                         add(
                             PlaylistMenuItem(
                                 icon = if (successState.isSubscribed) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,

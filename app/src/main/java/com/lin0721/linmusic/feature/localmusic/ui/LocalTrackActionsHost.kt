@@ -8,12 +8,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
@@ -43,7 +47,8 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 @Composable
 fun LocalTrackActionsHost(
     viewModel: LocalMusicViewModel,
-    navigation: LocalMusicNavigation
+    navigation: LocalMusicNavigation,
+    showOnlineAssociation: Boolean = true
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -52,6 +57,7 @@ fun LocalTrackActionsHost(
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val pickerTracks by viewModel.playlistPickerTracks.collectAsStateWithLifecycle()
+    val onlineAssociation by viewModel.onlineAssociation.collectAsStateWithLifecycle()
     var deleteTarget by remember { mutableStateOf<LocalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showLoginSheet by remember { mutableStateOf(false) }
@@ -78,7 +84,7 @@ fun LocalTrackActionsHost(
                 isLiked = fullTrack.id in likedSongIds,
                 isLoggedIn = userProfile != null,
                 onDismiss = { viewModel.closeTrackMenu() },
-                onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
+                onAddToPlayNext = { viewModel.playNext(track) },
                 onToggleLike = { songId, like -> viewModel.toggleLikeSong(songId, like) },
                 onCollectClick = { songId ->
                     collectSongId = songId
@@ -87,7 +93,20 @@ fun LocalTrackActionsHost(
                 onArtistClick = navigation.openOnlineArtist,
                 onAlbumClick = navigation.openOnlineAlbum,
                 onRequireLogin = { showLoginSheet = true },
+                showLocalAudioLinkOptions = track.source == LocalTrackSource.MELODIA_DOWNLOAD,
                 extraOptions = {
+                    if (track.source != LocalTrackSource.MELODIA_DOWNLOAD) {
+                        Text("已关联网易云：${fullTrack.name} · ${fullTrack.ar.joinToString(" / ") { it.name }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = androidx.compose.ui.Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                        OptionRow(icon = Icons.Rounded.Link, text = "更换网易云关联") {
+                            viewModel.openOnlineAssociation(track)
+                        }
+                        OptionRow(icon = Icons.Rounded.LinkOff, text = "解除网易云关联") {
+                            viewModel.unlinkOnlineAssociation(track)
+                        }
+                    }
                     OptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, text = "加入本地歌单") {
                         viewModel.openPlaylistPicker(listOf(track))
                     }
@@ -132,9 +151,23 @@ fun LocalTrackActionsHost(
                 onDetailClick = { viewModel.openDetail(track) },
                 onDeleteClick = { deleteTarget = track },
                 onAddToPlaylistClick = { viewModel.openPlaylistPicker(listOf(track)) },
+                onLinkOnlineClick = if (track.source != LocalTrackSource.MELODIA_DOWNLOAD) {
+                    { viewModel.openOnlineAssociation(track) }
+                } else null,
                 onRemoveFromPlaylistClick = menu.playlistId?.let { playlistId -> { viewModel.removeFromPlaylist(playlistId, track) } }
             )
         }
+    }
+
+    onlineAssociation?.takeIf { showOnlineAssociation }?.let { association ->
+        LocalOnlineAssociationSheet(
+            state = association,
+            onDismiss = { viewModel.closeOnlineAssociation() },
+            onQueryChange = viewModel::updateOnlineAssociationQuery,
+            onSearch = { viewModel.searchOnlineAssociation() },
+            onLoadMore = { viewModel.searchOnlineAssociation(loadMore = true) },
+            onConfirm = viewModel::confirmOnlineAssociation
+        )
     }
 
     pickerTracks?.let { tracks ->

@@ -47,6 +47,10 @@ import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAudioLinkOptions
+import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.Artist
+import com.lin0721.linmusic.core.model.Album
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +80,9 @@ fun SongMoreOptionsSheet(
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    songId: Long = 0L,
+    onlineTrack: Track? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -155,7 +161,7 @@ fun SongMoreOptionsSheet(
 
             if (isLocalOnly) {
                 Text(
-                    text = "本地歌曲未匹配到云端信息，仅支持部分操作",
+                    text = "此本地歌曲尚未关联网易云，可在本地歌曲菜单关联",
                     color = TextGray,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
@@ -225,6 +231,11 @@ fun SongMoreOptionsSheet(
 
             if (!isLocalOnly) {
                 if (!isPodcast) {
+                    LocalAudioLinkOptions(songId, onlineTrack?.takeIf { it.id == songId } ?: Track(
+                        id = songId, name = title, ar = listOf(Artist(name = artist)),
+                        al = Album(name = albumName, picUrl = coverUrl.takeIf {
+                            it.startsWith("https://") || it.startsWith("http://")
+                        }.orEmpty())))
                     // 5. 开始相似歌曲漫游
                     OptionRow(
                         icon = Icons.Rounded.Explore,

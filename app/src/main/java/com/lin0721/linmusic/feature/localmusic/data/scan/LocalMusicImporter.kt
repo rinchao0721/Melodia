@@ -128,10 +128,10 @@ class LocalMusicImporter(private val context: Context) {
             runCatching { retriever.release() }
         }
 
-        val finalTitle = title?.trim()?.takeIf { it.isNotBlank() }
+        val rawTitle = title?.trim()?.takeIf { it.isNotBlank() }
             ?: displayName?.substringBeforeLast('.')?.trim()?.takeIf { it.isNotBlank() }
             ?: "未知曲目"
-        val finalArtist = artist?.trim()?.takeIf { it.isNotBlank() } ?: "未知艺术家"
+        val (finalArtist, finalTitle) = resolveArtistAndTitle(artist?.trim().orEmpty(), rawTitle)
 
         val now = System.currentTimeMillis()
         return LocalTrackEntity(

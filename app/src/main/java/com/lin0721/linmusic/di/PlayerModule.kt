@@ -29,7 +29,7 @@ val playerModule = module {
     }
     single<PlaybackController> { get<PlayerManager>() }
     // 离线时的可播放判定：已下载 + 播放缓存已完整
-    single<CachedAudioIndex> { AndroidCachedAudioIndex(androidContext(), get(), get()) }
+    single<CachedAudioIndex> { AndroidCachedAudioIndex(androidContext(), get(), get(), get()) }
     // AMLL 歌词源：TTML 原文按原始 XML 缓存在 cacheDir 下，解析统一由 shared 的 TtmlLyricParser 负责
     single { AmllLyricsClient(LyricsCache(androidContext().cacheDir)) }
     single {
@@ -40,7 +40,10 @@ val playerModule = module {
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
-            localUriOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.localUri },
+            localUriOf = { songId ->
+                playerManager.queue.value.firstOrNull { it.songId == songId }?.localUri
+                    ?: playerManager.preferredLocalUriFor(songId)
+            },
             readAmllLyrics = { songId -> amllLyricsClient.fetch(songId) },
             isAmllEnabled = { settingsPreferences.amllLyricsEnabled.first() }
         )

@@ -146,7 +146,9 @@ class LocalLibraryRepository(
             .getOrDefault(false)
         if (deleted) {
             dao.deleteByUris(listOf(uriString))
-            track.songId?.let { downloadPreferences.removeRecord(it) }
+            if (track.source == LocalTrackSource.MELODIA_DOWNLOAD) {
+                track.songId?.let { downloadPreferences.removeRecord(it) }
+            }
         }
         deleted
     }

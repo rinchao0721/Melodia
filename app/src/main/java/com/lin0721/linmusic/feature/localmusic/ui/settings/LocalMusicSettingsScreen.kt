@@ -42,6 +42,8 @@ import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.localmusic.domain.AuthorizedFolder
+import com.lin0721.linmusic.feature.localmusic.ui.LocalAudioAssociationTransferOptions
+import com.lin0721.linmusic.feature.localmusic.ui.LocalMatchingSettingsEntry
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.feature.settings.ui.SettingsGroupCard
 import com.lin0721.linmusic.feature.settings.ui.SettingsRow
@@ -74,7 +76,7 @@ fun LocalMusicSettingsScreen(
         if (treeUri != null) viewModel.addAuthorizedFolder(treeUri)
     }
 
-    SecondaryScreenScaffold(title = "扫描设置", onBack = onBack) {
+    SecondaryScreenScaffold(title = "本地音乐设置", onBack = onBack) {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.lg),
             contentPadding = PaddingValues(
@@ -84,6 +86,12 @@ fun LocalMusicSettingsScreen(
                 bottom = LocalBottomOverlayInset.current + MelodiaSpacing.md
             )
         ) {
+            item(key = "associations") {
+                SettingsGroupCard("本地音频关联") {
+                    LocalMatchingSettingsEntry()
+                    LocalAudioAssociationTransferOptions()
+                }
+            }
             item(key = "filter") {
                 SettingsGroupCard("过滤") {
                     Column(modifier = Modifier.padding(vertical = 14.dp)) {

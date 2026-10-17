@@ -138,7 +138,7 @@ fun LocalMusicHomeScreen(
                         showOverflowMenu = false
                         viewModel.load()
                     })
-                    DropdownMenuItem(text = { Text("扫描设置") }, onClick = {
+                    DropdownMenuItem(text = { Text("本地音乐设置") }, onClick = {
                         showOverflowMenu = false
                         navigation.openSettings()
                     })

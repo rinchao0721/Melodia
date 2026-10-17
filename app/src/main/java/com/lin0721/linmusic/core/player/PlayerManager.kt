@@ -18,6 +18,7 @@ import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
+import com.lin0721.linmusic.core.localmusic.LocalSongMetadata
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -30,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +42,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "PlayerManager"
 
@@ -173,6 +176,10 @@ class PlayerManager(
 
     // 已对该曲目做过一次"换新链接原地续播"的错误恢复，恢复后真正播起来才清空，防止同一首反复重试
     private var streamErrorRecoverySongId: Long? = null
+    private var preferredLocalSource: Pair<Long, String>? = null
+    private var failedPreferredLocalSource: Pair<Long, String>? = null
+
+    fun preferredLocalUriFor(songId: Long): String? = preferredLocalSource?.takeIf { it.first == songId }?.second
 
     // 播放中周期性保存的上次时间戳
     private var lastPeriodicSaveElapsedMs: Long = 0L
@@ -344,10 +351,7 @@ class PlayerManager(
         playbackQueue.setPlayContext(playContext)
         playbackQueue.setPlaySource(null)
         consecutiveErrors = 0
-        pendingStartPosition = startPosition
-
-        externalInterruptionResumeController.onExplicitUserPlay()
-        controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
+        fetchUrlAndPlay(0, startPosition, prefetchedUrl = url)
     }
 
     // 批量插播歌曲到“下一首”播放位置
@@ -591,11 +595,13 @@ class PlayerManager(
         prefetchedUrl: String? = null,
         prefetchedLevel: String? = null,
         playWhenReady: Boolean = true,
-        autoTransition: Boolean = false
+        autoTransition: Boolean = false,
+        skipPreferredLocal: Boolean = false
     ) {
         val item = playbackQueue.itemAt(index) ?: return
 
         activePlayJob?.cancel()
+        pendingSkipFromIndex = null
         roaming.cancel()
         networkGuard.cancelRecoveryWait()
         pendingStartPosition = startPosition
@@ -607,11 +613,15 @@ class PlayerManager(
 
         activePlayJob = scope.launch {
             _playbackLevel.value = null
-            // 本地外部音频直接播放
-            val localUri = item.localUri
+            preferredLocalSource = null
+            // Queue-local files first, then manual / conservative automatic external-file associations.
+            val preferredUri = if (!skipPreferredLocal && item.localUri == null) preferredLocalUri(item) else null
+            val localUri = item.localUri ?: preferredUri
             if (localUri != null) {
+                if (preferredUri != null) preferredLocalSource = item.songId to preferredUri
                 playbackQueue.setCurrentIndex(index)
                 saveQueueState()
+                if (preferredUri != null && onlineState.isOnline()) roaming.prefetchOnPlay(item.songId, index)
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
                 if (playWhenReady) showPendingTrack(item)
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localUri))?.toString()
@@ -648,7 +658,7 @@ class PlayerManager(
             playbackQueue.setCurrentIndex(index)
             saveQueueState()
             // 目标歌曲的播放地址还没请求回来之前，允许滑动手势整个撤销这次切歌
-            pendingSkipFromIndex = fromIndex
+            pendingSkipFromIndex = if (localRecord == null) fromIndex else null
 
             // 立即重置当前进度与时长；断点续播时保留已有时长避免进度条闪烁
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
@@ -703,6 +713,25 @@ class PlayerManager(
         _playbackLevel.value = level?.let { PlaybackLevel(songId, it) }
     }
 
+    private suspend fun preferredLocalUri(item: QueueItem): String? {
+        if (item.radioId != 0L || item.songId <= 0L) return null
+        val uri = try {
+            localMusicApi.preferredUri(item.songId, item.title, item.artist) {
+                // Look up full artist names and duration only when a local title candidate exists; retain metadata for offline use.
+                if (!onlineState.isOnline()) null else withTimeoutOrNull(10_000L) {
+                    repository.getSongDetail(item.songId).first().getOrNull()?.let {
+                        LocalSongMetadata(it.name, it.ar.joinToString(" • ") { ar -> ar.name }, it.dt, it.al.name)
+                    }
+                }
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            AppLogger.w(TAG, "检查外部本地音频失败，沿用原音源 songId=${item.songId}", error)
+            null
+        }
+        return uri?.takeUnless { failedPreferredLocalSource == (item.songId to it) }
+    }
+
     @OptIn(UnstableApi::class)
     private suspend fun findOfflineCacheKey(songId: Long): String? {
         val maxSize = settingsPreferences.audioCacheMaxSize.first()
@@ -716,6 +745,9 @@ class PlayerManager(
     private suspend fun offlinePlayableSongIds(): Set<Long> {
         val items = playbackQueue.original
         val playable = items.filter { it.localUri != null }.mapTo(HashSet()) { it.songId }
+        items.filter { it.songId !in playable }.forEach { item ->
+            if (preferredLocalUri(item) != null) playable += item.songId
+        }
         val remaining = items.mapTo(HashSet()) { it.songId } - playable
         playable += downloadPreferences.findVerifiedRecords(remaining).map { it.songId }
         val maxSize = settingsPreferences.audioCacheMaxSize.first()
@@ -786,6 +818,7 @@ class PlayerManager(
 
     private fun maybeTriggerStreamCache(item: QueueItem) {
         if (item.songId <= 0L || item.localUri != null) return
+        if (preferredLocalSource?.first == item.songId) return
         if (!streamCacheTriggeredSongIds.add(item.songId)) return
         scope.launch(Dispatchers.IO) {
             val enabled = settingsPreferences.streamCacheEnabled.first()
@@ -793,6 +826,7 @@ class PlayerManager(
                 streamCacheTriggeredSongIds.remove(item.songId)
                 return@launch
             }
+            if (preferredLocalUri(item) != null) return@launch
             val isDownloaded = downloadPreferences.findVerifiedRecord(item.songId) != null
             if (isDownloaded) return@launch
 
@@ -827,6 +861,7 @@ class PlayerManager(
 
         prefetchJob?.cancel()
         prefetchJob = scope.launch {
+            if (preferredLocalUri(nextItem) != null) return@launch
             // 下一首已下载时跳过网络预取
             if (downloadPreferences.findVerifiedRecord(nextItem.songId) != null) return@launch
             repository.getSongPlaybackInfo(nextItem.songId).collect { result ->
@@ -863,7 +898,7 @@ class PlayerManager(
             val sourceUri = requestedSource?.takeIf { it.first == songId }?.second
             // 尾部与下一首开头并行分析
             val endDeferred = async {
-                if (analyze && sourceUri != null) edgeAnalyzer.effectiveEndMs(songId.toString(), sourceUri, durationMs) else null
+                if (analyze && sourceUri != null) edgeAnalyzer.effectiveEndMs("$songId:$sourceUri", sourceUri, durationMs) else null
             }
             val startDeferred = async { if (analyze) analyzeNextTrackStart() else null }
             val effectiveEndMs = endDeferred.await()?.coerceAtMost(durationMs) ?: durationMs
@@ -900,13 +935,14 @@ class PlayerManager(
     private suspend fun analyzeNextTrackStart(): Long? {
         val nextItem = playbackQueue.nextItemByMode() ?: return null
         val uri = nextItem.localUri
+            ?: preferredLocalUri(nextItem)
             ?: downloadPreferences.findVerifiedRecord(nextItem.songId)?.mediaStoreUri
             ?: run {
                 prefetchJob?.join()
                 prefetchedNextUrl?.takeIf { it.songId == nextItem.songId }?.url
             }
             ?: return null
-        val startMs = edgeAnalyzer.effectiveStartMs(nextItem.songId.toString(), uri) ?: return null
+        val startMs = edgeAnalyzer.effectiveStartMs("${nextItem.songId}:$uri", uri) ?: return null
         pendingStartOffset = nextItem.songId to startMs
         return startMs
     }
@@ -1121,6 +1157,7 @@ class PlayerManager(
         resetTrackTiming()
         // 同一首歌之后再次播放时仍需能触发自动淡化
         val newSongId = mediaItem?.mediaId?.toLongOrNull()
+        if (failedPreferredLocalSource?.first != newSongId) failedPreferredLocalSource = null
         if (newSongId != autoCrossfadeTriggeredSongId) {
             autoCrossfadeTriggeredSongId = -1L
             pendingAutoFadeMs = 0L
@@ -1173,11 +1210,25 @@ class PlayerManager(
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=${_currentTrack.value?.mediaId}", error)
+        if (tryRecoverPreferredLocalError()) return
         if (tryRecoverStreamError(error)) return
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
         skipToNextOnError(playbackQueue.currentIndex.value)
+    }
+
+    private fun tryRecoverPreferredLocalError(): Boolean {
+        val source = preferredLocalSource ?: return false
+        val index = playbackQueue.currentIndex.value
+        val item = playbackQueue.itemAt(index) ?: return false
+        if (item.songId != source.first || requestedSource != source) return false
+        failedPreferredLocalSource = source
+        preferredLocalSource = null
+        val position = controllerHolder.currentPositionOrNull ?: progress.currentPosition.value
+        AppLogger.i(TAG, "关联的本地音频无法播放，回退原音源 songId=${item.songId}")
+        fetchUrlAndPlay(index, position, playWhenReady = _playWhenReady.value, skipPreferredLocal = true)
+        return true
     }
 
     // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；

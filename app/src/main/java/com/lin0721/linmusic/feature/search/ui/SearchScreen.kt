@@ -195,7 +195,7 @@ fun SearchScreen(
                             viewModel.prepareCollectDialog(songId)
                         },
                         onOpenMoreOptions = { track ->
-                            if (userProfile == null) showLoginSheet = true else optionsTrack = track
+                            optionsTrack = track
                         }
                     )
                 }

@@ -242,9 +242,7 @@ fun ArtistContent(
                         onPlaySong = onPlaySong,
                         onLikeClick = onLikeClick,
                         onOpenCollectSheet = { collectSongId = it },
-                        onOpenMoreOptions = { track ->
-                            if (!isLoggedIn) onRequireLogin() else optionsTrack = track
-                        },
+                        onOpenMoreOptions = { track -> optionsTrack = track },
                         onRequireLogin = onRequireLogin
                     )
                     1 -> artistAlbumTab(

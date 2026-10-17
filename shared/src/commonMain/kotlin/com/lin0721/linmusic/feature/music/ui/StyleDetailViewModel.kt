@@ -239,22 +239,10 @@ class StyleDetailViewModel(
 
     fun playFavourite() {
         val track: Track = currentData()?.head?.favouriteSong ?: return
-        viewModelScope.launch {
-            playbackRepository.getSongUrl(track.id).collect { result ->
-                result.onSuccess { url ->
-                    playbackController.playAudio(
-                        track.id,
-                        url,
-                        track.name,
-                        track.ar.joinToString("/") { it.name },
-                        track.al.picUrl,
-                        playContext = "style_favourite"
-                    )
-                }.onFailure { error ->
-                    _toastEvent.emit(error.toUserMessage(resourceProvider))
-                }
-            }
-        }
+        playbackController.playQueue(
+            listOf(QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)),
+            0, playContext = "style_favourite"
+        )
     }
 
     private fun currentData(): StyleDetailData? = (_uiState.value as? StyleDetailUiState.Success)?.data
