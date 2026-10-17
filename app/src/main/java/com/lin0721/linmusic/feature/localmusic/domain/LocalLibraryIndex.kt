@@ -70,13 +70,11 @@ data class LocalLibraryIndex(
     }
 }
 
-// 没有专辑标签时 MediaStore 会拿所在文件夹名顶替，这种情况按无专辑处理
-fun albumTitleOf(album: String?, folderPath: String?): String? {
-    val name = album?.trim()?.takeIf { it.isNotEmpty() && it != "<unknown>" } ?: return null
-    return name.takeIf { it != folderPath?.substringAfterLast('/') }
-}
+// MediaStore 的文件夹占位已在扫描层核实，展示层不能再根据同名丢弃真实标签。
+fun albumTitleOf(album: String?): String? =
+    album?.trim()?.takeIf { it.isNotEmpty() && it != "<unknown>" }
 
-val LocalTrack.albumTitle: String? get() = albumTitleOf(album, folderPath)
+val LocalTrack.albumTitle: String? get() = albumTitleOf(album)
 
 val LocalTrack.albumName: String get() = albumTitle ?: UNKNOWN_ALBUM_NAME
 
