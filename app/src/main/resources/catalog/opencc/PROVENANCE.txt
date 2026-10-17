@@ -1,0 +1,9 @@
+OpenCC TSCharacters dictionary (unmodified upstream file)
+Source repository: https://github.com/BYVoid/OpenCC
+Pinned revision: 8cf737a4e193db27d675b2ce9867d84aace33745
+Dictionary: https://raw.githubusercontent.com/BYVoid/OpenCC/8cf737a4e193db27d675b2ce9867d84aace33745/data/dictionary/TSCharacters.txt
+SHA256: 9ff46a7d30e5765375eb13d33f2b03a34d298913caf2b120380679f33ae1642d
+License: Apache-2.0; the complete upstream LICENSE is in this directory.
+LICENSE SHA256: b534e465949558eec2597b04f5092b5e161236a68dfbfd04d547592ac3964308
+Usage: all 4148 dictionary keys, selecting the first upstream conversion candidate.
+This lightweight character folding is not OpenCC's phrase-aware conversion engine.

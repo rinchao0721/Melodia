@@ -28,6 +28,12 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
+import com.lin0721.linmusic.core.ui.components.ArtistAlbumMinimumDialog
+import com.lin0721.linmusic.feature.artist.domain.ArtistAlbumSelection
+import com.lin0721.linmusic.feature.artist.domain.catalog.ArtistCatalogArtist
+import com.lin0721.linmusic.feature.artist.domain.catalog.ArtistCatalogMatcher
+import com.lin0721.linmusic.feature.artist.ui.catalog.ArtistCatalogUiState
+import com.lin0721.linmusic.feature.artist.ui.catalog.ArtistCatalogSheet
 import com.lin0721.linmusic.core.ui.components.SelectionAction
 import com.lin0721.linmusic.core.ui.components.TrackSelectionOverlay
 import com.lin0721.linmusic.core.ui.components.rememberSelectionBottomPadding
@@ -57,6 +63,20 @@ fun ArtistContent(
     albums: List<ArtistAlbum>,
     albumsHasMore: Boolean,
     albumsLoadingMore: Boolean,
+    albumsLoadError: String?,
+    albumMinTracks: Int,
+    albumDefaultMinTracks: Int,
+    albumHasCustomMinimum: Boolean,
+    onAlbumMinTracksChanged: (Int) -> Unit,
+    onResetAlbumMinTracks: () -> Unit,
+    catalogState: ArtistCatalogUiState,
+    onCatalogEnabledChanged: (Boolean) -> Unit,
+    onCatalogFollowDefault: () -> Unit,
+    onCatalogQueryChanged: (String) -> Unit,
+    onCatalogSearch: () -> Unit,
+    onCatalogBind: (ArtistCatalogArtist) -> Unit,
+    onCatalogChangeBinding: () -> Unit,
+    onCatalogRetry: () -> Unit,
     similarArtists: List<ArtistInfo>,
     likedSongIds: Set<Long>,
     blockedArtistIds: Set<Long>,
@@ -78,6 +98,7 @@ fun ArtistContent(
     onSaveNewCollection: (String, Long) -> Unit,
     onRequireLogin: () -> Unit,
     onLoadMoreAlbums: () -> Unit,
+    onRetryAlbums: () -> Unit,
     songSearch: ArtistSongSearchState,
     onSongSearchQueryChange: (String) -> Unit,
     onLoadMoreSongSearch: () -> Unit,
@@ -94,6 +115,16 @@ fun ArtistContent(
     val overlayHeight = 56.dp + melodiaStatusBarTopPadding()
 
     var showMoreMenuSheet by remember { mutableStateOf(false) }
+    var showAlbumMinimumDialog by remember { mutableStateOf(false) }
+    var showCatalogSheet by remember { mutableStateOf(false) }
+    val catalogSelection = remember(albums, catalogState.enabled, catalogState.groups, catalogState.artistMbid, albumMinTracks) {
+        catalogState.groups?.takeIf { catalogState.enabled }?.let {
+            ArtistCatalogMatcher.select(albums, it, boundArtistMbid = catalogState.artistMbid, minTracks = albumMinTracks)
+        }
+    }
+    val visibleAlbums = remember(albums, catalogSelection, albumMinTracks) {
+        ArtistAlbumSelection.visibleAlbums(catalogSelection?.albums ?: albums, albumMinTracks)
+    }
 
     var dominantColor by remember { mutableStateOf(CoverPlaceholderDark) }
 
@@ -136,11 +167,18 @@ fun ArtistContent(
             total > 0 && lastVisible >= total - 5
         }
     }
-    LaunchedEffect(shouldLoadMore, selectedTab) {
-        if (!shouldLoadMore) return@LaunchedEffect
+    LaunchedEffect(shouldLoadMore, selectedTab, albums.size, albumsHasMore, albumsLoadingMore, albumsLoadError,
+        albumMinTracks, visibleAlbums.size, catalogState.enabled, catalogState.groups) {
         when (selectedTab) {
-            0 -> if (songSearch.active) onLoadMoreSongSearch()
-            1 -> onLoadMoreAlbums()
+            0 -> if (shouldLoadMore && songSearch.active) onLoadMoreSongSearch()
+            1 -> if (ArtistAlbumSelection.shouldLoadMore(
+                nearListEnd = shouldLoadMore,
+                visibleCount = visibleAlbums.size,
+                hasMore = albumsHasMore,
+                loading = albumsLoadingMore,
+                error = albumsLoadError,
+                completeCatalog = catalogState.enabled
+            )) onLoadMoreAlbums()
         }
     }
 
@@ -248,8 +286,18 @@ fun ArtistContent(
                         onRequireLogin = onRequireLogin
                     )
                     1 -> artistAlbumTab(
-                        albums = albums,
+                        albums = visibleAlbums,
+                        sourceAlbumCount = albums.size,
+                        minTracks = albumMinTracks,
+                        catalogState = catalogState,
+                        catalogSelection = catalogSelection,
+                        onCatalogSettings = { showCatalogSheet = true },
+                        onCatalogRetry = onCatalogRetry,
+                        onRestoreAll = { onCatalogEnabledChanged(false); onAlbumMinTracksChanged(0) },
+                        hasMore = albumsHasMore,
                         loadingMore = albumsLoadingMore,
+                        loadError = albumsLoadError,
+                        onRetry = onRetryAlbums,
                         onAlbumClick = onAlbumClick
                     )
                     2 -> artistAboutTab(
@@ -341,8 +389,40 @@ fun ArtistContent(
         if (showMoreMenuSheet) {
             ArtistMoreMenuSheet(
                 isBlocked = blockedArtistIds.contains(artist.id),
+                albumMinTracks = albumMinTracks,
+                albumHasCustomMinimum = albumHasCustomMinimum,
+                onChangeAlbumMinimum = { showAlbumMinimumDialog = true },
+                catalogEnabled = catalogState.enabled,
+                catalogUsesDefault = catalogState.enabledOverride == null,
+                onCatalogSettings = { showCatalogSheet = true },
                 onBlockClick = onBlockClick,
                 onDismiss = { showMoreMenuSheet = false }
+            )
+        }
+        if (showAlbumMinimumDialog) {
+            ArtistAlbumMinimumDialog(
+                currentMinimum = albumMinTracks,
+                description = "仅为 ${artist.name} 设置，0 首不限制曲数。其他歌手不受影响；默认 $albumDefaultMinTracks 首。",
+                onSave = onAlbumMinTracksChanged,
+                onUseDefault = if (albumHasCustomMinimum) onResetAlbumMinTracks else null,
+                defaultMinimum = albumDefaultMinTracks,
+                onDismiss = { showAlbumMinimumDialog = false }
+            )
+        }
+        if (showCatalogSheet) {
+            ArtistCatalogSheet(
+                artistName = artist.name,
+                state = catalogState,
+                selection = catalogSelection,
+                onEnabledChanged = onCatalogEnabledChanged,
+                onFollowDefault = onCatalogFollowDefault,
+                onQueryChanged = onCatalogQueryChanged,
+                onSearch = onCatalogSearch,
+                onBind = onCatalogBind,
+                onChangeBinding = onCatalogChangeBinding,
+                onRetry = onCatalogRetry,
+                onRestoreAll = { onCatalogEnabledChanged(false); onAlbumMinTracksChanged(0) },
+                onDismiss = { showCatalogSheet = false }
             )
         }
     }

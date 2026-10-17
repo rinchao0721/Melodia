@@ -20,6 +20,9 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.preferences.ArtistAlbumFilterSettings
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.feature.artist.domain.ArtistAlbumSelection
 import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
 import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
@@ -28,7 +31,11 @@ import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -49,11 +56,35 @@ class ArtistViewModel(
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val searchRepository: SearchRepository,
-    private val trackBatchActions: TrackBatchActionsDelegate
+    private val trackBatchActions: TrackBatchActionsDelegate,
+    private val settingsPreferences: SettingsPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ArtistUiState>(ArtistUiState.Loading)
     val uiState: StateFlow<ArtistUiState> = _uiState.asStateFlow()
+    private val albumFilterArtistId = MutableStateFlow(0L)
+
+    val albumDefaultMinTracks = settingsPreferences.artistAlbumMinTracks.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ArtistAlbumFilterSettings.DEFAULT_MIN_TRACKS
+    )
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val albumOverrideFlow = albumFilterArtistId.flatMapLatest(settingsPreferences::artistAlbumMinTracksOverride)
+    val albumMinTracksOverride = albumOverrideFlow.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+    val albumMinTracks = combine(settingsPreferences.artistAlbumMinTracks, albumOverrideFlow) { default, override ->
+        override ?: default
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ArtistAlbumFilterSettings.DEFAULT_MIN_TRACKS)
+
+    fun updateAlbumMinTracks(minimum: Int) {
+        val artistId = currentArtistId
+        if (artistId > 0) viewModelScope.launch { settingsPreferences.saveArtistAlbumMinTracksOverride(artistId, minimum) }
+    }
+
+    fun resetAlbumMinTracks() {
+        val artistId = currentArtistId
+        if (artistId > 0) viewModelScope.launch { settingsPreferences.clearArtistAlbumMinTracksOverride(artistId) }
+    }
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
@@ -85,7 +116,10 @@ class ArtistViewModel(
 
     // 各分页区块当前已加载的偏移量，随 loadArtistData 重新加载而重置
     private var currentArtistId: Long = 0
+    private var artistDataJob: Job? = null
+    private var artistRequestGeneration = 0L
     private var albumOffset = 0
+    private var albumsLoadJob: Job? = null
     private var allSongsOffset = 0
 
     init {
@@ -105,15 +139,19 @@ class ArtistViewModel(
     }
 
     fun loadArtistData(artistId: Long) {
+        artistDataJob?.cancel()
+        albumsLoadJob?.cancel()
+        val requestGeneration = ++artistRequestGeneration
         if (currentArtistId != artistId) {
             resetSongSearch()
             _selection.value = TrackSelection()
         }
         currentArtistId = artistId
+        albumFilterArtistId.value = artistId
         albumOffset = 0
         allSongsOffset = 0
         _uiState.value = ArtistUiState.Loading
-        viewModelScope.launch {
+        artistDataJob = viewModelScope.launch {
             try {
                 // 并行发起网络请求以提供极速的界面预加载
                 val detailDeferred = async { artistRepository.getArtistDetail(artistId).first() }
@@ -129,6 +167,8 @@ class ArtistViewModel(
                 val topSongsResult = topSongsDeferred.await()
                 val albumsResult = albumsDeferred.await()
                 val similarResult = similarDeferred.await()
+                currentCoroutineContext().ensureActive()
+                if (!isCurrentArtistRequest(artistId, requestGeneration)) return@launch
 
                 if (detailResult.isSuccess && topSongsResult.isSuccess) {
                     val detail = detailResult.getOrThrow()
@@ -138,16 +178,18 @@ class ArtistViewModel(
                     val albumsPage = albumsResult.getOrNull()
                     val similar = similarResult.getOrDefault(emptyList())
 
-                    albumOffset = albumsPage?.albums?.size ?: 0
+                    val albumProgress = albumsPage?.let { ArtistAlbumSelection.applyPage(emptyList(), 0, it) }
+                    albumOffset = albumProgress?.nextOffset ?: 0
 
                     _uiState.value = ArtistUiState.Success(
                         artist = detail,
                         isFollowed = isFollowed,
                         fansCount = fans,
                         topSongs = topSongs,
-                        albums = albumsPage?.albums ?: emptyList(),
-                        albumsHasMore = albumsPage?.hasMore ?: false,
-                        similarArtists = similar
+                        albums = albumProgress?.albums ?: emptyList(),
+                        albumsHasMore = albumProgress?.hasMore ?: albumsResult.isFailure,
+                        similarArtists = similar,
+                        albumsLoadError = albumProgress?.error ?: albumsResult.exceptionOrNull()?.toUserMessage(resourceProvider)
                     )
                 } else {
                     val err = (detailResult.exceptionOrNull() ?: topSongsResult.exceptionOrNull())
@@ -155,7 +197,10 @@ class ArtistViewModel(
                         ?: resourceProvider.getString(AppString.ErrorBizDefault)
                     _uiState.value = ArtistUiState.Error(err)
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
+                if (!isCurrentArtistRequest(artistId, requestGeneration)) return@launch
                 AppLogger.e(TAG, "歌手详情页加载最终失败 artistId=$artistId", e)
                 _uiState.value = ArtistUiState.Error(e.toUserMessage(resourceProvider))
             }
@@ -163,29 +208,37 @@ class ArtistViewModel(
     }
 
     // 专辑 Tab 滚动到底追加下一页
-    fun loadMoreAlbums() {
+    fun loadMoreAlbums(retry: Boolean = false) {
         val state = _uiState.value as? ArtistUiState.Success ?: return
-        if (!state.albumsHasMore || state.albumsLoadingMore) return
-        _uiState.value = state.copy(albumsLoadingMore = true)
-        viewModelScope.launch {
-            artistRepository.getArtistAlbums(currentArtistId, limit = ALBUMS_PAGE_SIZE, offset = albumOffset)
-                .first()
-                .onSuccess { page ->
-                    albumOffset += page.albums.size
-                    val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
-                    _uiState.value = latest.copy(
-                        albums = latest.albums + page.albums,
-                        albumsHasMore = page.hasMore,
-                        albumsLoadingMore = false
-                    )
-                }
-                .onFailure { e ->
-                    AppLogger.w(TAG, "加载更多专辑失败 artistId=$currentArtistId", e)
-                    val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
-                    _uiState.value = latest.copy(albumsLoadingMore = false)
-                }
+        if (!state.albumsHasMore || state.albumsLoadingMore || (state.albumsLoadError != null && !retry)) return
+        val artistId = currentArtistId
+        val requestGeneration = artistRequestGeneration
+        val requestedOffset = albumOffset
+        _uiState.value = state.copy(albumsLoadingMore = true, albumsLoadError = null)
+        albumsLoadJob = viewModelScope.launch {
+            try {
+                val page = artistRepository.getArtistAlbums(artistId, limit = ALBUMS_PAGE_SIZE, offset = requestedOffset)
+                    .first().getOrThrow()
+                currentCoroutineContext().ensureActive()
+                if (!isCurrentArtistRequest(artistId, requestGeneration)) return@launch
+                val latest = _uiState.value as? ArtistUiState.Success ?: return@launch
+                val progress = ArtistAlbumSelection.applyPage(latest.albums, requestedOffset, page)
+                albumOffset = progress.nextOffset
+                _uiState.value = latest.copy(albums = progress.albums, albumsHasMore = progress.hasMore,
+                    albumsLoadingMore = false, albumsLoadError = progress.error)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (!isCurrentArtistRequest(artistId, requestGeneration)) return@launch
+                AppLogger.w(TAG, "加载更多专辑失败 artistId=$artistId", error)
+                val latest = _uiState.value as? ArtistUiState.Success ?: return@launch
+                _uiState.value = latest.copy(albumsLoadingMore = false, albumsLoadError = error.toUserMessage(resourceProvider))
+            }
         }
     }
+
+    private fun isCurrentArtistRequest(artistId: Long, requestGeneration: Long): Boolean =
+        currentArtistId == artistId && artistRequestGeneration == requestGeneration
 
     // 「音乐」Tab 首次切到「全部」子 Tab 时触发首页加载，此后不重复加载
     fun loadAllSongsIfNeeded() {

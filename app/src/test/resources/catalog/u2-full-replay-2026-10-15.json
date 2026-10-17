@@ -1,0 +1,4491 @@
+{
+  "artistId": 104493,
+  "artistMbid": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+  "albums": [
+    {
+      "id": 400348022,
+      "name": "Silencio",
+      "publishTime": 1790179200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 388806430,
+      "name": "Yeah, Yeah, Yeah, Yeah, Yeah",
+      "publishTime": 1787846400000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 386085655,
+      "name": "Fireflies",
+      "publishTime": 1784822400000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 385720386,
+      "name": "Street Of Dreams",
+      "publishTime": 1783353600000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 369133176,
+      "name": "Easter Lily EP",
+      "publishTime": 1775145600000,
+      "size": 6,
+      "type": "EP"
+    },
+    {
+      "id": 362737658,
+      "name": "Days Of Ash EP",
+      "publishTime": 1771344000000,
+      "size": 6,
+      "type": "EP"
+    },
+    {
+      "id": 273570383,
+      "name": "Stories Of Surrender EP",
+      "publishTime": 1748534400000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 272104353,
+      "name": "The Showman (Stories Of Surrender Version)",
+      "publishTime": 1747324800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 255261609,
+      "name": "How To Re-Assemble An Atomic Bomb",
+      "publishTime": 1732809600000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 254579726,
+      "name": "How To Dismantle An Atomic Bomb (Re-Assemble Edition)",
+      "publishTime": 1732204800000,
+      "size": 22,
+      "type": "专辑"
+    },
+    {
+      "id": 251732782,
+      "name": "Happiness",
+      "publishTime": 1729699200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 253113692,
+      "name": "Country Mile / Picture Of You (X+W) (Radio Edit)",
+      "publishTime": 1727280000000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 249055491,
+      "name": "Country Mile / Picture Of You (X+W)",
+      "publishTime": 1727280000000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 246386529,
+      "name": "ZOO TV Live In Dublin 1993 EP",
+      "publishTime": 1724947200000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 243176963,
+      "name": "Mysterious Ways (ZOO TV Live In Dublin, 1993)",
+      "publishTime": 1721836800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 239824280,
+      "name": "Atomic City (Tiësto Remix)",
+      "publishTime": 1718899200000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 239824278,
+      "name": "Atomic City (Tiësto Remix)",
+      "publishTime": 1718899200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 185085572,
+      "name": "Atomic City (David Guetta Remix)",
+      "publishTime": 1707062400000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 197101833,
+      "name": "Atomic City (David Guetta Remix)",
+      "publishTime": 1707062400000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 180961212,
+      "name": "Atomic City (Mike WiLL Made-It Remix)",
+      "publishTime": 1702396800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 175814326,
+      "name": "Atomic City",
+      "publishTime": 1695916800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 161980737,
+      "name": "Songs Of Surrender",
+      "publishTime": 1678982400000,
+      "size": 40,
+      "type": "专辑"
+    },
+    {
+      "id": 161179335,
+      "name": "Beautiful Day (Songs Of Surrender)",
+      "publishTime": 1677772800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 159960273,
+      "name": "One (Songs Of Surrender)",
+      "publishTime": 1676131200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 158990512,
+      "name": "With Or Without You (Songs Of Surrender)",
+      "publishTime": 1674748800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 158072918,
+      "name": "Pride (In The Name Of Love) (Songs Of Surrender)",
+      "publishTime": 1673366400000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 135656639,
+      "name": "Your Song Saved My Life (From Sing 2)",
+      "publishTime": 1635868800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 125841608,
+      "name": "The Virtual Road – iNNOCENCE + eXPERIENCE Live In Paris EP (Remastered 2021)",
+      "publishTime": 1617984000000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 125442454,
+      "name": "The Virtual Road – PopMart Live From Mexico City EP (Remastered 2021)",
+      "publishTime": 1617206400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 125136018,
+      "name": "The Virtual Road – Live At Red Rocks: Under A Blood Red Sky EP (Remastered 2021)",
+      "publishTime": 1616601600000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 124619079,
+      "name": "The Virtual Road – U2 Go Home: Live From Slane Castle Ireland EP (Remastered 2021)",
+      "publishTime": 1615910400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 98260350,
+      "name": "Trilogy (Remastered 2020)",
+      "publishTime": 1605196800000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 95206687,
+      "name": "Stuck In A Moment You Can't Get Out Of (Acoustic Version / Remastered 2020)",
+      "publishTime": 1599667200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 95291695,
+      "name": "Bang A Gong (Get It On)",
+      "publishTime": 1599148800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 83928181,
+      "name": "The Eternal Remixes",
+      "publishTime": 1575561600000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 148509062,
+      "name": "Ahimsa",
+      "publishTime": 1572537600000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 148509147,
+      "name": "Summer Of Love",
+      "publishTime": 1533052800000,
+      "size": 9,
+      "type": "专辑"
+    },
+    {
+      "id": 148508226,
+      "name": "Love Is Bigger Than Anything In It's Way",
+      "publishTime": 1527782400000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 38426401,
+      "name": "Lights Of Home (Free Yourself / Beck Remix)",
+      "publishTime": 1524758400000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 37053208,
+      "name": "Get Out Of Your Own Way",
+      "publishTime": 1512057600000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 36861400,
+      "name": "Songs Of Experience (Deluxe Edition)",
+      "publishTime": 1512057600000,
+      "size": 17,
+      "type": "专辑"
+    },
+    {
+      "id": 36150078,
+      "name": "You're The Best Thing About Me",
+      "publishTime": 1504656000000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 148509139,
+      "name": "You're The Best Thing About Me",
+      "publishTime": 1504195200000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 175254346,
+      "name": "The Joshua Tree (Super Deluxe)",
+      "publishTime": 1496332800000,
+      "size": 49,
+      "type": "专辑"
+    },
+    {
+      "id": 35044416,
+      "name": "iNNOCENCE + eXPERIENCE Live In Paris",
+      "publishTime": 1465488000007,
+      "size": 31,
+      "type": "专辑"
+    },
+    {
+      "id": 3210424,
+      "name": "Still Haven't Found What I'm Looking For",
+      "publishTime": 1424966400007,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 75227229,
+      "name": "Every Breaking Wave",
+      "publishTime": 1424620800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 3003110,
+      "name": "Songs of Innocence (Deluxe)",
+      "publishTime": 1410192000000,
+      "size": 21,
+      "type": "专辑"
+    },
+    {
+      "id": 2759223,
+      "name": "Invisible",
+      "publishTime": 1391443200007,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 2716223,
+      "name": "Ordinary Love",
+      "publishTime": 1385654400007,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 444850,
+      "name": "U22: A 22 Track Live Collection from U2360",
+      "publishTime": 1338307200007,
+      "size": 22,
+      "type": "专辑"
+    },
+    {
+      "id": 444874,
+      "name": "Modena 1987",
+      "publishTime": 1314806400007,
+      "size": 41,
+      "type": "专辑"
+    },
+    {
+      "id": 444885,
+      "name": "Duals",
+      "publishTime": 1302969600007,
+      "size": 15,
+      "type": "专辑"
+    },
+    {
+      "id": 444891,
+      "name": "Artificial Horizon",
+      "publishTime": 1268150400007,
+      "size": 13,
+      "type": "专辑"
+    },
+    {
+      "id": 2021161,
+      "name": "I'll Go Crazy If I Don't Go Crazy Tonight",
+      "publishTime": 1252166400000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 148506612,
+      "name": "I'll Go Crazy If I Can't Go Crazy Tonight",
+      "publishTime": 1250438400000,
+      "size": 7,
+      "type": "专辑"
+    },
+    {
+      "id": 2021209,
+      "name": "Magnificent",
+      "publishTime": 1241366400000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 2021147,
+      "name": "No Line On The Horizon",
+      "publishTime": 1235664000000,
+      "size": 11,
+      "type": "专辑"
+    },
+    {
+      "id": 444917,
+      "name": "Medium, Rare & Remastered",
+      "publishTime": 1235232000007,
+      "size": 20,
+      "type": "专辑"
+    },
+    {
+      "id": 136630670,
+      "name": "I Believe In Father Christmas",
+      "publishTime": 1228060800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 137289526,
+      "name": "I Believe In Father Christmas EP",
+      "publishTime": 1228060800000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2546367,
+      "name": "Zoo TV Tour",
+      "publishTime": 1163952000007,
+      "size": 25,
+      "type": "专辑"
+    },
+    {
+      "id": 2021180,
+      "name": "U218 Singles (Deluxe Edition)",
+      "publishTime": 1163952000000,
+      "size": 27,
+      "type": "专辑"
+    },
+    {
+      "id": 2021144,
+      "name": "U218 Singles",
+      "publishTime": 1163952000000,
+      "size": 19,
+      "type": "专辑"
+    },
+    {
+      "id": 2590355,
+      "name": "U218 Singles (Video Edtion)",
+      "publishTime": 1163692800007,
+      "size": 26,
+      "type": "专辑"
+    },
+    {
+      "id": 36887173,
+      "name": "Original Of The Species (Live From Milan)",
+      "publishTime": 1136044800000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 2021220,
+      "name": "The Saints Are Coming",
+      "publishTime": 1136044800000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 73340308,
+      "name": "U218 Singles (Deluxe Version)",
+      "publishTime": 1136044800000,
+      "size": 27,
+      "type": "专辑"
+    },
+    {
+      "id": 2581282,
+      "name": "Communication",
+      "publishTime": 1130774400007,
+      "size": 8,
+      "type": "专辑"
+    },
+    {
+      "id": 2021223,
+      "name": "All Because Of You",
+      "publishTime": 1128873600000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021226,
+      "name": "City Of Blinding Lights",
+      "publishTime": 1117987200000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021174,
+      "name": "City Of Blinding Lights",
+      "publishTime": 1117987200007,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 2021227,
+      "name": "City of Blinding Lights (Live At Brooklyn Bridge)",
+      "publishTime": 1117987200000,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 2021230,
+      "name": "Sometimes You Can't Make It On Your Own",
+      "publishTime": 1108310400000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 2021232,
+      "name": "Sometimes You Can't Make It On Your Own",
+      "publishTime": 1107705600000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2578677,
+      "name": "Sometimes You Can't Make It On Your Own",
+      "publishTime": 1107705600007,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 2552589,
+      "name": "Live from Under the Brooklyn Bridge",
+      "publishTime": 1102435200007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 254578882,
+      "name": "How To Dismantle An Atomic Bomb (Remastered 2024)",
+      "publishTime": 1101052800000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 2021189,
+      "name": "How To Dismantle An Atomic Bomb",
+      "publishTime": 1101052800000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 2306226,
+      "name": "Vertigo",
+      "publishTime": 1099843200000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 444949,
+      "name": "X-Posed:The Interview",
+      "publishTime": 1080576000007,
+      "size": 1,
+      "type": "Single"
+    },
+    {
+      "id": 444932,
+      "name": "U2 Go Home: Live from Slane Castle, Ireland",
+      "publishTime": 1068998400007,
+      "size": 20,
+      "type": "专辑"
+    },
+    {
+      "id": 2446212,
+      "name": "The Best Of 1990-2000 & B-Sides",
+      "publishTime": 1036425600000,
+      "size": 31,
+      "type": "精选集"
+    },
+    {
+      "id": 2021193,
+      "name": "The Best Of 1990-2000",
+      "publishTime": 1036339200000,
+      "size": 17,
+      "type": "精选集"
+    },
+    {
+      "id": 245784222,
+      "name": "Electrical Storm (Remastered 2024)",
+      "publishTime": 1035129600000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021199,
+      "name": "Electrical Storm",
+      "publishTime": 1035129600007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021201,
+      "name": "Electrical Storm",
+      "publishTime": 1035129600007,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 444962,
+      "name": "7",
+      "publishTime": 1011628800000,
+      "size": 7,
+      "type": "专辑"
+    },
+    {
+      "id": 2560063,
+      "name": "Tracks From the '90s",
+      "publishTime": 1009814400004,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 244575425,
+      "name": "Elevation (Remastered 2024)",
+      "publishTime": 993398400000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 2520809,
+      "name": "Elevation",
+      "publishTime": 993398400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021164,
+      "name": "Elevation",
+      "publishTime": 993398400000,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021167,
+      "name": "Elevation",
+      "publishTime": 992534400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 245226588,
+      "name": "Walk On (Remastered 2024)",
+      "publishTime": 982598400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 243886507,
+      "name": "Stuck In A Moment You Can't Get Out Of (Remastered 2024)",
+      "publishTime": 980697600000,
+      "size": 7,
+      "type": "专辑"
+    },
+    {
+      "id": 2021197,
+      "name": "Stuck In A Moment You Can't Get Out Of",
+      "publishTime": 980697600007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021195,
+      "name": "Stuck In A Moment You Can't Get Out Of",
+      "publishTime": 980697600007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 97578742,
+      "name": "All That You Can’t Leave Behind (20th Anniversary Edition / Super Deluxe / Remastered 2020)",
+      "publishTime": 972835200000,
+      "size": 51,
+      "type": "专辑"
+    },
+    {
+      "id": 123774252,
+      "name": "All That You Can’t Leave Behind (20th Anniversary Edition / Deluxe / Remastered 2020)",
+      "publishTime": 972835200000,
+      "size": 25,
+      "type": "专辑"
+    },
+    {
+      "id": 2021181,
+      "name": "All That You Can't Leave Behind",
+      "publishTime": 972835200000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 242595595,
+      "name": "Beautiful Day (Remastered 2024)",
+      "publishTime": 971020800000,
+      "size": 9,
+      "type": "专辑"
+    },
+    {
+      "id": 2021206,
+      "name": "Beautiful Day",
+      "publishTime": 971020800007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021202,
+      "name": "Beautiful Day",
+      "publishTime": 971020800007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 444928,
+      "name": "Hasta la Vista Baby! U2 Live from Mexico City",
+      "publishTime": 911664000007,
+      "size": 14,
+      "type": "专辑"
+    },
+    {
+      "id": 2549973,
+      "name": "Popmart - Live In Mexico",
+      "publishTime": 911664000007,
+      "size": 26,
+      "type": "专辑"
+    },
+    {
+      "id": 2021145,
+      "name": "The Best Of 1980 - 1990",
+      "publishTime": 909936000000,
+      "size": 15,
+      "type": "精选集"
+    },
+    {
+      "id": 2446211,
+      "name": "The Best Of 1980-1990 And The B-Sides",
+      "publishTime": 909936000007,
+      "size": 30,
+      "type": "精选集"
+    },
+    {
+      "id": 240621158,
+      "name": "Sweetest Thing (Remastered 2024)",
+      "publishTime": 908726400000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021170,
+      "name": "Sweetest Thing",
+      "publishTime": 908726400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021172,
+      "name": "Sweetest Thing",
+      "publishTime": 908726400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 199331972,
+      "name": "Mofo (Remixes / Remastered 2024)",
+      "publishTime": 881510400000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021198,
+      "name": "Mofo Remixes",
+      "publishTime": 881510400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021163,
+      "name": "If God Will Send His Angels",
+      "publishTime": 881510400007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 197983600,
+      "name": "If God Will Send His Angels (Remastered 2024)",
+      "publishTime": 881510400000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021205,
+      "name": "Please",
+      "publishTime": 877276800007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 196210972,
+      "name": "Please (Remastered 2024)",
+      "publishTime": 874857600000,
+      "size": 7,
+      "type": "专辑"
+    },
+    {
+      "id": 2021166,
+      "name": "Last Night On Earth",
+      "publishTime": 867686400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 2021168,
+      "name": "Last Night On Earth",
+      "publishTime": 867686400007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 194489360,
+      "name": "Last Night On Earth (Remastered 2024)",
+      "publishTime": 867686400000,
+      "size": 6,
+      "type": "EP"
+    },
+    {
+      "id": 2021169,
+      "name": "Staring At The Sun",
+      "publishTime": 861033600007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021208,
+      "name": "Staring At The Sun",
+      "publishTime": 861033600007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 192811923,
+      "name": "Staring At The Sun (Remastered 2024)",
+      "publishTime": 860947200000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021185,
+      "name": "Pop",
+      "publishTime": 857318400000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 191150797,
+      "name": "Discothèque (Remastered 2024)",
+      "publishTime": 854899200000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 2021175,
+      "name": "Discotheque",
+      "publishTime": 854899200000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2553892,
+      "name": "Please: PopHeart Live EP",
+      "publishTime": 852048000004,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2592826,
+      "name": "Melon: Remixes for Propaganda",
+      "publishTime": 788889600004,
+      "size": 9,
+      "type": "专辑"
+    },
+    {
+      "id": 89282994,
+      "name": "Stay (Faraway So Close!)",
+      "publishTime": 753984000000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 172139911,
+      "name": "Stay (Faraway, So Close!)",
+      "publishTime": 753897600000,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 170084473,
+      "name": "Lemon",
+      "publishTime": 752688000000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 279248326,
+      "name": "Live in Dublin 1993",
+      "publishTime": 743184000000,
+      "size": 23,
+      "type": "专辑"
+    },
+    {
+      "id": 2021184,
+      "name": "Zooropa",
+      "publishTime": 741801600000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 2021176,
+      "name": "Who's Gonna Ride Your Wild Horses",
+      "publishTime": 712598400007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021165,
+      "name": "Even Better Than The Real Thing (Remix)",
+      "publishTime": 707932800007,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 2021173,
+      "name": "Even Better Than The Real Thing",
+      "publishTime": 707932800007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021204,
+      "name": "One",
+      "publishTime": 698860800007,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 444997,
+      "name": "New Year's Day",
+      "publishTime": 691516800000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021171,
+      "name": "Mysterious Ways",
+      "publishTime": 690998400007,
+      "size": 5,
+      "type": "EP"
+    },
+    {
+      "id": 136980051,
+      "name": "Achtung Baby (30th Anniversary Edition)",
+      "publishTime": 690393600000,
+      "size": 50,
+      "type": "专辑"
+    },
+    {
+      "id": 444856,
+      "name": "Achtung Baby (20th Anniversary Deluxe Edition)",
+      "publishTime": 690393600007,
+      "size": 72,
+      "type": "专辑"
+    },
+    {
+      "id": 136303296,
+      "name": "Achtung Baby (30th Anniversary Edition)",
+      "publishTime": 690393600000,
+      "size": 23,
+      "type": "专辑"
+    },
+    {
+      "id": 2021139,
+      "name": "Achtung Baby",
+      "publishTime": 690393600000,
+      "size": 12,
+      "type": "专辑"
+    },
+    {
+      "id": 2021177,
+      "name": "The Fly",
+      "publishTime": 687974400007,
+      "size": 3,
+      "type": "Single"
+    },
+    {
+      "id": 3171179,
+      "name": "When Love Comes to Town",
+      "publishTime": 607622400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021187,
+      "name": "Rattle And Hum",
+      "publishTime": 592416000000,
+      "size": 17,
+      "type": "专辑"
+    },
+    {
+      "id": 283662577,
+      "name": "Live at Boston Garden 1987",
+      "publishTime": 556988400000,
+      "size": 22,
+      "type": "专辑"
+    },
+    {
+      "id": 2021152,
+      "name": "Live From Paris",
+      "publishTime": 552322800000,
+      "size": 18,
+      "type": "专辑"
+    },
+    {
+      "id": 168043182,
+      "name": "U2 - Live in San Diego 1987 (Live)",
+      "publishTime": 545324400000,
+      "size": 20,
+      "type": "专辑"
+    },
+    {
+      "id": 34463596,
+      "name": "The Joshua Tree (Deluxe Edition) [Remastered]",
+      "publishTime": 542217600007,
+      "size": 25,
+      "type": "专辑"
+    },
+    {
+      "id": 2021179,
+      "name": "The Joshua Tree",
+      "publishTime": 542217600000,
+      "size": 11,
+      "type": "专辑"
+    },
+    {
+      "id": 126099063,
+      "name": "U2 at Live Aid (Live at Wembley Stadium, 13th July 1985)",
+      "publishTime": 490032000000,
+      "size": 2,
+      "type": "Single"
+    },
+    {
+      "id": 2021229,
+      "name": "Wide Awake In America",
+      "publishTime": 485366400000,
+      "size": 4,
+      "type": "EP"
+    },
+    {
+      "id": 2021143,
+      "name": "The Unforgettable Fire",
+      "publishTime": 465408000007,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 2021141,
+      "name": "The Unforgettable Fire (Deluxe Edition Remastered)",
+      "publishTime": 465408000000,
+      "size": 26,
+      "type": "专辑"
+    },
+    {
+      "id": 179695691,
+      "name": "Under A Blood Red Sky (Remastered 2023)",
+      "publishTime": 438192000000,
+      "size": 8,
+      "type": "专辑"
+    },
+    {
+      "id": 2021149,
+      "name": "Under A Blood Red Sky (Live)",
+      "publishTime": 438192000007,
+      "size": 8,
+      "type": "专辑"
+    },
+    {
+      "id": 270023412,
+      "name": "San Bernardino 1983 (Live)",
+      "publishTime": 423072000000,
+      "size": 11,
+      "type": "专辑"
+    },
+    {
+      "id": 86767915,
+      "name": "Boston FM 1983 (Live)",
+      "publishTime": 420912000000,
+      "size": 17,
+      "type": "专辑"
+    },
+    {
+      "id": 34485175,
+      "name": "War",
+      "publishTime": 415209600000,
+      "size": 10,
+      "type": "专辑"
+    },
+    {
+      "id": 2021156,
+      "name": "War (Deluxe Edition Remastered)",
+      "publishTime": 415209600000,
+      "size": 22,
+      "type": "专辑"
+    },
+    {
+      "id": 2021183,
+      "name": "October",
+      "publishTime": 371664000007,
+      "size": 11,
+      "type": "专辑"
+    },
+    {
+      "id": 2021153,
+      "name": "October (Deluxe Edition)",
+      "publishTime": 371664000007,
+      "size": 28,
+      "type": "专辑"
+    },
+    {
+      "id": 445047,
+      "name": "Boy (Deluxe Edition)",
+      "publishTime": 340819200000,
+      "size": 26,
+      "type": "专辑"
+    },
+    {
+      "id": 445057,
+      "name": "Three",
+      "publishTime": 304963200007,
+      "size": 3,
+      "type": "Single"
+    }
+  ],
+  "groups": [
+    {
+      "id": "01118076-1e0c-37c3-b6f7-708b80dd66fe",
+      "title": "Two Hearts Beat as One",
+      "firstReleaseDate": "1983-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "027d2820-5afc-3c20-afb8-9101775cffe8",
+      "title": "The Very Best",
+      "firstReleaseDate": "1995",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "02f2feaa-aba1-4e31-9a7f-c0fe889fc988",
+      "title": "Artificial Horizon",
+      "firstReleaseDate": "2010-03",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "052a5d5c-9cf4-3e1c-863d-a6141d0e41d1",
+      "title": "Another Day",
+      "firstReleaseDate": "1980-02-26",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "09f74df0-37f4-4e63-acb8-6d2ac6047e18",
+      "title": "The Virtual Road – U2 Go Home: Live From Slane Castle Ireland",
+      "firstReleaseDate": "2021-03-17",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "09f9581c-52b0-4d2b-bb1b-d5902830b8c1",
+      "title": "Carnaval de Luz",
+      "firstReleaseDate": "2026-11-13",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "0e599b81-6015-3b3d-8b1a-8e56f45a5c21",
+      "title": "Hasta la Vista Baby! Live From Mexico City",
+      "firstReleaseDate": "2000",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "0f129789-7c7a-4fd3-8af1-492dcb3907b0",
+      "title": "Previous Day",
+      "firstReleaseDate": "2000-09",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "10492d46-2b4f-3b8d-b331-b9971603fbcb",
+      "title": "7",
+      "firstReleaseDate": "2002-01-22",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "18b82e5d-33b0-4baf-bb87-75c82db6d697",
+      "title": "Days of Ash EP",
+      "firstReleaseDate": "2026-02-18",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "19650369-0aab-4852-bc4f-12440a964c10",
+      "title": "In God’s Country",
+      "firstReleaseDate": "1987-11-17",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "200acfe9-da2e-4360-9830-095f613c65d1",
+      "title": "We Will Follow",
+      "firstReleaseDate": "2025",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation",
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "233b8b10-3d6c-36af-b652-4b268b1d02f1",
+      "title": "Sunday Bloody Sunday",
+      "firstReleaseDate": "1983-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "2879b2e6-5bd1-383d-a17e-dbae8ea5d5ea",
+      "title": "Elevation 2001 / U2 Live From Boston",
+      "firstReleaseDate": "2001-12-04",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "316353a9-5226-3fff-8b0b-5bc085e63b4a",
+      "title": "Desire",
+      "firstReleaseDate": "1988-09-02",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3655d49c-d976-4660-beba-8c7c2bbb2fe4",
+      "title": "I Believe in Father Christmas EP",
+      "firstReleaseDate": "2021-12-10",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "36fd3f7e-2461-3809-9d2a-b9a12b96bb82",
+      "title": "All I Want Is You",
+      "firstReleaseDate": "1989-06-12",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3ab33753-c16f-3e44-ae67-2fba4fd0e823",
+      "title": "How to Dismantle an Atomic Bomb",
+      "firstReleaseDate": "2004-11-17",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4860ba01-a5be-47e3-9b9a-f43015c2e249",
+      "title": "The Virtual Road – iNNOCENCE + eXPERIENCE Live in Paris",
+      "firstReleaseDate": "2021-04-10",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "48c2a8b1-63b9-46ab-90a8-9088c4df83f8",
+      "title": "The Complete U2",
+      "firstReleaseDate": "2004-11-23",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4a7b6ee7-c0a5-451d-9fa8-944d7171e570",
+      "title": "Live From Under the Brooklyn Bridge",
+      "firstReleaseDate": "2004-12-09",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4d6c253b-d2ee-32c2-a8c8-299ac349856f",
+      "title": "Where the Streets Have No Name",
+      "firstReleaseDate": "1987-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4e815494-d6a7-4644-93d2-e45fd89408bf",
+      "title": "Summer of Love (remixes)",
+      "firstReleaseDate": "2018-08-01",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "509accb1-f7e3-4334-9496-f1f53987705d",
+      "title": "The Eternal Remixes",
+      "firstReleaseDate": "2019-12-06",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "53b0d89e-f856-3015-a3a6-a70e1e935fd6",
+      "title": "Boy",
+      "firstReleaseDate": "1980-10-20",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "58e4581f-2448-3e54-b06b-e932a848e340",
+      "title": "Unreleased & Rare",
+      "firstReleaseDate": "2004-11-23",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5a824915-94b5-38c0-b1d0-65a31518423d",
+      "title": "Three",
+      "firstReleaseDate": "1979-09-26",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5d309ab1-cf4b-4e6a-9922-9e073285ea49",
+      "title": "One Tree Hill",
+      "firstReleaseDate": "1988-03-07",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5eca5ea6-841b-3835-b368-94fb71d8f932",
+      "title": "Pop",
+      "firstReleaseDate": "1997-02-26",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "63d313a6-ba12-4ade-be51-c0161aebb3bd",
+      "title": "iNNOCENCE + eXPERIENCE: Live in Paris",
+      "firstReleaseDate": "2016-06-10",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "65690112-16d4-4e89-8b8d-be5f71c18fcf",
+      "title": "New Year’s Day / Two Hearts Beat as One",
+      "firstReleaseDate": "1985",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "65b2eed6-67a3-3334-a808-54ff1ceb3b7f",
+      "title": "Live From Boston 1981",
+      "firstReleaseDate": "2004-11-23",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "671c0bdc-8e27-3f74-a676-01c260820681",
+      "title": "A Day Without Me",
+      "firstReleaseDate": "1980-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "68cd706f-d107-469a-9acb-8eea661b0947",
+      "title": "SURRENDER 40 SONGS, ONE PLAYLIST",
+      "firstReleaseDate": "2022-10-28",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "69b0c956-f8e0-4a3a-969b-418400e4e2db",
+      "title": "eXPERIENCE + iNNOCENCE: Live in Berlin",
+      "firstReleaseDate": "2020-06-13",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6c301dbd-6ccb-3403-a6c4-6a22240a0297",
+      "title": "The Best of 1980–1990",
+      "firstReleaseDate": "1998-10-28",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6d10108b-5f3c-43fa-a5a8-38d7db8c1738",
+      "title": "Stories of Surrender EP",
+      "firstReleaseDate": "2025-05-30",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "7f347782-eb14-40c3-98e2-17b6e1bfe56c",
+          "name": "Bono",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6f3e9fa6-be7a-3de8-a2b2-2072ece8a54d",
+      "title": "The Joshua Tree",
+      "firstReleaseDate": "1987-03-09",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "702b446a-cbd5-3621-8cd5-f70fdd1a82ba",
+      "title": "A Celebration",
+      "firstReleaseDate": "1982-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7042c10c-be9c-46a8-baef-80322056e103",
+      "title": "The Europa EP",
+      "firstReleaseDate": "2019-04-13",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "744c7a1b-ac79-35c4-bd92-7e2c6a24c8d8",
+      "title": "Achtung Baby",
+      "firstReleaseDate": "1991-11-18",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "75605a44-37f1-3234-b1f3-78fc200706c3",
+      "title": "Pride (In the Name of Love)",
+      "firstReleaseDate": "1984-08-27",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7bf5193d-182a-3ee0-8e8e-61b671ac209d",
+      "title": "New Year’s Day",
+      "firstReleaseDate": "1983-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7c705df7-46e7-3c27-9693-72b3ea559c48",
+      "title": "Zooropa",
+      "firstReleaseDate": "1993-07-05",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7df941ca-cf7c-4995-b7eb-6d7cbc275a75",
+      "title": "The Virtual Road – Live at Red Rocks: Under a Blood Red Sky EP",
+      "firstReleaseDate": "2021-03-25",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "81c13bde-0c9e-37b2-bc0a-b9d05bfa4ed4",
+      "title": "Gloria",
+      "firstReleaseDate": "1981-10",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "85bf9f6e-7dd6-35e1-ba7e-dbdfcf53a770",
+      "title": "U2 Go Home: Live From Slane Castle, Ireland",
+      "firstReleaseDate": "2003-11-18",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "85ed8857-83da-3a0c-871e-6c2f227ec161",
+      "title": "Vertigo 2005//U2 Live From Chicago",
+      "firstReleaseDate": "2005-11-11",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "87febb2c-e117-3a0d-a7f6-8fd9a6421af1",
+      "title": "October",
+      "firstReleaseDate": "1981-10-12",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "880334fc-8365-36b9-b212-6cafa92879e5",
+      "title": "Under a Blood Red Sky",
+      "firstReleaseDate": "1983-11-21",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "88c59b55-200d-3ac1-beff-8eb99830807e",
+      "title": "All That You Can’t Leave Behind",
+      "firstReleaseDate": "2000-10-30",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "8ca9218a-fb2c-4a55-842d-9799d1736385",
+      "title": "18 Videos",
+      "firstReleaseDate": "2006",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9109c118-6bc1-4a9e-ac1a-bcabfc9f81b5",
+      "title": "Wide Awake in Europe",
+      "firstReleaseDate": "2010-11-26",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "94ba5536-9076-3b35-9a8a-d5806c0393a8",
+      "title": "11 O’Clock Tick Tock",
+      "firstReleaseDate": "1980-05-23",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "95dbc9e3-7c2d-37d7-a5b1-8bb72bd39dc1",
+      "title": "Love: Live From the Point Depot",
+      "firstReleaseDate": "1989-12-31",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9bc96f38-7f7f-4717-ad5f-628fd5a9183e",
+      "title": "U2360° at the Rose Bowl",
+      "firstReleaseDate": "2010-05",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a1888c4a-316a-4b2d-9bfa-4e93c9b86783",
+      "title": "From the Ground Up: Edge’s Picks From U2360°",
+      "firstReleaseDate": "2012-12-17",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a40f53ce-a99f-3adf-9e33-8d387e5d58df",
+      "title": "Wide Awake in America",
+      "firstReleaseDate": "1985-05",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a599391a-c620-4c96-aa3b-ad6ce648302d",
+      "title": "1977–1984: Collector’s Box Set",
+      "firstReleaseDate": "2008-07-29",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a83637bf-01e9-32b8-8b3d-12dd39ec5cf6",
+      "title": "I Still Haven’t Found What I’m Looking For",
+      "firstReleaseDate": "1987-05-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a9981376-d6f7-3fa5-ac76-766e8ba814bd",
+      "title": "U218 Singles",
+      "firstReleaseDate": "2006-11-17",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "abcbfca9-76e1-4a44-9668-b4b5a2dc8347",
+      "title": "“40” / Two Hearts Beat as One",
+      "firstReleaseDate": "1983-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "acaa5e04-685c-3e47-af62-1cd3012008b6",
+      "title": "No Line on the Horizon",
+      "firstReleaseDate": "2009-02-25",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ad7eaa00-60c8-3b9e-a72c-95f4cc7dc99f",
+      "title": "Angel of Harlem",
+      "firstReleaseDate": "1988-12-05",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "af7b4b91-af59-4a34-9487-5400ffca74ae",
+      "title": "From the Ground Up – Edge’s Picks From U2360° (bonus downloads)",
+      "firstReleaseDate": "2012-12-23",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "afd4aafb-6aa0-49ec-b786-f8c4b578549e",
+      "title": "The Virtual Road – PopMart Live From Mexico City EP (Remastered 2021)",
+      "firstReleaseDate": "2021-04-01",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b1fec77b-3f45-346b-96f8-3392c5c75628",
+      "title": "Please: PopHeart Live EP",
+      "firstReleaseDate": "1997-09-08",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b4604422-ec1f-3943-900c-eb5aad3d8f28",
+      "title": "I Will Follow",
+      "firstReleaseDate": "1980-10",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b61193ac-8f31-3b07-847a-fc8b4d495218",
+      "title": "The Best of 1990–2000",
+      "firstReleaseDate": "2002-10-30",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ba8f0302-4189-4791-a064-3892b03eda31",
+      "title": "Achtung Baby / Zooropa",
+      "firstReleaseDate": "1999-11-19",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "bc3c640d-8c2b-4000-8b16-bf32c0d3f635",
+      "title": "Live Songs of Innocence + Experience",
+      "firstReleaseDate": "2019-10-28",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation",
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "bcbbc2f0-1e84-4843-9df1-5ff2f15604f2",
+      "title": "Another Time, Another Place: Live at the Marquee London 1980",
+      "firstReleaseDate": "2015-08",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "bf965ead-7c91-3a9b-93c8-cf941242ee65",
+      "title": "Rattle and Hum",
+      "firstReleaseDate": "1988-10-10",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Soundtrack"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c0520470-f9f4-4e14-a76a-4f1bfbb883bd",
+      "title": "Easter Lily EP",
+      "firstReleaseDate": "2026-04-03",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c280892d-40e7-4a24-8d26-37a3d95f3416",
+      "title": "3‐D Dance Mixes",
+      "firstReleaseDate": "1988",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c3dc9ef2-400d-3335-983c-8c128ee7e37c",
+      "title": "When Love Comes to Town",
+      "firstReleaseDate": "1989-04-15",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " with "
+        },
+        {
+          "artistId": "dcb03ce3-67a5-4eb3-b2d1-2a12d93a38f3",
+          "name": "B.B. King",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c6b36664-7e60-3b3e-a24d-d096c67a11e9",
+      "title": "War",
+      "firstReleaseDate": "1983-02-28",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c7cc7da9-e0f9-30b8-a2b4-2a0acd53ee0f",
+      "title": "Popmart: Live From Mexico City",
+      "firstReleaseDate": "1998-11-22",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c84d00f4-afd3-3184-be62-6ae5f135aa38",
+      "title": "The Unforgettable Fire",
+      "firstReleaseDate": "1984-10-01",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cb073c3e-0d82-4481-967a-4e4d3649fc5e",
+      "title": "Live at the Apollo for One Night Only",
+      "firstReleaseDate": "2021-05-06",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cb4fc61e-0ab6-3019-817a-ced84ec15d13",
+      "title": "Fire",
+      "firstReleaseDate": "1981-07",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "d1eb0817-ea2b-4b6d-be7c-8a0a2abfe3bc",
+      "title": "Early Demos",
+      "firstReleaseDate": "2004-11-23",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "d6405e6d-4484-4879-a212-ca173d2be0c3",
+      "title": "Two Hearts Beat as One / Sunday Bloody Sunday",
+      "firstReleaseDate": "2023-04-22",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "d6e3b62a-ca21-4d67-8ae8-bfdd7f98f5ff",
+      "title": "At Live Aid",
+      "firstReleaseDate": "2021-04-26",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "da873a85-8c09-4eda-84b8-508f596bf864",
+      "title": "The Best of 1980–2000",
+      "firstReleaseDate": "2009-11-27",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ddbb40d4-272b-4251-91f5-3875ebd1ef83",
+      "title": "ZOO TV Live in Dublin, 1993 EP",
+      "firstReleaseDate": "2024-08-30",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "deb26b57-62bf-3952-a5b0-e5a3c927c573",
+      "title": "Live From Paris",
+      "firstReleaseDate": "2008-07-21",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e2410325-89ac-4199-a75c-70907fb08f19",
+      "title": "Trilogy",
+      "firstReleaseDate": "2020-11-13",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e3925636-f3a0-3fbd-b59e-c54391a71a58",
+      "title": "The Unforgettable Fire",
+      "firstReleaseDate": "1984",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e3f3f2c0-6fa8-4098-8aad-d82209c34973",
+      "title": "Songs of Innocence",
+      "firstReleaseDate": "2014-09-09",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e60cff6f-8ff9-44d1-a031-c5bd3cbb2dbe",
+      "title": "Songs of Experience",
+      "firstReleaseDate": "2017-12-01",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e8b6f09e-e0da-4da8-adeb-a1e03ad567ab",
+      "title": "Numb",
+      "firstReleaseDate": "1993",
+      "primaryType": "EP",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e9118993-dcf7-47a1-8ca7-cc5e3a937b6c",
+      "title": "How to Re‐Assemble an Atomic Bomb",
+      "firstReleaseDate": "2024-11-29",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "eeb14f92-d2c9-40c2-8a01-fa23071ac325",
+      "title": "U2",
+      "firstReleaseDate": "2001-06",
+      "primaryType": "EP",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f4831392-174d-486c-be1d-11044a4f4251",
+      "title": "Achtung Baby 30 Live",
+      "firstReleaseDate": "2022-12-12",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f8d10640-6e3a-49df-9786-1f741d672ce0",
+      "title": "Songs of Surrender",
+      "firstReleaseDate": "2023-03-17",
+      "primaryType": "Album",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "fa236320-8ab3-3d4c-8c63-c4a35f76f4b2",
+      "title": "Rattle and Hum",
+      "firstReleaseDate": "1997-03-12",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Soundtrack"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "fb1bb3c0-f572-35a5-be0e-80a942b8413d",
+      "title": "U2.COMmunication",
+      "firstReleaseDate": "2005-10",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "fd5178e0-0f54-35fc-9d06-80e1366db058",
+      "title": "Zoo TV: Live From Sydney",
+      "firstReleaseDate": "1993-11-27",
+      "primaryType": "Album",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "fdb0e02d-d12a-38d5-9970-10a7f0fc9f5c",
+      "title": "With or Without You",
+      "firstReleaseDate": "1987-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "03bdcf51-1a7d-34a6-a461-e0de5db5eff3",
+      "title": "Island Treasures",
+      "firstReleaseDate": "1990",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "04c096a5-e2ba-4502-8a0d-7fcb6e04a2c1",
+      "title": "Mysterious Ways (ZOO TV Live in Dublin, 1993)",
+      "firstReleaseDate": "2024-07-25",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "0726e600-ce4b-473d-b2d9-d3460a275860",
+      "title": "You’re the Best Thing About Me",
+      "firstReleaseDate": "2017-09-06",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "08a104f1-1db0-3150-807c-a6c5d978dea1",
+      "title": "Interview Picture Disc",
+      "firstReleaseDate": "",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "13d1a986-96e2-414a-9431-b870baf37b19",
+      "title": "Words About Music",
+      "firstReleaseDate": "1992",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "1459da53-a1e2-4a8d-8874-fcfc036173ff",
+      "title": "I’ll Go Crazy If I Don’t Go Crazy Tonight",
+      "firstReleaseDate": "2009-06",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "19aba117-624b-4992-a8ba-1453ce59062b",
+      "title": "Beat on the Brat",
+      "firstReleaseDate": "2003-02",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "1c236a1d-d1d1-41f4-9756-057610088c78",
+      "title": "Yeah, Yeah, Yeah, Yeah, Yeah",
+      "firstReleaseDate": "2026-08-28",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "1e01391e-fb34-3714-8f1a-d96e14390a92",
+      "title": "New Years Dub",
+      "firstReleaseDate": "2001-07-17",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "6e26ad1d-4553-4a34-a592-cde50afde682",
+          "name": "Musique",
+          "joinPhrase": " vs. "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "1ef3157c-b705-316e-9f91-bdaafc92e3dd",
+      "title": "Electrical Storm",
+      "firstReleaseDate": "2002-08-29",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "1f93fd0f-df7c-4ef0-a1e7-af70220c0c3f",
+      "title": "With or Without You",
+      "firstReleaseDate": "2012-08-09",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "22db75d1-7eba-32a0-a101-e2436243ad03",
+      "title": "The Saints Are Coming",
+      "firstReleaseDate": "2006-11-06",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " and "
+        },
+        {
+          "artistId": "084308bd-1654-436f-ba03-df6697104e19",
+          "name": "Green Day",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "243ef7fa-7bc8-4a3e-bb11-4f7a939f624a",
+      "title": "The Ballad of Ronnie Drew",
+      "firstReleaseDate": "2008-02-22",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ", "
+        },
+        {
+          "artistId": "d201e6c0-103d-4a9a-9969-909bd421ddad",
+          "name": "The Dubliners",
+          "joinPhrase": ", "
+        },
+        {
+          "artistId": "1d88ba17-a816-40e6-9194-9c249097323b",
+          "name": "Kíla",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "34e8ca08-1e9a-4cd9-b57c-28203b1d5d0a",
+          "name": "A Band of Bowsies",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "25eadb89-74ae-37f1-afbd-969901c4f39c",
+      "title": "Stay (Faraway, So Close!)",
+      "firstReleaseDate": "1993-11-22",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "26019834-8cd2-341c-a1e9-a0409eccbc10",
+      "title": "Vertigo",
+      "firstReleaseDate": "2004-11-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "26a27633-ab96-4556-8022-d3e1b1494c16",
+      "title": "Fireflies",
+      "firstReleaseDate": "2026-07-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "3e1f2ee4-16be-4406-bf18-6173840cf2b1",
+          "name": "Martin Garrix",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "26dd10da-a602-48da-b1ff-38681f97e2e1",
+      "title": "Bang a Gong (Get It On)",
+      "firstReleaseDate": "2020-09-04",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "2a1bc9c9-dd36-303b-860a-012b9a173ec4",
+      "title": "Press Conferance Mexico 1992",
+      "firstReleaseDate": "1997",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "2f182da3-9297-3d20-a1c2-651dab872ff4",
+      "title": "One",
+      "firstReleaseDate": "1992-02-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "32a75d01-07b1-32b9-b3cc-2d35dcc235e9",
+      "title": "Sweetest Thing",
+      "firstReleaseDate": "1998-09",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3597515c-e39d-3d63-bde8-aea20dd21ea3",
+      "title": "Bono in Conversation",
+      "firstReleaseDate": "1994-10-25",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "35f12055-7d3d-4a68-9ca5-953dfeb4ee07",
+      "title": "Get on Your Boots (Crookers remix)",
+      "firstReleaseDate": "2009-02-15",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3798870a-da41-4c3e-84ed-8c08b260c57e",
+      "title": "With or Without You (Songs of Surrender)",
+      "firstReleaseDate": "2023-01-27",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3dc705c1-823b-4390-800c-8c0fe84f026b",
+      "title": "Ahimsa",
+      "firstReleaseDate": "2019-11-22",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " + "
+        },
+        {
+          "artistId": "e0bba708-bdd3-478d-84ea-c706413bedab",
+          "name": "A. R. Rahman",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "48683ee0-7704-47ff-ac87-610bb856f439",
+      "title": "I Will Follow (live from Glastonbury)",
+      "firstReleaseDate": "2011-06-25",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "48710672-2591-30bd-8c2e-86b15c51cebc",
+      "title": "Who’s Gonna Ride Your Wild Horses",
+      "firstReleaseDate": "1992-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4bfa16f8-4054-44f7-9e71-bf914545a475",
+      "title": "Love Is Bigger Than Anything in Its Way",
+      "firstReleaseDate": "2018-05-25",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "8b579b9a-84ef-4975-884f-19e988cfc181",
+          "name": "Cheat Codes",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4d29bfcf-3167-471d-b846-e928d871909c",
+      "title": "Every Breaking Wave",
+      "firstReleaseDate": "2015-02-21",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "4ec95e5c-5426-46c7-ac5b-ba229cdd1c5f",
+      "title": "Soon",
+      "firstReleaseDate": "2010",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "50ef1e0b-10d4-4651-827f-0790068b7d39",
+      "title": "1984‐09: 89 FM, Auckland, New Zealand",
+      "firstReleaseDate": "",
+      "primaryType": "Broadcast",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "51bdaa7a-4499-44bf-8d19-3702e5e6b9cb",
+      "title": "Running to Stand Still",
+      "firstReleaseDate": "2009-02-16",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " / "
+        },
+        {
+          "artistId": "3cb3928a-526c-4a3d-93c5-53315fa9bde0",
+          "name": "Elbow",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "54104b68-95d5-4d18-827b-a516ce5efe10",
+      "title": "One (Songs of Surrender)",
+      "firstReleaseDate": "2023-02-12",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "55fa4cfe-acc7-4765-8d6c-5a3e50ec0fd8",
+      "title": "Atomic City (Mike WiLL Made‐It remix)",
+      "firstReleaseDate": "2023-12-13",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "5a2071aa-0787-49fb-931c-fa85ba86e681",
+          "name": "Mike WiLL Made‐It",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5a4fb991-e4f6-4646-ba28-093260b1b792",
+      "title": "Supergroups",
+      "firstReleaseDate": "1983",
+      "primaryType": "Broadcast",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "6b335658-22c8-485d-93de-0bc29a1d0349",
+          "name": "Judas Priest",
+          "joinPhrase": " / "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5bf6ed1e-4efe-4bda-8028-b256c3ea2af5",
+      "title": "The Joshua Tree Singles",
+      "firstReleaseDate": "1988",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "5db5466e-9a36-4745-9460-9e82aff87a05",
+      "title": "Ahimsa (KSHMR remix)",
+      "firstReleaseDate": "2019-12-13",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "e0bba708-bdd3-478d-84ea-c706413bedab",
+          "name": "A. R. Rahman",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "66c752c8-57e9-456a-be80-666e92ffa48f",
+      "title": "The Blackout",
+      "firstReleaseDate": "2017-11-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6834fad5-b166-3cc2-9a16-45a3639db02c",
+      "title": "Please",
+      "firstReleaseDate": "1997-09-22",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6b3844c7-6733-310f-9f76-54b30b875e5c",
+      "title": "Bono Talks in Philadelphia",
+      "firstReleaseDate": "1988-04",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6c60eb6b-19ab-4b75-92c4-6dfa2941269e",
+      "title": "Mysterious Ways (Special D.J. Collector)",
+      "firstReleaseDate": "1991",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "DJ-mix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6da3eeac-d959-39c9-a7ab-7614bea3c404",
+      "title": "Lemon",
+      "firstReleaseDate": "1993-09",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6dc01f37-8ffe-4a98-8dbf-2e22bc92a5b0",
+      "title": "Pac 3",
+      "firstReleaseDate": "1985",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "6e968a3a-07c8-3ebe-9684-ecf5f9f00321",
+      "title": "Walk On",
+      "firstReleaseDate": "2001-02-20",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7118ebe9-0626-4547-9a33-6a139cd67151",
+      "title": "Country Mile / Picture of You (X+W)",
+      "firstReleaseDate": "2024-09-26",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "73daa77f-071c-475c-aff4-d2c6623138cf",
+      "title": "Pride (In the Name of Love)",
+      "firstReleaseDate": "2023-01-11",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "76b75d39-a540-4af1-afe8-cd91726ed1d2",
+      "title": "The Joshua Tree Singles: Remastered & Live",
+      "firstReleaseDate": "2017-10-05",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "774d2b53-18d9-39ae-8d86-bbb0800d4df3",
+      "title": "The Fly",
+      "firstReleaseDate": "1991-10-21",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7cea9d0b-1925-438f-a82a-954b5b83a544",
+      "title": "I Will Follow",
+      "firstReleaseDate": "1982-08-30",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "7d4c56e3-886b-457d-89d4-6ab08dd5e8ae",
+      "title": "Get Out of Your Own Way (Afrojack remix)",
+      "firstReleaseDate": "2018-01-26",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "81a0f4a6-4a7c-4532-b4f4-c4d7f48026c4",
+      "title": "Atomic City (David Guetta remix)",
+      "firstReleaseDate": "2024-02-05",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "302bd7b9-d012-4360-897a-93b00c855680",
+          "name": "David Guetta",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "83328584-fe88-397d-ad9d-130db5ed8e49",
+      "title": "Window in the Skies",
+      "firstReleaseDate": "2007-01-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "84e4509e-dcaa-4013-b1ec-5e8965b93779",
+      "title": "Lights of Home",
+      "firstReleaseDate": "2018-04-21",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "872a2f11-7d39-4ec3-9a1d-bd5e897f8f21",
+      "title": "Red Hill Mining Town",
+      "firstReleaseDate": "2017-04-21",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "874100b4-ac48-377b-b583-0ff76457ace7",
+      "title": "Take Me to the Clouds Above",
+      "firstReleaseDate": "2004-01-26",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "43967d0a-1857-4cb9-a2f3-1a8f6fe5a2ad",
+          "name": "LMC",
+          "joinPhrase": " vs. "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "875876fb-90d1-40e5-9531-f1208bff234f",
+      "title": "Atomic City (Tiësto remix)",
+      "firstReleaseDate": "2024-06-21",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "aabb1d9f-be12-45b3-a84d-a1fc3e8181fd",
+          "name": "Tiësto",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "890fb884-6fb1-3441-8906-9e2f10f76942",
+      "title": "Elevation",
+      "firstReleaseDate": "2001-02-07",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "8bd75506-4926-4efe-8275-f136caa9baeb",
+      "title": "Happiness",
+      "firstReleaseDate": "2024-10-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "8dced0a5-c084-440b-8be0-9d0441f2752f",
+      "title": "Street of Dreams",
+      "firstReleaseDate": "2026-07-07",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "932a830c-f02e-3fba-af1f-600689506a77",
+      "title": "Magnificent",
+      "firstReleaseDate": "2009-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "95606edf-3dd1-4e5d-b416-002277a4f848",
+      "title": "You’re the Best Thing About Me",
+      "firstReleaseDate": "2017-09-15",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": " vs. "
+        },
+        {
+          "artistId": "ba0e7638-0cd6-4ff4-8987-c3e224d22c23",
+          "name": "Kygo",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9abff840-d92e-311e-b4a1-73896d42475d",
+      "title": "One",
+      "firstReleaseDate": "2006-04-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "db76c5ca-d555-4f09-b1db-baa1b713d875",
+          "name": "Mary J. Blige",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9ace1888-92c2-386b-96bd-9389766ddf56",
+      "title": "Hold Me, Thrill Me, Kiss Me, Kill Me",
+      "firstReleaseDate": "1995-05",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9c07843a-424a-49e2-a382-d4f0a4d824a0",
+      "title": "Your Song Saved My Life",
+      "firstReleaseDate": "2021-11-03",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Soundtrack"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "9cd5ccca-0ce4-40f3-8275-18d4d75317e6",
+      "title": "2023-10-25: Space Baby",
+      "firstReleaseDate": "2023-10-25",
+      "primaryType": "Broadcast",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a0c3d1c5-384a-40ab-9087-00fc5638b6fe",
+      "title": "Forgotten Songs",
+      "firstReleaseDate": "",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a3901649-e893-4dce-8ec8-e36b142f6398",
+      "title": "Get Out of Your Own Way",
+      "firstReleaseDate": "2017-11-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a66f9228-68ac-4e63-99ce-84adb6bcae31",
+      "title": "U2: The Final Sphere Concert",
+      "firstReleaseDate": "2024-03-18",
+      "primaryType": "Broadcast",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a7aa775f-ec74-4209-9b41-a7eb95ab6450",
+      "title": "Ordinary Love",
+      "firstReleaseDate": "2013-11-29",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "a9814a79-e15e-4329-9d39-25161206dfaf",
+      "title": "U2: Fully Illustrated Book & Interview Disc",
+      "firstReleaseDate": "1996-03-15",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "adfbef1e-2254-45e7-a727-95df7499fb53",
+      "title": "Beautiful Day",
+      "firstReleaseDate": "2023-03-03",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b5e845f9-cd59-340d-afb8-ca07bb43652f",
+      "title": "Beautiful Day",
+      "firstReleaseDate": "2000-10-09",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b600cb24-2402-4dda-aea1-846993601d80",
+      "title": "U2: Films of Innocence",
+      "firstReleaseDate": "2014-12-09",
+      "primaryType": "Other",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "b6f20c23-1691-4796-b1b2-b7be977ba678",
+      "title": "The Showman (Stories of Surrender version)",
+      "firstReleaseDate": "2025-05-16",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "7f347782-eb14-40c3-98e2-17b6e1bfe56c",
+          "name": "Bono",
+          "joinPhrase": ", "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ba9d8ac5-3726-4a64-b084-948889220d9e",
+      "title": "American Soul",
+      "firstReleaseDate": "2017-11-17",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "bceeddd7-8139-470f-9fe6-f37102b4c56c",
+      "title": "Love Is Bigger Than Anything in Its Way",
+      "firstReleaseDate": "2018-05-04",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c001531e-df4a-3632-aaf3-c5fbb8512285",
+      "title": "Stuck in a Moment You Can’t Get Out Of",
+      "firstReleaseDate": "2000-11",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c2676500-5eb0-4746-9bde-dacefe3be538",
+      "title": "Invisible",
+      "firstReleaseDate": "2014-02-02",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c29c90b7-d085-4384-a43f-b94b692ea22d",
+      "title": "Spotify Singles",
+      "firstReleaseDate": "2017-12-13",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c4bedbb4-8f65-4baf-9c17-933f810069ad",
+      "title": "Lemon (remixes)",
+      "firstReleaseDate": "1993",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c69ba487-f2e6-4e76-941c-e375925e57a9",
+      "title": "I Believe in Father Christmas",
+      "firstReleaseDate": "2021-11-26",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "c938de2d-7ca8-34ae-a2f8-ad7e17b26b9f",
+      "title": "If God Will Send His Angels",
+      "firstReleaseDate": "1997-12-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cd33d21c-4573-427c-9663-18c8a042f0eb",
+      "title": "Get Out of Your Own Way (Switch remix)",
+      "firstReleaseDate": "2017-12-29",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cf11323a-28d1-3a04-ad34-016e660d3ca5",
+      "title": "Get On Your Boots",
+      "firstReleaseDate": "2009-01-20",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cf605470-c6be-3870-812b-f9aeda9f3a75",
+      "title": "Sometimes You Can’t Make It on Your Own",
+      "firstReleaseDate": "2004-12-13",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ddda4bd5-5841-3082-80f2-f32096cd0d43",
+      "title": "Even Better Than the Real Thing",
+      "firstReleaseDate": "1992-06-07",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "dfae8e56-f43a-43ea-9544-709b46bb1480",
+      "title": "Discothèque",
+      "firstReleaseDate": "1997-01",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e0b6fb0e-f7c3-45e7-bc06-836e4ba38ae3",
+      "title": "Song for Someone",
+      "firstReleaseDate": "2015-07-13",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e31ba964-c5e1-3758-87d9-e2c96e01f53d",
+      "title": "City of Blinding Lights",
+      "firstReleaseDate": "2005-04",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "e3db9bbe-d787-3b1f-8493-41e5ea03c550",
+      "title": "Mysterious Ways",
+      "firstReleaseDate": "1991-11-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "eb965730-7220-30a1-bfbf-2850a5423c13",
+      "title": "All I Want Is … Interview CD",
+      "firstReleaseDate": "1996-12-06",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f1990d0c-92ba-3c48-b0db-b73867657c9a",
+      "title": "All Because of You",
+      "firstReleaseDate": "2005-02-08",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f19b9cef-b4ac-44ee-87cd-ee9e2282de82",
+      "title": "The Missing Tracks, Vol. 2",
+      "firstReleaseDate": "1989",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Compilation"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f450b496-fd1e-34eb-8311-ff33303316e4",
+      "title": "Staring at the Sun",
+      "firstReleaseDate": "1997-04-15",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f51cca54-7e0e-465c-997e-b004be9969cd",
+      "title": "Live 8 (Hyde Park, London)",
+      "firstReleaseDate": "2005-07-02",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "ba550d0e-adac-4864-b88b-407cab5e76af",
+          "name": "Paul McCartney",
+          "joinPhrase": " & "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f69822d4-d0b0-4e87-b9e4-bb43087a8a0a",
+      "title": "Take Me to the Clouds",
+      "firstReleaseDate": "",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "43967d0a-1857-4cb9-a2f3-1a8f6fe5a2ad",
+          "name": "LMC",
+          "joinPhrase": " vs "
+        },
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f851cf2f-b225-3545-8bbf-a792c981736f",
+      "title": "Last Night on Earth",
+      "firstReleaseDate": "1997-07-14",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f978fee2-3d4f-36bb-84e9-2979558f2b70",
+      "title": "Mofo Remixes",
+      "firstReleaseDate": "1997-12-09",
+      "primaryType": "Single",
+      "secondaryTypes": [
+        "Remix"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "f997cb8f-f393-46e5-87eb-5a152e0a2480",
+      "title": "The Joshua Tree",
+      "firstReleaseDate": "2006",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "fe83e121-19bd-469f-ba5c-f82f42b4d020",
+      "title": "Atomic City",
+      "firstReleaseDate": "2023-09-29",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "ff5c320c-9490-4033-8228-1f83c27ed857",
+      "title": "Silencio",
+      "firstReleaseDate": "2026-09-24",
+      "primaryType": "Single",
+      "secondaryTypes": [],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "3425e932-c58e-435d-bc86-237c2b053d4c",
+      "title": "Boston May28th2005",
+      "firstReleaseDate": "2005-05-28",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "cfbce91a-59e9-3d3b-acbd-f44afe3ae357",
+      "title": "Shaped",
+      "firstReleaseDate": "",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Interview"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    },
+    {
+      "id": "eea2eead-eca4-47ec-b0ba-3b014a068a8b",
+      "title": "Boston – May26th2005",
+      "firstReleaseDate": "",
+      "primaryType": "Other",
+      "secondaryTypes": [
+        "Live"
+      ],
+      "aliases": [],
+      "artistCredits": [
+        {
+          "artistId": "a3cb23fc-acd3-4ce0-8f36-1e5aa6a18432",
+          "name": "U2",
+          "joinPhrase": ""
+        }
+      ]
+    }
+  ]
+}

@@ -23,7 +23,8 @@ sealed interface ArtistUiState {
         val allSongs: List<Track> = emptyList(),
         val allSongsHasMore: Boolean = false,
         val allSongsLoadingMore: Boolean = false,
-        val allSongsLoaded: Boolean = false
+        val allSongsLoaded: Boolean = false,
+        val albumsLoadError: String? = null
     ) : ArtistUiState
 
     data class Error(val message: String) : ArtistUiState

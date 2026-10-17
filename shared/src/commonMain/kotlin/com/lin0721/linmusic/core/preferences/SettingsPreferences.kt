@@ -12,6 +12,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOf
 
 private const val TAG = "SettingsPreferences"
 
@@ -76,6 +77,7 @@ class SettingsPreferences(
         private val KEY_TABLET_IMMERSIVE_MODE = booleanPreferencesKey("tablet_immersive_mode")
         // 界面缩放百分比，默认 100
         private val KEY_UI_SCALE_PERCENT = intPreferencesKey("ui_scale_percent")
+        private val KEY_ARTIST_ALBUM_MIN_TRACKS = intPreferencesKey("artist_album_min_tracks")
         const val PLAYER_PAGE_MODE_AUTO = "auto"
         const val PLAYER_PAGE_MODE_FULLSCREEN = "fullscreen"
         const val PLAYER_PAGE_MODE_SIDE = "side"
@@ -464,6 +466,33 @@ class SettingsPreferences(
         dataStore.edit { prefs ->
             prefs[KEY_UI_SCALE_PERCENT] = UiScale.normalizePercent(percent)
         }
+    }
+
+    val artistAlbumMinTracks: Flow<Int> = dataStore.data.map { prefs ->
+        ArtistAlbumFilterSettings.normalizeMinTracks(prefs[KEY_ARTIST_ALBUM_MIN_TRACKS] ?: ArtistAlbumFilterSettings.DEFAULT_MIN_TRACKS)
+    }
+
+    suspend fun saveArtistAlbumMinTracks(minimum: Int) {
+        dataStore.edit { it[KEY_ARTIST_ALBUM_MIN_TRACKS] = ArtistAlbumFilterSettings.normalizeMinTracks(minimum) }
+    }
+
+    // 以稳定的 artistId 区分同名歌手；没有专属设置时由页面使用全局默认值。
+    fun artistAlbumMinTracksOverride(artistId: Long): Flow<Int?> {
+        if (artistId <= 0) return flowOf(null)
+        val key = intPreferencesKey("artist_album_min_tracks_$artistId")
+        return dataStore.data.map { prefs -> prefs[key]?.let(ArtistAlbumFilterSettings::normalizeMinTracks) }
+    }
+
+    suspend fun saveArtistAlbumMinTracksOverride(artistId: Long, minimum: Int) {
+        require(artistId > 0) { "Artist ID must be positive" }
+        val key = intPreferencesKey("artist_album_min_tracks_$artistId")
+        dataStore.edit { it[key] = ArtistAlbumFilterSettings.normalizeMinTracks(minimum) }
+    }
+
+    suspend fun clearArtistAlbumMinTracksOverride(artistId: Long) {
+        require(artistId > 0) { "Artist ID must be positive" }
+        val key = intPreferencesKey("artist_album_min_tracks_$artistId")
+        dataStore.edit { it.remove(key) }
     }
 
     // 悬浮歌词字号 Flow

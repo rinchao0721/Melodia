@@ -125,7 +125,11 @@ data class ArtistAlbum(
     val name: String = "",
     val picUrl: String = "",
     val publishTime: Long = 0,
-    val size: Int = 0
+    val size: Int = 0,
+    val type: String? = null,
+    val subType: String? = null,
+    val alias: List<String>? = null,
+    val transNames: List<String>? = null
 )
 
 // ======================= 评论载荷模型（core/comment 产出，player/playlist 消费）=======================

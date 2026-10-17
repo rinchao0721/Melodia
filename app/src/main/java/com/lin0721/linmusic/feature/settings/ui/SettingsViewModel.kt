@@ -8,7 +8,9 @@ import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.feature.artist.data.catalog.ArtistCatalogRepository
 import com.lin0721.linmusic.core.preferences.UiScale
+import com.lin0721.linmusic.core.preferences.ArtistAlbumFilterSettings
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
@@ -42,7 +44,8 @@ class SettingsViewModel(
     private val lxPluginManager: LxPluginManager,
     private val userPreferences: UserPreferences,
     private val authRepository: AuthRepository,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val artistCatalog: ArtistCatalogRepository
 ) : ViewModel() {
 
     // DataStore 的偏好流统一以相同策略转为 StateFlow，避免每项重复五行样板
@@ -85,6 +88,7 @@ class SettingsViewModel(
     val defaultPlaylistPrivate = settingsPreferences.defaultPlaylistPrivate.asState(false)
 
     val streamCacheEnabled = settingsPreferences.streamCacheEnabled.asState(false)
+
 
     val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(500 * 1024 * 1024L)
 
@@ -130,6 +134,8 @@ class SettingsViewModel(
     val tabletImmersiveMode = settingsPreferences.tabletImmersiveMode.asState(false)
 
     val uiScalePercent = settingsPreferences.uiScalePercent.asState(UiScale.DEFAULT_PERCENT)
+    val artistAlbumMinTracks = settingsPreferences.artistAlbumMinTracks.asState(ArtistAlbumFilterSettings.DEFAULT_MIN_TRACKS)
+    val artistCatalogDefaultEnabled = artistCatalog.defaultEnabled.asState(true)
 
     val lyricTextSize = settingsPreferences.lyricTextSize.asState(14)
 
@@ -317,6 +323,7 @@ class SettingsViewModel(
 
     fun updateStreamCacheEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveStreamCacheEnabled(enabled) }
 
+
     // null 表示重置为默认下载目录
     fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
 
@@ -378,6 +385,8 @@ class SettingsViewModel(
     fun updateTabletImmersiveMode(enabled: Boolean) = launchSave { settingsPreferences.saveTabletImmersiveMode(enabled) }
 
     fun updateUiScalePercent(percent: Int) = launchSave { settingsPreferences.saveUiScalePercent(percent) }
+    fun updateArtistAlbumMinTracks(minimum: Int) = launchSave { settingsPreferences.saveArtistAlbumMinTracks(minimum) }
+    fun updateArtistCatalogDefaultEnabled(enabled: Boolean) = launchSave { artistCatalog.setDefaultEnabled(enabled) }
 
     fun updateLyricTextSize(size: Int) = launchSave { settingsPreferences.saveLyricTextSize(size) }
 

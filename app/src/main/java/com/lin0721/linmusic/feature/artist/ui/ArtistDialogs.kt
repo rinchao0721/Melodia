@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -65,6 +66,12 @@ fun ArtistBioDialog(
 @Composable
 fun ArtistMoreMenuSheet(
     isBlocked: Boolean,
+    albumMinTracks: Int,
+    albumHasCustomMinimum: Boolean,
+    onChangeAlbumMinimum: () -> Unit,
+    catalogEnabled: Boolean,
+    catalogUsesDefault: Boolean = true,
+    onCatalogSettings: () -> Unit,
     onBlockClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -89,6 +96,51 @@ fun ArtistMoreMenuSheet(
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    onDismiss()
+                    onCatalogSettings()
+                }.padding(vertical = MelodiaSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Album, contentDescription = null,
+                    tint = if (catalogEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(MelodiaSpacing.md))
+                Column {
+                    Text("主要录音室专辑（资料库）", color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    val catalogSource = if (catalogUsesDefault) "跟随全局" else "此歌手单独设置"
+                    Text("${if (catalogEnabled) "已开启" else "已关闭"} · $catalogSource",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    onDismiss()
+                    onChangeAlbumMinimum()
+                }.padding(vertical = MelodiaSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Album,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(MelodiaSpacing.md))
+                Column {
+                    Text("专辑最少曲数", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    val source = if (albumHasCustomMinimum) "此歌手单独设置" else "使用默认值"
+                    Text(
+                        if (albumMinTracks == 0) "不限制曲数 · $source" else "至少 $albumMinTracks 首 · $source",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier
