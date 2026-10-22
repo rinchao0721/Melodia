@@ -21,13 +21,18 @@ class LyricProgressTracker {
             positionMs < previousPosition - SEEK_BACKWARD_TOLERANCE_MS ||
                 positionMs - previousPosition > SEEK_FORWARD_THRESHOLD_MS
             )
+        val seek = isSeek || discontinuity
+        // 小幅采样回退虽不算 seek，也不能继续传给时间轴，否则新句会亮起后又熄灭。
+        // 仅保持已接受的位置下限，不外推时间；真实跳转仍立即对齐目标位置。
+        val stablePosition = if (seek || previousPosition == null) positionMs
+            else maxOf(previousPosition, positionMs)
         state = LyricTimeline.advance(
             lines = lines,
-            positionMs = positionMs,
+            positionMs = stablePosition,
             previous = state,
-            isSeek = isSeek || discontinuity
+            isSeek = seek
         )
-        lastPositionMs = positionMs
+        lastPositionMs = stablePosition
         return state
     }
 

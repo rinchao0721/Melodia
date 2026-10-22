@@ -378,8 +378,6 @@ fun KaraokeLyricRow(
                                 }
                             }
                         }
-                    } else {
-                        drawContent()
                     }
                 }
         )

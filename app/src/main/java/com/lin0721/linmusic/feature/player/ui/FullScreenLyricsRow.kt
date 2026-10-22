@@ -174,14 +174,15 @@ fun FullScreenLyricsRow(
                 },
             horizontalAlignment = horizontalAlignment
         ) {
-            if (isCurrent && line.words.isNotEmpty()) {
+            if (line.words.isNotEmpty()) {
+                // 保留逐字组件和排版缓存，换句只切换高亮层，避免重建时闪烁。
                 // 逐字高亮行拿不到排版结果，命中范围退化为整行
                 textBounds?.mainLayout = null
                 Box(modifier = reportMainBounds) {
                     KaraokeLyricRow(
                         line = line,
                         currentPositionProvider = currentPositionProvider,
-                        inactiveColor = highlightColor.copy(alpha = 0.5f),
+                        inactiveColor = highlightColor,
                         activeColor = Color.White,
                         fontSize = mainFontSize,
                         lineHeight = mainLineHeight,
