@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.localmusic.data
 
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.scan.resolveArtistAndTitle
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import org.junit.Assert.assertEquals
@@ -8,6 +9,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalLibrarySyncTest {
+
+    @Test
+    fun `补读旧 SAF WAV 仅更新标签且保留引用和音频属性`() {
+        val old = entity("content://provider/document/wav", source = LocalTrackSource.IMPORTED).copy(
+            songId = 123L, mediaStoreId = 456L, path = "/legacy/track.wav", dateAddedMs = 10L,
+            dateModifiedMs = 20L, durationMs = 210000L, sizeBytes = 123456L
+        )
+        assertEquals(old.copy(title = "真歌名", artist = "歌手", album = "真专辑", albumArtist = "专辑歌手",
+            year = 2014, trackNumber = 2003),
+            mergeImportedWavTags(old, WavMetadata("真歌名", "歌手", "真专辑", "专辑歌手", 2014, 2003)))
+    }
+
+    @Test
+    fun `旧 SAF WAV 的部分标签只更新有效字段`() {
+        val old = entity("content://provider/document/wav", source = LocalTrackSource.IMPORTED)
+            .copy(album = "原专辑", albumArtist = "原专辑歌手", year = 2001, trackNumber = 2)
+        assertEquals(old.copy(title = "新歌名"), mergeImportedWavTags(old, WavMetadata(title = "新歌名")))
+    }
+
+    @Test
+    fun `旧 SAF WAV 的无效或空标签不清空历史信息`() {
+        val old = entity("content://provider/document/wav", source = LocalTrackSource.IMPORTED)
+            .copy(album = "原专辑", albumArtist = "原专辑歌手", year = 2001, trackNumber = 2)
+        assertEquals(old, mergeImportedWavTags(old, WavMetadata()))
+        assertEquals(old, mergeImportedWavTags(old, WavMetadata("<unknown>", " ", "<UNKNOWN>", "", 0, -1)))
+    }
 
     private fun entity(
         uri: String,
