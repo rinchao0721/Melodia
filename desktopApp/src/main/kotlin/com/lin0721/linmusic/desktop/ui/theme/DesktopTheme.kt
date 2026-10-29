@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -11,10 +12,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaStyle
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
+import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
+import com.lin0721.linmusic.core.ui.theme.ThemeFont
 
 // 色值来自当前主题的 MelodiaPalette，语义见 MelodiaPalette；仅能在组合作用域内读取
 object DesktopColors {
@@ -53,7 +58,7 @@ object DesktopDimens {
     val TitleBarHeight = 64.dp
     val PlayerBarHeight = 80.dp
     val PaneGap = 8.dp
-    val PaneRadius = 8.dp
+    val PaneRadius: Dp @Composable @ReadOnlyComposable get() = LocalMelodiaStyle.current.paneRadius
     val SidebarWidth = 300.dp
     val LibraryMinWidth = 280.dp
     val LibraryMaxWidth = 420.dp
@@ -71,6 +76,7 @@ object DesktopDimens {
 fun MelodiaDesktopTheme(
     uiScale: Float = 1f,
     palette: MelodiaPalette = MelodiaPalettes.dark,
+    style: MelodiaStyle = MelodiaStyle.Default,
     content: @Composable () -> Unit
 ) {
     val baseDensity = LocalDensity.current
@@ -78,11 +84,14 @@ fun MelodiaDesktopTheme(
         Density(baseDensity.density * uiScale, baseDensity.fontScale)
     }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
+    val baseTypography = MaterialTheme.typography
+    val typography = remember(baseTypography, style.font) { baseTypography.withFont(style.font) }
     CompositionLocalProvider(
         LocalDensity provides scaledDensity,
-        LocalMelodiaPalette provides palette
+        LocalMelodiaPalette provides palette,
+        LocalMelodiaStyle provides style
     ) {
-        MaterialTheme(colorScheme = colorScheme, content = content)
+        MaterialTheme(colorScheme = colorScheme, typography = typography, content = content)
     }
 }
 
@@ -127,3 +136,24 @@ private fun ColorScheme.withLightContainers(palette: MelodiaPalette): ColorSchem
     scrim = palette.scrim,
     error = palette.error
 )
+
+private fun Typography.withFont(font: ThemeFont): Typography {
+    val family = font.fontFamily ?: return this
+    return Typography(
+        displayLarge = displayLarge.copy(fontFamily = family),
+        displayMedium = displayMedium.copy(fontFamily = family),
+        displaySmall = displaySmall.copy(fontFamily = family),
+        headlineLarge = headlineLarge.copy(fontFamily = family),
+        headlineMedium = headlineMedium.copy(fontFamily = family),
+        headlineSmall = headlineSmall.copy(fontFamily = family),
+        titleLarge = titleLarge.copy(fontFamily = family),
+        titleMedium = titleMedium.copy(fontFamily = family),
+        titleSmall = titleSmall.copy(fontFamily = family),
+        bodyLarge = bodyLarge.copy(fontFamily = family),
+        bodyMedium = bodyMedium.copy(fontFamily = family),
+        bodySmall = bodySmall.copy(fontFamily = family),
+        labelLarge = labelLarge.copy(fontFamily = family),
+        labelMedium = labelMedium.copy(fontFamily = family),
+        labelSmall = labelSmall.copy(fontFamily = family)
+    )
+}

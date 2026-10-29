@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.preferences
 
+import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 
 // 主题模式；持久化用 key，未知值回退深色
@@ -25,7 +26,8 @@ data class ThemeSettings(
     val darkAccentId: String = ThemeAccents.DEFAULT_ID,
     val lightAccentId: String = ThemeAccents.DEFAULT_ID,
     val darkCustomHex: String? = null,
-    val lightCustomHex: String? = null
+    val lightCustomHex: String? = null,
+    val skinId: String = BUILTIN_SKIN_ID
 ) {
     fun accentId(isDark: Boolean): String = if (isDark) darkAccentId else lightAccentId
 

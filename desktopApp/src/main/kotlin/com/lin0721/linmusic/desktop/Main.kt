@@ -31,6 +31,8 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
 import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.log.AppLogger
@@ -213,6 +215,8 @@ fun main() {
         runBlocking { settingsPreferences.themeSettings.first() }
     }.getOrDefault(ThemeSettings())
     if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
+    val skinRepository = koin.get<SkinRepository>()
+    val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId) } }.getOrNull()
     val restoredBounds = savedWindow.bounds
     val restoredPosition = restoredBounds?.takeIf { it.isReachableOn(currentScreenBounds()) }
     // 附属窗口每次打开都取最新保存的状态；显示器布局变化后够不着的位置交给默认值
@@ -259,7 +263,8 @@ fun main() {
         val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = initialUiAnimationsEnabled)
         val uiMotion = remember { UiMotion(initialUiAnimationsEnabled) }
         val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
-        val palette = rememberDesktopPalette(themeSettings, windowEffects)
+        val skin by skinRepository.activeSkin.collectAsState(initial = initialSkin)
+        val palette = rememberDesktopPalette(themeSettings, skin, windowEffects)
         LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
         val isPlaying by controller.playWhenReady.collectAsState()
@@ -491,7 +496,7 @@ fun main() {
             CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, controller)
             CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
-                MelodiaDesktopTheme(uiScale = uiScaleFactor, palette = palette) {
+                MelodiaDesktopTheme(uiScale = uiScaleFactor, palette = palette, style = skin?.style ?: MelodiaStyle.Default) {
                     ThemeRevealHost(isDark = palette.isDark, enabled = uiMotion.enabled) {
                         shellSession.Provide {
                             MelodiaDesktopApp(

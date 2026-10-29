@@ -9,8 +9,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
-import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
-import com.lin0721.linmusic.core.ui.theme.ThemeAccents
+import com.lin0721.linmusic.core.ui.skin.Skin
+import com.lin0721.linmusic.core.ui.skin.resolveSkinPalette
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,19 +44,19 @@ object SystemDarkTheme {
     }
 }
 
-fun resolveDesktopPalette(settings: ThemeSettings, systemDark: Boolean): MelodiaPalette {
-    val isDark = settings.mode.isDark(systemDark)
-    val accent = ThemeAccents.resolve(settings.accentId(isDark), settings.customHex(isDark), isDark)
-    return MelodiaPalettes.of(isDark).withAccent(accent)
+fun resolveDesktopPalette(settings: ThemeSettings, systemDark: Boolean, skin: Skin?): MelodiaPalette {
+    val requestedDark = settings.mode.isDark(systemDark)
+    val isDark = skin?.effectiveDark(requestedDark) ?: requestedDark
+    return resolveSkinPalette(isDark, settings.accentId(isDark), settings.customHex(isDark), skin)
 }
 
 @Composable
-fun rememberDesktopPalette(settings: ThemeSettings, effects: WindowEffects): MelodiaPalette {
+fun rememberDesktopPalette(settings: ThemeSettings, skin: Skin?, effects: WindowEffects): MelodiaPalette {
     val systemDark by SystemDarkTheme.isDark.collectAsState()
     val scope = rememberCoroutineScope()
     DisposableEffect(effects) {
         val unregister = effects.observeSystemTheme { scope.launch { SystemDarkTheme.refresh(effects) } }
         onDispose { unregister() }
     }
-    return remember(settings, systemDark) { resolveDesktopPalette(settings, systemDark) }
+    return remember(settings, systemDark, skin) { resolveDesktopPalette(settings, systemDark, skin) }
 }

@@ -10,6 +10,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -24,6 +25,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.interaction.MelodiaPressIndication
+import com.lin0721.linmusic.core.ui.skin.Skin
+import com.lin0721.linmusic.core.ui.skin.resolveSkinPalette
 
 // 深色错误态固定用品牌红，不随主色变化
 private val ErrorRed = Color(0xFFC20C0C)
@@ -33,17 +36,21 @@ private val ErrorRed = Color(0xFFC20C0C)
 @Composable
 fun MelodiaTheme(
     themeSettings: ThemeSettings = ThemeSettings(),
+    skin: Skin? = null,
     content: @Composable () -> Unit
 ) {
-    val palette = rememberMelodiaPalette(themeSettings)
+    val palette = rememberMelodiaPalette(themeSettings, skin)
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
+    val style = skin?.style ?: MelodiaStyle.Default
+    val typography = remember(style.font) { Typography.withFont(style.font) }
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = typography,
         shapes = MelodiaShapes
     ) {
         CompositionLocalProvider(
             LocalMelodiaPalette provides palette,
+            LocalMelodiaStyle provides style,
             LocalIndication provides MelodiaPressIndication.Default,
             LocalRippleConfiguration provides null,
             content = content
@@ -61,7 +68,7 @@ fun ImmersiveTheme(content: @Composable () -> Unit) {
     }
     val palette = remember(current.accent) { MelodiaPalettes.dark.withAccent(current.accent) }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
-    MaterialTheme(colorScheme = colorScheme, typography = Typography, shapes = MelodiaShapes) {
+    MaterialTheme(colorScheme = colorScheme, typography = MaterialTheme.typography, shapes = MelodiaShapes) {
         CompositionLocalProvider(
             LocalMelodiaPalette provides palette,
             LocalImmersiveMidTone provides true,
@@ -121,8 +128,9 @@ private fun ColorScheme.withLightContainers(palette: MelodiaPalette): ColorSchem
 )
 
 @Composable
-fun rememberMelodiaPalette(themeSettings: ThemeSettings): MelodiaPalette {
-    val isDark = themeSettings.mode.isDark(isSystemInDarkTheme())
+fun rememberMelodiaPalette(themeSettings: ThemeSettings, skin: Skin?): MelodiaPalette {
+    val requestedDark = themeSettings.mode.isDark(isSystemInDarkTheme())
+    val isDark = skin?.effectiveDark(requestedDark) ?: requestedDark
     val accentId = themeSettings.accentId(isDark)
     val customHex = themeSettings.customHex(isDark)
     val context = LocalContext.current
@@ -135,7 +143,28 @@ fun rememberMelodiaPalette(themeSettings: ThemeSettings): MelodiaPalette {
             dynamicLightColorScheme(context).primary
         }
     }
-    return remember(isDark, accentId, customHex, dynamicAccent) {
-        MelodiaPalettes.of(isDark).withAccent(ThemeAccents.resolve(accentId, customHex, isDark, dynamicAccent))
+    return remember(isDark, accentId, customHex, dynamicAccent, skin) {
+        resolveSkinPalette(isDark, accentId, customHex, skin, dynamicAccent)
     }
+}
+
+private fun Typography.withFont(font: ThemeFont): Typography {
+    val family = font.fontFamily ?: return this
+    return Typography(
+        displayLarge = displayLarge.copy(fontFamily = family),
+        displayMedium = displayMedium.copy(fontFamily = family),
+        displaySmall = displaySmall.copy(fontFamily = family),
+        headlineLarge = headlineLarge.copy(fontFamily = family),
+        headlineMedium = headlineMedium.copy(fontFamily = family),
+        headlineSmall = headlineSmall.copy(fontFamily = family),
+        titleLarge = titleLarge.copy(fontFamily = family),
+        titleMedium = titleMedium.copy(fontFamily = family),
+        titleSmall = titleSmall.copy(fontFamily = family),
+        bodyLarge = bodyLarge.copy(fontFamily = family),
+        bodyMedium = bodyMedium.copy(fontFamily = family),
+        bodySmall = bodySmall.copy(fontFamily = family),
+        labelLarge = labelLarge.copy(fontFamily = family),
+        labelMedium = labelMedium.copy(fontFamily = family),
+        labelSmall = labelSmall.copy(fontFamily = family)
+    )
 }

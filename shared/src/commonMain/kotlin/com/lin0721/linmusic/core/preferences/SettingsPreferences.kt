@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
+import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
 import com.lin0721.linmusic.core.ui.theme.toRgbHex
@@ -99,6 +100,7 @@ class SettingsPreferences(
         private val KEY_THEME_LIGHT_ACCENT = stringPreferencesKey("theme_light_accent")
         private val KEY_THEME_DARK_CUSTOM_COLOR = stringPreferencesKey("theme_dark_custom_color")
         private val KEY_THEME_LIGHT_CUSTOM_COLOR = stringPreferencesKey("theme_light_custom_color")
+        private val KEY_THEME_SKIN = stringPreferencesKey("theme_skin")
         const val PLAYER_PAGE_MODE_AUTO = "auto"
         const val PLAYER_PAGE_MODE_FULLSCREEN = "fullscreen"
         const val PLAYER_PAGE_MODE_SIDE = "side"
@@ -561,9 +563,16 @@ class SettingsPreferences(
             darkAccentId = prefs[KEY_THEME_DARK_ACCENT] ?: ThemeAccents.DEFAULT_ID,
             lightAccentId = prefs[KEY_THEME_LIGHT_ACCENT] ?: ThemeAccents.DEFAULT_ID,
             darkCustomHex = prefs[KEY_THEME_DARK_CUSTOM_COLOR],
-            lightCustomHex = prefs[KEY_THEME_LIGHT_CUSTOM_COLOR]
+            lightCustomHex = prefs[KEY_THEME_LIGHT_CUSTOM_COLOR],
+            skinId = prefs[KEY_THEME_SKIN] ?: BUILTIN_SKIN_ID
         )
     }.distinctUntilChanged()
+
+    suspend fun saveThemeSkin(skinId: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_THEME_SKIN] = skinId
+        }
+    }
 
     suspend fun saveThemeMode(mode: ThemeMode) {
         dataStore.edit { prefs ->

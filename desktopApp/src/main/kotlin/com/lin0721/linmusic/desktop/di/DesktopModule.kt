@@ -31,6 +31,8 @@ import com.lin0721.linmusic.core.source.LxPluginRuntime
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -128,6 +130,8 @@ private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferences
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+    single { SkinStore(File(DesktopPaths.dataDir, "skins")) }
+    single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
     single { GraalLxPluginRuntime() } bind LxPluginRuntime::class

@@ -16,9 +16,14 @@ fun Modifier.themedShadow(elevation: Dp, shape: Shape = RectangleShape, clip: Bo
     return shadow(elevation, shape, clip, ambientColor = palette.shadowAmbient, spotColor = palette.shadowSpot)
 }
 
-// 浮层轮廓：浅色下补一圈细线托住白底浮层，深色靠底色明暗区分不加线
+// 浮层轮廓：浅色下补一圈细线托住白底浮层，深色靠底色明暗区分不加线；皮肤要求面板描边时两种模式都按皮肤线宽画
 @Composable
 fun Modifier.floatingOutline(shape: Shape): Modifier {
     val palette = LocalMelodiaPalette.current
-    return if (palette.isDark) this else border(1.dp, palette.outline, shape)
+    val skinBorder = LocalMelodiaStyle.current.paneBorder
+    return when {
+        skinBorder != null -> border(skinBorder, palette.outline, shape)
+        palette.isDark -> this
+        else -> border(1.dp, palette.outline, shape)
+    }
 }

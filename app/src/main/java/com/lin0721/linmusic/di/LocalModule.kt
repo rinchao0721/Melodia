@@ -9,6 +9,8 @@ import com.lin0721.linmusic.core.network.AndroidOnlineStateProvider
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.AndroidResourceProvider
 import com.lin0721.linmusic.core.network.NetworkStateProvider
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.feature.library.data.AndroidLibraryPreferences
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -32,6 +34,8 @@ val localModule = module {
     single { PlaybackPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PLAYBACK)) }
     single { UserPreferences(PreferencesStores.get(androidContext(), PreferencesStores.USER)) }
     single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS)) }
+    single { SkinStore(File(androidContext().filesDir, "skins")) }
+    single { SkinRepository(get(), get()) }
     single { SourcePreferences(PreferencesStores.get(androidContext(), PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(PreferencesStores.get(androidContext(), PreferencesStores.PLAYLIST_EXTERNAL)) }
     single { ContentFilter(get()) }

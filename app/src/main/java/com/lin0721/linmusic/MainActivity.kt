@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import androidx.compose.ui.graphics.toArgb
 import com.lin0721.linmusic.core.preferences.ThemeSettings
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.feature.recognition.service.ACTION_OPEN_RECOGNITION_RESULT
@@ -46,6 +47,7 @@ import org.koin.core.context.GlobalContext
 class MainActivity : ComponentActivity() {
 
     private val settingsPreferences: SettingsPreferences by inject()
+    private val skinRepository: SkinRepository by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
 
@@ -103,14 +105,16 @@ class MainActivity : ComponentActivity() {
         val initialThemeSettings = runCatching {
             runBlocking { settingsPreferences.themeSettings.first() }
         }.getOrDefault(ThemeSettings())
+        val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId) } }.getOrNull()
 
         setContent {
             val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
+            val skin by skinRepository.activeSkin.collectAsState(initial = initialSkin)
             val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = true)
             val uiMotion = remember { UiMotion() }
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
             CompositionLocalProvider(LocalUiMotion provides uiMotion) {
-                MelodiaTheme(themeSettings) {
+                MelodiaTheme(themeSettings, skin) {
                     val palette = LocalMelodiaPalette.current
                     // 系统栏图标与窗口底色随主题深浅切换；启动页底色仍固定深色
                     LaunchedEffect(palette.isDark, palette.pane) {
