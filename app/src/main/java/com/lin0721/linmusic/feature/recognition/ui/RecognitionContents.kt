@@ -344,16 +344,16 @@ private fun BestMatchCard(
                         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        PlayingEqualizerBars(color = Color.White, animate = nowPlaying.isPlaying)
+                        PlayingEqualizerBars(color = MelodiaColors.OnCoverCard, animate = nowPlaying.isPlaying)
                     }
                 }
             }
             Spacer(Modifier.width(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)) {
-                Text(text = "最可能是", color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp)
+                Text(text = "最可能是", color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f), fontSize = 12.sp)
                 Text(
                     text = candidate.title,
-                    color = Color.White,
+                    color = MelodiaColors.OnCoverCard,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -361,7 +361,7 @@ private fun BestMatchCard(
                 )
                 Text(
                     text = candidate.artists,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f),
                     fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -377,10 +377,10 @@ private fun BestMatchCard(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
                         text = if (nowPlaying != null) formatTime(displayMs) else "命中位置 $positionText",
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f),
                         fontSize = 12.sp
                     )
-                    Text(text = formatTime(candidate.durationMs), color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp)
+                    Text(text = formatTime(candidate.durationMs), color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f), fontSize = 12.sp)
                 }
             }
         }

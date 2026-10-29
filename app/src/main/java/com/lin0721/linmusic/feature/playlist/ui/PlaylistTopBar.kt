@@ -29,10 +29,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
-import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import kotlin.math.roundToInt
@@ -61,17 +62,23 @@ fun PlaylistTopBar(
         animationSpec = uiTween(800),
         label = "playlist_topbar_color"
     )
-    val fillColor = themedCoverBase(animatedDominant, 0.35f)
+    val fillColor = headerCoverBase(animatedDominant, 0.35f)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(overlayHeight)
-            .drawBehind {
-                val a = progressProvider().coerceIn(0f, 1f)
-                if (a > 0f) {
-                    drawRect(fillColor.copy(alpha = a))
+            .then(
+                if (fillColor == null) {
+                    Modifier.paneBackdrop(MelodiaColors.Background, alpha = progressProvider)
+                } else {
+                    Modifier.drawBehind {
+                        val a = progressProvider().coerceIn(0f, 1f)
+                        if (a > 0f) {
+                            drawRect(fillColor.copy(alpha = a))
+                        }
+                    }
                 }
-            }
+            )
             .zIndex(8f)
             // 页面滚动显色后拦截空白点击，触发返回顶部并防止手势穿透到下方歌曲
             .then(

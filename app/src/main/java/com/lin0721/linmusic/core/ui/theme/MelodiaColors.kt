@@ -3,6 +3,8 @@ package com.lin0721.linmusic.core.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
 
 private val NavPillSelectedDark = Color(0xFF383A4A)
 private val FilterPillInactiveDark = Color(0xFF332B2B)
@@ -15,6 +17,12 @@ object MelodiaColors {
     val ShellFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shellFill
     val PageFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.pageFill
     val HasBackdrop: Boolean @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.backdrop != null
+
+    // 封面色卡片上的文字与图标；卡片透出皮肤背景图时改用色板文字色，Inverse 为其上白底按钮里的图标色
+    val OnCoverCard: Color
+        @Composable @ReadOnlyComposable get() = if (LocalCoverPolicy.current.isBackdrop(CoverGroup.CARDS)) TextPrimary else Color.White
+    val OnCoverCardInverse: Color
+        @Composable @ReadOnlyComposable get() = if (LocalCoverPolicy.current.isBackdrop(CoverGroup.CARDS)) Background else Color.Black
 
     // 页面铺底按比例降低不透明度；有皮肤背景图时始终全透明
     @Composable

@@ -22,6 +22,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.skin.Skin
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.desktop.app.WindowBounds
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
@@ -66,6 +67,7 @@ fun MiniPlayerWindow(
     init: MiniPlayerInit,
     uiScale: Float,
     palette: MelodiaPalette,
+    skin: Skin?,
     uiMotion: UiMotion,
     windowEffects: WindowEffects,
     icon: Painter,
@@ -201,7 +203,7 @@ fun MiniPlayerWindow(
         val baseDensity = LocalDensity.current
         val resizeDensity = remember(baseDensity, uiScale) { Density(baseDensity.density * uiScale, baseDensity.fontScale) }
         CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
-            MelodiaDesktopTheme(uiScale = uiScale * layoutSize.scale, palette = palette) {
+            MelodiaDesktopTheme(uiScale = uiScale * layoutSize.scale, palette = palette, skin = skin) {
                 MiniPlayerContent(style, lyricSettings, controller, playerViewModel, actions, resize, resizeDensity)
             }
         }

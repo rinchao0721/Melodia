@@ -82,7 +82,8 @@ object SkinParser {
             background = parseBackground(root["background"], directory, warnings),
             style = parseStyle(root["style"], warnings),
             layouts = parseLayouts(root["layouts"], warnings),
-            directory = directory
+            directory = directory,
+            cover = parseCover(root["cover"], warnings)
         )
         return SkinParseResult.Success(skin, warnings)
     }
@@ -163,7 +164,8 @@ object SkinParser {
             blur = obj.clampedFloat("blur", 0f, MAX_BLUR, 0f, "background.blur", warnings),
             dim = obj.clampedFloat("dim", 0f, MAX_DIM, 0f, "background.dim", warnings),
             paneOpacity = obj.clampedFloat("paneOpacity", MIN_PANE_OPACITY, 1f, 1f, "background.paneOpacity", warnings),
-            scope = scope
+            scope = scope,
+            playerDim = if (obj["playerDim"] == null) null else obj.clampedFloat("playerDim", 0f, MAX_DIM, 0f, "background.playerDim", warnings)
         )
     }
 
@@ -200,6 +202,52 @@ object SkinParser {
             progress = obj.enumValue("progress", ThemeProgressStyle::fromKey, default.progress, warnings),
             controls = obj.enumValue("controlStyle", ThemeControlStyle::fromKey, default.controls, warnings)
         )
+    }
+
+    // 缺省与无法识别的取值都按跟随封面处理；透出背景图在没有背景图时也按跟随封面处理
+    private fun parseCover(element: JsonElement?, warnings: MutableList<String>): SkinCover {
+        if (element == null) return SkinCover()
+        val obj = element as? JsonObject ?: run {
+            warnings += "cover 不是对象，已忽略"
+            return SkinCover()
+        }
+        val rules = LinkedHashMap<CoverGroup, CoverRule>()
+        obj.forEach { (key, value) ->
+            val group = CoverGroup.fromKey(key)
+            if (group == null) {
+                warnings += "cover.$key 不是可识别的分组，已忽略"
+                return@forEach
+            }
+            val rule = value as? JsonObject
+            val sourceKey = rule?.string("source")
+            val source = sourceKey?.let(CoverSource::fromKey)
+            if (source == null) {
+                warnings += "cover.$key.source 取值无效，按跟随封面处理"
+                return@forEach
+            }
+            rules[group] = when (source) {
+                CoverSource.COLOR -> parseCoverColor(rule["color"], "cover.$key.color", warnings)
+                    ?: CoverRule.Default.also { warnings += "cover.$key 缺少有效的 color，按跟随封面处理" }
+                else -> CoverRule(source)
+            }
+        }
+        return SkinCover(rules)
+    }
+
+    // color 可写一个色值两种模式共用，也可写 { "dark": ..., "light": ... }
+    private fun parseCoverColor(element: JsonElement?, label: String, warnings: MutableList<String>): CoverRule? {
+        fun read(value: JsonElement?): Color? = (value as? JsonPrimitive)?.takeIf { it.isString }?.content?.let(::parseColor)
+        return when (element) {
+            is JsonPrimitive -> read(element)?.let { CoverRule(CoverSource.COLOR, it, it) }
+            is JsonObject -> {
+                val dark = read(element[SkinMode.DARK.key])
+                val light = read(element[SkinMode.LIGHT.key])
+                if (dark == null && light == null) return null
+                if (dark == null || light == null) warnings += "$label 只写了一种模式，另一种按跟随封面处理"
+                CoverRule(CoverSource.COLOR, dark, light)
+            }
+            else -> null
+        }
     }
 
     private fun parseLayouts(element: JsonElement?, warnings: MutableList<String>): JsonObject? {

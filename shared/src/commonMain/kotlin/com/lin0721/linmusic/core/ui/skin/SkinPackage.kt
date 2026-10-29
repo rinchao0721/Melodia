@@ -17,6 +17,7 @@ import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 const val SKIN_FILE_EXTENSION = "melodiaskin"
 
@@ -24,8 +25,17 @@ data class StagedSkin(
     val skin: Skin,
     val warnings: List<String>,
     val fixes: List<SkinContrastFix>,
-    val directory: File
-)
+    val directory: File,
+    // 播放区遮罩为保证可读性被加深时的原值与新值
+    val playerDimFix: Pair<Float, Float>? = null
+) {
+    val fixDescriptions: List<String>
+        get() = fixes.map { it.description } + listOfNotNull(
+            playerDimFix?.let { (before, after) -> "播放区遮罩 ${formatDim(before)} → ${formatDim(after)}" }
+        )
+}
+
+private fun formatDim(value: Float): String = ((value * 100).roundToInt() / 100f).toString()
 
 sealed interface SkinStageResult {
     data class Success(val staged: StagedSkin) : SkinStageResult
@@ -112,9 +122,25 @@ object SkinPackage {
         } else {
             null
         }
-        val (fixedSkin, fixes) = SkinContrast.fix(parsed.skin, average)
-        if (fixes.isNotEmpty()) writeManifest(manifest, withColors(root, fixedSkin.darkColors, fixedSkin.lightColors))
-        return SkinStageResult.Success(StagedSkin(fixedSkin, warnings + parsed.warnings, fixes, directory))
+        val (contrastSkin, fixes) = SkinContrast.fix(parsed.skin, average)
+        val playerDim = average?.let { SkinContrast.playerDim(contrastSkin, it) }
+        val fixedSkin = if (playerDim == null) {
+            contrastSkin
+        } else {
+            contrastSkin.copy(background = contrastSkin.background?.copy(playerDim = playerDim))
+        }
+        if (fixes.isNotEmpty() || playerDim != null) {
+            var patched = withColors(root, fixedSkin.darkColors, fixedSkin.lightColors)
+            if (playerDim != null) patched = withPlayerDim(patched, playerDim)
+            writeManifest(manifest, patched)
+        }
+        val coverWarnings = if (fixedSkin.background == null && CoverGroup.entries.any { fixedSkin.cover.rule(it).source == CoverSource.BACKDROP }) {
+            listOf("皮肤没有背景图，设为透出背景图的取色区按跟随封面处理")
+        } else {
+            emptyList()
+        }
+        val dimFix = playerDim?.let { (parsed.skin.background?.effectivePlayerDim ?: 0f) to it }
+        return SkinStageResult.Success(StagedSkin(fixedSkin, warnings + parsed.warnings + coverWarnings, fixes, directory, dimFix))
     }
 
     private fun copyLimited(input: InputStream, output: OutputStream, entryLimit: Long, totalRemaining: Long, name: String): Long {
@@ -153,6 +179,11 @@ object SkinPackage {
             }
         }
         return JsonObject(root + ("colors" to colors))
+    }
+
+    fun withPlayerDim(root: JsonObject, playerDim: Float): JsonObject {
+        val background = root["background"] as? JsonObject ?: return root
+        return JsonObject(root + ("background" to JsonObject(background + ("playerDim" to JsonPrimitive(playerDim)))))
     }
 
     fun withId(root: JsonObject, id: String, name: String? = null): JsonObject {

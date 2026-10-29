@@ -3,6 +3,8 @@ package com.lin0721.linmusic.feature.player.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.rememberImmersiveColors
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -11,7 +13,7 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 @Composable
 fun rememberFullPlayerColors(palette: PlayerBackdropPalette): PlayerBackdropPalette {
     val animatedBase by animateColorAsState(
-        targetValue = palette.base,
+        targetValue = coverBase(CoverGroup.PLAYER, palette.base) ?: palette.base,
         animationSpec = uiTween(800),
         label = "bg_base"
     )

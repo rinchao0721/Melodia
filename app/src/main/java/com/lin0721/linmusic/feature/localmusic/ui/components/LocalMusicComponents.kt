@@ -64,8 +64,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
-import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
@@ -217,7 +217,7 @@ fun LocalHeroHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.smoothVerticalGradient(from = themedCoverBase(animatedBase, 0.25f), to = MelodiaColors.PageFill))
+            .background(Brush.smoothVerticalGradient(from = headerCoverBase(animatedBase, 0.25f) ?: MelodiaColors.PageFill, to = MelodiaColors.PageFill))
             .statusBarsPadding()
             .padding(bottom = MelodiaSpacing.md)
     ) {

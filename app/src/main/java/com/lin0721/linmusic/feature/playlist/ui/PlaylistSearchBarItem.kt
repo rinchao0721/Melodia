@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.themedCoverBase
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
 private val SearchBarHeight = 40.dp
@@ -50,7 +50,7 @@ fun SearchBarItem(
         animationSpec = uiTween(800),
         label = "search_bar_color"
     )
-    val fillColor = themedCoverBase(animatedBackground, 0.35f)
+    val fillColor = headerCoverBase(animatedBackground, 0.35f) ?: MelodiaColors.PageFill
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(requestFocus) {

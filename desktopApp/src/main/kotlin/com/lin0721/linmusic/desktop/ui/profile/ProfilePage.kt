@@ -60,7 +60,7 @@ import com.lin0721.linmusic.desktop.ui.components.onDoubleClick
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
-import com.lin0721.linmusic.desktop.ui.palette.themedCoverBackground
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
@@ -120,7 +120,7 @@ private fun ProfileContent(
     LaunchedEffect(info.avatarUrl) {
         if (info.avatarUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(info.avatarUrl).base
     }
-    val heroColor by animateColorAsState(themedCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "profileHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "profileHero")
 
     val playRank: (Int) -> Unit = { index ->
         val items = state.rankItems.map { QueueItem(it.songId, it.songName, it.artistName, it.albumCoverUrl) }

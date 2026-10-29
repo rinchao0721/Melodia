@@ -26,14 +26,17 @@ enum class SkinBackgroundScope(val key: String) {
     }
 }
 
-// image 为皮肤包内相对路径
+// image 为皮肤包内相对路径；playerDim 为播放区透出背景图时的遮罩，null 时沿用 dim
 data class SkinBackground(
     val image: String,
     val blur: Float,
     val dim: Float,
     val paneOpacity: Float,
-    val scope: SkinBackgroundScope
-)
+    val scope: SkinBackgroundScope,
+    val playerDim: Float? = null
+) {
+    val effectivePlayerDim: Float get() = playerDim ?: dim
+}
 
 // colors 只含皮肤写了的色板项，其余沿用内置色板；layouts 原样保留，由播放器布局解析
 data class Skin(
@@ -47,7 +50,8 @@ data class Skin(
     val background: SkinBackground?,
     val style: MelodiaStyle,
     val layouts: JsonObject?,
-    val directory: File? = null
+    val directory: File? = null,
+    val cover: SkinCover = SkinCover()
 ) {
     fun colors(isDark: Boolean): Map<PaletteToken, Color> = if (isDark) darkColors else lightColors
 

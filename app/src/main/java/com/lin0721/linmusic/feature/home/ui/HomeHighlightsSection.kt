@@ -43,6 +43,8 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -176,14 +178,16 @@ private fun DailySpotlightCard(
     // 浅色下改用与播放页一致的浓色中调，避免向黑混色在白底上发脏
     val isDark = MelodiaColors.IsDark
     val containerColor by animateColorAsState(
-        targetValue = if (isDark) lerp(baseColor, Color.Black, SPOTLIGHT_DARKEN_FRACTION) else immersiveMidFill(baseColor),
+        targetValue = coverBase(CoverGroup.CARDS, baseColor)?.let { if (isDark) lerp(it, Color.Black, SPOTLIGHT_DARKEN_FRACTION) else immersiveMidFill(it) }
+            ?: MelodiaColors.ShellFill,
         animationSpec = uiSpring(),
         label = "daily_spotlight_color"
     )
     val today = remember { LocalDate.now() }
-    val trackLine = remember(songs) {
+    val countColor = MelodiaColors.OnCoverCard
+    val trackLine = remember(songs, countColor) {
         buildAnnotatedString {
-            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+            withStyle(SpanStyle(color = countColor, fontWeight = FontWeight.Bold)) {
                 append("${songs.size} 首")
             }
             songs.take(SPOTLIGHT_TRACK_PREVIEW_COUNT).forEach { song ->
@@ -217,14 +221,14 @@ private fun DailySpotlightCard(
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(
                     text = "每日推荐",
-                    color = Color.White,
+                    color = MelodiaColors.OnCoverCard,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
                 Text(
                     text = "根据你的口味 · ${today.monthValue}月${today.dayOfMonth}日",
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MelodiaColors.OnCoverCard.copy(alpha = 0.7f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     modifier = Modifier.padding(top = 2.dp)
@@ -239,7 +243,7 @@ private fun DailySpotlightCard(
         ) {
             Text(
                 text = trackLine,
-                color = Color.White.copy(alpha = 0.75f),
+                color = MelodiaColors.OnCoverCard.copy(alpha = 0.75f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 maxLines = 2,
@@ -249,12 +253,12 @@ private fun DailySpotlightCard(
             MelodiaIconButton(
                 onClick = onPlay,
                 style = MelodiaPress.Transport,
-                containerColor = Color.White
+                containerColor = MelodiaColors.OnCoverCard
             ) {
                 Icon(
                     imageVector = Icons.Rounded.PlayArrow,
                     contentDescription = "播放每日推荐",
-                    tint = Color.Black,
+                    tint = MelodiaColors.OnCoverCardInverse,
                     modifier = Modifier.size(24.dp)
                 )
             }

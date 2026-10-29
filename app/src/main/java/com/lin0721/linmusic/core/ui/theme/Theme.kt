@@ -26,7 +26,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.interaction.MelodiaPressIndication
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
+import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
 import com.lin0721.linmusic.core.ui.skin.Skin
+import com.lin0721.linmusic.core.ui.skin.coverPolicy
+import com.lin0721.linmusic.core.ui.skin.immersiveBasePalette
 import com.lin0721.linmusic.core.ui.skin.resolveSkinPalette
 import com.lin0721.linmusic.core.ui.skin.withBackdrop
 
@@ -59,6 +64,8 @@ fun MelodiaTheme(
             LocalMelodiaPalette provides palette,
             LocalMelodiaStyle provides style,
             LocalSkinBackdrop provides backdropHost?.takeIf { palette.backdrop != null },
+            LocalCoverPolicy provides skin.coverPolicy(palette.isDark, backdropReady = backdropHost != null && palette.backdrop != null),
+            LocalImmersiveBasePalette provides remember(skin) { immersiveBasePalette(skin) },
             LocalIndication provides MelodiaPressIndication.Default,
             LocalRippleConfiguration provides null,
             content = content
@@ -66,7 +73,8 @@ fun MelodiaTheme(
     }
 }
 
-// 沉浸区（播放页等封面色铺底、白字）内部一律按深色主题取色，保留当前主色；浅色主题下由此切换，深色主题下原样透传
+// 沉浸区（播放页等封面色铺底、白字）内部一律按皮肤的深色配色取色，保留当前主色；浅色主题下由此切换，深色主题下原样透传；
+// 播放区透出背景图时带上背景图参数，内部的 playerBackdrop 才能画出背景
 @Composable
 fun ImmersiveTheme(content: @Composable () -> Unit) {
     val current = LocalMelodiaPalette.current
@@ -74,7 +82,11 @@ fun ImmersiveTheme(content: @Composable () -> Unit) {
         content()
         return
     }
-    val palette = remember(current.accent) { MelodiaPalettes.dark.withAccent(current.accent) }
+    val base = LocalImmersiveBasePalette.current
+    val playerBackdrop = LocalCoverPolicy.current.isBackdrop(CoverGroup.PLAYER)
+    val palette = remember(base, current.accent, current.backdrop, playerBackdrop) {
+        base.withAccent(current.accent).copy(backdrop = if (playerBackdrop) current.backdrop else null)
+    }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
     MaterialTheme(colorScheme = colorScheme, typography = MaterialTheme.typography, shapes = MelodiaShapes) {
         CompositionLocalProvider(

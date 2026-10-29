@@ -97,6 +97,8 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -228,9 +230,10 @@ fun WindowScope.MiniPlayerContent(
     LaunchedEffect(artwork) {
         coverBase = if (artwork.isNullOrBlank()) FallbackCoverPalette.base else extractCoverPaletteFromUrl(artwork).base
     }
-    val immersive = rememberImmersiveColors(coverBase)
+    val tintBase = coverBase(CoverGroup.PLAYER, coverBase) ?: coverBase
+    val immersive = rememberImmersiveColors(tintBase)
     val background by animateColorAsState(
-        if (DesktopColors.IsDark) themedCoverBackground(coverBase, BACKGROUND_DARKEN_FRACTION) else immersive.fill,
+        if (DesktopColors.IsDark) themedCoverBackground(tintBase, BACKGROUND_DARKEN_FRACTION) else immersive.fill,
         uiTween(BACKGROUND_ANIM_MS),
         label = "miniPlayerBackground"
     )

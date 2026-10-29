@@ -7,6 +7,11 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
+import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
 import com.lin0721.linmusic.core.ui.theme.coverDeepTone
 import com.lin0721.linmusic.core.ui.theme.coverHeaderTint
@@ -27,8 +32,23 @@ data class ImmersiveColors(
     val inactive: Color,
     val scrim: Color,
     val onLight: Boolean = false,
-    val highlight: Color = content
+    val highlight: Color = content,
+    // 播放区透出皮肤背景图：不铺有色底，由 playerBackdrop 画背景
+    val backdrop: Boolean = false
 )
+
+// 播放区透出背景图：两种模式都按沉浸区深色配色取文字色，与深色遮罩配套
+fun backdropImmersiveColors(palette: MelodiaPalette): ImmersiveColors = ImmersiveColors(
+    fill = Color.Transparent,
+    blob = Color.Transparent,
+    content = palette.textPrimary,
+    inactive = lerp(palette.textPrimary, palette.windowBackground, BACKDROP_INACTIVE_FRACTION),
+    scrim = palette.windowBackground,
+    highlight = palette.accentText,
+    backdrop = true
+)
+
+private const val BACKDROP_INACTIVE_FRACTION = 0.45f
 
 // 沉浸区两种主题都是有色底配白字：深色主色提饱和后压暗，浅色按相对亮度取中调，比深色亮但仍托得住白字
 fun immersiveColors(base: Color, isDark: Boolean): ImmersiveColors {
@@ -77,6 +97,7 @@ fun ImmersiveSurface(colors: ImmersiveColors, content: @Composable () -> Unit) {
 @Composable
 fun rememberImmersiveColors(base: Color): ImmersiveColors {
     val isDark = DesktopColors.IsDark
+    if (isCoverBackdrop(CoverGroup.PLAYER)) return rememberBackdropImmersiveColors()
     return remember(base, isDark) { immersiveColors(base, isDark) }
 }
 
@@ -85,7 +106,15 @@ fun rememberImmersiveColors(base: Color): ImmersiveColors {
 fun rememberLyricsViewColors(base: Color): ImmersiveColors {
     val isDark = DesktopColors.IsDark
     val accentText = DesktopColors.AccentText
+    if (isCoverBackdrop(CoverGroup.PLAYER)) return rememberBackdropImmersiveColors()
     return remember(base, isDark, accentText) {
         if (isDark) immersiveColors(base, isDark = true) else lightLyricsColors(base, accentText)
     }
+}
+
+@Composable
+private fun rememberBackdropImmersiveColors(): ImmersiveColors {
+    val base = LocalImmersiveBasePalette.current
+    val accent = LocalMelodiaPalette.current.accent
+    return remember(base, accent) { backdropImmersiveColors(base.withAccent(accent)) }
 }

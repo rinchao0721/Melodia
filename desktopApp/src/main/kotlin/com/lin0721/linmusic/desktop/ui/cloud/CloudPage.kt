@@ -79,7 +79,7 @@ import com.lin0721.linmusic.desktop.ui.library.CLOUD_TITLE
 import com.lin0721.linmusic.desktop.ui.local.SongMatchDialog
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
-import com.lin0721.linmusic.desktop.ui.palette.themedCoverBackground
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.playlist.ActionIcon
 import com.lin0721.linmusic.desktop.ui.playlist.PlayCircleButton
 import com.lin0721.linmusic.desktop.ui.playlist.PlaylistPill
@@ -280,7 +280,7 @@ private fun CloudSongList(
     LaunchedEffect(heroCover) {
         heroCover?.let { heroBase = extractCoverPaletteFromUrl(it).base }
     }
-    val heroColor by animateColorAsState(themedCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "cloudHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "cloudHero")
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current

@@ -15,6 +15,9 @@ import androidx.compose.foundation.gestures.scrollBy
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
+import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.LightStatusBarIconsWhile
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -55,6 +58,7 @@ import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.feature.player.share.LyricShareSheet
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
@@ -116,30 +120,40 @@ fun FullPlayerScreen(
     onLyricsFullScreenChange: (Boolean) -> Unit = {},
     onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
-    FullPlayerScreenContent(
-        currentTrack = currentTrack,
-        isPlaying = isPlaying,
-        currentPositionProvider = currentPositionProvider,
-        duration = duration,
-        onTogglePlay = onTogglePlay,
-        onSeek = onSeek,
-        onClose = onClose,
-        isPlayerOpen = isPlayerOpen,
-        onArtistClick = onArtistClick,
-        onAlbumClick = onAlbumClick,
-        onPlaylistClick = onPlaylistClick,
-        onNavigateToProfile = onNavigateToProfile,
-        onDragClose = onDragClose,
-        fitCoverAboveNavigationBar = fitCoverAboveNavigationBar,
-        fitCoverToViewport = fitCoverToViewport,
-        contentMaxWidth = contentMaxWidth,
-        onToggleSidebarFullscreen = onToggleSidebarFullscreen,
-        isSidebarFullscreen = isSidebarFullscreen,
-        sidebarFullscreenProgress = sidebarFullscreenProgress,
-        fullscreenContentWidth = fullscreenContentWidth,
-        onLyricsFullScreenChange = onLyricsFullScreenChange,
-        onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange
-    )
+    // 播放区透出皮肤背景图时整页按沉浸区深色配色（深色遮罩配白字），浅色主题下也一样
+    val playerBackdrop = isCoverBackdrop(CoverGroup.PLAYER)
+    LightStatusBarIconsWhile(isPlayerOpen && playerBackdrop && onToggleSidebarFullscreen == null)
+    PlayerTintScope(playerBackdrop) {
+        FullPlayerScreenContent(
+            currentTrack = currentTrack,
+            isPlaying = isPlaying,
+            currentPositionProvider = currentPositionProvider,
+            duration = duration,
+            onTogglePlay = onTogglePlay,
+            onSeek = onSeek,
+            onClose = onClose,
+            isPlayerOpen = isPlayerOpen,
+            onArtistClick = onArtistClick,
+            onAlbumClick = onAlbumClick,
+            onPlaylistClick = onPlaylistClick,
+            onNavigateToProfile = onNavigateToProfile,
+            onDragClose = onDragClose,
+            fitCoverAboveNavigationBar = fitCoverAboveNavigationBar,
+            fitCoverToViewport = fitCoverToViewport,
+            contentMaxWidth = contentMaxWidth,
+            onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+            isSidebarFullscreen = isSidebarFullscreen,
+            sidebarFullscreenProgress = sidebarFullscreenProgress,
+            fullscreenContentWidth = fullscreenContentWidth,
+            onLyricsFullScreenChange = onLyricsFullScreenChange,
+            onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange
+        )
+    }
+}
+
+@Composable
+private fun PlayerTintScope(immersive: Boolean, content: @Composable () -> Unit) {
+    if (immersive) ImmersiveTheme(content) else content()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -609,7 +623,13 @@ private fun FullPlayerScreenContent(
                 translationY = offsetY
             }
             .clip(RoundedCornerShape(topStart = topCornerRadius, topEnd = topCornerRadius))
-            .background(MaterialTheme.colorScheme.background)
+            .then(
+                if (isCoverBackdrop(CoverGroup.PLAYER)) {
+                    Modifier.playerBackdrop(MaterialTheme.colorScheme.background)
+                } else {
+                    Modifier.background(MaterialTheme.colorScheme.background)
+                }
+            )
     ) {
         PlayerBackdrop(
             base = colors.base,

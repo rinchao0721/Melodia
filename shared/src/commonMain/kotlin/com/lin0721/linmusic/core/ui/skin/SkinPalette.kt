@@ -110,7 +110,7 @@ fun resolveSkinPalette(
 
 // 背景图解码成功后才调用，内部铺底随之改透明
 fun MelodiaPalette.withBackdrop(background: SkinBackground?): MelodiaPalette =
-    copy(backdrop = background?.let { PaneBackdrop(dim = it.dim, paneOpacity = it.paneOpacity) })
+    copy(backdrop = background?.let { PaneBackdrop(dim = it.dim, paneOpacity = it.paneOpacity, playerDim = it.effectivePlayerDim) })
 
 // 切换皮肤后画面是否会变：色板或背景图有变化才走切换动画，否则扩散动画等不到新主题
 fun skinSwitchChangesTheme(settings: ThemeSettings, systemDark: Boolean, current: Skin?, target: Skin?): Boolean {

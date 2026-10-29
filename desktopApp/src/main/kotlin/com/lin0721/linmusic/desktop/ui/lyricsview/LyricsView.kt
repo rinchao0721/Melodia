@@ -84,6 +84,7 @@ import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.canvasBackdrop
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
@@ -243,8 +244,8 @@ private fun LyricsViewContent(
             Modifier.fillMaxSize().canvasBackdrop(windowBackground)
                 .padding(horizontal = DesktopDimens.PaneGap, vertical = verticalGap)
                 .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
-                .background(fill)
-                .then(if (immersive.onLight) Modifier.drawBehind { drawLightTopTint(immersive) } else Modifier)
+                .then(if (immersive.backdrop) Modifier.playerBackdrop(fill) else Modifier.background(fill))
+                .then(if (immersive.onLight && !immersive.backdrop) Modifier.drawBehind { drawLightTopTint(immersive) } else Modifier)
                 .onGloballyPositioned { boxOrigin = it.positionInWindow() }
                 .onPointerEvent(PointerEventType.Scroll) { if (!manuallyHidden) moveTick++ }
                 .onPointerEvent(PointerEventType.Move) { event ->

@@ -65,6 +65,7 @@ import com.lin0721.linmusic.core.ui.skin.SkinImportStep
 import com.lin0721.linmusic.core.ui.skin.SkinMode
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.StagedSkin
+import com.lin0721.linmusic.core.ui.skin.coverSummary
 import com.lin0721.linmusic.core.ui.skin.rememberSkinSettingsController
 import com.lin0721.linmusic.core.ui.skin.resolveSkinPalette
 import com.lin0721.linmusic.core.ui.skin.skinExportFileName
@@ -320,9 +321,10 @@ private fun SkinPreviewSheet(
                 )
                 if (skin.background != null) add("包含背景图")
                 if (skin.layouts != null) add("包含播放器布局（后续版本生效）")
+            coverSummary(skin)?.let(::add)
             }
             Text(features.joinToString("；"), color = MelodiaColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
-            ReportSection("已自动修正对比度", staged.fixes.map { it.description })
+            ReportSection("已自动修正对比度", staged.fixDescriptions)
             ReportSection("提示", staged.warnings)
             if (conflict) {
                 Text(

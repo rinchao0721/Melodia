@@ -63,9 +63,9 @@ data class MelodiaPalette(
     fun hoverOn(background: Color): Color = hover.compositeOver(background)
 }
 
-// 皮肤背景图透出参数：dim 为画布遮罩不透明度，paneOpacity 为面板外壳不透明度
+// 皮肤背景图透出参数：dim 为画布遮罩不透明度，paneOpacity 为面板外壳不透明度，playerDim 为播放区直接压在背景图上的遮罩
 @Immutable
-data class PaneBackdrop(val dim: Float, val paneOpacity: Float)
+data class PaneBackdrop(val dim: Float, val paneOpacity: Float, val playerDim: Float = dim)
 
 private const val DARK_ACCENT_CONTAINER_ALPHA = 0.16f
 private const val LIGHT_ACCENT_CONTAINER_ALPHA = 0.12f

@@ -49,9 +49,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.model.PlaylistDetail
-import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
@@ -113,7 +113,7 @@ fun PlaylistHeaderItem(
         animationSpec = uiTween(800),
         label = "playlist_header_color"
     )
-    val gradientTop = themedCoverBase(animatedDominant, 0.35f)
+    val gradientTop = headerCoverBase(animatedDominant, 0.35f) ?: MelodiaColors.PageFill
     val bgDark = MelodiaColors.PageFill
     Column(
         modifier = Modifier

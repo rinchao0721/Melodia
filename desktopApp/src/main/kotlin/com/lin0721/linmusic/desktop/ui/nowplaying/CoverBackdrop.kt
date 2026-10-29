@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
@@ -21,6 +23,7 @@ fun rememberCoverBase(url: String?): Color {
     LaunchedEffect(url) {
         base = if (url.isNullOrBlank()) FallbackCoverPalette.base else extractCoverPaletteFromUrl(url).base
     }
-    val animated by animateColorAsState(base, uiTween(BASE_TRANSITION_MS), label = "coverBase")
+    val target = coverBase(CoverGroup.PLAYER, base) ?: base
+    val animated by animateColorAsState(target, uiTween(BASE_TRANSITION_MS), label = "coverBase")
     return animated
 }

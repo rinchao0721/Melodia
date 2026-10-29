@@ -34,9 +34,9 @@ import com.lin0721.linmusic.core.ui.components.TrackSelectionOverlay
 import com.lin0721.linmusic.core.ui.components.rememberSelectionBottomPadding
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
-import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.feature.playlist.ui.SearchBarItem
@@ -297,7 +297,7 @@ fun ArtistContent(
             selectionUi = selectionUi,
             actions = selectionActions,
             visibleIds = (if (songSearch.active) songSearch.results else topSongs).map { it.id },
-            headerColor = themedCoverBase(dominantColor, 0.35f),
+            headerColor = headerCoverBase(dominantColor, 0.35f) ?: MelodiaColors.Background,
             onToggleSelectAll = onToggleSelectAll,
             onExit = onExitSelection
         )

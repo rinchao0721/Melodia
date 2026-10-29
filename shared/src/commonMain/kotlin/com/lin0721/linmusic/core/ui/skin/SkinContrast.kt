@@ -50,9 +50,11 @@ object SkinContrast {
         return skin.copy(darkColors = dark, lightColors = light) to fixes
     }
 
-    private fun fixMode(skin: Skin, mode: SkinMode, backdrop: Color?, fixes: MutableList<SkinContrastFix>): Map<PaletteToken, Color> {
+    // 只支持浅色的皮肤写了深色配色时仍要检查：沉浸区固定使用深色配色
+    private fun fixMode(skin: Skin, mode: SkinMode, sharedBackdrop: Color?, fixes: MutableList<SkinContrastFix>): Map<PaletteToken, Color> {
         val overrides = skin.colors(mode == SkinMode.DARK)
-        if (mode !in skin.modes || (overrides.isEmpty() && backdrop == null)) return overrides
+        val backdrop = sharedBackdrop?.takeIf { mode in skin.modes }
+        if (overrides.isEmpty() && backdrop == null) return overrides
         val isDark = mode == SkinMode.DARK
         val result = LinkedHashMap(overrides)
         rules.forEach { rule ->
@@ -93,6 +95,37 @@ object SkinContrast {
             if (passes(mid)) far = mid else near = mid
         }
         return Hsl(hsl.hue, hsl.saturation, far).toColor()
+    }
+
+    private const val PLAYER_PRIMARY_MIN = 4.5f
+    private const val PLAYER_SECONDARY_MIN = 3f
+    private const val MAX_PLAYER_DIM = 0.9f
+
+    // 播放区透出背景图时两种模式都按沉浸区深色配色铺遮罩、配白字，遮罩不够深就加深到达标
+    fun playerDim(skin: Skin, backdropAverage: Color): Float? {
+        val background = skin.background ?: return null
+        if (skin.cover.rule(CoverGroup.PLAYER).source != CoverSource.BACKDROP) return null
+        val current = background.effectivePlayerDim
+        val required = run {
+            val palette = immersiveBasePalette(skin)
+            fun passes(dim: Float): Boolean {
+                val under = palette.windowBackground.copy(alpha = dim).compositeOver(backdropAverage)
+                return contrastRatio(palette.textPrimary.compositeOver(under), under) >= PLAYER_PRIMARY_MIN &&
+                    contrastRatio(palette.textSecondary.compositeOver(under), under) >= PLAYER_SECONDARY_MIN
+            }
+            if (passes(current)) {
+                current
+            } else {
+                var low = current
+                var high = MAX_PLAYER_DIM
+                repeat(SEARCH_STEPS) {
+                    val mid = (low + high) / 2f
+                    if (passes(mid)) high = mid else low = mid
+                }
+                high
+            }
+        }
+        return if (required > current) required else null
     }
 
     private fun opaque(color: Color, palette: MelodiaPalette): Color =

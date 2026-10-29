@@ -94,8 +94,9 @@ import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.nowplaying.ScrollArrow
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
+import com.lin0721.linmusic.desktop.ui.palette.cardCoverBackground
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
-import com.lin0721.linmusic.desktop.ui.palette.themedCoverBackground
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
@@ -200,7 +201,7 @@ fun HomePage(
     }
     val gradientColor by animateColorAsState(
         targetValue = if (activeCoverUrl.isNotBlank()) {
-            themedCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
+            headerCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
         } else {
             DesktopColors.PageFill
         },
@@ -664,7 +665,7 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
         if (coverUrl.isNotBlank()) baseColor = extractCoverPaletteFromUrl(coverUrl).base
     }
     val containerColor by animateColorAsState(
-        themedCoverBackground(baseColor, SPOTLIGHT_DARKEN_FRACTION),
+        cardCoverBackground(baseColor, SPOTLIGHT_DARKEN_FRACTION),
         uiSpring(),
         label = "dailySpotlightColor"
     )

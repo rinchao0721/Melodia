@@ -511,7 +511,8 @@ fun main() {
                     uiScale = uiScaleFactor,
                     palette = palette,
                     style = skin?.style ?: MelodiaStyle.Default,
-                    backdrop = backdropHost
+                    backdrop = backdropHost,
+                    skin = skin
                 ) {
                     ThemeRevealHost(themeKey = palette to backdropHost, enabled = uiMotion.enabled) {
                         shellSession.Provide {
@@ -558,6 +559,7 @@ fun main() {
                 init = remember { loadMiniPlayerInit() },
                 uiScale = uiScaleFactor,
                 palette = basePalette,
+                skin = skin,
                 uiMotion = uiMotion,
                 windowEffects = windowEffects,
                 icon = appIcon,

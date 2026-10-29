@@ -57,6 +57,9 @@ import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -65,6 +68,7 @@ import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalContext
@@ -136,7 +140,7 @@ fun MiniPlayerCard(
     // 平滑过渡背景色变化；卡片背景在 base 基础上再压暗一档才不会太扎眼。
     // 平板宽屏下悬浮在深色页面背景上，压暗幅度收窄一档，避免浅色封面取色后和背景融在一起
     val animatedBase by animateColorAsState(
-        targetValue = colorPalette.base,
+        targetValue = coverBase(CoverGroup.PLAYER, colorPalette.base) ?: colorPalette.base,
         animationSpec = uiTween(800),
         label = "mini_player_base"
     )
@@ -229,7 +233,7 @@ fun MiniPlayerCard(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(fillColor)
+                .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
         )
         Column {
             Row(
