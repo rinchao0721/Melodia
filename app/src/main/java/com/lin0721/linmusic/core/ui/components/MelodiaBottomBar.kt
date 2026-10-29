@@ -69,6 +69,7 @@ import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.playerBackdrop
+import com.lin0721.linmusic.core.ui.theme.progressScaled
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalContext
@@ -493,7 +494,7 @@ fun MiniPlayerProgress(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(2.dp)
+            .height(progressScaled(2.dp))
             .clip(CircleShape)
             .background(trackColor)
     ) {

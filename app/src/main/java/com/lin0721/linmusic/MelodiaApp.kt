@@ -603,6 +603,7 @@ fun MelodiaApp() {
             // 全屏时朝内容区一侧推到距对侧屏幕边 sm 处，宽度只在布局阶段读进度
             if ((isPanelShown || hasPanelBeenShown) && usePanel) {
                 val panelEdgePadding = if (isLyricsFullScreen) 0.dp else MelodiaSpacing.sm
+                val panelRadius = InfoCardRadius
                 Box(
                     modifier = Modifier
                         .align(if (isPanelAtStart) Alignment.TopStart else Alignment.TopEnd)
@@ -638,7 +639,7 @@ fun MelodiaApp() {
                                 val miniBottom = size.height - MelodiaSpacing.sm.toPx()
                                 val miniTop = miniBottom - ExpandedBottomBarHeight.toPx()
                                 val radius = PanelRiseStartRadius.toPx() +
-                                    (InfoCardRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
+                                    (panelRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
                                 clip = true
                                 shape = PanelRevealShape(
                                     top = miniTop * (1f - progress),

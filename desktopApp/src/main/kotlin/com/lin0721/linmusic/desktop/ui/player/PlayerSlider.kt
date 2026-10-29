@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.progressScaled
 import com.lin0721.linmusic.desktop.ui.components.TooltipLabel
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.roundToInt
@@ -71,7 +72,8 @@ fun PlayerSlider(
     val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
 
     val fraction = value.coerceIn(0f, 1f)
-    val shape = RoundedCornerShape(TrackHeight / 2)
+    val trackHeight = progressScaled(TrackHeight)
+    val shape = RoundedCornerShape(trackHeight / 2)
 
     Box(
         modifier = modifier
@@ -114,7 +116,7 @@ fun PlayerSlider(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(TrackHeight)
+                .height(trackHeight)
                 .clip(shape)
                 .background(DesktopColors.SurfaceLight)
         )
@@ -124,7 +126,7 @@ fun PlayerSlider(
             Box(
                 Modifier
                     .fillMaxWidth(hoverFraction)
-                    .height(TrackHeight)
+                    .height(trackHeight)
                     .clip(shape)
                     .background(DesktopColors.TextGray.copy(alpha = 0.6f))
             )
@@ -134,7 +136,7 @@ fun PlayerSlider(
         Box(
             Modifier
                 .fillMaxWidth(fraction)
-                .height(TrackHeight)
+                .height(trackHeight)
                 .clip(shape)
                 .background(
                     when {

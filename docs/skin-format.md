@@ -116,11 +116,16 @@ assets/bg.jpg      可选，背景图（png / jpg / jpeg / webp）
 
 ### style
 
-| 字段 | 取值 | 当前生效范围 |
+| 字段 | 取值 | 生效范围 |
 |---|---|---|
-| `radius.pane` | 0–24，默认 8 | 桌面端面板圆角 |
+| `radius.pane` | 0–24，默认 8 | 桌面端三栏面板 |
+| `radius.card` | 0–32 | 播放页信息卡、桌面正在播放卡片、首页每日推荐卡 |
+| `radius.cover` | 0–999 | 封面缩略图与大封面；圆形头像与直角封面不受影响 |
+| `radius.button` | 0–999 | 通用按钮、对话框按钮、播放主按钮 |
 | `font.family` | `default` / `monospace` | 全局字体 |
 | `border.panes` / `border.width` | 布尔 / 0.5–2 | 面板与浮层描边 |
-| `radius.card`、`radius.cover`、`radius.button`、`density`、`progress`、`controlStyle` | 见格式定义 | 暂只解析，后续版本接入 |
+| `density` | `compact` / `normal` / `comfortable` | 歌曲列表行的上下间距（0.85 / 1 / 1.15 倍） |
+| `progress` | `line` / `thick` | `thick` 时播放进度条与桌面音量条加粗一倍 |
+| `controlStyle` | `icon` / `outlined` | `outlined` 时播放主按钮改为描边，上一首、下一首加圆形描边 |
 
 `layouts`（播放器布局）在后续版本支持，目前导入时原样保留。

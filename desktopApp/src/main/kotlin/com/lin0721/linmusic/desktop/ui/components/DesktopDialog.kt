@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
 
@@ -93,7 +94,7 @@ fun DialogButton(
 ) {
     val active = enabled && !loading
     Box(
-        Modifier.clip(ButtonShape)
+        Modifier.clip(styledButtonShape(ButtonShape))
             .background(if (primary) DesktopColors.TextPrimary.copy(alpha = if (active) 1f else 0.4f) else Color.Transparent)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(enabled = active, onClick = onClick)

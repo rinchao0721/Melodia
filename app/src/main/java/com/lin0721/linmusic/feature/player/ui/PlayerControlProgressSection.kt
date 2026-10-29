@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.progressScaled
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import kotlin.math.abs
 
@@ -126,8 +127,8 @@ fun ProgressSection(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .height(progressScaled(4.dp))
+                    .clip(RoundedCornerShape(progressScaled(2.dp)))
                     .background(MelodiaColors.SurfaceLight)
             )
 
@@ -135,8 +136,8 @@ fun ProgressSection(
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .height(progressScaled(4.dp))
+                    .clip(RoundedCornerShape(progressScaled(2.dp)))
                     .background(MelodiaColors.TextPrimary)
             )
 

@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.styledCardRadius
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
@@ -686,7 +687,7 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
     Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("今日为你推荐", horizontalPadding = 0)
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(containerColor)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(styledCardRadius(8.dp))).background(containerColor)
                 .clickable(onClick = onOpen).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.ui.graphics.Color
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -30,6 +33,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.outlinedControls
+import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 
 // 主控件行：随机/漫游、上一曲、播放暂停、下一曲、循环模式
 @Composable
@@ -85,7 +90,9 @@ fun PlaybackControls(
             horizontalArrangement = Arrangement.spacedBy(28.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport) {
+            val outlined = outlinedControls
+            val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
+            MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
                 Icon(Icons.Rounded.SkipPrevious, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
             }
             val playInteraction = remember { MutableInteractionSource() }
@@ -113,18 +120,20 @@ fun PlaybackControls(
                     clickTrigger++
                     onTogglePlay()
                 },
-                containerColor = MelodiaColors.TextPrimary,
-                shape = CircleShape,
+                containerColor = if (outlined) Color.Transparent else MelodiaColors.TextPrimary,
+                shape = styledButtonShape(CircleShape),
+                elevation = if (outlined) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
                 interactionSource = playInteraction,
                 modifier = Modifier
                     .size(72.dp)
+                    .then(if (outlined) Modifier.border(2.dp, MelodiaColors.TextPrimary, styledButtonShape(CircleShape)) else Modifier)
                     .graphicsLayer {
                         alpha = buttonAlpha.value
                     }
             ) {
-                PlayPauseIcon(isPlaying, MelodiaColors.InverseText, size = 42.dp)
+                PlayPauseIcon(isPlaying, if (outlined) MelodiaColors.TextPrimary else MelodiaColors.InverseText, size = 42.dp)
             }
-            MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport) {
+            MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
                 Icon(Icons.Rounded.SkipNext, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
             }
         }

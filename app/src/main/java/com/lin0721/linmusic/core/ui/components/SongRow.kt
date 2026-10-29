@@ -74,6 +74,7 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.densityScaled
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -160,7 +161,7 @@ fun SongRow(
             .fillMaxWidth()
             .alpha(if (enabled) 1f else DISABLED_ROW_ALPHA)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = MelodiaSpacing.md, vertical = verticalPadding),
+            .padding(horizontal = MelodiaSpacing.md, vertical = densityScaled(verticalPadding)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 退出动画期间 selectionChecked 已为 null，保留最后的勾选态避免复选框收起时闪一下

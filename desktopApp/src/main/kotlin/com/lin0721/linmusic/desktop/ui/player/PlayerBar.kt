@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui.player
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -62,6 +63,8 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.outlinedControls
+import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
@@ -207,21 +210,26 @@ fun PlayerBar(
                     showDot = true,
                     onClick = controller::toggleShuffle
                 )
-                BarIconButton(Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, onClick = controller::skipToPrevious)
+                val outlined = outlinedControls
+                val transportOutline = if (outlined) Modifier.border(1.dp, DesktopColors.Outline, CircleShape) else Modifier
+                BarIconButton(Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, onClick = controller::skipToPrevious, modifier = transportOutline)
                 val playHover = remember { MutableInteractionSource() }
                 val playHovered by playHover.collectIsHoveredAsState()
                 val playScale by hoverScale(playHovered && hasTrack)
+                val playShape = styledButtonShape(CircleShape)
+                val playActive = if (hasTrack) DesktopColors.TextPrimary else DesktopColors.SurfaceLight
+                // 描边风格：不填充，描边与图标用前景色
                 Box(
-                    Modifier.size(TransportButtonSize).graphicsLayer { scaleX = playScale; scaleY = playScale }.clip(CircleShape)
-                        .background(if (hasTrack) DesktopColors.TextPrimary else DesktopColors.SurfaceLight)
+                    Modifier.size(TransportButtonSize).graphicsLayer { scaleX = playScale; scaleY = playScale }.clip(playShape)
+                        .then(if (outlined) Modifier.border(1.5.dp, playActive, playShape) else Modifier.background(playActive))
                         .hoverable(playHover),
                     contentAlignment = Alignment.Center
                 ) {
                     IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
-                        PlayPauseIcon(isPlaying, DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
+                        PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
                     }
                 }
-                BarIconButton(Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, onClick = controller::playNext)
+                BarIconButton(Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, onClick = controller::playNext, modifier = transportOutline)
                 if (!podcast.isPodcast) BarIconButton(
                     if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                     "循环模式",

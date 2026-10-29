@@ -1,7 +1,11 @@
 package com.lin0721.linmusic.core.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -71,3 +75,43 @@ enum class ThemeControlStyle(val key: String) {
         fun fromKey(key: String): ThemeControlStyle? = entries.firstOrNull { it.key == key }
     }
 }
+
+private const val COMPACT_SCALE = 0.85f
+private const val COMFORTABLE_SCALE = 1.15f
+private const val THICK_PROGRESS_SCALE = 2f
+
+// 列表行高与行内间距的倍数
+val MelodiaStyle.densityScale: Float
+    get() = when (density) {
+        ThemeDensity.COMPACT -> COMPACT_SCALE
+        ThemeDensity.NORMAL -> 1f
+        ThemeDensity.COMFORTABLE -> COMFORTABLE_SCALE
+    }
+
+// 播放进度条轨道粗细的倍数
+val MelodiaStyle.progressScale: Float
+    get() = if (progress == ThemeProgressStyle.THICK) THICK_PROGRESS_SCALE else 1f
+
+// 以下取值在皮肤没写对应项时返回调用方原本的默认值
+@Composable
+@ReadOnlyComposable
+fun styledCardRadius(default: Dp): Dp = LocalMelodiaStyle.current.cardRadius ?: default
+
+@Composable
+@ReadOnlyComposable
+fun styledCoverRadius(default: Dp): Dp = LocalMelodiaStyle.current.coverRadius ?: default
+
+@Composable
+@ReadOnlyComposable
+fun styledButtonShape(default: Shape): Shape = LocalMelodiaStyle.current.buttonRadius?.let { RoundedCornerShape(it) } ?: default
+
+@Composable
+@ReadOnlyComposable
+fun densityScaled(value: Dp): Dp = value * LocalMelodiaStyle.current.densityScale
+
+@Composable
+@ReadOnlyComposable
+fun progressScaled(value: Dp): Dp = value * LocalMelodiaStyle.current.progressScale
+
+val outlinedControls: Boolean
+    @Composable @ReadOnlyComposable get() = LocalMelodiaStyle.current.controls == ThemeControlStyle.OUTLINED

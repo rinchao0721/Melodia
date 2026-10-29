@@ -77,6 +77,7 @@ import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.theme.densityScaled
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
@@ -214,7 +215,7 @@ fun TrackRow(
                         Modifier
                     }
                 )
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = densityScaled(6.dp)),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selection != null) {
