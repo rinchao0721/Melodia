@@ -42,8 +42,15 @@ data class MelodiaPalette(
     val accent: Color,
     val onAccent: Color,
     val accentText: Color,
-    val accentContainer: Color
+    val accentContainer: Color,
+    val backdrop: PaneBackdrop? = null
 ) {
+    // 铺底分三类：画布、面板外壳各铺一次，页面内部叠在外壳上；有皮肤背景图时画布与页面内部改为同色全透明，
+    // 渐变以它们收尾时只淡出不发灰；需要挡住内容的吸顶层改用 paneBackdrop
+    val canvasFill: Color get() = if (backdrop == null) windowBackground else windowBackground.copy(alpha = 0f)
+    val shellFill: Color get() = backdrop?.let { pane.copy(alpha = it.paneOpacity) } ?: pane
+    val pageFill: Color get() = if (backdrop == null) pane else pane.copy(alpha = 0f)
+
     fun withAccent(color: Color): MelodiaPalette = copy(
         accent = color,
         onAccent = contentColorOn(color),
@@ -55,6 +62,10 @@ data class MelodiaPalette(
     // 不透明的悬停色，供需要实色的场景（动画插值、拖拽中的行）使用
     fun hoverOn(background: Color): Color = hover.compositeOver(background)
 }
+
+// 皮肤背景图透出参数：dim 为画布遮罩不透明度，paneOpacity 为面板外壳不透明度
+@Immutable
+data class PaneBackdrop(val dim: Float, val paneOpacity: Float)
 
 private const val DARK_ACCENT_CONTAINER_ALPHA = 0.16f
 private const val LIGHT_ACCENT_CONTAINER_ALPHA = 0.12f

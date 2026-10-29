@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.comment.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +50,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 全屏主评论页：全屏 overlay 覆盖层，展示完整评论流并内嵌底部输入栏
 @Composable
@@ -76,7 +76,7 @@ fun CommentFullScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MelodiaColors.Background)
+            .paneBackdrop(MelodiaColors.Background)
             .statusBarsPadding()
     ) {
         val totalCount = commentsState.totalCount ?: (commentsState as? CommentsState.Success)?.total ?: 0

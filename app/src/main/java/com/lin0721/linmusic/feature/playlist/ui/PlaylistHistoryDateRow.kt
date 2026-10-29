@@ -18,6 +18,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // ────────────────────────────────────────────────────────────────────────────
 // 每日推荐历史日期筛选行
@@ -36,7 +37,7 @@ fun PlaylistHistoryDateRow(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .padding(vertical = 12.dp),
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

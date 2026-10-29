@@ -217,7 +217,7 @@ fun LocalHeroHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.smoothVerticalGradient(from = themedCoverBase(animatedBase, 0.25f), to = MelodiaColors.Background))
+            .background(Brush.smoothVerticalGradient(from = themedCoverBase(animatedBase, 0.25f), to = MelodiaColors.PageFill))
             .statusBarsPadding()
             .padding(bottom = MelodiaSpacing.md)
     ) {

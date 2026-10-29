@@ -58,7 +58,7 @@ fun LibraryPane(
     Box(
         Modifier.width(width).fillMaxHeight()
             .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
-            .background(DesktopColors.Pane)
+            .background(DesktopColors.ShellFill)
     ) {
         SharedTransitionLayout(Modifier.fillMaxSize()) {
             val sharedScope = this

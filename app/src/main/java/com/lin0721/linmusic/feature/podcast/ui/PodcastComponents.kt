@@ -57,6 +57,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.feature.podcast.domain.PodcastCategory
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressEntry
@@ -174,7 +175,7 @@ fun PodcastFilterBar(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .padding(vertical = 10.dp),
         contentPadding = PaddingValues(horizontal = PodcastEdgePadding),
         horizontalArrangement = Arrangement.spacedBy(7.dp)

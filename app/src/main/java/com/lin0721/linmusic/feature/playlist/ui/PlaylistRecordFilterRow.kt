@@ -17,6 +17,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // ────────────────────────────────────────────────────────────────────────────
 // 听歌排行时间范围筛选行
@@ -31,7 +32,7 @@ fun PlaylistRecordFilterRow(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .padding(vertical = 12.dp),
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

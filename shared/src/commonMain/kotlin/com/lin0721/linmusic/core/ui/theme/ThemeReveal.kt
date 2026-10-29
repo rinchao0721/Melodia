@@ -39,7 +39,7 @@ import kotlin.math.max
 
 private const val TAG = "ThemeReveal"
 private const val REVEAL_DURATION_MS = 300
-// 写入设置后迟迟没有切换深浅时撤掉截图，避免画面卡在旧主题
+// 写入设置后主题迟迟没有变化时撤掉截图，避免画面卡在旧主题
 private const val REVEAL_TIMEOUT_MS = 1000L
 
 // 以 origin 为圆心覆盖整个区域所需的半径，即到最远角的距离
@@ -49,14 +49,14 @@ fun revealRadius(origin: Offset, size: Size): Float {
     return hypot(dx, dy)
 }
 
-internal class RevealSnapshot(val image: ImageBitmap, val origin: Offset, val isDark: Boolean)
+internal class RevealSnapshot(val image: ImageBitmap, val origin: Offset, val themeKey: Any?)
 
-// 深浅切换的圆形扩散：先截下旧主题画面再写设置，新主题生效后在截图上挖圆洞向外扩散
+// 主题切换的圆形扩散：先截下旧主题画面再写设置，新主题生效后在截图上挖圆洞向外扩散
 @Stable
 class ThemeRevealController internal constructor(private val layer: GraphicsLayer) {
     internal var snapshot by mutableStateOf<RevealSnapshot?>(null)
     internal var enabled = true
-    internal var isDark = true
+    internal var themeKey: Any? = null
     internal var hostOffset = Offset.Zero
 
     // windowOrigin 为窗口坐标；截图失败或动画关闭时直接应用
@@ -71,7 +71,7 @@ class ThemeRevealController internal constructor(private val layer: GraphicsLaye
             AppLogger.w(TAG, "截取主题切换画面失败", e)
             null
         }
-        if (image != null) snapshot = RevealSnapshot(image, windowOrigin - hostOffset, isDark)
+        if (image != null) snapshot = RevealSnapshot(image, windowOrigin - hostOffset, themeKey)
         apply()
     }
 
@@ -82,13 +82,13 @@ class ThemeRevealController internal constructor(private val layer: GraphicsLaye
 
 val LocalThemeReveal = staticCompositionLocalOf<ThemeRevealController?> { null }
 
-// 模式卡片的点击入口：深浅会变时走圆形扩散，否则直接应用
+// 模式卡片、皮肤卡片的点击入口：主题会变时走圆形扩散，否则直接应用（不变时等不到新主题会卡住截图）
 class ThemeSwitcher internal constructor(
     private val scope: CoroutineScope,
     private val controller: ThemeRevealController?
 ) {
-    fun switch(windowOrigin: Offset, changesDarkness: Boolean, apply: () -> Unit) {
-        if (controller == null || !changesDarkness) {
+    fun switch(windowOrigin: Offset, changesTheme: Boolean, apply: () -> Unit) {
+        if (controller == null || !changesTheme) {
             apply()
             return
         }
@@ -103,20 +103,21 @@ fun rememberThemeSwitcher(): ThemeSwitcher {
     return remember(scope, controller) { ThemeSwitcher(scope, controller) }
 }
 
+// themeKey 为当前生效主题的完整取值（如色板），变化即视为新主题已生效
 @Composable
-fun ThemeRevealHost(isDark: Boolean, enabled: Boolean, content: @Composable () -> Unit) {
+fun ThemeRevealHost(themeKey: Any, enabled: Boolean, content: @Composable () -> Unit) {
     val layer = rememberGraphicsLayer()
     val controller = remember(layer) { ThemeRevealController(layer) }
     SideEffect {
         controller.enabled = enabled
-        controller.isDark = isDark
+        controller.themeKey = themeKey
     }
     val progress = remember { Animatable(0f) }
     val snapshot = controller.snapshot
-    LaunchedEffect(snapshot, isDark) {
+    LaunchedEffect(snapshot, themeKey) {
         val current = snapshot ?: return@LaunchedEffect
         progress.snapTo(0f)
-        if (isDark == current.isDark) {
+        if (themeKey == current.themeKey) {
             delay(REVEAL_TIMEOUT_MS)
         } else {
             progress.animateTo(1f, tween(REVEAL_DURATION_MS, easing = FastOutSlowInEasing))

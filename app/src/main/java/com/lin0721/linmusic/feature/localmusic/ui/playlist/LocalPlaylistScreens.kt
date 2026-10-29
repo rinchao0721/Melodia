@@ -177,7 +177,7 @@ fun LocalPlaylistScreen(
 
     BackHandler(enabled = editing) { editing = false }
 
-    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.Background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) {
             when {
                 playlist == null -> MissingPlaylist(onBack = navigation.onBack)

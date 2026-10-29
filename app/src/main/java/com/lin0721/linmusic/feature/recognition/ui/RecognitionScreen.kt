@@ -199,7 +199,7 @@ fun RecognitionScreen(
     val showMiniPlayer = nowPlaying != null && uiState !is RecognitionUiState.Listening
 
     // Surface 吃掉触摸，避免点击穿透到下层页面
-    Surface(modifier = Modifier.fillMaxSize(), color = MelodiaColors.Background) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MelodiaColors.PageFill) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 底部导航栏留白由最外层统一处理，内部（含历史页 Scaffold）不再重复计算
             Box(

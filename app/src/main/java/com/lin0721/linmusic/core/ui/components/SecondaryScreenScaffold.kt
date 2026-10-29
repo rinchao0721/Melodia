@@ -51,10 +51,10 @@ fun SecondaryScreenScaffold(
                     }
                 },
                 actions = actions,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MelodiaColors.Background)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MelodiaColors.PageFill)
             )
         },
-        containerColor = MelodiaColors.Background
+        containerColor = MelodiaColors.PageFill
     ) { innerPadding ->
         if (wideLayout) {
             Column(

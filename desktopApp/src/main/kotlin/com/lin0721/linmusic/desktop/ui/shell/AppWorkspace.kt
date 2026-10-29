@@ -179,7 +179,7 @@ internal fun Workspace(
 @Composable
 private fun Pane(modifier: Modifier, content: @Composable () -> Unit) {
     Box(
-        modifier.fillMaxHeight().clip(RoundedCornerShape(DesktopDimens.PaneRadius)).background(DesktopColors.Pane)
+        modifier.fillMaxHeight().clip(RoundedCornerShape(DesktopDimens.PaneRadius)).background(DesktopColors.ShellFill)
             .floatingOutline(RoundedCornerShape(DesktopDimens.PaneRadius))
     ) {
         content()

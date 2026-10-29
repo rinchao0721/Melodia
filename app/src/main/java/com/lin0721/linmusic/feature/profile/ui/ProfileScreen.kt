@@ -59,7 +59,7 @@ fun ProfileScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MelodiaColors.Background)
+            .background(MelodiaColors.PageFill)
     ) {
         when (val state = uiState) {
             ProfileUiState.Loading -> {

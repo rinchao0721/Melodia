@@ -99,7 +99,7 @@ fun RadioDetailScreen(
             .collect { if (it) viewModel.loadMore() }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             is RadioDetailUiState.Loading -> Box(
                 modifier = Modifier.fillMaxSize(),
@@ -229,7 +229,7 @@ private fun RadioDetailHeader(
                             listOf(
                                 Color.Black.copy(alpha = 0.35f),
                                 Color.Black.copy(alpha = 0.55f),
-                                MelodiaColors.Background
+                                MelodiaColors.PageFill
                             )
                         )
                     )

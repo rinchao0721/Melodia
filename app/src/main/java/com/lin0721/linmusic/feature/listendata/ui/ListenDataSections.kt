@@ -185,10 +185,10 @@ private fun BoxScope.CoverWall(urls: List<String>) {
             .background(
                 Brush.verticalGradient(
                     // 顶部收进底色接住药丸行，中段留出封面色调，底部实色收尾接下方卡片
-                    0f to MelodiaColors.Background.copy(alpha = 0.95f),
-                    0.35f to MelodiaColors.Background.copy(alpha = 0.86f),
-                    0.8f to MelodiaColors.Background.copy(alpha = 0.93f),
-                    1f to MelodiaColors.Background
+                    0f to MelodiaColors.pageFill(0.95f),
+                    0.35f to MelodiaColors.pageFill(0.86f),
+                    0.8f to MelodiaColors.pageFill(0.93f),
+                    1f to MelodiaColors.PageFill
                 )
             )
     )

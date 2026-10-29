@@ -78,7 +78,7 @@ fun StyleDetailScreen(
         viewModel.toastEvent.collect { ToastManager.showToast(it) }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             StyleDetailUiState.Loading -> PlaceholderPage(name) { MusicSectionLoading() }
             is StyleDetailUiState.Error -> PlaceholderPage(name) {

@@ -57,6 +57,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PressStyle
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import java.util.Calendar
@@ -79,7 +80,7 @@ fun HomeSharedHeader(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(2f)
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
         Row(

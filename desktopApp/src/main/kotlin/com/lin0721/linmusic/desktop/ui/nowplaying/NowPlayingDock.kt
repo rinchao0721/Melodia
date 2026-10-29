@@ -37,6 +37,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
@@ -119,7 +120,7 @@ private fun OverlayLayer(visible: Boolean, content: @Composable (Modifier) -> Un
         exit = fadeOut(uiTween(OVERLAY_FADE_MS))
     ) {
         content(
-            Modifier.background(DesktopColors.Pane).clickable(
+            Modifier.paneBackdrop(DesktopColors.Pane).clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {}
@@ -183,7 +184,7 @@ fun NowPlayingDock(
             Box(
                 Modifier.width(width).fillMaxHeight()
                     .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
-                    .background(DesktopColors.Pane)
+                    .background(DesktopColors.ShellFill)
                     .hoverable(hoverSource)
                     .then(
                         if (collapsed) {
@@ -277,7 +278,7 @@ fun FloatingDockPanel(
 ) {
     val shape = RoundedCornerShape(DesktopDimens.PaneRadius)
     val playerCommentsHost = remember(playerViewModel) { playerViewModel.asCommentsHost() }
-    Box(modifier.themedShadow(16.dp, shape).clip(shape).background(DesktopColors.Pane)) {
+    Box(modifier.themedShadow(16.dp, shape).clip(shape).paneBackdrop(DesktopColors.Pane)) {
         when (overlay) {
             DockOverlay.Comments -> CommentsPanel(host = playerCommentsHost, onClose = onClose)
             DockOverlay.PlaylistComments -> playlistComments?.let { CommentsPanel(host = it, onClose = onClose) }

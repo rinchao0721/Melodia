@@ -16,6 +16,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlin.math.max
 
 const val SKIN_FILE_EXTENSION = "melodiaskin"
 
@@ -44,11 +45,12 @@ object SkinPackage {
 
     private class LimitExceeded(message: String) : Exception(message)
 
-    fun stage(input: InputStream, directory: File): SkinStageResult {
+    // codec 为 null 时跳过背景图尺寸检查与按背景图修正对比度
+    fun stage(input: InputStream, directory: File, codec: SkinImageCodec? = null): SkinStageResult {
         directory.deleteRecursively()
         if (!directory.mkdirs()) return SkinStageResult.Failure("无法创建临时目录")
         val result = try {
-            unpack(input, directory)
+            unpack(input, directory, codec)
         } catch (e: LimitExceeded) {
             SkinStageResult.Failure(e.message ?: "皮肤包超出大小限制")
         } catch (e: ZipException) {
@@ -62,7 +64,7 @@ object SkinPackage {
         return result
     }
 
-    private fun unpack(input: InputStream, directory: File): SkinStageResult {
+    private fun unpack(input: InputStream, directory: File, codec: SkinImageCodec?): SkinStageResult {
         val warnings = mutableListOf<String>()
         val seen = HashSet<String>()
         var totalBytes = 0L
@@ -99,7 +101,18 @@ object SkinPackage {
             is SkinParseResult.Failure -> return SkinStageResult.Failure(result.reason)
             is SkinParseResult.Success -> result
         }
-        val (fixedSkin, fixes) = SkinContrast.fix(parsed.skin)
+        val background = parsed.skin.background
+        val average = if (background != null && codec != null) {
+            val file = File(directory, background.image)
+            val size = codec.readSize(file) ?: return SkinStageResult.Failure("无法识别背景图 ${background.image}")
+            if (max(size.width, size.height) > SkinImages.MAX_IMAGE_SIDE) {
+                return SkinStageResult.Failure("背景图最长边超过 ${SkinImages.MAX_IMAGE_SIDE}px")
+            }
+            SkinImages.averageColor(file, codec) ?: return SkinStageResult.Failure("无法解码背景图 ${background.image}")
+        } else {
+            null
+        }
+        val (fixedSkin, fixes) = SkinContrast.fix(parsed.skin, average)
         if (fixes.isNotEmpty()) writeManifest(manifest, withColors(root, fixedSkin.darkColors, fixedSkin.lightColors))
         return SkinStageResult.Success(StagedSkin(fixedSkin, warnings + parsed.warnings, fixes, directory))
     }

@@ -39,6 +39,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.*
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.flow.collectLatest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
@@ -117,11 +118,11 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MelodiaColors.PageFill
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MelodiaColors.PageFill
     ) { innerPadding ->
         AdaptiveContentWidth(
             modifier = Modifier.padding(innerPadding)

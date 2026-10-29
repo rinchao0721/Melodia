@@ -526,7 +526,7 @@ fun DraggablePlaylistRow(
     )
     val isLifted = isDragging || dragOffsetY != 0f
     val bgColor by animateColorAsState(
-        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MelodiaColors.PageFill,
         animationSpec = uiSpring(),
         label = "playlist_row_bg"
     )

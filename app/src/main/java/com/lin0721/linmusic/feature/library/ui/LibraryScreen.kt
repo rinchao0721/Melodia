@@ -161,7 +161,7 @@ fun LibraryScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
     ) {
         AnimatedContent(
             targetState = isReorderMode,
@@ -731,7 +731,7 @@ private fun LibraryReorderView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
             .statusBarsPadding()
     ) {
         Row(

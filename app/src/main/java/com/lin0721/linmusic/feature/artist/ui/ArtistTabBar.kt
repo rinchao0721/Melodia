@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 分页 Tab 栏，索引与 ArtistContent 的内容分支一一对应
 @Composable
@@ -26,7 +27,7 @@ fun ArtistTabBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .padding(horizontal = MelodiaSpacing.md, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(28.dp)
     ) {

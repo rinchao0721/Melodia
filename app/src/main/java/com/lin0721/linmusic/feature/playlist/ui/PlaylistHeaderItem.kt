@@ -45,6 +45,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
@@ -113,7 +114,7 @@ fun PlaylistHeaderItem(
         label = "playlist_header_color"
     )
     val gradientTop = themedCoverBase(animatedDominant, 0.35f)
-    val bgDark = MaterialTheme.colorScheme.background
+    val bgDark = MelodiaColors.PageFill
     Column(
         modifier = Modifier
             .fillMaxWidth()

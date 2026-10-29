@@ -83,6 +83,7 @@ import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.ui.theme.canvasBackdrop
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
@@ -239,7 +240,7 @@ private fun LyricsViewContent(
     ImmersiveSurface(immersive) {
         Box(
             // 先铺窗口底色再留边，边里不会露出下层的侧栏和面板
-            Modifier.fillMaxSize().background(windowBackground)
+            Modifier.fillMaxSize().canvasBackdrop(windowBackground)
                 .padding(horizontal = DesktopDimens.PaneGap, vertical = verticalGap)
                 .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
                 .background(fill)

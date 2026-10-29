@@ -52,7 +52,7 @@ fun ProfileSidebar(
         modifier = Modifier
             .fillMaxHeight()
             .width(310.dp)
-            .background(MelodiaColors.Background)
+            .background(MelodiaColors.ShellFill)
             .statusBarsPadding() // 避开状态栏
     ) {
         // 1. 头部：用户资料区

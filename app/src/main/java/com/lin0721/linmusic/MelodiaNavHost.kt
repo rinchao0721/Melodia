@@ -275,7 +275,7 @@ fun MelodiaNavHost(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(MelodiaColors.Background)
+                                .background(MelodiaColors.PageFill)
                         )
                     }
                 }

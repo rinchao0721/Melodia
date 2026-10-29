@@ -20,6 +20,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -27,6 +28,7 @@ import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.interaction.MelodiaPressIndication
 import com.lin0721.linmusic.core.ui.skin.Skin
 import com.lin0721.linmusic.core.ui.skin.resolveSkinPalette
+import com.lin0721.linmusic.core.ui.skin.withBackdrop
 
 // 深色错误态固定用品牌红，不随主色变化
 private val ErrorRed = Color(0xFFC20C0C)
@@ -37,9 +39,14 @@ private val ErrorRed = Color(0xFFC20C0C)
 fun MelodiaTheme(
     themeSettings: ThemeSettings = ThemeSettings(),
     skin: Skin? = null,
+    backdropImage: ImageBitmap? = null,
     content: @Composable () -> Unit
 ) {
-    val palette = rememberMelodiaPalette(themeSettings, skin)
+    val basePalette = rememberMelodiaPalette(themeSettings, skin)
+    val backdropHost = remember(backdropImage) { backdropImage?.let(::SkinBackdropHost) }
+    val palette = remember(basePalette, backdropHost, skin) {
+        if (backdropHost == null) basePalette else basePalette.withBackdrop(skin?.background)
+    }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
     val style = skin?.style ?: MelodiaStyle.Default
     val typography = remember(style.font) { Typography.withFont(style.font) }
@@ -51,6 +58,7 @@ fun MelodiaTheme(
         CompositionLocalProvider(
             LocalMelodiaPalette provides palette,
             LocalMelodiaStyle provides style,
+            LocalSkinBackdrop provides backdropHost?.takeIf { palette.backdrop != null },
             LocalIndication provides MelodiaPressIndication.Default,
             LocalRippleConfiguration provides null,
             content = content

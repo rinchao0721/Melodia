@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.recognition.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +41,7 @@ import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.SwipeDeleteBackground
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import com.lin0721.linmusic.feature.recognition.data.MAX_RECOGNITION_HISTORY
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionHistoryEntry
@@ -176,7 +176,7 @@ private fun HistoryRow(
         enableDismissFromStartToEnd = false
     ) {
         // 前景必须有底色，否则左滑前就会透出红色底层
-        Box(modifier = Modifier.background(MelodiaColors.Background)) {
+        Box(modifier = Modifier.paneBackdrop(MelodiaColors.Background)) {
             SongRow(
                 data = SongRowData(
                     id = entry.songId,

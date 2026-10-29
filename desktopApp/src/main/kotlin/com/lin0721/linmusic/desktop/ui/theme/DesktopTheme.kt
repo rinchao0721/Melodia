@@ -16,15 +16,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaStyle
+import com.lin0721.linmusic.core.ui.theme.LocalSkinBackdrop
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
 import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
+import com.lin0721.linmusic.core.ui.theme.SkinBackdropHost
 import com.lin0721.linmusic.core.ui.theme.ThemeFont
 
 // 色值来自当前主题的 MelodiaPalette，语义见 MelodiaPalette；仅能在组合作用域内读取
 object DesktopColors {
     val WindowBackground: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.windowBackground
     val Pane: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.pane
+    val CanvasFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.canvasFill
+    val ShellFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shellFill
+    val PageFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.pageFill
     val Surface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.surface
     val CardSurface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.cardSurface
     val PopupSurface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.popupSurface
@@ -77,6 +82,7 @@ fun MelodiaDesktopTheme(
     uiScale: Float = 1f,
     palette: MelodiaPalette = MelodiaPalettes.dark,
     style: MelodiaStyle = MelodiaStyle.Default,
+    backdrop: SkinBackdropHost? = null,
     content: @Composable () -> Unit
 ) {
     val baseDensity = LocalDensity.current
@@ -89,7 +95,8 @@ fun MelodiaDesktopTheme(
     CompositionLocalProvider(
         LocalDensity provides scaledDensity,
         LocalMelodiaPalette provides palette,
-        LocalMelodiaStyle provides style
+        LocalMelodiaStyle provides style,
+        LocalSkinBackdrop provides backdrop?.takeIf { palette.backdrop != null }
     ) {
         MaterialTheme(colorScheme = colorScheme, typography = typography, content = content)
     }

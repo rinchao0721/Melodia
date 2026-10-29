@@ -99,6 +99,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.ui.comments.asCommentsHost
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -545,7 +546,7 @@ private fun PlaylistContent(
             item(key = "header") {
                 Column(
                     Modifier.fillMaxWidth().onSizeChanged { headerHeightPx = it.height }
-                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         PlaylistHero(playlist, isAlbum, count, totalMs)
@@ -607,7 +608,7 @@ private fun PlaylistContent(
                         }
                     }
                 ) {
-                    Column(Modifier.background(DesktopColors.Pane)) {
+                    Column(Modifier.paneBackdrop(DesktopColors.Pane)) {
                         if (selection.active) {
                             val shownIds = shown.map { it.id }
                             TrackSelectionBar(
@@ -1099,7 +1100,7 @@ internal fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSe
 // 列宽与 TrackRow 逐项对齐：序号 32、封面槽 56、标题 0.45、专辑 0.35、[添加日期]、红心槽 32、时长 48、更多槽 36
 @Composable
 internal fun TrackColumnHeader(order: PlaylistSortOrder, showAdded: Boolean, onSort: (PlaylistSortKey) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(DesktopColors.Pane)) {
+    Column(Modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically

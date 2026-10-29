@@ -76,7 +76,7 @@ fun ArtistAlbumRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {

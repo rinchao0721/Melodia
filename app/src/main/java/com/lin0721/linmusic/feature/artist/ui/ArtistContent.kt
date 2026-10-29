@@ -35,6 +35,7 @@ import com.lin0721.linmusic.core.ui.components.rememberSelectionBottomPadding
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
@@ -173,7 +174,7 @@ fun ArtistContent(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { translationY = plateTopPx() }
-                .background(MaterialTheme.colorScheme.background)
+                .paneBackdrop(MaterialTheme.colorScheme.background)
         )
 
         // 滚动视口列表

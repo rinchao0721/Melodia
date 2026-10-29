@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
@@ -135,7 +135,7 @@ fun WindowScope.MelodiaDesktopApp(
 
     CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
         Box(
-            Modifier.fillMaxSize().background(DesktopColors.WindowBackground)
+            Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }
                 .onPointerEvent(PointerEventType.Exit) { lyricsView.pointerInWindow = false }
                 // 点到搜索下拉之外就收起它；鼠标侧键与浏览器一致：后退键返回，前进键前进；不消费事件，子组件照常响应

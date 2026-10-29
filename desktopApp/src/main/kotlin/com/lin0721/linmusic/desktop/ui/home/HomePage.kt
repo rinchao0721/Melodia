@@ -202,7 +202,7 @@ fun HomePage(
         targetValue = if (activeCoverUrl.isNotBlank()) {
             themedCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
         } else {
-            DesktopColors.Pane
+            DesktopColors.PageFill
         },
         animationSpec = uiTween(HOME_GRADIENT_ANIM_MS),
         label = "homeTopGradient"
@@ -255,7 +255,7 @@ fun HomePage(
                     .fillMaxWidth()
                     .height(HomeGradientHeight)
                     .graphicsLayer { translationY = -currentScrollOffset }
-                    .background(Brush.verticalGradient(listOf(gradientColor, DesktopColors.Pane)))
+                    .background(Brush.verticalGradient(listOf(gradientColor, DesktopColors.PageFill)))
             )
                 when {
                     selectedTab == HOME_TAB_MUSIC && newWorksSelected -> NewWorksTab(

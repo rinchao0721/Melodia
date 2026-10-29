@@ -3,7 +3,6 @@ package com.lin0721.linmusic.desktop.ui.comments
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +43,7 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.presentation.allComments
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
@@ -174,7 +174,7 @@ fun CommentsPanel(
                 currentUserId = currentUserId,
                 host = host,
                 onRequestDelete = { comment -> deleteTarget = comment },
-                modifier = Modifier.background(DesktopColors.Pane).clickable(
+                modifier = Modifier.paneBackdrop(DesktopColors.Pane).clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {}

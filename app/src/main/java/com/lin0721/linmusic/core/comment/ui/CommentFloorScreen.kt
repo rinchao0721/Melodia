@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.comment.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 楼层详情页：某条评论的完整子回复列表，全屏 overlay，内嵌底部回复输入栏
 @Composable
@@ -66,7 +66,7 @@ fun CommentFloorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MelodiaColors.Background)
+            .paneBackdrop(MelodiaColors.Background)
             .statusBarsPadding()
     ) {
         Row(

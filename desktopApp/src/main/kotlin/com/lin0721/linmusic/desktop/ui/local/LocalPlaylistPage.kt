@@ -242,7 +242,7 @@ fun LocalPlaylistPage(
             item(key = "header") {
                 Column(
                     Modifier.fillMaxWidth().onSizeChanged { headerHeightPx = it.height }
-                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         LocalPlaylistHero(summary, tracks, folders)

@@ -413,7 +413,7 @@ fun DraggableSongRow(
         when {
             isDragging -> MaterialTheme.colorScheme.surfaceVariant
             isCurrent -> MaterialTheme.colorScheme.surface
-            else -> MaterialTheme.colorScheme.background
+            else -> MelodiaColors.PageFill
         },
         animationSpec = uiSpring(),
         label = "row_bg"

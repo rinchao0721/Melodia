@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.source.LxPluginRuntime
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.desktop.app.DesktopPaths
@@ -57,6 +58,7 @@ import com.lin0721.linmusic.desktop.player.cache.AudioCache
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
 import com.lin0721.linmusic.desktop.ui.local.LocalMusicActions
 import com.lin0721.linmusic.desktop.ui.settings.DesktopSettingsViewModel
+import com.lin0721.linmusic.desktop.ui.theme.DesktopSkinImageCodec
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
@@ -130,7 +132,8 @@ private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferences
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
-    single { SkinStore(File(DesktopPaths.dataDir, "skins")) }
+    single<SkinImageCodec> { DesktopSkinImageCodec() }
+    single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }
     single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }

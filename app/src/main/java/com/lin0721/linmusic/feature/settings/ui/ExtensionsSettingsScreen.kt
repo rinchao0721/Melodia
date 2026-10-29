@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
+import com.lin0721.linmusic.core.ui.skin.SkinMode
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -55,6 +56,7 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
     val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
+    val activeSkin by viewModel.skins.activeSkin.collectAsStateWithLifecycle(initialValue = null)
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
 
@@ -156,8 +158,11 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                         settings = themeSettings,
                         onModeChange = viewModel::updateThemeMode,
                         onAccentChange = viewModel::updateThemeAccent,
-                        onCustomColorChange = viewModel::updateThemeCustomColor
+                        onCustomColorChange = viewModel::updateThemeCustomColor,
+                        lockedDark = activeSkin?.takeIf { it.modes.size == 1 }?.let { SkinMode.DARK in it.modes }
                     )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SkinSettingSection(settings = themeSettings, repository = viewModel.skins)
                     HorizontalDivider(color = MelodiaColors.Divider)
                     // 松手后才应用（会重建界面）；拖动中不应用，避免滑块在手指下移位
                     var pendingPercent by remember { mutableStateOf<Int?>(null) }

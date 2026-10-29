@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistInfo
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 关于艺人 Tab: 艺人简介 + 相似艺人推荐
@@ -29,7 +30,7 @@ fun LazyListScope.artistAboutTab(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
+                .background(MelodiaColors.PageFill)
                 .padding(horizontal = MelodiaSpacing.md, vertical = 20.dp)
         ) {
             Text(
@@ -74,7 +75,7 @@ fun LazyListScope.artistAboutTab(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(MelodiaColors.PageFill)
                     .padding(vertical = MelodiaSpacing.md)
             ) {
                 Text(

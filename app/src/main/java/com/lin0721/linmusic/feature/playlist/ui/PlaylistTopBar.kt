@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -164,7 +165,7 @@ fun PlaylistReorderTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(overlayHeight)
-            .background(MaterialTheme.colorScheme.background)
+            .paneBackdrop(MaterialTheme.colorScheme.background)
             .zIndex(8f)
             // 拦截排序顶栏空白处点击，防止手势穿透到底层列表
             .pointerInput(Unit) {

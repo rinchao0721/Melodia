@@ -91,7 +91,7 @@ fun LocalArtistScreen(
         artist?.tracks?.mapNotNull { library.album(it.albumKey) }?.filterNot { it.isUnknown }?.distinctBy { it.key }.orEmpty()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.Background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) { state ->
             if (artist == null) {
                 MissingContent(title = "该歌手已没有本地歌曲", onBack = navigation.onBack)
@@ -196,7 +196,7 @@ fun LocalAlbumScreen(
     LocalSelectionLifecycle(viewModel, selecting = success?.isSelectionMode == true)
     val album = library.album(albumKey)
 
-    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.Background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) { state ->
             if (album == null) {
                 MissingContent(title = "该专辑已没有本地歌曲", onBack = navigation.onBack)

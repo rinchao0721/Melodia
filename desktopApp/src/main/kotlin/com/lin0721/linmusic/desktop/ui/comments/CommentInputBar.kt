@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.comments
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -79,7 +79,7 @@ fun CommentInputBar(
         }
     }
 
-    Column(modifier.fillMaxWidth().background(DesktopColors.Pane)) {
+    Column(modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)) {
         HorizontalDivider(color = DesktopColors.Divider)
         if (replyTarget != null) {
             Row(

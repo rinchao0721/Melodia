@@ -52,6 +52,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 import com.lin0721.linmusic.core.ui.theme.melodiaNavigationBarBottomPadding
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 
@@ -108,7 +109,7 @@ fun CommentInputBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MelodiaColors.Background.copy(alpha = 0.98f))
+            .paneBackdrop(MelodiaColors.Background.copy(alpha = 0.98f))
             .pointerInput(Unit) { detectTapGestures { } }
             .padding(bottom = bottomPadding)
     ) {

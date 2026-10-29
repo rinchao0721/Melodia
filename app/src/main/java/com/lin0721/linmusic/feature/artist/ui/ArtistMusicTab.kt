@@ -20,6 +20,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 音乐 Tab: 默认呈现热门50首歌曲，搜索框有内容时改为呈现该歌手的搜索结果
@@ -127,7 +128,7 @@ private fun CenteredStatus(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .background(MaterialTheme.colorScheme.background),
+            .background(MelodiaColors.PageFill),
         contentAlignment = Alignment.Center
     ) {
         content()

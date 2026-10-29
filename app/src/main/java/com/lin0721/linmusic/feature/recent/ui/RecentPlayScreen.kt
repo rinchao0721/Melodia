@@ -197,7 +197,7 @@ private fun DayHeader(label: String) {
         fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()
-            .background(MelodiaColors.Background)
+            .background(MelodiaColors.PageFill)
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
     )
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistAlbum
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 专辑 Tab: 采用精致的行模式展示，滚动到底自动追加下一页
@@ -26,7 +27,7 @@ fun LazyListScope.artistAlbumTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
-                    .background(MaterialTheme.colorScheme.background),
+                    .background(MelodiaColors.PageFill),
                 contentAlignment = Alignment.Center
             ) {
                 Text("暂无专辑", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)

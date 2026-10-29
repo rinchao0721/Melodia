@@ -78,6 +78,7 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -261,7 +262,7 @@ private fun ArtistContent(
                                     translationY = (barHeightPx - naturalY).coerceIn(0, barHeightPx).toFloat()
                                 }
                             }
-                            .background(DesktopColors.Pane)
+                            .paneBackdrop(DesktopColors.Pane)
                             .padding(horizontal = ContentPadding, vertical = 8.dp)
                     ) {
                         TabBar(ArtistTab.entries, tab, { it.label }, { tab = it })
@@ -514,7 +515,7 @@ private fun ArtistHeader(
             }
             Box(
                 Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.Pane.copy(alpha = 0.6f), DesktopColors.Pane))
+                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.PageFill.let { it.copy(alpha = it.alpha * 0.6f) }, DesktopColors.PageFill))
                 )
             )
             Column(Modifier.align(Alignment.BottomStart).padding(ContentPadding)) {

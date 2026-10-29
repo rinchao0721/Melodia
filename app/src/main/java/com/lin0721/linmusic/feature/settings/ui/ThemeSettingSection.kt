@@ -93,7 +93,9 @@ fun ThemeSettingSection(
     settings: ThemeSettings,
     onModeChange: (ThemeMode) -> Unit,
     onAccentChange: (isDark: Boolean, accentId: String) -> Unit,
-    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit
+    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit,
+    // 皮肤锁定深浅时为锁定值，切换模式不会改变画面
+    lockedDark: Boolean? = null
 ) {
     var pickerFor by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val darkDynamic = rememberDynamicAccent(isDark = true)
@@ -118,7 +120,8 @@ fun ThemeSettingSection(
                     lightAccent = lightAccent,
                     selected = settings.mode == mode,
                     onClick = { center ->
-                        switcher.switch(center, changesDarkness = mode.isDark(systemDark) != currentIsDark) { onModeChange(mode) }
+                        val changes = lockedDark == null && mode.isDark(systemDark) != currentIsDark
+                        switcher.switch(center, changesTheme = changes) { onModeChange(mode) }
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -221,7 +224,7 @@ private fun ModeCard(
 
 // 缩略图：窗口底色上一块面板，两条文字线与一枚主色药丸
 @Composable
-private fun ModeThumb(palette: MelodiaPalette, accent: Color, modifier: Modifier) {
+internal fun ModeThumb(palette: MelodiaPalette, accent: Color, modifier: Modifier) {
     Box(modifier = modifier.background(palette.windowBackground).padding(5.dp)) {
         Column(
             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(4.dp)).background(palette.pane).padding(7.dp),

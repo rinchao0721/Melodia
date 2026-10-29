@@ -60,9 +60,11 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
+import com.lin0721.linmusic.core.ui.theme.canvasBackdrop
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalContext
@@ -519,11 +521,24 @@ fun MelodiaNavigationBar(
     modifier: Modifier = Modifier
 ) {
     // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
+    val hasBackdrop = !expanded && MelodiaColors.HasBackdrop
     Surface(
-        color = if (expanded) MelodiaColors.Surface else MelodiaColors.NavigationBar,
+        color = when {
+            expanded -> MelodiaColors.Surface
+            hasBackdrop -> Color.Transparent
+            else -> MelodiaColors.NavigationBar
+        },
         shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                // 有皮肤背景图时底栏按原配色归属取对齐的背景：深色同页面，浅色同画布
+                when {
+                    !hasBackdrop -> Modifier
+                    MelodiaColors.IsDark -> Modifier.paneBackdrop(MelodiaColors.NavigationBar)
+                    else -> Modifier.canvasBackdrop(MelodiaColors.NavigationBar)
+                }
+            )
             .then(
                 if (expanded) {
                     Modifier

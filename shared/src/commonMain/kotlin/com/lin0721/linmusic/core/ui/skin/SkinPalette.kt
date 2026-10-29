@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.core.ui.skin
 
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
+import com.lin0721.linmusic.core.ui.theme.PaneBackdrop
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 
 // 皮肤文件 colors 下的字段名；key 与 MelodiaPalette 属性同名，改名会让已发布的皮肤失效
@@ -104,4 +106,20 @@ fun resolveSkinPalette(
         return base.withAccent(skinAccent).withOverrides(overrides.filterKeys { it in PaletteToken.accentDerived })
     }
     return base.withAccent(ThemeAccents.resolve(accentId, customHex, isDark, dynamicColor))
+}
+
+// 背景图解码成功后才调用，内部铺底随之改透明
+fun MelodiaPalette.withBackdrop(background: SkinBackground?): MelodiaPalette =
+    copy(backdrop = background?.let { PaneBackdrop(dim = it.dim, paneOpacity = it.paneOpacity) })
+
+// 切换皮肤后画面是否会变：色板或背景图有变化才走切换动画，否则扩散动画等不到新主题
+fun skinSwitchChangesTheme(settings: ThemeSettings, systemDark: Boolean, current: Skin?, target: Skin?): Boolean {
+    fun paletteOf(skin: Skin?): MelodiaPalette {
+        val requested = settings.mode.isDark(systemDark)
+        val isDark = skin?.effectiveDark(requested) ?: requested
+        return resolveSkinPalette(isDark, settings.accentId(isDark), settings.customHex(isDark), skin)
+    }
+    if (current?.id == target?.id) return false
+    val hasBackground = current?.background != null || target?.background != null
+    return hasBackground || paletteOf(current) != paletteOf(target)
 }

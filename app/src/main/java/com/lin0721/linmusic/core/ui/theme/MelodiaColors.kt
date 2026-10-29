@@ -11,6 +11,15 @@ private val FilterPillInactiveDark = Color(0xFF332B2B)
 object MelodiaColors {
     val WindowBackground: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.windowBackground
     val Background: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.pane
+    val CanvasFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.canvasFill
+    val ShellFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shellFill
+    val PageFill: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.pageFill
+    val HasBackdrop: Boolean @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.backdrop != null
+
+    // 页面铺底按比例降低不透明度；有皮肤背景图时始终全透明
+    @Composable
+    @ReadOnlyComposable
+    fun pageFill(alpha: Float): Color = PageFill.let { it.copy(alpha = it.alpha * alpha) }
     val CardSurface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.cardSurface
     val PopupSurface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.popupSurface
     val Surface: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.surface

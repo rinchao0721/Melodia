@@ -72,6 +72,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
 import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
+import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
@@ -403,7 +404,7 @@ fun MelodiaApp() {
                 orientation = Orientation.Horizontal,
                 enabled = isDrawerDraggable
             )
-            .background(MelodiaColors.Background)
+            .skinBackdropRoot(MelodiaColors.Background)
     ) {
         // 1. 侧边栏层 (位于最底层或同步移动)
         userProfile?.let { profile ->
@@ -449,7 +450,7 @@ fun MelodiaApp() {
                     shadowElevation = (sidebar.progress * 30f)
                 }
                 // 面板展开时画布压暗一档，靠缝隙处的明度差勾出两张卡片轮廓
-                .background(if (isPanelDocked) MelodiaColors.WindowBackground else MelodiaColors.Background)
+                .background(if (isPanelDocked) MelodiaColors.CanvasFill else MelodiaColors.ShellFill)
         ) {
             // 双卡片模式下靠屏幕边一侧只留 sm，靠面板一侧让出面板宽度 + 两侧间距
             val edgeGap = if (isPanelDocked) MelodiaSpacing.sm else 0.dp
@@ -476,7 +477,7 @@ fun MelodiaApp() {
                                         .padding(top = statusBarTop, bottom = navigationBarBottom)
                                         .consumeWindowInsets(WindowInsets.statusBars.union(WindowInsets.navigationBars))
                                         .clip(RoundedCornerShape(InfoCardRadius))
-                                        .background(MelodiaColors.Background)
+                                        .background(MelodiaColors.ShellFill)
                                 } else {
                                     Modifier
                                 }

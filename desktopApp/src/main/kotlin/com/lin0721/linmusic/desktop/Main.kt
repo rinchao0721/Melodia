@@ -31,8 +31,12 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.lin0721.linmusic.core.ui.skin.ActiveSkin
+import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.skin.withBackdrop
 import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
+import com.lin0721.linmusic.core.ui.theme.SkinBackdropHost
 import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.log.AppLogger
@@ -216,6 +220,7 @@ fun main() {
     }.getOrDefault(ThemeSettings())
     if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
     val skinRepository = koin.get<SkinRepository>()
+    val skinImageCodec = koin.get<SkinImageCodec>()
     val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId) } }.getOrNull()
     val restoredBounds = savedWindow.bounds
     val restoredPosition = restoredBounds?.takeIf { it.isReachableOn(currentScreenBounds()) }
@@ -263,8 +268,14 @@ fun main() {
         val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = initialUiAnimationsEnabled)
         val uiMotion = remember { UiMotion(initialUiAnimationsEnabled) }
         val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
-        val skin by skinRepository.activeSkin.collectAsState(initial = initialSkin)
-        val palette = rememberDesktopPalette(themeSettings, skin, windowEffects)
+        val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
+        val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
+        val skin = activeSkin.skin
+        val basePalette = rememberDesktopPalette(themeSettings, skin, windowEffects)
+        val backdropHost = remember(activeSkin) { activeSkin.backdrop?.let(::SkinBackdropHost) }
+        val palette = remember(basePalette, backdropHost, skin) {
+            if (backdropHost == null) basePalette else basePalette.withBackdrop(skin?.background)
+        }
         LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
         val isPlaying by controller.playWhenReady.collectAsState()
@@ -496,8 +507,13 @@ fun main() {
             CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, controller)
             CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
-                MelodiaDesktopTheme(uiScale = uiScaleFactor, palette = palette, style = skin?.style ?: MelodiaStyle.Default) {
-                    ThemeRevealHost(isDark = palette.isDark, enabled = uiMotion.enabled) {
+                MelodiaDesktopTheme(
+                    uiScale = uiScaleFactor,
+                    palette = palette,
+                    style = skin?.style ?: MelodiaStyle.Default,
+                    backdrop = backdropHost
+                ) {
+                    ThemeRevealHost(themeKey = palette to backdropHost, enabled = uiMotion.enabled) {
                         shellSession.Provide {
                             MelodiaDesktopApp(
                                 deps = appDependencies,
@@ -541,7 +557,7 @@ fun main() {
             MiniPlayerWindow(
                 init = remember { loadMiniPlayerInit() },
                 uiScale = uiScaleFactor,
-                palette = palette,
+                palette = basePalette,
                 uiMotion = uiMotion,
                 windowEffects = windowEffects,
                 icon = appIcon,

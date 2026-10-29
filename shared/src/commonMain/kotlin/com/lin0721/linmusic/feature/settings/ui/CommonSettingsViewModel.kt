@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,8 @@ import kotlinx.coroutines.launch
 // 各端共有的本地设置项；平台专属的设置由各端自己的 ViewModel 负责
 class CommonSettingsViewModel(
     private val settingsPreferences: SettingsPreferences,
-    private val sourcePreferences: SourcePreferences
+    private val sourcePreferences: SourcePreferences,
+    val skins: SkinRepository
 ) : ViewModel() {
 
     private fun <T> Flow<T>.asState(initial: T): StateFlow<T> = stateIn(

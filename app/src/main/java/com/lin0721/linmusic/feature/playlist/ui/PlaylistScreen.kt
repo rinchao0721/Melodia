@@ -235,7 +235,7 @@ fun PlaylistScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             is PlaylistUiState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -430,7 +430,7 @@ fun PlaylistScreen(
                         }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
                         PlaylistReorderTopBar(
                             overlayHeight = overlayHeight,
                             statusBarHeight = statusBarHeight,
