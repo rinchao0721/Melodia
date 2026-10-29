@@ -88,13 +88,13 @@ fun ProfileHeaderInfo(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(PillRadius))
-                            .background(Color(0xFFE8B45C).copy(alpha = 0.14f))
+                            .background(MelodiaColors.Vip.copy(alpha = 0.14f))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Lv.${userInfo.level}",
-                            color = Color(0xFFE8B45C),
+                            color = MelodiaColors.Vip,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )

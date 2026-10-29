@@ -178,4 +178,21 @@ class SkinCoverTest {
         val reread = SkinParser.parse(File(staged.directory, SkinPaths.MANIFEST).readText()) as SkinParseResult.Success
         assertEquals(dim, reread.skin.background!!.playerDim!!, 0.001f)
     }
+
+    // 写死颜色迁移到色板的前提：默认深色主题下这些色板项与原先的写死值完全相同
+    @Test
+    fun `迁移用到的色板项在默认深色下与原写死值一致`() {
+        val dark = MelodiaPalettes.dark
+        assertEquals(Color.Black, dark.shadowSpot)
+        assertEquals(Color.Black, dark.shadowAmbient)
+        assertEquals(Color.Black, dark.scrim.copy(alpha = 1f))
+        assertEquals(Color.White, dark.textPrimary)
+        assertEquals(Color.Black, dark.windowBackground)
+        val immersive = immersiveBasePalette(null)
+        assertEquals(Color.White, immersive.textPrimary)
+        assertEquals(Color.Black, immersive.windowBackground)
+        val light = MelodiaPalettes.light
+        assertEquals(Color.Black, light.shadowSpot.copy(alpha = 1f))
+        assertEquals(Color.Black, light.scrim.copy(alpha = 1f))
+    }
 }

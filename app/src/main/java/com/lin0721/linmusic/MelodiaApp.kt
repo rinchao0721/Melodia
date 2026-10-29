@@ -47,7 +47,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -520,7 +519,7 @@ fun MelodiaApp() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f))
+                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f))
                                     .pressable(MelodiaPress.None) { showCreateSheet = false }
                             )
                         }
@@ -580,7 +579,7 @@ fun MelodiaApp() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f * sidebar.progress))
+                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f * sidebar.progress))
                                     .pressable(
                                         style = MelodiaPress.None,
                                         enabled = sidebar.isOpen,

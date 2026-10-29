@@ -29,7 +29,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,7 +41,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import com.lin0721.linmusic.feature.cloud.upload.UploadTask
 
-private val StatusGreen = Color(0xFF639922)
 
 // 上传进度弹窗：只读展示 CloudUploadManager 的队列状态，不持有状态。
 // 关闭弹窗只是隐藏 UI，Service 和系统通知不受影响，继续跑
@@ -126,7 +124,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
             UploadStatus.SUCCESS -> Icon(
                 Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = StatusGreen,
+                tint = MelodiaColors.Success,
                 modifier = Modifier.size(18.dp)
             )
 

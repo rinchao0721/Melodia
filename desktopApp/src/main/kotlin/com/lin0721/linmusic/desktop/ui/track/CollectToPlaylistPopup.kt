@@ -220,7 +220,7 @@ private fun CollectPanel(
             }
             state.collectItems.isEmpty() -> EmptyHint("还没有自建歌单")
             visible.isEmpty() -> EmptyHint("未找到匹配的歌单")
-            else -> HoverScrollbarBox(listState, Modifier.topScrollShadow { topShadowAlpha }) {
+            else -> HoverScrollbarBox(listState, Modifier.topScrollShadow(DesktopColors.ShadowSpot) { topShadowAlpha }) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxWidth().heightIn(max = ListMaxHeight),
@@ -271,13 +271,13 @@ private fun CollectPanel(
 }
 
 // 列表向下滚动后，在顶部分隔线下方叠一道渐隐阴影，提示上方还有被滚走的内容
-private fun Modifier.topScrollShadow(alpha: () -> Float): Modifier = drawWithContent {
+private fun Modifier.topScrollShadow(shadow: Color, alpha: () -> Float): Modifier = drawWithContent {
     drawContent()
     val current = alpha()
     if (current > 0f) {
         val height = ShadowHeight.toPx()
         drawRect(
-            Brush.verticalGradient(listOf(Color.Black.copy(alpha = SHADOW_ALPHA * current), Color.Transparent), endY = height),
+            Brush.verticalGradient(listOf(shadow.copy(alpha = SHADOW_ALPHA * current), shadow.copy(alpha = 0f)), endY = height),
             size = Size(size.width, height)
         )
     }

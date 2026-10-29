@@ -5,6 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
+import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
 
 private val NavPillSelectedDark = Color(0xFF383A4A)
 private val FilterPillInactiveDark = Color(0xFF332B2B)
@@ -48,6 +49,11 @@ object MelodiaColors {
     val Divider: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.divider
     val Outline: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.outline
     val Scrim: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.scrim
+    val ShadowSpot: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shadowSpot
+    val ShadowAmbient: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shadowAmbient
+
+    // 播放区（封面色或沉浸深色底）上的文字与图标，跟随皮肤的深色配色
+    val OnPlayer: Color @Composable @ReadOnlyComposable get() = LocalImmersiveBasePalette.current.textPrimary
     val Success: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.success
     val Vip: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.vip
     val Error: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.error

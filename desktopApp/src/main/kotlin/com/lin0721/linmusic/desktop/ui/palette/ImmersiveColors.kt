@@ -50,21 +50,21 @@ fun backdropImmersiveColors(palette: MelodiaPalette): ImmersiveColors = Immersiv
 
 private const val BACKDROP_INACTIVE_FRACTION = 0.45f
 
-// 沉浸区两种主题都是有色底配白字：深色主色提饱和后压暗，浅色按相对亮度取中调，比深色亮但仍托得住白字
-fun immersiveColors(base: Color, isDark: Boolean): ImmersiveColors {
+// 沉浸区两种主题都是有色底配白字：深色主色提饱和后压暗，浅色按相对亮度取中调，比深色亮但仍托得住白字；
+// 文字与遮罩取沉浸区色板，跟随皮肤的深色配色
+fun immersiveColors(base: Color, isDark: Boolean, palette: MelodiaPalette = MelodiaPalettes.dark): ImmersiveColors {
     val vivid = base.saturateIfChromatic(0.6f)
     return ImmersiveColors(
         fill = if (isDark) vivid.darken(0.35f) else immersiveMidFill(vivid),
         blob = if (isDark) vivid.darken(0.15f) else immersiveMidBlob(vivid),
-        content = Color.White,
-        inactive = lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), Color.White, 0.5f),
-        scrim = Color.Black
+        content = palette.textPrimary,
+        inactive = lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), palette.textPrimary, 0.5f),
+        scrim = palette.windowBackground
     )
 }
 
 // 浅色主题的全屏歌词页：整页封面淡色、顶部浅调渐隐，深字，当前行用封面深色调，灰色封面回退主色
-fun lightLyricsColors(base: Color, accentText: Color): ImmersiveColors {
-    val palette = MelodiaPalettes.light
+fun lightLyricsColors(base: Color, accentText: Color, palette: MelodiaPalette = MelodiaPalettes.light): ImmersiveColors {
     val wash = coverWashTint(base)
     return ImmersiveColors(
         fill = wash,
@@ -98,7 +98,8 @@ fun ImmersiveSurface(colors: ImmersiveColors, content: @Composable () -> Unit) {
 fun rememberImmersiveColors(base: Color): ImmersiveColors {
     val isDark = DesktopColors.IsDark
     if (isCoverBackdrop(CoverGroup.PLAYER)) return rememberBackdropImmersiveColors()
-    return remember(base, isDark) { immersiveColors(base, isDark) }
+    val palette = LocalImmersiveBasePalette.current
+    return remember(base, isDark, palette) { immersiveColors(base, isDark, palette) }
 }
 
 // 全屏歌词页：深色沿用沉浸配方，浅色改白底主色高亮
@@ -107,8 +108,10 @@ fun rememberLyricsViewColors(base: Color): ImmersiveColors {
     val isDark = DesktopColors.IsDark
     val accentText = DesktopColors.AccentText
     if (isCoverBackdrop(CoverGroup.PLAYER)) return rememberBackdropImmersiveColors()
-    return remember(base, isDark, accentText) {
-        if (isDark) immersiveColors(base, isDark = true) else lightLyricsColors(base, accentText)
+    val immersivePalette = LocalImmersiveBasePalette.current
+    val currentPalette = LocalMelodiaPalette.current
+    return remember(base, isDark, accentText, immersivePalette, currentPalette) {
+        if (isDark) immersiveColors(base, isDark = true, immersivePalette) else lightLyricsColors(base, accentText, currentPalette)
     }
 }
 

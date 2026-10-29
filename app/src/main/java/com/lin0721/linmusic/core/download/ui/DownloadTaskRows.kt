@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,8 +48,8 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-internal val TrackGray = Color(0xFF333333)
-internal val MutedText = Color(0xFF8A8A8A)
+internal val TrackGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.SurfaceLight
+internal val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
 
 // 单条任务的操作集合，普通行、长按菜单与编辑栏共用
 internal class TaskActions(

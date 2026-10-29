@@ -204,11 +204,11 @@ fun MiniPlayerCard(
             .shadow(
                 elevation = 16.dp,
                 shape = miniPlayerShape,
-                ambientColor = Color.Black.copy(alpha = miniPlayerShadowAlpha),
-                spotColor = Color.Black.copy(alpha = miniPlayerShadowAlpha)
+                ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = miniPlayerShadowAlpha),
+                spotColor = MelodiaColors.ShadowSpot.copy(alpha = miniPlayerShadowAlpha)
             )
             .clip(miniPlayerShape)
-            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
+            .border(0.5.dp, MelodiaColors.OnPlayer.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -275,21 +275,21 @@ fun MiniPlayerCard(
                                     else -> Icons.Rounded.AddCircleOutline
                                 },
                                 contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-                                tint = if (isLiked) MaterialTheme.colorScheme.primary else Color.White,
+                                tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.OnPlayer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                     // 播放/暂停按钮
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                        PlayPauseIcon(displayedIsPlaying, Color.White, contentDescription = "播放/暂停")
+                        PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
                     }
                     // 下一首按钮
                     MelodiaIconButton(onClick = onNext) {
                         Icon(
                             imageVector = Icons.Rounded.SkipNext,
                             contentDescription = "下一首",
-                            tint = Color.White,
+                            tint = MelodiaColors.OnPlayer,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -430,7 +430,7 @@ private fun MiniPlayerContentRow(
             val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
             Text(
                 text = titleLine,
-                color = Color.White,
+                color = MelodiaColors.OnPlayer,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -467,7 +467,7 @@ private fun MiniPlayerContentRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = Color.White.copy(alpha = 0.75f),
+                    color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -487,7 +487,7 @@ fun MiniPlayerProgress(
     currentPositionProvider: () -> Long,
     duration: Long,
     modifier: Modifier = Modifier,
-    trackColor: Color = Color.White.copy(alpha = 0.18f),
+    trackColor: Color = MelodiaColors.OnPlayer.copy(alpha = 0.18f),
     progressColor: Color = MelodiaColors.Accent
 ) {
     Box(
@@ -547,7 +547,7 @@ fun MelodiaNavigationBar(
                 if (expanded) {
                     Modifier
                         .fillMaxHeight()
-                        .border(0.5.dp, if (MelodiaColors.IsDark) Color.White.copy(alpha = 0.14f) else MelodiaColors.Outline, RoundedCornerShape(InfoCardRadius))
+                        .border(0.5.dp, if (MelodiaColors.IsDark) MelodiaColors.TextPrimary.copy(alpha = 0.14f) else MelodiaColors.Outline, RoundedCornerShape(InfoCardRadius))
                 } else {
                     Modifier
                 }

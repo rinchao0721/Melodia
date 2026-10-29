@@ -129,8 +129,8 @@ fun SelectionActionBar(
             .shadow(
                 elevation = 16.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.4f),
-                spotColor = Color.Black.copy(alpha = 0.4f)
+                ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = 0.4f),
+                spotColor = MelodiaColors.ShadowSpot.copy(alpha = 0.4f)
             )
             .clip(shape)
             .background(MelodiaColors.Surface)

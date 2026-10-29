@@ -415,14 +415,14 @@ private fun HitPositionBar(fraction: Float) {
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = 0.25f))
+                .background(MelodiaColors.OnCoverCard.copy(alpha = 0.25f))
         )
         Box(
             Modifier
                 .fillMaxWidth(fraction)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color.White)
+                .background(MelodiaColors.OnCoverCard)
         )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             Box(
@@ -430,7 +430,7 @@ private fun HitPositionBar(fraction: Float) {
                     .offset(x = (maxWidth - 12.dp) * fraction)
                     .size(12.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(MelodiaColors.OnCoverCard)
             )
         }
     }

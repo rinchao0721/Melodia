@@ -649,11 +649,12 @@ internal fun BoxScope.ListTopShadow(visible: Boolean) {
     val alpha by animateFloatAsState(if (visible) 1f else 0f, uiTween(VIEW_SWITCH_MS), label = "listTopShadow")
     // 浅色底上阴影需要淡很多
     val strength = if (DesktopColors.IsDark) 1f else 0.18f
+    val shadow = DesktopColors.ShadowSpot
     Box(
         Modifier.fillMaxWidth().height(ShadowHeight).align(Alignment.TopCenter).graphicsLayer { this.alpha = alpha }
             .background(
                 Brush.verticalGradient(
-                    listOf(Color.Black.copy(alpha = 0.85f * strength), Color.Black.copy(alpha = 0.35f * strength), Color.Transparent)
+                    listOf(shadow.copy(alpha = 0.85f * strength), shadow.copy(alpha = 0.35f * strength), shadow.copy(alpha = 0f))
                 )
             )
     )

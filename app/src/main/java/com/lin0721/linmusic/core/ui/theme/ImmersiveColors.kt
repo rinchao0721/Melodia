@@ -20,12 +20,12 @@ val LocalImmersiveMidTone = staticCompositionLocalOf { false }
 data class ImmersiveColors(val fill: Color, val blob: Color, val inactive: Color)
 
 // 两种主题都是有色底配白字：深色主色提饱和后压暗，浅色按相对亮度取中调，比深色亮但仍托得住白字
-fun immersiveColors(base: Color, midTone: Boolean): ImmersiveColors {
+fun immersiveColors(base: Color, midTone: Boolean, text: Color = Color.White): ImmersiveColors {
     val vivid = base.saturateIfChromatic(0.6f)
     return ImmersiveColors(
         fill = if (midTone) immersiveMidFill(vivid) else vivid.darken(0.35f),
         blob = if (midTone) immersiveMidBlob(vivid) else vivid.darken(0.15f),
-        inactive = lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), Color.White, 0.5f)
+        inactive = lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), text, 0.5f)
     )
 }
 
@@ -42,7 +42,8 @@ fun rememberImmersiveColors(base: Color): ImmersiveColors {
         }
     }
     val midTone = immersiveMidTone
-    return remember(base, midTone) { immersiveColors(base, midTone) }
+    val text = LocalImmersiveBasePalette.current.textPrimary
+    return remember(base, midTone, text) { immersiveColors(base, midTone, text) }
 }
 
 private const val BACKDROP_INACTIVE_FRACTION = 0.45f

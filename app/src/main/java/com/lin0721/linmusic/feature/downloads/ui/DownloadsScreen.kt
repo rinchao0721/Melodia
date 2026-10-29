@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +54,7 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import org.koin.androidx.compose.koinViewModel
 
 private val CoverSize = 52.dp
-private val MutedText = Color(0xFF8A8A8A)
+private val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
 
 // 侧边栏「下载管理」：顶部为下载任务入口，下方列出已下载歌曲
 @Composable

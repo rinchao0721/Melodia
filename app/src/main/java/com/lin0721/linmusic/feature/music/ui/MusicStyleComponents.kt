@@ -104,7 +104,7 @@ private fun SubStyleChip(text: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = text,
-            color = if (selected) Color(0xFF121212) else Color(0xFFBDBDBD),
+            color = if (selected) MelodiaColors.InverseText else MelodiaColors.PillContent,
             fontSize = 11.5.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )

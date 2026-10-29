@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -15,7 +17,6 @@ import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,7 +44,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-private val PendingGray = Color(0xFF555555)
+private val PendingGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextDisabled
 
 // 下载管理面板的分类
 enum class DownloadManagerTab(val label: String) {

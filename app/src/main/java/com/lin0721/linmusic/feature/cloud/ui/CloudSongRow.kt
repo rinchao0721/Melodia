@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,10 +29,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.contentColorOn
 import com.lin0721.linmusic.feature.cloud.domain.CloudSong
 
 private val CoverSize = 56.dp
-private val UnmatchedTint = Color(0xFFE0A030)
 
 @Composable
 fun CloudSongRow(
@@ -62,11 +61,11 @@ fun CloudSongRow(
             if (song.isUnmatched) {
                 Text(
                     text = "未识别",
-                    color = Color(0xFF241A08),
+                    color = contentColorOn(MelodiaColors.Vip),
                     fontSize = 9.sp,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .background(UnmatchedTint, RoundedCornerShape(bottomStart = RadiusCompact, topEnd = 6.dp))
+                        .background(MelodiaColors.Vip, RoundedCornerShape(bottomStart = RadiusCompact, topEnd = 6.dp))
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                 )
             }

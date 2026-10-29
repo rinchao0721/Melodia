@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -476,9 +475,9 @@ fun LibraryScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        Color.Black.copy(alpha = 0.85f * shadowStrength),
-                                        Color.Black.copy(alpha = 0.35f * shadowStrength),
-                                        Color.Transparent
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0.85f * shadowStrength),
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0.35f * shadowStrength),
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0f)
                                     )
                                 )
                             )
