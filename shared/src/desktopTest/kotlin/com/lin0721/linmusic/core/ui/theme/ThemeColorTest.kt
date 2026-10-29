@@ -153,4 +153,17 @@ class ThemeColorTest {
             assertTrue("hue=$hue", contrastRatio(MelodiaPalettes.light.textSecondary, tint) >= 4.5f)
         }
     }
+
+    @Test
+    fun `浅色歌词页当前行在淡底与头部浅调上都达标`() {
+        (0 until 360 step 15).forEach { hue ->
+            val base = Hsl(hue.toFloat(), 0.8f, 0.5f).toColor()
+            val deep = coverDeepTone(base)!!
+            assertTrue("hue=$hue", contrastRatio(deep, coverWashTint(base)) >= 4.5f)
+            assertTrue("hue=$hue", contrastRatio(deep, coverHeaderTint(base)) >= 4.5f)
+            assertTrue("hue=$hue", contrastRatio(MelodiaPalettes.light.textPrimary.copy(alpha = 1f), coverWashTint(base)) >= 12f)
+        }
+        assertNull(coverDeepTone(Color(0xFF808080)))
+        assertTrue(coverWashTint(Color(0xFF808080)).toHsl().saturation < 0.01f)
+    }
 }

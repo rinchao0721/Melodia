@@ -14,6 +14,10 @@ private const val IMMERSIVE_MAX_SATURATION = 0.6f
 private const val HEADER_TINT_LUMINANCE = 0.7f
 private const val HEADER_TINT_MAX_SATURATION = 0.6f
 private const val ACCENT_TEXT_MIN_CONTRAST = 4.5f
+// 浅色歌词页整页淡底与当前行深色调；深色调在头部浅调与淡底上对比度均不低于 4.5
+private const val COVER_WASH_LUMINANCE = 0.86f
+private const val COVER_WASH_MAX_SATURATION = 0.35f
+private const val COVER_DEEP_LUMINANCE = 0.1f
 // 低于此饱和度视为灰色封面，不强行提饱和，避免灰图染出色偏
 private const val ACHROMATIC_SATURATION = 0.08f
 private const val LUMINANCE_SEARCH_STEPS = 20
@@ -60,6 +64,17 @@ fun coverHeaderTint(base: Color): Color {
     return Hsl(hsl.hue, saturation, high).toColor()
 }
 
+// 浅色歌词页整页铺底：同色相极淡色，压低饱和度避免大面积刺眼
+fun coverWashTint(base: Color): Color {
+    val hsl = base.toHsl()
+    val saturation = if (hsl.saturation < ACHROMATIC_SATURATION) hsl.saturation else min(hsl.saturation, COVER_WASH_MAX_SATURATION)
+    return Hsl(hsl.hue, saturation, lightnessAtLuminance(hsl.hue, saturation, COVER_WASH_LUMINANCE)).toColor()
+}
+
+// 浅色歌词页当前行：同色相深色调；灰色封面没有可用色相，返回 null 由调用方回退主色
+fun coverDeepTone(base: Color): Color? =
+    if (base.toHsl().saturation < ACHROMATIC_SATURATION) null else toneAtLuminance(base, COVER_DEEP_LUMINANCE)
+
 // 主色在浅底上作文字时的可读版本：对比度不足 4.5 时保持色相与饱和度，降低明度直到达标
 fun accentTextOn(accent: Color, background: Color): Color {
     if (contrastRatio(accent, background) >= ACCENT_TEXT_MIN_CONTRAST) return accent
@@ -80,12 +95,16 @@ private fun toneAtLuminance(base: Color, targetLuminance: Float): Color {
     } else {
         hsl.saturation.coerceIn(IMMERSIVE_MIN_SATURATION, IMMERSIVE_MAX_SATURATION)
     }
-    // 固定色相与饱和度时相对亮度随 lightness 单调递增，二分即可
+    return Hsl(hsl.hue, saturation, lightnessAtLuminance(hsl.hue, saturation, targetLuminance)).toColor()
+}
+
+// 固定色相与饱和度时相对亮度随 lightness 单调递增，二分即可
+private fun lightnessAtLuminance(hue: Float, saturation: Float, targetLuminance: Float): Float {
     var low = 0f
     var high = 1f
     repeat(LUMINANCE_SEARCH_STEPS) {
         val mid = (low + high) / 2f
-        if (Hsl(hsl.hue, saturation, mid).toColor().luminance() < targetLuminance) low = mid else high = mid
+        if (Hsl(hue, saturation, mid).toColor().luminance() < targetLuminance) low = mid else high = mid
     }
-    return Hsl(hsl.hue, saturation, (low + high) / 2f).toColor()
+    return (low + high) / 2f
 }

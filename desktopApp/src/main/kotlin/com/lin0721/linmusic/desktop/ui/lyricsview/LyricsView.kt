@@ -58,6 +58,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -89,9 +90,10 @@ import com.lin0721.linmusic.desktop.ui.components.uiExit
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
 import com.lin0721.linmusic.desktop.ui.nowplaying.verticalEdgeFade
+import com.lin0721.linmusic.desktop.ui.palette.ImmersiveColors
 import com.lin0721.linmusic.desktop.ui.palette.ImmersiveSurface
 import com.lin0721.linmusic.desktop.ui.palette.LocalImmersiveColors
-import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.palette.rememberLyricsViewColors
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
@@ -118,11 +120,12 @@ private const val ANCHOR_FRACTION = 0.38f
 // 歌词列占整体宽度的比例，居中
 private const val COLUMN_WIDTH_FRACTION = 0.72f
 private val EdgeFade = 48.dp
+private val LightTopTintHeight = 360.dp
 private val HeaderButtonSize = 32.dp
 private val HeaderTopPadding = 16.dp
 // 歌名行底边：阴影到此为止，歌词区也从这里起算（与顶栏下半部分重叠）
 private val HeaderTitleRowBottom = HeaderTopPadding + HeaderButtonSize
-private val InactiveColor: Color @Composable @ReadOnlyComposable get() = LocalImmersiveColors.current.content.copy(alpha = 0.55f)
+private val InactiveColor: Color @Composable @ReadOnlyComposable get() = LocalImmersiveColors.current.let { if (it.onLight) it.inactive else it.content.copy(alpha = 0.55f) }
 
 // 覆盖在标题栏与播放栏之间整个工作区的全屏歌词界面；不透明底并吞掉点击，收起后原样露出下层
 @Composable
@@ -199,9 +202,9 @@ private fun LyricsViewContent(
     onToggleFullscreen: () -> Unit,
     onClose: () -> Unit
 ) {
-    // 与移动端全屏歌词同一配方：深色下主色提饱和后压暗铺底，浅色下取中调
+    // 深色与移动端全屏歌词同一配方；浅色下封面浅调铺底配深字
     val base = rememberCoverBase(track.artworkUri)
-    val immersive = rememberImmersiveColors(base)
+    val immersive = rememberLyricsViewColors(base)
     val fill = immersive.fill
     val hasTranslation = remember(lines) { lines.any { it.translation != null } }
     val hasRoma = remember(lines) { lines.any { it.roma != null } }
@@ -240,6 +243,7 @@ private fun LyricsViewContent(
                 .padding(horizontal = DesktopDimens.PaneGap, vertical = verticalGap)
                 .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
                 .background(fill)
+                .then(if (immersive.onLight) Modifier.drawBehind { drawLightTopTint(immersive) } else Modifier)
                 .onGloballyPositioned { boxOrigin = it.positionInWindow() }
                 .onPointerEvent(PointerEventType.Scroll) { if (!manuallyHidden) moveTick++ }
                 .onPointerEvent(PointerEventType.Move) { event ->
@@ -304,6 +308,12 @@ private fun LyricsViewContent(
             }
         }
     }
+}
+
+// 浅色顶部封面浅调，向下渐隐到整页淡底
+private fun DrawScope.drawLightTopTint(colors: ImmersiveColors) {
+    val height = LightTopTintHeight.toPx().coerceAtMost(size.height)
+    drawRect(Brush.verticalGradient(0f to colors.blob, 1f to colors.fill, endY = height), size = Size(size.width, height))
 }
 
 @Composable
@@ -488,7 +498,7 @@ private fun LyricsRow(
     val hovered by hoverSource.collectIsHoveredAsState()
     val color by animateColorAsState(
         when {
-            active -> LocalImmersiveColors.current.content
+            active -> LocalImmersiveColors.current.highlight
             hovered -> LocalImmersiveColors.current.content.copy(alpha = 0.85f)
             else -> InactiveColor
         },
@@ -508,13 +518,14 @@ private fun LyricsRow(
                 line = line,
                 positionProvider = clock,
                 inactiveColor = InactiveColor,
-                activeColor = LocalImmersiveColors.current.content,
+                activeColor = LocalImmersiveColors.current.highlight,
                 fontSize = fontSize,
                 lineHeight = fontSize * 1.3f,
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
                 advancedEffect = settings.advancedEffect,
-                glowEffect = settings.glowEffect
+                // 白色加亮微光只适合深底
+                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight
             )
         } else {
             Text(
@@ -569,7 +580,7 @@ private fun BackgroundVocal(
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
                 advancedEffect = settings.advancedEffect,
-                glowEffect = settings.glowEffect,
+                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight,
                 fontWeight = FontWeight.Bold
             )
         } else {

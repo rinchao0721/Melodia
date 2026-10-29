@@ -114,6 +114,8 @@ class DesktopAppState(
         absorbUiChange()
         action()
         if (route != null && route != backStack.current && dockOverlay == DockOverlay.PlaylistComments) dockOverlay = null
+        // 歌词界面盖住整个工作区，跳转页面时收起，返回时随快照恢复
+        if (route != null) lyricsView.close()
         backStack.push(route, liveUi())
     }
 
@@ -144,7 +146,6 @@ class DesktopAppState(
     fun navigate(route: DesktopRoute) = record(route) {}
 
     fun goHomeAll() = record(DesktopRoute.Home) {
-        lyricsView.close()
         homeTab = HOME_TAB_ALL
         showNewWorks = false
     }
