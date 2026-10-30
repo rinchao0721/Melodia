@@ -49,22 +49,21 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.lin0721.linmusic.core.preferences.FullPlayerCard
-import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
-import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.themedShadow
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 
 // 全屏播放页信息卡片编辑弹窗：长按整行拖动排序，开关控制显隐
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerCardEditorSheet(
-    layout: List<FullPlayerCardSetting>,
-    onLayoutChange: (List<FullPlayerCardSetting>) -> Unit,
+    layout: List<PlayerCardEntry>,
+    onLayoutChange: (List<PlayerCardEntry>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -73,15 +72,17 @@ fun FullPlayerCardEditorSheet(
 
     // 拖动期间以本地列表为准，松手才落盘，避免每次换位都写 DataStore
     var items by remember { mutableStateOf(layout) }
-    var draggedCard by remember { mutableStateOf<FullPlayerCard?>(null) }
+    var draggedCard by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    val rowHeights = remember { mutableStateMapOf<FullPlayerCard, Int>() }
+    val rowHeights = remember { mutableStateMapOf<String, Int>() }
 
     LaunchedEffect(layout) {
         if (draggedCard == null) items = layout
     }
 
-    fun commit(newItems: List<FullPlayerCardSetting>) {
+    val defaults = PlayerCardEntries.defaults(items)
+
+    fun commit(newItems: List<PlayerCardEntry>) {
         items = newItems
         currentOnLayoutChange(newItems)
     }
@@ -90,11 +91,11 @@ fun FullPlayerCardEditorSheet(
     fun onDrag(deltaY: Float) {
         val card = draggedCard ?: return
         dragOffset += deltaY
-        var index = items.indexOfFirst { it.card == card }
+        var index = items.indexOfFirst { it.key == card }
         if (index < 0) return
         var swapped = false
         while (index < items.lastIndex) {
-            val nextHeight = rowHeights[items[index + 1].card]?.toFloat() ?: break
+            val nextHeight = rowHeights[items[index + 1].key]?.toFloat() ?: break
             if (dragOffset <= nextHeight) break
             items = items.toMutableList().apply { add(index + 1, removeAt(index)) }
             dragOffset -= nextHeight
@@ -102,7 +103,7 @@ fun FullPlayerCardEditorSheet(
             swapped = true
         }
         while (index > 0) {
-            val prevHeight = rowHeights[items[index - 1].card]?.toFloat() ?: break
+            val prevHeight = rowHeights[items[index - 1].key]?.toFloat() ?: break
             if (dragOffset >= -prevHeight) break
             items = items.toMutableList().apply { add(index - 1, removeAt(index)) }
             dragOffset += prevHeight
@@ -150,18 +151,18 @@ fun FullPlayerCardEditorSheet(
             )
 
             items.forEach { setting ->
-                key(setting.card) {
+                key(setting.key) {
                     CardEditorRow(
                         setting = setting,
-                        isDragging = draggedCard == setting.card,
-                        dragOffsetY = if (draggedCard == setting.card) dragOffset else 0f,
-                        onHeightMeasured = { rowHeights[setting.card] = it },
+                        isDragging = draggedCard == setting.key,
+                        dragOffsetY = if (draggedCard == setting.key) dragOffset else 0f,
+                        onHeightMeasured = { rowHeights[setting.key] = it },
                         onVisibleChange = { visible ->
-                            commit(items.map { if (it.card == setting.card) it.copy(visible = visible) else it })
+                            commit(PlayerCardEntries.setVisible(items, setting.key, visible))
                         },
                         onDragStart = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            draggedCard = setting.card
+                            draggedCard = setting.key
                             dragOffset = 0f
                         },
                         onDrag = ::onDrag,
@@ -178,8 +179,8 @@ fun FullPlayerCardEditorSheet(
             ) {
                 PlayerCapsuleButton(
                     text = "恢复默认",
-                    onClick = { commit(FullPlayerCardLayout.DEFAULT) },
-                    enabled = draggedCard == null && items != FullPlayerCardLayout.DEFAULT
+                    onClick = { commit(defaults) },
+                    enabled = draggedCard == null && items != defaults
                 )
             }
         }
@@ -188,7 +189,7 @@ fun FullPlayerCardEditorSheet(
 
 @Composable
 private fun CardEditorRow(
-    setting: FullPlayerCardSetting,
+    setting: PlayerCardEntry,
     isDragging: Boolean,
     dragOffsetY: Float,
     onHeightMeasured: (Int) -> Unit,
@@ -248,7 +249,7 @@ private fun CardEditorRow(
         )
         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
         Text(
-            text = setting.card.title,
+            text = setting.title,
             color = if (setting.visible) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             fontSize = 15.sp,

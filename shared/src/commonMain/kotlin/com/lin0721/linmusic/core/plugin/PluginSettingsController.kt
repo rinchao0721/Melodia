@@ -43,6 +43,7 @@ class PluginSettingsController(
     val installed: StateFlow<List<InstalledPlugin>> = repository.installed
     val status: StateFlow<Map<String, PluginRuntimeStatus>> = repository.status
     val layouts: StateFlow<PlayerLayoutState> = repository.layouts
+    val pages: StateFlow<List<ActivePluginPage>> = repository.pages
 
     var step: PluginImportStep by mutableStateOf(PluginImportStep.Idle)
         private set
@@ -162,13 +163,6 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
     }.joinToString("、")
 }
 
-// 后续版本才生效的能力，在列表与预览里提示
-fun pluginPendingFeatures(manifest: PluginManifest): String? =
-    if (manifest.contributes.pages.any { it.placement == PluginPagePlacement.NOW_PLAYING_CARD }) {
-        "「正在播放」卡片将在后续版本生效"
-    } else {
-        null
-    }
 
 data class PluginStatusLine(val text: String, val isError: Boolean)
 

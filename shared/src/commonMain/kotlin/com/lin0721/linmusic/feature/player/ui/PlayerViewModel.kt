@@ -181,12 +181,6 @@ class PlayerViewModel(
         initialValue = FullPlayerCardLayout.DEFAULT
     )
 
-    fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
-        viewModelScope.launch {
-            settingsPreferences.saveFullPlayerCardLayout(layout)
-        }
-    }
-
     // 播放页小歌词显隐
     val showMiniLyric: StateFlow<Boolean> = settingsPreferences.showMiniLyric.stateIn(
         scope = viewModelScope,

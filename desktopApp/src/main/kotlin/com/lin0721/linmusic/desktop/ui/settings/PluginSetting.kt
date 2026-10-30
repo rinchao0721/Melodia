@@ -45,7 +45,6 @@ import com.lin0721.linmusic.core.plugin.playerLayoutOptions
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
-import com.lin0721.linmusic.core.plugin.pluginPendingFeatures
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.desktop.platform.chooseFile
@@ -246,9 +245,6 @@ private fun PluginPreviewDialog(
             val features = pluginFeatureSummary(manifest)
             if (features.isNotEmpty()) {
                 Text("提供：$features", color = DesktopColors.TextGray, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-            }
-            pluginPendingFeatures(manifest)?.let {
-                Text(it, color = DesktopColors.TextTertiary, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
             DialogLabel("需要的权限", Modifier.padding(top = 12.dp))
             if (manifest.permissions.isEmpty()) {

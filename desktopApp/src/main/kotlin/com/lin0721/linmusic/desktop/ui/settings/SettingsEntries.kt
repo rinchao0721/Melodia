@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.settings
 
+import kotlinx.coroutines.flow.flowOf
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -51,7 +54,6 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
-import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.update.data.UpdateRepository
@@ -754,7 +756,9 @@ internal fun settingsEntries(
                 subtitle = cardLayoutSubtitle,
                 keywords = SupportedInfoCards.map { it.title } + listOf("面板", "排序", "显示", "隐藏", "卡片")
             ) {
-                CardLayoutSetting(cardLayout, cardLayoutSubtitle, common::updateFullPlayerCardLayout)
+                val cardSource = LocalPluginCards.current?.source
+                val entries by (cardSource?.entries ?: remember { flowOf(emptyList()) }).collectAsState(emptyList())
+                CardLayoutSetting(entries, cardLayoutSubtitle) { updated -> scope.launch { cardSource?.save(updated) } }
             }
         )
         add(
@@ -1034,12 +1038,12 @@ private fun UiScaleSetting(percent: Int, onCommit: (Int) -> Unit) {
 // 卡片列表较长，默认收起只留标题行
 @Composable
 private fun CardLayoutSetting(
-    layout: List<FullPlayerCardSetting>,
+    layout: List<PlayerCardEntry>,
     expandedSubtitle: String,
-    onChange: (List<FullPlayerCardSetting>) -> Unit
+    onChange: (List<PlayerCardEntry>) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val supported = layout.filter { it.card in SupportedInfoCards }
+    val supported = layout.filter(::isEditableCard)
     val subtitle = if (expanded) {
         expandedSubtitle
     } else {

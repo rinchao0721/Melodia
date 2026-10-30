@@ -1,5 +1,9 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
+import kotlinx.coroutines.flow.flowOf
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
+import com.lin0721.linmusic.core.plugin.PluginCardView
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
@@ -113,10 +117,18 @@ fun NowPlayingPanel(
                 val cards = remember(detailState, cardLayout, commentsState) {
                     visibleInfoCards(detailState, cardLayout, SupportedInfoCards, commentsState)
                 }
-                for (card in cards) {
-                    key(card) {
+                val cardSource = LocalPluginCards.current?.source
+                val cardEntries by (cardSource?.entries ?: remember { flowOf(emptyList()) }).collectAsState(emptyList())
+                val ordered = PlayerCardEntries.ordered(
+                    cardEntries.ifEmpty { PlayerCardEntries.merge(null, emptyList()) },
+                    cards,
+                    allSettled = true
+                )
+                for (entry in ordered) {
+                    key(entry.key) {
                         InfoCardEnter(Modifier.padding(top = 16.dp)) {
-                            when (card) {
+                            when (entry.card) {
+                                null -> PluginCardView(entry.key)
                                 FullPlayerCard.LYRICS -> LyricsCard(
                                     lines = detailState.lyrics,
                                     currentIndex = currentLyricIndex,

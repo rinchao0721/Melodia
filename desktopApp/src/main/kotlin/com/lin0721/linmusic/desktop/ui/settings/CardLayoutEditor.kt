@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.settings
 
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Row
@@ -34,9 +36,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
-import com.lin0721.linmusic.core.preferences.mergeSupportedOrder
-import com.lin0721.linmusic.core.preferences.setCardVisible
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.nowplaying.SupportedInfoCards
@@ -45,11 +44,14 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 private val EditorRowHeight = 48.dp
 
+// 插件卡片都能编辑，内置卡片只列出桌面端已实现的
+internal fun isEditableCard(entry: PlayerCardEntry): Boolean = entry.card == null || entry.card in SupportedInfoCards
+
 // 正在播放面板的信息卡编辑：拖动把手调整顺序，开关控制显隐；松手后才写入偏好
 @Composable
-internal fun CardLayoutEditor(layout: List<FullPlayerCardSetting>, onChange: (List<FullPlayerCardSetting>) -> Unit) {
+internal fun CardLayoutEditor(layout: List<PlayerCardEntry>, onChange: (List<PlayerCardEntry>) -> Unit) {
     // 拖动期间只改本地顺序，避免每次换位都落盘
-    var working by remember(layout) { mutableStateOf(layout.filter { it.card in SupportedInfoCards }) }
+    var working by remember(layout) { mutableStateOf(layout.filter(::isEditableCard)) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val currentLayout by rememberUpdatedState(layout)
@@ -68,7 +70,7 @@ internal fun CardLayoutEditor(layout: List<FullPlayerCardSetting>, onChange: (Li
         userScrollEnabled = false,
         modifier = Modifier.fillMaxWidth().height(EditorRowHeight * working.size)
     ) {
-        itemsIndexed(working, key = { _, setting -> setting.card.key }) { index, setting ->
+        itemsIndexed(working, key = { _, setting -> setting.key }) { index, setting ->
             val dragging = reorder.draggedIndex == index
             val settling = reorder.settlingIndex == index
             val offsetY = reorder.offsetOf(index)
@@ -76,7 +78,7 @@ internal fun CardLayoutEditor(layout: List<FullPlayerCardSetting>, onChange: (Li
             val drag by rememberUpdatedState({ delta: Float -> reorder.drag(index, delta) })
             val endDrag by rememberUpdatedState({
                 reorder.end(index, scope)
-                currentOnChange(mergeSupportedOrder(currentLayout, working, SupportedInfoCards))
+                currentOnChange(PlayerCardEntries.mergeOrdered(currentLayout, working, ::isEditableCard))
             })
             Row(
                 Modifier.fillMaxWidth().height(EditorRowHeight)
@@ -105,12 +107,12 @@ internal fun CardLayoutEditor(layout: List<FullPlayerCardSetting>, onChange: (Li
                     }
                 )
                 Text(
-                    setting.card.title,
+                    setting.title,
                     color = DesktopColors.TextPrimary,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f).padding(start = 12.dp)
                 )
-                SettingSwitch(setting.visible) { visible -> currentOnChange(setCardVisible(currentLayout, setting.card, visible)) }
+                SettingSwitch(setting.visible) { visible -> currentOnChange(PlayerCardEntries.setVisible(currentLayout, setting.key, visible)) }
             }
         }
     }

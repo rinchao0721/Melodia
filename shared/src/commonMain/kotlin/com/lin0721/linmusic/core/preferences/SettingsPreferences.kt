@@ -855,7 +855,17 @@ class SettingsPreferences(
 
     suspend fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
         dataStore.edit { prefs ->
-            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = FullPlayerCardLayout.encode(layout)
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] =
+                PlayerCardEntries.withPluginTokens(FullPlayerCardLayout.encode(layout), prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
+        }
+    }
+
+    // 含插件卡片的原始配置，格式见 PlayerCardEntries
+    val fullPlayerCardRaw: Flow<String?> = dataStore.data.map { prefs -> prefs[KEY_FULL_PLAYER_CARD_LAYOUT] }
+
+    suspend fun saveFullPlayerCardEntries(entries: List<PlayerCardEntry>) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = PlayerCardEntries.encode(entries, prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
         }
     }
 

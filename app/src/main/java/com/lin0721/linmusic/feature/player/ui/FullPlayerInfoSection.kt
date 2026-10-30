@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
+import com.lin0721.linmusic.core.plugin.PluginCardView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
@@ -76,6 +79,8 @@ fun LazyListScope.fullPlayerInfoSection(
     currentLyricIndex: Int,
     animateLyricsMesh: Boolean,
     cardLayout: List<FullPlayerCardSetting>,
+    // 含插件卡片的完整顺序
+    cardEntries: List<PlayerCardEntry>,
     onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
@@ -86,8 +91,13 @@ fun LazyListScope.fullPlayerInfoSection(
     onSelectArtist: (Int) -> Unit = {}
 ) {
     val visible = visibleInfoCards(songState, commentsState, cardLayout)
-    for (card in visible.cards) {
-        item(key = card.key) {
+    for (entry in PlayerCardEntries.ordered(cardEntries, visible.cards, visible.allSettled)) {
+        val card = entry.card
+        if (card == null) {
+            pluginCardItem(entry.key)
+            continue
+        }
+        item(key = entry.key) {
             FullPlayerItemEnterAnimation {
                 FullPlayerInfoCard(
                     card = card,
@@ -117,6 +127,7 @@ fun LazyListScope.fullPlayerInfoGrid(
     colors: PlayerBackdropPalette,
     commentsState: CommentsState,
     cardLayout: List<FullPlayerCardSetting>,
+    cardEntries: List<PlayerCardEntry>,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
     onFollowArtistClick: (Long?) -> Unit,
@@ -174,7 +185,19 @@ fun LazyListScope.fullPlayerInfoGrid(
             }
         }
     }
+    // 网格按内置规则成行，插件卡片排在其后
+    PlayerCardEntries.ordered(cardEntries, visible.cards, visible.allSettled)
+        .filter { it.card == null }
+        .forEach { pluginCardItem(it.key) }
     if (visible.allSettled) editCardsItem(onEditCardsClick)
+}
+
+private fun LazyListScope.pluginCardItem(key: String) {
+    item(key = key) {
+        FullPlayerItemEnterAnimation {
+            PluginCardView(key, Modifier.padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm))
+        }
+    }
 }
 
 // 等可见卡片全部出结论再出现，避免按钮先露出又被后到的卡片顶下去

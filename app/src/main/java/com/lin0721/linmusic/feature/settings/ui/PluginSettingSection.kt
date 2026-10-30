@@ -1,5 +1,9 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.plugin.isCard
+import com.lin0721.linmusic.core.plugin.PluginPageHost
+import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
 import com.lin0721.linmusic.core.plugin.playerLayoutOptions
 import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
@@ -51,7 +55,6 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
-import com.lin0721.linmusic.core.plugin.pluginPendingFeatures
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
@@ -74,6 +77,9 @@ fun PluginSettingSection(repository: PluginRepository) {
     val installed by controller.installed.collectAsState()
     val status by controller.status.collectAsState()
     val layouts by controller.layouts.collectAsState()
+    val pages by controller.pages.collectAsState()
+    val pageHost = koinInject<PluginPageHost>()
+    var openPage by remember { mutableStateOf<ActivePluginPage?>(null) }
     var layoutPickerArea by remember { mutableStateOf<PlayerLayoutArea?>(null) }
     val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
@@ -121,6 +127,13 @@ fun PluginSettingSection(repository: PluginRepository) {
                 )
             }
         }
+        val entryPages = pages.filter { !it.isCard }
+        if (entryPages.isNotEmpty()) {
+            Text("插件页面", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
+            entryPages.forEach { active ->
+                SettingsRow(title = active.page.title, subtitle = active.manifest.name, onClick = { openPage = active })
+            }
+        }
         val layoutAreas = layoutAreasWithCandidates(layouts, "android.")
         if (layoutAreas.isNotEmpty()) {
             Text("播放器布局", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
@@ -158,6 +171,8 @@ fun PluginSettingSection(repository: PluginRepository) {
         )
         else -> Unit
     }
+
+    openPage?.let { active -> PluginPageDialog(active, pageHost, onDismiss = { openPage = null }) }
 
     layoutPickerArea?.let { area ->
         val options = playerLayoutOptions(area, layouts)
@@ -279,9 +294,6 @@ private fun PluginPreviewSheet(
             val features = pluginFeatureSummary(manifest)
             if (features.isNotEmpty()) {
                 Text("提供：$features", color = MelodiaColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
-            }
-            pluginPendingFeatures(manifest)?.let {
-                Text(it, color = MelodiaColors.TextTertiary, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
             SectionLabel("需要的权限")
             if (manifest.permissions.isEmpty()) Text("无", color = MelodiaColors.TextSecondary, fontSize = 13.sp)

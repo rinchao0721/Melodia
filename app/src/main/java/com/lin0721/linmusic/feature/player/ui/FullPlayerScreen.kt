@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import kotlinx.coroutines.flow.flowOf
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
@@ -293,6 +296,14 @@ private fun FullPlayerScreenContent(
     // 播客节目没有歌词、歌曲评论与歌手专辑信息，信息卡与小歌词整体不展示
     val storedCardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val cardLayout = if (podcast.isPodcast) emptyList() else storedCardLayout
+    val pluginCards = LocalPluginCards.current
+    val storedCardEntries by (pluginCards?.source?.entries ?: remember { flowOf(emptyList()) })
+        .collectAsStateWithLifecycle(emptyList())
+    val cardEntries = when {
+        podcast.isPodcast -> emptyList()
+        storedCardEntries.isEmpty() -> PlayerCardEntries.merge(null, emptyList())
+        else -> storedCardEntries
+    }
     val storedShowMiniLyric by viewModel.showMiniLyric.collectAsStateWithLifecycle()
     val showMiniLyric = storedShowMiniLyric && !podcast.isPodcast
     val connectedDevice = rememberCurrentOutputDevice()
@@ -814,6 +825,7 @@ private fun FullPlayerScreenContent(
                         } else {
                             cardLayout
                         },
+                        cardEntries = cardEntries,
                         onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
@@ -971,6 +983,7 @@ private fun FullPlayerScreenContent(
                         colors = colors,
                         commentsState = commentsState,
                         cardLayout = cardLayout,
+                        cardEntries = cardEntries,
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
@@ -1195,8 +1208,8 @@ private fun FullPlayerScreenContent(
 
         if (showCardEditorSheet) {
             FullPlayerCardEditorSheet(
-                layout = cardLayout,
-                onLayoutChange = viewModel::saveFullPlayerCardLayout,
+                layout = cardEntries,
+                onLayoutChange = { entries -> coroutineScope.launch { pluginCards?.source?.save(entries) } },
                 onDismiss = { showCardEditorSheet = false }
             )
         }

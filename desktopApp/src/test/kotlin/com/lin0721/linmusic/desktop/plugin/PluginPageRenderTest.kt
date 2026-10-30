@@ -1,5 +1,15 @@
 package com.lin0721.linmusic.desktop.plugin
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.lin0721.linmusic.core.preferences.PreferencesStores
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.plugin.cardKey
+import com.lin0721.linmusic.core.plugin.PluginCardView
+import com.lin0721.linmusic.core.plugin.PluginCardContext
+import com.lin0721.linmusic.core.plugin.PlayerCardSource
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -113,6 +123,7 @@ class PluginPageRenderTest {
     private lateinit var runtime: PluginRuntime
     private lateinit var host: PluginPageHost
     private lateinit var active: ActivePluginPage
+    private lateinit var card: ActivePluginPage
 
     @Before
     fun setUp() = runBlocking<Unit> {
@@ -122,7 +133,9 @@ class PluginPageRenderTest {
         runtime = PluginRuntime(GraalScriptSandboxFactory(), api)
         host = PluginPageHost(runtime, api)
         val manifestText = """{"format":1,"id":"com.example.page","name":"页面","version":"1",
-            "contributes":{"pages":[{"id":"main","title":"主页","ui":"ui/main.json"}]}}"""
+            "contributes":{"pages":[{"id":"main","title":"主页","ui":"ui/main.json"},
+                {"id":"card","title":"卡片","placement":"nowPlayingCard",
+                 "ui":{"type":"column","children":[{"type":"button","text":"卡片按钮","action":"increment"}]}}]}}"""
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             listOf(PluginPaths.MANIFEST to manifestText, PluginPaths.SCRIPT to script, "ui/main.json" to page).forEach { (name, content) ->
@@ -135,8 +148,13 @@ class PluginPageRenderTest {
         store.install(staged, enabled = true)
         runtime.sync(store.list())
         val manifest = store.list().single().manifest!!
-        val parsed = PlayerLayoutParser.loadPage(manifest, manifest.contributes.pages.single()) as PlayerLayoutParseResult.Success
-        active = ActivePluginPage(manifest, manifest.contributes.pages.single(), parsed.root, null)
+        fun pageOf(index: Int): ActivePluginPage {
+            val page = manifest.contributes.pages[index]
+            val parsed = PlayerLayoutParser.loadPage(manifest, page) as PlayerLayoutParseResult.Success
+            return ActivePluginPage(manifest, page, parsed.root, null)
+        }
+        active = pageOf(0)
+        card = pageOf(1)
         waitFor { host.state("com.example.page", "main").isNotEmpty() }
         waitFor { "action:open:main" in runtime.status.value["com.example.page"]?.registrations.orEmpty() }
     }
@@ -195,6 +213,29 @@ class PluginPageRenderTest {
             assertEquals("第三条", probe.input!!.first)
             probe.commit!!()
             waitFor { stateText("items").contains("第三条") }
+        }
+    }
+
+    @Test
+    fun `插件卡片按配置排序、保存后保留，并能触发脚本`() = runBlocking<Unit> {
+        val settings = SettingsPreferences(PreferencesStores.get(File(root, "settings.preferences_pb")))
+        val source = PlayerCardSource(settings, MutableStateFlow(listOf(active, card)))
+        val entries = source.entries.first()
+        assertEquals(card.cardKey, entries.last().key)
+        assertFalse("普通页面不进卡片列表", entries.any { it.title == "主页" })
+
+        source.save(listOf(entries.last()) + entries.dropLast(1))
+        val saved = source.entries.first { it.first().key == card.cardKey }
+        assertEquals(entries.size, saved.size)
+
+        val probe = Probe()
+        val context = PluginCardContext(source, host, probe)
+        withScene({
+            CompositionLocalProvider(LocalPluginCards provides context) { PluginCardView(card.cardKey) }
+        }) { scene ->
+            scene.render()
+            probe.buttons.getValue("卡片按钮")()
+            waitFor { stateText("count") == "点击次数：1" }
         }
     }
 
