@@ -151,6 +151,10 @@ fun rememberPluginSettingsController(repository: PluginRepository): PluginSettin
 
 fun pluginExportFileName(plugin: InstalledPlugin): String = "${plugin.id}.$PLUGIN_FILE_EXTENSION"
 
+// 导入预览里的高风险提示
+fun pluginRiskWarning(manifest: PluginManifest): String? =
+    if (PluginPermission.NETEASE_WRITE in manifest.permissions) "这个插件可以修改你的网易云账号，只安装你信任的插件" else null
+
 // 列表与预览里的能力摘要
 fun pluginFeatureSummary(manifest: PluginManifest): String {
     val contributes = manifest.contributes

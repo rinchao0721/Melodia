@@ -35,7 +35,8 @@ class PluginHostApi(
     private val http: PluginHttpClient = OkHttpPluginHttpClient(),
     private val playback: () -> PlaybackController? = { null },
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
-    private val notices: PluginNotices = PluginNotices()
+    private val notices: PluginNotices = PluginNotices(),
+    private val netease: PluginNeteaseApi? = null
 ) {
     private val storageLocks = ConcurrentHashMap<String, Mutex>()
     private val json = Json { prettyPrint = false }
@@ -60,6 +61,9 @@ class PluginHostApi(
         "ui.toast" -> toast(manifest, args.asObject(method))
         "settings.get" -> settingValue(manifest, args.asObject(method).requireString("key"))
         "settings.all" -> settings(manifest)
+        METHOD_NETEASE -> neteaseCall(manifest, args.asObject(method))
+        "library.likedSongIds" -> neteaseApi().likedSongIds(manifest)
+        "library.playlists" -> neteaseApi().libraryPlaylists(manifest)
         else -> throw PluginCallException("不支持的调用 $method")
     }
 
@@ -83,6 +87,11 @@ class PluginHostApi(
     fun clearUiState(pluginId: String) {
         _uiStates.update { states -> states.filterKeys { !it.startsWith("$pluginId/") } }
     }
+
+    private fun neteaseApi(): PluginNeteaseApi = netease ?: throw PluginCallException("网易接口尚未就绪")
+
+    private suspend fun neteaseCall(manifest: PluginManifest, args: JsonObject): JsonElement =
+        neteaseApi().call(manifest, args.requireString("method"), args["params"] as? JsonObject ?: JsonObject(emptyMap()))
 
     private fun toast(manifest: PluginManifest, args: JsonObject): JsonElement {
         require(manifest, PluginPermission.UI_NOTIFY)
@@ -308,6 +317,7 @@ class PluginHostApi(
         string(key)?.takeIf { it.isNotEmpty() } ?: throw PluginCallException("缺少参数 $key")
 
     companion object {
+        const val METHOD_NETEASE = "netease.call"
         private const val STORAGE_FILE = "storage.json"
         private const val SETTINGS_FILE = "settings.json"
         private const val MAX_TOAST_LENGTH = 120

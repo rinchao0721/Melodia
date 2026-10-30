@@ -41,6 +41,7 @@ import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PluginConfirmations
 import com.lin0721.linmusic.core.plugin.PluginImageSource
 import com.lin0721.linmusic.core.plugin.PluginOption
 import com.lin0721.linmusic.core.plugin.PluginPageHost
@@ -51,6 +52,8 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginTrack
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.plugin.snapToStep
+import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
@@ -215,6 +218,23 @@ internal object DesktopPluginPageUi : PluginPageUi {
 
     private fun formatNumber(value: Float): String =
         if (value == value.toLong().toFloat()) value.toLong().toString() else ((value * 100).roundToInt() / 100f).toString()
+}
+
+// 插件请求用户确认时显示，关闭即拒绝
+@Composable
+internal fun PluginConfirmDialog(confirmations: PluginConfirmations) {
+    val request by confirmations.pending.collectAsState()
+    val pending = request ?: return
+    DesktopDialog(
+        title = pending.title,
+        onDismiss = { confirmations.respond(false) },
+        actions = {
+            DialogButton("拒绝", onClick = { confirmations.respond(false) })
+            DialogButton("允许", onClick = { confirmations.respond(true) }, primary = true)
+        }
+    ) {
+        Text(pending.message, color = DesktopColors.TextGray, fontSize = 13.sp)
+    }
 }
 
 // 音乐库侧栏底部的插件页面入口

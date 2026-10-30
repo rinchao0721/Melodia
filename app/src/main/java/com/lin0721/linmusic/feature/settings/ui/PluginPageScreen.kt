@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +47,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PluginConfirmations
 import com.lin0721.linmusic.core.plugin.PluginImageSource
 import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginSettingsView
@@ -57,6 +60,7 @@ import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.plugin.snapToStep
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -94,6 +98,25 @@ fun PluginPageDialog(active: ActivePluginPage, host: PluginPageHost, onDismiss: 
             }
         }
     }
+}
+
+// 插件请求用户确认时显示，关闭即拒绝
+@Composable
+fun PluginConfirmDialog(confirmations: PluginConfirmations) {
+    val request by confirmations.pending.collectAsState()
+    val pending = request ?: return
+    AlertDialog(
+        onDismissRequest = { confirmations.respond(false) },
+        title = { Text(pending.title, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+        text = { Text(pending.message, color = MelodiaColors.TextSecondary) },
+        confirmButton = {
+            MelodiaTextButton(onClick = { confirmations.respond(true) }) { Text("允许", color = MelodiaColors.AccentText) }
+        },
+        dismissButton = {
+            MelodiaTextButton(onClick = { confirmations.respond(false) }) { Text("拒绝", color = MelodiaColors.TextPrimary) }
+        },
+        containerColor = MelodiaColors.Background
+    )
 }
 
 // 插件设置全屏打开，字段由清单决定

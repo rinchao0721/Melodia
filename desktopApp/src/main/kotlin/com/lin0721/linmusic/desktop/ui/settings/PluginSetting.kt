@@ -49,6 +49,7 @@ import com.lin0721.linmusic.core.plugin.playerLayoutOptions
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
+import com.lin0721.linmusic.core.plugin.pluginRiskWarning
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.desktop.platform.chooseFile
@@ -288,6 +289,9 @@ private fun PluginPreviewDialog(
             if (manifest.networkHosts.isNotEmpty()) {
                 DialogLabel("允许访问的域名", Modifier.padding(top = 12.dp))
                 Text(manifest.networkHosts.joinToString("、"), color = DesktopColors.TextPrimary, fontSize = 12.sp)
+            }
+            pluginRiskWarning(manifest)?.let {
+                Text(it, color = DesktopColors.Error, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
             }
             if (preview.staged.warnings.isNotEmpty()) {
                 DialogLabel("提示", Modifier.padding(top = 12.dp))

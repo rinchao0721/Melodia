@@ -4,6 +4,7 @@ import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginCardContext
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.desktop.ui.plugin.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -147,6 +148,7 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCommands provides deps.pluginCommands
     ) {
         LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
+        PluginConfirmDialog(deps.pluginCommands.confirmations)
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }

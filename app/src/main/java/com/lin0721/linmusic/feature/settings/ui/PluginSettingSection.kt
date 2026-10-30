@@ -60,6 +60,7 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
+import com.lin0721.linmusic.core.plugin.pluginRiskWarning
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
@@ -333,6 +334,9 @@ private fun PluginPreviewSheet(
             if (manifest.networkHosts.isNotEmpty()) {
                 SectionLabel("允许访问的域名")
                 Text(manifest.networkHosts.joinToString("、"), color = MelodiaColors.TextPrimary, fontSize = 13.sp)
+            }
+            pluginRiskWarning(manifest)?.let {
+                Text(it, color = MelodiaColors.Error, fontSize = 13.sp, modifier = Modifier.padding(top = 14.dp))
             }
             val warnings = preview.staged.warnings
             if (warnings.isNotEmpty()) {

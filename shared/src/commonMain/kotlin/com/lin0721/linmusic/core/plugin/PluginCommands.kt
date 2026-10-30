@@ -38,7 +38,8 @@ data class PluginCommandItem(val pluginId: String, val pluginName: String, val c
 class PluginCommands(
     private val registry: ExtensionRegistry,
     val notices: PluginNotices,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    val confirmations: PluginConfirmations = PluginConfirmations()
 ) {
 
     fun items(location: PluginMenuLocation): Flow<List<PluginCommandItem>> =

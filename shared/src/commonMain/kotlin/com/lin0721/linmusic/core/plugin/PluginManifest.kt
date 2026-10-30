@@ -17,7 +17,10 @@ enum class PluginPermission(val key: String, val label: String) {
     STORAGE("storage", "保存插件自己的数据"),
     AUDIO_SOURCE("audioSource", "作为音源提供播放链接"),
     LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词"),
-    UI_NOTIFY("ui.notify", "显示应用内提示");
+    UI_NOTIFY("ui.notify", "显示应用内提示"),
+    LIBRARY_READ("library.read", "读取你的歌单与红心列表"),
+    NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
+    NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注");
 
     companion object {
         fun fromKey(key: String): PluginPermission? = entries.firstOrNull { it.key == key }

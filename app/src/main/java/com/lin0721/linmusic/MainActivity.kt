@@ -1,5 +1,6 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.feature.settings.ui.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginCommands
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     ThemeRevealHost(themeKey = palette to LocalSkinBackdrop.current, enabled = uiMotion.enabled) {
                         MelodiaApp()
                     }
+                    PluginConfirmDialog(pluginCommands.confirmations)
                 }
             }
         }

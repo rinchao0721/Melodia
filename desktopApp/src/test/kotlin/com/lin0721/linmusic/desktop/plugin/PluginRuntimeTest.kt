@@ -1,5 +1,16 @@
 package com.lin0721.linmusic.desktop.plugin
 
+import com.lin0721.linmusic.core.model.ArtistDetailInfo
+import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.plugin.PluginConfirmations
+import com.lin0721.linmusic.core.plugin.PluginNeteaseApi
+import com.lin0721.linmusic.core.plugin.PluginNeteaseBackend
+import com.lin0721.linmusic.core.userplaylist.UserPlaylist
+import com.lin0721.linmusic.feature.search.domain.SearchPageResult
+import com.lin0721.linmusic.feature.search.domain.SearchType
+import kotlinx.coroutines.flow.filterNotNull
 import com.lin0721.linmusic.core.plugin.InstalledPlugin
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginCommands
@@ -144,6 +155,62 @@ class PluginRuntimeTest {
         commands.run(commands.itemsNow(PluginMenuLocation.SONG).single(), buildJsonObject { put("title", "晴天") })
 
         assertEquals("二代：已处理 晴天 slow", message.await())
+    }
+
+    private class LikeOnlyBackend : PluginNeteaseBackend {
+        val liked = mutableListOf<Long>()
+
+        override suspend fun uid(): Long = 1L
+        override suspend fun likeSong(id: Long, like: Boolean): Result<Unit> {
+            liked += id
+            return Result.success(Unit)
+        }
+        override suspend fun songDetails(ids: List<Long>) = unused<List<Track>>()
+        override suspend fun lyrics(id: Long) = unused<List<LyricLine>>()
+        override suspend fun search(keyword: String, type: SearchType, offset: Int, limit: Int) = unused<SearchPageResult>()
+        override suspend fun playlistDetail(id: Long) = unused<PlaylistDetail>()
+        override suspend fun albumDetail(id: Long) = unused<PlaylistDetail>()
+        override suspend fun artistDetail(id: Long) = unused<ArtistDetailInfo>()
+        override suspend fun artistTopSongs(id: Long) = unused<List<Track>>()
+        override suspend fun userPlaylists(uid: Long) = unused<List<UserPlaylist>>()
+        override fun likedSongIds() = emptySet<Long>()
+        override suspend fun createPlaylist(name: String, privacy: Int) = unused<PlaylistDetail>()
+        override suspend fun addTracks(playlistId: Long, trackIds: List<Long>) = unused<Unit>()
+        override suspend fun removeTracks(playlistId: Long, trackIds: List<Long>) = unused<Unit>()
+        override suspend fun subscribePlaylist(id: Long, subscribe: Boolean) = unused<Unit>()
+        override suspend fun subscribeAlbum(id: Long, subscribe: Boolean) = unused<Unit>()
+        override suspend fun followArtist(id: Long, follow: Boolean) = unused<Unit>()
+        override suspend fun deletePlaylist(id: Long) = unused<Unit>()
+
+        private fun <T> unused(): Result<T> = Result.failure(IllegalStateException("未使用"))
+    }
+
+    @Test
+    fun `脚本等用户确认写入时不按命令超时处理`() = runBlocking {
+        val backend = LikeOnlyBackend()
+        val confirmations = PluginConfirmations()
+        val api = PluginHostApi(
+            store = store,
+            mainDispatcher = Dispatchers.Unconfined,
+            netease = PluginNeteaseApi(backend, store, confirmations)
+        )
+        runtime = PluginRuntime(GraalScriptSandboxFactory(), api)
+        repository = PluginRepository(store, runtime, api)
+        installV2(
+            "melodia.register.command('like', function() { return melodia.netease.call('song.like', { id: 9, like: true }); });",
+            "\"netease.write\"",
+            """"commands":[{"id":"like","title":"红心"}]"""
+        )
+        waitFor { repository.status.value["com.example.v2"]?.registrations?.contains("command:like") == true }
+
+        val call = async(Dispatchers.Default) { runtime.invoke("com.example.v2", PluginPrelude.KIND_COMMAND, "like", JsonNull, 200) }
+        withTimeout(3_000) { confirmations.pending.filterNotNull().first() }
+        delay(500)
+        confirmations.respond(true)
+
+        assertTrue(call.await() != null)
+        assertEquals(listOf(9L), backend.liked)
+        assertNull(repository.status.value["com.example.v2"]?.lastError)
     }
 
     @Test

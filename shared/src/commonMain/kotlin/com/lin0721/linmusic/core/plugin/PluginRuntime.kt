@@ -92,6 +92,8 @@ class PluginRuntime(
             val result = try {
                 target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
                 withTimeoutOrNull(timeoutMs) { deferred.await() }
+                    // 脚本在等网易调用时可能正等用户确认，不按超时处理
+                    ?: target.pendingNetease.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
                     ?: Result.failure(PluginCallException("$kind:$name 超过 ${timeoutMs / 1000} 秒没有返回"))
             } catch (e: CancellationException) {
                 throw e
@@ -242,6 +244,7 @@ class PluginRuntime(
         lateinit var sandbox: ScriptSandbox
         val pending = ConcurrentHashMap<Int, CompletableDeferred<Result<JsonElement>>>()
         private val consecutiveErrors = AtomicInteger(0)
+        val pendingNetease = AtomicInteger(0)
 
         @Volatile
         private var closed = false
@@ -266,9 +269,12 @@ class PluginRuntime(
             val id = (data["id"] as? JsonPrimitive)?.intOrNull ?: return
             val method = (data["method"] as? JsonPrimitive)?.content ?: return
             val args = data["args"] ?: JsonNull
+            val isNetease = method == PluginHostApi.METHOD_NETEASE
+            if (isNetease) pendingNetease.incrementAndGet()
             scope.launch {
                 val (error, result) = try {
-                    null to withTimeout(CALL_TIMEOUT_MS) { api.handle(manifest, method, args) }
+                    val timeout = if (isNetease) NETEASE_TIMEOUT_MS else CALL_TIMEOUT_MS
+                    null to withTimeout(timeout) { api.handle(manifest, method, args) }
                 } catch (e: PluginCallException) {
                     e.message to JsonNull
                 } catch (e: TimeoutCancellationException) {
@@ -278,6 +284,8 @@ class PluginRuntime(
                 } catch (e: Exception) {
                     AppLogger.w(TAG, "[${manifest.id}] 宿主调用 $method 异常", e)
                     "$method 执行失败" to JsonNull
+                } finally {
+                    if (isNetease) pendingNetease.decrementAndGet()
                 }
                 if (closed) return@launch
                 try {
@@ -336,6 +344,8 @@ class PluginRuntime(
     companion object {
         const val LOAD_TIMEOUT_MS = 8_000L
         const val CALL_TIMEOUT_MS = 30_000L
+        // 要留够用户确认的时间
+        const val NETEASE_TIMEOUT_MS = 90_000L
         const val MAX_CONSECUTIVE_ERRORS = 5
 
         // 各类插件调用的上限

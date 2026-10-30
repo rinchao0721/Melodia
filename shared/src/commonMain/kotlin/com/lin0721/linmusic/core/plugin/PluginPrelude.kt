@@ -104,6 +104,13 @@ object PluginPrelude {
                     setState: function(page, patch) { return call('ui.setState', { page: page, patch: patch }); },
                     toast: function(text) { return call('ui.toast', { text: text }); }
                 },
+                netease: {
+                    call: function(method, params) { return call('netease.call', { method: method, params: params === undefined ? {} : params }); }
+                },
+                library: {
+                    likedSongIds: function() { return call('library.likedSongIds'); },
+                    playlists: function() { return call('library.playlists'); }
+                },
                 settings: {
                     get: function(key) { return call('settings.get', { key: key }); },
                     all: function() { return call('settings.all'); }

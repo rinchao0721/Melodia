@@ -74,6 +74,9 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `audioSource` | 作为音源提供播放链接 | `audioSources` 必需 |
 | `lyricsSource` | 作为歌词源提供歌词 | `lyricsSources` 必需 |
 | `ui.notify` | 显示应用内提示，提示前会带上插件名称 | |
+| `library.read` | 读取当前用户的歌单与红心列表 | |
+| `netease.read` | 以当前用户身份调用网易只读方法 | |
+| `netease.write` | 以当前用户身份调用网易写方法 | |
 
 提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。
 
@@ -94,6 +97,9 @@ await melodia.ui.setState(pageId, patch)                     // 浅合并到页�
 await melodia.ui.toast(text)                                 // 不超过 120 个字符
 await melodia.settings.get(key)
 await melodia.settings.all()
+await melodia.netease.call(method, params)
+await melodia.library.likedSongIds()
+await melodia.library.playlists()
 melodia.on('songChanged', handler)
 melodia.register.audioSource('main', { resolve, search })
 melodia.register.lyricsSource('main', { fetch })
@@ -135,6 +141,42 @@ melodia.register.lyricsSource('main', {
 
 - 与网易、AMLL、QQ 歌词同时查询，优先级最低：只有其他来源都没有歌词时才使用插件歌词。
 - 多个插件歌词源并发查询，按插件名称顺序取第一份非空结果；单个歌词源超过 8 秒按没有结果处理。
+
+## 网易接口
+
+插件拿不到 Cookie 和登录凭证，只能调用下表方法。未登录时调用会被拒绝，响应只包含表里列出的数据。
+
+```js
+const page = await melodia.netease.call('search', { keyword: '晴天', type: 'song' });
+await melodia.netease.call('song.like', { id: page.items[0].songId, like: true });
+```
+
+| 方法 | 权限 | 参数 | 返回 |
+|---|---|---|---|
+| `song.detail` | `netease.read` | `ids`（最多 200 个） | 歌曲数组 |
+| `song.lyric` | `netease.read` | `id` | `{ timeMs, text, translation }` 数组 |
+| `search` | `netease.read` | `keyword`，`type`（`song`、`album`、`artist`、`playlist`，默认 `song`），`offset`，`limit`（最多 100） | `{ total, hasMore, items }` |
+| `playlist.detail` / `album.detail` | `netease.read` | `id` | 歌单对象 |
+| `artist.detail` / `artist.topSongs` | `netease.read` | `id` | 歌手对象 / 歌曲数组 |
+| `user.playlists` | `netease.read` | | 歌单数组 |
+| `user.likedSongs` | `netease.read` | | 歌曲 id 数组 |
+| `song.like` | `netease.write` | `id`，`like` | |
+| `playlist.create` | `netease.write` | `name`，`privacy`（`0` 公开，`10` 隐私） | 歌单对象 |
+| `playlist.addTracks` / `playlist.removeTracks` | `netease.write` | `id`，`trackIds`（最多 200 个） | |
+| `playlist.subscribe` | `netease.write` | `id`，`subscribe` | |
+| `album.subscribe` | `netease.write` | `id`，`subscribe` | |
+| `artist.follow` | `netease.write` | `id`，`follow` | |
+| `playlist.delete` | `netease.write` | `id` | |
+
+写方法的限制：
+
+- 导入时确认权限后，插件第一次写入还会再弹一次确认，同意后记住，重新安装插件时失效。
+- `playlist.delete` 每次都要用户确认，不能删除「我喜欢的音乐」。
+- `playlist.addTracks`、`removeTracks`、`delete` 只能操作用户自己创建的歌单。
+- 每个插件每分钟最多写入 30 次，超出时调用被拒绝。
+- 确认弹窗 60 秒未响应按拒绝处理。
+
+歌曲对象为 `{ songId, title, artist, artists, album, albumId, cover, durationMs }`。
 
 ## 命令
 

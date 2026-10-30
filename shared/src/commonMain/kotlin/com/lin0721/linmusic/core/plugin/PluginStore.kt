@@ -27,7 +27,9 @@ data class PluginState(
     // 连续出错被自动停用时的原因
     val disabledReason: String? = null,
     // 最近一次启用的时间，同一区域有多个插件布局时默认取最近启用的
-    val enabledAt: Long = 0L
+    val enabledAt: Long = 0L,
+    // 用户是否允许过写入网易账号；重新安装后需要再次确认
+    val neteaseWriteApproved: Boolean = false
 )
 
 data class InstalledPlugin(
@@ -117,6 +119,8 @@ class PluginStore(private val root: File) {
             }
         }
     }
+
+    fun state(id: String): PluginState = synchronized(lock) { readStates()[id] ?: PluginState() }
 
     fun updateState(id: String, transform: (PluginState) -> PluginState) {
         synchronized(lock) {
