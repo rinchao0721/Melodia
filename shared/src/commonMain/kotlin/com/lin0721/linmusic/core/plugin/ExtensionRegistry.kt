@@ -19,6 +19,7 @@ object ExtensionPoints {
     val EVENT = ExtensionPoint<EventExtension>("event", ExtensionMerge.ALL)
     val COMMAND = ExtensionPoint<CommandExtension>("command", ExtensionMerge.ALL)
     val MENU = ExtensionPoint<PluginMenuEntry>("menu", ExtensionMerge.ALL)
+    val CONTENT_SOURCE = ExtensionPoint<ContentSourceExtension>("contentSource", ExtensionMerge.ORDERED)
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
@@ -37,6 +38,17 @@ interface EventExtension {
     val events: Set<PluginEvent>
 
     fun onEvent(event: PluginEvent, data: JsonElement)
+}
+
+// 第三方内容来源；返回值的格式与脚本一致
+interface ContentSourceExtension {
+    val searchable: Boolean
+
+    suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement?
+
+    suspend fun playlist(id: String): JsonElement?
+
+    suspend fun resolve(trackId: String, quality: String): JsonElement?
 }
 
 // 执行失败或超时返回 false

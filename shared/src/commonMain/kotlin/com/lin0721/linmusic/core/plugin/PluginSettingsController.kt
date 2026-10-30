@@ -166,6 +166,7 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
         if (contributes.events.isNotEmpty()) add("播放事件")
         if (contributes.commands.isNotEmpty()) add("命令 ${contributes.commands.size} 个")
         if (contributes.settings.isNotEmpty()) add("设置 ${contributes.settings.size} 项")
+        if (contributes.contentSources.isNotEmpty()) add("内容源 ${contributes.contentSources.size} 个")
     }.joinToString("、")
 }
 

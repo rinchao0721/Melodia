@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -258,7 +259,7 @@ fun PlaylistHeaderItem(
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                             // 收藏对系统歌单和自建歌单都没有意义：前者本来就是自己的红心集合，
                             // 后者不能收藏自己创建的东西
-                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist) {
+                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
                                         imageVector = if (isSubscribed) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
@@ -268,21 +269,23 @@ fun PlaylistHeaderItem(
                                     )
                                 }
                             }
-                            MelodiaIconButton(onClick = onCommentsClick) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Comment,
-                                    contentDescription = "评论",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            MelodiaIconButton(onClick = onShareClick) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "分享",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            if (!isPluginCollectionId(playlist.id)) {
+                                MelodiaIconButton(onClick = onCommentsClick) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        contentDescription = "评论",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onShareClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "分享",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                             // 订阅他人的歌单不在顶部放下载入口，收进"更多"里；系统歌单和自建歌单顶部保留
                             if (isLikedSongsPlaylistView || isOwnedPlaylist) {

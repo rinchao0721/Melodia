@@ -187,6 +187,12 @@ class PluginRuntime(
                 if (order < 0) return
                 registry.register(Extension(ExtensionPoints.LYRICS_SOURCE, manifest.id, manifest.name, name, ScriptLyricsSource(manifest.id, name), order))
             }
+            PluginPrelude.KIND_CONTENT_SOURCE -> {
+                val order = manifest.contributes.contentSources.indexOfFirst { it.id == name }
+                if (order < 0) return
+                val source = ScriptContentSource(manifest.id, name, manifest.contributes.contentSources[order].search)
+                registry.register(Extension(ExtensionPoints.CONTENT_SOURCE, manifest.id, manifest.name, name, source, order))
+            }
             PluginPrelude.KIND_COMMAND -> {
                 val order = manifest.contributes.commands.indexOfFirst { it.id == name }
                 if (order < 0) return
@@ -194,6 +200,36 @@ class PluginRuntime(
                 registry.register(Extension(ExtensionPoints.COMMAND, manifest.id, manifest.name, name, ScriptCommand(manifest.id, name, title), order))
             }
         }
+    }
+
+    private inner class ScriptContentSource(
+        private val pluginId: String,
+        private val name: String,
+        override val searchable: Boolean
+    ) : ContentSourceExtension {
+        override suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement? = call("search", buildJsonObject {
+            put("keyword", keyword)
+            put("offset", offset)
+            put("limit", limit)
+        })
+
+        override suspend fun playlist(id: String): JsonElement? = call("playlist", buildJsonObject { put("id", id) })
+
+        override suspend fun resolve(trackId: String, quality: String): JsonElement? = call("resolve", buildJsonObject {
+            put("id", trackId)
+            put("quality", quality)
+        })
+
+        private suspend fun call(method: String, params: JsonObject): JsonElement? = invoke(
+            pluginId,
+            PluginPrelude.KIND_CONTENT_SOURCE,
+            name,
+            buildJsonObject {
+                put("method", method)
+                put("params", params)
+            },
+            SOURCE_TIMEOUT_MS
+        )
     }
 
     private inner class ScriptCommand(
@@ -354,6 +390,12 @@ class PluginRuntime(
         const val ACTION_TIMEOUT_MS = 5_000L
 
         private val SCRIPT_POINTS: Set<ExtensionPoint<*>> =
-            setOf(ExtensionPoints.AUDIO_SOURCE, ExtensionPoints.LYRICS_SOURCE, ExtensionPoints.EVENT, ExtensionPoints.COMMAND)
+            setOf(
+                ExtensionPoints.AUDIO_SOURCE,
+                ExtensionPoints.LYRICS_SOURCE,
+                ExtensionPoints.EVENT,
+                ExtensionPoints.COMMAND,
+                ExtensionPoints.CONTENT_SOURCE
+            )
     }
 }

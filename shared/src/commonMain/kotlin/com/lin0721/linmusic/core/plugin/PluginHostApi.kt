@@ -36,7 +36,8 @@ class PluginHostApi(
     private val playback: () -> PlaybackController? = { null },
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val notices: PluginNotices = PluginNotices(),
-    private val netease: PluginNeteaseApi? = null
+    private val netease: PluginNeteaseApi? = null,
+    private val content: PluginContent? = null
 ) {
     private val storageLocks = ConcurrentHashMap<String, Mutex>()
     private val json = Json { prettyPrint = false }
@@ -64,6 +65,7 @@ class PluginHostApi(
         METHOD_NETEASE -> neteaseCall(manifest, args.asObject(method))
         "library.likedSongIds" -> neteaseApi().likedSongIds(manifest)
         "library.playlists" -> neteaseApi().libraryPlaylists(manifest)
+        "content.open" -> openContent(manifest, args.asObject(method))
         else -> throw PluginCallException("不支持的调用 $method")
     }
 
@@ -86,6 +88,15 @@ class PluginHostApi(
     // 删除插件时一并清掉页面数据
     fun clearUiState(pluginId: String) {
         _uiStates.update { states -> states.filterKeys { !it.startsWith("$pluginId/") } }
+    }
+
+    private fun openContent(manifest: PluginManifest, args: JsonObject): JsonElement {
+        require(manifest, PluginPermission.CONTENT_SOURCE)
+        val source = args.requireString("source")
+        if (manifest.contributes.contentSources.none { it.id == source }) throw PluginCallException("清单里没有内容源 $source")
+        val target = content ?: throw PluginCallException("内容入口尚未就绪")
+        target.open(manifest.id, source, args.requireString("id"), args.string("title")?.take(MAX_TOAST_LENGTH).orEmpty())
+        return JsonNull
     }
 
     private fun neteaseApi(): PluginNeteaseApi = netease ?: throw PluginCallException("网易接口尚未就绪")

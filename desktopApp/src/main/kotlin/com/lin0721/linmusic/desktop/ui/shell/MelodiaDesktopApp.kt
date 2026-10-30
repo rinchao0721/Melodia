@@ -148,6 +148,9 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCommands provides deps.pluginCommands
     ) {
         LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
+        LaunchedEffect(deps) {
+            deps.pluginCommands.content.opens.collect { state.navigate(DesktopRoute.Playlist(it.id, it.title)) }
+        }
         PluginConfirmDialog(deps.pluginCommands.confirmations)
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)

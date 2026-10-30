@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.playlist
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -580,6 +581,7 @@ private fun PlaylistContent(
                         onImportTo = { target -> viewModel.importAllTracksTo(target.id) },
                         onCreateImport = { dialogState.showCreateImport = true },
                         canCopyLink = playlist.id > 0,
+                        canDownload = !isPluginCollectionId(playlist.id),
                         onCopyLink = {
                             navigator.showMessage(if (copyPlaylistLink(isAlbum, playlist.id)) "已复制链接" else "复制失败")
                         },
@@ -745,6 +747,7 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
     val typeLabel = when {
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"
+        isPluginCollectionId(playlist.id) -> "歌单"
         playlist.privacy == PRIVATE_PLAYLIST -> "隐私歌单"
         else -> "公开歌单"
     }
@@ -882,6 +885,7 @@ private fun PlaylistActionBar(
     onImportTo: (UserPlaylist) -> Unit,
     onCreateImport: () -> Unit,
     canCopyLink: Boolean,
+    canDownload: Boolean,
     onCopyLink: () -> Unit,
     onQueryChange: (String) -> Unit,
     onOrderChange: (PlaylistSortOrder) -> Unit,
@@ -916,7 +920,7 @@ private fun PlaylistActionBar(
                 onClick = onToggleComments
             )
         }
-        ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
+        if (canDownload) ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
         PlaylistMoreMenu(
             resourceLabel, canDelete, canCopyLink, onPlayNextAll,
             importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete

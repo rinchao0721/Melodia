@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -1009,24 +1010,26 @@ fun PlaylistScreen(
                                 }
                             }
                         )
-                        add(
-                            PlaylistMenuItem(
-                                icon = Icons.Default.Share,
-                                title = "分享$resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                sharePlaylistOrAlbum(playlist.name, playlist.id)
-                            }
-                        )
-                        add(
-                            PlaylistMenuItem(
-                                icon = Icons.Default.Download,
-                                title = "下载$resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                showDownloadQualitySheet = true
-                            }
-                        )
+                        if (!isPluginCollectionId(playlist.id)) {
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Share,
+                                    title = "分享$resourceLabel"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    sharePlaylistOrAlbum(playlist.name, playlist.id)
+                                }
+                            )
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Download,
+                                    title = "下载$resourceLabel"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    showDownloadQualitySheet = true
+                                }
+                            )
+                        }
                         if (isManageable) {
                             add(
                                 PlaylistMenuItem(

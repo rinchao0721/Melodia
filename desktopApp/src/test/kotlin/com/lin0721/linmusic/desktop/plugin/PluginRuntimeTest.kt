@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.plugin
 
+import com.lin0721.linmusic.core.plugin.PluginContent
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
@@ -211,6 +212,35 @@ class PluginRuntimeTest {
         assertTrue(call.await() != null)
         assertEquals(listOf(9L), backend.liked)
         assertNull(repository.status.value["com.example.v2"]?.lastError)
+    }
+
+    @Test
+    fun `脚本内容源提供搜索、详情与播放地址`() = runBlocking {
+        val content = PluginContent(runtime.registry)
+        installV2(
+            """
+            var song = { id: 'a1', title: '外部歌曲', artist: '歌手', durationMs: 1000 };
+            melodia.register.contentSource('main', {
+                search: function(query) { return query.keyword === '外部' ? [song] : []; },
+                playlist: function(args) { return { name: '歌单' + args.id, tracks: [song] }; },
+                resolve: function(track) { return 'https://example.com/' + track.id + '.mp3?q=' + track.quality; }
+            });
+            """.trimIndent(),
+            "\"contentSource\"",
+            """"contentSources":[{"id":"main","name":"示例","search":true}]"""
+        )
+        waitFor { content.hasSearch() }
+
+        val track = content.search("外部", 0, 30).single()
+        assertEquals("外部歌曲", track.name)
+        assertEquals("https://example.com/a1.mp3?q=exhigh", content.resolve(track, "exhigh"))
+        val detail = content.detail(content.collectionId("com.example.v2", "main", "7")).getOrThrow()
+        assertEquals("歌单7", detail.name)
+        assertEquals(track, content.externalTrack(detail.tracks.single().id))
+
+        runtime.stop("com.example.v2")
+        assertFalse(content.hasSearch())
+        assertNull(content.resolve(track, "exhigh"))
     }
 
     @Test

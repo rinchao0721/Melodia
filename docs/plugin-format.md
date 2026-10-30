@@ -60,6 +60,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
 - `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song` 或 `toolbar`。只显示脚本已注册的命令。`song` 出现在桌面歌曲右键菜单、Android 歌曲「更多」弹层与全屏播放页「更多」弹层（播客节目除外）；`toolbar` 在桌面是顶栏按钮，在 Android 是「设置 → 扩展 → 插件」里的「插件命令」。
 - `settings`（format 2）：插件设置项，见「设置」一节。
+- `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
 
 单项写错时只忽略这一项，并在导入时提示。
 
@@ -75,6 +76,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `lyricsSource` | 作为歌词源提供歌词 | `lyricsSources` 必需 |
 | `ui.notify` | 显示应用内提示，提示前会带上插件名称 | |
 | `library.read` | 读取当前用户的歌单与红心列表 | |
+| `contentSource` | 提供歌曲、歌单与搜索结果 | `contentSources` 必需 |
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
 | `netease.write` | 以当前用户身份调用网易写方法 | |
 
@@ -100,11 +102,13 @@ await melodia.settings.all()
 await melodia.netease.call(method, params)
 await melodia.library.likedSongIds()
 await melodia.library.playlists()
+await melodia.content.open(source, id, title)
 melodia.on('songChanged', handler)
 melodia.register.audioSource('main', { resolve, search })
 melodia.register.lyricsSource('main', { fetch })
 melodia.register.action('refresh', handler)
 melodia.register.command('share', handler)
+melodia.register.contentSource('main', { search, playlist, resolve })
 ```
 
 - 网络请求不会自动跟随到白名单外的域名；每次重定向都会重新核对域名。响应体上限 4MB。
@@ -177,6 +181,33 @@ await melodia.netease.call('song.like', { id: page.items[0].songId, like: true }
 - 确认弹窗 60 秒未响应按拒绝处理。
 
 歌曲对象为 `{ songId, title, artist, artists, album, albumId, cover, durationMs }`。
+
+## 内容源
+
+内容源让第三方平台的内容进入应用：搜索结果显示在搜索页的「自定义插件」标签，歌单在原生详情页打开，歌曲可以播放和加入队列。
+
+```js
+melodia.register.contentSource('main', {
+  search: async function(query) {            // { keyword, offset, limit }，清单里 search 为 true 才调用
+    return [{ id: '1', title: '歌名', artist: '歌手', album: '专辑', cover: 'https://...', durationMs: 200000 }];
+  },
+  playlist: async function(args) {           // { id }
+    return { name: '歌单', cover: 'https://...', description: '简介', tracks: [/* 同上 */] };
+  },
+  resolve: async function(track) {           // { id, quality }
+    return 'https://...';                   // 或 { url: 'https://...' }
+  }
+});
+
+// 打开原生歌单详情页，通常放在命令或页面动作里
+await melodia.content.open('main', 'playlist-1', '我的歌单');
+```
+
+- 歌曲的 `id` 与 `title` 必需，缺少时跳过这一项；每次最多 1000 首。
+- `resolve` 只接受 http(s) 链接，返回空或试听链接时无法播放。
+- 每次调用的上限是 8 秒，超时和出错都计入连续出错。
+- 详情页没有评论、收藏和分享入口；重启应用后之前打开的插件歌单需要重新进入。
+- 插件停用后，已在队列里的歌曲无法继续解析。
 
 ## 命令
 

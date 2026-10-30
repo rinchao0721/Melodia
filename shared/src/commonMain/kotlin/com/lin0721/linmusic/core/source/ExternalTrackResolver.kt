@@ -9,6 +9,13 @@ import kotlinx.coroutines.flow.first
 private const val TAG = "ExternalTrackResolver"
 private const val FALLBACK_QUALITY = "lossless"
 
+// 自带播放地址来源的外部歌曲，不走换源
+interface ExternalTrackDirectResolver {
+    fun owns(track: ExternalTrack): Boolean
+
+    suspend fun resolve(track: ExternalTrack, quality: String): String?
+}
+
 // 外部平台歌曲没有官方链接，不看换源总开关，直接照搬网易云歌曲的换源流程：
 // 社区源插件与远程 UNM 按「社区源优先」决定先后，音质跟随 Wi-Fi／流量设置，试听片段视为失败
 class ExternalTrackResolver(
@@ -18,10 +25,12 @@ class ExternalTrackResolver(
     private val networkStateProvider: NetworkStateProvider? = null,
     private val unmApiClient: UnmApiClient? = null,
     // 远程 UNM 只认网易云 id，外部歌曲要先匹配网易云上的同一首
-    private val neteaseLookup: NeteaseSongLookup? = null
+    private val neteaseLookup: NeteaseSongLookup? = null,
+    private val directResolver: ExternalTrackDirectResolver? = null
 ) {
 
     suspend fun resolve(track: ExternalTrack): String? {
+        if (directResolver?.owns(track) == true) return directResolver.resolve(track, preferredQuality())
         val communityFirst = sourcePreferences?.communityPriority?.first() ?: true
         return if (communityFirst) {
             resolveCommunity(track) ?: resolveUnm(track)
@@ -103,6 +112,7 @@ class ExternalTrackResolver(
 
     // 区分没配置与配置了但没解析出来，让用户知道该去哪里处理
     suspend fun explainFailure(track: ExternalTrack): String {
+        if (directResolver?.owns(track) == true) return "《${track.name}》无法播放，提供它的插件已停用或没有返回地址"
         val prefs = sourcePreferences ?: return "无法获取播放直链"
         val communityReady = sourceProviders.isNotEmpty() && prefs.lxPluginEnabled.first() &&
             prefs.lxPlugins.first().any { it.isEnabled }

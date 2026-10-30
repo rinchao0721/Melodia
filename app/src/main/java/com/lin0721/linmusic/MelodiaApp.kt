@@ -1,5 +1,6 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -182,6 +183,8 @@ fun MelodiaApp() {
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
+    val pluginContent: PluginContent = koinInject()
+    LaunchedEffect(navigation) { pluginContent.opens.collect { navigation.openPlaylist(it.id, false) } }
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
 
     // 动态同步底栏首个可用路由为首选根 Tab

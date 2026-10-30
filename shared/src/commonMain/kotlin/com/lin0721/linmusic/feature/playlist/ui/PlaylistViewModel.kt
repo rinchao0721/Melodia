@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -88,7 +89,8 @@ class PlaylistViewModel(
     private val songDownloadManager: SongDownloader,
     private val offlinePlayability: OfflinePlayability,
     private val trackBatchActions: TrackBatchActionsDelegate,
-    private val externalStore: PlaylistExternalTrackStore
+    private val externalStore: PlaylistExternalTrackStore,
+    private val pluginContent: PluginContent
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -251,7 +253,7 @@ class PlaylistViewModel(
                         if (!isAlbum) observeExternalTracks(detail)
                         val baseSong = detail.tracks.firstOrNull()
 
-                        if (baseSong != null && !isAlbum) {
+                        if (baseSong != null && !isAlbum && detail.id > 0L) {
                             loadRecommendations(detail.tracks)
                         } else {
                             allRecommendedTracks = emptyList()
@@ -308,7 +310,8 @@ class PlaylistViewModel(
     }
 
     private fun Track.toQueueItem(separator: String = ", "): QueueItem =
-        externalTracks.value[id]?.toQueueItem() ?: QueueItem(id, name, ar.joinToString(separator) { it.name }, al.picUrl)
+        (externalTracks.value[id] ?: pluginContent.externalTrack(id))?.toQueueItem()
+            ?: QueueItem(id, name, ar.joinToString(separator) { it.name }, al.picUrl)
 
     private fun checkAlbumSubscribed(albumId: Long) {
         viewModelScope.launch {

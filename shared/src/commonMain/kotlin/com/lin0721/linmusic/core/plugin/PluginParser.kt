@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import java.io.File
@@ -149,6 +150,8 @@ object PluginParser {
             "提供了歌词源，但没有申请 ${PluginPermission.LYRICS_SOURCE.key} 权限"
         contributes.events.isNotEmpty() && PluginPermission.PLAYBACK_READ !in permissions ->
             "订阅了播放事件，但没有申请 ${PluginPermission.PLAYBACK_READ.key} 权限"
+        contributes.contentSources.isNotEmpty() && PluginPermission.CONTENT_SOURCE !in permissions ->
+            "提供了内容源，但没有申请 ${PluginPermission.CONTENT_SOURCE.key} 权限"
         else -> null
     }
 
@@ -213,8 +216,15 @@ object PluginParser {
             PluginCommandEntry(id, title.take(MAX_NAME_LENGTH))
         }
         val settings = parseEntries(root["settings"], "设置项", warnings) { item, id -> parseSetting(item, id, warnings) }
+        val contentSources = parseEntries(root["contentSources"], "内容源", warnings) { item, id ->
+            PluginContentEntry(
+                id,
+                item.string("name")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_NAME_LENGTH) ?: id,
+                (item["search"] as? JsonPrimitive)?.booleanOrNull == true
+            )
+        }
         return PluginContributions(
-            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings
+            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources
         )
     }
 

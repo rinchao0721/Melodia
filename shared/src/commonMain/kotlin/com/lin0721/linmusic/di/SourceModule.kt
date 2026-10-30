@@ -3,6 +3,8 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.source.AudioSourceProvider
+import com.lin0721.linmusic.core.plugin.PluginContent
+import com.lin0721.linmusic.core.plugin.PluginPlatformSearchProvider
 import com.lin0721.linmusic.core.source.AudioSourceRouter
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.LxPluginManager
@@ -27,9 +29,10 @@ val sourceModule = module {
     single<PlatformSearchProvider>(named("kugou")) { KugouSearchProvider() }
     single<PlatformSearchProvider>(named("kuwo")) { KuwoSearchProvider() }
     single<PlatformSearchProvider>(named("qq")) { QQSearchProvider() }
+    single<PlatformSearchProvider>(named("plugin")) { PluginPlatformSearchProvider(get()) }
 
     // 外部平台歌曲的直链解析，搜索与播放器共用
-    single { ExternalTrackResolver(getAll(), getOrNull(), getOrNull(), getOrNull(), get<UnmApiClient>(), getOrNull()) }
+    single { ExternalTrackResolver(getAll(), getOrNull(), getOrNull(), getOrNull(), get<UnmApiClient>(), getOrNull(), get<PluginContent>()) }
 
     // 外部歌曲评论取自 QQ 音乐，酷狗/酷我歌曲先到 QQ 搜索匹配
     single { QQSongIdResolver(getOrNull<PlatformSearchProvider>(named("qq"))) }

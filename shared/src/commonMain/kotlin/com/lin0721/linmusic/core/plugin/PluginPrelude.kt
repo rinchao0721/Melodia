@@ -16,12 +16,13 @@ object PluginPrelude {
     const val KIND_LYRICS_SOURCE = "lyricsSource"
     const val KIND_ACTION = "action"
     const val KIND_COMMAND = "command"
+    const val KIND_CONTENT_SOURCE = "contentSource"
 
     val script: String = """
         (function() {
             var seq = 0;
             var pending = {};
-            var registry = { audioSource: {}, lyricsSource: {}, action: {}, command: {} };
+            var registry = { audioSource: {}, lyricsSource: {}, action: {}, command: {}, contentSource: {} };
             var listeners = {};
 
             function post(method, data) {
@@ -107,6 +108,9 @@ object PluginPrelude {
                 netease: {
                     call: function(method, params) { return call('netease.call', { method: method, params: params === undefined ? {} : params }); }
                 },
+                content: {
+                    open: function(source, id, title) { return call('content.open', { source: source, id: id, title: title }); }
+                },
                 library: {
                     likedSongIds: function() { return call('library.likedSongIds'); },
                     playlists: function() { return call('library.playlists'); }
@@ -123,7 +127,8 @@ object PluginPrelude {
                     audioSource: function(name, impl) { register('$KIND_AUDIO_SOURCE', name, impl); },
                     lyricsSource: function(name, impl) { register('$KIND_LYRICS_SOURCE', name, impl); },
                     action: function(name, handler) { register('$KIND_ACTION', name, handler); },
-                    command: function(name, handler) { register('$KIND_COMMAND', name, handler); }
+                    command: function(name, handler) { register('$KIND_COMMAND', name, handler); },
+                    contentSource: function(name, impl) { register('$KIND_CONTENT_SOURCE', name, impl); }
                 }
             };
         })();

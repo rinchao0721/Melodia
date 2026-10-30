@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.plugin.ExtensionRegistry
+import com.lin0721.linmusic.core.plugin.PluginContent
+import com.lin0721.linmusic.core.plugin.PluginAwarePlaylistRepository
 import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -148,7 +151,10 @@ val repositoryModule = module {
     singleOf(::UserArtistRepositoryImpl) { bind<UserArtistRepository>() }
 
     // 歌单/专辑数据仓储（feature/playlist）
-    singleOf(::PlaylistRepositoryImpl) { bind<PlaylistRepository>() }
+    singleOf(::PlaylistRepositoryImpl)
+    single { ExtensionRegistry() }
+    single { PluginContent(get()) }
+    single<PlaylistRepository> { PluginAwarePlaylistRepository(get<PlaylistRepositoryImpl>(), get()) }
 
     // PlaybackRepositoryImpl 单例（供 SourceModule 中的 AudioSourceRouter 装饰器注入）
     singleOf(::PlaybackRepositoryImpl)

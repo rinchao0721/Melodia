@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.search.ui
 
+import kotlinx.coroutines.flow.combine
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -107,19 +108,23 @@ class SearchViewModel(
     private val allExternalPlatforms = listOf(
         MusicPlatform.KUGOU,
         MusicPlatform.KUWO,
-        MusicPlatform.QQ
+        MusicPlatform.QQ,
+        MusicPlatform.LX
     )
 
-    // 开关打开后才展示已注册搜索源的平台 Tab
-    val searchPlatforms: StateFlow<List<MusicPlatform>> = (sourcePreferences?.searchAggregationEnabled ?: flowOf(false))
-        .map { enabled ->
-            if (enabled) {
-                val available = searchProviders.mapTo(hashSetOf()) { it.platform }
-                listOf(MusicPlatform.NETEASE) + allExternalPlatforms.filter { it in available }
-            } else {
-                listOf(MusicPlatform.NETEASE)
-            }
+    // 开关打开后才展示已注册搜索源的平台 Tab；插件平台由插件自己决定，不受开关影响
+    val searchPlatforms: StateFlow<List<MusicPlatform>> = combine(
+        sourcePreferences?.searchAggregationEnabled ?: flowOf(false),
+        searchProviders.firstOrNull { it.platform == MusicPlatform.LX }?.available ?: flowOf(false)
+    ) { enabled, pluginAvailable ->
+        val platforms = if (enabled) {
+            val available = searchProviders.mapTo(hashSetOf()) { it.platform }
+            allExternalPlatforms.filter { it in available && it != MusicPlatform.LX }
+        } else {
+            emptyList()
         }
+        listOf(MusicPlatform.NETEASE) + platforms + listOfNotNull(MusicPlatform.LX.takeIf { pluginAvailable })
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(MusicPlatform.NETEASE))
 
     private val _selectedPlatform = MutableStateFlow(MusicPlatform.NETEASE)

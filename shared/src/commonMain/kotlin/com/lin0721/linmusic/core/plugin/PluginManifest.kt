@@ -19,6 +19,7 @@ enum class PluginPermission(val key: String, val label: String) {
     LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词"),
     UI_NOTIFY("ui.notify", "显示应用内提示"),
     LIBRARY_READ("library.read", "读取你的歌单与红心列表"),
+    CONTENT_SOURCE("contentSource", "提供歌曲、歌单与搜索结果"),
     NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
     NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注");
 
@@ -105,6 +106,8 @@ data class PluginSourceEntry(val id: String, val name: String)
 
 data class PluginCommandEntry(val id: String, val title: String)
 
+data class PluginContentEntry(val id: String, val name: String, val search: Boolean)
+
 data class PluginMenuEntry(val commandId: String, val location: PluginMenuLocation)
 
 data class PluginOption(val value: String, val label: String)
@@ -130,11 +133,12 @@ data class PluginContributions(
     val events: Set<PluginEvent> = emptySet(),
     val commands: List<PluginCommandEntry> = emptyList(),
     val menus: List<PluginMenuEntry> = emptyList(),
-    val settings: List<PluginSettingField> = emptyList()
+    val settings: List<PluginSettingField> = emptyList(),
+    val contentSources: List<PluginContentEntry> = emptyList()
 ) {
     val needsScript: Boolean
         get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
-            commands.isNotEmpty() || settings.isNotEmpty()
+            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty()
 
     val isEmpty: Boolean
         get() = playerLayouts.isEmpty() && !needsScript
