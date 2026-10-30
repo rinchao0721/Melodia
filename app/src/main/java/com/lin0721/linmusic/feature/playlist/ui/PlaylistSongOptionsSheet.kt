@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.HeartBroken
@@ -27,6 +28,10 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
@@ -256,6 +261,18 @@ fun PlaylistSongOptionsSheet(
                 }
 
                 extraOptions()
+
+                val pluginCommands = LocalPluginCommands.current
+                rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
+                    OptionRow(
+                        icon = Icons.Default.Extension,
+                        text = item.title,
+                        onClick = {
+                            onDismiss()
+                            pluginCommands?.run(item, pluginSongArgs(track.id, track.name, track.ar.joinToString(" / ") { it.name }, track.al.name, track.al.picUrl))
+                        }
+                    )
+                }
             }
         }
     }

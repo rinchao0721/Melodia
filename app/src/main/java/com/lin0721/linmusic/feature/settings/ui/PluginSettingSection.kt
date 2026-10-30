@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,6 +51,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.plugin.InstalledPlugin
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginManifest
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginImportStep
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
@@ -80,6 +85,9 @@ fun PluginSettingSection(repository: PluginRepository) {
     val pages by controller.pages.collectAsState()
     val pageHost = koinInject<PluginPageHost>()
     var openPage by remember { mutableStateOf<ActivePluginPage?>(null) }
+    var settingsTarget by remember { mutableStateOf<PluginManifest?>(null) }
+    val pluginCommands = LocalPluginCommands.current
+    val commandItems = rememberPluginCommands(PluginMenuLocation.TOOLBAR)
     var layoutPickerArea by remember { mutableStateOf<PlayerLayoutArea?>(null) }
     val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
@@ -123,7 +131,8 @@ fun PluginSettingSection(repository: PluginRepository) {
                         exportTarget = plugin
                         exportLauncher.launch(pluginExportFileName(plugin))
                     },
-                    onDelete = { deleteTarget = plugin }
+                    onDelete = { deleteTarget = plugin },
+                    onSettings = { settingsTarget = plugin.manifest }
                 )
             }
         }
@@ -132,6 +141,13 @@ fun PluginSettingSection(repository: PluginRepository) {
             Text("插件页面", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
             entryPages.forEach { active ->
                 SettingsRow(title = active.page.title, subtitle = active.manifest.name, onClick = { openPage = active })
+            }
+        }
+        // 手机没有常驻顶栏，工具栏命令放在这里
+        if (commandItems.isNotEmpty()) {
+            Text("插件命令", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
+            commandItems.forEach { item ->
+                SettingsRow(title = item.title, subtitle = item.pluginName, onClick = { pluginCommands?.run(item) })
             }
         }
         val layoutAreas = layoutAreasWithCandidates(layouts, "android.")
@@ -174,6 +190,8 @@ fun PluginSettingSection(repository: PluginRepository) {
 
     openPage?.let { active -> PluginPageDialog(active, pageHost, onDismiss = { openPage = null }) }
 
+    settingsTarget?.let { manifest -> PluginSettingsDialog(manifest, pageHost, onDismiss = { settingsTarget = null }) }
+
     layoutPickerArea?.let { area ->
         val options = playerLayoutOptions(area, layouts)
         OptionPickerSheet(
@@ -212,7 +230,8 @@ private fun PluginRow(
     status: PluginRuntimeStatus?,
     onToggle: (Boolean) -> Unit,
     onExport: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val manifest = plugin.manifest
     val statusLine = pluginStatusLine(plugin, status)
@@ -243,6 +262,11 @@ private fun PluginRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+            if (manifest?.contributes?.settings?.isNotEmpty() == true) {
+                IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                }
             }
             if (manifest != null) {
                 IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {

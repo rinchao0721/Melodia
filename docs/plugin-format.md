@@ -58,7 +58,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
 - `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
-- `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song`（歌曲右键菜单）或 `toolbar`（顶栏按钮）。只显示脚本已注册的命令。
+- `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song` 或 `toolbar`。只显示脚本已注册的命令。`song` 出现在桌面歌曲右键菜单、Android 歌曲「更多」弹层与全屏播放页「更多」弹层（播客节目除外）；`toolbar` 在桌面是顶栏按钮，在 Android 是「设置 → 扩展 → 插件」里的「插件命令」。
 - `settings`（format 2）：插件设置项，见「设置」一节。
 
 单项写错时只忽略这一项，并在导入时提示。

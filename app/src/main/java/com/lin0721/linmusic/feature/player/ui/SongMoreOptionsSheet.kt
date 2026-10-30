@@ -40,6 +40,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.window.Dialog
 import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -72,7 +76,8 @@ fun SongMoreOptionsSheet(
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    songId: Long? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -386,6 +391,24 @@ fun SongMoreOptionsSheet(
                     }
                 }
             }
+
+                // 8. 插件命令，播客节目不是歌曲
+                if (!isPodcast) {
+                    val pluginCommands = LocalPluginCommands.current
+                    rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
+                        OptionRow(
+                            icon = Icons.Rounded.Extension,
+                            text = item.title,
+                            onClick = {
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                    pluginCommands?.run(item, pluginSongArgs(songId, title, artist, albumName, coverUrl))
+                                }
+                            }
+                        )
+                    }
+                }
 
                 // 9. 定时关闭
                 val timerText = if (sleepTimerRemaining > 0L) {

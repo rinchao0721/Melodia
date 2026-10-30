@@ -46,6 +46,8 @@ import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PluginImageSource
+import com.lin0721.linmusic.core.plugin.PluginManifest
+import com.lin0721.linmusic.core.plugin.PluginSettingsView
 import com.lin0721.linmusic.core.plugin.PluginOption
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginPageUi
@@ -89,6 +91,35 @@ fun PluginPageDialog(active: ActivePluginPage, host: PluginPageHost, onDismiss: 
                         PluginPageView(active, host, AndroidPluginPageUi, Modifier.fillMaxWidth())
                     }
                 }
+            }
+        }
+    }
+}
+
+// 插件设置全屏打开，字段由清单决定
+@Composable
+fun PluginSettingsDialog(manifest: PluginManifest, host: PluginPageHost, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Surface(color = MelodiaColors.Background, modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+                    }
+                    Text("${manifest.name} 设置", color = MelodiaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+                PluginSettingsView(
+                    manifest,
+                    host,
+                    AndroidPluginPageUi,
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm)
+                )
             }
         }
     }

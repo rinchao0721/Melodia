@@ -1,5 +1,8 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginCommands
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.feature.settings.ui.AndroidPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginCardContext
@@ -63,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private val pluginRepository: PluginRepository by inject()
     private val playerCardSource: PlayerCardSource by inject()
     private val pluginPageHost: PluginPageHost by inject()
+    private val pluginCommands: PluginCommands by inject()
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
@@ -137,10 +141,12 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
             val pluginLayouts by pluginRepository.layouts.collectAsState()
             val pluginCards = remember { PluginCardContext(playerCardSource, pluginPageHost, AndroidPluginPageUi) }
+            LaunchedEffect(Unit) { pluginCommands.notices.messages.collect(ToastManager::showToast) }
             CompositionLocalProvider(
                 LocalUiMotion provides uiMotion,
                 LocalPlayerLayouts provides pluginLayouts.roots,
-                LocalPluginCards provides pluginCards
+                LocalPluginCards provides pluginCards,
+                LocalPluginCommands provides pluginCommands
             ) {
                 MelodiaTheme(themeSettings, activeSkin.skin, activeSkin.backdrop) {
                     val palette = LocalMelodiaPalette.current

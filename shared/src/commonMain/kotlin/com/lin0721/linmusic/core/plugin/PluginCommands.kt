@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 // 插件发给用户的提示，各端用现有提示组件展示
 class PluginNotices {
@@ -59,6 +62,15 @@ class PluginCommands(
             if (!command.value.execute(args)) notices.post("${item.pluginName}：命令执行失败")
         }
     }
+}
+
+// 歌曲命令收到的参数；外部平台歌曲没有 songId
+fun pluginSongArgs(songId: Long?, title: String, artist: String, album: String, cover: String): JsonObject = buildJsonObject {
+    songId?.takeIf { it > 0 }?.let { put("songId", it) }
+    put("title", title)
+    put("artist", artist)
+    put("album", album)
+    put("cover", cover)
 }
 
 val LocalPluginCommands = staticCompositionLocalOf<PluginCommands?> { null }

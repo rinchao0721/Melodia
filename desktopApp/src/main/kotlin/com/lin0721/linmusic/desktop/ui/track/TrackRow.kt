@@ -5,8 +5,7 @@ import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -475,13 +474,8 @@ internal fun TrackMenu(
     }
 }
 
-private fun Track.toPluginArgs(): JsonObject = buildJsonObject {
-    if (id > 0) put("songId", id)
-    put("title", name)
-    put("artist", ar.joinToString(" / ") { it.name })
-    put("album", al.name)
-    put("cover", al.picUrl)
-}
+private fun Track.toPluginArgs(): JsonObject =
+    pluginSongArgs(id, name, ar.joinToString(" / ") { it.name }, al.name, al.picUrl)
 
 private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
 
