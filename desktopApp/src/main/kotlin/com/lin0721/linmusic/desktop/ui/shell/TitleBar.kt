@@ -240,7 +240,7 @@ private fun RecognitionButton(active: Boolean, onClick: () -> Unit) {
     val hoverSource = remember { MutableInteractionSource() }
     val isHovered by hoverSource.collectIsHoveredAsState()
     val scale by animateFloatAsState(if (isHovered) 1.06f else 1f, uiTween(150))
-    val bgColor by animateColorAsState(if (isHovered || active) Color(0xFF2A2A2A) else Color(0xFF1F1F1F), uiTween(150))
+    val bgColor by animateColorAsState(if (isHovered || active) DesktopColors.Surface else DesktopColors.CardSurface, uiTween(150))
     DesktopTooltip("听歌识曲", side = TooltipSide.Bottom) {
         Box(
             Modifier
@@ -269,7 +269,7 @@ private fun HomeButton(
     val isHovered by hoverSource.collectIsHoveredAsState()
 
     val scale by animateFloatAsState(if (isHovered) 1.06f else 1f, uiTween(150))
-    val bgColor by animateColorAsState(if (isHovered) Color(0xFF2A2A2A) else Color(0xFF1F1F1F), uiTween(150))
+    val bgColor by animateColorAsState(if (isHovered) DesktopColors.Surface else DesktopColors.CardSurface, uiTween(150))
 
     Box(
         Modifier
@@ -474,14 +474,14 @@ private fun SearchBox(
     }
 
     val targetBg = when {
-        isFocused || isHovered -> Color(0xFF2A2A2A)
-        else -> Color(0xFF1F1F1F)
+        isFocused || isHovered -> DesktopColors.Surface
+        else -> DesktopColors.CardSurface
     }
     val animatedBg by animateColorAsState(targetBg, uiTween(180))
 
     val borderColor = when {
-        isFocused -> Color.White
-        isHovered -> Color.White.copy(alpha = 0.55f)
+        isFocused -> DesktopColors.TextPrimary
+        isHovered -> DesktopColors.TextPrimary.copy(alpha = 0.55f)
         else -> Color.Transparent
     }
     val animatedBorderColor by animateColorAsState(borderColor, uiTween(180))

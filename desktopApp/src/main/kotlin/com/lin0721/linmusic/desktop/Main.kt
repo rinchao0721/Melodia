@@ -81,6 +81,8 @@ import com.lin0721.linmusic.desktop.ui.shell.TaskbarThumbnailEffect
 import com.lin0721.linmusic.desktop.ui.shell.WindowChromeEffect
 import com.lin0721.linmusic.desktop.ui.shell.rememberDesktopShellSession
 import com.lin0721.linmusic.desktop.ui.shell.rememberFullscreenState
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopThemeStyle
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
@@ -199,6 +201,9 @@ fun main() {
     val initialUiScalePercent = runCatching {
         runBlocking { settingsPreferences.uiScalePercent.first() }
     }.getOrDefault(UiScale.DEFAULT_PERCENT)
+    // 主题同理，首帧前就换好调色板
+    DesktopColors.palette = runCatching { runBlocking { desktopPreferences.themeStyle.first() } }
+        .getOrDefault(DesktopThemeStyle.CLASSIC).palette
     val initialUiAnimationsEnabled = runCatching {
         runBlocking { settingsPreferences.uiAnimationsEnabled.first() }
     }.getOrDefault(true)
@@ -249,6 +254,9 @@ fun main() {
         val uiMotion = remember { UiMotion(initialUiAnimationsEnabled) }
         LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
+        LaunchedEffect(Unit) {
+            desktopPreferences.themeStyle.collect { DesktopColors.palette = it.palette }
+        }
         val isPlaying by controller.playWhenReady.collectAsState()
         val nowPlaying by controller.nowPlaying.collectAsState()
         val userProfile by appDependencies.homeViewModel.userProfile.collectAsState()

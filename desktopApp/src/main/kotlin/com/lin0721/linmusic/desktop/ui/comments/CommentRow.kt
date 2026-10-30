@@ -63,7 +63,7 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 private val AvatarSize = 36.dp
 private val MoreButtonSize = 28.dp
-private val SubtleText = DesktopColors.TextGray.copy(alpha = 0.6f)
+private val SubtleText get() = DesktopColors.TextGray.copy(alpha = 0.6f)
 
 // 单条评论。interactive 为假时是预览卡里的静态展示，不响应悬停、点赞与菜单；
 // 悬停出现“更多”按钮，右键同样打开菜单（复制 / 回复 / 自己的评论可删除）

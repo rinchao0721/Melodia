@@ -443,7 +443,7 @@ internal fun TrackMenu(
     }
 }
 
-private val LinkStyles = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
+private val LinkStyles get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
 
 // 多位歌手各自可点，无 id 的歌手只展示名字
 fun artistLinks(artists: List<Artist>, onClick: (Long, String) -> Unit): AnnotatedString = buildAnnotatedString {

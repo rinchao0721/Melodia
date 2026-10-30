@@ -49,7 +49,7 @@ import com.lin0721.linmusic.feature.player.presentation.DetailRow
 import com.lin0721.linmusic.feature.player.presentation.songDetailRows
 
 private val LabelWidth = 70.dp
-private val LabelColor = DesktopColors.TextGray.copy(alpha = 0.6f)
+private val LabelColor get() = DesktopColors.TextGray.copy(alpha = 0.6f)
 
 // 歌曲详情：曲风、专辑、语种、发行时间、制作人员等；专辑可跳转，制作人员可展开按角色查看
 @Composable

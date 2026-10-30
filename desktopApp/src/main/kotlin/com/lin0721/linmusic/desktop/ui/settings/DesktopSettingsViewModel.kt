@@ -21,6 +21,7 @@ import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
 import com.lin0721.linmusic.desktop.platform.HotkeyCombo
 import com.lin0721.linmusic.desktop.platform.MediaSessionService
+import com.lin0721.linmusic.desktop.ui.theme.DesktopThemeStyle
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -68,6 +69,7 @@ class DesktopSettingsViewModel(
     val mediaKeysEnabled = desktopPreferences.mediaKeysEnabled.asState(true)
     val hotkeyMap = desktopPreferences.hotkeys.asState(HotkeyCombo.defaults)
     val renderBackend = desktopPreferences.renderBackend.asState(RenderBackend.AUTO)
+    val themeStyle = desktopPreferences.themeStyle.asState(DesktopThemeStyle.CLASSIC)
     val desktopLyricStyle = desktopPreferences.desktopLyricStyle.asState(DesktopPreferences.DEFAULT_DESKTOP_LYRIC_STYLE)
     val desktopLyricLocked = desktopPreferences.desktopLyricLocked.asState(false)
     val miniPlayerStyle = desktopPreferences.miniPlayerStyle.asState(MiniPlayerStyle.DEFAULT)
@@ -126,6 +128,10 @@ class DesktopSettingsViewModel(
             desktopPreferences.saveRenderBackend(backend)
             _messages.tryEmit("渲染方式已更改，重启后生效")
         }
+    }
+
+    fun updateThemeStyle(style: DesktopThemeStyle) {
+        viewModelScope.launch { desktopPreferences.saveThemeStyle(style) }
     }
 
     fun updateDesktopLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) {

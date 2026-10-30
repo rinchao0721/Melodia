@@ -76,6 +76,7 @@ import com.lin0721.linmusic.desktop.ui.nowplaying.SupportedInfoCards
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopThemeStyle
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
@@ -393,6 +394,7 @@ internal fun settingsEntries(
     val cardLayout by common.fullPlayerCardLayout.collectAsState()
     val closeAction by desktop.closeAction.collectAsState()
     val renderBackend by desktop.renderBackend.collectAsState()
+    val themeStyle by desktop.themeStyle.collectAsState()
     val lyricStyle by desktop.desktopLyricStyle.collectAsState()
     val lyricLocked by desktop.desktopLyricLocked.collectAsState()
     val miniPlayerStyle by desktop.miniPlayerStyle.collectAsState()
@@ -693,6 +695,20 @@ internal fun settingsEntries(
                 keywords = SupportedInfoCards.map { it.title } + listOf("面板", "排序", "显示", "隐藏", "卡片")
             ) {
                 CardLayoutSetting(cardLayout, cardLayoutSubtitle, common::updateFullPlayerCardLayout)
+            }
+        )
+        add(
+            rowEntry(
+                "themeStyle", SettingsCategory.Interface, "主题",
+                subtitle = "经典为纯黑底配红色，暖陶为暖调炭灰配陶土橙",
+                keywords = listOf("主题", "配色", "颜色", "外观", "皮肤", "暖色", "橙色", "theme")
+            ) {
+                SettingsDropdown(
+                    options = DesktopThemeStyle.entries,
+                    current = themeStyle,
+                    label = DesktopThemeStyle::label,
+                    onSelect = desktop::updateThemeStyle
+                )
             }
         )
         add(

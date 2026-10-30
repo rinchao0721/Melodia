@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.desktop.platform.WindowEffects
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -48,7 +49,9 @@ fun WindowScope.WindowChromeEffect(effects: WindowEffects, maximized: Boolean) {
             effects.uninstall(window)
         }
     }
-    LaunchedEffect(window, maximized, focused, accent) {
+    // 中性边框线按窗口底色混合，切换主题后需重设
+    val windowBackground = DesktopColors.WindowBackground
+    LaunchedEffect(window, maximized, focused, accent, windowBackground) {
         while (!window.isDisplayable) delay(DISPLAYABLE_POLL_MS)
         effects.applyFrame(window, maximized, WindowBorder.opaqueRgb(accent.takeIf { focused }, focused))
     }
