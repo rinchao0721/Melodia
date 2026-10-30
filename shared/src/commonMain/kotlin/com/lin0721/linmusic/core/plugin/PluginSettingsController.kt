@@ -160,6 +160,8 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
         if (contributes.audioSources.isNotEmpty()) add("音源 ${contributes.audioSources.size} 个")
         if (contributes.lyricsSources.isNotEmpty()) add("歌词源 ${contributes.lyricsSources.size} 个")
         if (contributes.events.isNotEmpty()) add("播放事件")
+        if (contributes.commands.isNotEmpty()) add("命令 ${contributes.commands.size} 个")
+        if (contributes.settings.isNotEmpty()) add("设置 ${contributes.settings.size} 项")
     }.joinToString("、")
 }
 

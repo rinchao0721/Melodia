@@ -57,6 +57,9 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）或 `nowPlayingCard`。
 - `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
+- `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
+- `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song`（歌曲右键菜单）或 `toolbar`（顶栏按钮）。只显示脚本已注册的命令。
+- `settings`（format 2）：插件设置项，见「设置」一节。
 
 单项写错时只忽略这一项，并在导入时提示。
 
@@ -70,6 +73,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `storage` | 插件私有的键值存储，上限 1MB | |
 | `audioSource` | 作为音源提供播放链接 | `audioSources` 必需 |
 | `lyricsSource` | 作为歌词源提供歌词 | `lyricsSources` 必需 |
+| `ui.notify` | 显示应用内提示，提示前会带上插件名称 | |
 
 提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。
 
@@ -87,10 +91,14 @@ await melodia.player.state()                                 // { playing, posit
 await melodia.player.play() / pause() / next() / previous()
 await melodia.player.enqueue({ songId, title, artist, cover })
 await melodia.ui.setState(pageId, patch)                     // 浅合并到页面数据
+await melodia.ui.toast(text)                                 // 不超过 120 个字符
+await melodia.settings.get(key)
+await melodia.settings.all()
 melodia.on('songChanged', handler)
 melodia.register.audioSource('main', { resolve, search })
 melodia.register.lyricsSource('main', { fetch })
 melodia.register.action('refresh', handler)
+melodia.register.command('share', handler)
 ```
 
 - 网络请求不会自动跟随到白名单外的域名；每次重定向都会重新核对域名。响应体上限 4MB。
@@ -127,6 +135,47 @@ melodia.register.lyricsSource('main', {
 
 - 与网易、AMLL、QQ 歌词同时查询，优先级最低：只有其他来源都没有歌词时才使用插件歌词。
 - 多个插件歌词源并发查询，按插件名称顺序取第一份非空结果；单个歌词源超过 8 秒按没有结果处理。
+
+## 命令
+
+```json
+"contributes": {
+  "commands": [{ "id": "scrobble", "title": "记录到 Last.fm" }],
+  "menus": [{ "command": "scrobble", "location": "song" }]
+}
+```
+
+```js
+melodia.register.command('scrobble', async function(song) {
+  // song 只在 location 为 song 时有值：{ songId, title, artist, album, cover }
+});
+```
+
+外部平台的歌曲没有 `songId`。命令 5 秒内没有返回或抛错时，应用会提示执行失败，并计入连续出错。
+
+## 设置
+
+设置项写在清单里，应用生成设置页，入口在插件列表的设置按钮。
+
+```json
+"settings": [
+  { "id": "enabled", "type": "toggle", "title": "启用记录", "default": true },
+  { "id": "token", "type": "text", "title": "令牌" },
+  { "id": "mode", "type": "select", "title": "模式", "options": [{ "value": "fast", "label": "快速" }, { "value": "safe" }] },
+  { "id": "interval", "type": "number", "title": "间隔", "min": 1, "max": 60, "step": 1, "default": 30 }
+]
+```
+
+| `type` | 说明 | 专属字段 |
+|---|---|---|
+| `toggle` | 开关 | |
+| `text` | 文本，最长 500 个字符 | |
+| `select` | 单选，最多 32 项 | `options`，每项 `value` 必需，`label` 可选 |
+| `number` | 滑块 | `min`、`max` 必需，`step` 默认 1 |
+
+- 设置值保存在插件数据目录，升级时保留，不占用 `storage` 权限。
+- 没保存过时取 `default`，不合法的值回到默认值；未写 `default` 时，`toggle` 为 `false`、`text` 为空、`select` 为第一项、`number` 为 `min`。
+- 如果注册了动作 `settingsChanged`，每次修改都会以 `{ key, value }` 调用一次。
 
 ## 播放事件
 
@@ -232,12 +281,17 @@ melodia.register.lyricsSource('main', {
 | `heading` | 标题 | `text` |
 | `text` | 正文，可绑定 | `text` |
 | `image` | 图片，`bind` 可写绑定或地址；只允许 `assets/` 下的文件与 `network.hosts` 里的域名 | `bind` |
-| `list` | 绑定数组，每一项按 `children` 渲染，最多 200 项 | `bind` |
+| `list` | 绑定数组，每一项按 `children` 渲染，最多 200 项；`columns`（1–8）大于 1 时按网格排列 | `bind` |
 | `trackList` | 绑定 `{ songId, title, artist, cover }` 数组，点击从这首开始播放整个列表；需要 `playback.control` | `bind` |
 | `button` | 触发 `action`；在列表里时，当前项作为参数传给脚本 | `text`、`action` |
 | `toggle` | 开关，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`、`bind` |
 | `input` | 输入框，写回 `$state` 字段；有 `action` 时在回车后以 `{ value }` 调用 | `text`（提示文字）、`bind` |
 | `loading` / `empty` | 加载中与空态 | |
+| `select` | 单选，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`（标题）、`bind`、`options` |
+| `slider` | 滑块，写回 `$state` 字段；松手后调用 `action` | `text`（标题）、`bind`；`min`、`max` 默认 0、1，`step` 可选 |
+| `progressBar` | 进度条，绑定 0–1 的数字 | `bind` |
+| `badge` | 小标签 | `text` |
+| `tabs` | 标签页，每个子节点是一页，子节点的 `text` 为标题 | `children` |
 
 - **绑定**：`$state.xxx` 取页面数据，`$item.xxx` 取列表当前项，可以用点号取下一层。`text` 可以写固定文字，也可以整段写成绑定。
 - **`visible`**：任何节点都可以写，值为绑定，取到空、`false`、`0` 或空数组时不显示。

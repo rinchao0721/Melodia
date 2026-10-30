@@ -56,10 +56,19 @@ class PluginRepository(
         withContext(Dispatchers.IO) {
             registry.replace(ExtensionPoints.PLAYER_LAYOUT, layoutExtensions(plugins))
             registry.replace(ExtensionPoints.PAGE, pageExtensions(plugins))
+            registry.replace(ExtensionPoints.MENU, menuExtensions(plugins))
             _layouts.value = resolveLayouts()
             _pages.value = registry.get(ExtensionPoints.PAGE).map { it.value }
         }
     }
+
+    private fun menuExtensions(plugins: List<InstalledPlugin>): List<Extension<PluginMenuEntry>> =
+        plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->
+            val manifest = plugin.manifest ?: return@flatMap emptyList()
+            manifest.contributes.menus.mapIndexed { index, menu ->
+                Extension(ExtensionPoints.MENU, manifest.id, manifest.name, "${menu.location.key}/${menu.commandId}", menu, index)
+            }
+        }
 
     private fun pageExtensions(plugins: List<InstalledPlugin>): List<Extension<ActivePluginPage>> =
         plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->

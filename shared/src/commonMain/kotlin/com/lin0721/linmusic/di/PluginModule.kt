@@ -5,9 +5,11 @@ import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
+import com.lin0721.linmusic.core.plugin.PluginCommands
 import com.lin0721.linmusic.core.plugin.PluginEventDispatcher
 import com.lin0721.linmusic.core.plugin.PluginHostApi
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
+import com.lin0721.linmusic.core.plugin.PluginNotices
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.plugin.PluginRepository
@@ -25,14 +27,16 @@ import java.io.File
 // 插件系统依赖注入，插件目录与 ScriptSandboxFactory 由各端提供
 fun pluginModule(directory: Scope.() -> File): Module = module {
     single { PluginStore(directory()) }
+    single { PluginNotices() }
     single {
         val scope = this
-        PluginHostApi(get(), playback = { scope.getOrNull<PlaybackController>() })
+        PluginHostApi(get(), playback = { scope.getOrNull<PlaybackController>() }, notices = get())
     }
     single { ExtensionRegistry() }
     single { PluginRuntime(get(), get(), registry = get()) }
     single { PluginRepository(get(), get(), get(), get()) }
     single { PluginPageHost(get(), get()) }
+    single { PluginCommands(get(), get()) }
     single { PlayerCardSource(get(), get<PluginRepository>().pages) }
     single {
         val scope = this

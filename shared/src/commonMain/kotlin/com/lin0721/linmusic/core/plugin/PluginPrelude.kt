@@ -15,12 +15,13 @@ object PluginPrelude {
     const val KIND_AUDIO_SOURCE = "audioSource"
     const val KIND_LYRICS_SOURCE = "lyricsSource"
     const val KIND_ACTION = "action"
+    const val KIND_COMMAND = "command"
 
     val script: String = """
         (function() {
             var seq = 0;
             var pending = {};
-            var registry = { audioSource: {}, lyricsSource: {}, action: {} };
+            var registry = { audioSource: {}, lyricsSource: {}, action: {}, command: {} };
             var listeners = {};
 
             function post(method, data) {
@@ -100,7 +101,12 @@ object PluginPrelude {
                     enqueue: function(track) { return call('player.enqueue', track); }
                 },
                 ui: {
-                    setState: function(page, patch) { return call('ui.setState', { page: page, patch: patch }); }
+                    setState: function(page, patch) { return call('ui.setState', { page: page, patch: patch }); },
+                    toast: function(text) { return call('ui.toast', { text: text }); }
+                },
+                settings: {
+                    get: function(key) { return call('settings.get', { key: key }); },
+                    all: function() { return call('settings.all'); }
                 },
                 on: function(event, handler) {
                     if (typeof handler !== 'function') throw new Error('on 需要处理函数');
@@ -109,7 +115,8 @@ object PluginPrelude {
                 register: {
                     audioSource: function(name, impl) { register('$KIND_AUDIO_SOURCE', name, impl); },
                     lyricsSource: function(name, impl) { register('$KIND_LYRICS_SOURCE', name, impl); },
-                    action: function(name, handler) { register('$KIND_ACTION', name, handler); }
+                    action: function(name, handler) { register('$KIND_ACTION', name, handler); },
+                    command: function(name, handler) { register('$KIND_COMMAND', name, handler); }
                 }
             };
         })();

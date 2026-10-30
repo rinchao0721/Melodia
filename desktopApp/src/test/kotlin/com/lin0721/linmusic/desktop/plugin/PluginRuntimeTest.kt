@@ -2,6 +2,10 @@ package com.lin0721.linmusic.desktop.plugin
 
 import com.lin0721.linmusic.core.plugin.InstalledPlugin
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
+import com.lin0721.linmusic.core.plugin.PluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.PluginNotices
+import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -14,6 +18,8 @@ import com.lin0721.linmusic.core.plugin.PluginRuntime
 import com.lin0721.linmusic.core.plugin.PluginStageResult
 import com.lin0721.linmusic.core.plugin.PluginStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -44,6 +50,8 @@ class PluginRuntimeTest {
     private lateinit var runtime: PluginRuntime
     private lateinit var repository: PluginRepository
     private val requestedUrls = mutableListOf<String>()
+    private val notices = PluginNotices()
+    private lateinit var pageHost: PluginPageHost
 
     @Before
     fun setUp() {
@@ -55,10 +63,12 @@ class PluginRuntimeTest {
                 requestedUrls += request.url
                 PluginHttpResponse(200, emptyMap(), "{\"title\":\"晴天\"}")
             },
-            mainDispatcher = Dispatchers.Unconfined
+            mainDispatcher = Dispatchers.Unconfined,
+            notices = notices
         )
         runtime = PluginRuntime(GraalScriptSandboxFactory(), api)
         repository = PluginRepository(store, runtime, api)
+        pageHost = PluginPageHost(runtime, api)
     }
 
     @After
@@ -98,6 +108,72 @@ class PluginRuntimeTest {
 
     private fun invokeAction(name: String, args: JsonObject = JsonObject(emptyMap())) = runBlocking {
         runtime.invoke("com.example.demo", PluginPrelude.KIND_ACTION, name, args, 3_000)
+    }
+
+    private fun installV2(script: String, permissions: String, contributes: String) = runBlocking {
+        val manifest = """{"format":2,"id":"com.example.v2","name":"二代","version":"1.0.0","permissions":[$permissions],"contributes":{$contributes}}"""
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry(PluginPaths.MANIFEST))
+            zip.write(manifest.toByteArray())
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry(PluginPaths.SCRIPT))
+            zip.write(script.toByteArray())
+            zip.closeEntry()
+        }
+        repository.install((repository.stage(ByteArrayInputStream(out.toByteArray())) as PluginStageResult.Success).staged)
+    }
+
+    @Test
+    fun `命令经菜单入口执行并发出提示`() = runBlocking {
+        installV2(
+            """
+            melodia.register.command('share', async function(song) {
+                const mode = await melodia.settings.get('mode');
+                await melodia.ui.toast('已处理 ' + song.title + ' ' + mode);
+            });
+            """.trimIndent(),
+            "\"ui.notify\"",
+            """"commands":[{"id":"share","title":"分享"}],"menus":[{"command":"share","location":"song"}],
+               "settings":[{"id":"mode","type":"select","title":"模式","options":[{"value":"fast"},{"value":"slow"}],"default":"slow"}]"""
+        )
+        val commands = PluginCommands(runtime.registry, notices)
+        waitFor { commands.itemsNow(PluginMenuLocation.SONG).isNotEmpty() }
+        val message = async(Dispatchers.Unconfined) { withTimeout(5_000) { notices.messages.first() } }
+
+        commands.run(commands.itemsNow(PluginMenuLocation.SONG).single(), buildJsonObject { put("title", "晴天") })
+
+        assertEquals("二代：已处理 晴天 slow", message.await())
+    }
+
+    @Test
+    fun `没有申请提示权限时不能发提示`() = runBlocking {
+        installV2(
+            """
+            melodia.register.command('toast', async function() {
+                try { await melodia.ui.toast('hi'); return 'sent'; } catch (e) { return e.message; }
+            });
+            """.trimIndent(),
+            "",
+            """"commands":[{"id":"toast","title":"提示"}]"""
+        )
+        waitFor { repository.status.value["com.example.v2"]?.registrations?.contains("command:toast") == true }
+        val result = runtime.invoke("com.example.v2", PluginPrelude.KIND_COMMAND, "toast", JsonNull, 3_000)
+        assertEquals("缺少权限 ui.notify", result!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `设置值写入后脚本能读到`() = runBlocking {
+        installV2(
+            "melodia.register.action('read', function() { return melodia.settings.all(); });",
+            "",
+            """"pages":[{"id":"main","title":"主页","ui":{"type":"column"}}],"settings":[{"id":"level","type":"number","title":"等级","min":0,"max":10}]"""
+        )
+        waitFor { repository.status.value["com.example.v2"]?.registrations?.contains("action:read") == true }
+        val manifest = repository.installed.value.single().manifest!!
+        pageHost.setSetting(manifest, "level", JsonPrimitive(7))
+        val result = runtime.invoke("com.example.v2", PluginPrelude.KIND_ACTION, "read", JsonNull, 3_000) as JsonObject
+        assertEquals(7.0, result["level"]!!.jsonPrimitive.content.toDouble(), 0.0)
     }
 
     @Test

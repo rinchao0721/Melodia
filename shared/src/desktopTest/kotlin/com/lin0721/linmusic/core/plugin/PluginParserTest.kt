@@ -21,6 +21,53 @@ class PluginParserTest {
     private fun reasonV2(body: String, platform: PluginPlatform = PluginPlatform.DESKTOP): String =
         (parseV2(body, platform) as PluginParseResult.Failure).reason
 
+    private fun contributesV2(body: String) = (PluginParser.parse(
+        """{"format":2,"id":"com.example.demo","name":"示例","version":"1.0.0","contributes":{$body}}""",
+        platform = PluginPlatform.DESKTOP
+    ) as PluginParseResult.Success)
+
+    @Test
+    fun `解析命令与菜单`() {
+        val result = contributesV2(
+            """"commands":[{"id":"share","title":"分享"},{"id":"bad"}],
+               "menus":[{"command":"share","location":"song"},{"command":"share","location":"nowhere"},{"command":"ghost","location":"song"}]"""
+        )
+        val contributes = result.manifest.contributes
+        assertEquals(listOf(PluginCommandEntry("share", "分享")), contributes.commands)
+        assertEquals(listOf(PluginMenuEntry("share", PluginMenuLocation.SONG)), contributes.menus)
+        assertTrue(contributes.needsScript)
+        assertEquals(3, result.warnings.size)
+    }
+
+    @Test
+    fun `解析设置项并校验默认值`() {
+        val result = contributesV2(
+            """"settings":[
+                {"id":"on","type":"toggle","title":"开关","default":true},
+                {"id":"name","type":"text","title":"名称"},
+                {"id":"mode","type":"select","title":"模式","options":[{"value":"a"},{"value":"b","label":"乙"}],"default":"z"},
+                {"id":"level","type":"number","title":"等级","min":1,"max":5,"step":2,"default":99},
+                {"id":"bad","type":"number","title":"无效","min":5,"max":1},
+                {"id":"empty","type":"select","title":"空","options":[]},
+                {"id":"odd","type":"color","title":"未知"}]"""
+        )
+        val settings = result.manifest.contributes.settings.associateBy { it.id }
+        assertEquals(setOf("on", "name", "mode", "level"), settings.keys)
+        assertEquals("true", settings.getValue("on").default.toString())
+        assertEquals("\"a\"", settings.getValue("mode").default.toString())
+        assertEquals("5.0", settings.getValue("level").default.toString())
+        assertEquals(3, result.warnings.size)
+    }
+
+    @Test
+    fun `format 1 忽略命令与设置`() {
+        val contributes = success(
+            ""","contributes":{"events":["songChanged"],"commands":[{"id":"a","title":"甲"}],"settings":[{"id":"b","type":"text","title":"乙"}]},"permissions":["playback.read"]"""
+        ).manifest.contributes
+        assertTrue(contributes.commands.isEmpty())
+        assertTrue(contributes.settings.isEmpty())
+    }
+
     @Test
     fun `format 2 默认是沙盒插件且不限平台`() {
         val manifest = (parseV2("") as PluginParseResult.Success).manifest

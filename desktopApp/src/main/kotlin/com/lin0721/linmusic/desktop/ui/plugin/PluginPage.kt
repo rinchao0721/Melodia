@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.plugin
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -38,6 +42,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PluginImageSource
+import com.lin0721.linmusic.core.plugin.PluginOption
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginPagePlacement
 import com.lin0721.linmusic.core.plugin.PluginPageUi
@@ -45,11 +50,15 @@ import com.lin0721.linmusic.core.plugin.PluginPageView
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginTrack
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.plugin.snapToStep
 import com.lin0721.linmusic.desktop.ui.components.DialogTextField
+import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
 import com.lin0721.linmusic.desktop.ui.settings.SettingsActionButton
+import com.lin0721.linmusic.desktop.ui.settings.SettingsDropdown
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.TrackRow
+import kotlin.math.roundToInt
 
 private const val DEFAULT_IMAGE_SIZE = 120f
 
@@ -134,6 +143,78 @@ internal object DesktopPluginPageUi : PluginPageUi {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = DesktopColors.Accent)
         }
     }
+
+    @Composable
+    override fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier) {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = DesktopColors.TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            SettingsDropdown(
+                options = options,
+                current = options.firstOrNull { it.value == selected } ?: options.first(),
+                label = { it.label },
+                onSelect = { onSelect(it.value) }
+            )
+        }
+    }
+
+    @Composable
+    override fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+        Column(modifier) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = DesktopColors.TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(formatNumber(value), color = DesktopColors.TextGray, fontSize = 12.sp)
+            }
+            PlayerSlider(
+                value = (value - min) / (max - min),
+                onValueChange = { onChange(snapToStep(min + it * (max - min), min, max, step)) },
+                modifier = Modifier.fillMaxWidth(),
+                onValueChangeFinished = onCommit
+            )
+        }
+    }
+
+    @Composable
+    override fun ProgressBar(fraction: Float, modifier: Modifier) {
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = modifier.fillMaxWidth(),
+            color = DesktopColors.Accent,
+            trackColor = DesktopColors.Surface
+        )
+    }
+
+    @Composable
+    override fun Badge(text: String, modifier: Modifier) {
+        Text(
+            text,
+            color = DesktopColors.TextGray,
+            fontSize = 11.sp,
+            modifier = modifier.clip(RoundedCornerShape(4.dp)).background(DesktopColors.Surface).padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+
+    @Composable
+    override fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier) {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            labels.forEachIndexed { index, label ->
+                FilterChip(
+                    selected = index == selected,
+                    onClick = { onSelect(index) },
+                    label = { Text(label, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = DesktopColors.Surface,
+                        labelColor = DesktopColors.TextGray,
+                        selectedContainerColor = DesktopColors.TextPrimary,
+                        selectedLabelColor = DesktopColors.InverseText
+                    ),
+                    border = null
+                )
+            }
+        }
+    }
+
+    private fun formatNumber(value: Float): String =
+        if (value == value.toLong().toFloat()) value.toLong().toString() else ((value * 100).roundToInt() / 100f).toString()
 }
 
 // 音乐库侧栏底部的插件页面入口

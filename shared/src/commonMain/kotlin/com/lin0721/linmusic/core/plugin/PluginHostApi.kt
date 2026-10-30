@@ -34,7 +34,8 @@ class PluginHostApi(
     private val store: PluginStore,
     private val http: PluginHttpClient = OkHttpPluginHttpClient(),
     private val playback: () -> PlaybackController? = { null },
-    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
+    private val notices: PluginNotices = PluginNotices()
 ) {
     private val storageLocks = ConcurrentHashMap<String, Mutex>()
     private val json = Json { prettyPrint = false }
@@ -56,6 +57,9 @@ class PluginHostApi(
         "player.previous" -> control(manifest) { it.playPrevious() }
         "player.enqueue" -> enqueue(manifest, args.asObject(method))
         "ui.setState" -> setUiState(manifest, args.asObject(method))
+        "ui.toast" -> toast(manifest, args.asObject(method))
+        "settings.get" -> settingValue(manifest, args.asObject(method).requireString("key"))
+        "settings.all" -> settings(manifest)
         else -> throw PluginCallException("不支持的调用 $method")
     }
 
@@ -78,6 +82,30 @@ class PluginHostApi(
     // 删除插件时一并清掉页面数据
     fun clearUiState(pluginId: String) {
         _uiStates.update { states -> states.filterKeys { !it.startsWith("$pluginId/") } }
+    }
+
+    private fun toast(manifest: PluginManifest, args: JsonObject): JsonElement {
+        require(manifest, PluginPermission.UI_NOTIFY)
+        // 带上插件名，避免提示被当成应用自己发的
+        notices.post("${manifest.name}：${args.requireString("text").take(MAX_TOAST_LENGTH)}")
+        return JsonNull
+    }
+
+    private suspend fun settingValue(manifest: PluginManifest, key: String): JsonElement {
+        if (manifest.contributes.settings.none { it.id == key }) throw PluginCallException("清单里没有设置项 $key")
+        return settings(manifest)[key] ?: JsonNull
+    }
+
+    // 清单声明的全部设置项，没保存过的取默认值
+    suspend fun settings(manifest: PluginManifest): JsonObject = withStorage(manifest, SETTINGS_FILE) { saved ->
+        JsonObject(manifest.contributes.settings.associate { it.id to it.normalize(saved[it.id]) })
+    }
+
+    suspend fun setSetting(manifest: PluginManifest, key: String, value: JsonElement) {
+        val field = manifest.contributes.settings.firstOrNull { it.id == key } ?: return
+        withStorage(manifest, SETTINGS_FILE) { saved ->
+            writeStorage(manifest, JsonObject(saved + (key to field.normalize(value))), SETTINGS_FILE)
+        }
     }
 
     private fun require(manifest: PluginManifest, permission: PluginPermission) {
@@ -173,16 +201,16 @@ class PluginHostApi(
         }
     }
 
-    private suspend fun <T> withStorage(manifest: PluginManifest, block: (JsonObject) -> T): T {
+    private suspend fun <T> withStorage(manifest: PluginManifest, fileName: String = STORAGE_FILE, block: (JsonObject) -> T): T {
         val lock = storageLocks.getOrPut(manifest.id) { Mutex() }
-        return lock.withLock { withContext(Dispatchers.IO) { block(readStorage(manifest)) } }
+        return lock.withLock { withContext(Dispatchers.IO) { block(readStorage(manifest, fileName)) } }
     }
 
-    private fun storageFile(manifest: PluginManifest): File =
-        store.dataDirectoryOf(manifest.id)?.let { File(it, STORAGE_FILE) } ?: throw PluginCallException("插件 id 无效")
+    private fun storageFile(manifest: PluginManifest, fileName: String): File =
+        store.dataDirectoryOf(manifest.id)?.let { File(it, fileName) } ?: throw PluginCallException("插件 id 无效")
 
-    private fun readStorage(manifest: PluginManifest): JsonObject {
-        val file = storageFile(manifest)
+    private fun readStorage(manifest: PluginManifest, fileName: String): JsonObject {
+        val file = storageFile(manifest, fileName)
         if (!file.isFile) return JsonObject(emptyMap())
         return try {
             Json.parseToJsonElement(file.readText()) as? JsonObject ?: JsonObject(emptyMap())
@@ -195,15 +223,15 @@ class PluginHostApi(
         }
     }
 
-    private fun writeStorage(manifest: PluginManifest, data: JsonObject) {
+    private fun writeStorage(manifest: PluginManifest, data: JsonObject, fileName: String = STORAGE_FILE) {
         val text = json.encodeToString(JsonObject.serializer(), data)
         if (text.toByteArray(Charsets.UTF_8).size > MAX_STORAGE_BYTES) {
             throw PluginCallException("插件数据超过 ${MAX_STORAGE_BYTES / 1024 / 1024}MB")
         }
-        val file = storageFile(manifest)
+        val file = storageFile(manifest, fileName)
         try {
             file.parentFile?.mkdirs()
-            val temp = File(file.parentFile, "$STORAGE_FILE.tmp")
+            val temp = File(file.parentFile, "$fileName.tmp")
             temp.writeText(text)
             if (!temp.renameTo(file)) {
                 file.delete()
@@ -281,6 +309,8 @@ class PluginHostApi(
 
     companion object {
         private const val STORAGE_FILE = "storage.json"
+        private const val SETTINGS_FILE = "settings.json"
+        private const val MAX_TOAST_LENGTH = 120
         private const val MAX_STORAGE_BYTES = 1024 * 1024
         private const val MAX_UI_STATE_CHARS = 256 * 1024
         private const val MAX_TEXT_LENGTH = 500

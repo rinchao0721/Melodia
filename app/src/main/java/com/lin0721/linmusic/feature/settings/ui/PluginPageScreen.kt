@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,18 +12,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,11 +46,13 @@ import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PluginImageSource
+import com.lin0721.linmusic.core.plugin.PluginOption
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginPageView
 import com.lin0721.linmusic.core.plugin.PluginTrack
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.plugin.snapToStep
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.SongRow
@@ -143,6 +154,67 @@ object AndroidPluginPageUi : PluginPageUi {
     override fun Loading(modifier: Modifier) {
         Box(modifier, contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = MelodiaColors.Accent)
+        }
+    }
+
+    @Composable
+    override fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier) {
+        var picking by remember { mutableStateOf(false) }
+        SettingsRow(
+            title = label,
+            subtitle = options.firstOrNull { it.value == selected }?.label ?: options.first().label,
+            onClick = { picking = true }
+        )
+        if (picking) {
+            OptionPickerSheet(
+                title = label,
+                options = options.map { it.value to it.label },
+                selected = selected,
+                onSelect = onSelect,
+                onDismiss = { picking = false }
+            )
+        }
+    }
+
+    @Composable
+    override fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+        Column(modifier) {
+            Text(label, color = MelodiaColors.TextPrimary, fontSize = 15.sp)
+            Slider(
+                value = value,
+                onValueChange = { onChange(snapToStep(it, min, max, step)) },
+                onValueChangeFinished = onCommit,
+                valueRange = min..max
+            )
+        }
+    }
+
+    @Composable
+    override fun ProgressBar(fraction: Float, modifier: Modifier) {
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = modifier.fillMaxWidth(),
+            color = MelodiaColors.Accent,
+            trackColor = MelodiaColors.Surface
+        )
+    }
+
+    @Composable
+    override fun Badge(text: String, modifier: Modifier) {
+        Text(
+            text,
+            color = MelodiaColors.TextSecondary,
+            fontSize = 12.sp,
+            modifier = modifier.clip(RoundedCornerShape(4.dp)).background(MelodiaColors.Surface).padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+
+    @Composable
+    override fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier) {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            labels.forEachIndexed { index, label ->
+                FilterChip(selected = index == selected, onClick = { onSelect(index) }, label = { Text(label) })
+            }
         }
     }
 }

@@ -40,7 +40,12 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     TOGGLE("toggle"),
     INPUT("input"),
     LOADING("loading"),
-    EMPTY("empty");
+    EMPTY("empty"),
+    SELECT("select"),
+    SLIDER("slider"),
+    PROGRESS_BAR("progressBar"),
+    BADGE("badge"),
+    TABS("tabs");
 
     companion object {
         fun fromKey(key: String): LayoutNodeType? = entries.firstOrNull { it.key == key }
@@ -112,7 +117,15 @@ data class PlayerLayoutNode(
     val bind: String = "",
     val action: String? = null,
     // 绑定值为假时不显示
-    val visible: String? = null
+    val visible: String? = null,
+    // select 的选项
+    val options: List<PluginOption> = emptyList(),
+    // slider 的取值范围
+    val min: Float = 0f,
+    val max: Float = 1f,
+    val step: Float = 0f,
+    // list 每行的列数
+    val columns: Int = 1
 ) {
     fun contains(type: LayoutNodeType): Boolean = this.type == type || children.any { it.contains(type) }
 
@@ -221,11 +234,13 @@ object PlayerLayoutParser {
     private const val MIN_ASPECT = 0.25f
     private const val MAX_ASPECT = 4f
     private const val MIN_COVER = 24f
+    private const val MAX_COLUMNS = 8
     private val ACTION_NAME = Regex("^[A-Za-z0-9_:-]{1,40}$")
     private val PAGE_COMPONENTS = setOf(
         LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
         LayoutNodeType.HEADING, LayoutNodeType.IMAGE, LayoutNodeType.LIST, LayoutNodeType.TRACK_LIST,
-        LayoutNodeType.BUTTON, LayoutNodeType.TOGGLE, LayoutNodeType.INPUT, LayoutNodeType.LOADING, LayoutNodeType.EMPTY
+        LayoutNodeType.BUTTON, LayoutNodeType.TOGGLE, LayoutNodeType.INPUT, LayoutNodeType.LOADING, LayoutNodeType.EMPTY,
+        LayoutNodeType.SELECT, LayoutNodeType.SLIDER, LayoutNodeType.PROGRESS_BAR, LayoutNodeType.BADGE, LayoutNodeType.TABS
     )
 
     private class TooLarge(message: String) : Exception(message)
@@ -258,7 +273,7 @@ object PlayerLayoutParser {
             val typeKey = obj.string("type")
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
-            val children = if (type.isContainer || type == LayoutNodeType.LIST) {
+            val children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {
                 (obj["children"] as? JsonArray)?.mapNotNull { build(it, depth + 1) }.orEmpty()
             } else {
                 emptyList()
@@ -274,6 +289,12 @@ object PlayerLayoutParser {
             val bind = obj.string("bind")?.trim().orEmpty()
             val action = obj.string("action")?.trim()?.takeIf { it.isNotEmpty() }
             pageNodeProblem(type, bind, action)?.let { return null.also { _ -> warnings += "${type.key} $it，已忽略" } }
+            val options = if (type == LayoutNodeType.SELECT) PluginParser.parseOptions(obj["options"]) else emptyList()
+            if (type == LayoutNodeType.SELECT && options.isEmpty()) return null.also { warnings += "select 没有可选项，已忽略" }
+            val min = obj.float("min") ?: 0f
+            val max = obj.float("max") ?: 1f
+            if (type == LayoutNodeType.SLIDER && min >= max) return null.also { warnings += "slider 的 min、max 无效，已忽略" }
+            if (type == LayoutNodeType.TABS && children.isEmpty()) return null.also { warnings += "tabs 没有子节点，已忽略" }
             return PlayerLayoutNode(
                 type = type,
                 children = children,
@@ -300,7 +321,12 @@ object PlayerLayoutParser {
                 action = action,
                 visible = obj.string("visible")?.trim()?.takeIf { value ->
                     PluginBinding.isBinding(value).also { ok -> if (!ok) warnings += "visible 取值 $value 不是绑定，已忽略" }
-                }
+                },
+                options = options,
+                min = min,
+                max = max,
+                step = obj.float("step")?.takeIf { it > 0f } ?: 0f,
+                columns = obj.int("columns")?.coerceIn(1, MAX_COLUMNS) ?: 1
             )
         }
         val node = try {
@@ -314,8 +340,10 @@ object PlayerLayoutParser {
     private fun pageNodeProblem(type: LayoutNodeType, bind: String, action: String?): String? = when (type) {
         LayoutNodeType.LIST, LayoutNodeType.TRACK_LIST ->
             if (PluginBinding.isBinding(bind)) null else "的 bind 需要写成 \$state.xxx 或 \$item.xxx"
-        LayoutNodeType.TOGGLE, LayoutNodeType.INPUT ->
+        LayoutNodeType.TOGGLE, LayoutNodeType.INPUT, LayoutNodeType.SELECT, LayoutNodeType.SLIDER ->
             if (PluginBinding.isBinding(bind) && bind.startsWith("\$state.")) null else "的 bind 需要写成 \$state.xxx"
+        LayoutNodeType.PROGRESS_BAR ->
+            if (PluginBinding.isBinding(bind)) null else "的 bind 需要写成 \$state.xxx 或 \$item.xxx"
         LayoutNodeType.IMAGE -> if (bind.isEmpty()) "缺少 bind" else null
         LayoutNodeType.BUTTON -> if (action != null && ACTION_NAME.matches(action)) null else "缺少有效的 action"
         else -> if (action != null && !ACTION_NAME.matches(action)) "的 action 无效" else null

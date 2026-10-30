@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -35,10 +36,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.plugin.InstalledPlugin
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PLUGIN_FILE_EXTENSION
 import com.lin0721.linmusic.core.plugin.PluginImportStep
+import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
+import com.lin0721.linmusic.core.plugin.PluginSettingsView
 import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
 import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
 import com.lin0721.linmusic.core.plugin.playerLayoutOptions
@@ -54,6 +58,7 @@ import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.DialogLabel
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
+import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -69,6 +74,8 @@ internal fun PluginSetting(repository: PluginRepository) {
     val layouts by controller.layouts.collectAsState()
     val navigator = LocalDesktopNavigator.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var settingsTarget by remember { mutableStateOf<PluginManifest?>(null) }
+    val pageHost = LocalPluginCards.current?.host
 
     LaunchedEffect(repository) { controller.refresh() }
     LaunchedEffect(controller.message) {
@@ -99,7 +106,8 @@ internal fun PluginSetting(repository: PluginRepository) {
                             chooseSaveFile("导出插件", pluginExportFileName(plugin), PLUGIN_FILE_EXTENSION)?.outputStream()
                         }
                     },
-                    onDelete = { deleteTarget = plugin }
+                    onDelete = { deleteTarget = plugin },
+                    onSettings = { settingsTarget = plugin.manifest }
                 )
             }
         }
@@ -143,6 +151,22 @@ internal fun PluginSetting(repository: PluginRepository) {
         else -> Unit
     }
 
+    val settingsManifest = settingsTarget
+    if (settingsManifest != null && pageHost != null) {
+        DesktopDialog(
+            title = "${settingsManifest.name} 设置",
+            onDismiss = { settingsTarget = null },
+            actions = { DialogButton("完成", onClick = { settingsTarget = null }, primary = true) }
+        ) {
+            PluginSettingsView(
+                settingsManifest,
+                pageHost,
+                DesktopPluginPageUi,
+                Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())
+            )
+        }
+    }
+
     deleteTarget?.let { plugin ->
         DesktopDialog(
             title = "删除插件",
@@ -166,7 +190,8 @@ private fun PluginRow(
     status: PluginRuntimeStatus?,
     onToggle: (Boolean) -> Unit,
     onExport: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
@@ -203,6 +228,7 @@ private fun PluginRow(
         }
         HoverReveal(hovered) {
             Row {
+                if (manifest?.contributes?.settings?.isNotEmpty() == true) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
                 if (manifest != null) RowIconButton(Icons.Rounded.FileUpload, "导出", hoverSource, onExport)
                 RowIconButton(Icons.Rounded.Delete, "删除", hoverSource, onDelete)
             }

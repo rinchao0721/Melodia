@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import androidx.compose.material.icons.rounded.Extension
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginCommandItem
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -218,6 +223,7 @@ fun WindowScope.TitleBar(
                 }
             }
             Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+                rememberPluginCommands(PluginMenuLocation.TOOLBAR).forEach { item -> PluginToolbarButton(item) }
                 CloudUploadsButton(cloudMusic)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
                 AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
@@ -229,6 +235,16 @@ fun WindowScope.TitleBar(
                 )
                 WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
             }
+        }
+    }
+}
+
+@Composable
+private fun PluginToolbarButton(item: PluginCommandItem) {
+    val commands = LocalPluginCommands.current
+    DesktopTooltip(item.title, side = TooltipSide.Bottom, modifier = Modifier.padding(end = 8.dp)) {
+        IconButton(onClick = { commands?.run(item) }, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Rounded.Extension, item.title, tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
         }
     }
 }

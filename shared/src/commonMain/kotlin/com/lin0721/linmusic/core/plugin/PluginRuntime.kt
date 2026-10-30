@@ -185,7 +185,22 @@ class PluginRuntime(
                 if (order < 0) return
                 registry.register(Extension(ExtensionPoints.LYRICS_SOURCE, manifest.id, manifest.name, name, ScriptLyricsSource(manifest.id, name), order))
             }
+            PluginPrelude.KIND_COMMAND -> {
+                val order = manifest.contributes.commands.indexOfFirst { it.id == name }
+                if (order < 0) return
+                val title = manifest.contributes.commands[order].title
+                registry.register(Extension(ExtensionPoints.COMMAND, manifest.id, manifest.name, name, ScriptCommand(manifest.id, name, title), order))
+            }
         }
+    }
+
+    private inner class ScriptCommand(
+        private val pluginId: String,
+        private val name: String,
+        override val title: String
+    ) : CommandExtension {
+        override suspend fun execute(args: JsonElement): Boolean =
+            invoke(pluginId, PluginPrelude.KIND_COMMAND, name, args, ACTION_TIMEOUT_MS) != null
     }
 
     private inner class ScriptAudioSource(private val pluginId: String, private val name: String) : AudioSourceExtension {
@@ -329,6 +344,6 @@ class PluginRuntime(
         const val ACTION_TIMEOUT_MS = 5_000L
 
         private val SCRIPT_POINTS: Set<ExtensionPoint<*>> =
-            setOf(ExtensionPoints.AUDIO_SOURCE, ExtensionPoints.LYRICS_SOURCE, ExtensionPoints.EVENT)
+            setOf(ExtensionPoints.AUDIO_SOURCE, ExtensionPoints.LYRICS_SOURCE, ExtensionPoints.EVENT, ExtensionPoints.COMMAND)
     }
 }

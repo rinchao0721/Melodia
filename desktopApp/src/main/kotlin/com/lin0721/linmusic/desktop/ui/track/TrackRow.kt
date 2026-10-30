@@ -1,5 +1,12 @@
 package com.lin0721.linmusic.desktop.ui.track
 
+import androidx.compose.material.icons.rounded.Extension
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -372,6 +379,7 @@ internal fun TrackMenu(
     onDismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
+    val pluginCommands = LocalPluginCommands.current
     val isLiked = track.id in actions.likedSongIds
     val artists = track.ar.filter { it.id > 0 }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
@@ -456,7 +464,23 @@ internal fun TrackMenu(
             })
         }
         actions.extraMenuItems?.invoke(this, track, onDismiss)
+        val pluginItems = rememberPluginCommands(PluginMenuLocation.SONG)
+        if (pluginItems.isNotEmpty()) MenuDivider()
+        pluginItems.forEach { item ->
+            MenuItem(item.title, icon = Icons.Rounded.Extension, onClick = {
+                onDismiss()
+                pluginCommands?.run(item, track.toPluginArgs())
+            })
+        }
     }
+}
+
+private fun Track.toPluginArgs(): JsonObject = buildJsonObject {
+    if (id > 0) put("songId", id)
+    put("title", name)
+    put("artist", ar.joinToString(" / ") { it.name })
+    put("album", al.name)
+    put("cover", al.picUrl)
 }
 
 private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))

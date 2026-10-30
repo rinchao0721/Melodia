@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.plugin
 
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.io.File
 
@@ -15,7 +16,8 @@ enum class PluginPermission(val key: String, val label: String) {
     PLAYBACK_CONTROL("playback.control", "控制播放：播放、暂停、切歌、加入队列"),
     STORAGE("storage", "保存插件自己的数据"),
     AUDIO_SOURCE("audioSource", "作为音源提供播放链接"),
-    LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词");
+    LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词"),
+    UI_NOTIFY("ui.notify", "显示应用内提示");
 
     companion object {
         fun fromKey(key: String): PluginPermission? = entries.firstOrNull { it.key == key }
@@ -52,6 +54,27 @@ enum class PluginEvent(val key: String) {
     }
 }
 
+// 命令显示的位置
+enum class PluginMenuLocation(val key: String) {
+    SONG("song"),
+    TOOLBAR("toolbar");
+
+    companion object {
+        fun fromKey(key: String): PluginMenuLocation? = entries.firstOrNull { it.key == key }
+    }
+}
+
+enum class PluginSettingType(val key: String) {
+    TOGGLE("toggle"),
+    TEXT("text"),
+    SELECT("select"),
+    NUMBER("number");
+
+    companion object {
+        fun fromKey(key: String): PluginSettingType? = entries.firstOrNull { it.key == key }
+    }
+}
+
 // 可自定义的播放器区域；清单 playerLayouts 下的 key
 val PLAYER_LAYOUT_AREAS = listOf(
     "android.fullPlayer",
@@ -77,16 +100,38 @@ data class PluginPage(
 
 data class PluginSourceEntry(val id: String, val name: String)
 
+data class PluginCommandEntry(val id: String, val title: String)
+
+data class PluginMenuEntry(val commandId: String, val location: PluginMenuLocation)
+
+data class PluginOption(val value: String, val label: String)
+
+// default 已按类型校验；min、max、step 只用于 number
+data class PluginSettingField(
+    val id: String,
+    val type: PluginSettingType,
+    val title: String,
+    val default: JsonElement,
+    val options: List<PluginOption> = emptyList(),
+    val min: Float = 0f,
+    val max: Float = 1f,
+    val step: Float = 1f
+)
+
 // 界面描述只记录引用，界面模型在后续阶段解析
 data class PluginContributions(
     val playerLayouts: Map<String, PluginUiRef> = emptyMap(),
     val pages: List<PluginPage> = emptyList(),
     val audioSources: List<PluginSourceEntry> = emptyList(),
     val lyricsSources: List<PluginSourceEntry> = emptyList(),
-    val events: Set<PluginEvent> = emptySet()
+    val events: Set<PluginEvent> = emptySet(),
+    val commands: List<PluginCommandEntry> = emptyList(),
+    val menus: List<PluginMenuEntry> = emptyList(),
+    val settings: List<PluginSettingField> = emptyList()
 ) {
     val needsScript: Boolean
-        get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty()
+        get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
+            commands.isNotEmpty() || settings.isNotEmpty()
 
     val isEmpty: Boolean
         get() = playerLayouts.isEmpty() && !needsScript

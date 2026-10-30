@@ -2,6 +2,8 @@ package com.lin0721.linmusic.core.plugin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +23,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
@@ -86,6 +89,11 @@ interface PluginPageUi {
     @Composable fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier)
     @Composable fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier)
     @Composable fun Loading(modifier: Modifier)
+    @Composable fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier)
+    @Composable fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier)
+    @Composable fun ProgressBar(fraction: Float, modifier: Modifier)
+    @Composable fun Badge(text: String, modifier: Modifier)
+    @Composable fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier)
 }
 
 // 页面运行所需的宿主操作
@@ -111,6 +119,24 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
 
     suspend fun play(manifest: PluginManifest, tracks: List<PluginTrack>, index: Int) =
         api.playTracks(manifest, tracks, index)
+
+    suspend fun settings(manifest: PluginManifest): JsonObject = api.settings(manifest)
+
+    // 脚本注册了 settingsChanged 时通知一次
+    suspend fun setSetting(manifest: PluginManifest, key: String, value: JsonElement) {
+        api.setSetting(manifest, key, value)
+        val registered = runtime.status.value[manifest.id]?.registrations.orEmpty()
+        if ("${PluginPrelude.KIND_ACTION}:$SETTINGS_CHANGED" in registered) {
+            action(manifest.id, SETTINGS_CHANGED, buildJsonObject {
+                put("key", key)
+                put("value", value)
+            })
+        }
+    }
+
+    private companion object {
+        const val SETTINGS_CHANGED = "settingsChanged"
+    }
 }
 
 private const val MAX_LIST_ITEMS = 200
@@ -167,9 +193,19 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
     val pageId = scope.page.page.id
     when (node.type) {
         LayoutNodeType.LIST -> Column(modifier, verticalArrangement = Arrangement.spacedBy(node.spacing.dp)) {
-            (scope.value(node.bind) as? JsonArray).orEmpty().take(MAX_LIST_ITEMS).forEach { element ->
-                val itemScope = PageScope(scope.page, scope.host, scope.ui, scope.state, element)
-                node.children.forEach { child -> PageNode(child, Modifier, itemScope) }
+            val elements = (scope.value(node.bind) as? JsonArray).orEmpty().take(MAX_LIST_ITEMS)
+            fun itemScope(element: JsonElement) = PageScope(scope.page, scope.host, scope.ui, scope.state, element)
+            if (node.columns <= 1) {
+                elements.forEach { element -> node.children.forEach { child -> PageNode(child, Modifier, itemScope(element)) } }
+            } else {
+                elements.chunked(node.columns).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(node.spacing.dp)) {
+                        row.forEach { element ->
+                            Column(Modifier.weight(1f)) { node.children.forEach { child -> PageNode(child, Modifier, itemScope(element)) } }
+                        }
+                        repeat(node.columns - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
             }
         }
         LayoutNodeType.TRACK_LIST -> {
@@ -233,6 +269,51 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
             )
         }
         LayoutNodeType.LOADING -> scope.ui.Loading(modifier)
+        LayoutNodeType.SELECT -> {
+            val field = node.bind.removePrefix("\$state.")
+            scope.ui.Select(
+                scope.text(node.text),
+                node.options,
+                PluginBinding.text(scope.value(node.bind)),
+                { value ->
+                    scope.host.setField(pluginId, pageId, field, JsonPrimitive(value))
+                    node.action?.let { name ->
+                        coroutine.launch { scope.host.action(pluginId, name, buildJsonObject { put("value", value) }) }
+                    }
+                },
+                modifier
+            )
+        }
+        LayoutNodeType.SLIDER -> {
+            val field = node.bind.removePrefix("\$state.")
+            val value = ((scope.value(node.bind) as? JsonPrimitive)?.floatOrNull ?: node.min).coerceIn(node.min, node.max)
+            scope.ui.Slider(
+                scope.text(node.text),
+                value,
+                node.min,
+                node.max,
+                node.step,
+                { scope.host.setField(pluginId, pageId, field, JsonPrimitive(it)) },
+                {
+                    node.action?.let { name ->
+                        coroutine.launch { scope.host.action(pluginId, name, buildJsonObject { put("value", value) }) }
+                    }
+                },
+                modifier
+            )
+        }
+        LayoutNodeType.PROGRESS_BAR -> {
+            val fraction = (scope.value(node.bind) as? JsonPrimitive)?.floatOrNull?.takeIf { it.isFinite() } ?: 0f
+            scope.ui.ProgressBar(fraction.coerceIn(0f, 1f), modifier)
+        }
+        LayoutNodeType.BADGE -> scope.ui.Badge(scope.text(node.text), modifier)
+        LayoutNodeType.TABS -> {
+            var selected by remember { mutableStateOf(0) }
+            Column(modifier, verticalArrangement = Arrangement.spacedBy(node.spacing.dp)) {
+                scope.ui.Tabs(node.children.map { scope.text(it.text) }, selected, { selected = it }, Modifier)
+                PageNode(node.children[selected.coerceIn(node.children.indices)], Modifier, scope)
+            }
+        }
         else -> Unit
     }
 }

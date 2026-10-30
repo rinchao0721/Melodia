@@ -17,6 +17,8 @@ object ExtensionPoints {
     val AUDIO_SOURCE = ExtensionPoint<AudioSourceExtension>("audioSource", ExtensionMerge.ORDERED)
     val LYRICS_SOURCE = ExtensionPoint<LyricsSourceExtension>("lyricsSource", ExtensionMerge.ORDERED)
     val EVENT = ExtensionPoint<EventExtension>("event", ExtensionMerge.ALL)
+    val COMMAND = ExtensionPoint<CommandExtension>("command", ExtensionMerge.ALL)
+    val MENU = ExtensionPoint<PluginMenuEntry>("menu", ExtensionMerge.ALL)
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
@@ -35,6 +37,13 @@ interface EventExtension {
     val events: Set<PluginEvent>
 
     fun onEvent(event: PluginEvent, data: JsonElement)
+}
+
+// 执行失败或超时返回 false
+interface CommandExtension {
+    val title: String
+
+    suspend fun execute(args: JsonElement): Boolean
 }
 
 // pluginId + point + localId 唯一；order 为同一插件内的声明顺序

@@ -4,8 +4,10 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import java.io.File
 
@@ -27,6 +29,7 @@ object PluginParser {
     private const val MAX_DESCRIPTION_LENGTH = 200
     private const val MAX_HOSTS = 20
     private const val MAX_ENTRIES = 16
+    private const val MAX_OPTIONS = 32
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -69,7 +72,7 @@ object PluginParser {
 
         val contributes = when (val value = root["contributes"]) {
             null -> PluginContributions()
-            is JsonObject -> parseContributions(value, warnings)
+            is JsonObject -> parseContributions(value, warnings, format)
             else -> return PluginParseResult.Failure("contributes 不是对象")
         }
         if (contributes.isEmpty) return PluginParseResult.Failure("插件没有提供任何功能")
@@ -172,7 +175,7 @@ object PluginParser {
         return hosts.take(MAX_HOSTS)
     }
 
-    private fun parseContributions(root: JsonObject, warnings: MutableList<String>): PluginContributions {
+    private fun parseContributions(root: JsonObject, warnings: MutableList<String>, format: Int): PluginContributions {
         val layouts = LinkedHashMap<String, PluginUiRef>()
         (root["playerLayouts"] as? JsonObject)?.forEach { (area, value) ->
             if (area !in PLAYER_LAYOUT_AREAS) {
@@ -202,8 +205,67 @@ object PluginParser {
             val key = (item as? JsonPrimitive)?.takeIf { it.isString }?.content
             PluginEvent.fromKey(key.orEmpty()) ?: null.also { warnings += "未知事件 ${key ?: item}，已忽略" }
         }.orEmpty()
-        return PluginContributions(layouts, pages, audioSources, lyricsSources, events)
+        if (format < 2) return PluginContributions(layouts, pages, audioSources, lyricsSources, events)
+        val commands = parseEntries(root["commands"], "命令", warnings) { item, id ->
+            val title = item.string("title")?.trim()?.takeIf { it.isNotEmpty() } ?: return@parseEntries null.also {
+                warnings += "命令 $id 缺少标题，已忽略"
+            }
+            PluginCommandEntry(id, title.take(MAX_NAME_LENGTH))
+        }
+        val settings = parseEntries(root["settings"], "设置项", warnings) { item, id -> parseSetting(item, id, warnings) }
+        return PluginContributions(
+            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings
+        )
     }
+
+    private fun parseMenus(value: JsonElement?, commands: List<PluginCommandEntry>, warnings: MutableList<String>): List<PluginMenuEntry> {
+        if (value == null) return emptyList()
+        val array = value as? JsonArray ?: run {
+            warnings += "菜单列表不是数组，已忽略"
+            return emptyList()
+        }
+        val result = array.mapNotNull { item ->
+            val obj = item as? JsonObject ?: return@mapNotNull null.also { warnings += "菜单列表里有无效项，已忽略" }
+            val command = obj.string("command")?.trim().orEmpty()
+            val locationKey = obj.string("location")
+            val location = locationKey?.let(PluginMenuLocation::fromKey)
+            when {
+                commands.none { it.id == command } -> null.also { warnings += "菜单引用了未声明的命令 $command，已忽略" }
+                location == null -> null.also { warnings += "命令 $command 的位置 $locationKey 无效，已忽略" }
+                else -> PluginMenuEntry(command, location)
+            }
+        }.distinct()
+        if (result.size > MAX_ENTRIES) warnings += "菜单超过 $MAX_ENTRIES 项，只保留前 $MAX_ENTRIES 项"
+        return result.take(MAX_ENTRIES)
+    }
+
+    private fun parseSetting(item: JsonObject, id: String, warnings: MutableList<String>): PluginSettingField? {
+        val typeKey = item.string("type")
+        val type = typeKey?.let(PluginSettingType::fromKey) ?: return null.also { warnings += "设置项 $id 的类型 $typeKey 无效，已忽略" }
+        val title = item.string("title")?.trim()?.takeIf { it.isNotEmpty() } ?: return null.also { warnings += "设置项 $id 缺少标题，已忽略" }
+        val base = PluginSettingField(id, type, title.take(MAX_NAME_LENGTH), JsonNull)
+        return when (type) {
+            PluginSettingType.TOGGLE -> base.copy(default = JsonPrimitive(false))
+            PluginSettingType.TEXT -> base.copy(default = JsonPrimitive(""))
+            PluginSettingType.SELECT -> {
+                val options = parseOptions(item["options"])
+                if (options.isEmpty()) return null.also { warnings += "设置项 $id 没有可选项，已忽略" }
+                base.copy(options = options, default = JsonPrimitive(options.first().value))
+            }
+            PluginSettingType.NUMBER -> {
+                val min = item.number("min")
+                val max = item.number("max")
+                if (min == null || max == null || min >= max) return null.also { warnings += "设置项 $id 的 min、max 无效，已忽略" }
+                base.copy(default = JsonPrimitive(min), min = min, max = max, step = item.number("step")?.takeIf { it > 0f } ?: 1f)
+            }
+        }.let { field -> field.copy(default = field.normalize(item["default"])) }
+    }
+
+    fun parseOptions(value: JsonElement?): List<PluginOption> = (value as? JsonArray).orEmpty().mapNotNull { item ->
+        val obj = item as? JsonObject ?: return@mapNotNull null
+        val key = obj.string("value") ?: return@mapNotNull null
+        PluginOption(key.take(MAX_NAME_LENGTH), (obj.string("label") ?: key).take(MAX_NAME_LENGTH))
+    }.distinctBy { it.value }.take(MAX_OPTIONS)
 
     private fun parseSources(value: JsonElement?, label: String, warnings: MutableList<String>): List<PluginSourceEntry> =
         parseEntries(value, label, warnings) { item, id ->
@@ -243,4 +305,6 @@ object PluginParser {
     }
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private fun JsonObject.number(key: String): Float? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
 }

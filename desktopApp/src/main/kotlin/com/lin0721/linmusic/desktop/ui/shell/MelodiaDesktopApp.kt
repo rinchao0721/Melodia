@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.ui.shell
 import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginCardContext
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -142,8 +143,10 @@ fun WindowScope.MelodiaDesktopApp(
     CompositionLocalProvider(
         LocalDesktopNavigator provides navigator,
         LocalPlayerLayouts provides pluginLayouts.roots,
-        LocalPluginCards provides pluginCards
+        LocalPluginCards provides pluginCards,
+        LocalPluginCommands provides deps.pluginCommands
     ) {
+        LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }

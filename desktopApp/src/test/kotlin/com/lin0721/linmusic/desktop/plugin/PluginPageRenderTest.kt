@@ -1,5 +1,14 @@
 package com.lin0721.linmusic.desktop.plugin
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.lin0721.linmusic.core.plugin.PluginParseResult
+import com.lin0721.linmusic.core.plugin.PluginParser
+import com.lin0721.linmusic.core.plugin.PluginPlatform
+import com.lin0721.linmusic.core.plugin.PluginSettingsView
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.lin0721.linmusic.core.preferences.PreferencesStores
@@ -25,6 +34,7 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutParseResult
 import com.lin0721.linmusic.core.plugin.PlayerLayoutParser
 import com.lin0721.linmusic.core.plugin.PluginHostApi
 import com.lin0721.linmusic.core.plugin.PluginImageSource
+import com.lin0721.linmusic.core.plugin.PluginOption
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginPageView
@@ -83,6 +93,11 @@ class PluginPageRenderTest {
             commit = onCommit
         }
         @Composable override fun Loading(modifier: Modifier) = Unit
+        @Composable override fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier) = Unit
+        @Composable override fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier) = Unit
+        @Composable override fun ProgressBar(fraction: Float, modifier: Modifier) = Unit
+        @Composable override fun Badge(text: String, modifier: Modifier) = Unit
+        @Composable override fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier) = Unit
     }
 
     private val page = """
@@ -253,6 +268,60 @@ class PluginPageRenderTest {
             val image = scene.render(nanoTime = 1_000_000_000L)
             val png = image.encodeToData(EncodedImageFormat.PNG)!!.bytes
             File("build/tmp/plugin-page.png").apply { parentFile.mkdirs() }.writeBytes(png)
+            assertTrue(png.size > 1000)
+        }
+    }
+
+    @Test
+    fun `新增组件与设置页可以离屏渲染`() = runBlocking {
+        val manifest = (PluginParser.parse(
+            """
+            {"format":2,"id":"com.example.kit","name":"组件","version":"1.0.0",
+             "contributes":{
+               "pages":[{"id":"kit","title":"组件","ui":{"type":"column"}}],
+               "settings":[
+                 {"id":"on","type":"toggle","title":"启用","default":true},
+                 {"id":"name","type":"text","title":"名称"},
+                 {"id":"mode","type":"select","title":"模式","options":[{"value":"fast","label":"快速"},{"value":"safe","label":"安全"}]},
+                 {"id":"level","type":"number","title":"等级","min":0,"max":10,"step":2,"default":6}
+               ]}}
+            """.trimIndent(),
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest
+        val tree = """
+            {"type":"column","spacing":12,"children":[
+                {"type":"badge","text":"实验性"},
+                {"type":"select","text":"音质","bind":"${'$'}state.quality","options":[{"value":"hi","label":"高"},{"value":"lo","label":"低"}]},
+                {"type":"slider","text":"音量","bind":"${'$'}state.volume","min":0,"max":100,"step":5},
+                {"type":"progressBar","bind":"${'$'}state.progress"},
+                {"type":"tabs","spacing":8,"children":[
+                    {"type":"text","text":"第一页"},
+                    {"type":"text","text":"第二页"}
+                ]},
+                {"type":"list","bind":"${'$'}state.items","columns":3,"spacing":8,"children":[
+                    {"type":"text","text":"${'$'}item.name"}
+                ]}
+            ]}
+        """.trimIndent()
+        val root = (PlayerLayoutParser.parsePage(Json.parseToJsonElement(tree) as JsonObject) as PlayerLayoutParseResult.Success).root
+        assertEquals(6, root.children.size)
+        api.setUiField(manifest.id, "kit", "quality", JsonPrimitive("hi"))
+        api.setUiField(manifest.id, "kit", "volume", JsonPrimitive(35))
+        api.setUiField(manifest.id, "kit", "progress", JsonPrimitive(0.4))
+        api.setUiField(manifest.id, "kit", "items", Json.parseToJsonElement("""[{"name":"一"},{"name":"二"},{"name":"三"},{"name":"四"}]"""))
+        val kit = ActivePluginPage(manifest, manifest.contributes.pages.single(), root, null)
+        withScene({
+            Column(Modifier.fillMaxSize().background(Color(0xFF121212)).padding(24.dp)) {
+                PluginPageView(kit, host, DesktopPluginPageUi, Modifier.fillMaxWidth())
+                PluginSettingsView(manifest, host, DesktopPluginPageUi, Modifier.fillMaxWidth().padding(top = 24.dp))
+            }
+        }) { scene ->
+            scene.render()
+            delay(200)
+            scene.render(nanoTime = 500_000_000L)
+            val image = scene.render(nanoTime = 1_000_000_000L)
+            val png = image.encodeToData(EncodedImageFormat.PNG)!!.bytes
+            File("build/tmp/plugin-kit.png").apply { parentFile.mkdirs() }.writeBytes(png)
             assertTrue(png.size > 1000)
         }
     }
