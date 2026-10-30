@@ -24,6 +24,7 @@ sealed interface DesktopRoute {
     data class Profile(val uid: Long) : DesktopRoute
     data class FollowList(val uid: Long, val mode: FollowListMode) : DesktopRoute
     data object Settings : DesktopRoute
+    data class PluginPage(val pluginId: String, val pageId: String) : DesktopRoute
 }
 
 // 历史栈帧：id 唯一，同一路由在历史里重复出现时仍可区分各自的页面现场

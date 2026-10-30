@@ -30,48 +30,51 @@ import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 fun PlayerLayoutView(
     node: PlayerLayoutNode,
     modifier: Modifier = Modifier,
+    // 页面用它处理显隐与文字绑定；返回 null 时不显示这个节点
+    resolve: (PlayerLayoutNode) -> PlayerLayoutNode? = { it },
     component: @Composable (node: PlayerLayoutNode, modifier: Modifier) -> Unit
 ) {
-    val nodeModifier = modifier.then(node.boxModifier())
-    when (node.type) {
+    val current = resolve(node) ?: return
+    val nodeModifier = modifier.then(current.boxModifier())
+    when (current.type) {
         LayoutNodeType.COLUMN -> Column(
             nodeModifier,
-            verticalArrangement = Arrangement.spacedBy(node.spacing.dp),
-            horizontalAlignment = node.align.horizontal()
+            verticalArrangement = Arrangement.spacedBy(current.spacing.dp),
+            horizontalAlignment = current.align.horizontal()
         ) {
-            node.children.forEach { child ->
-                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, component)
+            current.children.forEach { child ->
+                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, resolve, component)
             }
         }
         LayoutNodeType.ROW -> Row(
             nodeModifier,
-            horizontalArrangement = Arrangement.spacedBy(node.spacing.dp),
-            verticalAlignment = node.align.vertical()
+            horizontalArrangement = Arrangement.spacedBy(current.spacing.dp),
+            verticalAlignment = current.align.vertical()
         ) {
-            node.children.forEach { child ->
-                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, component)
+            current.children.forEach { child ->
+                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, resolve, component)
             }
         }
-        LayoutNodeType.BOX -> Box(nodeModifier, contentAlignment = node.align.box()) {
-            node.children.forEach { child -> PlayerLayoutView(child, Modifier, component) }
+        LayoutNodeType.BOX -> Box(nodeModifier, contentAlignment = current.align.box()) {
+            current.children.forEach { child -> PlayerLayoutView(child, Modifier, resolve, component) }
         }
         LayoutNodeType.SPACER -> Spacer(nodeModifier)
         LayoutNodeType.TEXT -> {
             val palette = LocalMelodiaPalette.current
-            val (color, size, weight) = when (node.textStyle) {
+            val (color, size, weight) = when (current.textStyle) {
                 LayoutTextStyle.TITLE -> Triple(palette.textPrimary, 16, FontWeight.Bold)
                 LayoutTextStyle.BODY -> Triple(palette.textSecondary, 13, FontWeight.Normal)
                 LayoutTextStyle.CAPTION -> Triple(palette.textTertiary, 11, FontWeight.Normal)
             }
             BasicText(
-                node.text,
+                current.text,
                 modifier = nodeModifier,
-                style = TextStyle(color = color, fontSize = (size * node.size.scale).sp, fontWeight = weight),
-                maxLines = node.maxLines,
+                style = TextStyle(color = color, fontSize = (size * current.size.scale).sp, fontWeight = weight),
+                maxLines = current.maxLines,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        else -> component(node, nodeModifier)
+        else -> component(current, nodeModifier)
     }
 }
 

@@ -163,13 +163,12 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
 }
 
 // 后续版本才生效的能力，在列表与预览里提示
-fun pluginPendingFeatures(manifest: PluginManifest): String? {
-    val contributes = manifest.contributes
-    val pending = buildList {
-        if (contributes.pages.isNotEmpty()) add("页面")
+fun pluginPendingFeatures(manifest: PluginManifest): String? =
+    if (manifest.contributes.pages.any { it.placement == PluginPagePlacement.NOW_PLAYING_CARD }) {
+        "「正在播放」卡片将在后续版本生效"
+    } else {
+        null
     }
-    return pending.takeIf { it.isNotEmpty() }?.joinToString("、", postfix = "将在后续版本生效")
-}
 
 data class PluginStatusLine(val text: String, val isError: Boolean)
 

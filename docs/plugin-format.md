@@ -2,7 +2,7 @@
 
 插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
-> 当前版本已支持音源、歌词源、播放事件与播放器布局。页面会在后续版本生效，现在声明页面可以正常导入，但不会产生效果。
+> 当前版本已支持音源、歌词源、播放事件、播放器布局与桌面端页面。Android 页面和「正在播放」卡片会在后续版本生效，现在声明可以正常导入，但不会产生效果。
 
 ## 包结构
 
@@ -203,6 +203,45 @@ melodia.register.lyricsSource('main', {
 - 树不超过 8 层、128 个节点；超限或缺少必需组件时，这个区域回到内置布局，其他区域不受影响。
 - 未知组件、不支持的按钮与无效参数只忽略这一项，并在导入时提示；数值超出范围时收到边界内。
 - 同一区域有多个插件提供布局时，默认使用最近启用的插件，也可以在插件设置里按区域选择，或改回内置布局。
+
+## 页面
+
+页面描述的写法与播放器布局相同，可用容器 `column`、`row`、`box`，以及 `spacer`、`text` 和下面的组件。提供页面的插件需要 `main.js`。
+
+```json
+{
+  "type": "column", "spacing": 12, "children": [
+    { "type": "heading", "text": "$state.title" },
+    { "type": "loading", "visible": "$state.loading" },
+    { "type": "button", "text": "刷新", "action": "refresh" },
+    { "type": "list", "bind": "$state.items", "spacing": 6, "children": [
+      { "type": "row", "children": [
+        { "type": "text", "text": "$item.name", "weight": 1 },
+        { "type": "button", "text": "删除", "action": "remove" }
+      ]}
+    ]}
+  ]
+}
+```
+
+| type | 说明 | 必需字段 |
+|---|---|---|
+| `heading` | 标题 | `text` |
+| `text` | 正文，可绑定 | `text` |
+| `image` | 图片，`bind` 可写绑定或地址；只允许 `assets/` 下的文件与 `network.hosts` 里的域名 | `bind` |
+| `list` | 绑定数组，每一项按 `children` 渲染，最多 200 项 | `bind` |
+| `trackList` | 绑定 `{ songId, title, artist, cover }` 数组，点击从这首开始播放整个列表；需要 `playback.control` | `bind` |
+| `button` | 触发 `action`；在列表里时，当前项作为参数传给脚本 | `text`、`action` |
+| `toggle` | 开关，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`、`bind` |
+| `input` | 输入框，写回 `$state` 字段；有 `action` 时在回车后以 `{ value }` 调用 | `text`（提示文字）、`bind` |
+| `loading` / `empty` | 加载中与空态 | |
+
+- **绑定**：`$state.xxx` 取页面数据，`$item.xxx` 取列表当前项，可以用点号取下一层。`text` 可以写固定文字，也可以整段写成绑定。
+- **`visible`**：任何节点都可以写，值为绑定，取到空、`false`、`0` 或空数组时不显示。
+- **数据**：脚本用 `melodia.ui.setState(pageId, patch)` 更新页面数据，渲染时不会调用脚本。
+- **动作**：用 `melodia.register.action(name, handler)` 注册，名称只能用字母、数字、`_`、`:`、`-`，5 秒内没有返回按失败处理。
+- **打开页面**：如果注册了 `open:<页面 id>`，每次打开页面都会调用一次，可以用来刷新数据。
+- 桌面端的页面入口在音乐库侧栏底部的「插件」分组。
 
 ## 存储
 

@@ -29,7 +29,18 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     ACTIONS("actions"),
     LYRICS_CARD("lyricsCard"),
     SPACER("spacer"),
-    TEXT("text");
+    TEXT("text"),
+
+    // 以下只用于插件页面
+    HEADING("heading"),
+    IMAGE("image"),
+    LIST("list"),
+    TRACK_LIST("trackList"),
+    BUTTON("button"),
+    TOGGLE("toggle"),
+    INPUT("input"),
+    LOADING("loading"),
+    EMPTY("empty");
 
     companion object {
         fun fromKey(key: String): LayoutNodeType? = entries.firstOrNull { it.key == key }
@@ -96,7 +107,12 @@ data class PlayerLayoutNode(
     val showTime: Boolean = true,
     // 封面宽高比与最大边长
     val aspect: Float = 1f,
-    val maxSize: Float? = null
+    val maxSize: Float? = null,
+    // 页面专用：list / trackList 绑定的数组、image 的地址、toggle / input 写回的状态字段
+    val bind: String = "",
+    val action: String? = null,
+    // 绑定值为假时不显示
+    val visible: String? = null
 ) {
     fun contains(type: LayoutNodeType): Boolean = this.type == type || children.any { it.contains(type) }
 
@@ -205,10 +221,33 @@ object PlayerLayoutParser {
     private const val MIN_ASPECT = 0.25f
     private const val MAX_ASPECT = 4f
     private const val MIN_COVER = 24f
+    private val ACTION_NAME = Regex("^[A-Za-z0-9_:-]{1,40}$")
+    private val PAGE_COMPONENTS = setOf(
+        LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
+        LayoutNodeType.HEADING, LayoutNodeType.IMAGE, LayoutNodeType.LIST, LayoutNodeType.TRACK_LIST,
+        LayoutNodeType.BUTTON, LayoutNodeType.TOGGLE, LayoutNodeType.INPUT, LayoutNodeType.LOADING, LayoutNodeType.EMPTY
+    )
 
     private class TooLarge(message: String) : Exception(message)
 
     fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
+        val node = parseTree(root, area.components, area.label, area.controlButtons, area.actionButtons)
+        if (node !is PlayerLayoutParseResult.Success) return node
+        area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
+        return node
+    }
+
+    // 插件页面：组件集合不同，节点的绑定字段需要额外校验
+    fun parsePage(root: JsonObject): PlayerLayoutParseResult =
+        parseTree(root, PAGE_COMPONENTS, "页面", emptyList(), emptyList())
+
+    private fun parseTree(
+        root: JsonObject,
+        components: Set<LayoutNodeType>,
+        label: String,
+        controlButtons: List<String>,
+        actionButtons: List<String>
+    ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
         fun build(json: JsonElement, depth: Int): PlayerLayoutNode? {
@@ -218,20 +257,23 @@ object PlayerLayoutParser {
             val obj = json as? JsonObject ?: return null.also { warnings += "布局里有无效节点，已忽略" }
             val typeKey = obj.string("type")
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
-            if (type !in area.components) return null.also { warnings += "${area.label}不支持组件 ${type.key}，已忽略" }
-            val children = if (type.isContainer) {
+            if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
+            val children = if (type.isContainer || type == LayoutNodeType.LIST) {
                 (obj["children"] as? JsonArray)?.mapNotNull { build(it, depth + 1) }.orEmpty()
             } else {
                 emptyList()
             }
             val buttons = when (type) {
-                LayoutNodeType.CONTROLS -> buttons(obj, area.controlButtons, "播放控制", warnings) ?: area.controlButtons
-                LayoutNodeType.ACTIONS -> buttons(obj, area.actionButtons, "操作按钮", warnings) ?: area.actionButtons
+                LayoutNodeType.CONTROLS -> buttons(obj, controlButtons, "播放控制", warnings) ?: controlButtons
+                LayoutNodeType.ACTIONS -> buttons(obj, actionButtons, "操作按钮", warnings) ?: actionButtons
                 else -> emptyList()
             }
             if (type == LayoutNodeType.CONTROLS || type == LayoutNodeType.ACTIONS) {
                 if (buttons.isEmpty()) return null.also { warnings += "${type.key} 没有可用的按钮，已忽略" }
             }
+            val bind = obj.string("bind")?.trim().orEmpty()
+            val action = obj.string("action")?.trim()?.takeIf { it.isNotEmpty() }
+            pageNodeProblem(type, bind, action)?.let { return null.also { _ -> warnings += "${type.key} $it，已忽略" } }
             return PlayerLayoutNode(
                 type = type,
                 children = children,
@@ -253,7 +295,12 @@ object PlayerLayoutParser {
                 maxLines = obj.int("lines")?.coerceIn(1, MAX_LINES) ?: 1,
                 showTime = (obj["showTime"] as? JsonPrimitive)?.booleanOrNull ?: true,
                 aspect = obj.float("aspect")?.coerceIn(MIN_ASPECT, MAX_ASPECT) ?: 1f,
-                maxSize = obj.float("maxSize")?.coerceIn(MIN_COVER, MAX_DIMENSION)
+                maxSize = obj.float("maxSize")?.coerceIn(MIN_COVER, MAX_DIMENSION),
+                bind = bind,
+                action = action,
+                visible = obj.string("visible")?.trim()?.takeIf { value ->
+                    PluginBinding.isBinding(value).also { ok -> if (!ok) warnings += "visible 取值 $value 不是绑定，已忽略" }
+                }
             )
         }
         val node = try {
@@ -261,8 +308,44 @@ object PlayerLayoutParser {
         } catch (e: TooLarge) {
             return PlayerLayoutParseResult.Failure(e.message ?: "布局过大")
         } ?: return PlayerLayoutParseResult.Failure("布局根节点无效")
-        area.missingRequired(node)?.let { return PlayerLayoutParseResult.Failure(it) }
         return PlayerLayoutParseResult.Success(node, warnings)
+    }
+
+    private fun pageNodeProblem(type: LayoutNodeType, bind: String, action: String?): String? = when (type) {
+        LayoutNodeType.LIST, LayoutNodeType.TRACK_LIST ->
+            if (PluginBinding.isBinding(bind)) null else "的 bind 需要写成 \$state.xxx 或 \$item.xxx"
+        LayoutNodeType.TOGGLE, LayoutNodeType.INPUT ->
+            if (PluginBinding.isBinding(bind) && bind.startsWith("\$state.")) null else "的 bind 需要写成 \$state.xxx"
+        LayoutNodeType.IMAGE -> if (bind.isEmpty()) "缺少 bind" else null
+        LayoutNodeType.BUTTON -> if (action != null && ACTION_NAME.matches(action)) null else "缺少有效的 action"
+        else -> if (action != null && !ACTION_NAME.matches(action)) "的 action 无效" else null
+    }
+
+    // 读取清单里某个页面的描述；缺少 playback.control 时去掉歌曲列表
+    fun loadPage(manifest: PluginManifest, page: PluginPage): PlayerLayoutParseResult {
+        val json = when (val ref = page.ui) {
+            is PluginUiRef.Inline -> ref.tree
+            is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
+        }
+        val parsed = parsePage(json)
+        if (parsed !is PlayerLayoutParseResult.Success || PluginPermission.PLAYBACK_CONTROL in manifest.permissions) return parsed
+        if (!parsed.root.contains(LayoutNodeType.TRACK_LIST)) return parsed
+        fun strip(node: PlayerLayoutNode): PlayerLayoutNode =
+            node.copy(children = node.children.filter { it.type != LayoutNodeType.TRACK_LIST }.map(::strip))
+        return parsed.copy(root = strip(parsed.root), warnings = parsed.warnings + "trackList 需要 playback.control 权限，已忽略")
+    }
+
+    private fun readJson(manifest: PluginManifest, path: String): JsonObject? {
+        val file = manifest.file(path) ?: return null
+        return try {
+            Json.parseToJsonElement(file.readText()) as? JsonObject
+        } catch (e: SerializationException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        } catch (e: IOException) {
+            null
+        }
     }
 
     // 读取清单里某个区域的布局，文件缺失或不是 JSON 对象时失败
@@ -270,18 +353,7 @@ object PlayerLayoutParser {
         val json = when (val ref = manifest.contributes.playerLayouts[area.key]) {
             null -> return PlayerLayoutParseResult.Failure("插件没有提供这个区域的布局")
             is PluginUiRef.Inline -> ref.tree
-            is PluginUiRef.File -> {
-                val file = manifest.file(ref.path) ?: return PlayerLayoutParseResult.Failure("缺少界面描述 ${ref.path}")
-                try {
-                    Json.parseToJsonElement(file.readText()) as? JsonObject
-                } catch (e: SerializationException) {
-                    null
-                } catch (e: IllegalArgumentException) {
-                    null
-                } catch (e: IOException) {
-                    null
-                } ?: return PlayerLayoutParseResult.Failure("${ref.path} 不是有效的 JSON 对象")
-            }
+            is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
         }
         return parse(area, json)
     }

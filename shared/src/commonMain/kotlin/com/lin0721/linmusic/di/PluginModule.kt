@@ -6,6 +6,7 @@ import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginEventDispatcher
 import com.lin0721.linmusic.core.plugin.PluginHostApi
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
+import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntime
@@ -28,6 +29,7 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
     }
     single { PluginRuntime(get(), get()) }
     single { PluginRepository(get(), get(), get(), get()) }
+    single { PluginPageHost(get(), get()) }
     single {
         val scope = this
         PluginEventDispatcher(get(), playback = { scope.getOrNull<PlaybackController>() })

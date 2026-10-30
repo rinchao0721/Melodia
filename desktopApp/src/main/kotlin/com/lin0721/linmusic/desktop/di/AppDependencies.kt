@@ -23,6 +23,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         desktopSettingsViewModel = get(),
         lxPluginSettingsViewModel = get(),
         plugins = get(),
+        pluginPages = get(),
         playbackController = get(),
         downloader = get(),
         desktopPreferences = get(),

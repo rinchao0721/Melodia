@@ -59,6 +59,22 @@ class PluginHostApi(
         else -> throw PluginCallException("不支持的调用 $method")
     }
 
+    // 页面上的开关与输入框写回状态
+    fun setUiField(pluginId: String, pageId: String, field: String, value: JsonElement) {
+        val key = "$pluginId/$pageId"
+        _uiStates.update { states ->
+            states + (key to JsonObject((states[key] ?: JsonObject(emptyMap())) + (field to value)))
+        }
+    }
+
+    // 页面里的歌曲列表：从点击的那首开始播放整个列表
+    suspend fun playTracks(manifest: PluginManifest, tracks: List<PluginTrack>, startIndex: Int) {
+        if (PluginPermission.PLAYBACK_CONTROL !in manifest.permissions || startIndex !in tracks.indices) return
+        val controller = playback() ?: return
+        val items = tracks.map { QueueItem(songId = it.songId, title = it.title, artist = it.artist, coverUrl = it.cover) }
+        withContext(mainDispatcher) { controller.playQueue(items, startIndex) }
+    }
+
     // 删除插件时一并清掉页面数据
     fun clearUiState(pluginId: String) {
         _uiStates.update { states -> states.filterKeys { !it.startsWith("$pluginId/") } }

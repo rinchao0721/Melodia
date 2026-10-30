@@ -30,6 +30,10 @@ class PluginRepository(
     // 各区域生效的插件布局、候选插件与用户的选择
     val layouts: StateFlow<PlayerLayoutState> = _layouts.asStateFlow()
 
+    private val _pages = MutableStateFlow<List<ActivePluginPage>>(emptyList())
+    // 已启用插件提供的页面
+    val pages: StateFlow<List<ActivePluginPage>> = _pages.asStateFlow()
+
     init {
         runtime.setFailureHandler(::disableForErrors)
     }
@@ -42,10 +46,28 @@ class PluginRepository(
 
     suspend fun refresh() = refreshLock.withLock {
         val plugins = withContext(Dispatchers.IO) { store.list() }
-        _installed.value = plugins
-        _layouts.value = withContext(Dispatchers.IO) { resolveLayouts(plugins) }
+        publish(plugins)
         runtime.sync(plugins)
     }
+
+    private suspend fun publish(plugins: List<InstalledPlugin>) {
+        _installed.value = plugins
+        withContext(Dispatchers.IO) {
+            _layouts.value = resolveLayouts(plugins)
+            _pages.value = resolvePages(plugins)
+        }
+    }
+
+    private fun resolvePages(plugins: List<InstalledPlugin>): List<ActivePluginPage> =
+        plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->
+            val manifest = plugin.manifest ?: return@flatMap emptyList()
+            manifest.contributes.pages.map { page ->
+                when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
+                    is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
+                    is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
+                }
+            }
+        }
 
     // choice 为插件 id、LAYOUT_CHOICE_DEFAULT，或 null 表示按最近启用的插件
     suspend fun chooseLayout(area: PlayerLayoutArea, choice: String?) {
@@ -127,11 +149,17 @@ class PluginRepository(
 
     private suspend fun disableForErrors(id: String, reason: String) {
         withContext(Dispatchers.IO) { store.updateState(id) { it.copy(enabled = false, disabledReason = reason) } }
-        val plugins = withContext(Dispatchers.IO) { store.list() }
-        _installed.value = plugins
-        _layouts.value = withContext(Dispatchers.IO) { resolveLayouts(plugins) }
+        publish(withContext(Dispatchers.IO) { store.list() })
     }
 }
+
+// root 为 null 时页面描述无效，error 为原因
+data class ActivePluginPage(
+    val manifest: PluginManifest,
+    val page: PluginPage,
+    val root: PlayerLayoutNode?,
+    val error: String?
+)
 
 data class ActivePlayerLayout(val pluginId: String, val pluginName: String, val root: PlayerLayoutNode)
 

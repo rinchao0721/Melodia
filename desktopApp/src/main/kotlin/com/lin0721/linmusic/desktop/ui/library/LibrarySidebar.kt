@@ -164,7 +164,8 @@ fun LibrarySidebar(
     onFilterToggle: (LibraryFilter) -> Unit,
     onSortOrderChange: (LibrarySortOrder) -> Unit,
     extras: LibraryExtrasEntry,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    footer: @Composable () -> Unit = {}
 ) {
     val paneHover = remember { MutableInteractionSource() }
     val paneHovered by paneHover.collectIsHoveredAsState()
@@ -183,21 +184,24 @@ fun LibrarySidebar(
             Spacer(Modifier.width(4.dp))
             LibraryIconButton(Icons.Rounded.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
         }
-        LibraryBody(
-            viewModel = viewModel,
-            isLoggedIn = isLoggedIn,
-            onLoginClick = onLoginClick,
-            onItemClick = onItemClick,
-            viewMode = viewMode,
-            onViewModeChange = onViewModeChange,
-            onFilterToggle = onFilterToggle,
-            onSortOrderChange = onSortOrderChange,
-            extras = extras,
-            wideSearch = false,
-            edgePadding = 16.dp,
-            cardMinWidth = 128.dp,
-            smallTileMinWidth = 88.dp
-        )
+        Column(Modifier.weight(1f)) {
+            LibraryBody(
+                viewModel = viewModel,
+                isLoggedIn = isLoggedIn,
+                onLoginClick = onLoginClick,
+                onItemClick = onItemClick,
+                viewMode = viewMode,
+                onViewModeChange = onViewModeChange,
+                onFilterToggle = onFilterToggle,
+                onSortOrderChange = onSortOrderChange,
+                extras = extras,
+                wideSearch = false,
+                edgePadding = 16.dp,
+                cardMinWidth = 128.dp,
+                smallTileMinWidth = 88.dp
+            )
+        }
+        footer()
     }
 }
 

@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
+import com.lin0721.linmusic.desktop.ui.plugin.PluginPageEntries
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -101,7 +103,12 @@ internal fun Workspace(
                         onToggle = state::toggleLibraryExtra,
                         onOpenLocal = state::openLocalPlaylist,
                         onOpenCloud = state::openCloud
-                    )
+                    ),
+                    footer = {
+                        PluginPageEntries(deps.plugins) { active ->
+                            state.navigate(DesktopRoute.PluginPage(active.manifest.id, active.page.id))
+                        }
+                    }
                 )
                 // 缝隙即拖动条：窄条往外拉先阻尼拉伸再吸附展开，拖窄过阈值吸附成窄条，越过上下限带阻尼、松手回弹
                 PaneResizeHandle(
