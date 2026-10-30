@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.plugin
 
 import com.lin0721.linmusic.core.log.AppLogger
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
@@ -15,13 +16,18 @@ import java.util.UUID
 private const val TAG = "PluginStore"
 private const val STALE_STAGING_MS = 60 * 60 * 1000L
 
+// 布局选择里表示「使用内置布局」
+const val LAYOUT_CHOICE_DEFAULT = "default"
+
 @Serializable
 data class PluginState(
     val enabled: Boolean = false,
     // 用户确认过的权限，清单权限多于这里时插件不运行
     val granted: Set<String> = emptySet(),
     // 连续出错被自动停用时的原因
-    val disabledReason: String? = null
+    val disabledReason: String? = null,
+    // 最近一次启用的时间，同一区域有多个插件布局时默认取最近启用的
+    val enabledAt: Long = 0L
 )
 
 data class InstalledPlugin(
@@ -45,10 +51,12 @@ class PluginStore(private val root: File) {
     private val stagingRoot = File(root, ".staging")
     private val dataRoot = File(root, ".data")
     private val stateFile = File(root, ".state.json")
+    private val layoutFile = File(root, ".layouts.json")
     private val idPattern = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
     private val lock = Any()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val stateSerializer = MapSerializer(String.serializer(), PluginState.serializer())
+    private val choiceSerializer = MapSerializer(String.serializer(), String.serializer())
 
     fun stage(input: InputStream): PluginStageResult =
         PluginPackage.stage(input, File(stagingRoot, UUID.randomUUID().toString()))
@@ -70,7 +78,13 @@ class PluginStore(private val root: File) {
                 staged.directory.copyRecursively(target, overwrite = true)
                 staged.directory.deleteRecursively()
             }
-            updateState(id) { PluginState(enabled = enabled, granted = staged.manifest.permissions.mapTo(HashSet()) { it.key }) }
+            updateState(id) {
+                PluginState(
+                    enabled = enabled,
+                    granted = staged.manifest.permissions.mapTo(HashSet()) { it.key },
+                    enabledAt = if (enabled) System.currentTimeMillis() else 0L
+                )
+            }
             load(id)
         } catch (e: IOException) {
             AppLogger.w(TAG, "安装插件失败: $id", e)
@@ -128,37 +142,53 @@ class PluginStore(private val root: File) {
         return true
     }
 
+    // 区域 -> 选定的插件 id 或 LAYOUT_CHOICE_DEFAULT；没有记录的区域按最近启用的插件
+    fun layoutChoices(): Map<String, String> = synchronized(lock) { readJson(layoutFile, choiceSerializer) }
+
+    fun setLayoutChoice(area: String, choice: String?) {
+        synchronized(lock) {
+            val choices = layoutChoices().toMutableMap()
+            if (choice == null) choices.remove(area) else choices[area] = choice
+            writeJson(layoutFile, choiceSerializer, choices)
+        }
+    }
+
     // 插件私有数据目录，与安装目录分开，升级不丢失
     fun dataDirectoryOf(id: String): File? = if (idPattern.matches(id)) File(dataRoot, id) else null
 
-    private fun readStates(): Map<String, PluginState> = synchronized(lock) {
-        if (!stateFile.isFile) return emptyMap()
-        try {
-            json.decodeFromString(stateSerializer, stateFile.readText())
+    private fun readStates(): Map<String, PluginState> = synchronized(lock) { readJson(stateFile, stateSerializer) }
+
+    private fun writeStates(states: Map<String, PluginState>) = writeJson(stateFile, stateSerializer, states)
+
+    // 文件损坏时按空处理：状态全部停用、布局选择回到默认
+    private fun <T> readJson(file: File, serializer: KSerializer<Map<String, T>>): Map<String, T> {
+        if (!file.isFile) return emptyMap()
+        return try {
+            json.decodeFromString(serializer, file.readText())
         } catch (e: SerializationException) {
-            AppLogger.w(TAG, "插件状态文件损坏，按全部停用处理", e)
+            AppLogger.w(TAG, "${file.name} 损坏，已忽略", e)
             emptyMap()
         } catch (e: IllegalArgumentException) {
-            AppLogger.w(TAG, "插件状态文件损坏，按全部停用处理", e)
+            AppLogger.w(TAG, "${file.name} 损坏，已忽略", e)
             emptyMap()
         } catch (e: IOException) {
-            AppLogger.w(TAG, "读取插件状态失败", e)
+            AppLogger.w(TAG, "读取 ${file.name} 失败", e)
             emptyMap()
         }
     }
 
-    // 先写临时文件再替换，避免中途退出写坏状态文件
-    private fun writeStates(states: Map<String, PluginState>) {
+    // 先写临时文件再替换，避免中途退出写坏
+    private fun <T> writeJson(file: File, serializer: KSerializer<Map<String, T>>, value: Map<String, T>) {
         try {
             root.mkdirs()
-            val temp = File(root, ".state.json.tmp")
-            temp.writeText(json.encodeToString(stateSerializer, states))
-            if (!temp.renameTo(stateFile)) {
-                stateFile.delete()
-                if (!temp.renameTo(stateFile)) throw IOException("无法替换状态文件")
+            val temp = File(root, "${file.name}.tmp")
+            temp.writeText(json.encodeToString(serializer, value))
+            if (!temp.renameTo(file)) {
+                file.delete()
+                if (!temp.renameTo(file)) throw IOException("无法替换 ${file.name}")
             }
         } catch (e: IOException) {
-            AppLogger.w(TAG, "保存插件状态失败", e)
+            AppLogger.w(TAG, "保存 ${file.name} 失败", e)
         }
     }
 

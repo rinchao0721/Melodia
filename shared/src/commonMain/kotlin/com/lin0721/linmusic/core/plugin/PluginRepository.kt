@@ -26,6 +26,10 @@ class PluginRepository(
     val installed: StateFlow<List<InstalledPlugin>> = _installed.asStateFlow()
     val status: StateFlow<Map<String, PluginRuntimeStatus>> = runtime.status
 
+    private val _layouts = MutableStateFlow(PlayerLayoutState())
+    // 各区域生效的插件布局、候选插件与用户的选择
+    val layouts: StateFlow<PlayerLayoutState> = _layouts.asStateFlow()
+
     init {
         runtime.setFailureHandler(::disableForErrors)
     }
@@ -39,7 +43,42 @@ class PluginRepository(
     suspend fun refresh() = refreshLock.withLock {
         val plugins = withContext(Dispatchers.IO) { store.list() }
         _installed.value = plugins
+        _layouts.value = withContext(Dispatchers.IO) { resolveLayouts(plugins) }
         runtime.sync(plugins)
+    }
+
+    // choice 为插件 id、LAYOUT_CHOICE_DEFAULT，或 null 表示按最近启用的插件
+    suspend fun chooseLayout(area: PlayerLayoutArea, choice: String?) {
+        withContext(Dispatchers.IO) { store.setLayoutChoice(area.key, choice) }
+        refresh()
+    }
+
+    private fun resolveLayouts(plugins: List<InstalledPlugin>): PlayerLayoutState {
+        val choices = store.layoutChoices()
+        val active = mutableMapOf<PlayerLayoutArea, ActivePlayerLayout>()
+        val candidates = mutableMapOf<PlayerLayoutArea, List<InstalledPlugin>>()
+        for (area in PlayerLayoutArea.entries) {
+            val valid = plugins
+                .filter { it.state.enabled && it.canRun && it.manifest?.contributes?.playerLayouts?.containsKey(area.key) == true }
+                .mapNotNull { plugin ->
+                    when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
+                        is PlayerLayoutParseResult.Success -> plugin to result.root
+                        is PlayerLayoutParseResult.Failure -> {
+                            AppLogger.w(TAG, "插件 ${plugin.id} 的 ${area.key} 布局无效: ${result.reason}")
+                            null
+                        }
+                    }
+                }
+            if (valid.isEmpty()) continue
+            candidates[area] = valid.map { it.first }
+            val chosen = when (val choice = choices[area.key]) {
+                LAYOUT_CHOICE_DEFAULT -> null
+                null -> valid.maxByOrNull { it.first.state.enabledAt }
+                else -> valid.firstOrNull { it.first.id == choice } ?: valid.maxByOrNull { it.first.state.enabledAt }
+            }
+            chosen?.let { (plugin, root) -> active[area] = ActivePlayerLayout(plugin.id, plugin.name, root) }
+        }
+        return PlayerLayoutState(active, candidates, choices.mapNotNull { (k, v) -> PlayerLayoutArea.fromKey(k)?.let { it to v } }.toMap())
     }
 
     // 调用方负责打开输入流，这里读完即关闭
@@ -61,7 +100,11 @@ class PluginRepository(
     suspend fun setEnabled(id: String, enabled: Boolean) {
         val plugin = withContext(Dispatchers.IO) { store.installed(id) } ?: return
         if (enabled && !plugin.canRun) return
-        withContext(Dispatchers.IO) { store.updateState(id) { it.copy(enabled = enabled, disabledReason = null) } }
+        withContext(Dispatchers.IO) {
+            store.updateState(id) {
+                it.copy(enabled = enabled, disabledReason = null, enabledAt = if (enabled) System.currentTimeMillis() else it.enabledAt)
+            }
+        }
         refresh()
     }
 
@@ -84,6 +127,19 @@ class PluginRepository(
 
     private suspend fun disableForErrors(id: String, reason: String) {
         withContext(Dispatchers.IO) { store.updateState(id) { it.copy(enabled = false, disabledReason = reason) } }
-        _installed.value = withContext(Dispatchers.IO) { store.list() }
+        val plugins = withContext(Dispatchers.IO) { store.list() }
+        _installed.value = plugins
+        _layouts.value = withContext(Dispatchers.IO) { resolveLayouts(plugins) }
     }
+}
+
+data class ActivePlayerLayout(val pluginId: String, val pluginName: String, val root: PlayerLayoutNode)
+
+data class PlayerLayoutState(
+    val active: Map<PlayerLayoutArea, ActivePlayerLayout> = emptyMap(),
+    // 提供了有效布局的已启用插件
+    val candidates: Map<PlayerLayoutArea, List<InstalledPlugin>> = emptyMap(),
+    val choices: Map<PlayerLayoutArea, String> = emptyMap()
+) {
+    val roots: Map<PlayerLayoutArea, PlayerLayoutNode> get() = active.mapValues { it.value.root }
 }

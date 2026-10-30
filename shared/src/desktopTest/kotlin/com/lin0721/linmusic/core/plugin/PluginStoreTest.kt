@@ -72,7 +72,7 @@ class PluginStoreTest {
         )
         val staged = (result as PluginStageResult.Success).staged
         assertEquals("com.example.demo", staged.manifest.id)
-        assertEquals(2, staged.warnings.size)
+        assertEquals(2, staged.warnings.count { it.startsWith("已忽略") })
         assertFalse(File(staged.directory, "run.sh").exists())
     }
 

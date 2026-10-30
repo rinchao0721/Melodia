@@ -77,7 +77,14 @@ object PluginPackage {
         val manifest = parsed.manifest
         checkFiles(manifest, directory)?.let { return PluginStageResult.Failure(it) }
         val unusedScript = !manifest.contributes.needsScript && File(directory, PluginPaths.SCRIPT).isFile
-        val extra = if (unusedScript) listOf("插件只提供布局，${PluginPaths.SCRIPT} 不会运行") else emptyList()
+        val extra = mutableListOf<String>()
+        if (unusedScript) extra += "插件只提供布局，${PluginPaths.SCRIPT} 不会运行"
+        manifest.contributes.playerLayouts.keys.mapNotNull(PlayerLayoutArea::fromKey).forEach { area ->
+            when (val layout = PlayerLayoutParser.load(manifest, area)) {
+                is PlayerLayoutParseResult.Failure -> extra += "${area.label}布局无效（${layout.reason}），将使用默认布局"
+                is PlayerLayoutParseResult.Success -> layout.warnings.forEach { extra += "${area.label}布局：$it" }
+            }
+        }
         return PluginStageResult.Success(StagedPlugin(manifest, warnings + parsed.warnings + extra, directory))
     }
 

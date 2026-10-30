@@ -1,5 +1,12 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -85,18 +92,23 @@ fun NowPlayingPanel(
     HoverScrollbarBox(scrollState) {
         Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
             PanelHeader(track, controller, playerViewModel, hovered, onClose)
-            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
+            val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]
+            if (pluginLayout != null) {
+                PluginNowPlayingHeader(pluginLayout, track, controller, playerViewModel)
+            } else {
+                BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
+                }
+                NowPlayingSongTitle(
+                    track,
+                    playerViewModel,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+                NowPlayingArtists(track, playerViewModel, 14.sp)
             }
-            NowPlayingSongTitle(
-                track,
-                playerViewModel,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                modifier = Modifier.padding(top = 16.dp)
-            )
-            NowPlayingArtists(track, playerViewModel, 14.sp)
             if (!podcast.isPodcast) {
                 val cards = remember(detailState, cardLayout, commentsState) {
                     visibleInfoCards(detailState, cardLayout, SupportedInfoCards, commentsState)
@@ -151,6 +163,35 @@ fun NowPlayingPanel(
 }
 
 // 歌曲详情到达后歌手名可点击跳转，之前先展示队列里的纯文本
+// 插件布局替换封面与标题区；封面默认占满面板宽度，maxSize 限制最大边长
+@Composable
+private fun PluginNowPlayingHeader(
+    root: PlayerLayoutNode,
+    track: NowPlaying,
+    controller: PlaybackController,
+    playerViewModel: PlayerViewModel
+) {
+    val parts = rememberPlaybackParts(controller, playerViewModel)
+    PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp)) { node, modifier ->
+        val scale = node.size.scale
+        when (node.type) {
+            LayoutNodeType.COVER -> BoxWithConstraints(modifier) {
+                val size = node.maxSize?.let { minOf(maxWidth, it.dp) } ?: maxWidth
+                Cover(track.artworkUri, size, shape = node.layoutShape(), requestSize = DesktopDimens.NowPlayingMaxWidth)
+            }
+            LayoutNodeType.SONG_TITLE -> NowPlayingSongTitle(
+                track, playerViewModel, fontSize = (22 * scale).sp, fontWeight = FontWeight.Bold, maxLines = node.maxLines, modifier = modifier
+            )
+            LayoutNodeType.ARTIST -> Box(modifier) { NowPlayingArtists(track, playerViewModel, (14 * scale).sp) }
+            LayoutNodeType.SONG_INFO -> Column(modifier) {
+                NowPlayingSongTitle(track, playerViewModel, fontSize = (22 * scale).sp, fontWeight = FontWeight.Bold, maxLines = node.maxLines)
+                NowPlayingArtists(track, playerViewModel, (14 * scale).sp)
+            }
+            else -> parts.Component(node, modifier)
+        }
+    }
+}
+
 @Composable
 internal fun NowPlayingArtists(track: NowPlaying, playerViewModel: PlayerViewModel, fontSize: TextUnit) {
     val navigator = LocalDesktopNavigator.current

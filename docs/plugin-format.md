@@ -2,7 +2,7 @@
 
 插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
-> 当前版本已支持音源、歌词源与播放事件。播放器布局与页面会在后续版本生效，现在声明这些能力可以正常导入，但不会产生效果。
+> 当前版本已支持音源、歌词源、播放事件与桌面端播放器布局。Android 播放器布局与页面会在后续版本生效，现在声明这些能力可以正常导入，但不会产生效果。
 
 ## 包结构
 
@@ -94,7 +94,6 @@ melodia.register.action('refresh', handler)
 - 宿主调用失败时 Promise 会被拒绝，错误信息说明原因（如缺少权限、不允许访问的域名）。
 - 脚本加载失败（语法错误、加载时抛错或超过 8 秒）时，插件会被自动停用。
 - 宿主调用插件注册的能力时，如果插件出错或超时，计为一次失败；连续失败 5 次后插件会被自动停用。重新启用后计数清零。
-- 只提供播放器布局的插件不会运行 `main.js`。
 
 ## 音源
 
@@ -135,6 +134,73 @@ melodia.register.lyricsSource('main', {
 | `progress` | `{ positionMs, durationMs }`，播放中每秒一次 |
 
 事件只通知插件，不等待处理结果，也不能改变播放行为。插件启动时不会补发当前状态，需要时调用 `melodia.player.current()` 与 `melodia.player.state()`。
+
+## 播放器布局
+
+布局是由容器和组件组成的树，写在 `ui/*.json` 里，或直接内联在清单的 `playerLayouts` 下。只提供布局的插件不需要 `main.js`，也不需要申请权限。
+
+```json
+{
+  "type": "row", "padding": [0, 16], "spacing": 12, "align": "center", "height": 96,
+  "children": [
+    { "type": "cover", "shape": "circle", "maxSize": 64 },
+    { "type": "songInfo", "weight": 1 },
+    { "type": "column", "weight": 2, "align": "center", "children": [
+      { "type": "controls", "buttons": ["shuffle", "previous", "playPause", "next", "repeat"], "size": "large" },
+      { "type": "progress", "showTime": false }
+    ]},
+    { "type": "actions", "buttons": ["queue", "volume"] }
+  ]
+}
+```
+
+### 区域
+
+| key | 位置 | 必需 | 不可用的组件 |
+|---|---|---|---|
+| `desktop.playerBar` | 桌面底部播放栏 | `controls` 的 `playPause`、`progress` | `miniLyric`、`lyricsCard` |
+| `desktop.nowPlaying` | 桌面「正在播放」面板的封面与标题区 | 无 | `miniLyric`、`lyricsCard`、`actions` |
+| `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
+| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard` |
+| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard` |
+
+`desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。
+
+### 通用属性
+
+| 属性 | 说明 |
+|---|---|
+| `padding` | 一个数字为四边相同；`[上下, 左右]`；`[上, 右, 下, 左]`。范围 0–64 |
+| `spacing` | 容器内子节点间距，范围 0–64 |
+| `align` | `start`、`center`、`end` |
+| `weight` | 在 `row` / `column` 里按比例分配剩余空间，范围 0.1–10 |
+| `width` / `height` | 固定尺寸，范围 0–1000 |
+| `background` | 色板项，如 `pane`、`cardSurface`；跟随当前皮肤 |
+| `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8 |
+
+### 节点
+
+| type | 说明 | 专属参数 |
+|---|---|---|
+| `column` / `row` / `box` | 容器，`box` 为叠放 | `children` |
+| `cover` | 封面，点击切换「正在播放」 | `maxSize`（24–1000）、`aspect`（0.25–4，仅 Android）、`size` |
+| `songTitle` / `artist` / `songInfo` | 标题、歌手、两者组合 | `lines`（1–4）、`size` |
+| `likeButton` | 收藏到歌单；播客为订阅电台 | |
+| `miniLyric` | 单行歌词（Android） | |
+| `progress` | 进度条 | `showTime` |
+| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`；`size` |
+| `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more` |
+| `lyricsCard` | 歌词卡（Android） | |
+| `spacer` | 留白，配合 `weight` 或固定尺寸 | |
+| `text` | 固定文字，不超过 40 个字符 | `text`、`style`（`title`、`body`、`caption`）、`lines`、`size` |
+
+`size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮。
+
+### 校验与回退
+
+- 树不超过 8 层、128 个节点；超限或缺少必需组件时，这个区域回到内置布局，其他区域不受影响。
+- 未知组件、不支持的按钮与无效参数只忽略这一项，并在导入时提示；数值超出范围时收到边界内。
+- 同一区域有多个插件提供布局时，默认使用最近启用的插件，也可以在插件设置里按区域选择，或改回内置布局。
 
 ## 存储
 

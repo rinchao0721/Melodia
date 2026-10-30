@@ -39,6 +39,10 @@ import com.lin0721.linmusic.core.plugin.PLUGIN_FILE_EXTENSION
 import com.lin0721.linmusic.core.plugin.PluginImportStep
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
+import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
+import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
+import com.lin0721.linmusic.core.plugin.playerLayoutOptions
+import com.lin0721.linmusic.core.plugin.playerLayoutSummary
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
 import com.lin0721.linmusic.core.plugin.pluginPendingFeatures
@@ -63,6 +67,7 @@ internal fun PluginSetting(repository: PluginRepository) {
     val controller = rememberPluginSettingsController(repository)
     val installed by controller.installed.collectAsState()
     val status by controller.status.collectAsState()
+    val layouts by controller.layouts.collectAsState()
     val navigator = LocalDesktopNavigator.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
 
@@ -97,6 +102,21 @@ internal fun PluginSetting(repository: PluginRepository) {
                     },
                     onDelete = { deleteTarget = plugin }
                 )
+            }
+        }
+        val layoutAreas = layoutAreasWithCandidates(layouts, "desktop.")
+        if (layoutAreas.isNotEmpty()) {
+            Text("播放器布局", color = DesktopColors.TextPrimary, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+            layoutAreas.forEach { area ->
+                SettingRow(area.label, playerLayoutSummary(area, layouts)) {
+                    SettingsDropdown(
+                        options = playerLayoutOptions(area, layouts),
+                        current = currentPlayerLayoutOption(area, layouts),
+                        label = { it.label },
+                        onSelect = { controller.chooseLayout(area, it.choice) },
+                        menuWidth = 220.dp
+                    )
+                }
             }
         }
         Row(Modifier.padding(top = 8.dp)) {

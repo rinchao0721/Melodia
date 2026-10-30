@@ -71,6 +71,17 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.TextUnit
+import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.plugin.CONTROL_BUTTONS
+import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_PAUSE
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
@@ -132,7 +143,6 @@ fun PlayerBar(
     onEnterMiniPlayer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val navigator = LocalDesktopNavigator.current
     val nowPlaying by controller.nowPlaying.collectAsState()
     val isPlaying by controller.playWhenReady.collectAsState()
     val playMode by controller.playMode.collectAsState()
@@ -141,161 +151,330 @@ fun PlayerBar(
     }
     val position by quantizedPosition.collectAsState(controller.currentPosition.value / POSITION_STEP_MS * POSITION_STEP_MS)
     val duration by controller.duration.collectAsState()
-    val songDetail by playerViewModel.songDetailState.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
-    val hasTrack = nowPlaying != null
+    val parts = PlayerBarParts(
+        controller = controller,
+        playerViewModel = playerViewModel,
+        nowPlaying = nowPlaying,
+        isPlaying = isPlaying,
+        playMode = playMode,
+        position = position,
+        duration = duration,
+        isPodcast = podcast.isPodcast,
+        volume = volume,
+        lastAudibleVolume = lastAudibleVolume,
+        onVolumeChange = onVolumeChange,
+        nowPlayingOpen = nowPlayingOpen,
+        onToggleNowPlaying = onToggleNowPlaying,
+        queueOpen = queueOpen,
+        onToggleQueue = onToggleQueue,
+        devicesOpen = devicesOpen,
+        onToggleDevices = onToggleDevices,
+        outputDevice = outputDevice,
+        isFullscreen = isFullscreen,
+        onToggleFullscreen = onToggleFullscreen,
+        lyricVisible = lyricVisible,
+        onToggleLyric = onToggleLyric,
+        lyricsViewOpen = lyricsViewOpen,
+        onToggleLyricsView = onToggleLyricsView,
+        onEnterMiniPlayer = onEnterMiniPlayer
+    )
+    val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]
+    if (pluginLayout != null) {
+        PluginPlayerBar(pluginLayout, parts, modifier)
+        return
+    }
 
     Row(
         modifier.fillMaxWidth().height(DesktopDimens.PlayerBarHeight).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(Modifier.weight(0.27f), verticalAlignment = Alignment.CenterVertically) {
-            val track = nowPlaying
-            if (track != null) {
-                DesktopTooltip(if (nowPlayingOpen) "隐藏“正在播放”" else "显示“正在播放”") {
-                    Box(Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onToggleNowPlaying)) {
-                        Cover(track.artworkUri, 56.dp)
-                    }
-                }
+            if (nowPlaying != null) {
+                parts.CoverButton(56.dp)
                 Column(Modifier.weight(1f, fill = false).padding(start = 12.dp)) {
-                    NowPlayingSongTitle(track, playerViewModel, fontSize = 14.sp)
-                    NowPlayingArtists(track, playerViewModel, 12.sp)
+                    parts.Title(14.sp)
+                    parts.Artists(12.sp)
                 }
-                if (podcast.isPodcast) {
-                    // 播客：♡ 直接订阅所属电台
-                    if (podcast.canSubscribe) {
-                        BarIconButton(
-                            icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
-                            active = podcast.subscribed,
-                            size = SideButtonSize, iconSize = SideIconSize,
-                            modifier = Modifier.padding(start = 4.dp),
-                            onClick = playerViewModel::toggleSubscribe
-                        )
-                    }
-                } else {
-                    val collectState by playerViewModel.collectState.collectAsState()
-                    var showCollectPopup by remember(track.songId) { mutableStateOf(false) }
-
-                    Box {
-                        BarIconButton(
-                            icon = if (songDetail.isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
-                            description = "收藏到歌单",
-                            active = songDetail.isLiked,
-                            size = SideButtonSize, iconSize = SideIconSize,
-                            modifier = Modifier.padding(start = 4.dp),
-                            onClick = {
-                                if (!navigator.isLoggedIn) {
-                                    navigator.showMessage("请先登录账号")
-                                } else {
-                                    track.songId?.let { songId ->
-                                        playerViewModel.prepareCollectDialog(songId)
-                                        showCollectPopup = true
-                                    }
-                                }
-                            }
-                        )
-
-                        if (showCollectPopup && track.songId != null) {
-                            val songId = track.songId!!
-                            CollectToPlaylistPopup(
-                                songId = songId,
-                                state = collectState,
-                                onSave = { items ->
-                                    playerViewModel.savePlaylistCollection(songId, items)
-                                    showCollectPopup = false
-                                },
-                                onCreate = { name ->
-                                    playerViewModel.createPlaylistAndAddSong(name, songId)
-                                    showCollectPopup = false
-                                },
-                                onDismiss = { showCollectPopup = false }
-                            )
-                        }
-                    }
-                }
+                parts.LikeButton(Modifier.padding(start = 4.dp))
             }
         }
         Column(Modifier.weight(0.4f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!podcast.isPodcast) BarIconButton(
-                    Icons.Rounded.Shuffle,
-                    "随机播放",
-                    enabled = hasTrack,
-                    active = playMode == PlayMode.SHUFFLE,
-                    showDot = true,
-                    onClick = controller::toggleShuffle
-                )
-                val outlined = outlinedControls
-                val transportOutline = if (outlined) Modifier.border(1.dp, DesktopColors.Outline, CircleShape) else Modifier
-                BarIconButton(Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, onClick = controller::skipToPrevious, modifier = transportOutline)
-                val playHover = remember { MutableInteractionSource() }
-                val playHovered by playHover.collectIsHoveredAsState()
-                val playScale by hoverScale(playHovered && hasTrack)
-                val playShape = styledButtonShape(CircleShape)
-                val playActive = if (hasTrack) DesktopColors.TextPrimary else DesktopColors.SurfaceLight
-                // 描边风格：不填充，描边与图标用前景色
-                Box(
-                    Modifier.size(TransportButtonSize).graphicsLayer { scaleX = playScale; scaleY = playScale }.clip(playShape)
-                        .then(if (outlined) Modifier.border(1.5.dp, playActive, playShape) else Modifier.background(playActive))
-                        .hoverable(playHover),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
-                        PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
-                    }
-                }
-                BarIconButton(Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, onClick = controller::playNext, modifier = transportOutline)
-                if (!podcast.isPodcast) BarIconButton(
-                    if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                    "循环模式",
-                    enabled = hasTrack,
-                    active = playMode == PlayMode.SINGLE_LOOP,
-                    showDot = true,
-                    onClick = controller::toggleRepeat
+            parts.Controls(CONTROL_BUTTONS)
+            parts.Progress(showTime = true)
+        }
+        parts.Actions(DesktopBarActions, Modifier.weight(0.33f))
+    }
+}
+
+private val DesktopBarActions = PlayerLayoutArea.DESKTOP_PLAYER_BAR.actionButtons
+private const val MIN_PLUGIN_BAR_HEIGHT = 64f
+private const val MAX_PLUGIN_BAR_HEIGHT = 160f
+
+// 插件布局：根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
+@Composable
+private fun PluginPlayerBar(root: PlayerLayoutNode, parts: PlayerBarParts, modifier: Modifier) {
+    val height = (root.height ?: DesktopDimens.PlayerBarHeight.value).coerceIn(MIN_PLUGIN_BAR_HEIGHT, MAX_PLUGIN_BAR_HEIGHT).dp
+    PlayerLayoutView(root.copy(height = null), modifier.fillMaxWidth().height(height)) { node, nodeModifier ->
+        parts.Component(node, nodeModifier)
+    }
+}
+
+// 播放栏各部件：默认布局与插件布局共用同一套实现
+internal class PlayerBarParts(
+    val controller: PlaybackController,
+    val playerViewModel: PlayerViewModel,
+    val nowPlaying: NowPlaying?,
+    val isPlaying: Boolean,
+    val playMode: PlayMode,
+    val position: Long,
+    val duration: Long,
+    val isPodcast: Boolean,
+    val volume: Int?,
+    val lastAudibleVolume: Int,
+    val onVolumeChange: (Int) -> Unit,
+    val nowPlayingOpen: Boolean,
+    val onToggleNowPlaying: () -> Unit,
+    val queueOpen: Boolean,
+    val onToggleQueue: () -> Unit,
+    val devicesOpen: Boolean,
+    val onToggleDevices: (() -> Unit)?,
+    val outputDevice: AudioDevice?,
+    val isFullscreen: Boolean,
+    val onToggleFullscreen: () -> Unit,
+    val lyricVisible: Boolean,
+    val onToggleLyric: () -> Unit,
+    val lyricsViewOpen: Boolean,
+    val onToggleLyricsView: () -> Unit,
+    val onEnterMiniPlayer: () -> Unit
+) {
+    private val hasTrack: Boolean get() = nowPlaying != null
+
+    // 插件布局节点到部件的映射；校验已保证只会出现本区域支持的组件
+    @Composable
+    fun Component(node: PlayerLayoutNode, modifier: Modifier) {
+        val scale = node.size.scale
+        when (node.type) {
+            LayoutNodeType.COVER -> Box(modifier) {
+                CoverButton(((node.maxSize ?: PLUGIN_COVER_SIZE) * scale).dp, node.layoutShape())
+            }
+            LayoutNodeType.SONG_TITLE -> Box(modifier) { Title((14 * scale).sp, node.maxLines) }
+            LayoutNodeType.ARTIST -> Box(modifier) { Artists((12 * scale).sp) }
+            LayoutNodeType.SONG_INFO -> Column(modifier) {
+                Title((14 * scale).sp, node.maxLines)
+                Artists((12 * scale).sp)
+            }
+            LayoutNodeType.LIKE_BUTTON -> LikeButton(modifier)
+            LayoutNodeType.CONTROLS -> Controls(node.buttons, modifier, scale)
+            LayoutNodeType.PROGRESS -> Box(modifier) { Progress(node.showTime) }
+            LayoutNodeType.ACTIONS -> Actions(node.buttons, modifier)
+            else -> Unit
+        }
+    }
+
+    @Composable
+    fun CoverButton(size: Dp, shape: Shape? = null) {
+        val track = nowPlaying ?: return
+        DesktopTooltip(if (nowPlayingOpen) "隐藏“正在播放”" else "显示“正在播放”") {
+            Box(Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onToggleNowPlaying)) {
+                if (shape == null) Cover(track.artworkUri, size) else Cover(track.artworkUri, size, shape = shape)
+            }
+        }
+    }
+
+    @Composable
+    fun Title(fontSize: TextUnit, maxLines: Int = 1) {
+        val track = nowPlaying ?: return
+        NowPlayingSongTitle(track, playerViewModel, fontSize = fontSize, maxLines = maxLines)
+    }
+
+    @Composable
+    fun Artists(fontSize: TextUnit) {
+        val track = nowPlaying ?: return
+        NowPlayingArtists(track, playerViewModel, fontSize)
+    }
+
+    // 歌曲为收藏到歌单，播客为订阅所属电台
+    @Composable
+    fun LikeButton(modifier: Modifier = Modifier) {
+        val track = nowPlaying ?: return
+        val navigator = LocalDesktopNavigator.current
+        val songDetail by playerViewModel.songDetailState.collectAsState()
+        val podcast by playerViewModel.podcastState.collectAsState()
+        if (podcast.isPodcast) {
+            if (podcast.canSubscribe) {
+                BarIconButton(
+                    icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
+                    active = podcast.subscribed,
+                    size = SideButtonSize, iconSize = SideIconSize,
+                    modifier = modifier,
+                    onClick = playerViewModel::toggleSubscribe
                 )
             }
-            ProgressRow(position, duration, enabled = hasTrack && duration > 0, onSeek = controller::seekTo)
+            return
         }
-        Row(Modifier.weight(0.33f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (!podcast.isPodcast) BarIconButton(
-                PlayerBarIcons.DesktopLyric,
-                if (lyricVisible) "关闭桌面歌词" else "开启桌面歌词",
-                active = lyricVisible,
-                showDot = true,
-                size = SideButtonSize, iconSize = SideIconSize,
-                onClick = onToggleLyric
-            )
-            if (!podcast.isPodcast) BarIconButton(
-                PlayerBarIcons.Lyrics,
-                if (lyricsViewOpen) "收起全屏歌词" else "全屏歌词",
-                enabled = hasTrack,
-                active = lyricsViewOpen,
-                showDot = true,
-                size = SideButtonSize, iconSize = SideIconSize,
-                onClick = onToggleLyricsView
-            )
+        val collectState by playerViewModel.collectState.collectAsState()
+        var showCollectPopup by remember(track.songId) { mutableStateOf(false) }
+
+        Box {
             BarIconButton(
-                PlayerBarIcons.Queue,
-                "播放队列",
-                enabled = hasTrack,
-                active = queueOpen,
-                showDot = true,
+                icon = if (songDetail.isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
+                description = "收藏到歌单",
+                active = songDetail.isLiked,
                 size = SideButtonSize, iconSize = SideIconSize,
-                onClick = onToggleQueue
+                modifier = modifier,
+                onClick = {
+                    if (!navigator.isLoggedIn) {
+                        navigator.showMessage("请先登录账号")
+                    } else {
+                        track.songId?.let { songId ->
+                            playerViewModel.prepareCollectDialog(songId)
+                            showCollectPopup = true
+                        }
+                    }
+                }
             )
-            // 设备名最后测量，只占其余按钮排完后的剩余宽度，窗口窄时自身截断而不挤掉音量等按钮
-            if (onToggleDevices != null) OutputDeviceButton(outputDevice, devicesOpen, onToggleDevices, Modifier.weight(1f, fill = false))
-            // 占位播放器没有音量能力时不显示
-            if (volume != null) VolumeControl(volume, lastAudibleVolume, onVolumeChange)
-            BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = onEnterMiniPlayer)
-            BarIconButton(
-                if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                if (isFullscreen) "退出全屏" else "全屏",
-                size = SideButtonSize, iconSize = SideIconSize,
-                onClick = onToggleFullscreen
-            )
+
+            if (showCollectPopup && track.songId != null) {
+                val songId = track.songId!!
+                CollectToPlaylistPopup(
+                    songId = songId,
+                    state = collectState,
+                    onSave = { items ->
+                        playerViewModel.savePlaylistCollection(songId, items)
+                        showCollectPopup = false
+                    },
+                    onCreate = { name ->
+                        playerViewModel.createPlaylistAndAddSong(name, songId)
+                        showCollectPopup = false
+                    },
+                    onDismiss = { showCollectPopup = false }
+                )
+            }
         }
+    }
+
+    // 播客没有随机与循环，对应按钮不显示
+    @Composable
+    fun Controls(buttons: List<String>, modifier: Modifier = Modifier, scale: Float = 1f) {
+        val transportSize = TransportButtonSize * scale
+        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
+            val outlined = outlinedControls
+            val transportOutline = if (outlined) Modifier.border(1.dp, DesktopColors.Outline, CircleShape) else Modifier
+            buttons.forEach { button ->
+                when (button) {
+                    "shuffle" -> if (!isPodcast) BarIconButton(
+                        Icons.Rounded.Shuffle,
+                        "随机播放",
+                        enabled = hasTrack,
+                        active = playMode == PlayMode.SHUFFLE,
+                        showDot = true,
+                        size = transportSize,
+                        onClick = controller::toggleShuffle
+                    )
+                    "previous" -> BarIconButton(
+                        Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, size = transportSize,
+                        onClick = controller::skipToPrevious, modifier = transportOutline
+                    )
+                    CONTROL_PLAY_PAUSE -> PlayPauseButton(transportSize, outlined)
+                    "next" -> BarIconButton(
+                        Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
+                        onClick = controller::playNext, modifier = transportOutline
+                    )
+                    "repeat" -> if (!isPodcast) BarIconButton(
+                        if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                        "循环模式",
+                        enabled = hasTrack,
+                        active = playMode == PlayMode.SINGLE_LOOP,
+                        showDot = true,
+                        size = transportSize,
+                        onClick = controller::toggleRepeat
+                    )
+                }
+            }
+        }
+    }
+
+    // 描边风格：不填充，描边与图标用前景色
+    @Composable
+    private fun PlayPauseButton(size: Dp, outlined: Boolean) {
+        val playHover = remember { MutableInteractionSource() }
+        val playHovered by playHover.collectIsHoveredAsState()
+        val playScale by hoverScale(playHovered && hasTrack)
+        val playShape = styledButtonShape(CircleShape)
+        val playActive = if (hasTrack) DesktopColors.TextPrimary else DesktopColors.SurfaceLight
+        Box(
+            Modifier.size(size).graphicsLayer { scaleX = playScale; scaleY = playScale }.clip(playShape)
+                .then(if (outlined) Modifier.border(1.5.dp, playActive, playShape) else Modifier.background(playActive))
+                .hoverable(playHover),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
+                PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
+            }
+        }
+    }
+
+    @Composable
+    fun Progress(showTime: Boolean) {
+        ProgressRow(position, duration, enabled = hasTrack && duration > 0, showTime = showTime, onSeek = controller::seekTo)
+    }
+
+    @Composable
+    fun Actions(buttons: List<String>, modifier: Modifier = Modifier) {
+        Row(modifier, horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            buttons.forEach { button ->
+                when (button) {
+                    "desktopLyric" -> if (!isPodcast) BarIconButton(
+                        PlayerBarIcons.DesktopLyric,
+                        if (lyricVisible) "关闭桌面歌词" else "开启桌面歌词",
+                        active = lyricVisible,
+                        showDot = true,
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        onClick = onToggleLyric
+                    )
+                    "lyricsView" -> if (!isPodcast) BarIconButton(
+                        PlayerBarIcons.Lyrics,
+                        if (lyricsViewOpen) "收起全屏歌词" else "全屏歌词",
+                        enabled = hasTrack,
+                        active = lyricsViewOpen,
+                        showDot = true,
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        onClick = onToggleLyricsView
+                    )
+                    "queue" -> BarIconButton(
+                        PlayerBarIcons.Queue,
+                        "播放队列",
+                        enabled = hasTrack,
+                        active = queueOpen,
+                        showDot = true,
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        onClick = onToggleQueue
+                    )
+                    // 设备名最后测量，只占其余按钮排完后的剩余宽度，窗口窄时自身截断而不挤掉音量等按钮
+                    "device" -> if (onToggleDevices != null) {
+                        OutputDeviceButton(outputDevice, devicesOpen, onToggleDevices, Modifier.weight(1f, fill = false))
+                    }
+                    // 占位播放器没有音量能力时不显示
+                    "volume" -> if (volume != null) VolumeControl(volume, lastAudibleVolume, onVolumeChange)
+                    "miniPlayer" -> BarIconButton(
+                        Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize,
+                        onClick = onEnterMiniPlayer
+                    )
+                    "fullscreen" -> BarIconButton(
+                        if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        if (isFullscreen) "退出全屏" else "全屏",
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        onClick = onToggleFullscreen
+                    )
+                }
+            }
+        }
+    }
+
+    private companion object {
+        const val PLUGIN_COVER_SIZE = 56f
     }
 }
 
@@ -443,12 +622,12 @@ private fun OutputDeviceButton(device: AudioDevice?, open: Boolean, onClick: () 
 }
 
 @Composable
-private fun ProgressRow(position: Long, duration: Long, enabled: Boolean, onSeek: (Long) -> Unit) {
+private fun ProgressRow(position: Long, duration: Long, enabled: Boolean, showTime: Boolean, onSeek: (Long) -> Unit) {
     // 拖动期间以本地值为准，松手才提交，避免进度回推造成跳动
     var dragValue by remember { mutableStateOf<Float?>(null) }
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TimeLabel(if (dragValue != null) (dragValue!! * duration).toLong() else position, TextAlign.End)
+        if (showTime) TimeLabel(if (dragValue != null) (dragValue!! * duration).toLong() else position, TextAlign.End)
         PlayerSlider(
             value = dragValue ?: fraction,
             onValueChange = { dragValue = it },
@@ -457,10 +636,10 @@ private fun ProgressRow(position: Long, duration: Long, enabled: Boolean, onSeek
                 dragValue = null
             },
             enabled = enabled,
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+            modifier = Modifier.weight(1f).padding(horizontal = if (showTime) 8.dp else 0.dp),
             previewLabel = { formatDuration((it * duration).toLong()) }
         )
-        TimeLabel(duration, TextAlign.Start)
+        if (showTime) TimeLabel(duration, TextAlign.Start)
     }
 }
 
@@ -531,4 +710,45 @@ private fun BarIconButton(
             }
         }
     }
+}
+
+// 播放栏之外的区域（如「正在播放」面板）只用到封面、标题、收藏、播放控制与进度，其余回调留空
+@Composable
+internal fun rememberPlaybackParts(controller: PlaybackController, playerViewModel: PlayerViewModel): PlayerBarParts {
+    val nowPlaying by controller.nowPlaying.collectAsState()
+    val isPlaying by controller.playWhenReady.collectAsState()
+    val playMode by controller.playMode.collectAsState()
+    val quantizedPosition = remember(controller) {
+        controller.currentPosition.map { it / POSITION_STEP_MS * POSITION_STEP_MS }.distinctUntilChanged()
+    }
+    val position by quantizedPosition.collectAsState(controller.currentPosition.value / POSITION_STEP_MS * POSITION_STEP_MS)
+    val duration by controller.duration.collectAsState()
+    val podcast by playerViewModel.podcastState.collectAsState()
+    return PlayerBarParts(
+        controller = controller,
+        playerViewModel = playerViewModel,
+        nowPlaying = nowPlaying,
+        isPlaying = isPlaying,
+        playMode = playMode,
+        position = position,
+        duration = duration,
+        isPodcast = podcast.isPodcast,
+        volume = null,
+        lastAudibleVolume = 0,
+        onVolumeChange = {},
+        nowPlayingOpen = true,
+        onToggleNowPlaying = {},
+        queueOpen = false,
+        onToggleQueue = {},
+        devicesOpen = false,
+        onToggleDevices = null,
+        outputDevice = null,
+        isFullscreen = false,
+        onToggleFullscreen = {},
+        lyricVisible = false,
+        onToggleLyric = {},
+        lyricsViewOpen = false,
+        onToggleLyricsView = {},
+        onEnterMiniPlayer = {}
+    )
 }

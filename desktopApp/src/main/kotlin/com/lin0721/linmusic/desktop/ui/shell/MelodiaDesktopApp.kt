@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -133,7 +134,8 @@ fun WindowScope.MelodiaDesktopApp(
     val isMaximized = windowState.placement == WindowPlacement.Maximized
     val isFullscreen = fullscreen.isFullscreen
 
-    CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
+    val pluginLayouts by deps.plugins.layouts.collectAsState()
+    CompositionLocalProvider(LocalDesktopNavigator provides navigator, LocalPlayerLayouts provides pluginLayouts.roots) {
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }

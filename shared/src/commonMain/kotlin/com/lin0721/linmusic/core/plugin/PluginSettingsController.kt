@@ -42,6 +42,7 @@ class PluginSettingsController(
 ) {
     val installed: StateFlow<List<InstalledPlugin>> = repository.installed
     val status: StateFlow<Map<String, PluginRuntimeStatus>> = repository.status
+    val layouts: StateFlow<PlayerLayoutState> = repository.layouts
 
     var step: PluginImportStep by mutableStateOf(PluginImportStep.Idle)
         private set
@@ -116,6 +117,10 @@ class PluginSettingsController(
         scope.launch { repository.delete(id) }
     }
 
+    fun chooseLayout(area: PlayerLayoutArea, choice: String?) {
+        scope.launch { repository.chooseLayout(area, choice) }
+    }
+
     // open 在 IO 线程调用，返回 null 视为用户取消
     fun export(plugin: InstalledPlugin, open: suspend () -> OutputStream?) {
         scope.launch {
@@ -161,7 +166,7 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
 fun pluginPendingFeatures(manifest: PluginManifest): String? {
     val contributes = manifest.contributes
     val pending = buildList {
-        if (contributes.playerLayouts.isNotEmpty()) add("播放器布局")
+        if (contributes.playerLayouts.keys.any { it.startsWith("android.") }) add("Android 播放器布局")
         if (contributes.pages.isNotEmpty()) add("页面")
     }
     return pending.takeIf { it.isNotEmpty() }?.joinToString("、", postfix = "将在后续版本生效")
@@ -183,3 +188,22 @@ fun pluginStatusLine(plugin: InstalledPlugin, status: PluginRuntimeStatus?): Plu
         else -> PluginStatusLine("正在启动", false)
     }
 }
+
+// 布局来源选项；choice 为 null 表示自动选最近启用的插件
+data class PlayerLayoutOption(val choice: String?, val label: String)
+
+// 本端有插件布局候选的区域，platformPrefix 为 android. 或 desktop.
+fun layoutAreasWithCandidates(state: PlayerLayoutState, platformPrefix: String): List<PlayerLayoutArea> =
+    PlayerLayoutArea.entries.filter { it.key.startsWith(platformPrefix) && !state.candidates[it].isNullOrEmpty() }
+
+fun playerLayoutOptions(area: PlayerLayoutArea, state: PlayerLayoutState): List<PlayerLayoutOption> =
+    listOf(PlayerLayoutOption(null, "自动（最近启用的插件）"), PlayerLayoutOption(LAYOUT_CHOICE_DEFAULT, "内置布局")) +
+        state.candidates[area].orEmpty().map { PlayerLayoutOption(it.id, it.name) }
+
+fun currentPlayerLayoutOption(area: PlayerLayoutArea, state: PlayerLayoutState): PlayerLayoutOption {
+    val options = playerLayoutOptions(area, state)
+    return options.firstOrNull { it.choice != null && it.choice == state.choices[area] } ?: options.first()
+}
+
+fun playerLayoutSummary(area: PlayerLayoutArea, state: PlayerLayoutState): String =
+    state.active[area]?.let { "正在使用「${it.pluginName}」的布局" } ?: "正在使用内置布局"
