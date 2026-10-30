@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -43,47 +44,78 @@ fun SongInfo(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = MelodiaSpacing.md)) {
-            Text(
-                text = title,
-                color = MelodiaColors.TextPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                modifier = Modifier
-                    .basicMarquee()
-                    .copyOnLongClick(title, "歌名", onClick = { onAlbumClick?.invoke() })
-            )
+            SongTitleText(title, onAlbumClick)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = artist,
-                color = MelodiaColors.TextPrimary.copy(alpha = 0.75f),
-                fontSize = 15.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.copyOnLongClick(artist, "歌手", onClick = { onArtistClick?.invoke() })
-            )
+            SongArtistText(artist, onArtistClick)
         }
-        if (podcast.isPodcast) {
-            if (podcast.canSubscribe) {
-                MelodiaIconButton(onClick = onToggleSubscribe, modifier = Modifier.offset(x = 10.dp)) {
-                    Icon(
-                        if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
-                        tint = MelodiaColors.TextPrimary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+        SongLikeButton(isLiked, onToggleLike, podcast, onToggleSubscribe, Modifier.offset(x = 10.dp))
+    }
+}
+
+// 单行时过长滚动显示，多行时按行数截断
+@Composable
+fun SongTitleText(
+    title: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 22.sp,
+    lines: Int = 1
+) {
+    Text(
+        text = title,
+        color = MelodiaColors.TextPrimary,
+        fontSize = fontSize,
+        fontWeight = FontWeight.ExtraBold,
+        maxLines = lines,
+        overflow = if (lines > 1) TextOverflow.Ellipsis else TextOverflow.Clip,
+        modifier = modifier
+            .then(if (lines == 1) Modifier.basicMarquee() else Modifier)
+            .copyOnLongClick(title, "歌名", onClick = { onClick?.invoke() })
+    )
+}
+
+@Composable
+fun SongArtistText(
+    artist: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 15.sp
+) {
+    Text(
+        text = artist,
+        color = MelodiaColors.TextPrimary.copy(alpha = 0.75f),
+        fontSize = fontSize,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.copyOnLongClick(artist, "歌手", onClick = { onClick?.invoke() })
+    )
+}
+
+@Composable
+fun SongLikeButton(
+    isLiked: Boolean,
+    onToggleLike: () -> Unit,
+    podcast: PodcastPlayerState,
+    onToggleSubscribe: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (podcast.isPodcast) {
+        if (podcast.canSubscribe) {
+            MelodiaIconButton(onClick = onToggleSubscribe, modifier = modifier) {
+                Icon(
+                    if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
+                    tint = MelodiaColors.TextPrimary,
+                    modifier = Modifier.size(28.dp)
+                )
             }
-        } else MelodiaIconButton(
-            onClick = onToggleLike,
-            modifier = Modifier.offset(x = 10.dp)
-        ) {
-            Icon(
-                if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = null,
-                tint = MelodiaColors.TextPrimary,
-                modifier = Modifier.size(28.dp)
-            )
         }
+    } else MelodiaIconButton(onClick = onToggleLike, modifier = modifier) {
+        Icon(
+            if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            contentDescription = null,
+            tint = MelodiaColors.TextPrimary,
+            modifier = Modifier.size(28.dp)
+        )
     }
 }

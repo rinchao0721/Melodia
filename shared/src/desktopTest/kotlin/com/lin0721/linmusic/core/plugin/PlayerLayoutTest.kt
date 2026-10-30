@@ -107,6 +107,18 @@ class PlayerLayoutTest {
         assertEquals(PlayerLayoutArea.DESKTOP_PLAYER_BAR.actionButtons, result.root.children[2].buttons)
     }
 
+    @Test
+    fun `迷你播放器只支持切歌与播放暂停`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_MINI_PLAYER,
+            """{"type":"row","children":[{"type":"controls","buttons":["shuffle","playPause","next"]},{"type":"miniLyric"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(listOf("playPause", "next"), result.root.children.single().buttons)
+        assertEquals(2, result.warnings.size)
+        val defaults = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(listOf("previous", "playPause", "next"), defaults.root.children.single().buttons)
+    }
+
     // 只提供布局的插件不运行脚本，运行时不会创建沙盒
     private object NoSandbox : ScriptSandboxFactory {
         override suspend fun create(name: String, host: ScriptHost, prelude: String): ScriptSandbox =

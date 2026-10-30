@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.core.plugin.playerLayoutSummary
+import com.lin0721.linmusic.core.plugin.playerLayoutOptions
+import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
+import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,6 +65,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 private val PluginRowShape = RoundedCornerShape(12.dp)
 private const val MAX_REPORT_LINES = 8
+private const val LAYOUT_CHOICE_AUTO = "auto"
 
 // 插件设置：已安装插件列表与启停、导入导出；导入先在底部弹窗预览权限再确认
 @Composable
@@ -67,6 +73,8 @@ fun PluginSettingSection(repository: PluginRepository) {
     val controller = rememberPluginSettingsController(repository)
     val installed by controller.installed.collectAsState()
     val status by controller.status.collectAsState()
+    val layouts by controller.layouts.collectAsState()
+    var layoutPickerArea by remember { mutableStateOf<PlayerLayoutArea?>(null) }
     val context = LocalContext.current
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
     var exportTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
@@ -113,6 +121,17 @@ fun PluginSettingSection(repository: PluginRepository) {
                 )
             }
         }
+        val layoutAreas = layoutAreasWithCandidates(layouts, "android.")
+        if (layoutAreas.isNotEmpty()) {
+            Text("播放器布局", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
+            layoutAreas.forEach { area ->
+                SettingsRow(
+                    title = "${area.label}：${currentPlayerLayoutOption(area, layouts).label}",
+                    subtitle = playerLayoutSummary(area, layouts),
+                    onClick = { layoutPickerArea = area }
+                )
+            }
+        }
         MelodiaOutlinedButton(
             onClick = { importLauncher.launch(arrayOf("*/*")) },
             enabled = controller.step != PluginImportStep.Working,
@@ -138,6 +157,17 @@ fun PluginSettingSection(repository: PluginRepository) {
             containerColor = MaterialTheme.colorScheme.background
         )
         else -> Unit
+    }
+
+    layoutPickerArea?.let { area ->
+        val options = playerLayoutOptions(area, layouts)
+        OptionPickerSheet(
+            title = area.label,
+            options = options.map { option -> (option.choice ?: LAYOUT_CHOICE_AUTO) to option.label },
+            selected = currentPlayerLayoutOption(area, layouts).choice ?: LAYOUT_CHOICE_AUTO,
+            onSelect = { key -> controller.chooseLayout(area, key.takeIf { it != LAYOUT_CHOICE_AUTO }) },
+            onDismiss = { layoutPickerArea = null }
+        )
     }
 
     deleteTarget?.let { plugin ->

@@ -113,7 +113,8 @@ enum class PlayerLayoutArea(
     val key: String,
     val label: String,
     val components: Set<LayoutNodeType>,
-    val actionButtons: List<String> = emptyList()
+    val actionButtons: List<String> = emptyList(),
+    val controlButtons: List<String> = CONTROL_BUTTONS
 ) {
     ANDROID_FULL_PLAYER(
         "android.fullPlayer", "Android 全屏播放页",
@@ -137,9 +138,10 @@ enum class PlayerLayoutArea(
         "android.miniPlayer", "Android 迷你播放器",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
-            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
             LayoutNodeType.SPACER, LayoutNodeType.TEXT
-        )
+        ),
+        controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next")
     ),
     DESKTOP_PLAYER_BAR(
         "desktop.playerBar", "桌面播放栏",
@@ -223,7 +225,7 @@ object PlayerLayoutParser {
                 emptyList()
             }
             val buttons = when (type) {
-                LayoutNodeType.CONTROLS -> buttons(obj, CONTROL_BUTTONS, "播放控制", warnings) ?: CONTROL_BUTTONS
+                LayoutNodeType.CONTROLS -> buttons(obj, area.controlButtons, "播放控制", warnings) ?: area.controlButtons
                 LayoutNodeType.ACTIONS -> buttons(obj, area.actionButtons, "操作按钮", warnings) ?: area.actionButtons
                 else -> emptyList()
             }

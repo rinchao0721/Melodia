@@ -166,7 +166,6 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
 fun pluginPendingFeatures(manifest: PluginManifest): String? {
     val contributes = manifest.contributes
     val pending = buildList {
-        if (contributes.playerLayouts.keys.any { it.startsWith("android.") }) add("Android 播放器布局")
         if (contributes.pages.isNotEmpty()) add("页面")
     }
     return pending.takeIf { it.isNotEmpty() }?.joinToString("、", postfix = "将在后续版本生效")

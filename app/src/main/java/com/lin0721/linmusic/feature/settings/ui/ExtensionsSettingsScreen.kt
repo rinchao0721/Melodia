@@ -255,7 +255,7 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
 // 单选列表底部弹窗，选中即保存并关闭
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OptionPickerSheet(
+internal fun OptionPickerSheet(
     title: String,
     options: List<Pair<String, String>>,
     selected: String,

@@ -2,7 +2,7 @@
 
 插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
-> 当前版本已支持音源、歌词源、播放事件与桌面端播放器布局。Android 播放器布局与页面会在后续版本生效，现在声明这些能力可以正常导入，但不会产生效果。
+> 当前版本已支持音源、歌词源、播放事件与播放器布局。页面会在后续版本生效，现在声明页面可以正常导入，但不会产生效果。
 
 ## 包结构
 
@@ -162,9 +162,11 @@ melodia.register.lyricsSource('main', {
 | `desktop.nowPlaying` | 桌面「正在播放」面板的封面与标题区 | 无 | `miniLyric`、`lyricsCard`、`actions` |
 | `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
 | `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard` |
-| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard` |
+| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`miniLyric` |
 
-`desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。
+`desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
+
+`android.fullPlayer` 占满一屏，顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡。`android.fullPlayerWide` 只替换左栏，右栏歌词与卡片不变。
 
 ### 通用属性
 

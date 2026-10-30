@@ -1,5 +1,7 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.core.plugin.PluginRepository
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     private val settingsPreferences: SettingsPreferences by inject()
     private val skinRepository: SkinRepository by inject()
+    private val pluginRepository: PluginRepository by inject()
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
@@ -125,7 +128,8 @@ class MainActivity : ComponentActivity() {
             val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = true)
             val uiMotion = remember { UiMotion() }
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
-            CompositionLocalProvider(LocalUiMotion provides uiMotion) {
+            val pluginLayouts by pluginRepository.layouts.collectAsState()
+            CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalPlayerLayouts provides pluginLayouts.roots) {
                 MelodiaTheme(themeSettings, activeSkin.skin, activeSkin.backdrop) {
                     val palette = LocalMelodiaPalette.current
                     // 系统栏图标与窗口底色随主题深浅切换；启动页底色仍固定深色

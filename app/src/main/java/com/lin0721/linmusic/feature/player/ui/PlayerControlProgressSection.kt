@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -38,7 +39,9 @@ fun ProgressSection(
     currentPositionProvider: () -> Long,
     duration: Long,
     onSeek: (Long) -> Unit,
-    chorusStartMs: Long? = null
+    chorusStartMs: Long? = null,
+    showTime: Boolean = true,
+    horizontalPadding: Dp = MelodiaSpacing.lg
 ) {
     var isSeeking by remember { mutableStateOf(false) }
     // 拖动增量累加在 raw 上，seekPosition 是吸附后的值
@@ -65,7 +68,7 @@ fun ProgressSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg)
+            .padding(horizontal = horizontalPadding)
             .padding(top = MelodiaSpacing.sm)
     ) {
         var trackWidthPx by remember { mutableFloatStateOf(0f) }
@@ -173,15 +176,17 @@ fun ProgressSection(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
-            Text(formatTime(displayPosition), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
-            Text(formatTime(duration), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
+        if (showTime) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
+                Text(formatTime(displayPosition), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
+                Text(formatTime(duration), color = MelodiaColors.TextSecondary, fontSize = 13.sp)
+            }
         }
     }
 }

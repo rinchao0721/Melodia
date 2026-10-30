@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.core.ui.components
 
+import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import androidx.compose.material.icons.rounded.SkipPrevious
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -236,7 +242,46 @@ fun MiniPlayerCard(
                 .matchParentSize()
                 .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
         )
-        Column {
+        val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
+        if (pluginLayout != null) {
+            val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
+            PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth()) { node, nodeModifier ->
+                val scale = node.size.scale
+                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
+                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+                when (node.type) {
+                    LayoutNodeType.COVER -> AntiFlickerCoverImage(
+                        url = miniThumbUrl(displayedCleanCoverUrl),
+                        contentScale = ContentScale.Crop,
+                        modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                    )
+                    LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
+                    LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
+                    LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
+                        MiniTitleText(title, Modifier, node.maxLines, scale)
+                        MiniArtistText(artist, Modifier, scale)
+                    }
+                    LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
+                    LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
+                        node.buttons.forEach { button ->
+                            when (button) {
+                                "previous" -> MelodiaIconButton(onClick = onPrevious) {
+                                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                }
+                                "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                                    PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                }
+                                "next" -> MelodiaIconButton(onClick = onNext) {
+                                    Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                }
+                            }
+                        }
+                    }
+                    LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
+                    else -> Unit
+                }
+            }
+        } else Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -266,21 +311,7 @@ fun MiniPlayerCard(
 
                 Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
                     // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
-                    if (likeMode != MiniPlayerLikeMode.Hidden) {
-                        val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
-                        MelodiaIconButton(onClick = onLikeClick) {
-                            Icon(
-                                imageVector = when {
-                                    subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
-                                    isLiked -> Icons.Rounded.CheckCircle
-                                    else -> Icons.Rounded.AddCircleOutline
-                                },
-                                contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-                                tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.OnPlayer,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+                    MiniLikeButton(likeMode, isLiked, onLikeClick)
                     // 播放/暂停按钮
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
                         PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
@@ -305,6 +336,65 @@ fun MiniPlayerCard(
             )
         }
     }
+}
+
+private const val MINI_COVER_SIZE = 44f
+private const val MIN_PLUGIN_MINI_HEIGHT = 48f
+private const val MAX_PLUGIN_MINI_HEIGHT = 140f
+
+private fun miniThumbUrl(coverUrl: String): String =
+    if ((coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) && !coverUrl.contains('?')) {
+        "$coverUrl?param=150y150"
+    } else {
+        coverUrl
+    }
+
+@Composable
+private fun MiniLikeButton(
+    likeMode: MiniPlayerLikeMode,
+    isLiked: Boolean,
+    onLikeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (likeMode == MiniPlayerLikeMode.Hidden) return
+    val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
+    MelodiaIconButton(onClick = onLikeClick, modifier = modifier) {
+        Icon(
+            imageVector = when {
+                subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
+                isLiked -> Icons.Rounded.CheckCircle
+                else -> Icons.Rounded.AddCircleOutline
+            },
+            contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
+            tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.OnPlayer,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun MiniTitleText(title: String, modifier: Modifier, lines: Int, scale: Float) {
+    Text(
+        text = title,
+        color = MelodiaColors.OnPlayer,
+        fontSize = (14 * scale).sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = lines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun MiniArtistText(artist: String, modifier: Modifier, scale: Float) {
+    Text(
+        text = artist,
+        color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
+        fontSize = (12 * scale).sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
 }
 
 // 单层的展示数据 + 位置：按 key驱动 Compose 复用，见 MiniPlayerSlidingContent 顶部注释
@@ -403,13 +493,7 @@ private fun MiniPlayerContentRow(
     connectedDevice: AudioDeviceInfo?,
     translationXProvider: () -> Float
 ) {
-    val thumbUrl = remember(coverUrl) {
-        if ((coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) && !coverUrl.contains('?')) {
-            "$coverUrl?param=150y150"
-        } else {
-            coverUrl
-        }
-    }
+    val thumbUrl = remember(coverUrl) { miniThumbUrl(coverUrl) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

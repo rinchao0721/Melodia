@@ -1,5 +1,9 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -467,9 +471,13 @@ private fun FullPlayerScreenContent(
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
     val density = LocalDensity.current
     val navigationBarBottomPadding = melodiaNavigationBarBottomPadding()
+    val pluginLayouts = LocalPlayerLayouts.current
+    val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
+    val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
     val coverFitInsetPx = rememberCoverFitInsetPx(
         listState = listState,
-        enabled = fitCoverToViewport || fitCoverAboveNavigationBar,
+        // 插件布局的首屏高度固定为一屏，不存在需要缩封面的情况
+        enabled = pluginFullLayout == null && (fitCoverToViewport || fitCoverAboveNavigationBar),
         bottomReservePx = if (fitCoverAboveNavigationBar) with(density) { navigationBarBottomPadding.toPx() } else 0f
     )
     val coverExtraInset = with(density) { coverFitInsetPx.toDp() }
@@ -606,6 +614,50 @@ private fun FullPlayerScreenContent(
         }
     }
 
+    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null) {
+        FullPlayerLayoutParts(
+            title = displayedTitle,
+            artist = displayedArtist,
+            songState = songDetailState,
+            podcast = podcast,
+            colors = colors,
+            coverUrl = coverUrl,
+            previousCoverUrl = previousCoverUrl,
+            nextCoverUrl = nextCoverUrl,
+            currentKey = currentTrack.mediaId,
+            previousKey = previousQueueItem?.songId?.toString(),
+            nextKey = nextQueueItem?.songId?.toString(),
+            currentLyricIndex = currentLyricIndex,
+            isPlaying = isPlaying,
+            playWhenReady = playWhenReady,
+            currentPositionProvider = currentPositionProvider,
+            duration = duration,
+            playMode = playMode,
+            animateLyricsMesh = isPlaying && !isLyricsFullScreen,
+            connectedDevice = connectedDevice,
+            qualityLabel = qualityLabel,
+            onToggleLike = viewModel::toggleLike,
+            onToggleSubscribe = viewModel::toggleSubscribe,
+            onArtistClick = openSongArtist,
+            onAlbumClick = openSongAlbum,
+            onMiniLyricClick = scrollToLyricsCard,
+            onSeek = viewModel::seekToTime,
+            onTogglePlay = onTogglePlay,
+            onPlayNext = viewModel.playerManager::playNext,
+            onPlayPrevious = viewModel.playerManager::playPrevious,
+            onCancelSkip = viewModel.playerManager::cancelPendingSkip,
+            onToggleShuffle = viewModel.playerManager::toggleShuffle,
+            onToggleRepeat = viewModel.playerManager::toggleRepeat,
+            onOutputDeviceClick = { showOutputDeviceSheet = true },
+            onQueueClick = { showQueueSheet = true },
+            onShareClick = { shareCurrentSong() },
+            onMoreClick = { showMoreOptionsSheet = true },
+            onOpenFullScreenLyrics = { isLyricsFullScreen = true }
+        )
+    } else {
+        null
+    }
+
     val nestedScrollConnection = rememberFullPlayerNestedScrollConnection(
         listState = listState,
         offsetYState = offsetYState,
@@ -684,7 +736,20 @@ private fun FullPlayerScreenContent(
                         bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )
                 ) {
-                    fullPlayerPlaybackSection(
+                    if (pluginFullLayout != null && pluginParts != null) {
+                        fullPlayerPluginSection(pluginFullLayout, pluginParts) { barModifier ->
+                            FullPlayerSourceBar(
+                                playContext = playContext,
+                                podcastRadioName = podcast.radioName,
+                                onClose = onClose,
+                                onMoreClick = { showMoreOptionsSheet = true },
+                                onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+                                isSidebarFullscreen = isSidebarFullscreen,
+                                onPlaylistClick = openPlaylistSource,
+                                modifier = barModifier.padding(horizontal = MelodiaSpacing.lg)
+                            )
+                        }
+                    } else fullPlayerPlaybackSection(
                         songState = songDetailState,
                         colors = colors,
                         coverUrl = coverUrl,
@@ -743,7 +808,12 @@ private fun FullPlayerScreenContent(
                         currentLyricIndex = currentLyricIndex,
                         // 全屏歌词盖住播放页时歌词卡不可见，光斑无需游走
                         animateLyricsMesh = isPlaying && !isLyricsFullScreen,
-                        cardLayout = cardLayout,
+                        // 插件布局已放了歌词卡时，下方列表不再重复
+                        cardLayout = if (pluginFullLayout?.contains(LayoutNodeType.LYRICS_CARD) == true) {
+                            cardLayout.filter { it.card != FullPlayerCard.LYRICS }
+                        } else {
+                            cardLayout
+                        },
                         onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
@@ -886,6 +956,15 @@ private fun FullPlayerScreenContent(
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onSeek = viewModel::seekToTime,
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
+                pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
+                    {
+                        PlayerLayoutView(pluginWideLayout, Modifier.fillMaxSize()) { node, nodeModifier ->
+                            pluginParts.Component(node, nodeModifier)
+                        }
+                    }
+                } else {
+                    null
+                },
                 infoCards = {
                     fullPlayerInfoGrid(
                         songState = songDetailState,

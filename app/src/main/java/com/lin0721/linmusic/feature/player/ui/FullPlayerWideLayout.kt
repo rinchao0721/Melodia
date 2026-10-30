@@ -107,7 +107,9 @@ fun FullPlayerWideLayout(
     onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 插件布局：替换左栏的封面与播放控件
+    pluginLeftColumn: (@Composable () -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         sourceBar(
@@ -128,23 +130,29 @@ fun FullPlayerWideLayout(
                     .padding(start = LeftColumnStartPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = LeftColumnMaxWidth)
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
-                    Box(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                if (pluginLeftColumn != null) {
+                    Box(modifier = Modifier.widthIn(max = LeftColumnMaxWidth).fillMaxSize()) {
+                        pluginLeftColumn()
                     }
-                    Spacer(modifier = Modifier.height(MelodiaSpacing.md))
-                    playbackControls()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = LeftColumnMaxWidth)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
+                        Box(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                        }
+                        Spacer(modifier = Modifier.height(MelodiaSpacing.md))
+                        playbackControls()
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(ColumnGap))

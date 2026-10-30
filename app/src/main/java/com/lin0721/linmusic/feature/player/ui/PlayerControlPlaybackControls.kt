@@ -53,7 +53,6 @@ fun PlaybackControls(
     // 播客没有随机与循环，隐藏后用等宽占位保持播放键居中
     showModeButtons: Boolean = true
 ) {
-    val motion = LocalUiMotion.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -95,44 +94,7 @@ fun PlaybackControls(
             MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
                 Icon(Icons.Rounded.SkipPrevious, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
             }
-            val playInteraction = remember { MutableInteractionSource() }
-            val isPressed by playInteraction.collectIsPressedAsState()
-            val buttonAlpha = remember { Animatable(1f) }
-            var clickTrigger by remember { mutableIntStateOf(0) }
-
-            LaunchedEffect(isPressed) {
-                if (isPressed) {
-                    buttonAlpha.animateTo(0.70f, motion.tween(durationMillis = 80))
-                } else if (clickTrigger == 0) {
-                    buttonAlpha.animateTo(1f, motion.tween(durationMillis = 200, easing = FastOutSlowInEasing))
-                }
-            }
-
-            LaunchedEffect(clickTrigger) {
-                if (clickTrigger > 0) {
-                    buttonAlpha.snapTo(0.70f)
-                    buttonAlpha.animateTo(1f, motion.tween(durationMillis = 220, easing = FastOutSlowInEasing))
-                }
-            }
-
-            FloatingActionButton(
-                onClick = {
-                    clickTrigger++
-                    onTogglePlay()
-                },
-                containerColor = if (outlined) Color.Transparent else MelodiaColors.TextPrimary,
-                shape = styledButtonShape(CircleShape),
-                elevation = if (outlined) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
-                interactionSource = playInteraction,
-                modifier = Modifier
-                    .size(72.dp)
-                    .then(if (outlined) Modifier.border(2.dp, MelodiaColors.TextPrimary, styledButtonShape(CircleShape)) else Modifier)
-                    .graphicsLayer {
-                        alpha = buttonAlpha.value
-                    }
-            ) {
-                PlayPauseIcon(isPlaying, if (outlined) MelodiaColors.TextPrimary else MelodiaColors.InverseText, size = 42.dp)
-            }
+            PlayPauseFab(isPlaying, onTogglePlay)
             MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
                 Icon(Icons.Rounded.SkipNext, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
             }
@@ -149,6 +111,103 @@ fun PlaybackControls(
                 modifier = Modifier.size(28.dp)
             )
         } else Spacer(Modifier.size(ModeButtonSlot))
+    }
+}
+
+// 大播放键：按下变淡，松手或点击后恢复
+@Composable
+private fun PlayPauseFab(isPlaying: Boolean, onTogglePlay: () -> Unit, scale: Float = 1f) {
+    val motion = LocalUiMotion.current
+    val outlined = outlinedControls
+    val playInteraction = remember { MutableInteractionSource() }
+    val isPressed by playInteraction.collectIsPressedAsState()
+    val buttonAlpha = remember { Animatable(1f) }
+    var clickTrigger by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            buttonAlpha.animateTo(0.70f, motion.tween(durationMillis = 80))
+        } else if (clickTrigger == 0) {
+            buttonAlpha.animateTo(1f, motion.tween(durationMillis = 200, easing = FastOutSlowInEasing))
+        }
+    }
+
+    LaunchedEffect(clickTrigger) {
+        if (clickTrigger > 0) {
+            buttonAlpha.snapTo(0.70f)
+            buttonAlpha.animateTo(1f, motion.tween(durationMillis = 220, easing = FastOutSlowInEasing))
+        }
+    }
+
+    FloatingActionButton(
+        onClick = {
+            clickTrigger++
+            onTogglePlay()
+        },
+        containerColor = if (outlined) Color.Transparent else MelodiaColors.TextPrimary,
+        shape = styledButtonShape(CircleShape),
+        elevation = if (outlined) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
+        interactionSource = playInteraction,
+        modifier = Modifier
+            .size(72.dp * scale)
+            .then(if (outlined) Modifier.border(2.dp, MelodiaColors.TextPrimary, styledButtonShape(CircleShape)) else Modifier)
+            .graphicsLayer {
+                alpha = buttonAlpha.value
+            }
+    ) {
+        PlayPauseIcon(isPlaying, if (outlined) MelodiaColors.TextPrimary else MelodiaColors.InverseText, size = 42.dp * scale)
+    }
+}
+
+// 插件布局用的控制行：按给定按钮与顺序排布，播客不显示随机与循环
+@Composable
+fun PlaybackControlRow(
+    buttons: List<String>,
+    isPlaying: Boolean,
+    onTogglePlay: () -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrevious: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onToggleRepeat: () -> Unit,
+    playMode: PlayMode,
+    showModeButtons: Boolean,
+    modifier: Modifier = Modifier,
+    scale: Float = 1f
+) {
+    val outlined = outlinedControls
+    val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp * scale),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        buttons.forEach { button ->
+            when (button) {
+                "shuffle" -> if (showModeButtons) MelodiaIconButton(onClick = onToggleShuffle) {
+                    Icon(
+                        Icons.Default.Shuffle,
+                        contentDescription = "随机播放",
+                        tint = if (playMode == PlayMode.SHUFFLE) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(28.dp * scale)
+                    )
+                }
+                "previous" -> MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
+                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
+                }
+                "playPause" -> PlayPauseFab(isPlaying, onTogglePlay, scale)
+                "next" -> MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
+                    Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
+                }
+                "repeat" -> if (showModeButtons) MelodiaIconButton(onClick = onToggleRepeat) {
+                    Icon(
+                        if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        contentDescription = "循环模式",
+                        tint = if (playMode == PlayMode.SINGLE_LOOP) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(28.dp * scale)
+                    )
+                }
+            }
+        }
     }
 }
 
