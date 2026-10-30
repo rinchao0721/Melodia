@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.desktop.player.AUTO_AUDIO_DEVICE
 import com.lin0721.linmusic.desktop.player.AudioDevice
 import com.lin0721.linmusic.desktop.player.AudioDeviceKind
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
@@ -144,7 +145,16 @@ private fun DeviceRow(device: AudioDevice, onClick: () -> Unit) {
     }
 }
 
-private fun AudioDevice.icon(): ImageVector = when (kind) {
+// 手动指定的输出设备；跟随系统默认时为 null
+@Composable
+fun collectSelectedAudioDevice(control: AudioOutputControl): AudioDevice? {
+    val devices by control.audioDevices.collectAsState()
+    val currentName by control.audioDevice.collectAsState()
+    if (currentName == AUTO_AUDIO_DEVICE) return null
+    return devices.firstOrNull { it.name == currentName } ?: AudioDevice(currentName, currentName, AudioDeviceKind.SPEAKER)
+}
+
+internal fun AudioDevice.icon(): ImageVector = when (kind) {
     AudioDeviceKind.SYSTEM_DEFAULT -> Icons.Rounded.Computer
     AudioDeviceKind.SPEAKER -> Icons.Rounded.Speaker
     AudioDeviceKind.HEADPHONES -> Icons.Rounded.Headphones

@@ -1,6 +1,15 @@
 package com.lin0721.linmusic.desktop.ui.player
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
@@ -56,6 +66,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -65,8 +76,10 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.outlinedControls
 import com.lin0721.linmusic.core.ui.theme.styledButtonShape
+import com.lin0721.linmusic.desktop.player.AudioDevice
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
 import com.lin0721.linmusic.desktop.ui.components.TooltipLabel
 import com.lin0721.linmusic.desktop.ui.components.uiTween
@@ -90,6 +103,8 @@ private val SideButtonSize = 32.dp
 // 右侧与红心按钮的图标比切歌按钮的字形占格更满，缩小图标才能看起来一样大
 private val SideIconSize = 20.dp
 private val VolumeSliderWidth = 120.dp
+private val DeviceNameMaxWidth = 160.dp
+private const val DEVICE_ANIM_MS = 220
 private val VolumeTooltipGap = 8.dp
 // mpv 每秒上报几十次播放位置，进度条与秒级时间无需这么密，按此粒度取整去重
 private const val POSITION_STEP_MS = 250L
@@ -107,6 +122,7 @@ fun PlayerBar(
     onToggleQueue: () -> Unit,
     devicesOpen: Boolean,
     onToggleDevices: (() -> Unit)?,
+    outputDevice: AudioDevice?,
     isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     lyricVisible: Boolean,
@@ -268,14 +284,8 @@ fun PlayerBar(
                 size = SideButtonSize, iconSize = SideIconSize,
                 onClick = onToggleQueue
             )
-            if (onToggleDevices != null) BarIconButton(
-                PlayerBarIcons.Devices,
-                "输出设备",
-                active = devicesOpen,
-                showDot = true,
-                size = SideButtonSize, iconSize = SideIconSize,
-                onClick = onToggleDevices
-            )
+            // 设备名最后测量，只占其余按钮排完后的剩余宽度，窗口窄时自身截断而不挤掉音量等按钮
+            if (onToggleDevices != null) OutputDeviceButton(outputDevice, devicesOpen, onToggleDevices, Modifier.weight(1f, fill = false))
             // 占位播放器没有音量能力时不显示
             if (volume != null) VolumeControl(volume, lastAudibleVolume, onVolumeChange)
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = onEnterMiniPlayer)
@@ -386,6 +396,52 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
     }
 }
 
+// 手动指定了输出设备时换成对应类型图标并常亮，右侧跟设备名；跟随系统默认时保持通用图标
+@Composable
+private fun OutputDeviceButton(device: AudioDevice?, open: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val motion = LocalUiMotion.current
+    val tooltip = device?.let { "输出设备：${it.description}" } ?: "输出设备"
+    // 多台设备主标题都叫“扬声器”，优先显示括号里的型号
+    val name = device?.let { it.subtitle ?: it.title }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        BarIconButton(
+            device?.icon() ?: PlayerBarIcons.Devices,
+            tooltip,
+            active = open,
+            highlighted = device != null,
+            showDot = true,
+            animateIcon = true,
+            size = SideButtonSize, iconSize = SideIconSize,
+            onClick = onClick
+        )
+        DesktopTooltip(tooltip, modifier = Modifier.weight(1f, fill = false)) {
+            // 名称为 null 时内容为空，出现、消失与换设备都由宽度过渡带动
+            AnimatedContent(
+                targetState = name,
+                transitionSpec = {
+                    motion.transform(
+                        (fadeIn(tween(DEVICE_ANIM_MS)) togetherWith fadeOut(tween(DEVICE_ANIM_MS)))
+                            .using(SizeTransform(clip = true) { _, _ -> tween(DEVICE_ANIM_MS) })
+                    )
+                },
+                label = "outputDeviceName"
+            ) { target ->
+                if (target != null) {
+                    Text(
+                        target,
+                        color = DesktopColors.AccentText,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = DeviceNameMaxWidth).pointerHoverIcon(PointerIcon.Hand)
+                            .clickable(onClick = onClick).padding(end = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ProgressRow(position: Long, duration: Long, enabled: Boolean, onSeek: (Long) -> Unit) {
     // 拖动期间以本地值为准，松手才提交，避免进度回推造成跳动
@@ -425,7 +481,8 @@ private fun TimeLabel(ms: Long, align: TextAlign) {
 private fun hoverScale(hovered: Boolean) =
     animateFloatAsState(if (hovered) HOVER_SCALE else 1f, uiTween(HOVER_SCALE_MS), label = "hoverScale")
 
-// 底栏统一的图标按钮：悬停时变亮并放大；showDot 为真且处于激活态时，图标下方加指示点
+// 底栏统一的图标按钮：悬停时变亮并放大；showDot 为真且处于激活态时，图标下方加指示点；highlighted 只着色不加点；
+// animateIcon 为真时图标与颜色渐变切换
 @Composable
 private fun BarIconButton(
     icon: ImageVector,
@@ -434,13 +491,25 @@ private fun BarIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     active: Boolean = false,
+    highlighted: Boolean = false,
     showDot: Boolean = false,
+    animateIcon: Boolean = false,
     size: Dp = TransportButtonSize,
     iconSize: Dp = 24.dp
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val scale by hoverScale(hovered && enabled)
+    val tint by animateColorAsState(
+        when {
+            !enabled -> DesktopColors.SurfaceLight
+            active || highlighted -> DesktopColors.Accent
+            hovered -> DesktopColors.TextPrimary
+            else -> DesktopColors.TextGray
+        },
+        if (animateIcon) uiTween(DEVICE_ANIM_MS) else snap(),
+        label = "barIconTint"
+    )
     DesktopTooltip(description) {
         Box(modifier.size(size), contentAlignment = Alignment.Center) {
             IconButton(
@@ -449,17 +518,13 @@ private fun BarIconButton(
                 interactionSource = interaction,
                 modifier = Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }
             ) {
-                Icon(
-                    icon,
-                    description,
-                    modifier = Modifier.size(iconSize),
-                    tint = when {
-                        !enabled -> DesktopColors.SurfaceLight
-                        active -> DesktopColors.Accent
-                        hovered -> DesktopColors.TextPrimary
-                        else -> DesktopColors.TextGray
+                if (animateIcon) {
+                    Crossfade(icon, animationSpec = uiTween(DEVICE_ANIM_MS), label = "barIcon") { current ->
+                        Icon(current, description, modifier = Modifier.size(iconSize), tint = tint)
                     }
-                )
+                } else {
+                    Icon(icon, description, modifier = Modifier.size(iconSize), tint = tint)
+                }
             }
             if (showDot && active && enabled) {
                 Box(Modifier.align(Alignment.BottomCenter).size(4.dp).clip(CircleShape).background(DesktopColors.Accent))
