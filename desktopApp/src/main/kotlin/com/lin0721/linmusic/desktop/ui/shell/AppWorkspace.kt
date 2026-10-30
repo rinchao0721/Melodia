@@ -71,7 +71,10 @@ internal fun Workspace(
         val hasTrack = hasNowPlaying || dockOverlay == DockOverlay.Downloads || dockOverlay == DockOverlay.PlaylistComments
         val measure = pane.measure(available, hasTrack, dockOpen)
         val dockState = rememberNowPlayingDockState(hasTrack, dockOpen, measure.dockOpenWidth, pane.resizing)
-        val workspace = rememberWorkspaceLayout(pane.libraryMode, available, dockState, measure.libraryDefaultWidth, pane.resizing)
+        val workspace = rememberWorkspaceLayout(
+            pane.libraryMode, available, dockState, measure.libraryDefaultWidth,
+            pane.libraryStretch, pane.librarySpring, pane.resizing, pane::settleLibrarySpring
+        )
         CompositionLocalProvider(
             LocalPaneWidthExtra provides { workspace.centerWidthExtra },
             LocalPaneResizing provides pane.resizing
@@ -100,7 +103,7 @@ internal fun Workspace(
                         onOpenCloud = state::openCloud
                     )
                 )
-                // 缝隙即拖动条：拖窄过阈值吸附成窄条，拖宽只停在上限，不会变成展开态
+                // 缝隙即拖动条：窄条往外拉先阻尼拉伸再吸附展开，拖窄过阈值吸附成窄条，越过上下限带阻尼、松手回弹
                 PaneResizeHandle(
                     width = workspace.centerGap,
                     enabled = pane.libraryMode != LibraryMode.EXPANDED,

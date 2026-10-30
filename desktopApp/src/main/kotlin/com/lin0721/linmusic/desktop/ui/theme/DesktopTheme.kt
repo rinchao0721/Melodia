@@ -82,6 +82,9 @@ object DesktopDimens {
     val NowPlayingPeekWidth = 72.dp
     val CenterMinWidth = 400.dp
     val PaneSnapWidth = 220.dp
+    // 音乐库拖动的展开与收起阈值，收起低于展开形成滞回
+    val PaneExpandWidth = 176.dp
+    val LibraryCollapseWidth = 144.dp
 }
 
 @Composable

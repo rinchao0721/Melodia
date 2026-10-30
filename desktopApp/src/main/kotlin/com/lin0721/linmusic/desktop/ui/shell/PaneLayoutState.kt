@@ -18,6 +18,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+// 橡皮筋起步时偏移与鼠标位移之比，越拉越小并逼近上限
+private const val RUBBER_BAND_RATIO = 0.5f
+private val LIBRARY_OVERSHOOT_LIMIT = 40.dp
+
+internal fun rubberBand(distance: Dp, limit: Dp): Dp {
+    if (distance <= 0.dp || limit <= 0.dp) return 0.dp
+    return limit * (1f - 1f / (distance / limit * RUBBER_BAND_RATIO + 1f))
+}
+
 interface PaneLayoutPersistence {
     fun saveLibraryMode(mode: LibraryMode)
     fun saveLibraryViewMode(mode: LibraryViewMode)
@@ -74,13 +83,21 @@ class PaneLayoutState(
         private set
     var resizing by mutableStateOf(false)
         private set
+    // 拖动越界时叠加在形态宽度上的橡皮筋偏移，松手归零
+    var libraryStretch by mutableStateOf(0.dp)
+        private set
+    // 音乐库宽度走弹簧：拖动开始置位，松手后保留到回弹结束，按钮切换形态时恢复常规过渡
+    var librarySpring by mutableStateOf(false)
+        private set
 
     private var libraryDragStart = 0.dp
+    private var libraryDragExpanded = false
     private var dockDragStart = 0.dp
 
     // 形态切换涉及右侧栏的联动，统一由 DesktopAppState.setLibraryMode 调用
     internal fun applyLibraryMode(mode: LibraryMode) {
         if (mode == libraryMode) return
+        librarySpring = false
         libraryMode = mode
         persistence.saveLibraryMode(mode)
     }
@@ -119,25 +136,44 @@ class PaneLayoutState(
 
     fun startLibraryDrag(currentWidth: Dp) {
         resizing = true
+        librarySpring = true
         libraryDragStart = currentWidth
+        libraryDragExpanded = libraryMode != LibraryMode.RAIL
     }
 
-    // 拖窄过阈值吸附成窄条，拖宽只停在上限，不会变成展开态
+    // 宽度全程由弹簧追随目标：窄条态往外拉带阻尼拉伸，越过展开阈值切到默认态；默认态拖窄过收起阈值吸附回窄条，
+    // 两个阈值不同，在临界处来回拖不会反复切换。默认态越过上下限时带阻尼越界，拖宽不会变成展开态
     fun dragLibrary(delta: Dp, libraryMax: Dp, setMode: (LibraryMode) -> Unit) {
         val proposed = libraryDragStart + delta
-        if (proposed < DesktopDimens.PaneSnapWidth) {
-            resizing = false
-            if (libraryMode != LibraryMode.RAIL) setMode(LibraryMode.RAIL)
-        } else {
-            resizing = true
+        val threshold = if (libraryDragExpanded) DesktopDimens.LibraryCollapseWidth else DesktopDimens.PaneExpandWidth
+        libraryDragExpanded = proposed >= threshold
+        if (libraryDragExpanded) {
             if (libraryMode != LibraryMode.DEFAULT) setMode(LibraryMode.DEFAULT)
-            libraryWidthPref = proposed.coerceIn(DesktopDimens.LibraryMinWidth, libraryMax)
+            val settled = proposed.coerceIn(DesktopDimens.LibraryMinWidth, libraryMax)
+            libraryWidthPref = settled
+            libraryStretch = when {
+                proposed > settled -> rubberBand(proposed - settled, LIBRARY_OVERSHOOT_LIMIT)
+                proposed < settled -> -rubberBand(settled - proposed, LIBRARY_OVERSHOOT_LIMIT)
+                else -> 0.dp
+            }
+        } else {
+            if (libraryMode != LibraryMode.RAIL) setMode(LibraryMode.RAIL)
+            libraryStretch = rubberBand(
+                (proposed - DesktopDimens.LibraryRailWidth).coerceAtLeast(0.dp),
+                DesktopDimens.LibraryMinWidth - DesktopDimens.LibraryRailWidth
+            )
         }
+        librarySpring = true
     }
 
     fun endLibraryDrag() {
         resizing = false
+        libraryStretch = 0.dp
         persistence.saveLibraryWidth(libraryWidthPref.value)
+    }
+
+    fun settleLibrarySpring() {
+        if (!resizing) librarySpring = false
     }
 
     fun startDockDrag(currentWidth: Dp) {
