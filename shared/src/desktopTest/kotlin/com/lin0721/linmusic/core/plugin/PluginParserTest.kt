@@ -13,6 +13,64 @@ class PluginParserTest {
 
     private fun failure(body: String) = parse(body) as PluginParseResult.Failure
 
+    private fun parseV2(body: String, platform: PluginPlatform = PluginPlatform.DESKTOP): PluginParseResult = PluginParser.parse(
+        """{"format":2,"id":"com.example.demo","name":"示例","version":"1.0.0","contributes":{"playerLayouts":{"desktop.playerBar":"ui/bar.json"}}$body}""",
+        platform = platform
+    )
+
+    private fun reasonV2(body: String, platform: PluginPlatform = PluginPlatform.DESKTOP): String =
+        (parseV2(body, platform) as PluginParseResult.Failure).reason
+
+    @Test
+    fun `format 2 默认是沙盒插件且不限平台`() {
+        val manifest = (parseV2("") as PluginParseResult.Success).manifest
+        assertEquals(PluginKind.SANDBOX, manifest.kind)
+        assertTrue(manifest.platforms.isEmpty())
+        assertEquals(null, manifest.apiVersion)
+    }
+
+    @Test
+    fun `format 2 校验平台`() {
+        val body = ""","platforms":["android"]"""
+        assertEquals(setOf(PluginPlatform.ANDROID), (parseV2(body, PluginPlatform.ANDROID) as PluginParseResult.Success).manifest.platforms)
+        assertEquals("插件不支持当前平台", reasonV2(body, PluginPlatform.DESKTOP))
+    }
+
+    @Test
+    fun `未知平台被忽略并提示`() {
+        val result = parseV2(""","platforms":["ios","desktop"]""") as PluginParseResult.Success
+        assertEquals(setOf(PluginPlatform.DESKTOP), result.manifest.platforms)
+        assertTrue(result.warnings.single().contains("ios"))
+    }
+
+    @Test
+    fun `原生插件暂不能导入且 Android 明确拒绝`() {
+        assertEquals("Android 不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.ANDROID))
+        assertEquals("当前版本还不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.DESKTOP))
+    }
+
+    @Test
+    fun `未知插件类型直接失败`() {
+        assertTrue(reasonV2(""","kind":"wasm"""").contains("wasm"))
+    }
+
+    @Test
+    fun `apiVersion 按主版本和次版本校验`() {
+        assertEquals("1.0", (parseV2(""","apiVersion":"1.0"""") as PluginParseResult.Success).manifest.apiVersion)
+        assertTrue(reasonV2(""","apiVersion":"2.0"""").contains("2.0"))
+        assertTrue(reasonV2(""","apiVersion":"1.9"""").contains("1.9"))
+        assertTrue(reasonV2(""","apiVersion":"latest"""").contains("apiVersion"))
+    }
+
+    @Test
+    fun `format 1 忽略 format 2 的字段`() {
+        val manifest = success(
+            ""","kind":"native","platforms":["android"],"apiVersion":"9.0","contributes":{"playerLayouts":{"desktop.playerBar":"ui/bar.json"}}"""
+        ).manifest
+        assertEquals(PluginKind.SANDBOX, manifest.kind)
+        assertTrue(manifest.platforms.isEmpty())
+    }
+
     @Test
     fun `完整清单解析出权限、域名与各项能力`() {
         val result = success(
@@ -40,7 +98,7 @@ class PluginParserTest {
     @Test
     fun `结构错误直接失败`() {
         assertTrue(PluginParser.parse("not json") is PluginParseResult.Failure)
-        assertTrue(PluginParser.parse("""{"format":2,"id":"com.example.demo","name":"a","version":"1"}""") is PluginParseResult.Failure)
+        assertTrue(PluginParser.parse("""{"format":3,"id":"com.example.demo","name":"a","version":"1"}""") is PluginParseResult.Failure)
         assertTrue(PluginParser.parse("""{"format":1,"id":"demo","name":"a","version":"1"}""") is PluginParseResult.Failure)
         assertTrue(PluginParser.parse("""{"format":1,"id":"com.Example.demo","name":"a","version":"1"}""") is PluginParseResult.Failure)
         assertTrue(PluginParser.parse("""{"format":1,"id":"com.example.demo","version":"1"}""") is PluginParseResult.Failure)

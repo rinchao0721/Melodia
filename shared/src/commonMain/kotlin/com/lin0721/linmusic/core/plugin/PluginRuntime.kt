@@ -23,7 +23,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,7 +43,8 @@ data class PluginRuntimeStatus(
 class PluginRuntime(
     private val factory: ScriptSandboxFactory,
     private val api: PluginHostApi,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    val registry: ExtensionRegistry = ExtensionRegistry()
 ) {
     private val lifecycleLock = Mutex()
     private val running = ConcurrentHashMap<String, Running>()
@@ -101,27 +104,6 @@ class PluginRuntime(
         }
     }
 
-    // 运行中、脚本已注册且清单声明过的音源或歌词源，按插件名称排序
-    fun registeredSources(kind: String): List<Pair<PluginManifest, PluginSourceEntry>> {
-        val statuses = _status.value
-        return running.values.map { it.manifest }.sortedBy { it.name }.flatMap { manifest ->
-            val declared = when (kind) {
-                PluginPrelude.KIND_AUDIO_SOURCE -> manifest.contributes.audioSources
-                PluginPrelude.KIND_LYRICS_SOURCE -> manifest.contributes.lyricsSources
-                else -> emptyList()
-            }
-            val registered = statuses[manifest.id]?.registrations.orEmpty()
-            declared.filter { "$kind:${it.id}" in registered }.map { manifest to it }
-        }
-    }
-
-    // 运行中插件订阅的事件合集
-    fun subscribedEvents(): Set<PluginEvent> = running.values.flatMapTo(HashSet()) { it.manifest.contributes.events }
-
-    fun emitAll(event: PluginEvent, data: JsonElement) {
-        running.keys.forEach { emit(it, event, data) }
-    }
-
     // 播放事件只通知，不等待处理结果
     fun emit(pluginId: String, event: PluginEvent, data: JsonElement) {
         val target = running[pluginId] ?: return
@@ -161,6 +143,7 @@ class PluginRuntime(
         }
         target.sandbox = sandbox
         running[manifest.id] = target
+        registerEvents(manifest)
         setStatus(manifest.id) { PluginRuntimeStatus(running = true) }
         val loaded = withTimeoutOrNull(LOAD_TIMEOUT_MS) { sandbox.evaluate(script) }
             ?: Result.failure(PluginCallException("脚本加载超过 ${LOAD_TIMEOUT_MS / 1000} 秒"))
@@ -175,6 +158,54 @@ class PluginRuntime(
 
     private fun stopLocked(pluginId: String) {
         running.remove(pluginId)?.close()
+        registry.unregister(pluginId, SCRIPT_POINTS)
+    }
+
+    private fun registerEvents(manifest: PluginManifest) {
+        val subscribed = manifest.contributes.events
+        if (subscribed.isEmpty()) return
+        val extension = object : EventExtension {
+            override val events: Set<PluginEvent> = subscribed
+
+            override fun onEvent(event: PluginEvent, data: JsonElement) = emit(manifest.id, event, data)
+        }
+        registry.register(Extension(ExtensionPoints.EVENT, manifest.id, manifest.name, manifest.id, extension))
+    }
+
+    // 只接受清单声明过的音源与歌词源
+    private fun registerSource(manifest: PluginManifest, kind: String, name: String) {
+        when (kind) {
+            PluginPrelude.KIND_AUDIO_SOURCE -> {
+                val order = manifest.contributes.audioSources.indexOfFirst { it.id == name }
+                if (order < 0) return
+                registry.register(Extension(ExtensionPoints.AUDIO_SOURCE, manifest.id, manifest.name, name, ScriptAudioSource(manifest.id, name), order))
+            }
+            PluginPrelude.KIND_LYRICS_SOURCE -> {
+                val order = manifest.contributes.lyricsSources.indexOfFirst { it.id == name }
+                if (order < 0) return
+                registry.register(Extension(ExtensionPoints.LYRICS_SOURCE, manifest.id, manifest.name, name, ScriptLyricsSource(manifest.id, name), order))
+            }
+        }
+    }
+
+    private inner class ScriptAudioSource(private val pluginId: String, private val name: String) : AudioSourceExtension {
+        override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? {
+            val args = buildJsonObject {
+                put("method", "resolve")
+                put("params", JsonObject(query.toJson() + ("quality" to JsonPrimitive(quality))))
+            }
+            return invoke(pluginId, PluginPrelude.KIND_AUDIO_SOURCE, name, args, SOURCE_TIMEOUT_MS)
+        }
+    }
+
+    private inner class ScriptLyricsSource(private val pluginId: String, private val name: String) : LyricsSourceExtension {
+        override suspend fun fetch(query: PluginTrackQuery): JsonElement? {
+            val args = buildJsonObject {
+                put("method", "fetch")
+                put("params", query.toJson())
+            }
+            return invoke(pluginId, PluginPrelude.KIND_LYRICS_SOURCE, name, args, SOURCE_TIMEOUT_MS)
+        }
     }
 
     private suspend fun fail(pluginId: String, reason: String) {
@@ -255,6 +286,9 @@ class PluginRuntime(
             val kind = (data["kind"] as? JsonPrimitive)?.content ?: return
             val name = (data["name"] as? JsonPrimitive)?.content ?: return
             setStatus(manifest.id) { it.copy(registrations = it.registrations + "$kind:$name") }
+            registerSource(manifest, kind, name)
+            // 注册期间沙盒可能已经停止
+            if (closed && running[manifest.id] == null) registry.unregister(manifest.id, SCRIPT_POINTS)
         }
 
         fun recordSuccess() {
@@ -293,5 +327,8 @@ class PluginRuntime(
         const val SOURCE_TIMEOUT_MS = 8_000L
         const val EVENT_TIMEOUT_MS = 2_000L
         const val ACTION_TIMEOUT_MS = 5_000L
+
+        private val SCRIPT_POINTS: Set<ExtensionPoint<*>> =
+            setOf(ExtensionPoints.AUDIO_SOURCE, ExtensionPoints.LYRICS_SOURCE, ExtensionPoints.EVENT)
     }
 }

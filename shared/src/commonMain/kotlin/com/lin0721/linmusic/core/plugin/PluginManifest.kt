@@ -3,7 +3,9 @@ package com.lin0721.linmusic.core.plugin
 import kotlinx.serialization.json.JsonObject
 import java.io.File
 
-const val PLUGIN_FORMAT_VERSION = 1
+const val PLUGIN_FORMAT_VERSION = 2
+const val PLUGIN_API_MAJOR = 1
+const val PLUGIN_API_MINOR = 0
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效
@@ -17,6 +19,15 @@ enum class PluginPermission(val key: String, val label: String) {
 
     companion object {
         fun fromKey(key: String): PluginPermission? = entries.firstOrNull { it.key == key }
+    }
+}
+
+enum class PluginKind(val key: String) {
+    SANDBOX("sandbox"),
+    NATIVE("native");
+
+    companion object {
+        fun fromKey(key: String): PluginKind? = entries.firstOrNull { it.key == key }
     }
 }
 
@@ -96,7 +107,11 @@ data class PluginManifest(
     val contributes: PluginContributions,
     val raw: JsonObject,
     // 已解包或已安装插件所在目录；校验原始 JSON 时为 null
-    val directory: File? = null
+    val directory: File? = null,
+    val kind: PluginKind = PluginKind.SANDBOX,
+    // 为空表示所有平台
+    val platforms: Set<PluginPlatform> = emptySet(),
+    val apiVersion: String? = null
 ) {
     val scriptFile: File? get() = directory?.let { File(it, PluginPaths.SCRIPT) }?.takeIf { it.isFile }
 

@@ -45,7 +45,7 @@ data class PluginTrackQuery(
 }
 
 // 插件音源：按插件名称顺序逐个尝试，参与 AudioSourceRouter 的社区源轮询
-class PluginAudioSourceProvider(private val runtime: PluginRuntime) : AudioSourceProvider {
+class PluginAudioSourceProvider(private val registry: ExtensionRegistry) : AudioSourceProvider {
 
     override val platform: MusicPlatform = MusicPlatform.LX
 
@@ -58,22 +58,17 @@ class PluginAudioSourceProvider(private val runtime: PluginRuntime) : AudioSourc
         quality: String,
         origin: MusicPlatform
     ): SourceResult? {
-        val sources = runtime.registeredSources(PluginPrelude.KIND_AUDIO_SOURCE)
+        val sources = registry.get(ExtensionPoints.AUDIO_SOURCE)
         if (sources.isEmpty()) return null
         val query = PluginTrackQuery(songId, songName, artists, albumName.orEmpty(), durationMs, origin)
-        for ((manifest, source) in sources) {
-            val args = buildJsonObject {
-                put("method", "resolve")
-                put("params", JsonObject(query.toJson() + ("quality" to JsonPrimitive(quality))))
-            }
-            val result = runtime.invoke(manifest.id, PluginPrelude.KIND_AUDIO_SOURCE, source.id, args, PluginRuntime.SOURCE_TIMEOUT_MS)
-            val url = PluginResults.url(result)
+        for (source in sources) {
+            val url = PluginResults.url(source.value.resolve(query, quality))
             when {
                 url == null -> continue
-                isTrialPlayUrl(url) -> AppLogger.w(TAG, "插件 [${manifest.name}] 返回试听链接，继续尝试: $songName")
+                isTrialPlayUrl(url) -> AppLogger.w(TAG, "插件 [${source.pluginName}] 返回试听链接，继续尝试: $songName")
                 else -> {
-                    AppLogger.i(TAG, "插件 [${manifest.name}] 音源 ${source.id} 解析成功: $songName")
-                    return SourceResult(url = url, platform = platform, quality = quality, pluginId = manifest.id)
+                    AppLogger.i(TAG, "插件 [${source.pluginName}] 音源 ${source.localId} 解析成功: $songName")
+                    return SourceResult(url = url, platform = platform, quality = quality, pluginId = source.pluginId)
                 }
             }
         }
@@ -85,12 +80,12 @@ class PluginAudioSourceProvider(private val runtime: PluginRuntime) : AudioSourc
 
 // 插件歌词源：所有歌词源并发查询，按插件名称顺序取第一份非空结果
 class PluginLyricsSource(
-    private val runtime: PluginRuntime,
+    private val registry: ExtensionRegistry,
     // 网易歌曲只有 id，查询前补全歌名、歌手等信息
     private val neteaseTrackOf: suspend (songId: Long) -> PluginTrackQuery? = { null }
 ) {
 
-    fun hasSources(): Boolean = runtime.registeredSources(PluginPrelude.KIND_LYRICS_SOURCE).isNotEmpty()
+    fun hasSources(): Boolean = registry.get(ExtensionPoints.LYRICS_SOURCE).isNotEmpty()
 
     suspend fun fetch(songId: Long, external: ExternalTrack?): List<LyricLine> {
         val query = external?.let(PluginTrackQuery::of) ?: songId.takeIf { it > 0 }?.let { neteaseTrackOf(it) } ?: return emptyList()
@@ -98,17 +93,10 @@ class PluginLyricsSource(
     }
 
     suspend fun fetch(query: PluginTrackQuery): List<LyricLine> = coroutineScope {
-        val sources = runtime.registeredSources(PluginPrelude.KIND_LYRICS_SOURCE)
+        val sources = registry.get(ExtensionPoints.LYRICS_SOURCE)
         if (sources.isEmpty()) return@coroutineScope emptyList()
-        val args = buildJsonObject {
-            put("method", "fetch")
-            put("params", query.toJson())
-        }
-        sources.map { (manifest, source) ->
-            async {
-                val result = runtime.invoke(manifest.id, PluginPrelude.KIND_LYRICS_SOURCE, source.id, args, PluginRuntime.SOURCE_TIMEOUT_MS)
-                PluginResults.lyrics(result)
-            }
+        sources.map { source ->
+            async { PluginResults.lyrics(source.value.fetch(query)) }
         }.awaitAll().firstOrNull { it.isNotEmpty() }.orEmpty()
     }
 }

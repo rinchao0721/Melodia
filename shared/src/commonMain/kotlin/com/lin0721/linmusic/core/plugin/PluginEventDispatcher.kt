@@ -22,7 +22,7 @@ import kotlinx.serialization.json.put
 
 // 把播放状态变化转成插件事件；只有运行中的插件订阅了事件时才连接播放器
 class PluginEventDispatcher(
-    private val runtime: PluginRuntime,
+    private val registry: ExtensionRegistry,
     private val playback: () -> PlaybackController?,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
@@ -34,8 +34,8 @@ class PluginEventDispatcher(
     fun start() {
         if (job?.isActive == true) return
         job = scope.launch {
-            runtime.status
-                .map { runtime.subscribedEvents() }
+            registry.entries
+                .map { registry.get(ExtensionPoints.EVENT).flatMapTo(HashSet()) { it.value.events } }
                 .distinctUntilChanged()
                 .collectLatest { events ->
                     if (events.isEmpty()) return@collectLatest
@@ -52,14 +52,14 @@ class PluginEventDispatcher(
                 controller.nowPlaying
                     .distinctUntilChanged { old, new -> old?.mediaId == new?.mediaId }
                     .drop(1)
-                    .collect { runtime.emitAll(PluginEvent.SONG_CHANGED, songJson(it)) }
+                    .collect { dispatch(PluginEvent.SONG_CHANGED, songJson(it)) }
             }
         }
         if (PluginEvent.PLAY_STATE_CHANGED in events) {
             launch {
                 controller.isPlaying
                     .drop(1)
-                    .collect { playing -> runtime.emitAll(PluginEvent.PLAY_STATE_CHANGED, buildJsonObject { put("playing", playing) }) }
+                    .collect { playing -> dispatch(PluginEvent.PLAY_STATE_CHANGED, buildJsonObject { put("playing", playing) }) }
             }
         }
         if (PluginEvent.PROGRESS in events) {
@@ -67,7 +67,7 @@ class PluginEventDispatcher(
                 while (true) {
                     delay(progressIntervalMs)
                     if (!controller.isPlaying.value) continue
-                    runtime.emitAll(
+                    dispatch(
                         PluginEvent.PROGRESS,
                         buildJsonObject {
                             put("positionMs", controller.currentPosition.value)
@@ -76,6 +76,12 @@ class PluginEventDispatcher(
                     )
                 }
             }
+        }
+    }
+
+    private fun dispatch(event: PluginEvent, data: JsonElement) {
+        registry.get(ExtensionPoints.EVENT).forEach { extension ->
+            if (event in extension.value.events) extension.value.onEvent(event, data)
         }
     }
 

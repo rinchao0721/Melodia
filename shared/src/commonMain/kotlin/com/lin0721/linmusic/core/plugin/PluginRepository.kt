@@ -22,6 +22,7 @@ class PluginRepository(
     private val events: PluginEventDispatcher? = null
 ) {
     private val refreshLock = Mutex()
+    private val registry = runtime.registry
     private val _installed = MutableStateFlow<List<InstalledPlugin>>(emptyList())
     val installed: StateFlow<List<InstalledPlugin>> = _installed.asStateFlow()
     val status: StateFlow<Map<String, PluginRuntimeStatus>> = runtime.status
@@ -53,20 +54,39 @@ class PluginRepository(
     private suspend fun publish(plugins: List<InstalledPlugin>) {
         _installed.value = plugins
         withContext(Dispatchers.IO) {
-            _layouts.value = resolveLayouts(plugins)
-            _pages.value = resolvePages(plugins)
+            registry.replace(ExtensionPoints.PLAYER_LAYOUT, layoutExtensions(plugins))
+            registry.replace(ExtensionPoints.PAGE, pageExtensions(plugins))
+            _layouts.value = resolveLayouts()
+            _pages.value = registry.get(ExtensionPoints.PAGE).map { it.value }
         }
     }
 
-    private fun resolvePages(plugins: List<InstalledPlugin>): List<ActivePluginPage> =
+    private fun pageExtensions(plugins: List<InstalledPlugin>): List<Extension<ActivePluginPage>> =
         plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->
             val manifest = plugin.manifest ?: return@flatMap emptyList()
-            manifest.contributes.pages.map { page ->
-                when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
+            manifest.contributes.pages.mapIndexed { index, page ->
+                val active = when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
                     is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
                     is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
                 }
+                Extension(ExtensionPoints.PAGE, manifest.id, manifest.name, page.id, active, index)
             }
+        }
+
+    private fun layoutExtensions(plugins: List<InstalledPlugin>): List<Extension<PlayerLayoutExtension>> =
+        PlayerLayoutArea.entries.flatMap { area ->
+            plugins
+                .filter { it.state.enabled && it.canRun && it.manifest?.contributes?.playerLayouts?.containsKey(area.key) == true }
+                .mapNotNull { plugin ->
+                    when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
+                        is PlayerLayoutParseResult.Success ->
+                            Extension(ExtensionPoints.PLAYER_LAYOUT, plugin.id, plugin.name, area.key, PlayerLayoutExtension(area, plugin, result.root))
+                        is PlayerLayoutParseResult.Failure -> {
+                            AppLogger.w(TAG, "插件 ${plugin.id} 的 ${area.key} 布局无效: ${result.reason}")
+                            null
+                        }
+                    }
+                }
         }
 
     // choice 为插件 id、LAYOUT_CHOICE_DEFAULT，或 null 表示按最近启用的插件
@@ -75,30 +95,19 @@ class PluginRepository(
         refresh()
     }
 
-    private fun resolveLayouts(plugins: List<InstalledPlugin>): PlayerLayoutState {
+    private fun resolveLayouts(): PlayerLayoutState {
         val choices = store.layoutChoices()
         val active = mutableMapOf<PlayerLayoutArea, ActivePlayerLayout>()
         val candidates = mutableMapOf<PlayerLayoutArea, List<InstalledPlugin>>()
-        for (area in PlayerLayoutArea.entries) {
-            val valid = plugins
-                .filter { it.state.enabled && it.canRun && it.manifest?.contributes?.playerLayouts?.containsKey(area.key) == true }
-                .mapNotNull { plugin ->
-                    when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
-                        is PlayerLayoutParseResult.Success -> plugin to result.root
-                        is PlayerLayoutParseResult.Failure -> {
-                            AppLogger.w(TAG, "插件 ${plugin.id} 的 ${area.key} 布局无效: ${result.reason}")
-                            null
-                        }
-                    }
-                }
-            if (valid.isEmpty()) continue
-            candidates[area] = valid.map { it.first }
+        val extensions = registry.get(ExtensionPoints.PLAYER_LAYOUT).map { it.value }.groupBy { it.area }
+        for ((area, valid) in extensions) {
+            candidates[area] = valid.map { it.plugin }
             val chosen = when (val choice = choices[area.key]) {
                 LAYOUT_CHOICE_DEFAULT -> null
-                null -> valid.maxByOrNull { it.first.state.enabledAt }
-                else -> valid.firstOrNull { it.first.id == choice } ?: valid.maxByOrNull { it.first.state.enabledAt }
+                null -> valid.maxByOrNull { it.plugin.state.enabledAt }
+                else -> valid.firstOrNull { it.plugin.id == choice } ?: valid.maxByOrNull { it.plugin.state.enabledAt }
             }
-            chosen?.let { (plugin, root) -> active[area] = ActivePlayerLayout(plugin.id, plugin.name, root) }
+            chosen?.let { active[area] = ActivePlayerLayout(it.plugin.id, it.plugin.name, it.root) }
         }
         return PlayerLayoutState(active, candidates, choices.mapNotNull { (k, v) -> PlayerLayoutArea.fromKey(k)?.let { it to v } }.toMap())
     }

@@ -1,4 +1,4 @@
-# 插件格式（format 1）
+# 插件格式（format 2）
 
 插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
@@ -38,13 +38,18 @@
 
 | 字段 | 说明 |
 |---|---|
-| `format` | 必需；高于应用支持的版本时拒绝导入 |
+| `format` | 必需，`1` 或 `2`；高于应用支持的版本时拒绝导入 |
 | `id` | 必需；反向域名形式，只能用小写字母、数字和 `_`，如 `com.example.demo`。同 id 再次导入即升级 |
 | `name` / `version` | 必需 |
 | `author` / `description` / `minAppVersion` | 可选 |
 | `permissions` | 见下文；未知权限会被忽略并提示 |
 | `network.hosts` | 申请 `network` 时必需；`*.example.com` 只匹配子域名，不匹配 `example.com` 本身 |
 | `contributes` | 至少提供一项能力，否则插件无效 |
+| `kind` | format 2；`sandbox`（默认）。`native` 为桌面端原生插件，当前版本尚不支持，导入时拒绝 |
+| `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
+| `apiVersion` | format 2；可选，写成 `1.0`。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.0` |
+
+format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
 ### contributes
 

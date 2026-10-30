@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.plugin.ExtensionRegistry
 import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -28,7 +29,8 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
         val scope = this
         PluginHostApi(get(), playback = { scope.getOrNull<PlaybackController>() })
     }
-    single { PluginRuntime(get(), get()) }
+    single { ExtensionRegistry() }
+    single { PluginRuntime(get(), get(), registry = get()) }
     single { PluginRepository(get(), get(), get(), get()) }
     single { PluginPageHost(get(), get()) }
     single { PlayerCardSource(get(), get<PluginRepository>().pages) }

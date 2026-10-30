@@ -232,7 +232,7 @@ class PluginRuntimeTest {
             """.trimIndent()
         )
         waitForRegistration("audioSource:main")
-        val result = PluginAudioSourceProvider(runtime).resolveUrl("186016", "晴天", "周杰伦", "叶惠美", 269_000, "exhigh")
+        val result = PluginAudioSourceProvider(runtime.registry).resolveUrl("186016", "晴天", "周杰伦", "叶惠美", 269_000, "exhigh")
         assertEquals("https://cdn.example.com/186016-exhigh.mp3", result?.url)
         assertEquals("com.example.demo", result?.pluginId)
     }
@@ -248,7 +248,7 @@ class PluginRuntimeTest {
             """.trimIndent()
         )
         waitForRegistration("audioSource:other")
-        val provider = PluginAudioSourceProvider(runtime)
+        val provider = PluginAudioSourceProvider(runtime.registry)
         assertNull(provider.resolveUrl("1", "a", "b", null, 0, "standard"))
         assertNull(provider.resolveUrl("2", "a", "b", null, 0, "standard"))
     }
@@ -263,7 +263,7 @@ class PluginRuntimeTest {
             """.trimIndent()
         )
         waitForRegistration("lyricsSource:lrc")
-        val lyrics = PluginLyricsSource(runtime)
+        val lyrics = PluginLyricsSource(runtime.registry)
         assertTrue(lyrics.hasSources())
         val lines = lyrics.fetch(PluginTrackQuery("1", "晴天", "周杰伦", "", 0, MusicPlatform.NETEASE))
         assertEquals(listOf("晴天", "第二句"), lines.map { it.text })

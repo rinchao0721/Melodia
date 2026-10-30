@@ -89,7 +89,7 @@ class PluginEventDispatcherTest {
     @Test
     fun `切歌与播放状态变化分发给订阅了的插件`() = runBlocking {
         installEnabled("\"songChanged\",\"playStateChanged\"")
-        PluginEventDispatcher(runtime, { controller }, scope, Dispatchers.Unconfined).start()
+        PluginEventDispatcher(runtime.registry, { controller }, scope, Dispatchers.Unconfined).start()
         delay(100)
         (controller.nowPlaying as MutableStateFlow).value = NowPlaying("186016", "晴天", "周杰伦", null)
         (controller.isPlaying as MutableStateFlow).value = true
@@ -104,7 +104,7 @@ class PluginEventDispatcherTest {
     @Test
     fun `未订阅的事件不分发，播放中才发进度`() = runBlocking {
         installEnabled("\"progress\"")
-        PluginEventDispatcher(runtime, { controller }, scope, Dispatchers.Unconfined, progressIntervalMs = 20).start()
+        PluginEventDispatcher(runtime.registry, { controller }, scope, Dispatchers.Unconfined, progressIntervalMs = 20).start()
         (controller.nowPlaying as MutableStateFlow).value = NowPlaying("1", "a", "b", null)
         delay(150)
         assertTrue(emitted(PluginEvent.PROGRESS).isEmpty())
@@ -119,7 +119,7 @@ class PluginEventDispatcherTest {
     @Test
     fun `没有订阅事件的插件时不连接播放器`() = runBlocking {
         var requested = 0
-        PluginEventDispatcher(runtime, { requested++; controller }, scope, Dispatchers.Unconfined).start()
+        PluginEventDispatcher(runtime.registry, { requested++; controller }, scope, Dispatchers.Unconfined).start()
         delay(100)
         assertEquals(0, requested)
         installEnabled("\"songChanged\"")

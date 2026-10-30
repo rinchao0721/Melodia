@@ -19,6 +19,7 @@ object PluginParser {
 
     private val ID_PATTERN = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
     private val ENTRY_ID_PATTERN = Regex("^[a-z0-9][a-z0-9_-]{0,31}$")
+    private val API_VERSION_PATTERN = Regex("^(\\d{1,4})\\.(\\d{1,4})$")
     private val HOST_PATTERN = Regex("^(\\*\\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
     private const val MAX_ID_LENGTH = 100
     private const val MAX_NAME_LENGTH = 40
@@ -29,7 +30,7 @@ object PluginParser {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(text: String, directory: File? = null): PluginParseResult {
+    fun parse(text: String, directory: File? = null, platform: PluginPlatform = currentPluginPlatform): PluginParseResult {
         val root = try {
             json.parseToJsonElement(text) as? JsonObject
         } catch (e: SerializationException) {
@@ -37,10 +38,10 @@ object PluginParser {
         } catch (e: IllegalArgumentException) {
             null
         } ?: return PluginParseResult.Failure("${PluginPaths.MANIFEST} 不是有效的 JSON 对象")
-        return parse(root, directory)
+        return parse(root, directory, platform)
     }
 
-    fun parse(root: JsonObject, directory: File? = null): PluginParseResult {
+    fun parse(root: JsonObject, directory: File? = null, platform: PluginPlatform = currentPluginPlatform): PluginParseResult {
         val format = (root["format"] as? JsonPrimitive)?.intOrNull ?: return PluginParseResult.Failure("缺少 format 字段")
         if (format < 1) return PluginParseResult.Failure("format 取值无效")
         if (format > PLUGIN_FORMAT_VERSION) return PluginParseResult.Failure("插件需要更新版本的应用才能使用")
@@ -55,6 +56,8 @@ object PluginParser {
         if (version.isEmpty()) return PluginParseResult.Failure("缺少版本号")
 
         val warnings = mutableListOf<String>()
+        val compatibility = if (format >= 2) parseCompatibility(root, platform, warnings) else Compatibility()
+        compatibility.failure?.let { return PluginParseResult.Failure(it) }
         val permissions = parsePermissions(root["permissions"], warnings)
         val hosts = parseHosts(root["network"], warnings)
         if (PluginPermission.NETWORK in permissions && hosts.isEmpty()) {
@@ -83,9 +86,56 @@ object PluginParser {
             networkHosts = if (PluginPermission.NETWORK in permissions) hosts else emptyList(),
             contributes = contributes,
             raw = root,
-            directory = directory
+            directory = directory,
+            kind = compatibility.kind,
+            platforms = compatibility.platforms,
+            apiVersion = compatibility.apiVersion
         )
         return PluginParseResult.Success(manifest, warnings)
+    }
+
+    private class Compatibility(
+        val kind: PluginKind = PluginKind.SANDBOX,
+        val platforms: Set<PluginPlatform> = emptySet(),
+        val apiVersion: String? = null,
+        val failure: String? = null
+    )
+
+    // format 2 起才有这些字段
+    private fun parseCompatibility(root: JsonObject, platform: PluginPlatform, warnings: MutableList<String>): Compatibility {
+        val kind = when (val key = root.string("kind")) {
+            null -> PluginKind.SANDBOX
+            else -> PluginKind.fromKey(key) ?: return Compatibility(failure = "未知的插件类型 $key")
+        }
+        if (kind == PluginKind.NATIVE) {
+            val reason = if (platform == PluginPlatform.ANDROID) "Android 不支持原生插件" else "当前版本还不支持原生插件"
+            return Compatibility(failure = reason)
+        }
+        val platforms = parsePlatforms(root["platforms"], warnings)
+        if (platforms.isNotEmpty() && platform !in platforms) {
+            return Compatibility(failure = "插件不支持当前平台")
+        }
+        val apiVersion = root.string("apiVersion")?.trim()
+        if (apiVersion == null) return Compatibility(kind, platforms)
+        val match = API_VERSION_PATTERN.matchEntire(apiVersion) ?: return Compatibility(failure = "apiVersion 需要写成 1.0 这样的版本号")
+        val major = match.groupValues[1].toIntOrNull() ?: return Compatibility(failure = "apiVersion 取值无效")
+        val minor = match.groupValues[2].toIntOrNull() ?: return Compatibility(failure = "apiVersion 取值无效")
+        if (major != PLUGIN_API_MAJOR || minor > PLUGIN_API_MINOR) {
+            return Compatibility(failure = "插件需要 API $apiVersion，当前应用提供 $PLUGIN_API_MAJOR.$PLUGIN_API_MINOR")
+        }
+        return Compatibility(kind, platforms, apiVersion)
+    }
+
+    private fun parsePlatforms(value: JsonElement?, warnings: MutableList<String>): Set<PluginPlatform> {
+        if (value == null) return emptySet()
+        val array = value as? JsonArray ?: run {
+            warnings += "platforms 不是数组，已忽略"
+            return emptySet()
+        }
+        return array.mapNotNullTo(LinkedHashSet()) { item ->
+            val key = (item as? JsonPrimitive)?.takeIf { it.isString }?.content
+            PluginPlatform.fromKey(key.orEmpty()) ?: null.also { warnings += "未知平台 ${key ?: item}，已忽略" }
+        }
     }
 
     // 能力与权限一一对应：提供了某项能力却没申请对应权限时整个插件无效
