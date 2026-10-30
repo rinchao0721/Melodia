@@ -1,6 +1,6 @@
 package com.lin0721.linmusic.core.source
 
-// 沙盒内的 window.lx 垫片，宿主需提供 MelodiaHostBridge（httpRequest/onEvent/onResolveResult/md5，缺 setTimeout 的环境还需 setTimer）
+// 沙盒内的 window.lx 垫片，宿主消息经 ScriptSandbox 的 MelodiaHostBridge 发出，由 LxScriptHost 处理
 object LxShim {
 
     fun script(env: String): String = """
@@ -8,35 +8,6 @@ object LxShim {
             var pendingCallbacks = {};
             var reqIdCounter = 0;
             var requestHandler = null;
-
-            if (typeof window.setTimeout !== 'function') {
-                var timers = {};
-                var timerSeq = 0;
-                window.setTimeout = function(fn, ms) {
-                    var id = ++timerSeq;
-                    timers[id] = { fn: fn, repeat: false, ms: ms || 0 };
-                    MelodiaHostBridge.setTimer(id, ms || 0);
-                    return id;
-                };
-                window.setInterval = function(fn, ms) {
-                    var id = ++timerSeq;
-                    timers[id] = { fn: fn, repeat: true, ms: ms || 0 };
-                    MelodiaHostBridge.setTimer(id, ms || 0);
-                    return id;
-                };
-                window.clearTimeout = function(id) { delete timers[id]; };
-                window.clearInterval = window.clearTimeout;
-                window.__melodia_fire_timer = function(id) {
-                    var t = timers[id];
-                    if (!t) return;
-                    if (t.repeat) {
-                        MelodiaHostBridge.setTimer(id, t.ms);
-                    } else {
-                        delete timers[id];
-                    }
-                    t.fn();
-                };
-            }
 
             window.lx = {
                 version: "2.0.0",
@@ -58,9 +29,8 @@ object LxShim {
                     pendingCallbacks[id] = callback;
                     var options = opts || {};
                     var method = options.method || 'GET';
-                    var headers = JSON.stringify(options.headers || {});
                     var body = typeof options.body === 'string' ? options.body : (options.body ? JSON.stringify(options.body) : '');
-                    MelodiaHostBridge.httpRequest(id, url, method, headers, body);
+                    MelodiaHostBridge.post('http', JSON.stringify({ id: id, url: url, method: method, headers: options.headers || {}, body: body }));
                     return function() { delete pendingCallbacks[id]; };
                 },
                 on: function(event, handler) {
@@ -70,12 +40,12 @@ object LxShim {
                     return Promise.resolve();
                 },
                 send: function(event, data) {
-                    MelodiaHostBridge.onEvent(event, JSON.stringify(data || {}));
+                    MelodiaHostBridge.post('event', JSON.stringify({ event: event, data: data || {} }));
                     return Promise.resolve();
                 },
                 utils: {
                     crypto: {
-                        md5: function(str) { return MelodiaHostBridge.md5(str); }
+                        md5: function(str) { return MelodiaHostBridge.invokeSync('md5', String(str)); }
                     },
                     buffer: {
                         from: function(data) { return data; },
@@ -104,7 +74,7 @@ object LxShim {
 
             window.__melodia_resolve_music_url = function(callId, source, musicInfoJson, quality) {
                 if (!requestHandler) {
-                    MelodiaHostBridge.onResolveResult(callId, null, "No handler");
+                    MelodiaHostBridge.post('resolved', JSON.stringify({ callId: callId, url: null, error: 'No handler' }));
                     return;
                 }
                 var musicInfo = (typeof musicInfoJson === 'object') ? musicInfoJson : JSON.parse(musicInfoJson);
@@ -119,9 +89,9 @@ object LxShim {
                     });
                 }).then(function(result) {
                     var url = typeof result === 'string' ? result : (result && result.url ? result.url : null);
-                    MelodiaHostBridge.onResolveResult(callId, url, null);
+                    MelodiaHostBridge.post('resolved', JSON.stringify({ callId: callId, url: url, error: null }));
                 }).catch(function(err) {
-                    MelodiaHostBridge.onResolveResult(callId, null, err ? err.message : "Error");
+                    MelodiaHostBridge.post('resolved', JSON.stringify({ callId: callId, url: null, error: err ? String(err.message || err) : 'Error' }));
                 });
             };
         })();

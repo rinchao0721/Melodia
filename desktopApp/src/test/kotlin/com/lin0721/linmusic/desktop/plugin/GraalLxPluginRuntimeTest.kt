@@ -12,10 +12,10 @@ import org.junit.Test
 class GraalLxPluginRuntimeTest {
 
     private val requestedUrls = mutableListOf<String>()
-    private val runtime = GraalLxPluginRuntime { url, _, _, _ ->
+    private val runtime = GraalLxPluginRuntime(fetcher = { url, _, _, _ ->
         requestedUrls += url
         "{\"url\":\"http://cdn.example/real.mp3\"}"
-    }
+    })
 
     @After
     fun tearDown() {

@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.core.ui.skin
 
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.archive.SafeZip
+import com.lin0721.linmusic.core.archive.ZipExtractResult
+import com.lin0721.linmusic.core.archive.ZipLimitExceeded
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -14,7 +17,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
-import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -42,18 +44,15 @@ sealed interface SkinStageResult {
     data class Failure(val reason: String) : SkinStageResult
 }
 
-// 皮肤包读写：解包时按白名单落盘并限制体积，不信任 zip 头里声明的大小
+// 皮肤包读写：解包时按白名单落盘并限制体积
 object SkinPackage {
 
     private const val MAX_ENTRIES = 32
     private const val MAX_TOTAL_BYTES = 20L * 1024 * 1024
     private const val MAX_ASSET_BYTES = 10L * 1024 * 1024
     private const val MAX_MANIFEST_BYTES = 256L * 1024
-    private const val BUFFER_SIZE = 8 * 1024
 
     private val json = Json { prettyPrint = true }
-
-    private class LimitExceeded(message: String) : Exception(message)
 
     // codec 为 null 时跳过背景图尺寸检查与按背景图修正对比度
     fun stage(input: InputStream, directory: File, codec: SkinImageCodec? = null): SkinStageResult {
@@ -61,7 +60,7 @@ object SkinPackage {
         if (!directory.mkdirs()) return SkinStageResult.Failure("无法创建临时目录")
         val result = try {
             unpack(input, directory, codec)
-        } catch (e: LimitExceeded) {
+        } catch (e: ZipLimitExceeded) {
             SkinStageResult.Failure(e.message ?: "皮肤包超出大小限制")
         } catch (e: ZipException) {
             SkinStageResult.Failure("不是有效的皮肤包")
@@ -75,34 +74,16 @@ object SkinPackage {
     }
 
     private fun unpack(input: InputStream, directory: File, codec: SkinImageCodec?): SkinStageResult {
-        val warnings = mutableListOf<String>()
-        val seen = HashSet<String>()
-        var totalBytes = 0L
-        var entryCount = 0
-        ZipInputStream(input).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                entryCount++
-                if (entryCount > MAX_ENTRIES) throw LimitExceeded("皮肤包里的文件超过 $MAX_ENTRIES 个")
-                val name = entry.name
-                if (name.contains('\\') || name.startsWith("/") || name.contains(':') || name.split('/').any { it == ".." }) {
-                    return SkinStageResult.Failure("皮肤包含有非法路径：$name")
-                }
-                if (entry.isDirectory) continue
-                val limit = when {
-                    name == SkinPaths.MANIFEST -> MAX_MANIFEST_BYTES
-                    SkinPaths.isAsset(name) -> MAX_ASSET_BYTES
-                    else -> {
-                        warnings += "已忽略不支持的文件：$name"
-                        continue
-                    }
-                }
-                if (!seen.add(name)) return SkinStageResult.Failure("皮肤包里有重复文件：$name")
-                val target = File(directory, name)
-                target.parentFile?.mkdirs()
-                val written = target.outputStream().use { out -> copyLimited(zip, out, limit, MAX_TOTAL_BYTES - totalBytes, name) }
-                totalBytes += written
+        val extracted = SafeZip.extract(input, directory, "皮肤包", MAX_ENTRIES, MAX_TOTAL_BYTES) { name ->
+            when {
+                name == SkinPaths.MANIFEST -> MAX_MANIFEST_BYTES
+                SkinPaths.isAsset(name) -> MAX_ASSET_BYTES
+                else -> null
             }
+        }
+        val warnings = when (extracted) {
+            is ZipExtractResult.Failure -> return SkinStageResult.Failure(extracted.reason)
+            is ZipExtractResult.Success -> extracted.warnings
         }
         val manifest = File(directory, SkinPaths.MANIFEST)
         if (!manifest.isFile) return SkinStageResult.Failure("皮肤包里缺少 ${SkinPaths.MANIFEST}")
@@ -141,20 +122,6 @@ object SkinPackage {
         }
         val dimFix = playerDim?.let { (parsed.skin.background?.effectivePlayerDim ?: 0f) to it }
         return SkinStageResult.Success(StagedSkin(fixedSkin, warnings + parsed.warnings + coverWarnings, fixes, directory, dimFix))
-    }
-
-    private fun copyLimited(input: InputStream, output: OutputStream, entryLimit: Long, totalRemaining: Long, name: String): Long {
-        val buffer = ByteArray(BUFFER_SIZE)
-        var copied = 0L
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            copied += read
-            if (copied > entryLimit) throw LimitExceeded("$name 超过 ${entryLimit / 1024 / 1024}MB")
-            if (copied > totalRemaining) throw LimitExceeded("皮肤包解压后超过 ${MAX_TOTAL_BYTES / 1024 / 1024}MB")
-            output.write(buffer, 0, read)
-        }
-        return copied
     }
 
     fun readManifest(file: File): JsonObject? = try {

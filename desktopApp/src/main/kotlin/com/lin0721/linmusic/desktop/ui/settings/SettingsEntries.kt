@@ -80,6 +80,7 @@ import com.lin0721.linmusic.desktop.ui.update.openInBrowser
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.awt.Desktop
@@ -93,6 +94,7 @@ internal enum class SettingsCategory(val label: String) {
     Interface("界面与歌词"),
     System("系统与窗口"),
     Hotkeys("快捷键"),
+    Plugins("插件"),
     About("关于")
 }
 
@@ -360,6 +362,7 @@ internal fun settingsEntries(
     common: CommonSettingsViewModel,
     desktop: DesktopSettingsViewModel,
     lxPlugins: LxPluginSettingsViewModel,
+    plugins: PluginRepository,
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository
 ): List<SettingsEntry> {
@@ -695,6 +698,17 @@ internal fun settingsEntries(
                 keywords = listOf("皮肤", "主题", "外观", "背景", "背景图", "壁纸", "导入", "导出", "配色")
             ) {
                 SkinSetting(settings = themeSettings, repository = common.skins)
+            }
+        )
+        add(
+            SettingsEntry(
+                key = "plugins",
+                category = SettingsCategory.Plugins,
+                title = "插件（实验性）",
+                subtitle = "导入插件包，扩展播放器布局、页面、音源与歌词源",
+                keywords = listOf("插件", "扩展", "脚本", "导入", "导出", "布局", "音源", "歌词源")
+            ) {
+                PluginSetting(plugins)
             }
         )
         add(

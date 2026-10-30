@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.core.plugin.PluginRepository
+import org.koin.compose.koinInject
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,6 +59,7 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val pluginRepository = koinInject<PluginRepository>()
 
     var showBottomBarSheet by remember { mutableStateOf(false) }
     var showPlayerModeSheet by remember { mutableStateOf(false) }
@@ -207,6 +210,12 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                         checked = uiAnimationsEnabled,
                         onCheckedChange = { viewModel.updateUiAnimationsEnabled(it) }
                     )
+                }
+            }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[5]) {
+                    PluginSettingSection(repository = pluginRepository)
                 }
             }
         }

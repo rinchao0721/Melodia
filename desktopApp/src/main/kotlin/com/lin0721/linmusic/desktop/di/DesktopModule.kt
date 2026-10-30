@@ -28,6 +28,7 @@ import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.NeteaseSongLookup
 import com.lin0721.linmusic.core.source.LxAudioSourceProvider
 import com.lin0721.linmusic.core.source.LxPluginRuntime
+import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
@@ -51,6 +52,7 @@ import com.lin0721.linmusic.desktop.data.local.LocalLibraryStore
 import com.lin0721.linmusic.desktop.data.local.LocalMatcher
 import com.lin0721.linmusic.desktop.data.local.LocalScanner
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
+import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
@@ -137,7 +139,8 @@ val desktopPlatformModule = module {
     single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
-    single { GraalLxPluginRuntime() } bind LxPluginRuntime::class
+    single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
+    single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
     single { SessionMonitor(get(), get()) }
     single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }

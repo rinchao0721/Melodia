@@ -126,6 +126,7 @@ internal fun RouteContent(
             common = deps.commonSettingsViewModel,
             desktop = deps.desktopSettingsViewModel,
             lxPlugins = deps.lxPluginSettingsViewModel,
+            plugins = deps.plugins,
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
             focusCategory = state.settingsFocus,

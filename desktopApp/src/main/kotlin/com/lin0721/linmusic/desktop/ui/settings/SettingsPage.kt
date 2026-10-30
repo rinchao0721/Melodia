@@ -51,6 +51,7 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -64,6 +65,7 @@ fun SettingsPage(
     common: CommonSettingsViewModel,
     desktop: DesktopSettingsViewModel,
     lxPlugins: LxPluginSettingsViewModel,
+    plugins: PluginRepository,
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository,
     modifier: Modifier = Modifier,
@@ -79,7 +81,7 @@ fun SettingsPage(
     LaunchedEffect(desktop) { desktop.refresh() }
     LaunchedEffect(desktop) { desktop.messages.collect { navigator.showMessage(it) } }
 
-    val entries = settingsEntries(common, desktop, lxPlugins, updateChecker, localLibrary)
+    val entries = settingsEntries(common, desktop, lxPlugins, plugins, updateChecker, localLibrary)
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
     val sections = SettingsCategory.entries.mapNotNull { category ->

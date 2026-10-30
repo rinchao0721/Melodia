@@ -50,6 +50,7 @@ import com.lin0721.linmusic.desktop.app.DesktopCacheMigration
 import com.lin0721.linmusic.desktop.app.DesktopCacheRoot
 import com.lin0721.linmusic.desktop.app.DesktopLogging
 import com.lin0721.linmusic.desktop.app.DesktopPaths
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.desktop.app.HeapTrim
 import com.lin0721.linmusic.desktop.app.RenderBackend
 import com.lin0721.linmusic.desktop.app.RenderSessionGuard
@@ -98,6 +99,7 @@ import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
 import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
 import com.lin0721.linmusic.di.networkModule
+import com.lin0721.linmusic.di.pluginModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.di.sourceModule
 import com.lin0721.linmusic.di.updateModule
@@ -123,6 +125,7 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.KeyboardFocusManager
 import kotlin.system.exitProcess
+import java.io.File
 
 private const val VOLUME_STEP = 5
 private const val SEEK_STEP_MS = 5_000L
@@ -168,7 +171,7 @@ fun main() {
         modules(
             platformModuleFor(System.getProperty("os.name").orEmpty()),
             desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule,
-            updateModule(AppInfo.versionCode)
+            updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") }
         )
     }.koin
     val controller = koin.get<DesktopPlaybackController>()
@@ -178,6 +181,10 @@ fun main() {
     CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
         delay(3000)
         koin.get<UpdateChecker>().checkForUpdate(manual = false, showDialogOnAutoFound = true)
+    }
+    // 拉起已启用的插件
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        koin.get<PluginRepository>().warmUp()
     }
     val settingsPreferences = koin.get<SettingsPreferences>()
     // 切换缓存目录后清掉旧目录；旧缓存超出当前上限时补一次淘汰

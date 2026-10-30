@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
@@ -50,6 +51,7 @@ class DesktopAppDependencies(
     val commonSettingsViewModel: CommonSettingsViewModel,
     val desktopSettingsViewModel: DesktopSettingsViewModel,
     val lxPluginSettingsViewModel: LxPluginSettingsViewModel,
+    val plugins: PluginRepository,
     val playbackController: DesktopPlaybackController,
     val downloader: DesktopSongDownloader,
     val desktopPreferences: DesktopPreferences,
