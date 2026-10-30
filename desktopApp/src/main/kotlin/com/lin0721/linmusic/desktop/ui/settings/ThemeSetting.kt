@@ -84,9 +84,7 @@ internal fun ThemeSetting(
     settings: ThemeSettings,
     onModeChange: (ThemeMode) -> Unit,
     onAccentChange: (isDark: Boolean, accentId: String) -> Unit,
-    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit,
-    // 皮肤锁定深浅时为锁定值，切换模式不会改变画面
-    lockedDark: Boolean? = null
+    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit
 ) {
     var pickerFor by remember { mutableStateOf<Boolean?>(null) }
     val darkAccent = ThemeAccents.resolve(settings.darkAccentId, settings.darkCustomHex, isDark = true)
@@ -100,7 +98,7 @@ internal fun ThemeSetting(
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ThemeMode.entries.forEach { mode ->
                 ModeCard(mode, darkAccent, lightAccent, selected = settings.mode == mode, onClick = { center ->
-                    val changes = lockedDark == null && mode.isDark(systemDark) != currentIsDark
+                    val changes = mode.isDark(systemDark) != currentIsDark
                     switcher.switch(center, changesTheme = changes) { onModeChange(mode) }
                 })
             }

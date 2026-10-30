@@ -93,9 +93,7 @@ fun ThemeSettingSection(
     settings: ThemeSettings,
     onModeChange: (ThemeMode) -> Unit,
     onAccentChange: (isDark: Boolean, accentId: String) -> Unit,
-    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit,
-    // 皮肤锁定深浅时为锁定值，切换模式不会改变画面
-    lockedDark: Boolean? = null
+    onCustomColorChange: (isDark: Boolean, hex: String) -> Unit
 ) {
     var pickerFor by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val darkDynamic = rememberDynamicAccent(isDark = true)
@@ -120,7 +118,7 @@ fun ThemeSettingSection(
                     lightAccent = lightAccent,
                     selected = settings.mode == mode,
                     onClick = { center ->
-                        val changes = lockedDark == null && mode.isDark(systemDark) != currentIsDark
+                        val changes = mode.isDark(systemDark) != currentIsDark
                         switcher.switch(center, changesTheme = changes) { onModeChange(mode) }
                     },
                     modifier = Modifier.weight(1f)

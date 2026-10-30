@@ -45,8 +45,7 @@ object SystemDarkTheme {
 }
 
 fun resolveDesktopPalette(settings: ThemeSettings, systemDark: Boolean, skin: Skin?): MelodiaPalette {
-    val requestedDark = settings.mode.isDark(systemDark)
-    val isDark = skin?.effectiveDark(requestedDark) ?: requestedDark
+    val isDark = settings.mode.isDark(systemDark)
     return resolveSkinPalette(isDark, settings.accentId(isDark), settings.customHex(isDark), skin)
 }
 

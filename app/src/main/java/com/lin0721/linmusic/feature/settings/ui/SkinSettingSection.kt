@@ -81,20 +81,25 @@ private val SkinCardShape = RoundedCornerShape(12.dp)
 private val SkinThumbShape = RoundedCornerShape(8.dp)
 private const val MAX_REPORT_LINES = 8
 
-// 皮肤设置：已安装皮肤横向卡片 + 导入导出；导入先在底部弹窗预览再确认
+// 皮肤设置：默认、预设与已安装皮肤横向卡片 + 导入导出；导入先在底部弹窗预览再确认
 @Composable
 fun SkinSettingSection(settings: ThemeSettings, repository: SkinRepository) {
     val controller = rememberSkinSettingsController(repository)
     val installed by controller.installed.collectAsState()
+    val presets by controller.presets.collectAsState()
     val context = LocalContext.current
-    val isDark = MelodiaColors.IsDark
     var deleteTarget by remember { mutableStateOf<Skin?>(null) }
-    val activeSkin = installed.firstOrNull { it.id == settings.skinId }
-    val switcher = rememberThemeSwitcher()
     val systemDark = isSystemInDarkTheme()
+    // 皮肤按深浅分槽位保存，只列出并修改当前生效模式的那一组
+    val isDark = settings.mode.isDark(systemDark)
+    val visiblePresets = presets.filter { it.supports(isDark) }
+    val visibleInstalled = installed.filter { it.supports(isDark) }
+    val skinId = settings.skinId(isDark)
+    val activeSkin = visiblePresets.firstOrNull { it.id == skinId } ?: visibleInstalled.firstOrNull { it.id == skinId }
+    val switcher = rememberThemeSwitcher()
     val switchTo: (Skin?, Offset) -> Unit = { target, center ->
         val changes = skinSwitchChangesTheme(settings, systemDark, activeSkin, target)
-        switcher.switch(center, changesTheme = changes) { controller.apply(target?.id ?: BUILTIN_SKIN_ID) }
+        switcher.switch(center, changesTheme = changes) { controller.apply(target?.id ?: BUILTIN_SKIN_ID, isDark) }
     }
 
     // 皮肤包扩展名不在系统 MIME 表里，只能放开类型由解包校验
@@ -132,7 +137,19 @@ fun SkinSettingSection(settings: ThemeSettings, repository: SkinRepository) {
                     onDelete = null
                 )
             }
-            items(installed, key = { it.id }) { skin ->
+            items(visiblePresets, key = { it.id }) { skin ->
+                SkinCard(
+                    name = skin.name,
+                    subtitle = "预设",
+                    skin = skin,
+                    settings = settings,
+                    isDark = isDark,
+                    selected = skin.id == activeSkin?.id,
+                    onClick = { center -> switchTo(skin, center) },
+                    onDelete = null
+                )
+            }
+            items(visibleInstalled, key = { it.id }) { skin ->
                 SkinCard(
                     name = skin.name,
                     subtitle = skin.author ?: "未署名",
@@ -172,7 +189,7 @@ fun SkinSettingSection(settings: ThemeSettings, repository: SkinRepository) {
             conflict = step.conflict,
             settings = settings,
             onCancel = controller::cancelImport,
-            onConfirm = controller::confirmImport
+            onConfirm = { replace -> controller.confirmImport(replace, isDark) }
         )
         is SkinImportStep.Failed -> AlertDialog(
             onDismissRequest = controller::dismissFailure,
@@ -228,7 +245,7 @@ private fun SkinCard(
         ) {
             Column(modifier = Modifier.padding(8.dp)) {
                 Box(modifier = Modifier.fillMaxWidth().height(SkinThumbHeight).clip(SkinThumbShape)) {
-                    SkinThumb(skin, settings, skin?.effectiveDark(isDark) ?: isDark, Modifier.fillMaxSize())
+                    SkinThumb(skin, settings, isDark, Modifier.fillMaxSize())
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -267,7 +284,6 @@ private fun SkinThumb(skin: Skin?, settings: ThemeSettings, isDark: Boolean, mod
 @Composable
 private fun SkinLockHints(skin: Skin, isDark: Boolean) {
     val hints = buildList {
-        if (skin.modes.size == 1) add("当前皮肤仅支持${if (SkinMode.DARK in skin.modes) "深色" else "浅色"}，深浅色设置暂不生效")
         if (PaletteToken.ACCENT in skin.colors(isDark)) add("当前皮肤指定了主色，选择自定义颜色可覆盖")
     }
     hints.forEach { Text(it, color = MelodiaColors.TextTertiary, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }
@@ -315,8 +331,8 @@ private fun SkinPreviewSheet(
                 add(
                     when {
                         skin.modes.size == 2 -> "支持深色与浅色"
-                        SkinMode.DARK in skin.modes -> "仅深色，使用期间固定为深色"
-                        else -> "仅浅色，使用期间固定为浅色"
+                        SkinMode.DARK in skin.modes -> "仅深色，只在深色模式下可选"
+                        else -> "仅浅色，只在浅色模式下可选"
                     }
                 )
                 if (skin.background != null) add("包含背景图")

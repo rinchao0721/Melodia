@@ -55,11 +55,7 @@ data class Skin(
 ) {
     fun colors(isDark: Boolean): Map<PaletteToken, Color> = if (isDark) darkColors else lightColors
 
-    // 只支持一种模式的皮肤锁定在该模式
-    fun effectiveDark(requestedDark: Boolean): Boolean = when {
-        modes.size != 1 -> requestedDark
-        else -> modes.first() == SkinMode.DARK
-    }
+    fun supports(isDark: Boolean): Boolean = (if (isDark) SkinMode.DARK else SkinMode.LIGHT) in modes
 
     fun assetFile(relativePath: String): File? = directory?.let { File(it, relativePath) }?.takeIf { it.isFile }
 }

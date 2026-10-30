@@ -36,6 +36,7 @@ class SkinSettingsController(
     private val scope: CoroutineScope
 ) {
     val installed: StateFlow<List<Skin>> = repository.installed
+    val presets: StateFlow<List<Skin>> = repository.presets
 
     var step: SkinImportStep by mutableStateOf(SkinImportStep.Idle)
         private set
@@ -75,11 +76,11 @@ class SkinSettingsController(
         }
     }
 
-    fun confirmImport(replace: Boolean) {
+    fun confirmImport(replace: Boolean, isDark: Boolean) {
         val preview = step as? SkinImportStep.Preview ?: return
         scope.launch {
             step = SkinImportStep.Working
-            val skin = repository.installAndApply(preview.staged, replace)
+            val skin = repository.installAndApply(preview.staged, replace, isDark)
             step = if (skin == null) SkinImportStep.Failed("安装皮肤失败") else SkinImportStep.Idle
         }
     }
@@ -94,8 +95,8 @@ class SkinSettingsController(
         if (step is SkinImportStep.Failed) step = SkinImportStep.Idle
     }
 
-    fun apply(id: String) {
-        scope.launch { repository.apply(id) }
+    fun apply(id: String, isDark: Boolean) {
+        scope.launch { repository.apply(id, isDark) }
     }
 
     fun delete(id: String) {

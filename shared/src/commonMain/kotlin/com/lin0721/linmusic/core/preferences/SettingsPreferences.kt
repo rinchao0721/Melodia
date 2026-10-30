@@ -100,7 +100,10 @@ class SettingsPreferences(
         private val KEY_THEME_LIGHT_ACCENT = stringPreferencesKey("theme_light_accent")
         private val KEY_THEME_DARK_CUSTOM_COLOR = stringPreferencesKey("theme_dark_custom_color")
         private val KEY_THEME_LIGHT_CUSTOM_COLOR = stringPreferencesKey("theme_light_custom_color")
-        private val KEY_THEME_SKIN = stringPreferencesKey("theme_skin")
+        // 旧版深浅共用的皮肤，首次按模式保存时拆到两个槽位
+        private val KEY_THEME_SKIN_LEGACY = stringPreferencesKey("theme_skin")
+        private val KEY_THEME_SKIN_DARK = stringPreferencesKey("theme_skin_dark")
+        private val KEY_THEME_SKIN_LIGHT = stringPreferencesKey("theme_skin_light")
         const val PLAYER_PAGE_MODE_AUTO = "auto"
         const val PLAYER_PAGE_MODE_FULLSCREEN = "fullscreen"
         const val PLAYER_PAGE_MODE_SIDE = "side"
@@ -564,13 +567,19 @@ class SettingsPreferences(
             lightAccentId = prefs[KEY_THEME_LIGHT_ACCENT] ?: ThemeAccents.DEFAULT_ID,
             darkCustomHex = prefs[KEY_THEME_DARK_CUSTOM_COLOR],
             lightCustomHex = prefs[KEY_THEME_LIGHT_CUSTOM_COLOR],
-            skinId = prefs[KEY_THEME_SKIN] ?: BUILTIN_SKIN_ID
+            darkSkinId = prefs[KEY_THEME_SKIN_DARK] ?: prefs[KEY_THEME_SKIN_LEGACY] ?: BUILTIN_SKIN_ID,
+            lightSkinId = prefs[KEY_THEME_SKIN_LIGHT] ?: prefs[KEY_THEME_SKIN_LEGACY] ?: BUILTIN_SKIN_ID
         )
     }.distinctUntilChanged()
 
-    suspend fun saveThemeSkin(skinId: String) {
+    suspend fun saveThemeSkin(isDark: Boolean, skinId: String) {
         dataStore.edit { prefs ->
-            prefs[KEY_THEME_SKIN] = skinId
+            prefs[KEY_THEME_SKIN_LEGACY]?.let { legacy ->
+                if (prefs[KEY_THEME_SKIN_DARK] == null) prefs[KEY_THEME_SKIN_DARK] = legacy
+                if (prefs[KEY_THEME_SKIN_LIGHT] == null) prefs[KEY_THEME_SKIN_LIGHT] = legacy
+                prefs.remove(KEY_THEME_SKIN_LEGACY)
+            }
+            prefs[if (isDark) KEY_THEME_SKIN_DARK else KEY_THEME_SKIN_LIGHT] = skinId
         }
     }
 

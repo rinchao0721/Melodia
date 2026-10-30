@@ -115,8 +115,7 @@ fun MelodiaPalette.withBackdrop(background: SkinBackground?): MelodiaPalette =
 // 切换皮肤后画面是否会变：色板或背景图有变化才走切换动画，否则扩散动画等不到新主题
 fun skinSwitchChangesTheme(settings: ThemeSettings, systemDark: Boolean, current: Skin?, target: Skin?): Boolean {
     fun paletteOf(skin: Skin?): MelodiaPalette {
-        val requested = settings.mode.isDark(systemDark)
-        val isDark = skin?.effectiveDark(requested) ?: requested
+        val isDark = settings.mode.isDark(systemDark)
         return resolveSkinPalette(isDark, settings.accentId(isDark), settings.customHex(isDark), skin)
     }
     if (current?.id == target?.id) return false

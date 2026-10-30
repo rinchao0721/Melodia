@@ -22,7 +22,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
-import com.lin0721.linmusic.core.ui.skin.SkinMode
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -56,7 +55,6 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
     val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
-    val activeSkin by viewModel.skins.activeSkin.collectAsStateWithLifecycle(initialValue = null)
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
 
@@ -159,7 +157,6 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                         onModeChange = viewModel::updateThemeMode,
                         onAccentChange = viewModel::updateThemeAccent,
                         onCustomColorChange = viewModel::updateThemeCustomColor,
-                        lockedDark = activeSkin?.takeIf { it.modes.size == 1 }?.let { SkinMode.DARK in it.modes }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SkinSettingSection(settings = themeSettings, repository = viewModel.skins)

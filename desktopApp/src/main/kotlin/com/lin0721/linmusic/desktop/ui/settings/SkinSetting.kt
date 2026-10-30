@@ -75,21 +75,26 @@ private val SkinThumbHeight = 76.dp
 private val SkinCardShape = RoundedCornerShape(10.dp)
 private val SkinThumbShape = RoundedCornerShape(6.dp)
 
-// 皮肤设置：已安装皮肤卡片 + 导入导出；导入先预览再确认
+// 皮肤设置：默认、预设与已安装皮肤卡片 + 导入导出；导入先预览再确认
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SkinSetting(settings: ThemeSettings, repository: SkinRepository) {
     val controller = rememberSkinSettingsController(repository)
     val installed by controller.installed.collectAsState()
+    val presets by controller.presets.collectAsState()
     val navigator = LocalDesktopNavigator.current
-    val isDark = DesktopColors.IsDark
     var deleteTarget by remember { mutableStateOf<Skin?>(null) }
-    val activeSkin = installed.firstOrNull { it.id == settings.skinId }
-    val switcher = rememberThemeSwitcher()
     val systemDark by SystemDarkTheme.isDark.collectAsState()
+    // 皮肤按深浅分槽位保存，只列出并修改当前生效模式的那一组
+    val isDark = settings.mode.isDark(systemDark)
+    val visiblePresets = presets.filter { it.supports(isDark) }
+    val visibleInstalled = installed.filter { it.supports(isDark) }
+    val skinId = settings.skinId(isDark)
+    val activeSkin = visiblePresets.firstOrNull { it.id == skinId } ?: visibleInstalled.firstOrNull { it.id == skinId }
+    val switcher = rememberThemeSwitcher()
     val switchTo: (Skin?, Offset) -> Unit = { target, center ->
         val changes = skinSwitchChangesTheme(settings, systemDark, activeSkin, target)
-        switcher.switch(center, changesTheme = changes) { controller.apply(target?.id ?: BUILTIN_SKIN_ID) }
+        switcher.switch(center, changesTheme = changes) { controller.apply(target?.id ?: BUILTIN_SKIN_ID, isDark) }
     }
 
     LaunchedEffect(repository) { controller.refresh() }
@@ -114,11 +119,23 @@ internal fun SkinSetting(settings: ThemeSettings, repository: SkinRepository) {
                 skin = null,
                 settings = settings,
                 isDark = isDark,
-                selected = settings.skinId == BUILTIN_SKIN_ID || activeSkin == null,
+                selected = activeSkin == null,
                 onClick = { center -> switchTo(null, center) },
                 onDelete = null
             )
-            installed.forEach { skin ->
+            visiblePresets.forEach { skin ->
+                SkinCard(
+                    name = skin.name,
+                    subtitle = "预设",
+                    skin = skin,
+                    settings = settings,
+                    isDark = isDark,
+                    selected = skin.id == activeSkin?.id,
+                    onClick = { center -> switchTo(skin, center) },
+                    onDelete = null
+                )
+            }
+            visibleInstalled.forEach { skin ->
                 SkinCard(
                     name = skin.name,
                     subtitle = skin.author ?: "未署名",
@@ -155,7 +172,7 @@ internal fun SkinSetting(settings: ThemeSettings, repository: SkinRepository) {
             conflict = step.conflict,
             settings = settings,
             onCancel = controller::cancelImport,
-            onConfirm = controller::confirmImport
+            onConfirm = { replace -> controller.confirmImport(replace, isDark) }
         )
         is SkinImportStep.Failed -> DesktopDialog(
             title = "无法导入皮肤",
@@ -210,7 +227,7 @@ private fun SkinCard(
         ) {
             Column(Modifier.padding(8.dp)) {
                 Box(Modifier.fillMaxWidth().height(SkinThumbHeight).clip(SkinThumbShape)) {
-                    SkinThumb(skin, settings, skin?.effectiveDark(isDark) ?: isDark, Modifier.fillMaxSize())
+                    SkinThumb(skin, settings, isDark, Modifier.fillMaxSize())
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -283,7 +300,7 @@ private fun SkinPreviewDialog(
             }
         }
         val features = buildList {
-            add(if (skin.modes.size == 2) "支持深色与浅色" else if (SkinMode.DARK in skin.modes) "仅深色，使用期间固定为深色" else "仅浅色，使用期间固定为浅色")
+            add(if (skin.modes.size == 2) "支持深色与浅色" else if (SkinMode.DARK in skin.modes) "仅深色，只在深色模式下可选" else "仅浅色，只在浅色模式下可选")
             if (skin.background != null) add("包含背景图")
             if (skin.layouts != null) add("包含播放器布局（后续版本生效）")
             coverSummary(skin)?.let(::add)
@@ -322,7 +339,6 @@ private fun ReportLines(lines: List<String>) {
 @Composable
 private fun SkinLockHints(skin: Skin, isDark: Boolean) {
     val hints = buildList {
-        if (skin.modes.size == 1) add("当前皮肤仅支持${if (SkinMode.DARK in skin.modes) "深色" else "浅色"}，深浅色设置暂不生效")
         if (PaletteToken.ACCENT in skin.colors(isDark)) add("当前皮肤指定了主色，选择自定义颜色可覆盖")
     }
     hints.forEach { Text(it, color = DesktopColors.TextTertiary, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }

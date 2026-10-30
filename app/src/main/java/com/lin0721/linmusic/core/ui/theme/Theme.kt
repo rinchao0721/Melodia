@@ -149,8 +149,7 @@ private fun ColorScheme.withLightContainers(palette: MelodiaPalette): ColorSchem
 
 @Composable
 fun rememberMelodiaPalette(themeSettings: ThemeSettings, skin: Skin?): MelodiaPalette {
-    val requestedDark = themeSettings.mode.isDark(isSystemInDarkTheme())
-    val isDark = skin?.effectiveDark(requestedDark) ?: requestedDark
+    val isDark = themeSettings.mode.isDark(isSystemInDarkTheme())
     val accentId = themeSettings.accentId(isDark)
     val customHex = themeSettings.customHex(isDark)
     val context = LocalContext.current

@@ -221,7 +221,9 @@ fun main() {
     if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
     val skinRepository = koin.get<SkinRepository>()
     val skinImageCodec = koin.get<SkinImageCodec>()
-    val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId) } }.getOrNull()
+    val initialDark = initialThemeSettings.mode.isDark(SystemDarkTheme.isDark.value)
+    skinRepository.updateSystemDark(SystemDarkTheme.isDark.value)
+    val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId(initialDark), initialDark) } }.getOrNull()
     val restoredBounds = savedWindow.bounds
     val restoredPosition = restoredBounds?.takeIf { it.isReachableOn(currentScreenBounds()) }
     // 附属窗口每次打开都取最新保存的状态；显示器布局变化后够不着的位置交给默认值
@@ -268,6 +270,8 @@ fun main() {
         val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = initialUiAnimationsEnabled)
         val uiMotion = remember { UiMotion(initialUiAnimationsEnabled) }
         val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
+        val systemDark by SystemDarkTheme.isDark.collectAsState()
+        LaunchedEffect(systemDark) { skinRepository.updateSystemDark(systemDark) }
         val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
         val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
         val skin = activeSkin.skin

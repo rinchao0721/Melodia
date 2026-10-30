@@ -53,7 +53,6 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.UiScale
-import com.lin0721.linmusic.core.ui.skin.SkinMode
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.update.data.UpdateRepository
 import com.lin0721.linmusic.desktop.app.AppInfo
@@ -389,7 +388,6 @@ internal fun settingsEntries(
     val uiScalePercent by common.uiScalePercent.collectAsState()
     val uiAnimationsEnabled by common.uiAnimationsEnabled.collectAsState()
     val themeSettings by common.themeSettings.collectAsState()
-    val activeSkin by common.skins.activeSkin.collectAsState(initial = null)
     val downloadFolder by common.downloadFolderUri.collectAsState()
     val downloadLyrics by common.downloadLyricsEnabled.collectAsState()
     val localData by localLibrary.data.collectAsState()
@@ -685,7 +683,6 @@ internal fun settingsEntries(
                     onModeChange = common::updateThemeMode,
                     onAccentChange = common::updateThemeAccent,
                     onCustomColorChange = common::updateThemeCustomColor,
-                    lockedDark = activeSkin?.takeIf { it.modes.size == 1 }?.let { SkinMode.DARK in it.modes }
                 )
             }
         )

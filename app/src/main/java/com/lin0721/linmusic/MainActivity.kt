@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
@@ -110,10 +111,15 @@ class MainActivity : ComponentActivity() {
         val initialThemeSettings = runCatching {
             runBlocking { settingsPreferences.themeSettings.first() }
         }.getOrDefault(ThemeSettings())
-        val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId) } }.getOrNull()
+        val initialSystemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val initialDark = initialThemeSettings.mode.isDark(initialSystemDark)
+        skinRepository.updateSystemDark(initialSystemDark)
+        val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId(initialDark), initialDark) } }.getOrNull()
 
         setContent {
             val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
+            val systemDark = isSystemInDarkTheme()
+            LaunchedEffect(systemDark) { skinRepository.updateSystemDark(systemDark) }
             val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
             val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
             val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = true)

@@ -1,0 +1,7 @@
+# 预设皮肤：id 版本；改动皮肤包时同步提升版本号，已解压的旧版本才会被替换
+melodia-paper 1
+melodia-sakura 1
+melodia-terminal 1
+melodia-forest 1
+melodia-mono 1
+melodia-mint 1

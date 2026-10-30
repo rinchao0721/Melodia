@@ -24,8 +24,12 @@ import java.util.UUID
 private const val TAG = "SkinStore"
 private const val STALE_STAGING_MS = 60 * 60 * 1000L
 
-// 已安装皮肤按 id 各占一个目录；导入先解到 .staging，用户确认后再移入
-class SkinStore(private val root: File, private val codec: SkinImageCodec? = null) {
+// 已安装皮肤按 id 各占一个目录；导入先解到 .staging，用户确认后再移入；预设解到 .presets，与已安装互不覆盖
+class SkinStore(
+    private val root: File,
+    private val codec: SkinImageCodec? = null,
+    val presets: SkinPresets = SkinPresets(File(root, ".presets"), codec)
+) {
 
     private val stagingRoot = File(root, ".staging")
     private val idPattern = Regex("^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -39,9 +43,10 @@ class SkinStore(private val root: File, private val codec: SkinImageCodec? = nul
 
     fun isInstalled(id: String): Boolean = directoryOf(id)?.isDirectory == true
 
-    // replace 为 false 且 id 已存在时另存为 id-2、id-3…
+    // replace 为 false 且 id 已存在时另存为 id-2、id-3…；与预设同 id 时总是另存
     fun install(staged: StagedSkin, replace: Boolean): Skin? {
-        val id = if (replace || !isInstalled(staged.skin.id)) staged.skin.id else nextFreeId(staged.skin.id)
+        val reserved = presets.isPreset(staged.skin.id)
+        val id = if (!reserved && (replace || !isInstalled(staged.skin.id))) staged.skin.id else nextFreeId(staged.skin.id)
         val target = directoryOf(id) ?: return null
         return try {
             if (id != staged.skin.id) {
@@ -78,6 +83,7 @@ class SkinStore(private val root: File, private val codec: SkinImageCodec? = nul
     }
 
     fun load(id: String): Skin? {
+        if (presets.isPreset(id)) return presets.load(id)
         val directory = directoryOf(id)?.takeIf { it.isDirectory } ?: return null
         val manifest = SkinPackage.readManifest(File(directory, SkinPaths.MANIFEST)) ?: return null
         return when (val result = SkinParser.parse(manifest, directory)) {
@@ -89,7 +95,7 @@ class SkinStore(private val root: File, private val codec: SkinImageCodec? = nul
         }
     }
 
-    fun delete(id: String): Boolean = directoryOf(id)?.deleteRecursively() ?: false
+    fun delete(id: String): Boolean = if (presets.isPreset(id)) false else directoryOf(id)?.deleteRecursively() ?: false
 
     // id 来自偏好设置与皮肤文件，拼路径前先校验，防止越出皮肤目录
     private fun directoryOf(id: String): File? =
@@ -105,7 +111,7 @@ class SkinStore(private val root: File, private val codec: SkinImageCodec? = nul
     }
 }
 
-// 当前生效的皮肤与皮肤管理：跟随设置里的 skinId，找不到或解析失败时为 null 即内置主题
+// 当前生效的皮肤与皮肤管理：按当前深浅取对应槽位的皮肤，找不到、解析失败或不支持该模式时为 null 即内置主题
 class SkinRepository(
     private val store: SkinStore,
     private val settingsPreferences: SettingsPreferences
@@ -116,20 +122,39 @@ class SkinRepository(
     private val _installed = MutableStateFlow<List<Skin>>(emptyList())
     val installed: StateFlow<List<Skin>> = _installed.asStateFlow()
 
+    private val _presets = MutableStateFlow<List<Skin>>(emptyList())
+    val presets: StateFlow<List<Skin>> = _presets.asStateFlow()
+
+    // 跟随系统时用于判定当前槽位，由平台层同步系统深浅色
+    private val systemDark = MutableStateFlow(true)
+
     val activeSkin: Flow<Skin?> = combine(
-        settingsPreferences.themeSettings.map { it.skinId }.distinctUntilChanged(),
+        settingsPreferences.themeSettings,
+        systemDark,
         revision
-    ) { id, _ -> store.load(id) }
+    ) { settings, system, _ ->
+        val isDark = settings.mode.isDark(system)
+        settings.skinId(isDark) to isDark
+    }
+        .distinctUntilChanged()
+        .map { (id, isDark) -> store.load(id)?.takeIf { it.supports(isDark) } }
         .flowOn(Dispatchers.IO)
+
+    fun updateSystemDark(dark: Boolean) {
+        systemDark.value = dark
+    }
 
     fun invalidate() {
         revision.update { it + 1 }
     }
 
-    suspend fun load(id: String): Skin? = withContext(Dispatchers.IO) { store.load(id) }
+    suspend fun load(id: String, isDark: Boolean): Skin? = withContext(Dispatchers.IO) { store.load(id)?.takeIf { it.supports(isDark) } }
 
     suspend fun refreshInstalled() {
-        _installed.value = withContext(Dispatchers.IO) { store.list() }
+        withContext(Dispatchers.IO) {
+            _presets.value = store.presets.list()
+            _installed.value = store.list()
+        }
     }
 
     // 调用方负责打开输入流，这里读完即关闭
@@ -139,22 +164,26 @@ class SkinRepository(
 
     suspend fun discard(staged: StagedSkin) = withContext(Dispatchers.IO) { store.discard(staged) }
 
-    // 安装后立即应用；失败返回 null
-    suspend fun installAndApply(staged: StagedSkin, replace: Boolean): Skin? {
+    // 安装后应用到当前模式，皮肤不支持当前模式时只安装；失败返回 null
+    suspend fun installAndApply(staged: StagedSkin, replace: Boolean, isDark: Boolean): Skin? {
         val skin = withContext(Dispatchers.IO) { store.install(staged, replace) } ?: return null
-        settingsPreferences.saveThemeSkin(skin.id)
+        if (skin.supports(isDark)) settingsPreferences.saveThemeSkin(isDark, skin.id)
         invalidate()
         refreshInstalled()
         return skin
     }
 
-    suspend fun apply(id: String) {
-        settingsPreferences.saveThemeSkin(id)
+    suspend fun apply(id: String, isDark: Boolean) {
+        settingsPreferences.saveThemeSkin(isDark, id)
     }
 
-    // 删除正在使用的皮肤时先退回内置主题
+    fun isPreset(id: String): Boolean = store.presets.isPreset(id)
+
+    // 删除正在使用的皮肤时先退回内置主题；预设不可删除
     suspend fun delete(id: String) {
-        if (settingsPreferences.themeSettings.first().skinId == id) settingsPreferences.saveThemeSkin(BUILTIN_SKIN_ID)
+        if (isPreset(id)) return
+        val settings = settingsPreferences.themeSettings.first()
+        listOf(true, false).filter { settings.skinId(it) == id }.forEach { settingsPreferences.saveThemeSkin(it, BUILTIN_SKIN_ID) }
         withContext(Dispatchers.IO) { store.delete(id) }
         refreshInstalled()
     }

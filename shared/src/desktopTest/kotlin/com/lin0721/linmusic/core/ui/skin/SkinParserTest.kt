@@ -110,11 +110,13 @@ class SkinParserTest {
     }
 
     @Test
-    fun `只支持一种模式时锁定该模式`() {
+    fun `按 modes 判断支持的深浅模式`() {
         val skin = success("""{"format":1,"id":"a","name":"b","modes":["light"]}""").skin
-        assertFalse(skin.effectiveDark(requestedDark = true))
+        assertFalse(skin.supports(isDark = true))
+        assertTrue(skin.supports(isDark = false))
         val both = success("""{"format":1,"id":"a","name":"b","modes":["dark","light"]}""").skin
-        assertTrue(both.effectiveDark(requestedDark = true))
+        assertTrue(both.supports(isDark = true))
+        assertTrue(both.supports(isDark = false))
     }
 
     @Test

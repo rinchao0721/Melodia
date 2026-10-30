@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.unit.IntSize
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.contrastRatio
@@ -46,11 +49,11 @@ class SkinBackdropTest {
         root.deleteRecursively()
     }
 
-    private fun skinZip(id: String = "bg", extra: String = ""): ByteArray {
+    private fun skinZip(id: String = "bg", extra: String = "", modes: String = """["dark","light"]"""): ByteArray {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             zip.putNextEntry(ZipEntry(SkinPaths.MANIFEST))
-            zip.write("""{"format":1,"id":"$id","name":"背景","background":{"image":"assets/bg.jpg"$extra}}""".toByteArray())
+            zip.write("""{"format":1,"id":"$id","name":"背景","modes":$modes,"background":{"image":"assets/bg.jpg"$extra}}""".toByteArray())
             zip.closeEntry()
             zip.putNextEntry(ZipEntry("assets/bg.jpg"))
             zip.write(ByteArray(8))
@@ -116,18 +119,62 @@ class SkinBackdropTest {
     }
 
     @Test
-    fun `安装即应用，删除当前皮肤回到默认`() = runBlocking {
+    fun `安装应用到当前模式，删除后该模式回到默认`() = runBlocking {
         val settings = SettingsPreferences(PreferencesStores.get(File(root, "settings.preferences_pb")))
         val repository = SkinRepository(SkinStore(File(root, "skins")), settings)
         val staged = (repository.stage(ByteArrayInputStream(skinZip(id = "night"))) as SkinStageResult.Success).staged
-        val installed = repository.installAndApply(staged, replace = false)
+        val installed = repository.installAndApply(staged, replace = false, isDark = true)
         assertEquals("night", installed?.id)
-        assertEquals("night", settings.themeSettings.first().skinId)
+        assertEquals("night", settings.themeSettings.first().darkSkinId)
+        assertEquals(BUILTIN_SKIN_ID, settings.themeSettings.first().lightSkinId)
         assertEquals(listOf("night"), repository.installed.value.map { it.id })
 
         repository.delete("night")
-        assertEquals(BUILTIN_SKIN_ID, settings.themeSettings.first().skinId)
+        assertEquals(BUILTIN_SKIN_ID, settings.themeSettings.first().darkSkinId)
         assertTrue(repository.installed.value.isEmpty())
-        assertNull(repository.load("night"))
+        assertNull(repository.load("night", isDark = true))
+    }
+
+    @Test
+    fun `深浅两个槽位各自生效`() = runBlocking {
+        val settings = SettingsPreferences(PreferencesStores.get(File(root, "settings.preferences_pb")))
+        val repository = SkinRepository(SkinStore(File(root, "skins")), settings)
+        listOf("night" to """["dark"]""", "paper" to """["light"]""").forEach { (id, modes) ->
+            val staged = (repository.stage(ByteArrayInputStream(skinZip(id = id, modes = modes))) as SkinStageResult.Success).staged
+            repository.installAndApply(staged, replace = false, isDark = id == "night")
+        }
+        settings.saveThemeMode(ThemeMode.DARK)
+        assertEquals("night", repository.activeSkin.first()?.id)
+        settings.saveThemeMode(ThemeMode.LIGHT)
+        assertEquals("paper", repository.activeSkin.first()?.id)
+        settings.saveThemeMode(ThemeMode.SYSTEM)
+        repository.updateSystemDark(true)
+        assertEquals("night", repository.activeSkin.first()?.id)
+    }
+
+    @Test
+    fun `不支持当前模式的皮肤只安装不应用`() = runBlocking {
+        val settings = SettingsPreferences(PreferencesStores.get(File(root, "settings.preferences_pb")))
+        val repository = SkinRepository(SkinStore(File(root, "skins")), settings)
+        val staged = (repository.stage(ByteArrayInputStream(skinZip(id = "paper", modes = """["light"]"""))) as SkinStageResult.Success).staged
+        assertEquals("paper", repository.installAndApply(staged, replace = false, isDark = true)?.id)
+        assertEquals(BUILTIN_SKIN_ID, settings.themeSettings.first().darkSkinId)
+        assertNull(repository.load("paper", isDark = true))
+    }
+
+    @Test
+    fun `旧版共用皮肤按支持的模式归位`() = runBlocking {
+        val store = PreferencesStores.get(File(root, "settings.preferences_pb"))
+        store.edit { it[stringPreferencesKey("theme_skin")] = "paper" }
+        val settings = SettingsPreferences(store)
+        val repository = SkinRepository(SkinStore(File(root, "skins")), settings)
+        val staged = (repository.stage(ByteArrayInputStream(skinZip(id = "paper", modes = """["light"]"""))) as SkinStageResult.Success).staged
+        repository.installAndApply(staged, replace = false, isDark = false)
+        assertNull(repository.load(settings.themeSettings.first().darkSkinId, isDark = true))
+        assertEquals("paper", repository.load(settings.themeSettings.first().lightSkinId, isDark = false)?.id)
+
+        settings.saveThemeSkin(isDark = false, BUILTIN_SKIN_ID)
+        assertEquals("paper", settings.themeSettings.first().darkSkinId)
+        assertEquals(BUILTIN_SKIN_ID, settings.themeSettings.first().lightSkinId)
     }
 }
