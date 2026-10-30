@@ -28,8 +28,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-// 启用的三源同时查询：首个有效结果立即发出，其后每 250ms 按最新快照择优，保留最后一批结果。
-enum class LyricsSource { AMLL, NETEASE, LOCAL, QQ }
+// 启用的各源同时查询：首个有效结果立即发出，其后每 250ms 按最新快照择优，保留最后一批结果。
+enum class LyricsSource { AMLL, NETEASE, LOCAL, QQ, PLUGIN }
 
 data class ResolvedLyrics(val lines: List<LyricLine>, val source: LyricsSource)
 
@@ -48,12 +48,16 @@ class LyricsResolver(
     // 外部平台歌曲：从播放队列找回歌曲信息，QQ 按自身信息查，网易与 AMLL 先匹配网易云上的同一首
     private val externalOf: (songId: Long) -> ExternalTrack? = { null },
     private val matchNeteaseId: suspend (ExternalTrack) -> Long? = { null },
-    private val readExternalQqLyrics: suspend (ExternalTrack) -> List<LyricLine> = { emptyList() }
+    private val readExternalQqLyrics: suspend (ExternalTrack) -> List<LyricLine> = { emptyList() },
+    // 插件歌词源：没有可用插件时不查询；外部歌曲带上自身信息，网易歌曲由实现方自行补全
+    private val hasPluginLyrics: () -> Boolean = { false },
+    private val readPluginLyrics: suspend (songId: Long, external: ExternalTrack?) -> List<LyricLine> = { _, _ -> emptyList() }
 ) {
 
     private companion object {
         const val AMLL_TIMEOUT_MS = 6000L
         const val QQ_TIMEOUT_MS = 8000L
+        const val PLUGIN_TIMEOUT_MS = 10000L
         const val UPDATE_INTERVAL_MS = 250L
     }
 
@@ -99,6 +103,7 @@ class LyricsResolver(
         data class Netease(val result: Result<List<LyricLine>>) : SourceUpdate
         data class Amll(val lines: List<LyricLine>) : SourceUpdate
         data class Qq(val lines: List<LyricLine>) : SourceUpdate
+        data class Plugin(val lines: List<LyricLine>) : SourceUpdate
         data class Cancelled(val source: LyricsSource, val exception: CancellationException) : SourceUpdate
         data object Tick : SourceUpdate
     }
@@ -117,7 +122,7 @@ class LyricsResolver(
     }
 
     private fun onlineLyricsFor(songId: Long): Flow<Result<ResolvedLyrics>> =
-        onlineLyrics(songId, neteaseId = songId, matchNetease = null, readQq = { readQqLyrics(songId) })
+        onlineLyrics(songId, neteaseId = songId, matchNetease = null, readQq = { readQqLyrics(songId) }, external = null)
 
     private fun externalLyricsFor(songId: Long, track: ExternalTrack): Flow<Result<ResolvedLyrics>> =
         onlineLyrics(
@@ -139,7 +144,8 @@ class LyricsResolver(
                 readExternalQqLyrics(track).also {
                     AppLogger.i("LyricsResolver", "外部歌曲《${track.name}》QQ 歌词 ${it.size} 行 时长=${track.durationMs}")
                 }
-            }
+            },
+            external = track
         )
 
     // 已知网易 id 时直接查，不多一次挂起；需要匹配时网易与 AMLL 共享同一次匹配，匹配不到按无歌词处理，不算失败
@@ -147,13 +153,15 @@ class LyricsResolver(
         songId: Long,
         neteaseId: Long?,
         matchNetease: (suspend () -> Long?)?,
-        readQq: suspend () -> List<LyricLine>
+        readQq: suspend () -> List<LyricLine>,
+        external: ExternalTrack?
     ): Flow<Result<ResolvedLyrics>> = flow {
         coroutineScope {
             val amllEnabled = isAmllEnabled()
             val qqEnabled = isQqEnabled()
             val neteaseEnabled = isNeteaseEnabled()
-            val state = LyricsSourceState(amllEnabled, qqEnabled, neteaseEnabled)
+            val pluginEnabled = hasPluginLyrics()
+            val state = LyricsSourceState(amllEnabled, qqEnabled, neteaseEnabled, pluginEnabled)
             // 所有来源都关闭时没有可等待的查询，直接交出空结果
             if (state.isFinished) {
                 emit(state.candidate())
@@ -175,6 +183,7 @@ class LyricsResolver(
                 }.also { jobs += it }
             } else null
             if (qqEnabled) jobs += query(LyricsSource.QQ, updates) { SourceUpdate.Qq(fetchQqLines(readQq)) }
+            if (pluginEnabled) jobs += query(LyricsSource.PLUGIN, updates) { SourceUpdate.Plugin(fetchPluginLines(songId, external)) }
             val ticker = launch {
                 while (isActive) {
                     delay(UPDATE_INTERVAL_MS)
@@ -203,6 +212,7 @@ class LyricsResolver(
                         is SourceUpdate.Netease -> state.onNetease(update.result)
                         is SourceUpdate.Amll -> state.onAmll(update.lines)
                         is SourceUpdate.Qq -> state.onQq(update.lines)
+                        is SourceUpdate.Plugin -> state.onPlugin(update.lines)
                         is SourceUpdate.Cancelled -> if (!state.isOwnAmllCancellation(update.source)) throw update.exception
                         SourceUpdate.Tick -> if (state.dirty) publish()
                     }
@@ -223,6 +233,14 @@ class LyricsResolver(
 
     private suspend fun fetchQqLines(readQq: suspend () -> List<LyricLine>): List<LyricLine> = try {
         withTimeoutOrNull(QQ_TIMEOUT_MS) { readQq() }.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private suspend fun fetchPluginLines(songId: Long, external: ExternalTrack?): List<LyricLine> = try {
+        withTimeoutOrNull(PLUGIN_TIMEOUT_MS) { readPluginLyrics(songId, external) }.orEmpty()
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {

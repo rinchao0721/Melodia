@@ -163,9 +163,6 @@ fun pluginPendingFeatures(manifest: PluginManifest): String? {
     val pending = buildList {
         if (contributes.playerLayouts.isNotEmpty()) add("播放器布局")
         if (contributes.pages.isNotEmpty()) add("页面")
-        if (contributes.audioSources.isNotEmpty()) add("音源")
-        if (contributes.lyricsSources.isNotEmpty()) add("歌词源")
-        if (contributes.events.isNotEmpty()) add("播放事件")
     }
     return pending.takeIf { it.isNotEmpty() }?.joinToString("、", postfix = "将在后续版本生效")
 }

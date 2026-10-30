@@ -18,7 +18,8 @@ private const val TAG = "PluginRepository"
 class PluginRepository(
     private val store: PluginStore,
     private val runtime: PluginRuntime,
-    private val api: PluginHostApi
+    private val api: PluginHostApi,
+    private val events: PluginEventDispatcher? = null
 ) {
     private val refreshLock = Mutex()
     private val _installed = MutableStateFlow<List<InstalledPlugin>>(emptyList())
@@ -29,8 +30,11 @@ class PluginRepository(
         runtime.setFailureHandler(::disableForErrors)
     }
 
-    // 启动时调用一次，拉起已启用插件
-    suspend fun warmUp() = refresh()
+    // 启动时调用一次，拉起已启用插件并开始分发播放事件
+    suspend fun warmUp() {
+        refresh()
+        events?.start()
+    }
 
     suspend fun refresh() = refreshLock.withLock {
         val plugins = withContext(Dispatchers.IO) { store.list() }

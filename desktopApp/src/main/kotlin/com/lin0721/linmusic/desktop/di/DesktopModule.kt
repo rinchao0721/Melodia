@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.di
 
+import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -222,6 +223,7 @@ val desktopPlatformModule = module {
         val qqLyricsSource = get<QqLyricsSource>()
         val localLibrary = get<LocalLibraryRepository>()
         val neteaseLookup = get<NeteaseSongLookup>()
+        val pluginLyrics = get<PluginLyricsSource>()
         // 播放器创建时不依赖歌词，延迟到查询时再取，避免组装顺序问题
         val queueOf = { get<PlaybackController>().queue.value }
         LyricsResolver(
@@ -235,7 +237,9 @@ val desktopPlatformModule = module {
             readQqLyrics = qqLyricsSource::fetch,
             externalOf = { songId -> queueOf().firstOrNull { it.songId == songId }?.external },
             matchNeteaseId = neteaseLookup::find,
-            readExternalQqLyrics = qqLyricsSource::fetch
+            readExternalQqLyrics = qqLyricsSource::fetch,
+            hasPluginLyrics = pluginLyrics::hasSources,
+            readPluginLyrics = pluginLyrics::fetch
         )
     }
 }

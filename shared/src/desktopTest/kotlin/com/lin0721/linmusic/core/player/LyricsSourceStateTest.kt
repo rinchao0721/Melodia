@@ -88,4 +88,19 @@ class LyricsSourceStateTest {
         state.markPublished()
         assertFalse(state.dirty)
     }
+
+    @Test fun pluginLyricsAreLowestPriorityAndKeepStateOpenUntilReturned() {
+        val pluginLines = listOf(LyricLine(2000, 1000, "插件歌词"))
+        val state = LyricsSourceState(amllEnabled = false, qqEnabled = false, pluginEnabled = true)
+        state.onNetease(Result.success(emptyList()))
+        assertFalse(state.isFinished)
+        state.onPlugin(pluginLines)
+        assertTrue(state.isFinished)
+        assertEquals(LyricsSource.PLUGIN, state.candidate().getOrNull()?.source)
+
+        val withNetease = LyricsSourceState(amllEnabled = false, qqEnabled = false, pluginEnabled = true)
+        withNetease.onNetease(Result.success(plain))
+        withNetease.onPlugin(pluginLines)
+        assertEquals(LyricsSource.NETEASE, withNetease.candidate().getOrNull()?.source)
+    }
 }

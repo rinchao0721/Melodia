@@ -1,6 +1,10 @@
 package com.lin0721.linmusic.desktop.plugin
 
 import com.lin0721.linmusic.core.plugin.InstalledPlugin
+import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
+import com.lin0721.linmusic.core.plugin.PluginLyricsSource
+import com.lin0721.linmusic.core.plugin.PluginTrackQuery
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.plugin.PluginHostApi
 import com.lin0721.linmusic.core.plugin.PluginHttpResponse
 import com.lin0721.linmusic.core.plugin.PluginPaths
@@ -63,11 +67,15 @@ class PluginRuntimeTest {
         root.deleteRecursively()
     }
 
-    private fun install(script: String, permissions: String = "\"playback.read\",\"storage\",\"network\"") = runBlocking {
+    private fun install(
+        script: String,
+        permissions: String = "\"playback.read\",\"storage\",\"network\"",
+        contributes: String = "\"events\":[\"songChanged\"],\"pages\":[{\"id\":\"main\",\"title\":\"主页\",\"ui\":{\"type\":\"column\"}}]"
+    ) = runBlocking {
         val manifest = """
             {"format":1,"id":"com.example.demo","name":"示例","version":"1.0.0","permissions":[$permissions],
              "network":{"hosts":["api.example.com"]},
-             "contributes":{"events":["songChanged"],"pages":[{"id":"main","title":"主页","ui":{"type":"column"}}]}}
+             "contributes":{$contributes}}
         """.trimIndent()
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
@@ -203,5 +211,62 @@ class PluginRuntimeTest {
             """.trimIndent()
         )
         assertEquals("", (invokeAction("probe") as JsonPrimitive).content)
+    }
+
+    private fun installSources(script: String) = install(
+        script,
+        permissions = "\"audioSource\",\"lyricsSource\"",
+        contributes = "\"audioSources\":[{\"id\":\"main\"}],\"lyricsSources\":[{\"id\":\"lrc\"}]"
+    )
+
+    private suspend fun waitForRegistration(name: String) =
+        waitFor { repository.status.value["com.example.demo"]?.registrations?.contains(name) == true }
+
+    @Test
+    fun `插件音源按歌曲信息返回直链`() = runBlocking {
+        installSources(
+            """
+            melodia.register.audioSource('main', {
+                resolve: function(p) { return { url: 'https://cdn.example.com/' + p.songId + '-' + p.quality + '.mp3' }; }
+            });
+            """.trimIndent()
+        )
+        waitForRegistration("audioSource:main")
+        val result = PluginAudioSourceProvider(runtime).resolveUrl("186016", "晴天", "周杰伦", "叶惠美", 269_000, "exhigh")
+        assertEquals("https://cdn.example.com/186016-exhigh.mp3", result?.url)
+        assertEquals("com.example.demo", result?.pluginId)
+    }
+
+    @Test
+    fun `插件音源返回试听或非 http 链接时视为没有结果`() = runBlocking {
+        installSources(
+            """
+            melodia.register.audioSource('main', {
+                resolve: function(p) { return p.songId === '1' ? 'https://m.example.com/musicrep-ts/x.mp3' : 'file:///etc/passwd'; }
+            });
+            melodia.register.audioSource('other', { resolve: function() { return 'https://ok.example.com/a.mp3'; } });
+            """.trimIndent()
+        )
+        waitForRegistration("audioSource:other")
+        val provider = PluginAudioSourceProvider(runtime)
+        assertNull(provider.resolveUrl("1", "a", "b", null, 0, "standard"))
+        assertNull(provider.resolveUrl("2", "a", "b", null, 0, "standard"))
+    }
+
+    @Test
+    fun `插件歌词源返回 LRC 并解析成歌词行`() = runBlocking {
+        installSources(
+            """
+            melodia.register.lyricsSource('lrc', {
+                fetch: function(p) { return '[00:01.00]' + p.title + '\n[00:03.50]第二句'; }
+            });
+            """.trimIndent()
+        )
+        waitForRegistration("lyricsSource:lrc")
+        val lyrics = PluginLyricsSource(runtime)
+        assertTrue(lyrics.hasSources())
+        val lines = lyrics.fetch(PluginTrackQuery("1", "晴天", "周杰伦", "", 0, MusicPlatform.NETEASE))
+        assertEquals(listOf("晴天", "第二句"), lines.map { it.text })
+        assertEquals(3_500L, lines[1].timeMs)
     }
 }

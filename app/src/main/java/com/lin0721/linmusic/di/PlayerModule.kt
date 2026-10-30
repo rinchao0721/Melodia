@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.offline.CachedAudioIndex
 import com.lin0721.linmusic.core.player.AndroidCachedAudioIndex
@@ -46,6 +47,7 @@ val playerModule = module {
         val settingsPreferences = get<SettingsPreferences>()
         val qqLyricsSource = get<QqLyricsSource>()
         val neteaseLookup = get<NeteaseSongLookup>()
+        val pluginLyrics = get<PluginLyricsSource>()
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
@@ -57,7 +59,9 @@ val playerModule = module {
             readQqLyrics = qqLyricsSource::fetch,
             externalOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.external },
             matchNeteaseId = neteaseLookup::find,
-            readExternalQqLyrics = qqLyricsSource::fetch
+            readExternalQqLyrics = qqLyricsSource::fetch,
+            hasPluginLyrics = pluginLyrics::hasSources,
+            readPluginLyrics = pluginLyrics::fetch
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

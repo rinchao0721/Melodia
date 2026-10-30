@@ -101,6 +101,27 @@ class PluginRuntime(
         }
     }
 
+    // 运行中、脚本已注册且清单声明过的音源或歌词源，按插件名称排序
+    fun registeredSources(kind: String): List<Pair<PluginManifest, PluginSourceEntry>> {
+        val statuses = _status.value
+        return running.values.map { it.manifest }.sortedBy { it.name }.flatMap { manifest ->
+            val declared = when (kind) {
+                PluginPrelude.KIND_AUDIO_SOURCE -> manifest.contributes.audioSources
+                PluginPrelude.KIND_LYRICS_SOURCE -> manifest.contributes.lyricsSources
+                else -> emptyList()
+            }
+            val registered = statuses[manifest.id]?.registrations.orEmpty()
+            declared.filter { "$kind:${it.id}" in registered }.map { manifest to it }
+        }
+    }
+
+    // 运行中插件订阅的事件合集
+    fun subscribedEvents(): Set<PluginEvent> = running.values.flatMapTo(HashSet()) { it.manifest.contributes.events }
+
+    fun emitAll(event: PluginEvent, data: JsonElement) {
+        running.keys.forEach { emit(it, event, data) }
+    }
+
     // 播放事件只通知，不等待处理结果
     fun emit(pluginId: String, event: PluginEvent, data: JsonElement) {
         val target = running[pluginId] ?: return

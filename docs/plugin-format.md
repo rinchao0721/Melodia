@@ -2,7 +2,7 @@
 
 插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
-> 当前版本只完成了格式、权限与脚本运行时。播放器布局、页面、音源、歌词源与播放事件会在后续版本陆续生效，现在声明这些能力可以正常导入，但不会产生效果。
+> 当前版本已支持音源、歌词源与播放事件。播放器布局与页面会在后续版本生效，现在声明这些能力可以正常导入，但不会产生效果。
 
 ## 包结构
 
@@ -95,6 +95,46 @@ melodia.register.action('refresh', handler)
 - 脚本加载失败（语法错误、加载时抛错或超过 8 秒）时，插件会被自动停用。
 - 宿主调用插件注册的能力时，如果插件出错或超时，计为一次失败；连续失败 5 次后插件会被自动停用。重新启用后计数清零。
 - 只提供播放器布局的插件不会运行 `main.js`。
+
+## 音源
+
+```js
+melodia.register.audioSource('main', {
+  resolve: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin, quality }
+    return 'https://...';            // 或 { url: 'https://...' }
+  }
+});
+```
+
+- 只在官方链接不可用或只有试听、且开启了换源时调用，与 LX 插件一起参与社区源轮询。
+- `origin` 为 `songId` 所属平台（`netease`、`qq`、`kugou`、`kuwo`、`migu`）；`quality` 为当前音质档位（`standard`、`exhigh`、`lossless`、`hires`）。
+- 只接受 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个音源。
+- 多个插件音源按插件名称顺序尝试；`register` 的名称必须在清单 `audioSources` 里声明过。
+
+## 歌词源
+
+```js
+melodia.register.lyricsSource('main', {
+  fetch: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin }
+    return '[00:01.00]第一句';       // LRC 文本，或 { lrc: '...' } / { ttml: '...' }
+  }
+});
+```
+
+- 与网易、AMLL、QQ 歌词同时查询，优先级最低：只有其他来源都没有歌词时才使用插件歌词。
+- 多个插件歌词源并发查询，按插件名称顺序取第一份非空结果；单个歌词源超过 8 秒按没有结果处理。
+
+## 播放事件
+
+| 事件 | 数据 |
+|---|---|
+| `songChanged` | `{ id, songId, title, artist, cover }`，停止播放时为 `null` |
+| `playStateChanged` | `{ playing }` |
+| `progress` | `{ positionMs, durationMs }`，播放中每秒一次 |
+
+事件只通知插件，不等待处理结果，也不能改变播放行为。插件启动时不会补发当前状态，需要时调用 `melodia.player.current()` 与 `melodia.player.state()`。
 
 ## 存储
 
