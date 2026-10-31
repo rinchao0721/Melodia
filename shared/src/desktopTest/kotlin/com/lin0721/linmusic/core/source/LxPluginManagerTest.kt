@@ -42,7 +42,8 @@ class LxPluginManagerTest {
             singer: String,
             albumName: String,
             durationMs: Long,
-            quality: String
+            quality: String,
+            timeoutMs: Long
         ): String? = null
 
         override fun reset() {

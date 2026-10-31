@@ -32,7 +32,8 @@ class LxAudioSourceProviderTest {
             singer: String,
             albumName: String,
             durationMs: Long,
-            quality: String
+            quality: String,
+            timeoutMs: Long
         ): String? {
             calls += source to songId
             return urls[source to songId]

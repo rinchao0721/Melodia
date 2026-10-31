@@ -262,7 +262,8 @@ class LxPluginEngine(private val context: Context) : LxPluginRuntime {
         singer: String,
         albumName: String,
         durationMs: Long,
-        quality: String
+        quality: String,
+        timeoutMs: Long
     ): String? = withContext(Dispatchers.IO) {
         if (!activeSandboxes.containsKey(pluginId)) {
             if (isCoolingDown(pluginId)) return@withContext null
@@ -287,7 +288,7 @@ class LxPluginEngine(private val context: Context) : LxPluginRuntime {
         }
 
         try {
-            withTimeoutOrNull(LxScriptSupport.RESOLVE_TIMEOUT_MS) { deferred.await() }
+            withTimeoutOrNull(timeoutMs) { deferred.await() }
         } catch (e: Exception) {
             AppLogger.w(TAG, "插件[$pluginId] 解析直链超时或失败: ${e.message}")
             null

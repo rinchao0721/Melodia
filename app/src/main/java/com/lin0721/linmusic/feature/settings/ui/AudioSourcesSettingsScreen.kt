@@ -55,6 +55,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val unmAutoMatch by viewModel.unmAutoMatch.collectAsStateWithLifecycle()
     val communityPriority by viewModel.communityPriority.collectAsStateWithLifecycle()
     val lxPluginEnabled by viewModel.lxPluginEnabled.collectAsStateWithLifecycle()
+    val lxPluginLooseTimeout by viewModel.lxPluginLooseTimeout.collectAsStateWithLifecycle()
     val lxPlugins by viewModel.lxPlugins.collectAsStateWithLifecycle()
 
     var showServerUrlDialog by remember { mutableStateOf(false) }
@@ -149,6 +150,14 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (hasPlugins) {
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    SettingsSwitchRow(
+                        title = "宽松解析（最长 30 秒）",
+                        subtitle = "脚本要依次尝试多个平台时，默认 12 秒上限会截断较慢的音源（实测 QQ 曾到 12.5 秒、酷狗可超 20 秒）；" +
+                            "开启后单次解析放宽到 30 秒，代价是失败时要等更久",
+                        checked = lxPluginLooseTimeout,
+                        onCheckedChange = { viewModel.updateLxPluginLooseTimeout(it) }
+                    )
                     Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         lxPlugins.forEachIndexed { index, plugin ->

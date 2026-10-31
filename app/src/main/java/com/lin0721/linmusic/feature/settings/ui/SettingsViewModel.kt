@@ -67,6 +67,7 @@ class SettingsViewModel(
     val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
 
     val lxPluginEnabled = sourcePreferences.lxPluginEnabled.asState(false)
+    val lxPluginLooseTimeout = sourcePreferences.lxPluginLooseTimeout.asState(false)
     val lxPlugins = sourcePreferences.lxPlugins.asState(emptyList())
     val lxPluginName = sourcePreferences.lxPluginName.asState("")
     val lxPluginVersion = sourcePreferences.lxPluginVersion.asState("")
@@ -254,6 +255,8 @@ class SettingsViewModel(
     fun updateUnmAutoMatch(enabled: Boolean) = launchSave { sourcePreferences.saveUnmAutoMatch(enabled) }
 
     fun updateCommunityPriority(enabled: Boolean) = launchSave { sourcePreferences.saveCommunityPriority(enabled) }
+
+    fun updateLxPluginLooseTimeout(enabled: Boolean) = launchSave { sourcePreferences.saveLxPluginLooseTimeout(enabled) }
 
     fun updateLxPluginEnabled(enabled: Boolean) {
         viewModelScope.launch { lxPluginManager.setEnabled(enabled) }

@@ -29,6 +29,7 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_LX_PLUGIN_DESC = stringPreferencesKey("source_lx_plugin_desc")
         private val KEY_LX_PLUGIN_SOURCES = stringPreferencesKey("source_lx_plugin_sources")
         private val KEY_LX_PLUGINS_JSON = stringPreferencesKey("source_lx_plugins_json")
+        private val KEY_LX_PLUGIN_LOOSE_TIMEOUT = booleanPreferencesKey("source_lx_plugin_loose_timeout")
 
         // 社区源优先偏好
         private val KEY_COMMUNITY_SOURCE_PRIORITY = booleanPreferencesKey("source_community_source_priority")
@@ -111,6 +112,15 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveLxPluginEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_LX_PLUGIN_ENABLED] = enabled }
+    }
+
+    // 宽松解析：把单次解析上限从 12s 放宽到 30s，换取慢速社区源（kw/kg/tx）不再被截断
+    val lxPluginLooseTimeout: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LX_PLUGIN_LOOSE_TIMEOUT] ?: false
+    }
+
+    suspend fun saveLxPluginLooseTimeout(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_LX_PLUGIN_LOOSE_TIMEOUT] = enabled }
     }
 
     val lxScriptContent: Flow<String> = dataStore.data.map { prefs ->

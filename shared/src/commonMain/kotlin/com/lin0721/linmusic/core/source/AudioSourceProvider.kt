@@ -14,7 +14,9 @@ interface AudioSourceProvider {
         durationMs: Long,
         quality: String,
         // songId 所属的平台，插件据此决定能否直接用这个 id
-        origin: MusicPlatform = MusicPlatform.NETEASE
+        origin: MusicPlatform = MusicPlatform.NETEASE,
+        // 解析失败原因收集器（用于把「哪个平台为什么没成」回传给 UI），实现可忽略
+        diagnostics: MutableList<String>? = null
     ): SourceResult?
 
     // 搜索歌曲
