@@ -29,6 +29,15 @@ import kotlinx.serialization.json.Json
 
 private const val TAG = "PlaybackRepositoryImpl"
 
+// 我喜欢的音乐（红心歌单）在歌单列表里的 specialType
+internal const val LIKED_PLAYLIST_SPECIAL_TYPE = 5
+
+// 心动模式只接受红心歌单：自建 / 收藏 / 云村歌单一律回 400「不支持该歌单类型」，
+// playlistId 传 0 则回 400「歌单不存在」。所以未指定上下文时必须显式挑红心歌单，
+// 不能拿歌单列表的第一项凑数（第一项往往是用户最近自建的歌单）。
+internal fun pickIntelligencePlaylist(playlists: List<com.lin0721.linmusic.core.userplaylist.UserPlaylist>) =
+    playlists.firstOrNull { it.specialType == LIKED_PLAYLIST_SPECIAL_TYPE }
+
 class PlaybackRepositoryImpl(
     private val apiService: PlaybackApi,
     private val settingsPreferences: SettingsPreferences,
@@ -167,8 +176,9 @@ class PlaybackRepositoryImpl(
             } else {
                 val uid = userPreferences.userProfile.first()?.uid
                     ?: throw AppError.BizError(-1, null)
-                userPlaylistRepository.getUserPlaylists(uid, limit = 1).first().getOrThrow()
-                    .firstOrNull()?.id
+                val playlists = userPlaylistRepository.getUserPlaylists(uid, limit = 1000)
+                    .first().getOrThrow()
+                pickIntelligencePlaylist(playlists)?.id
                     ?: throw AppError.BizError(-1, null)
             }
             apiService.getIntelligenceSongs(
