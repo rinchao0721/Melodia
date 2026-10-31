@@ -85,5 +85,7 @@ data class UserPlaylist(
     val userId: Long = 0,
     val creator: PlaylistCreator? = null,
     val updateTime: Long = 0,
-    val top: Boolean = false
+    val top: Boolean = false,
+    // 5 = 我喜欢的音乐；服务端对部分接口（如心动模式）只接受这类歌单
+    val specialType: Int = 0
 )

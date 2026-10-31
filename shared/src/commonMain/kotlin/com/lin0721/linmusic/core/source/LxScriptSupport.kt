@@ -9,8 +9,11 @@ object LxScriptSupport {
     // 沙盒内等待 inited 事件的上限
     const val INIT_TIMEOUT_MS = 8000L
 
-    // 单次解析直链的上限
+    // 单次解析直链的上限；多源脚本（依次试 kw/kg/tx）经常不够用，可在音源设置里开启宽松模式
     const val RESOLVE_TIMEOUT_MS = 12000L
+
+    // 宽松模式下的单次解析上限，覆盖社区脚本里较慢的平台（实测 tx 曾到 12.5s，kg 可达 20s+）
+    const val LOOSE_RESOLVE_TIMEOUT_MS = 30000L
 
     fun parseScriptHeader(script: String): LxPluginInfo {
         var name = "未命名插件"

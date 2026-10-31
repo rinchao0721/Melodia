@@ -27,7 +27,9 @@ interface LxPluginRuntime {
         singer: String,
         albumName: String,
         durationMs: Long,
-        quality: String
+        quality: String,
+        // 单次解析上限，由调用方按用户设置传入（默认 12s，宽松模式 30s）
+        timeoutMs: Long = LxScriptSupport.RESOLVE_TIMEOUT_MS
     ): String?
 
     // 销毁全部沙盒

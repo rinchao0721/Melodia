@@ -58,6 +58,9 @@ class AudioSourceRouter(
         var matchedUrl: String? = null
         var matchedSource: String? = null
 
+        // 各来源失败原因的收集器：最终换源失败时随错误信息回传给 UI，避免只能靠抓日志定位
+        val diagnostics = mutableListOf<String>()
+
         // 辅助函数：解析社区扩展源插件
         suspend fun tryResolveCommunity(): Pair<String, String>? {
             if (providers.isEmpty()) return null
@@ -75,7 +78,8 @@ class AudioSourceRouter(
                         artists = track.ar.joinToString("/") { it.name },
                         albumName = track.al.name,
                         durationMs = track.dt,
-                        quality = quality
+                        quality = quality,
+                        diagnostics = diagnostics
                     )
                     if (r != null && r.url.isNotBlank() && !r.isTrial && !isTrialPlayUrl(r.url)) {
                         return Pair(r.url, "社区源 (${p.platform.displayName})")
@@ -91,13 +95,17 @@ class AudioSourceRouter(
         suspend fun tryResolveRemoteUnm(): Pair<String, String>? {
             val remoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.first()
             val serverUrl = sourcePreferences.unmServerUrl.first().trim()
-            if (!remoteFallbackEnabled || serverUrl.isBlank()) return null
+            if (!remoteFallbackEnabled || serverUrl.isBlank()) {
+                diagnostics.add("远程UNM 未启用")
+                return null
+            }
             AppLogger.d(TAG, "尝试远程 UNM 服务: $serverUrl songId=$songId")
             val remoteResult = unmApiClient.matchSong(serverUrl, songId, null)
             if (remoteResult != null && remoteResult.url.isNotBlank() && !isTrialPlayUrl(remoteResult.url)) {
                 AppLogger.i(TAG, "远程 UNM 服务解析成功: songId=$songId 来源=${remoteResult.source}")
                 return Pair(remoteResult.url, "远程UNM (${remoteResult.source ?: "auto"})")
             }
+            diagnostics.add("远程UNM 未命中")
             return null
         }
 
@@ -134,12 +142,13 @@ class AudioSourceRouter(
             AppLogger.i(TAG, "换源成功: songId=$songId 最终来源=$matchedSource")
             emit(Result.success(SongPlaybackInfo(url = matchedUrl, isFreeTrial = false)))
         } else {
-            AppLogger.w(TAG, "所有换源均未命中: songId=$songId")
+            AppLogger.w(TAG, "所有换源均未命中: songId=$songId 详情=${diagnostics.joinToString("; ")}")
             if (officialInfo != null && officialInfo.url.isNotBlank()) {
                 AppLogger.i(TAG, "兜底返回官方试听链接: songId=$songId")
                 emit(Result.success(officialInfo.copy(trialFallback = officialInfo.isFreeTrial)))
             } else {
-                emit(Result.failure(officialInfoResult.exceptionOrNull() ?: AppError.BizError(-1, "换源未能获取到可用播放链接")))
+                val detail = if (diagnostics.isEmpty()) "" else "：${diagnostics.distinct().joinToString(" · ")}"
+                emit(Result.failure(officialInfoResult.exceptionOrNull() ?: AppError.BizError(-1, "换源未能获取到可用播放链接$detail")))
             }
         }
     }.catch { e ->

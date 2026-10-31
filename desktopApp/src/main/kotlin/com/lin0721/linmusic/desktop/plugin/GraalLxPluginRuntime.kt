@@ -118,7 +118,8 @@ class GraalLxPluginRuntime(
         singer: String,
         albumName: String,
         durationMs: Long,
-        quality: String
+        quality: String,
+        timeoutMs: Long
     ): String? {
         val sandbox = activeSandboxes[pluginId] ?: return null
         val callId = nextCallId.incrementAndGet()
@@ -129,7 +130,7 @@ class GraalLxPluginRuntime(
         val lxQuality = LxScriptSupport.mapQualityToLx(quality)
         return try {
             sandbox.call("__melodia_resolve_music_url", callId, source, musicInfoJson, lxQuality)
-            withTimeoutOrNull(LxScriptSupport.RESOLVE_TIMEOUT_MS) { deferred.await() }
+            withTimeoutOrNull(timeoutMs) { deferred.await() }
         } catch (e: Exception) {
             AppLogger.w(TAG, "插件[$pluginId] 解析直链失败: ${e.message}")
             null

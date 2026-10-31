@@ -22,13 +22,27 @@ class LxAudioSourceProvider(
         albumName: String?,
         durationMs: Long,
         quality: String,
-        origin: MusicPlatform
+        origin: MusicPlatform,
+        diagnostics: MutableList<String>?
     ): SourceResult? {
         val enabled = sourcePreferences.lxPluginEnabled.first()
-        if (!enabled) return null
+        if (!enabled) {
+            diagnostics?.add("社区源未启用")
+            return null
+        }
 
         val plugins = sourcePreferences.lxPlugins.first().filter { it.isEnabled }
-        if (plugins.isEmpty()) return null
+        if (plugins.isEmpty()) {
+            diagnostics?.add("无已启用的社区源脚本")
+            return null
+        }
+
+        // 多源脚本（依次试 kw/kg/tx）常被 12s 上限截断，宽松模式放宽到 30s
+        val timeoutMs = if (sourcePreferences.lxPluginLooseTimeout.first()) {
+            LxScriptSupport.LOOSE_RESOLVE_TIMEOUT_MS
+        } else {
+            LxScriptSupport.RESOLVE_TIMEOUT_MS
+        }
 
         // 确保沙盒池与当前已启用的插件保持同步
         runtime.syncActivePlugins(plugins)
@@ -45,8 +59,13 @@ class LxAudioSourceProvider(
                     songId
                 } else {
                     matched.getOrPut(source) { matchSongId(source, songName, artists, albumName, durationMs) }
-                } ?: continue
+                }
+                if (sourceSongId == null) {
+                    diagnostics?.add("$source 未匹配到同一首歌")
+                    continue
+                }
 
+                val startedAt = System.currentTimeMillis()
                 try {
                     val url = runtime.resolveMusicUrl(
                         pluginId = plugin.id,
@@ -56,10 +75,13 @@ class LxAudioSourceProvider(
                         singer = artists,
                         albumName = albumName ?: "",
                         durationMs = durationMs,
-                        quality = quality
+                        quality = quality,
+                        timeoutMs = timeoutMs
                     )
+                    val elapsed = System.currentTimeMillis() - startedAt
                     if (!url.isNullOrBlank() && isTrialPlayUrl(url)) {
                         AppLogger.w(TAG, "插件 [${plugin.name}] 通过 [$source] 返回的是试听链接，继续尝试下一个: $songName")
+                        diagnostics?.add("$source 仅试听")
                     } else if (!url.isNullOrBlank()) {
                         AppLogger.i(TAG, "插件 [${plugin.name}] 成功通过 [$source] 解析直链: $songName")
                         return SourceResult(
@@ -67,9 +89,18 @@ class LxAudioSourceProvider(
                             platform = platform,
                             quality = quality
                         )
+                    } else {
+                        // 超时与「脚本自己返回空」在运行时接口上没有区分，用耗时贴近上限来判定
+                        val label = if (elapsed >= timeoutMs - TIMEOUT_JITTER_MS) {
+                            "$source 超时(${timeoutMs / 1000}s)"
+                        } else {
+                            "$source 无直链"
+                        }
+                        diagnostics?.add(label)
                     }
                 } catch (e: Exception) {
                     AppLogger.w(TAG, "插件 [${plugin.name}] 解析平台 [$source] 失败: ${e.message}")
+                    diagnostics?.add("$source 解析异常")
                 }
             }
         }
@@ -118,5 +149,7 @@ class LxAudioSourceProvider(
         val PRIORITY_SOURCES = listOf("kw", "kg", "tx")
         val ARTIST_SEPARATORS = Regex("[、&;，,/|·・]+")
         const val MATCH_SEARCH_LIMIT = 10
+        // 运行时接口把「超时」和「返回空」都折成 null，用耗时是否贴住上限来区分二者
+        const val TIMEOUT_JITTER_MS = 500L
     }
 }
