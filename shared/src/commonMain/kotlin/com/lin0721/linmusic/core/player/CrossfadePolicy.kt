@@ -56,4 +56,9 @@ object CrossfadePolicy {
 
     fun fadeInGain(progress: Float): Float =
         sin(progress.coerceIn(0f, 1f) * PI / 2).toFloat()
+
+    // 实际写入播放器的音量 = 淡化增益 × 播放器总增益（音量平衡 × 播放器级增益）。
+    // 播放器级增益只衰减不提升，且只乘一次：淡入结束等于总增益，淡出结束为静音
+    fun combinedGain(fadeGain: Float, playerGain: Float): Float =
+        (fadeGain * playerGain).coerceIn(0f, 1f)
 }

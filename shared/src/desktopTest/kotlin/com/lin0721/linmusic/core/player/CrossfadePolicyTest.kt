@@ -6,6 +6,30 @@ import org.junit.Test
 class CrossfadePolicyTest {
 
     @Test
+    fun `播放器级增益只乘一次且不会互相叠加`() {
+        val gain = 0.3f
+        // 淡入结束回到播放器总增益本身；淡出结束为静音
+        assertEquals(gain, CrossfadePolicy.combinedGain(CrossfadePolicy.fadeInGain(1f), gain), 1e-6f)
+        assertEquals(0f, CrossfadePolicy.combinedGain(CrossfadePolicy.fadeOutGain(1f, 1f), gain), 1e-6f)
+        // 全淡过程中两路平方和 = 总增益平方（等功率不塌陷）
+        for (step in 0..20) {
+            val progress = step / 20f
+            // 淡出起点是淡出方当前的淡化增益（不含曲目/播放器增益），由播放器在接管瞬间记录
+            val out = CrossfadePolicy.combinedGain(CrossfadePolicy.fadeOutGain(progress, 1f), gain)
+            val inc = CrossfadePolicy.combinedGain(CrossfadePolicy.fadeInGain(progress), gain)
+            assertEquals(gain * gain, out * out + inc * inc, 1e-5f)
+        }
+    }
+
+    @Test
+    fun `播放器级增益为零时全静音`() {
+        for (step in 0..10) {
+            val progress = step / 10f
+            assertEquals(0f, CrossfadePolicy.combinedGain(CrossfadePolicy.fadeInGain(progress), 0f), 1e-6f)
+        }
+    }
+
+    @Test
     fun `时长按步进取整并截断到上下限`() {
         assertEquals(3000, CrossfadePolicy.normalizeDurationMs(3000))
         assertEquals(3000, CrossfadePolicy.normalizeDurationMs(3200))

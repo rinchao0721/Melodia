@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.PlaybackGain
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
@@ -66,6 +67,8 @@ class SettingsPreferences(
         private val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         // 自动切歌交叉淡化时长 (ms)，默认 3000
         private val KEY_CROSSFADE_DURATION_MS = intPreferencesKey("crossfade_duration_ms")
+        // 播放器级增益档位（0=静音, 100=0dB 原样），默认不衰减
+        private val KEY_PLAYER_GAIN_STEP = intPreferencesKey("player_gain_step")
         // 智能过渡（跳过首尾静音），默认 false
         private val KEY_SMART_CROSSFADE_ENABLED = booleanPreferencesKey("smart_crossfade_enabled")
         // 音量平衡（整曲响度归一化），默认 false
@@ -362,6 +365,17 @@ class SettingsPreferences(
     suspend fun saveCrossfadeDurationMs(durationMs: Int) {
         dataStore.edit { prefs ->
             prefs[KEY_CROSSFADE_DURATION_MS] = CrossfadePolicy.normalizeDurationMs(durationMs)
+        }
+    }
+
+    // 播放器级增益档位 Flow：与系统媒体音量、音量平衡相乘，用于把最小音量继续压下去
+    val playerGainStep: Flow<Int> = dataStore.data.map { prefs ->
+        PlaybackGain.normalizeStep(prefs[KEY_PLAYER_GAIN_STEP] ?: PlaybackGain.DEFAULT_STEP)
+    }
+
+    suspend fun savePlayerGainStep(step: Int) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PLAYER_GAIN_STEP] = PlaybackGain.normalizeStep(step)
         }
     }
 

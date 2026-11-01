@@ -260,6 +260,13 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
+        // 播放器级增益：与系统媒体音量相乘，补偿蓝牙耳机最小非静音档仍偏响的情况
+        serviceScope.launch {
+            settingsPreferences.playerGainStep.collect { step ->
+                sessionPlayer.setUserGain(PlaybackGain.amplitude(step))
+            }
+        }
+
         player = sessionPlayer
 
         // 点击通知时跳转回应用；REORDER_TO_FRONT 避免每次新建 Activity 实例导致重新加载

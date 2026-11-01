@@ -47,10 +47,17 @@ class CrossfadePlayer(
     private var fadeStartElapsedMs = 0L
     private var fadeDurationMs = 0L
 
-    // 当前曲目增益，以及向它平滑过渡的起点
+    // 当前曲目增益（音量平衡），以及向它平滑过渡的起点
     private var trackGain = 1f
     private var gainRampFrom = 1f
     private var gainRampStartElapsedMs = 0L
+
+    // 播放器级增益（0~1）：在系统媒体音量与音量平衡之上再乘一层软件增益，只衰减不提升
+    private var userGain = 1f
+    // 淡出方的曲目增益与淡化起点（均不含播放器级增益），在接管瞬间记录
+    private var outgoingTrackGain = 1f
+    // 当前接管播放器的淡化增益（不含曲目/播放器增益）：淡入结束为 1，接管瞬间为 0
+    private var activeFadeGain = 1f
 
     private val active: ExoPlayer
         get() = if (player === secondary) secondary else primary
@@ -65,8 +72,8 @@ class CrossfadePlayer(
         override fun run() {
             val out = outgoing ?: return
             val progress = ((SystemClock.elapsedRealtime() - fadeStartElapsedMs).toFloat() / fadeDurationMs).coerceIn(0f, 1f)
-            out.volume = CrossfadePolicy.fadeOutGain(progress, outgoingStartGain)
-            active.volume = CrossfadePolicy.fadeInGain(progress) * trackGain
+            activeFadeGain = CrossfadePolicy.fadeInGain(progress)
+            applyVolumes(out, progress)
             if (progress >= 1f) {
                 releaseOutgoing()
             } else {
@@ -80,9 +87,37 @@ class CrossfadePlayer(
             // 淡化进行中由淡入曲线负责，结束后直接落在目标增益上
             if (outgoing != null) return
             val progress = ((SystemClock.elapsedRealtime() - gainRampStartElapsedMs).toFloat() / LoudnessPolicy.RAMP_MS).coerceIn(0f, 1f)
-            active.volume = gainRampFrom + (trackGain - gainRampFrom) * progress
+            // 曲线只插值曲目增益，播放器级增益在最后统一乘上
+            active.volume = CrossfadePolicy.combinedGain(
+                activeFadeGain,
+                (gainRampFrom + (trackGain - gainRampFrom) * progress) * userGain
+            )
             if (progress < 1f) handler.postDelayed(this, FADE_STEP_MS)
         }
+    }
+
+    private fun fadeProgress(): Float =
+        if (fadeDurationMs <= 0L) 1f
+        else ((SystemClock.elapsedRealtime() - fadeStartElapsedMs).toFloat() / fadeDurationMs).coerceIn(0f, 1f)
+
+    // 唯一写播放器音量的出口：实际音量 = 淡化增益 × 曲目增益 × 播放器级增益
+    private fun applyVolumes(outgoingPlayer: ExoPlayer? = outgoing, progress: Float? = null) {
+        active.volume = CrossfadePolicy.combinedGain(activeFadeGain, trackGain * userGain)
+        val out = outgoingPlayer ?: return
+        val p = progress ?: fadeProgress()
+        out.volume = CrossfadePolicy.combinedGain(
+            CrossfadePolicy.fadeOutGain(p, outgoingStartGain),
+            outgoingTrackGain * userGain
+        )
+    }
+
+    // 设置页下发的播放器级增益：不改系统音量，只在解码后乘一层软件增益
+    // 与其余 Player API 一样，只能从 applicationLooper 所在线程调用
+    fun setUserGain(gain: Float) {
+        val clamped = gain.coerceIn(0f, 1f)
+        if (clamped == userGain) return
+        userGain = clamped
+        applyVolumes()
     }
 
     init {
@@ -198,8 +233,8 @@ class CrossfadePlayer(
         if (pendingIncoming != null) {
             pendingGain = target
         } else if (target != trackGain) {
+            gainRampFrom = trackGain
             trackGain = target
-            gainRampFrom = active.volume
             gainRampStartElapsedMs = SystemClock.elapsedRealtime()
             handler.removeCallbacks(gainStep)
             handler.post(gainStep)
@@ -260,7 +295,9 @@ class CrossfadePlayer(
         val previous = active
         takeOver(incoming)
         outgoing = previous
-        outgoingStartGain = previous.volume
+        outgoingStartGain = activeFadeGain
+        outgoingTrackGain = trackGain
+        activeFadeGain = 0f
         fadeStartElapsedMs = SystemClock.elapsedRealtime()
         fadeDurationMs = pendingFadeMs.coerceAtLeast(1L)
         handler.removeCallbacks(gainStep)
@@ -283,7 +320,8 @@ class CrossfadePlayer(
         takeOver(incoming)
         handler.removeCallbacks(gainStep)
         trackGain = pendingGain
-        incoming.volume = trackGain
+        activeFadeGain = 1f
+        applyVolumes(outgoingPlayer = null)
         if (!playWhenReady) incoming.playWhenReady = false
         previous.stop()
         previous.clearMediaItems()
@@ -302,13 +340,17 @@ class CrossfadePlayer(
     private fun releaseOutgoing() {
         val hadOutgoing = outgoing != null
         stopOutgoing()
-        if (hadOutgoing) active.volume = trackGain
+        if (hadOutgoing) {
+            activeFadeGain = 1f
+            applyVolumes(outgoingPlayer = null)
+        }
     }
 
     private fun applyGainImmediately(gain: Float) {
         handler.removeCallbacks(gainStep)
         trackGain = gain
-        active.volume = gain
+        activeFadeGain = 1f
+        applyVolumes(outgoingPlayer = null)
     }
 
     private fun stopOutgoing() {
