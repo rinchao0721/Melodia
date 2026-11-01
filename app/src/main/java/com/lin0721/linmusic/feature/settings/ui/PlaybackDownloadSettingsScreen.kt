@@ -31,6 +31,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.PlaybackGain
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -80,6 +81,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
     val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
     val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
+    val playerGainStep by viewModel.playerGainStep.collectAsStateWithLifecycle()
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
@@ -142,6 +144,40 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     checked = loudnessNormalizationEnabled,
                     onCheckedChange = { viewModel.updateLoudnessNormalizationEnabled(it) }
                 )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("播放器增益", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+                        Text(
+                            text = PlaybackGain.label(playerGainStep),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LyricCapsuleSlider(
+                        value = playerGainStep,
+                        onValueChange = { viewModel.updatePlayerGainStep(PlaybackGain.normalizeStep(it)) },
+                        valueRange = 0f..PlaybackGain.MAX_STEP.toFloat(),
+                        startLabel = "静音",
+                        endLabel = "原样"
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "在系统媒体音量之上再乘一层软件增益：音量键仍调系统音量，这里用来把最小音量继续压低（蓝牙耳机最小档偏响时最有用）。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "切歌淡入淡出",

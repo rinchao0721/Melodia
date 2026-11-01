@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.PlaybackGain
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -112,6 +113,8 @@ class SettingsViewModel(
     val smartCrossfadeEnabled = settingsPreferences.smartCrossfadeEnabled.asState(false)
 
     val loudnessNormalizationEnabled = settingsPreferences.loudnessNormalizationEnabled.asState(false)
+
+    val playerGainStep = settingsPreferences.playerGainStep.asState(PlaybackGain.DEFAULT_STEP)
 
     val wifiOnlyPlay = settingsPreferences.wifiOnlyPlay.asState(false)
 
@@ -370,6 +373,8 @@ class SettingsViewModel(
     fun updateSmartCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSmartCrossfadeEnabled(enabled) }
 
     fun updateLoudnessNormalizationEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLoudnessNormalizationEnabled(enabled) }
+
+    fun updatePlayerGainStep(step: Int) = launchSave { settingsPreferences.savePlayerGainStep(PlaybackGain.normalizeStep(step)) }
 
     fun updateWifiOnlyPlay(enabled: Boolean) = launchSave { settingsPreferences.saveWifiOnlyPlay(enabled) }
 
