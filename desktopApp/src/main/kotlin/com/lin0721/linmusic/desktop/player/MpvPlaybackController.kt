@@ -318,7 +318,7 @@ class MpvPlaybackController(
         val isSeedPlaying = target != null && target.songId == playingSongId
         if ((playContext == CONTEXT_INTELLIGENCE || playContext == SimilarRoamingController.CONTEXT_ROAMING) && isSeedPlaying) {
             // 以当前曲目为种子时平滑衔接，不重载音频
-            prefetchRoaming(target.songId, index)
+            prefetchRoaming(target.songId)
             return
         }
         playIndex(index, startPositionMs.coerceAtLeast(0L))
@@ -653,7 +653,7 @@ class MpvPlaybackController(
             loadedSongId = item.songId
             loadedUrl = playback.url
             beginReporting(item.songId)
-            prefetchRoaming(item.songId, index)
+            prefetchRoaming(item.songId)
             saveState()
         }
     }
@@ -661,8 +661,8 @@ class MpvPlaybackController(
     // 外部平台搜索结果用负数 id 且自带直链，不属于网易云曲库，不参与打卡上报、相似漫游与缓存
     private fun isOnlineSong(songId: Long): Boolean = songId > 0L
 
-    private fun prefetchRoaming(songId: Long, index: Int) {
-        if (isOnlineSong(songId)) roaming.prefetchOnPlay(songId, index)
+    private fun prefetchRoaming(songId: Long) {
+        if (isOnlineSong(songId)) roaming.prefetchOnPlay(songId)
     }
 
     // 队列项自带直链时直接使用；外部平台歌曲轮到时经换源插件解析；否则按网易云歌曲 id 解析
@@ -781,7 +781,7 @@ class MpvPlaybackController(
         saveQueueState()
         beginReporting(item.songId)
         startClock()
-        prefetchRoaming(item.songId, plan.index)
+        prefetchRoaming(item.songId)
         saveState()
     }
 
