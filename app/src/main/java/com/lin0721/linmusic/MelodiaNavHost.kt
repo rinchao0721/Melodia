@@ -170,7 +170,8 @@ fun MelodiaNavHost(
                         onBack = onBack,
                         onOpenSidebar = onOpenSidebar,
                         onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged,
-                        onNavigateToLocalMusic = onNavigateToLocalMusic
+                        onNavigateToLocalMusic = onNavigateToLocalMusic,
+                        onNavigateToSettings = { onNavigateToScreen(Screen.Settings) }
                     )
                 }
                 is Screen.LocalMusic -> LocalMusicHomeScreen(navigation = localMusicNavigation)

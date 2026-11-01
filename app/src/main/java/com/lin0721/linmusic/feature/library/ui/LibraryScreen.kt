@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,7 +92,9 @@ fun LibraryScreen(
     onBack: () -> Unit,
     onOpenSidebar: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {},
-    onNavigateToLocalMusic: () -> Unit = {}
+    onNavigateToLocalMusic: () -> Unit = {},
+    // 设置与账号无关：音乐库顶部常驻入口，未登录也能进
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val viewModel: LibraryViewModel = koinViewModel()
@@ -294,6 +297,10 @@ fun LibraryScreen(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
+
+                        MelodiaIconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Outlined.Settings, contentDescription = "设置和隐私", tint = MaterialTheme.colorScheme.onSurface)
+                        }
 
                         MelodiaIconButton(onClick = { isSearchActive = true }) {
                             Icon(Icons.Default.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
