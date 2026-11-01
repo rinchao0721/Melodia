@@ -3,7 +3,7 @@ package com.lin0721.linmusic.feature.playlist.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,7 +42,7 @@ fun LazyListScope.playlistRecommendItems(
             onRefresh = onRefreshRecommendations
         )
     }
-    items(recommendedSongs, key = { "rec_${it.id}" }) { track ->
+    itemsIndexed(recommendedSongs, key = { _, track -> "rec_${track.id}" }) { index, track ->
         SongRow(
             data = SongRowData(
                 id = track.id,
@@ -53,6 +53,7 @@ fun LazyListScope.playlistRecommendItems(
             ),
             isActive = currentTrackId == track.id.toString(),
             isPlaying = isPlaying,
+            index = index + 1,
             copyable = true,
             onClick = { onPlaySong(track) },
             trailingSlot = {
