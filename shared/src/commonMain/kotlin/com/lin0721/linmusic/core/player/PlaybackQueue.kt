@@ -38,6 +38,9 @@ class PlaybackQueue {
 
     val size: Int get() = playItems.size
 
+    // 当前曲目之后还有多少首没播（漫游判断"队尾够不够"用）
+    val upcomingCount: Int get() = (playItems.size - _currentIndex.value - 1).coerceAtLeast(0)
+
     val isEmpty: Boolean get() = playItems.isEmpty()
 
     val original: List<QueueItem> get() = originalItems
@@ -261,15 +264,6 @@ class PlaybackQueue {
             _items.value = emptyList()
         }
         return currentTrackItem
-    }
-
-    // 截断到指定下标后追加新曲目，用于漫游续播
-    fun appendAfter(index: Int, items: List<QueueItem>) {
-        if (items.isEmpty()) return
-        val newQueue = originalItems.take(index + 1) + items
-        originalItems = newQueue
-        playItems = newQueue
-        _items.value = playItems
     }
 
     // 备份当前队列与播放上下文，供退出漫游/心动模式时还原

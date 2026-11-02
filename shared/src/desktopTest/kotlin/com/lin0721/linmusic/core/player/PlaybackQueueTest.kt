@@ -273,9 +273,9 @@ class PlaybackQueueTest {
     fun `还原快照时按歌曲ID重新定位当前曲目`() {
         val queue = queueOf(1, 2, 3, 4, startIndex = 2)
         queue.takeSnapshot()
-        // 模拟漫游：截断并追加新曲目
-        queue.appendAfter(2, listOf(item(7), item(8)))
-        assertEquals(listOf(1L, 2L, 3L, 7L, 8L), queue.ids())
+        // 模拟漫游：往队尾追加相似歌曲
+        assertTrue(queue.extend(listOf(item(7), item(8))))
+        assertEquals(listOf(1L, 2L, 3L, 4L, 7L, 8L), queue.ids())
 
         queue.restoreSnapshot()
         assertEquals(listOf(1L, 2L, 3L, 4L), queue.ids())
@@ -414,7 +414,18 @@ class PlaybackQueueTest {
         assertEquals(playingSongId, restored.currentItem()?.songId)
     }
 
-    // ======================= 先播后补 =======================
+    // ======================= 漫游 / 先播后补 =======================
+
+    @Test
+    fun `未播曲目数量只统计当前曲目之后的部分`() {
+        val queue = queueOf(1, 2, 3, 4, startIndex = 1)
+        assertEquals(2, queue.upcomingCount)
+        queue.setCurrentIndex(3)
+        assertEquals(0, queue.upcomingCount)
+        queue.setCurrentIndex(-1)
+        assertEquals(4, queue.upcomingCount)
+    }
+
 
     @Test
     fun `补全曲目按顺序接到末尾且不影响当前曲目`() {

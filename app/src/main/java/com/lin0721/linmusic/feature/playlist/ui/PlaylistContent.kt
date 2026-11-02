@@ -63,6 +63,7 @@ fun PlaylistContent(
     likedSongIds: Set<Long>,
     unplayableIds: Set<Long> = emptySet(),
     externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
+    showTrackIndex: Boolean = false,
     collectState: PlaylistCollectState,
     isLoggedIn: Boolean,
     recommendedSongs: List<Track>,
@@ -367,7 +368,8 @@ fun PlaylistContent(
                     trackPlayCounts    = trackPlayCounts,
                     unplayableIds      = unplayableIds,
                     selectionUi        = selectionUi,
-                    externalPlatforms  = externalPlatforms
+                    externalPlatforms  = externalPlatforms,
+                    showIndex          = showTrackIndex
                 )
 
                 if (isLoadingMoreTracks) {
@@ -390,7 +392,8 @@ fun PlaylistContent(
                     isPlaying                = isPlaying,
                     onRefreshRecommendations = onRefreshRecommendations,
                     onPlaySong               = onPlayRecommendedSong,
-                    onAddRecommendSong       = onAddRecommendSong
+                    onAddRecommendSong       = onAddRecommendSong,
+                    showIndex                = showTrackIndex
                 )
             }
         }

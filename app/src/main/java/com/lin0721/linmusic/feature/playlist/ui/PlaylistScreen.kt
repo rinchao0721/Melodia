@@ -88,6 +88,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +102,8 @@ fun PlaylistScreen(
     onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
+    val settingsPreferences = koinInject<com.lin0721.linmusic.core.preferences.SettingsPreferences>()
+    val showTrackIndex by settingsPreferences.playlistTrackIndexEnabled.collectAsStateWithLifecycle(false)
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
@@ -571,6 +574,7 @@ fun PlaylistScreen(
                     likedSongIds   = likedSongIds,
                     unplayableIds  = unplayableIds,
                     externalPlatforms = externalPlatforms,
+                    showTrackIndex = showTrackIndex,
                     collectState   = collectState,
                     isLoggedIn     = userProfile != null,
                     recommendedSongs = state.recommendedSongs,

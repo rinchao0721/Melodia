@@ -357,7 +357,7 @@ class PlayerManager(
 
         if ((playContext == CONTEXT_INTELLIGENCE || playContext == SimilarRoamingController.CONTEXT_ROAMING) && isCurrentPlayingTrack) {
             // 以当前正在播放的曲目为种子时平滑衔接，不重载音频与重置进度
-            roaming.prefetchOnPlay(targetItem.songId, currentIndex)
+            roaming.prefetchOnPlay(targetItem.songId)
             return
         }
 
@@ -717,7 +717,7 @@ class PlayerManager(
                 return@launch
             }
 
-            roaming.prefetchOnPlay(item.songId, index)
+            roaming.prefetchOnPlay(item.songId)
 
             if (localRecord != null) {
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()

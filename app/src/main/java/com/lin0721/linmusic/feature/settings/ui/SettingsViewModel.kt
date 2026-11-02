@@ -147,6 +147,8 @@ class SettingsViewModel(
 
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
 
+    val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
+
     val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
 
     val floatingLyricLocked = settingsPreferences.floatingLyricLocked.asState(false)
@@ -410,6 +412,8 @@ class SettingsViewModel(
     fun updateThemeCustomColor(isDark: Boolean, hex: String) = launchSave { settingsPreferences.saveThemeCustomColor(isDark, hex) }
 
     fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
+
+    fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
 
     fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
         launchSave { settingsPreferences.saveFloatingLyricStyle(transform(settingsPreferences.floatingLyricStyle.first())) }
