@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Favorite
@@ -53,10 +53,13 @@ fun LazyListScope.playlistTrackItems(
     unplayableIds: Set<Long> = emptySet(),
     selectionUi: TrackSelectionUi = TrackSelectionUi(),
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
-    externalPlatforms: Map<Long, MusicPlatform> = emptyMap()
+    externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
+    showIndex: Boolean = false
 ) {
     val activeTrackId = currentTrackId?.toLongOrNull()
-    items(tracks, key = { it.id }, contentType = { "track" }) { track ->
+    val indexDigits = tracks.size.toString().length
+    // 序号与歌手页保持一致：显示的是歌曲在当前列表里的位置（搜索过滤后同样生效）
+    itemsIndexed(tracks, key = { _, track -> track.id }, contentType = { _, _ -> "track" }) { index, track ->
         val selecting = selectionUi.active
         val platform = externalPlatforms[track.id]
         val rowData = remember(track, platform) {
@@ -77,6 +80,8 @@ fun LazyListScope.playlistTrackItems(
                 data = rowData,
                 isActive = activeTrackId == track.id,
                 isPlaying = isPlaying,
+                index = if (showIndex) index + 1 else null,
+                indexDigits = indexDigits,
                 // 多选态下不可播放的歌曲也能勾选
                 enabled = selecting || track.id !in unplayableIds,
                 copyable = !selecting,

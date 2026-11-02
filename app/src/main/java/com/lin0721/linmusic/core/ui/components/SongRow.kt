@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -57,11 +58,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
@@ -120,6 +123,8 @@ fun SongRow(
     copyable: Boolean = false,
     // 非 null 表示处于多选态：行首显示复选框，勾选态由调用方随 onClick 切换
     selectionChecked: Boolean? = null,
+    // 列表最大序号的位数，序号列按它留宽，整列才对齐
+    indexDigits: Int = 2,
     trailingSlot: @Composable RowScope.() -> Unit = {}
 ) {
     // 平板 Expanded 断点下行高/封面/字号统一加码，结构不变
@@ -179,12 +184,16 @@ fun SongRow(
             )
         }
         if (index != null) {
+            // 按 sp 换算，系统字号放大时序号列跟着变宽
+            val indexMinWidth = with(LocalDensity.current) { max(28.dp, (indexDigits * 9 + 8).sp.toDp()) }
             Text(
                 text = index.toString(),
                 color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.width(28.dp),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.widthIn(min = indexMinWidth),
                 textAlign = TextAlign.Start
             )
         }
