@@ -94,19 +94,16 @@ class LocalLibraryRepository(
     suspend fun sync() = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             migrateLegacyImports()
-            val existing = dao.getAll()
-            val refreshedImports = existing.mapNotNull {
+            val snapshot = dao.getAll()
+            val refreshedImports = snapshot.mapNotNull {
                 ensureActive()
                 importer.refreshWavTags(it)
             }
             // SAF 的授权不依赖全库权限；全库扫描失败也不能丢失已成功读取的导入标签。
-            if (!hasPermission()) {
-                if (refreshedImports.isNotEmpty()) dao.upsert(refreshedImports)
-                return@withLock
-            }
-            val rawScanned = scanner.scan()
+            val rawScanned = if (hasPermission()) scanner.scan() else null
             if (rawScanned == null) {
-                if (refreshedImports.isNotEmpty()) dao.upsert(refreshedImports)
+                val updates = stableImportUpdates(snapshot, dao.getAll(), refreshedImports)
+                if (updates.isNotEmpty()) dao.upsert(updates)
                 return@withLock
             }
 
@@ -124,13 +121,15 @@ class LocalLibraryRepository(
                 )
             }
 
+            val existing = dao.getAll()
             val diff = computeLocalLibrarySyncDiff(
                 existing = existing,
                 scanned = scanned,
                 isImportedAlive = { isReadable(Uri.parse(it.uri)) }
             )
             val scannedUris = scanned.mapTo(HashSet()) { it.uri }
-            val importedUpdates = refreshedImports.filter { it.uri !in scannedUris && it.uri !in diff.deleteUris }
+            val importedUpdates = stableImportUpdates(snapshot, existing, refreshedImports)
+                .filter { it.uri !in scannedUris && it.uri !in diff.deleteUris }
             dao.applySync(diff.upserts + importedUpdates, diff.deleteUris)
         }
     }

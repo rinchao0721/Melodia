@@ -37,6 +37,22 @@ class LocalLibrarySyncTest {
         assertEquals(old, mergeImportedWavTags(old, WavMetadata("<unknown>", " ", "<UNKNOWN>", "", 0, -1)))
     }
 
+    @Test
+    fun `同步期间被删除或改动的导入条目不写回`() {
+        val kept = entity("kept", source = LocalTrackSource.IMPORTED)
+        val deleted = entity("deleted", source = LocalTrackSource.IMPORTED)
+        val changed = entity("changed", source = LocalTrackSource.IMPORTED)
+        val refreshed = listOf(kept, deleted, changed).map { it.copy(album = "真实专辑") }
+
+        val updates = stableImportUpdates(
+            snapshot = listOf(kept, deleted, changed),
+            current = listOf(kept, changed.copy(songId = 7L)),
+            refreshed = refreshed
+        )
+
+        assertEquals(listOf(kept.copy(album = "真实专辑")), updates)
+    }
+
     private fun entity(
         uri: String,
         title: String = "歌曲",

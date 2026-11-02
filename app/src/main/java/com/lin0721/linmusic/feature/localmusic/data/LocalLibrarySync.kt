@@ -24,6 +24,20 @@ internal fun mergeImportedWavTags(existing: LocalTrackEntity, embedded: WavMetad
     )
 }
 
+// 扫描耗时较长，期间被删除或改动的条目不写回，留给下次同步
+internal fun stableImportUpdates(
+    snapshot: List<LocalTrackEntity>,
+    current: List<LocalTrackEntity>,
+    refreshed: List<LocalTrackEntity>
+): List<LocalTrackEntity> {
+    val snapshotByUri = snapshot.associateBy { it.uri }
+    val currentByUri = current.associateBy { it.uri }
+    return refreshed.filter { update ->
+        val row = currentByUri[update.uri]
+        row != null && row == snapshotByUri[update.uri]
+    }
+}
+
 // 只写入变化的条目；导入条目扫不到不代表已删，由 isImportedAlive 判断
 fun computeLocalLibrarySyncDiff(
     existing: List<LocalTrackEntity>,
