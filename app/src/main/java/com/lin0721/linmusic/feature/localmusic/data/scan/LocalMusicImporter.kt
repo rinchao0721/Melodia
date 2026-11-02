@@ -8,8 +8,15 @@ import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.feature.localmusic.data.mergeImportedWavTags
+import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
+import com.lin0721.linmusic.feature.localmusic.data.metadata.canSkipWavRefresh
+import com.lin0721.linmusic.feature.localmusic.data.metadata.mergeWavMetadata
+import com.lin0721.linmusic.feature.localmusic.data.metadata.readWavTags
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 private const val TAG = "LocalMusicImporter"
@@ -30,6 +37,7 @@ class LocalMusicImporter(private val context: Context) {
     // knownUris 为库内已有条目，只申请权限不重复解析元数据
     suspend fun parseFiles(uris: List<Uri>, knownUris: Set<String>): List<LocalTrackEntity> = withContext(Dispatchers.IO) {
         uris.distinct().mapNotNull { uri ->
+            ensureActive()
             runCatching {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }.onFailure {
@@ -128,10 +136,16 @@ class LocalMusicImporter(private val context: Context) {
             runCatching { retriever.release() }
         }
 
-        val finalTitle = title?.trim()?.takeIf { it.isNotBlank() }
+        val metadata = mergeWavMetadata(
+            system = WavMetadata(title, artist, album, albumArtist, year, trackNumber),
+            embedded = readWavTags(context, uri, displayName ?: Uri.decode(uri.lastPathSegment),
+                runCatching { context.contentResolver.getType(uri) }
+                    .onFailure { if (it is CancellationException) throw it }.getOrNull())
+        )
+        val finalTitle = metadata.title?.trim()?.takeIf { it.isNotBlank() }
             ?: displayName?.substringBeforeLast('.')?.trim()?.takeIf { it.isNotBlank() }
             ?: "未知曲目"
-        val finalArtist = artist?.trim()?.takeIf { it.isNotBlank() } ?: "未知艺术家"
+        val finalArtist = metadata.artist?.trim()?.takeIf { it.isNotBlank() } ?: "未知艺术家"
 
         val now = System.currentTimeMillis()
         return LocalTrackEntity(
@@ -140,17 +154,26 @@ class LocalMusicImporter(private val context: Context) {
             songId = null,
             title = finalTitle,
             artist = finalArtist,
-            album = album?.trim()?.takeIf { it.isNotBlank() },
+            album = metadata.album?.trim()?.takeIf { it.isNotBlank() },
             durationMs = durationMs,
             sizeBytes = fileSize,
             path = null,
             dateAddedMs = now,
             dateModifiedMs = now,
             source = LocalTrackSource.IMPORTED.name,
-            year = year,
-            trackNumber = trackNumber,
-            albumArtist = albumArtist
+            year = metadata.year,
+            trackNumber = metadata.trackNumber,
+            albumArtist = metadata.albumArtist
         )
+    }
+
+    // 已导入文件不会再次经过 MediaStore，升级后同步时只更新成功补读到的 WAV 标签。
+    internal fun refreshWavTags(existing: LocalTrackEntity): LocalTrackEntity? {
+        if (existing.source != LocalTrackSource.IMPORTED.name) return null
+        val uri = Uri.parse(existing.uri)
+        if (canSkipWavRefresh(Uri.decode(uri.lastPathSegment))) return null
+        val tags = readWavTags(context, uri) ?: return null
+        return mergeImportedWavTags(existing, tags).takeIf { it != existing }
     }
 }
 
