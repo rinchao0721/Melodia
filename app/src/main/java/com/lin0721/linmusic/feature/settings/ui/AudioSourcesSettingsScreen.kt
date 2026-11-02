@@ -54,6 +54,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val unmRemoteFallbackEnabled by viewModel.unmRemoteFallbackEnabled.collectAsStateWithLifecycle()
     val unmAutoMatch by viewModel.unmAutoMatch.collectAsStateWithLifecycle()
     val communityPriority by viewModel.communityPriority.collectAsStateWithLifecycle()
+    val pluginBeforeOfficial by viewModel.pluginBeforeOfficial.collectAsStateWithLifecycle()
     val lxPluginEnabled by viewModel.lxPluginEnabled.collectAsStateWithLifecycle()
     val lxPlugins by viewModel.lxPlugins.collectAsStateWithLifecycle()
 
@@ -125,6 +126,13 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "开启后优先尝试通过 LX 插件脚本解析，失败后 fallback 到远程 UNM 服务；关闭则先尝试远程 UNM",
                         checked = communityPriority,
                         onCheckedChange = { viewModel.updateCommunityPriority(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "插件优先于官方音源",
+                        subtitle = "开启后每首歌先由社区源插件解析，未命中再用官方链接。插件音质可能低于官方，没有响度均衡，可能匹配到其他版本，起播也会变慢",
+                        checked = pluginBeforeOfficial,
+                        onCheckedChange = { viewModel.updatePluginBeforeOfficial(it) }
                     )
                 }
             }

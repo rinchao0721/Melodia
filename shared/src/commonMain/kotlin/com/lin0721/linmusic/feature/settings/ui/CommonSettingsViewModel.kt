@@ -47,6 +47,7 @@ class CommonSettingsViewModel(
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
+    val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
     val unmRemoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.asState(false)
     val unmServerUrl = sourcePreferences.unmServerUrl.asState("")
     val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
@@ -91,6 +92,7 @@ class CommonSettingsViewModel(
     fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
 
     fun updateCommunityPriority(enabled: Boolean) = launchSave { sourcePreferences.saveCommunityPriority(enabled) }
+    fun updatePluginBeforeOfficial(enabled: Boolean) = launchSave { sourcePreferences.savePluginBeforeOfficial(enabled) }
 
     fun updateUnmRemoteFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveUnmRemoteFallbackEnabled(enabled) }
 

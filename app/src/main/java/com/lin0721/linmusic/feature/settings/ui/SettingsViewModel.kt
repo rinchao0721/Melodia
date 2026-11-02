@@ -66,6 +66,7 @@ class SettingsViewModel(
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
+    val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
     val unmServerUrl = sourcePreferences.unmServerUrl.asState("")
     val unmRemoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.asState(false)
     val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
@@ -267,6 +268,7 @@ class SettingsViewModel(
     fun updateUnmAutoMatch(enabled: Boolean) = launchSave { sourcePreferences.saveUnmAutoMatch(enabled) }
 
     fun updateCommunityPriority(enabled: Boolean) = launchSave { sourcePreferences.saveCommunityPriority(enabled) }
+    fun updatePluginBeforeOfficial(enabled: Boolean) = launchSave { sourcePreferences.savePluginBeforeOfficial(enabled) }
 
     fun updateLxPluginEnabled(enabled: Boolean) {
         viewModelScope.launch { lxPluginManager.setEnabled(enabled) }

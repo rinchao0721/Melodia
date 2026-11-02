@@ -375,6 +375,7 @@ internal fun settingsEntries(
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
+    val pluginBeforeOfficial by common.pluginBeforeOfficial.collectAsState()
     val unmServerUrl by common.unmServerUrl.collectAsState()
     val unmRemoteFallbackEnabled by common.unmRemoteFallbackEnabled.collectAsState()
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
@@ -502,6 +503,15 @@ internal fun settingsEntries(
                     keywords = listOf("lx", "unm", "插件", "换源")
                 ) {
                     SettingSwitch(communityPriority, onChange = common::updateCommunityPriority)
+                }
+            )
+            add(
+                rowEntry(
+                    "pluginBeforeOfficial", SettingsCategory.Source, "插件优先于官方音源",
+                    subtitle = "开启后每首歌先由社区源插件解析，未命中再用官方链接。插件音质可能低于官方，没有响度均衡，可能匹配到其他版本，起播也会变慢",
+                    keywords = listOf("lx", "插件", "官方", "优先", "换源", "vip")
+                ) {
+                    SettingSwitch(pluginBeforeOfficial, onChange = common::updatePluginBeforeOfficial)
                 }
             )
         }

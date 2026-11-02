@@ -88,12 +88,14 @@ class CommonSettingsViewModelTest {
     fun sourceSettingsArePersisted() {
         vm.updateFallbackEnabled(true)
         vm.updateCommunityPriority(true)
+        vm.updatePluginBeforeOfficial(true)
         vm.updateUnmRemoteFallbackEnabled(true)
         vm.updateUnmAutoMatch(false)
         vm.updateUnmServerUrl("https://unm.example.com")
 
         source.fallbackEnabled.awaitValue(true)
         source.communityPriority.awaitValue(true)
+        source.pluginBeforeOfficial.awaitValue(true)
         source.unmRemoteFallbackEnabled.awaitValue(true)
         source.unmAutoMatch.awaitValue(false)
         source.unmServerUrl.awaitValue("https://unm.example.com")

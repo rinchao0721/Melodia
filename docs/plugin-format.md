@@ -136,7 +136,7 @@ melodia.register.audioSource('main', {
 });
 ```
 
-- 只在官方链接不可用或只有试听、且开启了换源时调用，与 LX 插件一起参与社区源轮询。
+- 只在官方链接不可用或只有试听、且开启了换源时调用，与 LX 插件一起参与社区源轮询；用户打开「插件优先于官方音源」后，每首歌都会先调用。
 - `origin` 为 `songId` 所属平台（`netease`、`qq`、`kugou`、`kuwo`、`migu`）；`quality` 为当前音质档位（`standard`、`exhigh`、`lossless`、`hires`）。
 - 只接受 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个音源。
 - 多个插件音源按插件名称顺序尝试；`register` 的名称必须在清单 `audioSources` 里声明过。
