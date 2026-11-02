@@ -11,9 +11,6 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "SimilarRoamingController"
 
-// 相似列表里已经没有新歌时允许重复，但排掉最近这么多首，避免马上绕回刚刚那几首
-private const val REPEAT_GUARD_WINDOW = 10
-
 // 私人漫游：播放到队列末尾时自动续接相似歌曲，退出漫游时还原原队列
 class SimilarRoamingController(
     private val scope: CoroutineScope,
@@ -121,9 +118,7 @@ class SimilarRoamingController(
     }
 }
 
-// 从相似歌曲列表里挑出还能接进漫游队列的曲目。
-// 先排除当前曲目自荐与所有已在队列里的歌（含已播完的），
-// 只有当相似列表被播完、挑不出新歌时才退回允许重复，并用最近窗口避免两三首来回循环。
+// 从相似歌曲列表里挑出还能接进漫游队列的曲目，排除当前曲目自荐与所有已在队列里的歌（含已播完的）。
 internal fun selectRoamingSongs(
     candidates: List<Track>,
     seedSongId: Long,
@@ -132,12 +127,8 @@ internal fun selectRoamingSongs(
 ): List<Track> {
     if (limit <= 0) return emptyList()
     val queuedIds = queued.mapTo(HashSet()) { it.songId }
-    val fresh = candidates.filter { it.id != seedSongId && it.id !in queuedIds }
-    val picked = if (fresh.isNotEmpty()) {
-        fresh
-    } else {
-        val recentIds = queued.takeLast(REPEAT_GUARD_WINDOW).mapTo(HashSet()) { it.songId }
-        candidates.filter { it.id != seedSongId && it.id !in recentIds }
-    }
-    return picked.distinctBy { it.id }.take(limit)
+    return candidates
+        .filter { it.id != seedSongId && it.id !in queuedIds }
+        .distinctBy { it.id }
+        .take(limit)
 }

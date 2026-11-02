@@ -120,7 +120,7 @@ class SimilarRoamingControllerTest {
 
         h.controller.prefetchOnPlay(3)
 
-        // 全是已在本队列（且落在最近窗口内）的歌，宁可这一轮不补，也不能把队尾换成刚播过的几首
+        // 全是已在本队列的歌，宁可这一轮不补，也不能把队尾换成刚播过的几首
         assertEquals(listOf(1L, 2L, 3L), h.queue.ids())
     }
 
