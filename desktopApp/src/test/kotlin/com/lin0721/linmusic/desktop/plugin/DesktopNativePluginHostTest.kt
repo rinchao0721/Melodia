@@ -14,7 +14,11 @@ import com.lin0721.linmusic.core.plugin.PluginPlatform
 import com.lin0721.linmusic.core.plugin.PluginStageResult
 import com.lin0721.linmusic.core.plugin.PluginStore
 import com.lin0721.linmusic.plugin.api.PluginApiVersion
+import com.lin0721.linmusic.plugin.api.SpectrumFrame
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonNull
@@ -53,8 +57,8 @@ class DesktopNativePluginHostTest {
         root.deleteRecursively()
     }
 
-    private fun host(safeMode: Boolean = false, loadTimeoutMs: Long = 5_000) =
-        DesktopNativePluginHost(store, PluginHostApi(store), registry, notices, safeMode, javaClass.classLoader, loadTimeoutMs).also {
+    private fun host(safeMode: Boolean = false, loadTimeoutMs: Long = 5_000, spectrum: Flow<SpectrumFrame> = emptyFlow()) =
+        DesktopNativePluginHost(store, PluginHostApi(store), registry, notices, safeMode, javaClass.classLoader, loadTimeoutMs, spectrum).also {
             it.setFailureHandler { id, reason -> synchronized(failures) { failures += id to reason } }
         }
 
@@ -74,11 +78,12 @@ class DesktopNativePluginHostTest {
     private fun install(
         mainClass: String,
         id: String = "com.example.native",
-        extra: String = ""
+        extra: String = "",
+        permissions: String = "\"storage\""
     ): InstalledPlugin {
         val manifest = """
             {"format":2,"kind":"native","id":"$id","name":"测试","version":"1.0.0","apiVersion":"1.0",
-             "main":"com.lin0721.linmusic.testplugin.$mainClass","permissions":["storage"],
+             "main":"com.lin0721.linmusic.testplugin.$mainClass","permissions":[$permissions],
              "contributes":{"commands":[{"id":"run","title":"运行"}]$extra}}
         """.trimIndent()
         val zip = ByteArrayOutputStream()
@@ -107,6 +112,28 @@ class DesktopNativePluginHostTest {
     fun `API 版本与解析器一致`() {
         assertEquals(PLUGIN_API_MAJOR, PluginApiVersion.MAJOR)
         assertEquals(PLUGIN_API_MINOR, PluginApiVersion.MINOR)
+    }
+
+    @Test
+    fun `有 playback read 权限的插件能收到频谱`() = runBlocking {
+        val plugin = install("SpectrumProbePlugin", permissions = "\"playback.read\"")
+        val host = host(spectrum = flowOf(SpectrumFrame(0, FloatArray(64), FloatArray(1024))))
+        host.sync(listOf(plugin), allowed = true)
+
+        assertTrue(commands().single().value.execute(JsonNull))
+        assertEquals("bands=64", dataFile(plugin.id, "spectrum").readText())
+        host.unload(plugin.id)
+    }
+
+    @Test
+    fun `没有 playback read 权限时收集频谱失败`() = runBlocking {
+        val plugin = install("SpectrumProbePlugin")
+        val host = host(spectrum = flowOf(SpectrumFrame(0, FloatArray(64), FloatArray(1024))))
+        host.sync(listOf(plugin), allowed = true)
+
+        assertTrue(commands().single().value.execute(JsonNull))
+        assertEquals("缺少权限 playback.read", dataFile(plugin.id, "spectrum").readText())
+        host.unload(plugin.id)
     }
 
     @Test

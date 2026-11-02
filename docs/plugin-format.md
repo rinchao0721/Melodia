@@ -50,7 +50,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.2` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.3` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -73,7 +73,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | 权限 | 允许的操作 | 对应能力 |
 |---|---|---|
 | `network` | 访问 `network.hosts` 列出的域名 | |
-| `playback.read` | 读取当前歌曲、播放状态与进度 | `events` 必需 |
+| `playback.read` | 读取当前歌曲、播放状态与进度，原生插件还可读取频谱 | `events` 必需 |
 | `playback.control` | 播放、暂停、切歌、加入队列 | |
 | `storage` | 插件私有的键值存储，上限 1MB | |
 | `audioSource` | 作为音源提供播放链接 | `audioSources` 必需 |
@@ -431,7 +431,8 @@ class HelloPlugin : MelodiaPlugin {
 - **Compose 页面**：清单写 `{ "id": "panel", "title": "面板", "compose": true }`，代码里调用 `context.extensions.composePage("panel") { ... }`。需要 API 1.2，用与应用相同的 Compose 版本（当前 1.10）编译，Compose 有不兼容升级时 API 主版本会提升。页面在独立的窗口层渲染：出错只影响这个页面，但不继承应用主题，自己铺背景，也盖在应用内的弹层和菜单上方。
 - **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
 - **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
-- **宿主能力**：`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
+- **宿主能力**：除频谱外，`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
+- **频谱**：`context.spectrum.frames()` 返回 `Flow<SpectrumFrame>`，约 30 帧/秒，含 64 个对数频段（20 Hz–16 kHz，0–1）和最近 1024 个单声道采样（-1–1）。需要 API 1.3 和 `playback.read` 权限，缺权限或系统不支持时收集会抛 `PluginApiException`。收集时才采集，来不及处理的帧会被丢弃，无声时停发；数组由所有订阅者共用，不要修改。数据取自实际输出，随音量变化；优先只录 Melodia 自己的声音，系统不支持时退回默认输出设备的混音，这时会混入其他应用的声音。沙盒脚本和 Android 不提供。
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
 - **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。
 - **生命周期**：只在应用启动时加载。导入、升级和重新启用都要重启才生效；停用、删除和关闭总开关时立即调用 `onUnload` 并注销扩展，已加载的类要到重启才释放。

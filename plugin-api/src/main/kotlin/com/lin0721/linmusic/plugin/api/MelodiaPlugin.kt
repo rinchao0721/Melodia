@@ -1,12 +1,13 @@
 package com.lin0721.linmusic.plugin.api
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 // 次版本只增不改，破坏性变更才提升主版本
 object PluginApiVersion {
     const val MAJOR = 1
-    const val MINOR = 2
+    const val MINOR = 3
 }
 
 // 原生插件入口，需要公开的无参构造函数；回调都不在主线程
@@ -25,6 +26,9 @@ interface PluginContext {
     val pluginId: String
     val extensions: PluginExtensions
     val player: PlayerApi
+
+    // API 1.3 起提供
+    val spectrum: SpectrumApi
     val library: LibraryApi
     val netease: NeteaseApi
     val storage: PluginStorage
@@ -79,6 +83,22 @@ interface PlayerApi {
     suspend fun previous()
     suspend fun enqueue(song: QueueSong)
 }
+
+interface SpectrumApi {
+    // 需要 playback.read 权限，缺权限或系统不支持时收集会抛 PluginApiException
+    // 收集时才采集，约 30 帧/秒；来不及处理的帧会被丢弃，无声时停发
+    fun frames(): Flow<SpectrumFrame>
+}
+
+// 取自实际输出，随音量变化；数组由所有订阅者共用，不要修改，要保留就复制一份
+class SpectrumFrame(
+    // 从本次采集开始算起
+    val timeMs: Long,
+    // 64 个对数频段（20 Hz–16 kHz），范围 0–1
+    val bands: FloatArray,
+    // 最近 1024 个单声道采样，范围 -1–1
+    val waveform: FloatArray
+)
 
 interface LibraryApi {
     suspend fun likedSongIds(): Set<Long>

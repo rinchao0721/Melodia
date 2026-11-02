@@ -60,6 +60,7 @@ import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
+import com.lin0721.linmusic.desktop.player.spectrum.SpectrumHub
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
 import com.lin0721.linmusic.desktop.ui.local.LocalMusicActions
 import com.lin0721.linmusic.desktop.ui.settings.DesktopSettingsViewModel
@@ -149,7 +150,10 @@ val desktopPlatformModule = module {
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
     single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
-    single<NativePluginHost> { DesktopNativePluginHost(get(), get(), get(), get(), safeMode = DesktopLaunchOptions.safeMode) }
+    single { SpectrumHub() }
+    single<NativePluginHost> {
+        DesktopNativePluginHost(get(), get(), get(), get(), safeMode = DesktopLaunchOptions.safeMode, spectrumFrames = get<SpectrumHub>().frames)
+    }
     single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
     single { SessionMonitor(get(), get()) }

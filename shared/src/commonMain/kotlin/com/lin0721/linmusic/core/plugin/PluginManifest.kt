@@ -6,7 +6,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 2
+const val PLUGIN_API_MINOR = 3
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效

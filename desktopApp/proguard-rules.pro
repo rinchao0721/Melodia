@@ -23,6 +23,7 @@
 # JNA：Library 接口方法按名称绑定 C 函数，Structure 字段按声明顺序映射内存
 -keep class com.sun.jna.** { *; }
 -keep interface * extends com.sun.jna.Library { *; }
+-keep interface * extends com.sun.jna.Callback { *; }
 -keep class * extends com.sun.jna.Structure { *; }
 
 # 协程主线程调度器通过 ServiceLoader 加载

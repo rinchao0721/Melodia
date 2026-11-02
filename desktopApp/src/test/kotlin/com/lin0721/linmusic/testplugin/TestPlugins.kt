@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.testplugin
 
 import com.lin0721.linmusic.plugin.api.MelodiaPlugin
+import com.lin0721.linmusic.plugin.api.PluginApiException
 import com.lin0721.linmusic.plugin.api.PluginContext
+import kotlinx.coroutines.flow.first
 import java.io.File
 
 // 这些类打进临时 JAR，由插件类加载器加载，和测试只能通过文件与注册表交换结果
@@ -16,6 +18,19 @@ class NormalPlugin : MelodiaPlugin {
 
     override fun onUnload() {
         File(directory, "unloaded").writeText("yes")
+    }
+}
+
+class SpectrumProbePlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("run") {
+            val result = try {
+                "bands=${context.spectrum.frames().first().bands.size}"
+            } catch (e: PluginApiException) {
+                e.message.orEmpty()
+            }
+            File(context.dataDirectory, "spectrum").writeText(result)
+        }
     }
 }
 

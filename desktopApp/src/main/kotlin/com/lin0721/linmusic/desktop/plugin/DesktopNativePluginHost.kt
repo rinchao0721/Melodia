@@ -19,6 +19,7 @@ import com.lin0721.linmusic.core.plugin.PluginState
 import com.lin0721.linmusic.core.plugin.PluginStore
 import com.lin0721.linmusic.plugin.api.MelodiaPlugin
 import com.lin0721.linmusic.plugin.api.PluginApiVersion
+import com.lin0721.linmusic.plugin.api.SpectrumFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -26,9 +27,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -96,7 +99,8 @@ class DesktopNativePluginHost(
     private val notices: PluginNotices,
     private val safeMode: Boolean = false,
     private val hostLoader: ClassLoader = DesktopNativePluginHost::class.java.classLoader,
-    private val loadTimeoutMs: Long = LOAD_TIMEOUT_MS
+    private val loadTimeoutMs: Long = LOAD_TIMEOUT_MS,
+    private val spectrumFrames: Flow<SpectrumFrame> = emptyFlow()
 ) : NativePluginHost {
     private val lock = Mutex()
     private val loaded = ConcurrentHashMap<String, LoadedPlugin>()
@@ -185,7 +189,7 @@ class DesktopNativePluginHost(
                 instantiate(manifest, workDirectory)
             }
             val target = LoadedPlugin(manifest, entry)
-            val context = NativePluginContext(manifest, target, api, registry, File(runRoot, manifest.id), store.dataDirectoryOf(manifest.id)!!)
+            val context = NativePluginContext(manifest, target, api, registry, File(runRoot, manifest.id), store.dataDirectoryOf(manifest.id)!!, spectrumFrames)
 
             runBounded("onLoad", loadTimeoutMs) { entry.onLoad(context) }
             loaded[manifest.id] = target

@@ -18,6 +18,7 @@ import com.lin0721.linmusic.core.plugin.PluginEvent
 import com.lin0721.linmusic.core.plugin.PluginHostApi
 import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginPaths
+import com.lin0721.linmusic.core.plugin.PluginPermission
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.plugin.api.AudioSource
 import com.lin0721.linmusic.plugin.api.BackdropFrame
@@ -50,8 +51,16 @@ import com.lin0721.linmusic.plugin.api.PluginSettings
 import com.lin0721.linmusic.plugin.api.PluginStorage
 import com.lin0721.linmusic.plugin.api.PluginUi
 import com.lin0721.linmusic.plugin.api.QueueSong
+import com.lin0721.linmusic.plugin.api.SpectrumApi
+import com.lin0721.linmusic.plugin.api.SpectrumFrame
 import com.lin0721.linmusic.plugin.api.TrackQuery
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -76,7 +85,8 @@ internal class NativePluginContext(
     private val api: PluginHostApi,
     private val registry: ExtensionRegistry,
     private val workDirectory: File,
-    dataRoot: File
+    dataRoot: File,
+    private val spectrumFrames: Flow<SpectrumFrame> = emptyFlow()
 ) : PluginContext {
     private val registered = ConcurrentHashMap.newKeySet<String>()
     val registrations: Set<String> get() = registered.toSet()
@@ -246,6 +256,15 @@ internal class NativePluginContext(
 
         override suspend fun enqueue(song: QueueSong) {
             call("player.enqueue", toJson(mapOf("songId" to song.songId, "title" to song.title, "artist" to song.artist, "cover" to song.cover)) as JsonObject)
+        }
+    }
+
+    override val spectrum: SpectrumApi = object : SpectrumApi {
+        override fun frames(): Flow<SpectrumFrame> = flow {
+            if (PluginPermission.PLAYBACK_READ !in manifest.permissions) {
+                throw PluginApiException("缺少权限 ${PluginPermission.PLAYBACK_READ.key}")
+            }
+            emitAll(spectrumFrames.takeWhile { guard.scope.isActive })
         }
     }
 
