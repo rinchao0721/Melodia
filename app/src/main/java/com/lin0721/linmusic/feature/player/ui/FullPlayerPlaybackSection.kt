@@ -108,6 +108,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 baseCoverPadding = baseCoverPadding,
                 onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                 isSidebarFullscreen = isSidebarFullscreen,
+                onShareClick = onShareClick,
+                onOutputDeviceClick = onOutputDeviceClick,
+                connectedDevice = connectedDevice,
                 onPlaylistClick = onPlaylistClick,
                 onCancelSwipe = onCancelSwipe
             )
@@ -175,6 +178,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onPlayPrevious = onPlayPrevious,
             onToggleShuffle = onToggleShuffle,
             onToggleRepeat = onToggleRepeat,
+            onCyclePlayMode = onCyclePlayMode,
+            onQueueClick = onQueueClick,
             playMode = playMode,
             isRoaming = playContext == "similar_roaming",
             onDisableRoaming = onDisableRoaming,
@@ -187,16 +192,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
 
     item(key = "actions") {
         ActionButtons(
-            playMode = playMode,
-            onCyclePlayMode = onCyclePlayMode,
-            isRoaming = playContext == "similar_roaming",
-            onDisableRoaming = onDisableRoaming,
-            isIntelligence = playContext == "intelligence",
-            onDisableIntelligence = onDisableIntelligence,
-            onOutputDeviceClick = onOutputDeviceClick,
-            onQueueClick = onQueueClick,
-            onShareClick = onShareClick,
-            connectedDevice = connectedDevice,
             qualityLabel = qualityLabel
         )
     }

@@ -15,7 +15,11 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.outlined.ViewSidebar
 import androidx.compose.material.icons.rounded.Fullscreen
+import android.media.AudioDeviceInfo
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SpeakerGroup
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -63,6 +67,10 @@ fun FullPlayerCoverArt(
     onToggleSidebarFullscreen: (() -> Unit)? = null,
     isSidebarFullscreen: Boolean = false,
     onPlaylistClick: (() -> Unit)? = null,
+    // 右上角快捷入口：分享与输出设备
+    onShareClick: (() -> Unit)? = null,
+    onOutputDeviceClick: (() -> Unit)? = null,
+    connectedDevice: AudioDeviceInfo? = null,
     modifier: Modifier = Modifier,
     onCancelSwipe: () -> Boolean = { false }
 ) {
@@ -80,6 +88,9 @@ fun FullPlayerCoverArt(
             onToggleSidebarFullscreen = onToggleSidebarFullscreen,
             isSidebarFullscreen = isSidebarFullscreen,
             onPlaylistClick = onPlaylistClick,
+            onShareClick = onShareClick,
+            onOutputDeviceClick = onOutputDeviceClick,
+            connectedDevice = connectedDevice,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MelodiaSpacing.lg)
@@ -116,6 +127,9 @@ fun FullPlayerSourceBar(
     onFullscreenLyricsClick: (() -> Unit)? = null,
     podcastRadioName: String = "",
     onPlaylistClick: (() -> Unit)? = null,
+    onShareClick: (() -> Unit)? = null,
+    onOutputDeviceClick: (() -> Unit)? = null,
+    connectedDevice: AudioDeviceInfo? = null,
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
@@ -219,6 +233,35 @@ fun FullPlayerSourceBar(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // 输出设备与分享放在右上角，底栏不再重复
+            if (onOutputDeviceClick != null) {
+                MelodiaIconButton(
+                    onClick = onOutputDeviceClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup,
+                        contentDescription = "连接设备",
+                        tint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(SidebarToggleGap))
+            }
+            if (onShareClick != null) {
+                MelodiaIconButton(
+                    onClick = onShareClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Share,
+                        contentDescription = "分享",
+                        tint = MelodiaColors.TextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(SidebarToggleGap))
+            }
             if (onFullscreenLyricsClick != null) {
                 MelodiaIconButton(
                     onClick = onFullscreenLyricsClick,

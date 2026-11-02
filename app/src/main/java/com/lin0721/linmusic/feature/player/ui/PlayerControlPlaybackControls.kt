@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.SkipNext
@@ -22,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.player.PlayMode
@@ -43,40 +45,82 @@ fun PlaybackControls(
     onPlayPrevious: () -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
+    onCyclePlayMode: () -> Unit,
+    onQueueClick: () -> Unit,
     playMode: PlayMode,
     isRoaming: Boolean = false,
     onDisableRoaming: () -> Unit = {},
     isIntelligence: Boolean = false,
     onDisableIntelligence: () -> Unit = {}
 ) {
-    // 模式按钮已移到下方操作行（和分享/歌单/输出设备同一排），这里只剩传输键，直接整体居中
-    Box(
+    // 五个键等距排开：模式 / 上一首 / 播放 / 下一首 / 队列。
+    // 300dp 宽（大字号/高密度）下要缩小播放键与边距，否则最右侧队列会被挤出屏幕
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg)
+            .padding(horizontal = MelodiaSpacing.sm)
             .padding(top = MelodiaSpacing.xs),
-        contentAlignment = Alignment.Center
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(28.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // 常规播放模式一律白色（模式只靠图标形状区分，避免"某些模式变红、某些不变"的不一致）；
+        // 漫游/心动是临时特殊状态，仍用主题色提示
+        val specialMode = isRoaming || isIntelligence
+        MelodiaIconButton(
+            onClick = {
+                when {
+                    isRoaming -> onDisableRoaming()
+                    isIntelligence -> onDisableIntelligence()
+                    else -> onCyclePlayMode()
+                }
+            },
+            containerColor = if (specialMode) MelodiaColors.Accent.copy(alpha = 0.16f) else Color.Transparent
         ) {
-            val outlined = outlinedControls
-            val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
-            MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
-                Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
-            }
-            PlayPauseFab(isPlaying, onTogglePlay)
-            MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
-                Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
-            }
+            Icon(
+                imageVector = when {
+                    isRoaming -> Icons.Rounded.AllInclusive
+                    isIntelligence -> Icons.Rounded.AutoAwesome
+                    else -> playMode.modeIcon()
+                },
+                contentDescription = when {
+                    isRoaming -> "关闭相似歌曲漫游"
+                    isIntelligence -> "关闭心动模式"
+                    else -> playMode.modeLabel()
+                },
+                tint = if (specialMode) MelodiaColors.Accent else MelodiaColors.TextPrimary,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        val outlined = outlinedControls
+        val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
+        MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
+            Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(40.dp))
+        }
+        PlayPauseFab(isPlaying, onTogglePlay, size = 56.dp)
+        MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
+            Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(40.dp))
+        }
+
+        MelodiaIconButton(onClick = onQueueClick) {
+            Icon(
+                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                contentDescription = "播放队列",
+                tint = MelodiaColors.TextPrimary,
+                modifier = Modifier.size(26.dp)
+            )
         }
     }
 }
 
 // 大播放键：按下变淡，松手或点击后恢复
 @Composable
-private fun PlayPauseFab(isPlaying: Boolean, onTogglePlay: () -> Unit, scale: Float = 1f) {
+private fun PlayPauseFab(
+    isPlaying: Boolean,
+    onTogglePlay: () -> Unit,
+    scale: Float = 1f,
+    size: Dp = 72.dp
+) {
     val motion = LocalUiMotion.current
     val outlined = outlinedControls
     val playInteraction = remember { MutableInteractionSource() }
@@ -109,13 +153,13 @@ private fun PlayPauseFab(isPlaying: Boolean, onTogglePlay: () -> Unit, scale: Fl
         elevation = if (outlined) FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) else FloatingActionButtonDefaults.elevation(),
         interactionSource = playInteraction,
         modifier = Modifier
-            .size(72.dp * scale)
+            .size(size * scale)
             .then(if (outlined) Modifier.border(2.dp, MelodiaColors.TextPrimary, styledButtonShape(CircleShape)) else Modifier)
             .graphicsLayer {
                 alpha = buttonAlpha.value
             }
     ) {
-        PlayPauseIcon(isPlaying, if (outlined) MelodiaColors.TextPrimary else MelodiaColors.InverseText, size = 42.dp * scale)
+        PlayPauseIcon(isPlaying, if (outlined) MelodiaColors.TextPrimary else MelodiaColors.InverseText, size = size * 0.58f * scale)
     }
 }
 

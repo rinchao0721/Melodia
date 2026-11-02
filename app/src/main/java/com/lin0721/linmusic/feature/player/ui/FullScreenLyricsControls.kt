@@ -895,21 +895,17 @@ fun FullScreenControls(
                 }
             }
 
-            val modeActive = playMode != PlayMode.LIST_LOOP && playMode != PlayMode.SHUFFLE
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (modeActive) MelodiaColors.Accent.copy(alpha = 0.16f) else Color.Transparent
-                    )
                     .pressable(MelodiaPress.Icon) { onToggleRepeat() },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
                     imageVector = playMode.modeIcon(),
                     contentDescription = playMode.modeLabel(),
-                    tint = if (modeActive) MelodiaColors.Accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(26.dp)
                 )
             }

@@ -59,7 +59,7 @@ fun PlayerActionRow(
                     Icon(
                         playMode.modeIcon(),
                         contentDescription = playMode.modeLabel(),
-                        tint = if (playMode != PlayMode.LIST_LOOP) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
+                        tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -88,21 +88,10 @@ fun PlayerActionRow(
     }
 }
 
-// 控件区底部次级入口：输出设备、分享、播放队列，平板横屏下支持整合歌词控制（文A/音A切换、歌词设置）
-// connectedDevice 非空时说明当前连着非扬声器设备（有线/蓝牙），图标换类型、变主题色，并在图标后显示设备名；扬声器播放时保持默认
+// 控件区底部次级入口：歌词翻译/音译切换与音质标签。
+// 分享、输出设备在封面右上角，播放队列在传输键右侧，这里不再重复放入口
 @Composable
 fun ActionButtons(
-    playMode: PlayMode,
-    onCyclePlayMode: () -> Unit,
-    onOutputDeviceClick: () -> Unit,
-    onQueueClick: () -> Unit,
-    onShareClick: () -> Unit,
-    // 漫游/心动模式没有对应的 PlayMode，按下模式键时用来退出该模式
-    isRoaming: Boolean = false,
-    onDisableRoaming: () -> Unit = {},
-    isIntelligence: Boolean = false,
-    onDisableIntelligence: () -> Unit = {},
-    connectedDevice: AudioDeviceInfo? = null,
     // 实际音质短标签，为空时不显示
     qualityLabel: String? = null,
     showLyricsControls: Boolean = false,
@@ -112,150 +101,74 @@ fun ActionButtons(
     onToggleSecondaryMode: (() -> Unit)? = null,
     onLyricsSettingsClick: (() -> Unit)? = null
 ) {
-    val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup
-    val outputDeviceTint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
-
+    if (!showLyricsControls && qualityLabel == null) return
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MelodiaSpacing.lg)
-            .padding(top = MelodiaSpacing.sm, bottom = MelodiaSpacing.md)
+            .padding(top = MelodiaSpacing.sm, bottom = MelodiaSpacing.md),
+        contentAlignment = Alignment.Center
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    // 反馈交给里面的图标按钮，外层只是把设备名也纳入点击区
-                    .pressable(MelodiaPress.None, onClick = onOutputDeviceClick)
-            ) {
-                MelodiaIconButton(
-                    onClick = onOutputDeviceClick,
-                    modifier = Modifier.offset(x = (-12).dp)
-                ) {
-                    Icon(outputDeviceIcon, contentDescription = "连接设备", tint = outputDeviceTint, modifier = Modifier.size(24.dp))
+            if (showLyricsControls) {
+                val hasAnySecondary = hasTranslation || hasRoma
+                val (badgeText, badgeSub) = when (secondaryMode) {
+                    "roma" -> "音" to "A"
+                    else -> "文" to "A"
                 }
-                if (connectedDevice != null) {
-                    Text(
-                        text = deviceLabel(connectedDevice),
-                        color = outputDeviceTint,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .offset(x = (-8).dp)
-                            .widthIn(max = 140.dp)
-                    )
+                val badgeTint = when {
+                    !hasAnySecondary -> MelodiaColors.TextSecondary.copy(alpha = 0.35f)
+                    secondaryMode == "none" -> MelodiaColors.TextSecondary.copy(alpha = 0.65f)
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .pressable(if (hasAnySecondary && onToggleSecondaryMode != null) MelodiaPress.Icon else MelodiaPress.None) {
+                            if (hasAnySecondary) onToggleSecondaryMode?.invoke()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = badgeText,
+                            color = badgeTint,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = badgeSub,
+                            color = badgeTint,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(start = 1.dp, bottom = 1.dp)
+                        )
+                    }
+                }
+                if (onLyricsSettingsClick != null) {
+                    MelodiaIconButton(onClick = onLyricsSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = "歌词设置",
+                            tint = MelodiaColors.TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)
-            ) {
-                // 播放模式：图标随模式变化，点击在 顺序 → 列表循环 → 单曲循环 → 随机 之间轮转
-                val modeHighlighted = isRoaming || isIntelligence || playMode != PlayMode.LIST_LOOP
-                MelodiaIconButton(
-                    onClick = {
-                        when {
-                            isRoaming -> onDisableRoaming()
-                            isIntelligence -> onDisableIntelligence()
-                            else -> onCyclePlayMode()
-                        }
-                    }
-                ) {
-                    Icon(
-                        imageVector = when {
-                            isRoaming -> Icons.Rounded.AllInclusive
-                            isIntelligence -> Icons.Rounded.AutoAwesome
-                            else -> playMode.modeIcon()
-                        },
-                        contentDescription = when {
-                            isRoaming -> "关闭相似歌曲漫游"
-                            isIntelligence -> "关闭心动模式"
-                            else -> playMode.modeLabel()
-                        },
-                        tint = if (modeHighlighted) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                if (showLyricsControls) {
-                    val hasAnySecondary = hasTranslation || hasRoma
-                    val (badgeText, badgeSub) = when (secondaryMode) {
-                        "roma" -> "音" to "A"
-                        else -> "文" to "A"
-                    }
-                    val badgeTint = when {
-                        !hasAnySecondary -> MelodiaColors.TextSecondary.copy(alpha = 0.35f)
-                        secondaryMode == "none" -> MelodiaColors.TextSecondary.copy(alpha = 0.65f)
-                        else -> MaterialTheme.colorScheme.primary
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .pressable(if (hasAnySecondary && onToggleSecondaryMode != null) MelodiaPress.Icon else MelodiaPress.None) {
-                                if (hasAnySecondary) onToggleSecondaryMode?.invoke()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = badgeText,
-                                color = badgeTint,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = badgeSub,
-                                color = badgeTint,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(start = 1.dp, bottom = 1.dp)
-                            )
-                        }
-                    }
-
-                    if (onLyricsSettingsClick != null) {
-                        MelodiaIconButton(onClick = onLyricsSettingsClick) {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = "歌词设置",
-                                tint = MelodiaColors.TextSecondary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-
-                MelodiaIconButton(onClick = onShareClick) {
-                    Icon(
-                        imageVector = Icons.Rounded.Share,
-                        contentDescription = "分享",
-                        tint = MelodiaColors.TextSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                MelodiaIconButton(
-                    onClick = onQueueClick,
-                    modifier = if (showLyricsControls) Modifier else Modifier.offset(x = 12.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
-                }
+            if (qualityLabel != null) {
+                Text(
+                    text = qualityLabel,
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
             }
-        }
-        if (qualityLabel != null) {
-            Text(
-                text = qualityLabel,
-                color = MelodiaColors.TextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.Center)
-            )
         }
     }
 }

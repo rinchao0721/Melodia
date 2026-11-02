@@ -758,6 +758,9 @@ private fun FullPlayerScreenContent(
                                 onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                                 isSidebarFullscreen = isSidebarFullscreen,
                                 onPlaylistClick = openPlaylistSource,
+                                onShareClick = { shareCurrentSong() },
+                                onOutputDeviceClick = { showOutputDeviceSheet = true },
+                                connectedDevice = connectedDevice,
                                 modifier = barModifier.padding(horizontal = MelodiaSpacing.lg)
                             )
                         }
@@ -894,6 +897,9 @@ private fun FullPlayerScreenContent(
                         isSidebarFullscreen = isSidebarFullscreen,
                         onFullscreenLyricsClick = { isLyricsFullScreen = true },
                         onPlaylistClick = openPlaylistSource,
+                        onShareClick = { shareCurrentSong() },
+                        onOutputDeviceClick = { showOutputDeviceSheet = true },
+                        connectedDevice = connectedDevice,
                         modifier = barModifier
                     )
                 },
@@ -938,6 +944,8 @@ private fun FullPlayerScreenContent(
                         onPlayPrevious = viewModel.playerManager::playPrevious,
                         onToggleShuffle = viewModel.playerManager::toggleShuffle,
                         onToggleRepeat = viewModel.playerManager::toggleRepeat,
+                        onCyclePlayMode = viewModel.playerManager::rotatePlayMode,
+                        onQueueClick = { showQueueSheet = true },
                         playMode = playMode,
                         isRoaming = playContext == "similar_roaming",
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
@@ -945,16 +953,6 @@ private fun FullPlayerScreenContent(
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() }
                     )
                     ActionButtons(
-                        playMode = playMode,
-                        onCyclePlayMode = viewModel.playerManager::rotatePlayMode,
-                        isRoaming = playContext == "similar_roaming",
-                        onDisableRoaming = { viewModel.playerManager.disableRoaming() },
-                        isIntelligence = playContext == "intelligence",
-                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
-                        onOutputDeviceClick = { showOutputDeviceSheet = true },
-                        onQueueClick = { showQueueSheet = true },
-                        onShareClick = { shareCurrentSong() },
-                        connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
                         showLyricsControls = !podcast.isPodcast,
                         secondaryMode = fullScreenLyricSecondaryMode,
