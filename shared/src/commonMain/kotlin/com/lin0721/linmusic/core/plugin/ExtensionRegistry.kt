@@ -7,23 +7,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 
-// 同一扩展点有多个提供者时的规则；SINGLE 只列出候选，由使用方决定生效项
-enum class ExtensionMerge { ALL, ORDERED, SINGLE }
-
-class ExtensionPoint<T : Any>(val id: String, val merge: ExtensionMerge)
+// ordered 为 true 时按插件名与声明顺序排序；是否只取一项由使用方决定
+class ExtensionPoint<T : Any>(val id: String, val ordered: Boolean = false)
 
 object ExtensionPoints {
-    val PLAYER_LAYOUT = ExtensionPoint<PlayerLayoutExtension>("playerLayout", ExtensionMerge.SINGLE)
-    val PAGE = ExtensionPoint<ActivePluginPage>("page", ExtensionMerge.ALL)
-    val AUDIO_SOURCE = ExtensionPoint<AudioSourceExtension>("audioSource", ExtensionMerge.ORDERED)
-    val LYRICS_SOURCE = ExtensionPoint<LyricsSourceExtension>("lyricsSource", ExtensionMerge.ORDERED)
-    val EVENT = ExtensionPoint<EventExtension>("event", ExtensionMerge.ALL)
-    val COMMAND = ExtensionPoint<CommandExtension>("command", ExtensionMerge.ALL)
-    val MENU = ExtensionPoint<PluginMenuEntry>("menu", ExtensionMerge.ALL)
-    val CONTENT_SOURCE = ExtensionPoint<ContentSourceExtension>("contentSource", ExtensionMerge.ORDERED)
-    val ACTION = ExtensionPoint<ActionExtension>("action", ExtensionMerge.ALL)
-    val BACKDROP = ExtensionPoint<BackdropExtension>("backdropSource", ExtensionMerge.SINGLE)
-    val COMPOSE_PAGE = ExtensionPoint<ComposePageExtension>("composeSlot", ExtensionMerge.ALL)
+    val PLAYER_LAYOUT = ExtensionPoint<PlayerLayoutExtension>("playerLayout")
+    val PAGE = ExtensionPoint<ActivePluginPage>("page")
+    val AUDIO_SOURCE = ExtensionPoint<AudioSourceExtension>("audioSource", ordered = true)
+    val LYRICS_SOURCE = ExtensionPoint<LyricsSourceExtension>("lyricsSource", ordered = true)
+    val EVENT = ExtensionPoint<EventExtension>("event")
+    val COMMAND = ExtensionPoint<CommandExtension>("command")
+    val MENU = ExtensionPoint<PluginMenuEntry>("menu")
+    val CONTENT_SOURCE = ExtensionPoint<ContentSourceExtension>("contentSource", ordered = true)
+    val ACTION = ExtensionPoint<ActionExtension>("action")
+    val BACKDROP = ExtensionPoint<BackdropExtension>("backdropSource")
+    val COMPOSE_PAGE = ExtensionPoint<ComposePageExtension>("composeSlot")
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
@@ -75,6 +73,9 @@ interface BackdropExtension {
     val maxWidth: Int
 
     fun render(width: Int, height: Int, timeMs: Long, pixels: IntArray): Boolean
+
+    // render 长时间不返回时调用
+    fun reportStalled() {}
 }
 
 // 原生插件的 Compose 页面；组合时的异常无法就地捕获，由宿主放进独立窗口层后交给 onError
@@ -115,7 +116,7 @@ class ExtensionRegistry {
     fun <T : Any> get(point: ExtensionPoint<T>): List<Extension<T>> {
         @Suppress("UNCHECKED_CAST")
         val matched = _entries.value.filter { it.point == point } as List<Extension<T>>
-        return if (point.merge == ExtensionMerge.ORDERED) {
+        return if (point.ordered) {
             matched.sortedWith(compareBy<Extension<T>> { it.pluginName }.thenBy { it.order })
         } else {
             matched

@@ -53,6 +53,7 @@ import com.lin0721.linmusic.desktop.app.DesktopCacheMigration
 import com.lin0721.linmusic.desktop.app.DesktopCacheRoot
 import com.lin0721.linmusic.desktop.app.DesktopLogging
 import com.lin0721.linmusic.desktop.app.DesktopPaths
+import com.lin0721.linmusic.core.plugin.PluginHostInfo
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.desktop.app.HeapTrim
 import com.lin0721.linmusic.desktop.app.RenderBackend
@@ -155,6 +156,7 @@ private data class WindowSnapshot(
 @OptIn(FlowPreview::class)
 fun main(args: Array<String>) {
     DesktopLaunchOptions.safeMode = "--safe-mode" in args
+    PluginHostInfo.appVersion = AppInfo.version.takeIf { AppInfo.isRelease }
     DesktopLogging.install()
     DesktopImageLoader.install()
     // 已有实例则唤起它并退出

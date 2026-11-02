@@ -202,12 +202,11 @@ class DesktopNativePluginHost(
             _status.update { it + (manifest.id to PluginRuntimeStatus(running = true, registrations = context.registrations)) }
             AppLogger.i(TAG, "原生插件已加载: ${manifest.name} v${manifest.version}")
         } catch (e: CancellationException) {
+            discard(created)
             throw e
         } catch (e: NativeLoadException) {
             AppLogger.w(TAG, "加载原生插件失败: ${manifest.id} ${e.message}", e.cause)
-            // 超时的 onLoad 线程还在运行，先取消作用域，它之后的注册才会被拒绝
-            created?.scope?.cancel()
-            registry.unregister(manifest.id, NATIVE_POINTS)
+            discard(created)
             fail(manifest.id, e.message ?: "加载失败")
         } catch (e: IOException) {
             AppLogger.w(TAG, "加载原生插件失败: ${manifest.id}", e)
@@ -215,6 +214,13 @@ class DesktopNativePluginHost(
         } finally {
             withContext(Dispatchers.IO) { marker.delete() }
         }
+    }
+
+    // 超时的 onLoad 线程还在运行，先取消作用域，它之后的注册才会被拒绝
+    private fun discard(target: LoadedPlugin?) {
+        target ?: return
+        target.scope.cancel()
+        registry.unregister(target.manifest.id, NATIVE_POINTS)
     }
 
     // 在运行副本上加载，安装目录不被文件锁占用，运行中也能升级和删除

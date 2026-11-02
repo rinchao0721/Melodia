@@ -20,7 +20,6 @@ sealed interface PluginParseResult {
 // 解析 plugin.json：结构错误与能力缺少权限直接失败，单项取值不合法时忽略该项并记入 warnings
 object PluginParser {
 
-    private val ID_PATTERN = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
     private val ENTRY_ID_PATTERN = Regex("^[a-z0-9][a-z0-9_-]{0,31}$")
     private val API_VERSION_PATTERN = Regex("^(\\d{1,4})\\.(\\d{1,4})$")
     private val CLASS_NAME_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$")
@@ -57,13 +56,15 @@ object PluginParser {
         if (format > PLUGIN_FORMAT_VERSION) return PluginParseResult.Failure("插件需要更新版本的应用才能使用")
 
         val id = root.string("id")?.trim().orEmpty()
-        if (id.length > MAX_ID_LENGTH || !ID_PATTERN.matches(id)) {
+        if (id.length > MAX_ID_LENGTH || !PLUGIN_ID_PATTERN.matches(id)) {
             return PluginParseResult.Failure("id 需要写成 com.example.name 这样的反向域名，只能用小写字母、数字和 _")
         }
         val name = root.string("name")?.trim().orEmpty()
         if (name.isEmpty()) return PluginParseResult.Failure("缺少插件名称")
         val version = root.string("version")?.trim().orEmpty()
         if (version.isEmpty()) return PluginParseResult.Failure("缺少版本号")
+        val minAppVersion = root.string("minAppVersion")?.trim()?.takeIf { it.isNotEmpty() }
+        minAppVersion?.let(::minAppVersionFailure)?.let { return PluginParseResult.Failure(it) }
 
         val warnings = mutableListOf<String>()
         val compatibility = if (format >= 2) parseCompatibility(root, platform, warnings) else Compatibility()
@@ -92,7 +93,7 @@ object PluginParser {
             version = version.take(MAX_VERSION_LENGTH),
             author = root.string("author")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_NAME_LENGTH),
             description = root.string("description")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_DESCRIPTION_LENGTH),
-            minAppVersion = root.string("minAppVersion")?.trim()?.takeIf { it.isNotEmpty() },
+            minAppVersion = minAppVersion,
             permissions = permissions,
             networkHosts = if (PluginPermission.NETWORK in permissions) hosts else emptyList(),
             contributes = contributes,
@@ -364,8 +365,6 @@ object PluginParser {
         is JsonPrimitive -> value.takeIf { it.isString }?.content?.takeIf(PluginPaths::isUi)?.let(PluginUiRef::File)
         else -> null
     }
-
-    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     private fun JsonObject.number(key: String): Float? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
 }

@@ -235,7 +235,11 @@ class PluginRepository(
     suspend fun install(staged: StagedPlugin): InstalledPlugin? {
         runtime.stop(staged.manifest.id)
         native?.unload(staged.manifest.id)
-        val plugin = withContext(Dispatchers.IO) { store.install(staged, enabled = true) }
+        val plugin = withContext(Dispatchers.IO) {
+            // 用户手动停用的插件升级后保持停用；因出错被自动停用的，新版本可以再试
+            val state = store.installed(staged.manifest.id)?.state
+            store.install(staged, enabled = state == null || state.enabled || state.disabledReason != null)
+        }
         refresh()
         return plugin
     }

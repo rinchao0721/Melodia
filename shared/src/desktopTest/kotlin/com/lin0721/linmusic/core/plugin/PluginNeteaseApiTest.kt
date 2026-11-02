@@ -181,6 +181,43 @@ class PluginNeteaseApiTest {
     }
 
     @Test
+    fun `拒绝后冷却期内不再弹窗`() = runBlocking {
+        val like = buildJsonObject {
+            put("id", 9)
+            put("like", true)
+        }
+        val call = async(Dispatchers.Default) { runCatching { api.call(writer, "song.like", like) } }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        confirmations.respond(false)
+        call.await()
+
+        assertEquals("用户刚拒绝了写入，请稍后再试", failure { api.call(writer, "song.like", like) })
+        assertEquals(null, confirmations.pending.value)
+
+        clock += 30_001
+        val retry = async(Dispatchers.Default) { runCatching { api.call(writer, "song.like", like) } }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        confirmations.respond(true)
+        assertTrue(retry.await().isSuccess)
+    }
+
+    @Test
+    fun `参数无效的写入不弹确认`() {
+        assertEquals("缺少参数 like", failure { api.call(writer, "song.like", params(1)) })
+        assertEquals(null, confirmations.pending.value)
+    }
+
+    @Test
+    fun `读取按插件限频`() = runBlocking {
+        val args = buildJsonObject { put("id", 1) }
+        repeat(120) { api.call(reader, "song.lyric", args) }
+        assertEquals("读取过于频繁，请稍后再试", failure { api.call(reader, "song.lyric", args) })
+        clock += 60_001
+        api.call(reader, "song.lyric", args)
+        Unit
+    }
+
+    @Test
     fun `删除歌单每次都要确认`() = runBlocking {
         approved()
         val call = async(Dispatchers.Default) { api.call(writer, "playlist.delete", params(101)) }

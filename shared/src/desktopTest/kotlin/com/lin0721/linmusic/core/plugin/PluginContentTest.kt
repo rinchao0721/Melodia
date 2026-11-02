@@ -73,6 +73,29 @@ class PluginContentTest {
     }
 
     @Test
+    fun `长 id 原样传回插件`() = runBlocking {
+        val longId = "x".repeat(500)
+        val source = object : ContentSourceExtension by FakeSource() {
+            var resolved: String? = null
+
+            override suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement = buildJsonArray {
+                add(buildJsonObject {
+                    put("id", longId)
+                    put("title", "长 id")
+                })
+            }
+
+            override suspend fun resolve(trackId: String, quality: String): JsonElement {
+                resolved = trackId
+                return JsonPrimitive("https://example.com/a.mp3")
+            }
+        }
+        register(source)
+        content.resolve(content.search("x", 0, 30).single(), "standard")
+        assertEquals(longId, source.resolved)
+    }
+
+    @Test
     fun `内容源可以拦下不允许的封面`() = runBlocking {
         val source = object : ContentSourceExtension by FakeSource() {
             override fun cover(url: String): String = ""

@@ -14,6 +14,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -113,14 +115,17 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
 
     val states get() = api.uiStates
 
+    val statuses get() = runtime.status
+
     suspend fun action(pluginId: String, name: String, args: JsonElement = JsonNull): Boolean =
         nativeAction(pluginId, name)?.run(args)
             ?: (runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null)
 
+    fun canOpen(pluginId: String, pageId: String): Boolean = hasAction(pluginId, "open:$pageId")
+
     // 页面打开时给脚本一次刷新数据的机会
     suspend fun open(pluginId: String, pageId: String) {
-        val name = "open:$pageId"
-        if (hasAction(pluginId, name)) action(pluginId, name)
+        if (canOpen(pluginId, pageId)) action(pluginId, "open:$pageId")
     }
 
     fun setField(pluginId: String, pageId: String, field: String, value: JsonElement) =
@@ -129,11 +134,22 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
     suspend fun play(manifest: PluginManifest, tracks: List<PluginTrack>, index: Int) =
         api.playTracks(manifest, tracks, index)
 
-    suspend fun settings(manifest: PluginManifest): JsonObject = api.settings(manifest)
+    // 读取失败时提示并回到默认值，页面不能因为磁盘错误崩溃
+    suspend fun settings(manifest: PluginManifest): JsonObject = try {
+        api.settings(manifest)
+    } catch (e: PluginCallException) {
+        api.notice("${manifest.name}：${e.message}")
+        JsonObject(manifest.contributes.settings.associate { it.id to it.default })
+    }
 
     // 脚本注册了 settingsChanged 时通知一次
     suspend fun setSetting(manifest: PluginManifest, key: String, value: JsonElement) {
-        api.setSetting(manifest, key, value)
+        try {
+            api.setSetting(manifest, key, value)
+        } catch (e: PluginCallException) {
+            api.notice("${manifest.name}：${e.message}")
+            return
+        }
         if (hasAction(manifest.id, SETTINGS_CHANGED)) {
             action(manifest.id, SETTINGS_CHANGED, buildJsonObject {
                 put("key", key)
@@ -162,7 +178,10 @@ fun PluginPageView(
     val pageId = page.page.id
     val states by host.states.collectAsState()
     val state = states["$pluginId/$pageId"] ?: JsonObject(emptyMap())
-    LaunchedEffect(pluginId, pageId) { host.open(pluginId, pageId) }
+    // 页面先于脚本发布，要等脚本注册了 open 动作再调用
+    val readiness = remember(pluginId, pageId) { host.statuses.map { host.canOpen(pluginId, pageId) }.distinctUntilChanged() }
+    val canOpen by readiness.collectAsState(initial = host.canOpen(pluginId, pageId))
+    LaunchedEffect(pluginId, pageId, canOpen) { if (canOpen) host.open(pluginId, pageId) }
     PageNode(root, modifier, PageScope(page, host, ui, state, null))
 }
 
@@ -294,7 +313,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         }
         LayoutNodeType.SLIDER -> {
             val field = node.bind.removePrefix("\$state.")
-            val value = ((scope.value(node.bind) as? JsonPrimitive)?.floatOrNull ?: node.min).coerceIn(node.min, node.max)
+            val value = ((scope.value(node.bind) as? JsonPrimitive)?.floatOrNull?.takeIf { it.isFinite() } ?: node.min).coerceIn(node.min, node.max)
             scope.ui.Slider(
                 scope.text(node.text),
                 value,

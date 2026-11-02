@@ -46,7 +46,6 @@ private const val MAX_URL_LENGTH = 2000
 private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
 private const val BUFFER_SIZE = 64 * 1024
 private val SHA256_PATTERN = Regex("^[0-9a-f]{64}$")
-private val VERSION_SEPARATORS = Regex("[.+-]")
 
 @Serializable
 data class PluginCatalogDownload(val url: String, val sha256: String, val size: Long)
@@ -61,6 +60,7 @@ data class PluginCatalogEntry(
     val description: String? = null,
     val platforms: List<String> = emptyList(),
     val apiVersion: String? = null,
+    val minAppVersion: String? = null,
     val permissions: List<String> = emptyList(),
     // 源码地址，原生插件必填
     val source: String? = null,
@@ -107,6 +107,7 @@ object PluginCatalogParser {
     // 不能在当前应用上安装的原因
     fun incompatibility(entry: PluginCatalogEntry, platform: PluginPlatform = currentPluginPlatform): String? {
         if (entry.platforms.isNotEmpty() && platform.key !in entry.platforms) return "不支持当前平台"
+        entry.minAppVersion?.let(::minAppVersionFailure)?.let { return it }
         return entry.apiVersion?.let(PluginParser::apiVersionFailure)
     }
 
@@ -142,10 +143,26 @@ internal fun isHttps(url: String): Boolean {
     }
 }
 
-// 按数字逐段比较，非数字段按文本比较，缺的段视为 0
+// 与语义化版本一致：+ 后的构建信息不参与比较，带 - 后缀的预发布版低于同号正式版
 fun comparePluginVersions(first: String, second: String): Int {
-    val left = first.trim().removePrefix("v").split(VERSION_SEPARATORS)
-    val right = second.trim().removePrefix("v").split(VERSION_SEPARATORS)
+    val left = first.trim().removePrefix("v").substringBefore('+')
+    val right = second.trim().removePrefix("v").substringBefore('+')
+    val core = compareVersionSegments(left.substringBefore('-'), right.substringBefore('-'))
+    if (core != 0) return core
+    val leftSuffix = left.substringAfter('-', "")
+    val rightSuffix = right.substringAfter('-', "")
+    return when {
+        leftSuffix.isEmpty() && rightSuffix.isEmpty() -> 0
+        leftSuffix.isEmpty() -> 1
+        rightSuffix.isEmpty() -> -1
+        else -> compareVersionSegments(leftSuffix, rightSuffix)
+    }
+}
+
+// 按数字逐段比较，非数字段按文本比较，缺的段视为 0
+private fun compareVersionSegments(first: String, second: String): Int {
+    val left = first.split('.')
+    val right = second.split('.')
     for (index in 0 until maxOf(left.size, right.size)) {
         val a = left.getOrElse(index) { "0" }
         val b = right.getOrElse(index) { "0" }
@@ -301,6 +318,9 @@ class PluginCatalogService(
     val state: StateFlow<PluginCatalogState> = _state.asStateFlow()
 
     private fun currentUrl(): String = store.catalogUrl() ?: DEFAULT_PLUGIN_CATALOG_URL
+
+    // 以存储为准，state 要等 load 后才更新
+    suspend fun isCustom(): Boolean = withContext(Dispatchers.IO) { store.catalogUrl() != null }
 
     // 打开设置时调用，先显示缓存再联网
     suspend fun load() = loadLock.withLock {

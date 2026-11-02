@@ -210,6 +210,32 @@ class PluginRuntimeTest {
     }
 
     @Test
+    fun `同时发起过多调用时自动停用`() = runBlocking {
+        val api = PluginHostApi(
+            store = store,
+            http = {
+                delay(30_000)
+                PluginHttpResponse(200, emptyMap(), "")
+            },
+            mainDispatcher = Dispatchers.Unconfined
+        )
+        runtime = PluginRuntime(GraalScriptSandboxFactory(), api)
+        repository = PluginRepository(store, runtime, api)
+        install("for (var i = 0; i < ${PluginRuntime.MAX_CALLS_IN_FLIGHT + 50}; i++) melodia.http.request({ url: 'https://api.example.com/' });")
+        waitFor { !store.state("com.example.demo").enabled }
+        assertTrue(store.state("com.example.demo").disabledReason.orEmpty().contains("同时发起"))
+    }
+
+    @Test
+    fun `手动停用的插件升级后保持停用`() = runBlocking {
+        val script = "melodia.on('songChanged', function() {});"
+        install(script)
+        repository.setEnabled("com.example.demo", false)
+        install(script)
+        assertFalse(store.state("com.example.demo").enabled)
+    }
+
+    @Test
     fun `已停止的实例不会停用插件`() = runBlocking {
         installV2(
             "melodia.register.command('wait', function() { return new Promise(function() {}); });",

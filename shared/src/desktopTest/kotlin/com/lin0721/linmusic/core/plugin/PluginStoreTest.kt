@@ -60,6 +60,15 @@ class PluginStoreTest {
     private fun staged(bytes: ByteArray) = (stage(bytes) as PluginStageResult.Success).staged
 
     @Test
+    fun `原子写入可以反复覆盖已有文件`() {
+        val file = File(root, "nested/data.json")
+        writeFileAtomically(file, "第一次")
+        writeFileAtomically(file, "第二次")
+        assertEquals("第二次", file.readText())
+        assertEquals(listOf("data.json"), file.parentFile.list().orEmpty().toList())
+    }
+
+    @Test
     fun `首次安装没有可回退的版本`() {
         val plugin = store.install(staged(validPackage()), enabled = true)
         assertNull(plugin?.previousVersion)

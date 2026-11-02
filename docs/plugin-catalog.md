@@ -38,7 +38,7 @@
 | `id`、`name`、`version` | 必需，要和包内 `plugin.json` 一致；名称不超过 40 字，版本不超过 20 字符 |
 | `kind` | `sandbox`（默认）或 `native`，要和包内一致 |
 | `author`、`description`、`updatedAt` | 可选，只用于展示 |
-| `platforms`、`apiVersion` | 可选，含义同 `plugin.json`；不兼容的条目显示但不能安装 |
+| `platforms`、`apiVersion`、`minAppVersion` | 可选，含义同 `plugin.json`；不兼容的条目显示但不能安装 |
 | `permissions` | 可选，只用于展示数量；实际权限以包内清单为准，安装时预览 |
 | `source` | 源码地址；原生插件必需，且必须是 https |
 | `download.url` | 必需，只允许 https，可以重定向，但不能重定向到 http |

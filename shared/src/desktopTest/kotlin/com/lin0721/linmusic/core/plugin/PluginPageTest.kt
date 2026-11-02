@@ -79,6 +79,14 @@ class PluginPageTest {
     }
 
     @Test
+    fun `写回型控件不接受多级绑定`() {
+        val result = PlayerLayoutParser.parsePage(
+            json("""{"type":"column","children":[{"type":"input","bind":"${'$'}state.user.name"},{"type":"input","bind":"${'$'}state.name"}]}""")
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(listOf("\$state.name"), result.root.children.map { it.bind })
+    }
+
+    @Test
     fun `绑定按路径取值，缺失时为空`() {
         val state = json("""{"user":{"name":"小林"},"count":3}""")
         val item = json("""{"title":"晴天"}""")

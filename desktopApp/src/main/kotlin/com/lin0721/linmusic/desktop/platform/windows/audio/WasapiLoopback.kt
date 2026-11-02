@@ -160,9 +160,10 @@ private suspend fun pump(collector: FlowCollector<LoopbackBlock>, captureClient:
     val framesRef = IntByReference()
     val flagsRef = IntByReference()
     val packetRef = IntByReference()
-    val startNanos = System.nanoTime()
+    val maxGapFrames = format.sampleRate.toLong()
+    var anchorNanos = System.nanoTime()
     var capturedFrames = 0L
-    var lastPacketNanos = startNanos
+    var lastPacketNanos = anchorNanos
     while (currentCoroutineContext().isActive) {
         delay(POLL_INTERVAL_MS)
         val chunks = ArrayList<FloatArray>()
@@ -179,11 +180,16 @@ private suspend fun pump(collector: FlowCollector<LoopbackBlock>, captureClient:
         }
         val now = System.nanoTime()
         if (now - lastPacketNanos > SILENCE_GAP_NANOS) {
-            val expected = (now - startNanos) * format.sampleRate / 1_000_000_000L
+            val expected = (now - anchorNanos) / 1_000L * format.sampleRate / 1_000_000L
             val gap = expected - capturedFrames
             if (gap > 0) {
-                chunks += FloatArray(gap.toInt())
+                chunks += FloatArray(gap.coerceAtMost(maxGapFrames).toInt())
                 capturedFrames = expected
+            }
+            // 缺口过大说明线程被挂起过（如系统休眠），不补这么多静音，从现在重新对齐
+            if (gap > maxGapFrames) {
+                anchorNanos = now
+                capturedFrames = 0L
             }
         }
         if (chunks.isEmpty()) continue

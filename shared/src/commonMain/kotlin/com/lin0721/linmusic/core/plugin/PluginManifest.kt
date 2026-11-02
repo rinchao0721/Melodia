@@ -2,12 +2,26 @@ package com.lin0721.linmusic.core.plugin
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
 const val PLUGIN_API_MINOR = 3
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
+
+// 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
+object PluginHostInfo {
+    @Volatile
+    var appVersion: String? = null
+}
+
+fun minAppVersionFailure(minVersion: String): String? {
+    val current = PluginHostInfo.appVersion ?: return null
+    return if (comparePluginVersions(current, minVersion) < 0) "插件需要 Melodia $minVersion 或更新版本，当前是 $current" else null
+}
+
+internal fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效
 enum class PluginPermission(val key: String, val label: String) {

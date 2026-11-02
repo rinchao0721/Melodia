@@ -113,6 +113,9 @@ class PluginCatalogTest {
         assertEquals(0, comparePluginVersions("v1.0.0", "1.0.0"))
         assertTrue(comparePluginVersions("1.0.0", "1.0.1") < 0)
         assertTrue(comparePluginVersions("1.0.0-beta", "1.0.0-alpha") > 0)
+        assertTrue(comparePluginVersions("1.0.0", "1.0.0-beta") > 0)
+        assertTrue(comparePluginVersions("1.0.0-beta.2", "1.0.0-beta.10") < 0)
+        assertEquals(0, comparePluginVersions("1.0.0+build.5", "1.0.0"))
     }
 
     @Test

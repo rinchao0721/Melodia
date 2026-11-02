@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.ui.components.DesktopOverlays
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.home.LocalPaneResizing
 import com.lin0721.linmusic.desktop.ui.library.LibraryPane
@@ -133,6 +134,7 @@ internal fun Workspace(
                         }
                     }
                 }
+                if (lyricsView.isOpen) DesktopOverlays.Track()
                 NowPlayingDock(
                     state = dockState,
                     hasTrack = hasTrack,

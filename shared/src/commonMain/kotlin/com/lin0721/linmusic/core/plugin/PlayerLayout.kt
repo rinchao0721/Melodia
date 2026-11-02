@@ -340,8 +340,9 @@ object PlayerLayoutParser {
     private fun pageNodeProblem(type: LayoutNodeType, bind: String, action: String?): String? = when (type) {
         LayoutNodeType.LIST, LayoutNodeType.TRACK_LIST ->
             if (PluginBinding.isBinding(bind)) null else "的 bind 需要写成 \$state.xxx 或 \$item.xxx"
+        // 写回只支持第一层字段
         LayoutNodeType.TOGGLE, LayoutNodeType.INPUT, LayoutNodeType.SELECT, LayoutNodeType.SLIDER ->
-            if (PluginBinding.isBinding(bind) && bind.startsWith("\$state.")) null else "的 bind 需要写成 \$state.xxx"
+            if (PluginBinding.isBinding(bind) && bind.startsWith("\$state.") && '.' !in bind.removePrefix("\$state.")) null else "的 bind 需要写成 \$state.xxx"
         LayoutNodeType.PROGRESS_BAR ->
             if (PluginBinding.isBinding(bind)) null else "的 bind 需要写成 \$state.xxx 或 \$item.xxx"
         LayoutNodeType.IMAGE -> if (bind.isEmpty()) "缺少 bind" else null
@@ -423,7 +424,6 @@ object PlayerLayoutParser {
         return from(text) ?: null.also { warnings += "$key 取值 $text 无效，已忽略" }
     }
 
-    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
     private fun JsonObject.float(key: String): Float? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull
 }

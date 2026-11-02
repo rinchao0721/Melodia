@@ -88,8 +88,9 @@ class LxPluginEngine(private val factory: ScriptSandboxFactory) : LxPluginRuntim
             )
 
             // 注入插件全局元数据并执行脚本
+            // 脚本发出 inited 后才抛错的情况一直可用，这里只看 inited
             tempSandbox.runScript(headerInfo.name, headerInfo.description, headerInfo.version, headerInfo.author, scriptText)
-                .getOrThrow()
+                .onFailure { AppLogger.w(TAG, "脚本执行报错: ${it.message}") }
 
             // 等待 inited 事件触发（最长 8 秒）
             val sources = withTimeoutOrNull(LxScriptSupport.INIT_TIMEOUT_MS) {
@@ -107,8 +108,13 @@ class LxPluginEngine(private val factory: ScriptSandboxFactory) : LxPluginRuntim
             Result.failure(e)
         } finally {
             tempSandbox?.let { destroySandbox(it) }
+            clearData(tempId)
         }
     }
+
+    override suspend fun clearData(pluginId: String) = factory.clearData(sandboxName(pluginId))
+
+    private fun sandboxName(pluginId: String): String = "lx-$pluginId"
 
     // 注册插件定义，实际 WebView 沙盒延后到首次直链解析时按需创建
     override suspend fun activatePlugin(item: LxPluginItem): Boolean = withContext(Dispatchers.Main) {
@@ -127,7 +133,8 @@ class LxPluginEngine(private val factory: ScriptSandboxFactory) : LxPluginRuntim
             )
 
             sandbox.supportedSources = item.sources
-            sandbox.runScript(item.name, item.description, item.version, item.author, item.rawScript).getOrThrow()
+            sandbox.runScript(item.name, item.description, item.version, item.author, item.rawScript)
+                .onFailure { AppLogger.w(TAG, "插件 [${item.name}] 脚本执行报错: ${it.message}") }
 
             // 等待初始化
             val sources = withTimeoutOrNull(LxScriptSupport.INIT_TIMEOUT_MS) {
@@ -321,7 +328,7 @@ class LxPluginEngine(private val factory: ScriptSandboxFactory) : LxPluginRuntim
             onInited = onInited,
             onResolved = { callId, url -> pendingResolves[callId]?.complete(url) }
         )
-        val script = factory.create("lx-$pluginId", host, LxShim.script("mobile"))
+        val script = factory.create(sandboxName(pluginId), host, LxShim.script("mobile"))
         host.sandbox = script
         return PluginSandbox(pluginId = pluginId, script = script, pendingResolves = pendingResolves)
     }

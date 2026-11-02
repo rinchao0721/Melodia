@@ -114,6 +114,7 @@ fun DesktopMenu(
     content: @Composable MenuScope.() -> Unit
 ) {
     if (!expanded) return
+    DesktopOverlays.Track()
     val scope = remember { MenuScope() }
     val density = LocalDensity.current
     val positionProvider = remember(offset, width, density) { MenuPositionProvider(offset, width, density, scope) }

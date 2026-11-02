@@ -15,15 +15,20 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.PaneBackdrop
 import com.lin0721.linmusic.core.ui.theme.SkinBackdropHost
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -41,6 +46,7 @@ private const val NANOS_PER_MILLI = 1_000_000L
 private const val MILLIS_PER_SECOND = 1_000L
 private const val RETAINED_FRAMES = 2
 private const val STILL_FRAME_TIME_MS = 8_000L
+private const val RENDER_TIMEOUT_MS = 2_000L
 
 internal fun MelodiaPalette.withPluginBackdrop(entry: PluginBackdropEntry): MelodiaPalette =
     copy(backdrop = PaneBackdrop(dim = entry.dim, paneOpacity = entry.paneOpacity, playerDim = entry.dim))
@@ -112,6 +118,8 @@ internal fun PluginBackdropAnimator(
     }
 }
 
+private class RenderOutcome(val bitmap: Bitmap?, val stalled: Boolean)
+
 private suspend fun playSequence(
     backdrop: ActiveBackdrop,
     codec: SkinImageCodec,
@@ -152,17 +160,38 @@ private suspend fun renderLoop(
         retained.addLast(bitmap)
         while (retained.size > RETAINED_FRAMES) retained.removeFirst().close()
     }
-    suspend fun renderAt(timeMs: Long): Bitmap? = withContext(Dispatchers.Default) {
-        if (renderer.render(width, height, timeMs, frame.pixels)) frame.toBitmap() else null
+    // 插件可能卡死不返回，放到独立协程里等，界面协程才能按时结束
+    suspend fun renderAt(timeMs: Long): RenderOutcome {
+        val rendering = CoroutineScope(Dispatchers.Default).async {
+            if (renderer.render(width, height, timeMs, frame.pixels)) {
+                ensureActive()
+                frame.toBitmap()
+            } else {
+                null
+            }
+        }
+        return try {
+            withTimeout(RENDER_TIMEOUT_MS) { RenderOutcome(rendering.await(), stalled = false) }
+        } catch (e: TimeoutCancellationException) {
+            AppLogger.w(TAG, "动态背景渲染超时，已停止")
+            renderer.reportStalled()
+            RenderOutcome(null, stalled = true)
+        } finally {
+            rendering.cancel()
+        }
     }
     if (!moving) {
-        renderAt(STILL_FRAME_TIME_MS)?.let(publish)
+        val still = renderAt(STILL_FRAME_TIME_MS)
+        still.bitmap?.let(publish)
         delay(Long.MAX_VALUE)
     }
     val started = System.nanoTime()
     while (coroutineContext.isActive) {
         val frameStart = System.nanoTime()
-        renderAt((frameStart - started) / NANOS_PER_MILLI)?.let(publish)
+        val outcome = renderAt((frameStart - started) / NANOS_PER_MILLI)
+        // 卡住的调用可能还在写这块缓冲，不能继续渲染
+        if (outcome.stalled) return
+        outcome.bitmap?.let(publish)
         val spent = (System.nanoTime() - frameStart) / NANOS_PER_MILLI
         delay((frameMillis - spent).coerceAtLeast(1L))
     }

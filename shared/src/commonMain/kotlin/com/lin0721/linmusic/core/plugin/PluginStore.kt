@@ -12,6 +12,8 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 private const val TAG = "PluginStore"
@@ -56,6 +58,14 @@ data class InstalledPlugin(
 
 internal val PLUGIN_ID_PATTERN = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
 
+// 先写临时文件再整体替换，中途退出不会留下半个文件；File.renameTo 在 Windows 上不能覆盖已有文件
+internal fun writeFileAtomically(file: File, text: String) {
+    file.parentFile?.mkdirs()
+    val temp = File(file.parentFile, "${file.name}.tmp")
+    temp.writeText(text)
+    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+}
+
 // 已安装插件按 id 各占一个目录；导入先解到 .staging，确认后再移入；插件数据放 .data，升级与导出都不碰
 // 升级时旧版本连同状态移到 .previous，只保留一份
 class PluginStore(private val root: File) {
@@ -67,7 +77,6 @@ class PluginStore(private val root: File) {
     private val layoutFile = File(root, ".layouts.json")
     private val optionsFile = File(root, ".options.json")
     private val catalogFile = File(root, ".catalog.json")
-    private val idPattern = PLUGIN_ID_PATTERN
     private val lock = Any()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val stateSerializer = MapSerializer(String.serializer(), PluginState.serializer())
@@ -155,18 +164,21 @@ class PluginStore(private val root: File) {
 
     fun list(): List<InstalledPlugin> {
         clearStaleStaging()
+        val states = readStates()
         return root.listFiles()
-            ?.filter { it.isDirectory && idPattern.matches(it.name) }
-            ?.mapNotNull { load(it.name) }
+            ?.filter { it.isDirectory && PLUGIN_ID_PATTERN.matches(it.name) }
+            ?.mapNotNull { load(it.name, states) }
             ?.sortedBy { it.name }
             .orEmpty()
     }
 
-    fun load(id: String): InstalledPlugin? = loadCurrent(id)?.copy(previousVersion = previousVersion(id))
+    fun load(id: String): InstalledPlugin? = load(id, readStates())
 
-    private fun loadCurrent(id: String): InstalledPlugin? {
+    private fun load(id: String, states: Map<String, PluginState>): InstalledPlugin? =
+        loadCurrent(id, states[id] ?: PluginState())?.copy(previousVersion = previousVersion(id))
+
+    private fun loadCurrent(id: String, state: PluginState): InstalledPlugin? {
         val directory = directoryOf(id)?.takeIf { it.isDirectory } ?: return null
-        val state = readStates()[id] ?: PluginState()
         val root = PluginPackage.readManifest(File(directory, PluginPaths.MANIFEST))
             ?: return InstalledPlugin(id, null, state, "${PluginPaths.MANIFEST} 缺失或无效")
         return when (val result = PluginParser.parse(root, directory)) {
@@ -268,7 +280,7 @@ class PluginStore(private val root: File) {
     }
 
     // 插件私有数据目录，与安装目录分开，升级不丢失
-    fun dataDirectoryOf(id: String): File? = if (idPattern.matches(id)) File(dataRoot, id) else null
+    fun dataDirectoryOf(id: String): File? = if (PLUGIN_ID_PATTERN.matches(id)) File(dataRoot, id) else null
 
     private fun previousVersion(id: String): String? {
         if (!File(previousRoot, "$id.json").isFile) return null
@@ -321,16 +333,9 @@ class PluginStore(private val root: File) {
         }
     }
 
-    // 先写临时文件再替换，避免中途退出写坏
     private fun <T> writeJson(file: File, serializer: KSerializer<Map<String, T>>, value: Map<String, T>) {
         try {
-            root.mkdirs()
-            val temp = File(root, "${file.name}.tmp")
-            temp.writeText(json.encodeToString(serializer, value))
-            if (!temp.renameTo(file)) {
-                file.delete()
-                if (!temp.renameTo(file)) throw IOException("无法替换 ${file.name}")
-            }
+            writeFileAtomically(file, json.encodeToString(serializer, value))
         } catch (e: IOException) {
             AppLogger.w(TAG, "保存 ${file.name} 失败", e)
         }
@@ -343,7 +348,7 @@ class PluginStore(private val root: File) {
     }
 
     // id 来自状态文件与插件清单，拼路径前先校验，防止越出插件目录
-    private fun directoryOf(id: String): File? = if (idPattern.matches(id)) File(root, id) else null
+    private fun directoryOf(id: String): File? = if (PLUGIN_ID_PATTERN.matches(id)) File(root, id) else null
 
     private companion object {
         const val OPTION_ALLOW_NATIVE = "allowNative"

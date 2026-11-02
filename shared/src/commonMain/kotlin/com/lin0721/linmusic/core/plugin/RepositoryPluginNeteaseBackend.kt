@@ -6,6 +6,8 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
@@ -31,7 +33,8 @@ class RepositoryPluginNeteaseBackend(
     private val artists: () -> ArtistRepository,
     private val userPlaylists: () -> UserPlaylistRepository,
     private val likes: () -> SongLikeRepository,
-    private val create: () -> CreateRepository
+    private val create: () -> CreateRepository,
+    private val mutations: () -> PlaylistMutationBus
 ) : PluginNeteaseBackend {
 
     override suspend fun uid(): Long? = user().userProfile.first()?.uid?.takeIf { it > 0 }
@@ -57,8 +60,9 @@ class RepositoryPluginNeteaseBackend(
 
     override suspend fun likeSong(id: Long, like: Boolean): Result<Unit> = likes().likeSong(id, like).first()
 
+    // 歌单写入要通知音乐库等页面，否则界面停留在旧数据
     override suspend fun createPlaylist(name: String, privacy: Int): Result<PlaylistDetail> =
-        create().createPlaylist(name, privacy).first()
+        create().createPlaylist(name, privacy).first().onSuccess { mutations().emit(PlaylistMutationEvent.Created(it.id)) }
 
     override suspend fun addTracks(playlistId: Long, trackIds: List<Long>): Result<Unit> =
         playlists().manipulatePlaylistTracks(OP_ADD, playlistId, trackIds).first()
@@ -67,7 +71,7 @@ class RepositoryPluginNeteaseBackend(
         playlists().manipulatePlaylistTracks(OP_REMOVE, playlistId, trackIds).first()
 
     override suspend fun subscribePlaylist(id: Long, subscribe: Boolean): Result<Unit> =
-        playlists().subscribePlaylist(id, subscribe).first()
+        playlists().subscribePlaylist(id, subscribe).first().onSuccess { mutations().emit(PlaylistMutationEvent.Subscribed(id, subscribe)) }
 
     override suspend fun subscribeAlbum(id: Long, subscribe: Boolean): Result<Unit> =
         playlists().subscribeAlbum(id, subscribe).first()
@@ -75,5 +79,6 @@ class RepositoryPluginNeteaseBackend(
     override suspend fun followArtist(id: Long, follow: Boolean): Result<Unit> =
         artists().subscribeArtist(id, follow).first()
 
-    override suspend fun deletePlaylist(id: Long): Result<Unit> = playlists().deletePlaylist(id).first()
+    override suspend fun deletePlaylist(id: Long): Result<Unit> =
+        playlists().deletePlaylist(id).first().onSuccess { mutations().emit(PlaylistMutationEvent.Deleted(id)) }
 }

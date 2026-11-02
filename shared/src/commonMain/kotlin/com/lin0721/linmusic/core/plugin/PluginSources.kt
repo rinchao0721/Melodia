@@ -10,8 +10,9 @@ import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.SourceResult
 import com.lin0721.linmusic.core.source.isTrialPlayUrl
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,6 +20,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 private const val TAG = "PluginSources"
+private const val RESOLVE_BUDGET_MS = 15_000L
 
 // 交给插件音源与歌词源的歌曲信息；origin 为 songId 所属平台
 data class PluginTrackQuery(
@@ -61,18 +63,21 @@ class PluginAudioSourceProvider(private val registry: ExtensionRegistry) : Audio
         val sources = registry.get(ExtensionPoints.AUDIO_SOURCE)
         if (sources.isEmpty()) return null
         val query = PluginTrackQuery(songId, songName, artists, albumName.orEmpty(), durationMs, origin)
-        for (source in sources) {
-            val url = PluginResults.url(source.value.resolve(query, quality))
-            when {
-                url == null -> continue
-                isTrialPlayUrl(url) -> AppLogger.w(TAG, "插件 [${source.pluginName}] 返回试听链接，继续尝试: $songName")
-                else -> {
-                    AppLogger.i(TAG, "插件 [${source.pluginName}] 音源 ${source.localId} 解析成功: $songName")
-                    return SourceResult(url = url, platform = platform, quality = quality, pluginId = source.pluginId)
+        // 单个音源最多等 8 秒，插件多时要有总上限，后面还有其他换源方式
+        return withTimeoutOrNull(RESOLVE_BUDGET_MS) {
+            for (source in sources) {
+                val url = PluginResults.url(source.value.resolve(query, quality))
+                when {
+                    url == null -> continue
+                    isTrialPlayUrl(url) -> AppLogger.w(TAG, "插件 [${source.pluginName}] 返回试听链接，继续尝试: $songName")
+                    else -> {
+                        AppLogger.i(TAG, "插件 [${source.pluginName}] 音源 ${source.localId} 解析成功: $songName")
+                        return@withTimeoutOrNull SourceResult(url = url, platform = platform, quality = quality, pluginId = source.pluginId)
+                    }
                 }
             }
+            null
         }
-        return null
     }
 
     override suspend fun search(keyword: String, offset: Int, limit: Int) = emptyList<ExternalTrack>()
@@ -95,9 +100,16 @@ class PluginLyricsSource(
     suspend fun fetch(query: PluginTrackQuery): List<LyricLine> = coroutineScope {
         val sources = registry.get(ExtensionPoints.LYRICS_SOURCE)
         if (sources.isEmpty()) return@coroutineScope emptyList()
-        sources.map { source ->
-            async { PluginResults.lyrics(source.value.fetch(query)) }
-        }.awaitAll().firstOrNull { it.isNotEmpty() }.orEmpty()
+        val results = sources.map { source -> async { PluginResults.lyrics(source.value.fetch(query)) } }
+        // 排在前面的有结果就不用等后面的
+        for (result in results) {
+            val lines = result.await()
+            if (lines.isNotEmpty()) {
+                coroutineContext.cancelChildren()
+                return@coroutineScope lines
+            }
+        }
+        emptyList()
     }
 }
 
@@ -132,6 +144,4 @@ internal object PluginResults {
             emptyList()
         }
     }
-
-    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 }

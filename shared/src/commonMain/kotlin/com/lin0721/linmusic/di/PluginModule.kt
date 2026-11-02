@@ -42,7 +42,8 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
             artists = { scope.get() },
             userPlaylists = { scope.get() },
             likes = { scope.get() },
-            create = { scope.get() }
+            create = { scope.get() },
+            mutations = { scope.get() }
         )
         PluginNeteaseApi(backend, get(), get())
     }

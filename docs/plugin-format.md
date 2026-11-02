@@ -43,7 +43,8 @@
 | `format` | 必需，`1` 或 `2`；高于应用支持的版本时拒绝导入 |
 | `id` | 必需；反向域名形式，只能用小写字母、数字和 `_`，如 `com.example.demo`。同 id 再次导入即升级 |
 | `name` / `version` | 必需 |
-| `author` / `description` / `minAppVersion` | 可选 |
+| `author` / `description` | 可选 |
+| `minAppVersion` | 可选，低于这个版本的应用不能安装；开发构建不校验 |
 | `permissions` | 见下文；未知权限会被忽略并提示 |
 | `network.hosts` | 申请 `network` 时必需；`*.example.com` 只匹配子域名，不匹配 `example.com` 本身 |
 | `contributes` | 沙盒插件至少提供一项能力，否则插件无效；原生插件可以为空 |
@@ -120,6 +121,7 @@ melodia.register.contentSource('main', { search, playlist, resolve })
 - 脚本加载失败（语法错误、加载时抛错或超过 8 秒）时，插件会被自动停用。
 - 宿主调用插件注册的能力时，如果插件出错或超时，计为一次失败；连续失败 5 次后插件会被自动停用。重新启用后计数清零。
 - 订阅了播放事件的插件，脚本连续 5 次超过 2 秒没有响应时也会被自动停用。
+- 同一时间未完成的宿主调用不能超过 512 个，超出时插件会被自动停用。
 - 脚本只能经 `melodia.http.request` 联网。Android 沙盒里 `fetch`、`XMLHttpRequest`、`WebSocket`、外部图片和页面跳转都不可用；`localStorage` 只有插件自己能读写，删除插件时清除，需要长期保存的数据请用 `melodia.storage`。
 - 沙盒插件给出的封面地址同样要在 `network.hosts` 内，否则按没有封面处理。
 
@@ -184,7 +186,8 @@ await melodia.netease.call('song.like', { id: page.items[0].songId, like: true }
 - 导入时确认权限后，插件第一次写入还会再弹一次确认，同意后记住，重新安装插件时失效。
 - `playlist.delete` 每次都要用户确认，不能删除「我喜欢的音乐」。
 - `playlist.addTracks`、`removeTracks`、`delete` 只能操作用户自己创建的歌单。
-- 每个插件每分钟最多写入 30 次，超出时调用被拒绝。
+- 每个插件每分钟最多写入 30 次、读取 120 次，超出时调用被拒绝。
+- 用户拒绝写入后 30 秒内，新的写入请求直接失败，不再弹窗。
 - 确认弹窗 60 秒未响应按拒绝处理。
 
 歌曲对象为 `{ songId, title, artist, artists, album, albumId, cover, durationMs }`。
@@ -364,7 +367,7 @@ melodia.register.command('scrobble', async function(song) {
 | `list` | 绑定数组，每一项按 `children` 渲染，最多 200 项；`columns`（1–8）大于 1 时按网格排列 | `bind` |
 | `trackList` | 绑定 `{ songId, title, artist, cover }` 数组，点击从这首开始播放整个列表；需要 `playback.control` | `bind` |
 | `button` | 触发 `action`；在列表里时，当前项作为参数传给脚本 | `text`、`action` |
-| `toggle` | 开关，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`、`bind` |
+| `toggle` | 开关，写回 `$state` 的第一层字段（`input`、`select`、`slider` 相同）；有 `action` 时以 `{ value }` 调用 | `text`、`bind` |
 | `input` | 输入框，写回 `$state` 字段；有 `action` 时在回车后以 `{ value }` 调用 | `text`（提示文字）、`bind` |
 | `loading` / `empty` | 加载中与空态 | |
 | `select` | 单选，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`（标题）、`bind`、`options` |

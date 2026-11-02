@@ -14,6 +14,9 @@ interface LxPluginRuntime {
 
     fun deactivatePlugin(pluginId: String)
 
+    // 删除插件时清掉沙盒留在本地的数据
+    suspend fun clearData(pluginId: String) {}
+
     // 让活跃沙盒与已启用的插件列表保持一致
     suspend fun syncActivePlugins(items: List<LxPluginItem>)
 

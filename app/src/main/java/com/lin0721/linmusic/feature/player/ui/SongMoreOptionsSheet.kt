@@ -392,7 +392,7 @@ fun SongMoreOptionsSheet(
                 }
             }
 
-                // 8. 插件命令，播客节目不是歌曲
+                // 插件命令，播客节目不是歌曲
                 if (!isPodcast) {
                     val pluginCommands = LocalPluginCommands.current
                     rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->

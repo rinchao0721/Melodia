@@ -32,6 +32,7 @@ import com.lin0721.linmusic.di.recognitionModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.di.sourceModule
 import com.lin0721.linmusic.core.source.LxPluginManager
+import com.lin0721.linmusic.core.plugin.PluginHostInfo
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.di.updateModule
 import com.lin0721.linmusic.di.viewModelModule
@@ -83,6 +84,7 @@ class MelodiaApplication : Application() {
         // 在后台线程强制触发 DiskLruCache.initialize()，避免首次图片加载时锁竞争
         Thread { imageLoader.diskCache }.start()
 
+        PluginHostInfo.appVersion = BuildConfig.VERSION_NAME.takeUnless { BuildConfig.DEBUG }
         startKoin {
             androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
             androidContext(this@MelodiaApplication)

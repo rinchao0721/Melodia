@@ -57,6 +57,8 @@ private val IidCompletionHandler = comGuid(0x41D949AB, 0x9862, 0x444A, 0x80, 0xF
 
 // 超时后系统仍可能回调，这些对象不能被回收
 private val abandoned = ConcurrentLinkedQueue<ProcessActivation>()
+private val recentActivations = ConcurrentLinkedQueue<ProcessActivation>()
+private const val RECENT_ACTIVATIONS = 4
 
 @Suppress("FunctionName")
 internal interface Mmdevapi : Library {
@@ -177,6 +179,9 @@ internal fun openProcessLoopback(processId: Long): LoopbackEndpoint {
         throw e
     } finally {
         operation.release()
+        // 系统线程可能在这里返回之后才调用完成回调的 Release
+        recentActivations += activation
+        while (recentActivations.size > RECENT_ACTIVATIONS) recentActivations.poll()
     }
 }
 

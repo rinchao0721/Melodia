@@ -65,6 +65,7 @@ fun DesktopDialog(
     actions: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    DesktopOverlays.Track()
     // 平台默认宽度上限约 560dp，宽弹窗需关掉才能按 width 生效
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(modifier.width(width).clip(DialogShape).background(DesktopColors.PopupSurface).floatingOutline(DialogShape).padding(20.dp)) {

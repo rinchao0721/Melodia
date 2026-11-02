@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.plugin
 
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.CoroutineDispatcher
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.io.File
@@ -25,6 +27,8 @@ import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
+
+private const val TAG = "PluginHostApi"
 
 // 宿主 API 拒绝或执行失败，消息原样回给插件
 class PluginCallException(message: String) : Exception(message)
@@ -68,6 +72,8 @@ class PluginHostApi(
         "content.open" -> openContent(manifest, args.asObject(method))
         else -> throw PluginCallException("不支持的调用 $method")
     }
+
+    fun notice(message: String) = notices.post(message)
 
     // 页面上的开关与输入框写回状态
     fun setUiField(pluginId: String, pageId: String, field: String, value: JsonElement) {
@@ -138,7 +144,7 @@ class PluginHostApi(
         var method = (args.string("method") ?: "GET").uppercase()
         if (method !in HTTP_METHODS) throw PluginCallException("不支持的请求方法 $method")
         val headers = (args["headers"] as? JsonObject)?.mapNotNull { (key, value) ->
-            val text = (value as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content ?: return@mapNotNull null
+            val text = (value as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null
             if (key.equals("Host", ignoreCase = true)) null else key to text
         }?.toMap().orEmpty()
         var body: String? = when (val value = args["body"]) {
@@ -233,14 +239,23 @@ class PluginHostApi(
         val file = storageFile(manifest, fileName)
         if (!file.isFile) return JsonObject(emptyMap())
         return try {
-            Json.parseToJsonElement(file.readText()) as? JsonObject ?: JsonObject(emptyMap())
+            Json.parseToJsonElement(file.readText()) as? JsonObject ?: preserveCorrupt(manifest, file)
         } catch (e: SerializationException) {
-            JsonObject(emptyMap())
+            preserveCorrupt(manifest, file)
         } catch (e: IllegalArgumentException) {
-            JsonObject(emptyMap())
+            preserveCorrupt(manifest, file)
         } catch (e: IOException) {
             throw PluginCallException("读取插件数据失败")
         }
+    }
+
+    // 损坏的文件留一份，下次写入不会把线索也覆盖掉
+    private fun preserveCorrupt(manifest: PluginManifest, file: File): JsonObject {
+        AppLogger.w(TAG, "[${manifest.id}] ${file.name} 损坏，已另存并按空数据处理")
+        val copy = File(file.parentFile, "${file.name}.corrupt")
+        copy.delete()
+        file.renameTo(copy)
+        return JsonObject(emptyMap())
     }
 
     private fun writeStorage(manifest: PluginManifest, data: JsonObject, fileName: String = STORAGE_FILE) {
@@ -248,15 +263,8 @@ class PluginHostApi(
         if (text.toByteArray(Charsets.UTF_8).size > MAX_STORAGE_BYTES) {
             throw PluginCallException("插件数据超过 ${MAX_STORAGE_BYTES / 1024 / 1024}MB")
         }
-        val file = storageFile(manifest, fileName)
         try {
-            file.parentFile?.mkdirs()
-            val temp = File(file.parentFile, "$fileName.tmp")
-            temp.writeText(text)
-            if (!temp.renameTo(file)) {
-                file.delete()
-                if (!temp.renameTo(file)) throw IOException("无法替换数据文件")
-            }
+            writeFileAtomically(storageFile(manifest, fileName), text)
         } catch (e: IOException) {
             throw PluginCallException("保存插件数据失败")
         }
@@ -321,8 +329,6 @@ class PluginHostApi(
 
     private fun JsonElement.asObject(method: String): JsonObject =
         this as? JsonObject ?: throw PluginCallException("$method 参数应为对象")
-
-    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     private fun JsonObject.requireString(key: String): String =
         string(key)?.takeIf { it.isNotEmpty() } ?: throw PluginCallException("缺少参数 $key")

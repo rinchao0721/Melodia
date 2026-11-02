@@ -123,9 +123,9 @@ class PluginSettingsController(
             step = PluginImportStep.Failed("这是原生插件，请先开启「允许原生插件」")
             return
         }
-        val unreviewed = !repository.catalog.state.value.isDefault
         scope.launch {
             step = PluginImportStep.Working
+            val unreviewed = repository.catalog.isCustom()
             downloadProgress = 0f
             downloadingId = entry.id
             val file = try {

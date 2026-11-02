@@ -19,6 +19,7 @@ import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginPaths
 import com.lin0721.linmusic.core.plugin.PluginPermission
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
+import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
 import com.lin0721.linmusic.plugin.api.AudioSource
 import com.lin0721.linmusic.plugin.api.BackdropFrame
 import com.lin0721.linmusic.plugin.api.BackdropSource
@@ -55,11 +56,10 @@ import com.lin0721.linmusic.plugin.api.SpectrumFrame
 import com.lin0721.linmusic.plugin.api.TrackQuery
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.takeWhile
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -68,6 +68,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
@@ -193,6 +194,8 @@ internal class NativePluginContext(
                     guard.recordError("动态背景 $id 出错：${e.message ?: e.javaClass.simpleName}")
                     false
                 }
+
+                override fun reportStalled() = guard.recordError("动态背景 $id 长时间没有返回")
             }
             guard.register(Extension(ExtensionPoints.BACKDROP, pluginId, manifest.name, id, extension, order))
         }
@@ -258,12 +261,19 @@ internal class NativePluginContext(
     }
 
     override val spectrum: SpectrumApi = object : SpectrumApi {
-        override fun frames(): Flow<SpectrumFrame> = flow {
+        // 无声时不出帧，要靠作用域结束来停止收集，否则插件卸载后采集停不下来
+        override fun frames(): Flow<SpectrumFrame> = channelFlow {
             if (PluginPermission.PLAYBACK_READ !in manifest.permissions) {
                 throw PluginApiException("缺少权限 ${PluginPermission.PLAYBACK_READ.key}")
             }
-            emitAll(spectrumFrames.takeWhile { guard.scope.isActive })
-        }
+            val collecting = launch { spectrumFrames.collect { send(it) } }
+            val stop = guard.scope.coroutineContext.job.invokeOnCompletion { collecting.cancel() }
+            try {
+                collecting.join()
+            } finally {
+                stop.dispose()
+            }
+        }.conflate()
     }
 
     override val library: LibraryApi = object : LibraryApi {
@@ -273,7 +283,7 @@ internal class NativePluginContext(
 
     override val storage: PluginStorage = object : PluginStorage {
         override suspend fun get(key: String): String? =
-            (call("storage.get", buildJsonObject { put("key", key) }) as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content
+            (call("storage.get", buildJsonObject { put("key", key) }) as? JsonPrimitive)?.contentOrNull
 
         override suspend fun set(key: String, value: String) {
             call("storage.set", buildJsonObject {
@@ -343,7 +353,7 @@ internal class NativePluginContext(
         override suspend fun likeSong(id: Long, like: Boolean) { netease("song.like", "id" to id, "like" to like) }
 
         override suspend fun createPlaylist(name: String, private: Boolean) =
-            playlist(netease("playlist.create", "name" to name, "privacy" to if (private) PRIVATE_PLAYLIST else 0) as JsonObject)
+            playlist(netease("playlist.create", "name" to name, "privacy" to playlistPrivacyOf(private)) as JsonObject)
 
         override suspend fun addTracks(playlistId: Long, trackIds: List<Long>) { netease("playlist.addTracks", "id" to playlistId, "trackIds" to trackIds) }
         override suspend fun removeTracks(playlistId: Long, trackIds: List<Long>) { netease("playlist.removeTracks", "id" to playlistId, "trackIds" to trackIds) }
@@ -440,7 +450,6 @@ internal class NativePluginContext(
     private fun JsonObject.bool(key: String): Boolean = (this[key] as? JsonPrimitive)?.booleanOrNull == true
 
     private companion object {
-        const val PRIVATE_PLAYLIST = 10
         const val MIN_BACKDROP_WIDTH = 16
         const val MAX_BACKDROP_WIDTH = 1920
     }
