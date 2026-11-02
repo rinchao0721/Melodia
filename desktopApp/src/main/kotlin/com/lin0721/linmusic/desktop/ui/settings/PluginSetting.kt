@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,10 +52,12 @@ import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
 import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
 import com.lin0721.linmusic.core.plugin.playerLayoutOptions
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
+import com.lin0721.linmusic.core.plugin.pluginCatalogWarning
 import com.lin0721.linmusic.core.plugin.pluginExportFileName
 import com.lin0721.linmusic.core.plugin.pluginFeatureSummary
 import com.lin0721.linmusic.core.plugin.pluginRiskWarning
 import com.lin0721.linmusic.core.plugin.pluginStatusLine
+import com.lin0721.linmusic.core.plugin.pluginUpdates
 import com.lin0721.linmusic.core.plugin.rememberPluginSettingsController
 import com.lin0721.linmusic.desktop.platform.chooseFile
 import com.lin0721.linmusic.desktop.platform.chooseSaveFile
@@ -83,9 +87,16 @@ internal fun PluginSetting(repository: PluginRepository) {
     var confirmNative by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
     var settingsTarget by remember { mutableStateOf<PluginManifest?>(null) }
+    var rollbackTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var catalogOpen by remember { mutableStateOf(false) }
+    val catalog by controller.catalog.collectAsState()
+    val updates = pluginUpdates(installed, catalog.entries)
     val pageHost = LocalPluginCards.current?.host
 
-    LaunchedEffect(repository) { controller.refresh() }
+    LaunchedEffect(repository) {
+        controller.refresh()
+        controller.loadCatalog()
+    }
     LaunchedEffect(controller.message) {
         controller.message?.let {
             navigator.showMessage(it)
@@ -115,7 +126,9 @@ internal fun PluginSetting(repository: PluginRepository) {
                         }
                     },
                     onDelete = { deleteTarget = plugin },
-                    onSettings = { settingsTarget = plugin.manifest }
+                    onSettings = { settingsTarget = plugin.manifest },
+                    updateVersion = updates[plugin.id]?.version,
+                    onRollback = { rollbackTarget = plugin }
                 )
             }
         }
@@ -151,7 +164,8 @@ internal fun PluginSetting(repository: PluginRepository) {
                 SettingSwitch(nativeAllowed, onChange = { if (it) confirmNative = true else controller.setNativeAllowed(false) })
             }
         }
-        Row(Modifier.padding(top = 8.dp)) {
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DialogButton("插件目录", onClick = { catalogOpen = true }, primary = updates.isNotEmpty())
             DialogButton(
                 "导入插件",
                 onClick = {
@@ -164,6 +178,8 @@ internal fun PluginSetting(repository: PluginRepository) {
             )
         }
     }
+
+    if (catalogOpen) PluginCatalogDialog(controller, onDismiss = { catalogOpen = false })
 
     when (val step = controller.step) {
         is PluginImportStep.Preview -> PluginPreviewDialog(
@@ -217,6 +233,26 @@ internal fun PluginSetting(repository: PluginRepository) {
         }
     }
 
+    rollbackTarget?.let { plugin ->
+        DesktopDialog(
+            title = "回退插件",
+            onDismiss = { rollbackTarget = null },
+            actions = {
+                DialogButton("取消", onClick = { rollbackTarget = null })
+                DialogButton("回退", onClick = {
+                    rollbackTarget = null
+                    controller.rollback(plugin)
+                }, primary = true)
+            }
+        ) {
+            Text(
+                "把「${plugin.name}」回退到 v${plugin.previousVersion}？当前版本不会保留，插件数据不变。",
+                color = DesktopColors.TextGray,
+                fontSize = 13.sp
+            )
+        }
+    }
+
     deleteTarget?.let { plugin ->
         DesktopDialog(
             title = "删除插件",
@@ -241,7 +277,9 @@ private fun PluginRow(
     onToggle: (Boolean) -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    updateVersion: String?,
+    onRollback: () -> Unit
 ) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
@@ -286,9 +324,13 @@ private fun PluginRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            updateVersion?.let {
+                Text("可更新到 v$it，到插件目录里更新", color = DesktopColors.AccentText, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+            }
         }
         HoverReveal(hovered) {
             Row {
+                plugin.previousVersion?.let { RowIconButton(Icons.Rounded.Restore, "回退到 v$it", hoverSource, onRollback) }
                 if (manifest?.contributes?.settings?.isNotEmpty() == true) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
                 if (manifest != null) RowIconButton(Icons.Rounded.FileUpload, "导出", hoverSource, onExport)
                 RowIconButton(Icons.Rounded.Delete, "删除", hoverSource, onDelete)
@@ -352,6 +394,9 @@ private fun PluginPreviewDialog(
             }
             pluginRiskWarning(manifest)?.let {
                 Text(it, color = DesktopColors.Error, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+            }
+            pluginCatalogWarning(preview)?.let {
+                Text(it, color = DesktopColors.Error, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
             }
             if (preview.staged.warnings.isNotEmpty()) {
                 DialogLabel("提示", Modifier.padding(top = 12.dp))

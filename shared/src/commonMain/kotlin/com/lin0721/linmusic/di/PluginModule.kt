@@ -51,7 +51,7 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
         PluginHostApi(get(), playback = { scope.getOrNull<PlaybackController>() }, notices = get(), netease = get(), content = get())
     }
     single { PluginRuntime(get(), get(), registry = get()) }
-    single { PluginRepository(get(), get(), get(), get(), getOrNull()) }
+    single { PluginRepository(get(), get(), get(), get(), getOrNull(), notices = get()) }
     single { PluginPageHost(get(), get()) }
     single { PluginCommands(get(), get(), confirmations = get(), content = get()) }
     single { PlayerCardSource(get(), get<PluginRepository>().pages) }

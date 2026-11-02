@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -27,7 +28,10 @@ class PluginRepository(
     private val api: PluginHostApi,
     private val events: PluginEventDispatcher? = null,
     private val native: NativePluginHost? = null,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    // 传入时启动后检查目录更新并提示
+    private val notices: PluginNotices? = null,
+    val catalog: PluginCatalogService = PluginCatalogService(store)
 ) {
     private val refreshLock = Mutex()
     private val registry = runtime.registry
@@ -65,6 +69,12 @@ class PluginRepository(
         _nativeAllowed.value = withContext(Dispatchers.IO) { store.nativeAllowed() }
         refresh()
         events?.start()
+        if (notices != null) scope.launch { announceUpdates(notices) }
+    }
+
+    private suspend fun announceUpdates(notices: PluginNotices) {
+        val updates = pluginUpdates(_installed.value, catalog.entriesForStartup())
+        if (updates.isNotEmpty()) notices.post("有 ${updates.size} 个插件可以更新，到插件设置里查看")
     }
 
     suspend fun refresh() = refreshLock.withLock {
@@ -218,6 +228,15 @@ class PluginRepository(
         runtime.stop(staged.manifest.id)
         native?.unload(staged.manifest.id)
         val plugin = withContext(Dispatchers.IO) { store.install(staged, enabled = true) }
+        refresh()
+        return plugin
+    }
+
+    // 没有可回退的版本或替换失败时返回 null
+    suspend fun rollback(id: String): InstalledPlugin? {
+        runtime.stop(id)
+        native?.unload(id)
+        val plugin = withContext(Dispatchers.IO) { store.rollback(id) }
         refresh()
         return plugin
     }

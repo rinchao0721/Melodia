@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -41,7 +42,9 @@ data class InstalledPlugin(
     val manifest: PluginManifest?,
     val state: PluginState,
     // 安装目录被改坏、清单无法解析时的原因；此时只能删除
-    val loadError: String? = null
+    val loadError: String? = null,
+    // 可以回退到的版本
+    val previousVersion: String? = null
 ) {
     val name: String get() = manifest?.name ?: id
 
@@ -51,15 +54,20 @@ data class InstalledPlugin(
     val canRun: Boolean get() = manifest != null && loadError == null && missingPermissions.isEmpty()
 }
 
+internal val PLUGIN_ID_PATTERN = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
+
 // 已安装插件按 id 各占一个目录；导入先解到 .staging，确认后再移入；插件数据放 .data，升级与导出都不碰
+// 升级时旧版本连同状态移到 .previous，只保留一份
 class PluginStore(private val root: File) {
 
     private val stagingRoot = File(root, ".staging")
     private val dataRoot = File(root, ".data")
+    private val previousRoot = File(root, ".previous")
     private val stateFile = File(root, ".state.json")
     private val layoutFile = File(root, ".layouts.json")
     private val optionsFile = File(root, ".options.json")
-    private val idPattern = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
+    private val catalogFile = File(root, ".catalog.json")
+    private val idPattern = PLUGIN_ID_PATTERN
     private val lock = Any()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val stateSerializer = MapSerializer(String.serializer(), PluginState.serializer())
@@ -82,12 +90,25 @@ class PluginStore(private val root: File) {
         val id = staged.manifest.id
         val target = directoryOf(id) ?: return null
         return try {
-            target.deleteRecursively()
-            target.parentFile?.mkdirs()
-            if (!staged.directory.renameTo(target)) {
-                staged.directory.copyRecursively(target, overwrite = true)
-                staged.directory.deleteRecursively()
+            val backup = File(previousRoot, id)
+            val backupState = File(previousRoot, "$id.json")
+            val oldState = state(id)
+            val upgrading = target.isDirectory
+            backup.deleteRecursively()
+            backupState.delete()
+            if (upgrading) {
+                previousRoot.mkdirs()
+                moveDirectory(target, backup)
             }
+            try {
+                target.parentFile?.mkdirs()
+                moveDirectory(staged.directory, target)
+            } catch (e: IOException) {
+                target.deleteRecursively()
+                if (upgrading) moveDirectory(backup, target)
+                throw e
+            }
+            if (upgrading) backupState.writeText(json.encodeToString(PluginState.serializer(), oldState))
             updateState(id) {
                 PluginState(
                     enabled = enabled,
@@ -104,6 +125,34 @@ class PluginStore(private val root: File) {
         }
     }
 
+    // 换回上一版本和当时的状态，替换下来的版本不保留；没有可回退的版本或替换失败时返回 null
+    fun rollback(id: String): InstalledPlugin? {
+        val target = directoryOf(id) ?: return null
+        val backup = File(previousRoot, id)
+        val backupState = File(previousRoot, "$id.json")
+        val oldState = previousState(id) ?: return null
+        if (!backup.isDirectory) return null
+        val aside = File(stagingRoot, UUID.randomUUID().toString())
+        return try {
+            stagingRoot.mkdirs()
+            if (target.isDirectory) moveDirectory(target, aside)
+            try {
+                moveDirectory(backup, target)
+            } catch (e: IOException) {
+                target.deleteRecursively()
+                if (aside.isDirectory) moveDirectory(aside, target)
+                throw e
+            }
+            aside.deleteRecursively()
+            backupState.delete()
+            updateState(id) { oldState }
+            load(id)
+        } catch (e: IOException) {
+            AppLogger.w(TAG, "回退插件失败: $id", e)
+            null
+        }
+    }
+
     fun list(): List<InstalledPlugin> {
         clearStaleStaging()
         return root.listFiles()
@@ -113,7 +162,9 @@ class PluginStore(private val root: File) {
             .orEmpty()
     }
 
-    fun load(id: String): InstalledPlugin? {
+    fun load(id: String): InstalledPlugin? = loadCurrent(id)?.copy(previousVersion = previousVersion(id))
+
+    private fun loadCurrent(id: String): InstalledPlugin? {
         val directory = directoryOf(id)?.takeIf { it.isDirectory } ?: return null
         val state = readStates()[id] ?: PluginState()
         val root = PluginPackage.readManifest(File(directory, PluginPaths.MANIFEST))
@@ -147,6 +198,8 @@ class PluginStore(private val root: File) {
             if (id in states) writeStates(states - id)
         }
         dataDirectoryOf(id)?.deleteRecursively()
+        File(previousRoot, id).deleteRecursively()
+        File(previousRoot, "$id.json").delete()
         return directory.deleteRecursively()
     }
 
@@ -175,8 +228,77 @@ class PluginStore(private val root: File) {
         }
     }
 
+    // null 表示使用默认目录
+    fun catalogUrl(): String? = synchronized(lock) { readJson(optionsFile, choiceSerializer)[OPTION_CATALOG_URL] }
+
+    fun setCatalogUrl(url: String?) {
+        synchronized(lock) {
+            val options = readJson(optionsFile, choiceSerializer)
+            writeJson(optionsFile, choiceSerializer, if (url == null) options - OPTION_CATALOG_URL else options + (OPTION_CATALOG_URL to url))
+        }
+    }
+
+    // 上次成功读到的目录原文，读不到网络时用
+    fun catalogCache(): String? = try {
+        catalogFile.takeIf { it.isFile }?.readText()
+    } catch (e: IOException) {
+        AppLogger.w(TAG, "读取目录缓存失败", e)
+        null
+    }
+
+    fun catalogCheckedAt(): Long = catalogFile.lastModified()
+
+    fun writeCatalogCache(text: String?) {
+        try {
+            if (text == null) {
+                catalogFile.delete()
+            } else {
+                root.mkdirs()
+                catalogFile.writeText(text)
+            }
+        } catch (e: IOException) {
+            AppLogger.w(TAG, "保存目录缓存失败", e)
+        }
+    }
+
+    // 下载到这里，stage 后由调用方删除；中途退出的残留按过期临时文件清理
+    fun downloadFile(): File {
+        stagingRoot.mkdirs()
+        return File(stagingRoot, "${UUID.randomUUID()}.download")
+    }
+
     // 插件私有数据目录，与安装目录分开，升级不丢失
     fun dataDirectoryOf(id: String): File? = if (idPattern.matches(id)) File(dataRoot, id) else null
+
+    private fun previousVersion(id: String): String? {
+        if (!File(previousRoot, "$id.json").isFile) return null
+        val manifest = PluginPackage.readManifest(File(File(previousRoot, id), PluginPaths.MANIFEST)) ?: return null
+        return (manifest["version"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+    }
+
+    private fun previousState(id: String): PluginState? {
+        val file = File(previousRoot, "$id.json")
+        if (!file.isFile) return null
+        return try {
+            json.decodeFromString(PluginState.serializer(), file.readText())
+        } catch (e: SerializationException) {
+            AppLogger.w(TAG, "${file.name} 损坏，已忽略", e)
+            null
+        } catch (e: IllegalArgumentException) {
+            AppLogger.w(TAG, "${file.name} 损坏，已忽略", e)
+            null
+        } catch (e: IOException) {
+            AppLogger.w(TAG, "读取 ${file.name} 失败", e)
+            null
+        }
+    }
+
+    // 跨盘时 renameTo 失败，退回复制
+    private fun moveDirectory(from: File, to: File) {
+        if (from.renameTo(to)) return
+        from.copyRecursively(to, overwrite = true)
+        from.deleteRecursively()
+    }
 
     private fun readStates(): Map<String, PluginState> = synchronized(lock) { readJson(stateFile, stateSerializer) }
 
@@ -225,5 +347,6 @@ class PluginStore(private val root: File) {
 
     private companion object {
         const val OPTION_ALLOW_NATIVE = "allowNative"
+        const val OPTION_CATALOG_URL = "catalogUrl"
     }
 }

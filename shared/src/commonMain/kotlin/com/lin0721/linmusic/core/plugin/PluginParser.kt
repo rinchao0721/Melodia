@@ -141,13 +141,19 @@ object PluginParser {
             if (kind == PluginKind.NATIVE) return Compatibility(failure = "原生插件需要声明 apiVersion")
             return Compatibility(kind, platforms)
         }
-        val match = API_VERSION_PATTERN.matchEntire(apiVersion) ?: return Compatibility(failure = "apiVersion 需要写成 1.0 这样的版本号")
-        val major = match.groupValues[1].toIntOrNull() ?: return Compatibility(failure = "apiVersion 取值无效")
-        val minor = match.groupValues[2].toIntOrNull() ?: return Compatibility(failure = "apiVersion 取值无效")
-        if (major != PLUGIN_API_MAJOR || minor > PLUGIN_API_MINOR) {
-            return Compatibility(failure = "插件需要 API $apiVersion，当前应用提供 $PLUGIN_API_MAJOR.$PLUGIN_API_MINOR")
-        }
+        apiVersionFailure(apiVersion)?.let { return Compatibility(failure = it) }
         return Compatibility(kind, platforms, apiVersion, main.takeIf { kind == PluginKind.NATIVE })
+    }
+
+    fun apiVersionFailure(apiVersion: String): String? {
+        val match = API_VERSION_PATTERN.matchEntire(apiVersion) ?: return "apiVersion 需要写成 1.0 这样的版本号"
+        val major = match.groupValues[1].toIntOrNull() ?: return "apiVersion 取值无效"
+        val minor = match.groupValues[2].toIntOrNull() ?: return "apiVersion 取值无效"
+        return if (major != PLUGIN_API_MAJOR || minor > PLUGIN_API_MINOR) {
+            "插件需要 API $apiVersion，当前应用提供 $PLUGIN_API_MAJOR.$PLUGIN_API_MINOR"
+        } else {
+            null
+        }
     }
 
     private fun parsePlatforms(value: JsonElement?, warnings: MutableList<String>): Set<PluginPlatform> {

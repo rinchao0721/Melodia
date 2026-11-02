@@ -409,6 +409,10 @@ context.extensions.backdropSource("aurora", object : BackdropSource {
 
 `render` 在后台线程调用，帧率与遮罩来自清单，宿主把画面拉伸铺满。窗口隐藏或最小化时不调用；关闭界面动画时只渲染一帧。需要 API 1.1。沙盒脚本不能逐帧绘制。
 
+## 分发
+
+除了手动导入，还可以提交到插件目录，见 [plugin-catalog.md](plugin-catalog.md)。升级时保留上一版本，可以在插件列表里回退，插件数据不变。
+
 ## 原生插件
 
 只有桌面端支持，用于沙盒做不到的场景。原生插件在主进程运行，等同于运行任意程序：权限声明只对通过 API 的调用生效，无法真正限制它。Android 导入时直接拒绝。

@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "updatedAt": "2026-11-02",
+  "plugins": [
+    {
+      "id": "com.melodia.sample.hello",
+      "name": "原生插件示例",
+      "version": "1.0.0",
+      "kind": "native",
+      "author": "Melodia",
+      "description": "演示原生插件的命令、播放事件与数据存储",
+      "platforms": ["desktop"],
+      "apiVersion": "1.3",
+      "permissions": ["ui.notify", "playback.read", "storage"],
+      "source": "https://github.com/rinchao0721/Melodia",
+      "download": {
+        "url": "https://example.com/sample-native.melodiaplugin",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "size": 1
+      }
+    }
+  ]
+}

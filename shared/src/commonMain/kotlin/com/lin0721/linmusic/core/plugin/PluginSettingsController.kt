@@ -23,8 +23,8 @@ sealed interface PluginImportStep {
     data object Idle : PluginImportStep
     data object Working : PluginImportStep
 
-    // existing 为已安装的同 id 插件，此时确认即升级
-    data class Preview(val staged: StagedPlugin, val existing: InstalledPlugin?) : PluginImportStep {
+    // existing 为已安装的同 id 插件，此时确认即升级；unreviewed 表示来自自定义目录
+    data class Preview(val staged: StagedPlugin, val existing: InstalledPlugin?, val unreviewed: Boolean = false) : PluginImportStep {
         // 升级时比已确认的多出来的权限，需要重点提示
         val newPermissions: Set<PluginPermission>
             get() = existing?.let { old -> staged.manifest.permissions.filterTo(LinkedHashSet()) { it.key !in old.state.granted } }
@@ -96,6 +96,75 @@ class PluginSettingsController(
                     repository.installedVersion(result.staged.manifest.id)
                 )
             }
+        }
+    }
+
+    val catalog: StateFlow<PluginCatalogState> = repository.catalog.state
+
+    // 下载进度 0–1，没有在下载时为 null
+    var downloadProgress: Float? by mutableStateOf(null)
+        private set
+
+    // 正在从目录下载的插件 id
+    var downloadingId: String? by mutableStateOf(null)
+        private set
+
+    fun loadCatalog() {
+        scope.launch { repository.catalog.load() }
+    }
+
+    fun setCatalogUrl(url: String?) {
+        scope.launch { repository.catalog.setUrl(url)?.let { message = it } }
+    }
+
+    fun installFromCatalog(entry: PluginCatalogEntry) {
+        if (step == PluginImportStep.Working) return
+        if (entry.isNative && !repository.nativeAllowed.value) {
+            step = PluginImportStep.Failed("这是原生插件，请先开启「允许原生插件」")
+            return
+        }
+        val unreviewed = !repository.catalog.state.value.isDefault
+        scope.launch {
+            step = PluginImportStep.Working
+            downloadProgress = 0f
+            downloadingId = entry.id
+            val file = try {
+                repository.catalog.download(entry) { done -> downloadProgress = done.toFloat() / entry.download.size }
+            } catch (e: PluginCatalogException) {
+                step = PluginImportStep.Failed(e.message.orEmpty())
+                return@launch
+            } finally {
+                downloadProgress = null
+                downloadingId = null
+            }
+            val result = try {
+                repository.stage(withContext(Dispatchers.IO) { file.inputStream() }, entry.download.url.substringAfterLast('/'))
+            } catch (e: IOException) {
+                AppLogger.w(TAG, "打开下载的插件包失败", e)
+                PluginStageResult.Failure("无法读取下载的插件包")
+            } finally {
+                withContext(Dispatchers.IO) { file.delete() }
+            }
+            step = when (result) {
+                is PluginStageResult.Failure -> PluginImportStep.Failed(result.reason)
+                is PluginStageResult.Success -> {
+                    val mismatch = pluginCatalogMismatch(entry, result.staged.manifest)
+                    if (mismatch != null) {
+                        repository.discard(result.staged)
+                        PluginImportStep.Failed(mismatch)
+                    } else {
+                        PluginImportStep.Preview(result.staged, repository.installedVersion(entry.id), unreviewed)
+                    }
+                }
+            }
+        }
+    }
+
+    fun rollback(plugin: InstalledPlugin) {
+        scope.launch {
+            val restored = repository.rollback(plugin.id)
+            val restart = if (restored?.manifest?.kind == PluginKind.NATIVE) "，重启后生效" else ""
+            message = if (restored != null) "已回退到 v${restored.manifest?.version ?: plugin.previousVersion}$restart" else "回退失败"
         }
     }
 
