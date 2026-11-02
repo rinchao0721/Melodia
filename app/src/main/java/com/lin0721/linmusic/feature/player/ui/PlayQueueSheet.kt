@@ -676,7 +676,8 @@ private fun BottomActionRow(
         }
         val leftLabel = when {
             isRoaming -> "关闭漫游"
-            isIntelligence -> "关闭心动模式"
+            // 300dp 窄屏下按钮只有约 126dp，6 个字会折行被高度裁掉，用 4 字版本
+            isIntelligence -> "关闭心动"
             intelligenceAvailable -> "心动模式"
             else -> "随机播放"
         }
@@ -692,6 +693,8 @@ private fun BottomActionRow(
                 containerColor = if (leftActive) MelodiaColors.Accent else MelodiaColors.Surface
             ),
             shape = RoundedCornerShape(10.dp),
+            // 300dp 窄屏：默认 24dp 横向内边距会把「心动模式」挤成三字，收紧到 8dp
+            contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp)
@@ -703,7 +706,7 @@ private fun BottomActionRow(
                 modifier = Modifier.size(18.dp)
             )
             Spacer(Modifier.width(8.dp))
-            Text(leftLabel, color = leftContent, fontSize = 13.sp)
+            Text(leftLabel, color = leftContent, fontSize = 13.sp, maxLines = 1)
         }
         val timerText = if (sleepTimerRemaining > 0L) {
             formatSleepTimerRemaining(sleepTimerRemaining)
@@ -714,13 +717,14 @@ private fun BottomActionRow(
             onClick = onShowTimerClick,
             colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Surface),
             shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp)
         ) {
             Icon(Icons.Outlined.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(timerText, color = MelodiaColors.TextPrimary, fontSize = 13.sp)
+            Text(timerText, color = MelodiaColors.TextPrimary, fontSize = 13.sp, maxLines = 1)
         }
     }
 }
