@@ -119,6 +119,9 @@ melodia.register.contentSource('main', { search, playlist, resolve })
 - 宿主调用失败时 Promise 会被拒绝，错误信息说明原因（如缺少权限、不允许访问的域名）。
 - 脚本加载失败（语法错误、加载时抛错或超过 8 秒）时，插件会被自动停用。
 - 宿主调用插件注册的能力时，如果插件出错或超时，计为一次失败；连续失败 5 次后插件会被自动停用。重新启用后计数清零。
+- 订阅了播放事件的插件，脚本连续 5 次超过 2 秒没有响应时也会被自动停用。
+- 脚本只能经 `melodia.http.request` 联网。Android 沙盒里 `fetch`、`XMLHttpRequest`、`WebSocket`、外部图片和页面跳转都不可用；`localStorage` 只有插件自己能读写，删除插件时清除，需要长期保存的数据请用 `melodia.storage`。
+- 沙盒插件给出的封面地址同样要在 `network.hosts` 内，否则按没有封面处理。
 
 ## 音源
 
@@ -440,7 +443,7 @@ class HelloPlugin : MelodiaPlugin {
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
 - **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。
 - **生命周期**：只在应用启动时加载。导入、升级和重新启用都要重启才生效；停用、删除和关闭总开关时立即调用 `onUnload` 并注销扩展，已加载的类要到重启才释放。
-- **出错处理**：回调抛异常或超时按没有结果处理，连续 5 次自动停用。加载时导致应用退出的插件，下次启动自动停用。用 `--safe-mode` 启动可以跳过所有原生插件。DLL 崩溃、死循环和阻塞无法拦截。
+- **出错处理**：回调抛异常或超时按没有结果处理，连续 5 次自动停用。加载时导致应用退出的插件，下次启动自动停用。用 `--safe-mode` 启动可以跳过所有原生插件。回调阻塞时宿主按超时返回，但线程无法结束；DLL 崩溃和主线程阻塞无法拦截。
 - **完整性**：不做签名校验。列表显示来源文件名和 `plugin.jar` 的 SHA-256；文件与安装时不一致时拒绝加载，需要重新导入。
 
 ## 存储

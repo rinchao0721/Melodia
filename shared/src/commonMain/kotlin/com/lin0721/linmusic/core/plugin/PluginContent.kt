@@ -70,12 +70,12 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
         val source = source(ref.pluginId, ref.sourceId) ?: return Result.failure(IllegalStateException("提供这个内容的插件已停用"))
         val data = source.value.playlist(ref.contentId) as? JsonObject
             ?: return Result.failure(IllegalStateException("插件没有返回内容"))
-        val parsed = parseTracks(data["tracks"], ref.pluginId, ref.sourceId).map { it.toPlaylistTrack() }
+        val parsed = parseTracks(data["tracks"], source).map { it.toPlaylistTrack() }
         return Result.success(
             PlaylistDetail(
                 id = id,
                 name = data.text("name").ifEmpty { ref.contentId },
-                coverImgUrl = data.text("cover"),
+                coverImgUrl = source.value.cover(data.text("cover")),
                 description = data.text("description").ifEmpty { null },
                 creator = PlaylistCreator(nickname = source.pluginName),
                 tracks = parsed,
@@ -88,7 +88,7 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
     suspend fun search(keyword: String, offset: Int, limit: Int): List<ExternalTrack> = coroutineScope {
         registry.get(ExtensionPoints.CONTENT_SOURCE).filter { it.value.searchable }.map { source ->
             async {
-                parseTracks(source.value.search(keyword, offset, limit), source.pluginId, source.localId)
+                parseTracks(source.value.search(keyword, offset, limit), source)
             }
         }.awaitAll().flatten()
     }
@@ -114,7 +114,7 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
         registry.get(ExtensionPoints.CONTENT_SOURCE).firstOrNull { it.pluginId == pluginId && it.localId == sourceId }
 
     // 单项缺少 id 或标题时跳过，不影响其他歌曲
-    private fun parseTracks(value: JsonElement?, pluginId: String, sourceId: String): List<ExternalTrack> {
+    private fun parseTracks(value: JsonElement?, source: Extension<ContentSourceExtension>): List<ExternalTrack> {
         val array = value as? JsonArray ?: return emptyList()
         return array.take(MAX_TRACKS).mapNotNull { element ->
             val item = element as? JsonObject ?: return@mapNotNull null
@@ -122,12 +122,12 @@ class PluginContent(private val registry: ExtensionRegistry) : ExternalTrackDire
             val title = item.text("title")
             if (id.isEmpty() || title.isEmpty()) return@mapNotNull null
             ExternalTrack(
-                id = listOf(TRACK_ID_PREFIX, pluginId, sourceId, id).joinToString(ID_SEPARATOR.toString()),
+                id = listOf(TRACK_ID_PREFIX, source.pluginId, source.localId, id).joinToString(ID_SEPARATOR.toString()),
                 name = title,
                 artists = item.text("artist"),
                 albumName = item.text("album"),
                 durationMs = (item["durationMs"] as? JsonPrimitive)?.longOrNull?.coerceAtLeast(0) ?: 0,
-                coverUrl = item.text("cover"),
+                coverUrl = source.value.cover(item.text("cover")),
                 platform = MusicPlatform.LX
             ).also { tracks[it.queueSongId] = it }
         }

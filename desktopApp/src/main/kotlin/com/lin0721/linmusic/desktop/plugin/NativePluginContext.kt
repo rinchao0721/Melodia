@@ -11,7 +11,6 @@ import com.lin0721.linmusic.core.plugin.ContentSourceExtension
 import com.lin0721.linmusic.core.plugin.EventExtension
 import com.lin0721.linmusic.core.plugin.Extension
 import com.lin0721.linmusic.core.plugin.ExtensionPoints
-import com.lin0721.linmusic.core.plugin.ExtensionRegistry
 import com.lin0721.linmusic.core.plugin.LyricsSourceExtension
 import com.lin0721.linmusic.core.plugin.PluginCallException
 import com.lin0721.linmusic.core.plugin.PluginEvent
@@ -83,7 +82,6 @@ internal class NativePluginContext(
     private val manifest: PluginManifest,
     private val guard: NativeCallGuard,
     private val api: PluginHostApi,
-    private val registry: ExtensionRegistry,
     private val workDirectory: File,
     dataRoot: File,
     private val spectrumFrames: Flow<SpectrumFrame> = emptyFlow()
@@ -124,7 +122,7 @@ internal class NativePluginContext(
         override fun audioSource(id: String, source: AudioSource) {
             val order = indexOf(manifest.contributes.audioSources.map { it.id }, id, "音源")
             track("audioSource:$id")
-            registry.register(Extension(ExtensionPoints.AUDIO_SOURCE, pluginId, manifest.name, id, object : AudioSourceExtension {
+            guard.register(Extension(ExtensionPoints.AUDIO_SOURCE, pluginId, manifest.name, id, object : AudioSourceExtension {
                 override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? =
                     guard.guarded("音源 $id", DesktopNativePluginHost.CALL_TIMEOUT_MS) { source.resolve(query.toApi(), quality) }?.let(::JsonPrimitive)
             }, order))
@@ -133,7 +131,7 @@ internal class NativePluginContext(
         override fun lyricsSource(id: String, source: LyricsSource) {
             val order = indexOf(manifest.contributes.lyricsSources.map { it.id }, id, "歌词源")
             track("lyricsSource:$id")
-            registry.register(Extension(ExtensionPoints.LYRICS_SOURCE, pluginId, manifest.name, id, object : LyricsSourceExtension {
+            guard.register(Extension(ExtensionPoints.LYRICS_SOURCE, pluginId, manifest.name, id, object : LyricsSourceExtension {
                 override suspend fun fetch(query: PluginTrackQuery): JsonElement? {
                     val result = guard.guarded("歌词源 $id", DesktopNativePluginHost.CALL_TIMEOUT_MS) { source.fetch(query.toApi()) } ?: return null
                     return toJson(mapOf("lrc" to result.lrc, "ttml" to result.ttml))
@@ -157,7 +155,7 @@ internal class NativePluginContext(
                 override suspend fun resolve(trackId: String, quality: String): JsonElement? =
                     guard.guarded("内容源取链", DesktopNativePluginHost.CALL_TIMEOUT_MS) { source.resolve(trackId, quality) }?.let(::JsonPrimitive)
             }
-            registry.register(Extension(ExtensionPoints.CONTENT_SOURCE, pluginId, manifest.name, id, extension, order))
+            guard.register(Extension(ExtensionPoints.CONTENT_SOURCE, pluginId, manifest.name, id, extension, order))
         }
 
         override fun command(id: String, handler: suspend (Map<String, Any?>) -> Unit) {
@@ -169,7 +167,7 @@ internal class NativePluginContext(
 
                 override suspend fun execute(args: JsonElement): Boolean = runHandler("命令 $id", args, handler)
             }
-            registry.register(Extension(ExtensionPoints.COMMAND, pluginId, manifest.name, id, extension, order))
+            guard.register(Extension(ExtensionPoints.COMMAND, pluginId, manifest.name, id, extension, order))
         }
 
         override fun action(name: String, handler: suspend (Map<String, Any?>) -> Unit) {
@@ -177,7 +175,7 @@ internal class NativePluginContext(
             val extension = object : ActionExtension {
                 override suspend fun run(args: JsonElement): Boolean = runHandler("动作 $name", args, handler)
             }
-            registry.register(Extension(ExtensionPoints.ACTION, pluginId, manifest.name, name, extension))
+            guard.register(Extension(ExtensionPoints.ACTION, pluginId, manifest.name, name, extension))
         }
 
         override fun backdropSource(id: String, source: BackdropSource) {
@@ -196,7 +194,7 @@ internal class NativePluginContext(
                     false
                 }
             }
-            registry.register(Extension(ExtensionPoints.BACKDROP, pluginId, manifest.name, id, extension, order))
+            guard.register(Extension(ExtensionPoints.BACKDROP, pluginId, manifest.name, id, extension, order))
         }
 
         override fun composePage(id: String, content: @Composable () -> Unit) {
@@ -207,7 +205,7 @@ internal class NativePluginContext(
                 AppLogger.w(TAG, "[$pluginId] Compose 页面 $id 出错", error)
                 guard.recordError("页面 $id 出错：${error.message ?: error.javaClass.simpleName}")
             }
-            registry.register(Extension(ExtensionPoints.COMPOSE_PAGE, pluginId, manifest.name, id, extension, order))
+            guard.register(Extension(ExtensionPoints.COMPOSE_PAGE, pluginId, manifest.name, id, extension, order))
         }
 
         override fun playbackListener(listener: PlaybackListener) {
@@ -220,7 +218,7 @@ internal class NativePluginContext(
                     guard.scope.launch { dispatchEvent(listener, event, data) }
                 }
             }
-            registry.register(Extension(ExtensionPoints.EVENT, pluginId, manifest.name, pluginId, extension))
+            guard.register(Extension(ExtensionPoints.EVENT, pluginId, manifest.name, pluginId, extension))
         }
     }
 
@@ -275,7 +273,7 @@ internal class NativePluginContext(
 
     override val storage: PluginStorage = object : PluginStorage {
         override suspend fun get(key: String): String? =
-            (call("storage.get", buildJsonObject { put("key", key) }) as? JsonPrimitive)?.content
+            (call("storage.get", buildJsonObject { put("key", key) }) as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content
 
         override suspend fun set(key: String, value: String) {
             call("storage.set", buildJsonObject {

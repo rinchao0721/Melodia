@@ -11,6 +11,8 @@ import com.lin0721.linmusic.core.plugin.PluginNotices
 import com.lin0721.linmusic.core.plugin.PluginPackage
 import com.lin0721.linmusic.core.plugin.PluginPaths
 import com.lin0721.linmusic.core.plugin.PluginPlatform
+import com.lin0721.linmusic.core.plugin.PluginRepository
+import com.lin0721.linmusic.core.plugin.PluginRuntime
 import com.lin0721.linmusic.core.plugin.PluginStageResult
 import com.lin0721.linmusic.core.plugin.PluginStore
 import com.lin0721.linmusic.plugin.api.PluginApiVersion
@@ -210,6 +212,59 @@ class DesktopNativePluginHostTest {
         host.sync(listOf(plugin), allowed = true)
         assertFalse(host.isActive(plugin.id))
         assertTrue(failures.single().second.contains("没有返回"))
+    }
+
+    @Test
+    fun `onLoad 超时后迟到的注册被拒绝`() = runBlocking {
+        val plugin = install("LateRegisterPlugin")
+        host(loadTimeoutMs = 100).sync(listOf(plugin), allowed = true)
+        delay(600)
+        assertTrue(commands().isEmpty())
+    }
+
+    @Test
+    fun `回调阻塞线程时调用方按超时返回`() = runBlocking {
+        val plugin = install("BlockingCommandPlugin")
+        val host = host()
+        host.sync(listOf(plugin), allowed = true)
+        val result = withTimeout(DesktopNativePluginHost.ACTION_TIMEOUT_MS + 2_000) { commands().single().value.execute(JsonNull) }
+        assertFalse(result)
+        host.unload(plugin.id)
+    }
+
+    @Test
+    fun `读取不存在的存储项得到 null`() = runBlocking {
+        val plugin = install("StorageProbePlugin")
+        val host = host()
+        host.sync(listOf(plugin), allowed = true)
+        assertTrue(commands().single().value.execute(JsonNull))
+        assertEquals("true", dataFile(plugin.id, "storage").readText())
+        host.unload(plugin.id)
+    }
+
+    private fun repository(): PluginRepository {
+        val api = PluginHostApi(store)
+        store.setNativeAllowed(true)
+        return PluginRepository(store, PluginRuntime(GraalScriptSandboxFactory(), api, registry = registry), api, native = host())
+    }
+
+    @Test
+    fun `加载失败后列表显示已停用`() = runBlocking {
+        install("ThrowingPlugin")
+        val repository = repository()
+        repository.refresh()
+        val plugin = repository.installed.value.single()
+        assertFalse(plugin.state.enabled)
+        assertTrue(plugin.state.disabledReason.orEmpty().contains("加载炸了"))
+    }
+
+    @Test
+    fun `启动后才导入的原生插件要等重启`() = runBlocking {
+        val repository = repository()
+        repository.refresh()
+        install("NormalPlugin")
+        repository.refresh()
+        assertTrue(commands().isEmpty())
     }
 
     @Test

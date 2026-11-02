@@ -27,4 +27,7 @@ interface ScriptSandboxFactory {
 
     // prelude 在沙盒创建后、任何脚本之前执行；沙盒内另有 console 与 setTimeout
     suspend fun create(name: String, host: ScriptHost, prelude: String): ScriptSandbox
+
+    // 清掉同名沙盒留在本地的数据，没有持久数据的实现无需处理
+    suspend fun clearData(name: String) {}
 }

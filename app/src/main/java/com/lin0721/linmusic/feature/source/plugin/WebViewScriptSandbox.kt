@@ -7,6 +7,8 @@ import android.os.Looper
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.lin0721.linmusic.core.log.AppLogger
@@ -22,11 +24,26 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import java.security.MessageDigest
 import kotlin.coroutines.resume
 
 private const val TAG = "WebViewScriptSandbox"
 private const val PAGE_READY_TIMEOUT_MS = 4_000L
 private const val EVALUATE_TIMEOUT_MS = 10_000L
+
+// 脚本只能经宿主桥访问外部；CSP 补上 blockNetworkLoads 管不到的 WebSocket
+private const val CONTENT_SECURITY_POLICY =
+    "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; base-uri 'none'; form-action 'none'"
+
+// WebRTC 不受 CSP 限制
+private const val DISABLE_WEBRTC =
+    "delete window.RTCPeerConnection; delete window.webkitRTCPeerConnection; delete window.RTCDataChannel;"
+
+// 每个沙盒一个顶级站点，localStorage、IndexedDB 与 Cookie 互不相通；页面来自本地数据，不解析这个域名
+private fun sandboxOrigin(name: String): String {
+    val digest = MessageDigest.getInstance("MD5").digest(name.toByteArray())
+    return "https://${digest.joinToString("") { "%02x".format(it) }}.melodia-sandbox"
+}
 
 // Android 脚本沙盒工厂：每个沙盒一个无头 WebView
 class WebViewScriptSandboxFactory(private val context: Context) : ScriptSandboxFactory {
@@ -37,10 +54,16 @@ class WebViewScriptSandboxFactory(private val context: Context) : ScriptSandboxF
         val webView = WebView(context).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.blockNetworkLoads = true
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     ready.complete(Unit)
                 }
+
+                // 不允许脚本跳转到别的页面
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
@@ -52,10 +75,16 @@ class WebViewScriptSandboxFactory(private val context: Context) : ScriptSandboxF
             }
             addJavascriptInterface(WebViewHostBridge(name, host), "MelodiaHostBridge")
         }
-        val html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>\n$prelude\n</script></body></html>"
-        webView.loadDataWithBaseURL("https://melodia.local", html, "text/html", "UTF-8", null)
+        val html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"$CONTENT_SECURITY_POLICY\">" +
+            "</head><body><script>$DISABLE_WEBRTC</script><script>\n$prelude\n</script></body></html>"
+        webView.loadDataWithBaseURL(sandboxOrigin(name), html, "text/html", "UTF-8", null)
         withTimeoutOrNull(PAGE_READY_TIMEOUT_MS) { ready.await() }
         WebViewScriptSandbox(name, webView)
+    }
+
+    override suspend fun clearData(name: String) = withContext(Dispatchers.Main) {
+        WebStorage.getInstance().deleteOrigin(sandboxOrigin(name))
     }
 }
 

@@ -48,6 +48,9 @@ interface EventExtension {
 interface ContentSourceExtension {
     val searchable: Boolean
 
+    // 返回可以加载的封面地址，不允许时返回空字符串
+    fun cover(url: String): String = url
+
     suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement?
 
     suspend fun playlist(id: String): JsonElement?

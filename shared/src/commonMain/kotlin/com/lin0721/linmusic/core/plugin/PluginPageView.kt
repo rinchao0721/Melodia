@@ -74,10 +74,14 @@ object PluginBinding {
         return manifest.file(value)?.let(PluginImageSource::Asset)
     }
 
-    fun tracks(value: JsonElement?): List<PluginTrack> = (value as? JsonArray).orEmpty().mapNotNull { element ->
+    // 封面由图片加载器直接请求，沙盒插件同样只能用清单允许的域名，其他地址返回空字符串
+    fun cover(manifest: PluginManifest, value: String): String =
+        if (manifest.kind == PluginKind.NATIVE || image(manifest, value) is PluginImageSource.Remote) value else ""
+
+    fun tracks(manifest: PluginManifest, value: JsonElement?): List<PluginTrack> = (value as? JsonArray).orEmpty().mapNotNull { element ->
         val obj = element as? JsonObject ?: return@mapNotNull null
         val songId = (obj["songId"] as? JsonPrimitive)?.longOrNull?.takeIf { it > 0 } ?: return@mapNotNull null
-        PluginTrack(songId, text(obj["title"]), text(obj["artist"]), text(obj["cover"]))
+        PluginTrack(songId, text(obj["title"]), text(obj["artist"]), cover(manifest, text(obj["cover"])))
     }
 }
 
@@ -213,7 +217,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
             }
         }
         LayoutNodeType.TRACK_LIST -> {
-            val tracks = PluginBinding.tracks(scope.value(node.bind)).take(MAX_LIST_ITEMS)
+            val tracks = PluginBinding.tracks(scope.page.manifest, scope.value(node.bind)).take(MAX_LIST_ITEMS)
             scope.ui.Tracks(tracks, { index -> coroutine.launch { scope.host.play(scope.page.manifest, tracks, index) } }, modifier)
         }
         LayoutNodeType.IMAGE -> {
@@ -312,6 +316,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         }
         LayoutNodeType.BADGE -> scope.ui.Badge(scope.text(node.text), modifier)
         LayoutNodeType.TABS -> {
+            if (node.children.isEmpty()) return
             var selected by remember { mutableStateOf(0) }
             Column(modifier, verticalArrangement = Arrangement.spacedBy(node.spacing.dp)) {
                 scope.ui.Tabs(node.children.map { scope.text(it.text) }, selected, { selected = it }, Modifier)

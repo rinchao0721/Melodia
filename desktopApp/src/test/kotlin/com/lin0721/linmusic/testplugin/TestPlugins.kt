@@ -47,6 +47,28 @@ class HangingPlugin : MelodiaPlugin {
     }
 }
 
+// 超时后才注册，模拟放弃等待后还在运行的 onLoad
+class LateRegisterPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        Thread.sleep(300)
+        context.extensions.command("run") {}
+    }
+}
+
+class BlockingCommandPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("run") { Thread.sleep(60_000) }
+    }
+}
+
+class StorageProbePlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("run") {
+            File(context.dataDirectory, "storage").writeText((context.storage.get("missing") == null).toString())
+        }
+    }
+}
+
 class UndeclaredPlugin : MelodiaPlugin {
     override fun onLoad(context: PluginContext) {
         context.extensions.command("ghost") {}

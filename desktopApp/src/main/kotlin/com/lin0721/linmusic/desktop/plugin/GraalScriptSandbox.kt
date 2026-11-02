@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.plugin.ScriptHost
 import com.lin0721.linmusic.core.plugin.ScriptSandbox
 import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -22,6 +23,7 @@ import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.io.IOAccess
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 private const val TAG = "GraalScriptSandbox"
 
@@ -61,6 +63,7 @@ class GraalScriptSandbox internal constructor(
     private val dispatcher: ExecutorCoroutineDispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private val timers = ConcurrentHashMap<Int, Job>()
+    private val waiting = ConcurrentHashMap.newKeySet<CompletableDeferred<*>>()
 
     @Volatile
     private var closed = false
@@ -79,10 +82,10 @@ class GraalScriptSandbox internal constructor(
         context.eval("js", prelude)
     }
 
-    override suspend fun evaluate(script: String): Result<Unit> = withContext(dispatcher) {
-        if (closed) return@withContext Result.failure(IllegalStateException("沙盒已关闭"))
-        try {
-            context.eval("js", script)
+    override suspend fun evaluate(script: String): Result<Unit> {
+        if (closed) return Result.failure(IllegalStateException("沙盒已关闭"))
+        return try {
+            onScriptThread { context.eval("js", script) }
             Result.success(Unit)
         } catch (e: PolyglotException) {
             Result.failure(Exception(e.message ?: "脚本执行出错", e))
@@ -93,7 +96,29 @@ class GraalScriptSandbox internal constructor(
 
     // 参数整体序列化为 JSON 数组交给沙盒内的分发函数，免得每次调用都重新解析一段源码
     override suspend fun call(function: String, vararg args: JsonElement) {
-        withContext(dispatcher) { invokeLocked(function, JsonArray(args.toList()).toString()) }
+        if (closed) return
+        val argsJson = JsonArray(args.toList()).toString()
+        onScriptThread { invokeLocked(function, argsJson) }
+    }
+
+    // 脚本死循环时线程不响应协程取消，这里让调用方能按超时返回；要打断脚本只能 close
+    private suspend fun <T> onScriptThread(block: () -> T): T {
+        val result = CompletableDeferred<T>()
+        waiting += result
+        try {
+            executor.execute {
+                try {
+                    result.complete(block())
+                } catch (e: Throwable) {
+                    result.completeExceptionally(e)
+                }
+            }
+            return result.await()
+        } catch (e: RejectedExecutionException) {
+            throw IllegalStateException("沙盒已关闭", e)
+        } finally {
+            waiting -= result
+        }
     }
 
     private fun invokeLocked(function: String, argsJson: String) {
@@ -123,6 +148,8 @@ class GraalScriptSandbox internal constructor(
         scope.cancel()
         runCatching { if (::context.isInitialized) context.close(true) }
         executor.shutdownNow()
+        // 排队中的任务不会再执行
+        waiting.forEach { it.completeExceptionally(IllegalStateException("沙盒已关闭")) }
     }
 
     private companion object {

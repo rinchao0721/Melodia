@@ -34,6 +34,8 @@ class PluginRepository(
     val catalog: PluginCatalogService = PluginCatalogService(store)
 ) {
     private val refreshLock = Mutex()
+    private val publishLock = Mutex()
+    private var nativeSynced = false
     private val registry = runtime.registry
     private val _installed = MutableStateFlow<List<InstalledPlugin>>(emptyList())
     val installed: StateFlow<List<InstalledPlugin>> = _installed.asStateFlow()
@@ -78,16 +80,22 @@ class PluginRepository(
     }
 
     suspend fun refresh() = refreshLock.withLock {
-        val plugins = withContext(Dispatchers.IO) { store.list() }
-        publish(plugins)
+        val plugins = publishLatest()
         runtime.sync(plugins)
-        if (native != null && plugins.any { it.manifest?.kind == PluginKind.NATIVE }) {
+        // 启动时没有原生插件也要同步一次，之后导入的才会按约定等重启
+        if (native != null && (!nativeSynced || plugins.any { it.manifest?.kind == PluginKind.NATIVE })) {
             val allowed = withContext(Dispatchers.IO) { store.nativeAllowed() }
             _nativeAllowed.value = allowed
             native.sync(plugins, allowed)
+            nativeSynced = true
             // 页面和菜单要等原生插件加载后才生效
-            publish(plugins)
+            publishLatest()
         }
+    }
+
+    // 同步途中可能有插件被自动停用，每次都读最新状态；refresh 持锁期间也会走到这里，所以用单独的锁
+    private suspend fun publishLatest(): List<InstalledPlugin> = publishLock.withLock {
+        withContext(Dispatchers.IO) { store.list() }.also { publish(it) }
     }
 
     // 沙盒插件随状态生效；原生插件只有本次启动加载成功的才算
@@ -257,6 +265,7 @@ class PluginRepository(
         runtime.stop(id)
         native?.unload(id)
         api.clearUiState(id)
+        runtime.clearData(id)
         withContext(Dispatchers.IO) { store.delete(id) }
         refresh()
     }
@@ -273,7 +282,7 @@ class PluginRepository(
 
     private suspend fun disableForErrors(id: String, reason: String) {
         withContext(Dispatchers.IO) { store.updateState(id) { it.copy(enabled = false, disabledReason = reason) } }
-        publish(withContext(Dispatchers.IO) { store.list() })
+        publishLatest()
     }
 }
 

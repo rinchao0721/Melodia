@@ -250,7 +250,7 @@ class PluginNeteaseApi(
     private suspend fun search(params: JsonObject): JsonElement {
         val keyword = (params["keyword"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()
         if (keyword.isNullOrEmpty()) throw PluginCallException("缺少搜索词")
-        val type = when (val key = (params["type"] as? JsonPrimitive)?.content ?: "song") {
+        val type = when (val key = (params["type"] as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content ?: "song") {
             "song" -> SearchType.SONG
             "album" -> SearchType.ALBUM
             "artist" -> SearchType.ARTIST

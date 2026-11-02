@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.plugin
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.plugin.Extension
 import com.lin0721.linmusic.core.plugin.ExtensionPoint
 import com.lin0721.linmusic.core.plugin.ExtensionPoints
 import com.lin0721.linmusic.core.plugin.ExtensionRegistry
@@ -26,13 +27,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -181,6 +186,7 @@ class DesktopNativePluginHost(
 
     private suspend fun load(plugin: InstalledPlugin) {
         val manifest = plugin.manifest ?: return
+        var created: LoadedPlugin? = null
         try {
             val entry = withContext(Dispatchers.IO) {
                 val workDirectory = prepare(manifest, plugin.state)
@@ -188,8 +194,8 @@ class DesktopNativePluginHost(
                 marker.writeText(manifest.id)
                 instantiate(manifest, workDirectory)
             }
-            val target = LoadedPlugin(manifest, entry)
-            val context = NativePluginContext(manifest, target, api, registry, File(runRoot, manifest.id), store.dataDirectoryOf(manifest.id)!!, spectrumFrames)
+            val target = LoadedPlugin(manifest, entry).also { created = it }
+            val context = NativePluginContext(manifest, target, api, File(runRoot, manifest.id), store.dataDirectoryOf(manifest.id)!!, spectrumFrames)
 
             runBounded("onLoad", loadTimeoutMs) { entry.onLoad(context) }
             loaded[manifest.id] = target
@@ -199,6 +205,8 @@ class DesktopNativePluginHost(
             throw e
         } catch (e: NativeLoadException) {
             AppLogger.w(TAG, "加载原生插件失败: ${manifest.id} ${e.message}", e.cause)
+            // 超时的 onLoad 线程还在运行，先取消作用域，它之后的注册才会被拒绝
+            created?.scope?.cancel()
             registry.unregister(manifest.id, NATIVE_POINTS)
             fail(manifest.id, e.message ?: "加载失败")
         } catch (e: IOException) {
@@ -245,8 +253,8 @@ class DesktopNativePluginHost(
         }
     }
 
-    // 线程无法强制结束，超时后放弃等待，线程留在后台
-    private fun runBounded(label: String, timeoutMs: Long, block: () -> Unit) {
+    // 线程无法强制结束，超时后放弃等待，线程留在后台；调用方可能在主线程，等待要放到 IO
+    private suspend fun runBounded(label: String, timeoutMs: Long, block: () -> Unit): Unit = withContext(Dispatchers.IO) {
         var failure: Throwable? = null
         val worker = Thread({
             try {
@@ -263,15 +271,18 @@ class DesktopNativePluginHost(
         failure?.let { throw NativeLoadException("$label 失败：${it.message ?: it.javaClass.simpleName}", it) }
     }
 
-    private fun unloadLocked(pluginId: String) {
+    private suspend fun unloadLocked(pluginId: String) {
         val target = loaded.remove(pluginId) ?: return
         registry.unregister(pluginId, NATIVE_POINTS)
         try {
             runBounded("onUnload", UNLOAD_TIMEOUT_MS) { target.entry.onUnload() }
         } catch (e: NativeLoadException) {
             AppLogger.w(TAG, "[$pluginId] ${e.message}", e.cause)
+        } finally {
+            target.scope.cancel()
+            // onUnload 期间可能又有注册
+            registry.unregister(pluginId, NATIVE_POINTS)
         }
-        target.scope.cancel()
         // 类加载器不关闭：插件的后台线程可能还在懒加载类，运行副本下次启动时清理
         AppLogger.i(TAG, "原生插件已卸载: $pluginId")
     }
@@ -294,17 +305,32 @@ class DesktopNativePluginHost(
             SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, error -> recordError(error.message ?: error.javaClass.simpleName) }
         )
 
-        override suspend fun <T> guarded(label: String, timeoutMs: Long, block: suspend () -> T): T? = try {
-            withTimeout(timeoutMs) { withContext(Dispatchers.Default) { block() } }.also { consecutiveErrors.set(0) }
-        } catch (e: TimeoutCancellationException) {
-            recordError("$label 超过 ${timeoutMs / 1000} 秒没有返回")
-            null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            AppLogger.w(TAG, "[${manifest.id}] $label 出错", e)
-            recordError("$label 出错：${e.message ?: e.javaClass.simpleName}")
-            null
+        // 插件可能阻塞线程，在它自己的作用域里执行，调用方才能按超时返回
+        override suspend fun <T> guarded(label: String, timeoutMs: Long, block: suspend () -> T): T? {
+            val call = scope.async { block() }
+            return try {
+                withTimeout(timeoutMs) { call.await() }.also { consecutiveErrors.set(0) }
+            } catch (e: TimeoutCancellationException) {
+                recordError("$label 超过 ${timeoutMs / 1000} 秒没有返回")
+                null
+            } catch (e: CancellationException) {
+                // 调用方被取消时继续传播；插件卸载导致的取消按没有结果处理
+                currentCoroutineContext().ensureActive()
+                null
+            } catch (e: Throwable) {
+                AppLogger.w(TAG, "[${manifest.id}] $label 出错", e)
+                recordError("$label 出错：${e.message ?: e.javaClass.simpleName}")
+                null
+            } finally {
+                call.cancel()
+            }
+        }
+
+        // 卸载后不再接受注册，插件残留的线程写不进注册表
+        override fun <T : Any> register(extension: Extension<T>) {
+            check(scope.isActive) { "插件已卸载" }
+            registry.register(extension)
+            if (!scope.isActive) registry.unregister(manifest.id, NATIVE_POINTS)
         }
 
         override fun recordSuccess() {
@@ -312,11 +338,14 @@ class DesktopNativePluginHost(
         }
 
         override fun recordError(reason: String) {
+            if (!scope.isActive) return
             _status.update { current -> current[manifest.id]?.let { current + (manifest.id to it.copy(lastError = reason)) } ?: current }
             if (consecutiveErrors.incrementAndGet() < MAX_CONSECUTIVE_ERRORS) return
             background.launch {
-                lock.withLock { if (loaded[manifest.id] === this@LoadedPlugin) unloadLocked(manifest.id) }
-                fail(manifest.id, "连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
+                val stopped = lock.withLock {
+                    (loaded[manifest.id] === this@LoadedPlugin).also { if (it) unloadLocked(manifest.id) }
+                }
+                if (stopped) fail(manifest.id, "连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
             }
         }
     }
@@ -332,6 +361,8 @@ internal interface NativeCallGuard {
     val scope: CoroutineScope
 
     suspend fun <T> guarded(label: String, timeoutMs: Long, block: suspend () -> T): T?
+
+    fun <T : Any> register(extension: Extension<T>)
 
     fun recordSuccess()
 

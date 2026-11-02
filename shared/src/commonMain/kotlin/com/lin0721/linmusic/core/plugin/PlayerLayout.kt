@@ -359,7 +359,10 @@ object PlayerLayoutParser {
         if (parsed !is PlayerLayoutParseResult.Success || PluginPermission.PLAYBACK_CONTROL in manifest.permissions) return parsed
         if (!parsed.root.contains(LayoutNodeType.TRACK_LIST)) return parsed
         fun strip(node: PlayerLayoutNode): PlayerLayoutNode =
-            node.copy(children = node.children.filter { it.type != LayoutNodeType.TRACK_LIST }.map(::strip))
+            node.copy(
+                children = node.children.filter { it.type != LayoutNodeType.TRACK_LIST }.map(::strip)
+                    .filterNot { it.type == LayoutNodeType.TABS && it.children.isEmpty() }
+            )
         return parsed.copy(root = strip(parsed.root), warnings = parsed.warnings + "trackList 需要 playback.control 权限，已忽略")
     }
 

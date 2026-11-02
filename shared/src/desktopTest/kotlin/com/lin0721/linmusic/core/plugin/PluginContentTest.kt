@@ -73,6 +73,16 @@ class PluginContentTest {
     }
 
     @Test
+    fun `内容源可以拦下不允许的封面`() = runBlocking {
+        val source = object : ContentSourceExtension by FakeSource() {
+            override fun cover(url: String): String = ""
+        }
+        register(source)
+        val id = content.collectionId("c.a", "main", "p1")
+        assertEquals("", content.detail(id).getOrThrow().coverImgUrl)
+    }
+
+    @Test
     fun `不支持搜索的内容源不参与搜索`() = runBlocking {
         register(FakeSource(searchable = false))
         assertFalse(content.hasSearch())

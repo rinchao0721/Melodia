@@ -117,10 +117,29 @@ class PluginPageTest {
 
     @Test
     fun `歌曲数组只保留有效项`() {
+        val page = manifest("\"network\"", "\"img.example.com\"", """{"type":"column"}""")
         val tracks = PluginBinding.tracks(
-            Json.parseToJsonElement("""[{"songId":1,"title":"a","artist":"b","cover":"c"},{"songId":0},{"title":"无 id"},"x"]""")
+            page,
+            Json.parseToJsonElement("""[{"songId":1,"title":"a","artist":"b","cover":"https://img.example.com/c.png"},{"songId":0},{"title":"无 id"},"x"]""")
         )
-        assertEquals(listOf(PluginTrack(1, "a", "b", "c")), tracks)
-        assertTrue(PluginBinding.tracks(JsonPrimitive("x")).isEmpty())
+        assertEquals(listOf(PluginTrack(1, "a", "b", "https://img.example.com/c.png")), tracks)
+        assertTrue(PluginBinding.tracks(page, JsonPrimitive("x")).isEmpty())
+    }
+
+    @Test
+    fun `沙盒插件的封面不能指向清单外的域名`() {
+        val page = manifest("\"network\"", "\"img.example.com\"", """{"type":"column"}""")
+        val tracks = PluginBinding.tracks(page, Json.parseToJsonElement("""[{"songId":1,"cover":"https://evil.com/?d=secret"}]"""))
+        assertEquals("", tracks.single().cover)
+        assertEquals("", PluginBinding.cover(page, "file:///etc/passwd"))
+        assertEquals("https://evil.com/a.png", PluginBinding.cover(page.copy(kind = PluginKind.NATIVE), "https://evil.com/a.png"))
+    }
+
+    @Test
+    fun `去掉歌曲列表后为空的 tabs 一并去掉`() {
+        val ui = """{"type":"column","children":[{"type":"tabs","children":[{"type":"trackList","text":"全部","bind":"${'$'}state.songs"}]},{"type":"text","text":"留下"}]}"""
+        val denied = manifest(ui = ui)
+        val stripped = PlayerLayoutParser.loadPage(denied, denied.contributes.pages.single()) as PlayerLayoutParseResult.Success
+        assertEquals(listOf(LayoutNodeType.TEXT), stripped.root.children.map { it.type })
     }
 }

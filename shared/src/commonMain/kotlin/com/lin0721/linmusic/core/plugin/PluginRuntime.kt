@@ -83,6 +83,10 @@ class PluginRuntime(
 
     fun isRunning(pluginId: String): Boolean = running.containsKey(pluginId)
 
+    suspend fun clearData(pluginId: String) = factory.clearData(sandboxName(pluginId))
+
+    private fun sandboxName(pluginId: String): String = "plugin-$pluginId"
+
     // 调用插件注册的能力；失败或超时返回 null 并计入连续出错
     suspend fun invoke(pluginId: String, kind: String, name: String, args: JsonElement, timeoutMs: Long): JsonElement? {
         val target = running[pluginId] ?: return null
@@ -91,8 +95,11 @@ class PluginRuntime(
         target.pending[callId] = deferred
         return try {
             val result = try {
-                target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
-                withTimeoutOrNull(timeoutMs) { deferred.await() }
+                // 脚本线程卡住时投递本身也不返回，要算在超时里
+                withTimeoutOrNull(timeoutMs) {
+                    target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
+                    deferred.await()
+                }
                     // 脚本在等网易调用时可能正等用户确认，不按超时处理
                     ?: target.pendingNetease.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
                     ?: Result.failure(PluginCallException("$kind:$name 超过 ${timeoutMs / 1000} 秒没有返回"))
@@ -113,7 +120,11 @@ class PluginRuntime(
         if (event !in target.manifest.contributes.events) return
         scope.launch {
             try {
-                target.sandbox.call(PluginPrelude.EMIT, JsonPrimitive(event.key), data)
+                val delivered = withTimeoutOrNull(EVENT_TIMEOUT_MS) {
+                    target.sandbox.call(PluginPrelude.EMIT, JsonPrimitive(event.key), data)
+                    true
+                }
+                target.recordEvent(delivered == true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -136,7 +147,7 @@ class PluginRuntime(
         }
         val target = Running(manifest)
         val sandbox = try {
-            factory.create("plugin-${manifest.id}", target, PluginPrelude.script)
+            factory.create(sandboxName(manifest.id), target, PluginPrelude.script)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -191,7 +202,7 @@ class PluginRuntime(
             PluginPrelude.KIND_CONTENT_SOURCE -> {
                 val order = manifest.contributes.contentSources.indexOfFirst { it.id == name }
                 if (order < 0) return
-                val source = ScriptContentSource(manifest.id, name, manifest.contributes.contentSources[order].search)
+                val source = ScriptContentSource(manifest, name, manifest.contributes.contentSources[order].search)
                 registry.register(Extension(ExtensionPoints.CONTENT_SOURCE, manifest.id, manifest.name, name, source, order))
             }
             PluginPrelude.KIND_COMMAND -> {
@@ -204,10 +215,12 @@ class PluginRuntime(
     }
 
     private inner class ScriptContentSource(
-        private val pluginId: String,
+        private val manifest: PluginManifest,
         private val name: String,
         override val searchable: Boolean
     ) : ContentSourceExtension {
+        override fun cover(url: String): String = PluginBinding.cover(manifest, url)
+
         override suspend fun search(keyword: String, offset: Int, limit: Int): JsonElement? = call("search", buildJsonObject {
             put("keyword", keyword)
             put("offset", offset)
@@ -222,7 +235,7 @@ class PluginRuntime(
         })
 
         private suspend fun call(method: String, params: JsonObject): JsonElement? = invoke(
-            pluginId,
+            manifest.id,
             PluginPrelude.KIND_CONTENT_SOURCE,
             name,
             buildJsonObject {
@@ -281,6 +294,7 @@ class PluginRuntime(
         lateinit var sandbox: ScriptSandbox
         val pending = ConcurrentHashMap<Int, CompletableDeferred<Result<JsonElement>>>()
         private val consecutiveErrors = AtomicInteger(0)
+        private val stalledEvents = AtomicInteger(0)
         val pendingNetease = AtomicInteger(0)
 
         @Volatile
@@ -355,12 +369,31 @@ class PluginRuntime(
             consecutiveErrors.set(0)
         }
 
+        // 关闭时被中断的调用不算插件出错
         fun recordError(reason: String) {
+            if (closed) return
             setStatus(manifest.id) { it.copy(lastError = reason) }
-            if (consecutiveErrors.incrementAndGet() < MAX_CONSECUTIVE_ERRORS) return
+            if (consecutiveErrors.incrementAndGet() >= MAX_CONSECUTIVE_ERRORS) {
+                disable("连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
+            }
+        }
+
+        // 送达只说明脚本线程没卡住，不代表调用成功，所以不清零 consecutiveErrors
+        fun recordEvent(delivered: Boolean) {
+            if (delivered) {
+                stalledEvents.set(0)
+            } else if (!closed && stalledEvents.incrementAndGet() >= MAX_CONSECUTIVE_ERRORS) {
+                disable("脚本长时间没有响应，已自动停用")
+            }
+        }
+
+        // 只停用仍在运行的实例，已被新版本替换的实例不能影响新版本
+        private fun disable(reason: String) {
             scope.launch {
-                lifecycleLock.withLock { if (running[manifest.id] === this@Running) stopLocked(manifest.id) }
-                fail(manifest.id, "连续出错 $MAX_CONSECUTIVE_ERRORS 次，已自动停用：$reason")
+                val stopped = lifecycleLock.withLock {
+                    (running[manifest.id] === this@Running).also { if (it) stopLocked(manifest.id) }
+                }
+                if (stopped) fail(manifest.id, reason)
             }
         }
 

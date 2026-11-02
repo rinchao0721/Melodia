@@ -138,7 +138,7 @@ class PluginHostApi(
         var method = (args.string("method") ?: "GET").uppercase()
         if (method !in HTTP_METHODS) throw PluginCallException("不支持的请求方法 $method")
         val headers = (args["headers"] as? JsonObject)?.mapNotNull { (key, value) ->
-            val text = (value as? JsonPrimitive)?.content ?: return@mapNotNull null
+            val text = (value as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content ?: return@mapNotNull null
             if (key.equals("Host", ignoreCase = true)) null else key to text
         }?.toMap().orEmpty()
         var body: String? = when (val value = args["body"]) {
@@ -301,7 +301,7 @@ class PluginHostApi(
             songId = songId,
             title = args.string("title")?.take(MAX_TEXT_LENGTH) ?: "",
             artist = args.string("artist")?.take(MAX_TEXT_LENGTH) ?: "",
-            coverUrl = args.string("cover")?.take(MAX_TEXT_LENGTH) ?: ""
+            coverUrl = args.string("cover")?.take(MAX_TEXT_LENGTH)?.let { PluginBinding.cover(manifest, it) } ?: ""
         )
         return control(manifest) { it.appendToQueue(listOf(item)) }
     }
