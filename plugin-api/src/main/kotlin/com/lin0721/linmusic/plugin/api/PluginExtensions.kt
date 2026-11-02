@@ -12,7 +12,21 @@ interface PluginExtensions {
 
     // 只收到清单 events 里声明的事件
     fun playbackListener(listener: PlaybackListener)
+
+    // API 1.1 起提供
+    fun backdropSource(id: String, source: BackdropSource)
 }
+
+// 窗口背景的逐帧来源；帧率与遮罩写在清单 backdrops 里，窗口隐藏时不调用
+interface BackdropSource {
+    // 帧宽上限，高度按窗口比例计算，宿主拉伸铺满
+    val maxWidth: Int get() = 960
+
+    // 在后台线程调用，要在一帧时间内返回；把不透明的 ARGB 写进 frame.pixels
+    fun render(frame: BackdropFrame)
+}
+
+class BackdropFrame(val width: Int, val height: Int, val timeMs: Long, val pixels: IntArray)
 
 interface AudioSource {
     // 返回 http(s) 地址，没有结果返回 null

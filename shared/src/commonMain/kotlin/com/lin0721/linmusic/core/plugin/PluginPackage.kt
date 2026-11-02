@@ -140,7 +140,9 @@ object PluginPackage {
             return "插件提供了页面、音源、歌词源或事件处理，但包里缺少 ${PluginPaths.SCRIPT}"
         }
         val missing = manifest.contributes.uiFiles.firstOrNull { !File(directory, it).isFile }
-        return missing?.let { "插件包里缺少界面描述 $it" }
+        if (missing != null) return "插件包里缺少界面描述 $missing"
+        val missingFrame = manifest.contributes.backdrops.flatMap { it.frames }.firstOrNull { !File(directory, it).isFile }
+        return missingFrame?.let { "插件包里缺少动态背景图片 $it" }
     }
 
     fun readManifest(file: File): JsonObject? = try {

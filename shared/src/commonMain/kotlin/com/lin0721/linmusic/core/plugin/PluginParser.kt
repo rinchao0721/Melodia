@@ -32,6 +32,11 @@ object PluginParser {
     private const val MAX_HOSTS = 20
     private const val MAX_ENTRIES = 16
     private const val MAX_OPTIONS = 32
+    private const val MAX_BACKDROP_FRAMES = 32
+    private const val MAX_BACKDROP_FPS = 30
+    private const val DEFAULT_BACKDROP_FPS = 12
+    private const val DEFAULT_BACKDROP_DIM = 0.3f
+    private const val DEFAULT_BACKDROP_PANE_OPACITY = 0.6f
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -74,7 +79,7 @@ object PluginParser {
 
         val contributes = when (val value = root["contributes"]) {
             null -> PluginContributions()
-            is JsonObject -> parseContributions(value, warnings, format)
+            is JsonObject -> parseContributions(value, warnings, format, compatibility.kind)
             else -> return PluginParseResult.Failure("contributes 不是对象")
         }
         // 原生插件可以只在后台运行
@@ -193,7 +198,7 @@ object PluginParser {
         return hosts.take(MAX_HOSTS)
     }
 
-    private fun parseContributions(root: JsonObject, warnings: MutableList<String>, format: Int): PluginContributions {
+    private fun parseContributions(root: JsonObject, warnings: MutableList<String>, format: Int, kind: PluginKind): PluginContributions {
         val layouts = LinkedHashMap<String, PluginUiRef>()
         (root["playerLayouts"] as? JsonObject)?.forEach { (area, value) ->
             if (area !in PLAYER_LAYOUT_AREAS) {
@@ -238,8 +243,26 @@ object PluginParser {
                 (item["search"] as? JsonPrimitive)?.booleanOrNull == true
             )
         }
+        val backdrops = parseEntries(root["backdrops"], "动态背景", warnings) { item, id -> parseBackdrop(item, id, kind, warnings) }
         return PluginContributions(
-            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources
+            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources, backdrops
+        )
+    }
+
+    private fun parseBackdrop(item: JsonObject, id: String, kind: PluginKind, warnings: MutableList<String>): PluginBackdropEntry? {
+        val frames = (item["frames"] as? JsonArray).orEmpty().mapNotNull { frame ->
+            val path = (frame as? JsonPrimitive)?.takeIf { it.isString }?.content
+            path?.takeIf(PluginPaths::isAsset) ?: null.also { warnings += "动态背景 $id 的图片 ${path ?: frame} 无效，已忽略" }
+        }
+        if (frames.size > MAX_BACKDROP_FRAMES) warnings += "动态背景 $id 超过 $MAX_BACKDROP_FRAMES 帧，只保留前 $MAX_BACKDROP_FRAMES 帧"
+        if (frames.isEmpty() && kind == PluginKind.SANDBOX) return null.also { warnings += "动态背景 $id 没有图片，已忽略" }
+        return PluginBackdropEntry(
+            id,
+            item.string("name")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_NAME_LENGTH) ?: id,
+            (item["fps"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, MAX_BACKDROP_FPS) ?: DEFAULT_BACKDROP_FPS,
+            item.number("dim")?.coerceIn(0f, 1f) ?: DEFAULT_BACKDROP_DIM,
+            item.number("paneOpacity")?.coerceIn(0f, 1f) ?: DEFAULT_BACKDROP_PANE_OPACITY,
+            frames.take(MAX_BACKDROP_FRAMES)
         )
     }
 

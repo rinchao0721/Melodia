@@ -20,6 +20,7 @@ class HelloPlugin : MelodiaPlugin {
                 context.scope.launch { context.logger.info("切歌：${song?.title}") }
             }
         })
+        context.extensions.backdropSource("aurora", AuroraBackdrop())
         context.scope.launch {
             val starts = (context.storage.get(KEY_STARTS)?.toIntOrNull() ?: 0) + 1
             context.storage.set(KEY_STARTS, starts.toString())

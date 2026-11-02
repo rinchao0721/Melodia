@@ -38,6 +38,29 @@ class PluginParserTest {
     }
 
     @Test
+    fun `动态背景的取值被限制，沙盒没有图片时忽略`() {
+        val result = contributesV2(
+            """"backdrops":[
+                {"id":"a","name":"序列","fps":99,"dim":2,"paneOpacity":-1,"frames":["assets/1.png","../x.png"]},
+                {"id":"b"}
+            ]"""
+        )
+        val entry = result.manifest.contributes.backdrops.single()
+        assertEquals(PluginBackdropEntry("a", "序列", 30, 1f, 0f, listOf("assets/1.png")), entry)
+        assertEquals(2, result.warnings.size)
+    }
+
+    @Test
+    fun `原生插件的动态背景可以不带图片`() {
+        val manifest = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0",
+                "main":"com.example.Main","contributes":{"backdrops":[{"id":"a"}]}}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest
+        assertEquals(12, manifest.contributes.backdrops.single().fps)
+    }
+
+    @Test
     fun `沙盒插件申请 native 权限时被忽略`() {
         val result = parseV2(""","permissions":["native"]""") as PluginParseResult.Success
         assertTrue(PluginPermission.NATIVE !in result.manifest.permissions)

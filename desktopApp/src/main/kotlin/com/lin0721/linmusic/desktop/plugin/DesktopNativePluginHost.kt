@@ -67,7 +67,8 @@ private val NATIVE_POINTS: Set<ExtensionPoint<*>> = setOf(
     ExtensionPoints.EVENT,
     ExtensionPoints.COMMAND,
     ExtensionPoints.CONTENT_SOURCE,
-    ExtensionPoints.ACTION
+    ExtensionPoints.ACTION,
+    ExtensionPoints.BACKDROP
 )
 
 private class NativeLoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -287,6 +288,10 @@ class DesktopNativePluginHost(
             null
         }
 
+        override fun recordSuccess() {
+            consecutiveErrors.set(0)
+        }
+
         override fun recordError(reason: String) {
             _status.update { current -> current[manifest.id]?.let { current + (manifest.id to it.copy(lastError = reason)) } ?: current }
             if (consecutiveErrors.incrementAndGet() < MAX_CONSECUTIVE_ERRORS) return
@@ -308,6 +313,8 @@ internal interface NativeCallGuard {
     val scope: CoroutineScope
 
     suspend fun <T> guarded(label: String, timeoutMs: Long, block: suspend () -> T): T?
+
+    fun recordSuccess()
 
     fun recordError(reason: String)
 }

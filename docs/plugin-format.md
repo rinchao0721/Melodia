@@ -50,7 +50,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.0` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.1` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -64,6 +64,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song` 或 `toolbar`。只显示脚本已注册的命令。`song` 出现在桌面歌曲右键菜单、Android 歌曲「更多」弹层与全屏播放页「更多」弹层（播客节目除外）；`toolbar` 在桌面是顶栏按钮，在 Android 是「设置 → 扩展 → 插件」里的「插件命令」。
 - `settings`（format 2）：插件设置项，见「设置」一节。
 - `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
+- `backdrops`（format 2）：窗口动态背景，见「动态背景」一节。
 
 单项写错时只忽略这一项，并在导入时提示。
 
@@ -376,6 +377,38 @@ melodia.register.command('scrobble', async function(song) {
 - **打开页面**：如果注册了 `open:<页面 id>`，每次打开页面都会调用一次，可以用来刷新数据。
 - **入口**：`placement` 为 `sidebar` 时，桌面端在音乐库侧栏底部的「插件」分组，Android 在「设置 → 扩展 → 插件」；为 `nowPlayingCard` 时，页面作为卡片显示在桌面「正在播放」面板与 Android 全屏播放页，可以在卡片编辑器里排序和隐藏。宽屏播放页的插件卡片排在内置卡片之后。
 
+## 动态背景
+
+替换窗口背景，优先于皮肤的背景图。目前只有桌面端生效。多个背景在「设置 → 插件 → 动态背景」里选择，默认用最近启用的插件，也可以选「不使用」。
+
+```json
+"backdrops": [
+  { "id": "rain", "name": "雨夜", "fps": 12, "dim": 0.4, "paneOpacity": 0.6, "frames": ["assets/rain1.png", "assets/rain2.png"] }
+]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `id` / `name` | `id` 必需，`name` 可选 |
+| `fps` | 1–30，默认 12 |
+| `dim` | 背景上的遮罩，0–1，默认 0.3 |
+| `paneOpacity` | 面板不透明度，0–1，默认 0.6 |
+| `frames` | `assets/` 下的图片，循环播放，最多 32 帧，长边缩到 1280。沙盒插件必需 |
+
+原生插件可以不写 `frames`，改用代码逐帧渲染：
+
+```kotlin
+context.extensions.backdropSource("aurora", object : BackdropSource {
+    override val maxWidth = 320
+
+    override fun render(frame: BackdropFrame) {
+        // 把不透明的 ARGB 写进 frame.pixels，长度为 width * height
+    }
+})
+```
+
+`render` 在后台线程调用，帧率与遮罩来自清单，宿主把画面拉伸铺满。窗口隐藏或最小化时不调用；关闭界面动画时只渲染一帧。需要 API 1.1。沙盒脚本不能逐帧绘制。
+
 ## 原生插件
 
 只有桌面端支持，用于沙盒做不到的场景。原生插件在主进程运行，等同于运行任意程序：权限声明只对通过 API 的调用生效，无法真正限制它。Android 导入时直接拒绝。
@@ -396,7 +429,7 @@ class HelloPlugin : MelodiaPlugin {
 
 - **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库和 kotlinx.coroutines，这些不要打进 `plugin.jar`；其他依赖打进 JAR。应用内部的类对插件不可见。
 - **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
-- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面用声明式页面，不能写 Compose。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面用声明式页面，不能写 Compose。
 - **宿主能力**：`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
 - **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。

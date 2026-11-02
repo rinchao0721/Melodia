@@ -27,9 +27,11 @@ import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-// 皮肤背景图与根布局在窗口中的位置；各处按窗口坐标取同一张图的对应区域，拼起来无缝
+// 背景图与根布局在窗口中的位置；各处按窗口坐标取同一张图的对应区域，拼起来无缝
+// image 可被动态背景逐帧替换，停止后回到 staticImage；插件背景的首帧到达前为 null
 @Stable
-class SkinBackdropHost(val image: ImageBitmap) {
+class SkinBackdropHost(val staticImage: ImageBitmap?) {
+    var image by mutableStateOf(staticImage)
     var rootBounds by mutableStateOf(Rect.Zero)
 }
 
@@ -112,7 +114,7 @@ private fun Modifier.alignedBackdrop(fallback: Color, withShell: Boolean, forPla
 
 // 背景图按根布局等比铺满居中裁切，再取本元素所在窗口区域对应的部分
 private fun DrawScope.drawAlignedImage(host: SkinBackdropHost, origin: Offset) {
-    val image = host.image
+    val image = host.image ?: return
     val root = host.rootBounds.takeIf { it.width > 0f && it.height > 0f } ?: Rect(origin, size)
     if (size.width <= 0f || size.height <= 0f || image.width <= 0 || image.height <= 0) return
     val scale = maxOf(root.width / image.width, root.height / image.height)

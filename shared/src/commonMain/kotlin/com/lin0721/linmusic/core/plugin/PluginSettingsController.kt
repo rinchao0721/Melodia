@@ -56,6 +56,12 @@ class PluginSettingsController(
         scope.launch { repository.refresh() }
     }
 
+    val backdrops: StateFlow<BackdropState> = repository.backdrops
+
+    fun chooseBackdrop(choice: String?) {
+        scope.launch { repository.chooseBackdrop(choice) }
+    }
+
     val nativeSupported: Boolean = repository.nativeSupported
     val nativeAllowed: StateFlow<Boolean> = repository.nativeAllowed
 
@@ -178,6 +184,7 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
         if (contributes.commands.isNotEmpty()) add("命令 ${contributes.commands.size} 个")
         if (contributes.settings.isNotEmpty()) add("设置 ${contributes.settings.size} 项")
         if (contributes.contentSources.isNotEmpty()) add("内容源 ${contributes.contentSources.size} 个")
+        if (contributes.backdrops.isNotEmpty()) add("动态背景 ${contributes.backdrops.size} 个")
     }.joinToString("、")
 }
 
@@ -202,6 +209,15 @@ fun pluginStatusLine(plugin: InstalledPlugin, status: PluginRuntimeStatus?): Plu
 
 // 布局来源选项；choice 为 null 表示自动选最近启用的插件
 data class PlayerLayoutOption(val choice: String?, val label: String)
+
+fun backdropOptions(state: BackdropState): List<PlayerLayoutOption> =
+    listOf(PlayerLayoutOption(null, "自动（最近启用的插件）"), PlayerLayoutOption(LAYOUT_CHOICE_DEFAULT, "不使用")) +
+        state.candidates.map { PlayerLayoutOption(it.key, "${it.pluginName} · ${it.entry.name}") }
+
+fun currentBackdropOption(state: BackdropState): PlayerLayoutOption {
+    val options = backdropOptions(state)
+    return options.firstOrNull { it.choice != null && it.choice == state.choice } ?: options.first()
+}
 
 // 本端有插件布局候选的区域，platformPrefix 为 android. 或 desktop.
 fun layoutAreasWithCandidates(state: PlayerLayoutState, platformPrefix: String): List<PlayerLayoutArea> =

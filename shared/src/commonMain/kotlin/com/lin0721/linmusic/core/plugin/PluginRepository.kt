@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -49,6 +50,10 @@ class PluginRepository(
     private val _pages = MutableStateFlow<List<ActivePluginPage>>(emptyList())
     // 已启用插件提供的页面
     val pages: StateFlow<List<ActivePluginPage>> = _pages.asStateFlow()
+
+    private val _backdrops = MutableStateFlow(BackdropState())
+    // 已启用插件提供的动态背景；目前只有桌面端接入
+    val backdrops: StateFlow<BackdropState> = _backdrops.asStateFlow()
 
     init {
         runtime.setFailureHandler(::disableForErrors)
@@ -87,7 +92,36 @@ class PluginRepository(
             registry.replace(ExtensionPoints.MENU, menuExtensions(plugins))
             _layouts.value = resolveLayouts()
             _pages.value = registry.get(ExtensionPoints.PAGE).map { it.value }
+            _backdrops.value = resolveBackdrops(plugins)
         }
+    }
+
+    // 图片序列随状态生效；逐帧渲染要等原生插件注册后才可用
+    private fun resolveBackdrops(plugins: List<InstalledPlugin>): BackdropState {
+        val renderers = registry.get(ExtensionPoints.BACKDROP)
+        val candidates = plugins.filter(::isActive).flatMap { plugin ->
+            val manifest = plugin.manifest ?: return@flatMap emptyList()
+            manifest.contributes.backdrops.mapNotNull { entry ->
+                val renderer = renderers.firstOrNull { it.pluginId == manifest.id && it.localId == entry.id }?.value
+                val frames = entry.frames.mapNotNull(manifest::file)
+                if (renderer == null && frames.isEmpty()) return@mapNotNull null
+                ActiveBackdrop("${manifest.id}/${entry.id}", manifest.name, entry, renderer, frames) to plugin.state.enabledAt
+            }
+        }
+        val choice = store.layoutChoices()[BACKDROP_CHOICE_KEY]
+        val automatic = { candidates.maxByOrNull { it.second }?.first }
+        val active = when (choice) {
+            LAYOUT_CHOICE_DEFAULT -> null
+            null -> automatic()
+            else -> candidates.firstOrNull { it.first.key == choice }?.first ?: automatic()
+        }
+        return BackdropState(active, candidates.map { it.first }, choice)
+    }
+
+    // choice 为背景 key、LAYOUT_CHOICE_DEFAULT（不使用），或 null 表示按最近启用的插件
+    suspend fun chooseBackdrop(choice: String?) {
+        withContext(Dispatchers.IO) { store.setLayoutChoice(BACKDROP_CHOICE_KEY, choice) }
+        refresh()
     }
 
     private fun menuExtensions(plugins: List<InstalledPlugin>): List<Extension<PluginMenuEntry>> =
@@ -216,6 +250,23 @@ class PluginRepository(
         publish(withContext(Dispatchers.IO) { store.list() })
     }
 }
+
+private const val BACKDROP_CHOICE_KEY = "backdrop"
+
+// renderer 与 frames 至少有一个；同时有时优先逐帧渲染
+data class ActiveBackdrop(
+    val key: String,
+    val pluginName: String,
+    val entry: PluginBackdropEntry,
+    val renderer: BackdropExtension?,
+    val frames: List<File>
+)
+
+data class BackdropState(
+    val active: ActiveBackdrop? = null,
+    val candidates: List<ActiveBackdrop> = emptyList(),
+    val choice: String? = null
+)
 
 // root 为 null 时页面描述无效，error 为原因
 data class ActivePluginPage(

@@ -6,7 +6,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 0
+const val PLUGIN_API_MINOR = 1
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效
@@ -111,6 +111,16 @@ data class PluginContentEntry(val id: String, val name: String, val search: Bool
 
 data class PluginMenuEntry(val commandId: String, val location: PluginMenuLocation)
 
+// frames 为空时由原生插件逐帧渲染；dim、paneOpacity 的含义与皮肤背景相同
+data class PluginBackdropEntry(
+    val id: String,
+    val name: String,
+    val fps: Int,
+    val dim: Float,
+    val paneOpacity: Float,
+    val frames: List<String> = emptyList()
+)
+
 data class PluginOption(val value: String, val label: String)
 
 // default 已按类型校验；min、max、step 只用于 number
@@ -135,14 +145,15 @@ data class PluginContributions(
     val commands: List<PluginCommandEntry> = emptyList(),
     val menus: List<PluginMenuEntry> = emptyList(),
     val settings: List<PluginSettingField> = emptyList(),
-    val contentSources: List<PluginContentEntry> = emptyList()
+    val contentSources: List<PluginContentEntry> = emptyList(),
+    val backdrops: List<PluginBackdropEntry> = emptyList()
 ) {
     val needsScript: Boolean
         get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
             commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty()
 
     val isEmpty: Boolean
-        get() = playerLayouts.isEmpty() && !needsScript
+        get() = playerLayouts.isEmpty() && backdrops.isEmpty() && !needsScript
 
     val uiFiles: List<String>
         get() = (playerLayouts.values + pages.map { it.ui }).filterIsInstance<PluginUiRef.File>().map { it.path }

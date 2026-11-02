@@ -44,6 +44,8 @@ import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
 import com.lin0721.linmusic.core.plugin.PluginSettingsView
+import com.lin0721.linmusic.core.plugin.backdropOptions
+import com.lin0721.linmusic.core.plugin.currentBackdropOption
 import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
 import com.lin0721.linmusic.core.plugin.layoutAreasWithCandidates
 import com.lin0721.linmusic.core.plugin.playerLayoutOptions
@@ -130,6 +132,18 @@ internal fun PluginSetting(repository: PluginRepository) {
                         menuWidth = 220.dp
                     )
                 }
+            }
+        }
+        val backdropState by controller.backdrops.collectAsState()
+        if (backdropState.candidates.isNotEmpty()) {
+            SettingRow("动态背景", backdropState.active?.let { "正在使用「${it.pluginName}」的${it.entry.name}" } ?: "未使用") {
+                SettingsDropdown(
+                    options = backdropOptions(backdropState),
+                    current = currentBackdropOption(backdropState),
+                    label = { it.label },
+                    onSelect = { controller.chooseBackdrop(it.choice) },
+                    menuWidth = 220.dp
+                )
             }
         }
         if (controller.nativeSupported) {

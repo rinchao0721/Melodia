@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.plugin
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.plugin.ActionExtension
 import com.lin0721.linmusic.core.plugin.AudioSourceExtension
+import com.lin0721.linmusic.core.plugin.BackdropExtension
 import com.lin0721.linmusic.core.plugin.CommandExtension
 import com.lin0721.linmusic.core.plugin.ContentSourceExtension
 import com.lin0721.linmusic.core.plugin.EventExtension
@@ -17,6 +18,8 @@ import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginPaths
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.plugin.api.AudioSource
+import com.lin0721.linmusic.plugin.api.BackdropFrame
+import com.lin0721.linmusic.plugin.api.BackdropSource
 import com.lin0721.linmusic.plugin.api.ContentPlaylist
 import com.lin0721.linmusic.plugin.api.ContentSource
 import com.lin0721.linmusic.plugin.api.ContentTrack
@@ -163,6 +166,25 @@ internal class NativePluginContext(
                 override suspend fun run(args: JsonElement): Boolean = runHandler("动作 $name", args, handler)
             }
             registry.register(Extension(ExtensionPoints.ACTION, pluginId, manifest.name, name, extension))
+        }
+
+        override fun backdropSource(id: String, source: BackdropSource) {
+            val order = indexOf(manifest.contributes.backdrops.map { it.id }, id, "动态背景")
+            track("backdropSource:$id")
+            val extension = object : BackdropExtension {
+                override val maxWidth: Int = source.maxWidth.coerceIn(MIN_BACKDROP_WIDTH, MAX_BACKDROP_WIDTH)
+
+                override fun render(width: Int, height: Int, timeMs: Long, pixels: IntArray): Boolean = try {
+                    source.render(BackdropFrame(width, height, timeMs, pixels))
+                    guard.recordSuccess()
+                    true
+                } catch (e: Throwable) {
+                    AppLogger.w(TAG, "[$pluginId] 动态背景 $id 出错", e)
+                    guard.recordError("动态背景 $id 出错：${e.message ?: e.javaClass.simpleName}")
+                    false
+                }
+            }
+            registry.register(Extension(ExtensionPoints.BACKDROP, pluginId, manifest.name, id, extension, order))
         }
 
         override fun playbackListener(listener: PlaybackListener) {
@@ -389,6 +411,8 @@ internal class NativePluginContext(
 
     private companion object {
         const val PRIVATE_PLAYLIST = 10
+        const val MIN_BACKDROP_WIDTH = 16
+        const val MAX_BACKDROP_WIDTH = 1920
     }
 }
 

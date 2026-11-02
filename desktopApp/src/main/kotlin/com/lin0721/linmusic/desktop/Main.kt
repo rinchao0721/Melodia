@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.desktop
 
 import com.lin0721.linmusic.desktop.di.DesktopLaunchOptions
+import com.lin0721.linmusic.desktop.ui.theme.PluginBackdropAnimator
+import com.lin0721.linmusic.desktop.ui.theme.withPluginBackdrop
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -229,6 +231,7 @@ fun main(args: Array<String>) {
     }.getOrDefault(ThemeSettings())
     if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
     val skinRepository = koin.get<SkinRepository>()
+    val pluginRepository = koin.get<PluginRepository>()
     val skinImageCodec = koin.get<SkinImageCodec>()
     val initialDark = initialThemeSettings.mode.isDark(SystemDarkTheme.isDark.value)
     skinRepository.updateSystemDark(SystemDarkTheme.isDark.value)
@@ -285,9 +288,17 @@ fun main(args: Array<String>) {
         val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
         val skin = activeSkin.skin
         val basePalette = rememberDesktopPalette(themeSettings, skin, windowEffects)
-        val backdropHost = remember(activeSkin) { activeSkin.backdrop?.let(::SkinBackdropHost) }
-        val palette = remember(basePalette, backdropHost, skin) {
-            if (backdropHost == null) basePalette else basePalette.withBackdrop(skin?.background)
+        val pluginBackdrops by pluginRepository.backdrops.collectAsState()
+        val pluginBackdrop = pluginBackdrops.active
+        val backdropHost = remember(activeSkin, pluginBackdrop != null) {
+            if (activeSkin.backdrop != null || pluginBackdrop != null) SkinBackdropHost(activeSkin.backdrop) else null
+        }
+        val palette = remember(basePalette, backdropHost, skin, pluginBackdrop) {
+            when {
+                backdropHost == null -> basePalette
+                pluginBackdrop != null -> basePalette.withPluginBackdrop(pluginBackdrop.entry)
+                else -> basePalette.withBackdrop(skin?.background)
+            }
         }
         LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
@@ -519,6 +530,15 @@ fun main(args: Array<String>) {
             WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating, palette = palette)
             CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, controller)
+            if (backdropHost != null && pluginBackdrop != null) {
+                PluginBackdropAnimator(
+                    host = backdropHost,
+                    backdrop = pluginBackdrop,
+                    codec = skinImageCodec,
+                    running = isMainVisible && !windowState.isMinimized,
+                    moving = uiAnimationsEnabled
+                )
+            }
             CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
                 MelodiaDesktopTheme(
                     uiScale = uiScaleFactor,
