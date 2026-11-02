@@ -62,6 +62,8 @@ fun SongMoreOptionsSheet(
     isLocalOnly: Boolean,
     // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
     isPodcast: Boolean = false,
+    // 当前曲目能否作为心动模式种子；播客、云盘、本地文件与第三方音源都不能
+    intelligenceAvailable: Boolean = false,
     showMiniLyric: Boolean = true,
     onToggleMiniLyric: (Boolean) -> Unit,
     onToggleLike: () -> Unit,
@@ -209,8 +211,8 @@ fun SongMoreOptionsSheet(
             }
 
             // 4. 心动模式：开=以当前歌曲为种子开启，关=恢复开启前的队列
-            // 本地歌曲无法作为种子开启，但已处于心动模式时仍保留关闭入口
-            if (!isPodcast && (!isLocalOnly || isIntelligence)) {
+            // 只有在线普通歌曲能作为种子；已处于心动模式时仍保留关闭入口
+            if (isIntelligence || intelligenceAvailable) {
                 OptionRow(
                     icon = Icons.Rounded.AutoAwesome,
                     text = if (isIntelligence) "关闭心动模式" else "打开心动模式",

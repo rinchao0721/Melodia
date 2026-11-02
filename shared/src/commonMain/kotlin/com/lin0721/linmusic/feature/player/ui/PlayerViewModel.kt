@@ -32,6 +32,7 @@ import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.intelligenceSeedBlockReason
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -664,6 +665,23 @@ class PlayerViewModel(
     // 开启心动模式，以当前播放歌曲为种子
     fun startIntelligenceMode(songId: Long, currentTitle: String, currentArtist: String, currentCoverUrl: String) {
         viewModelScope.launch {
+            // 播客/云盘/本地/第三方音源没有可用的在线曲目 id，不能作为种子。
+            // 入口 UI 也会按同一规则隐藏，这里再拦一层，防止首页/桌面等入口漏判。
+            val currentItem = playerManager.currentQueueItem.value
+                ?: QueueItem(songId, currentTitle, currentArtist, currentCoverUrl)
+            val blockReason = intelligenceSeedBlockReason(
+                item = currentItem,
+                isPodcast = podcastState.value.isPodcast,
+                playContext = playerManager.playContext.value
+            )
+            if (blockReason != null) {
+                _toastEvent.emit(blockReason)
+                return@launch
+            }
+            if (userPreferences.userProfile.firstOrNull() == null) {
+                _toastEvent.emit("登录后才能开启心动模式")
+                return@launch
+            }
             playbackRepository.getIntelligenceSongs(songId, 0).collect { result ->
                 result.onSuccess { tracks ->
                     if (tracks.isNotEmpty()) {

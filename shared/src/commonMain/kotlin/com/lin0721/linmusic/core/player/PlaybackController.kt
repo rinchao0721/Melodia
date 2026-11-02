@@ -24,6 +24,7 @@ interface PlaybackController {
     companion object {
         const val CONTEXT_INTELLIGENCE = "intelligence"
         const val CONTEXT_PODCAST = "podcast"
+        const val CONTEXT_CLOUD = "我的云盘"
     }
 
     val isPlaying: StateFlow<Boolean>

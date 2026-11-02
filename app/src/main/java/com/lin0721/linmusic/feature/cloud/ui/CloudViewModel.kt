@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -234,11 +235,12 @@ class CloudViewModel(
                 songId = item.playSongId,
                 title = item.name,
                 artist = item.artist,
-                coverUrl = item.coverUrl.orEmpty()
+                coverUrl = item.coverUrl.orEmpty(),
+                cloudDisk = true
             )
         }
         val startIndex = currentList.indexOfFirst { it.songId == song.songId }.coerceAtLeast(0)
-        playerManager.playQueue(queueItems, startIndex, "我的云盘")
+        playerManager.playQueue(queueItems, startIndex, PlaybackController.CONTEXT_CLOUD)
     }
 
     // ======================= 三点菜单 / 删除 =======================

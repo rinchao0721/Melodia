@@ -68,6 +68,7 @@ fun PlayQueueSheet(
     currentIndex: Int,
     playMode: PlayMode,
     playContext: String?,
+    intelligenceAvailable: Boolean,
     isPlaying: Boolean,
     sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
@@ -77,6 +78,7 @@ fun PlayQueueSheet(
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onStartIntelligence: () -> Unit,
     onShowTimerClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -285,7 +287,6 @@ fun PlayQueueSheet(
                 playMode = playMode,
                 playContext = playContext,
                 compact = isShortScreen,
-                onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
                 onDisableIntelligence = onDisableIntelligence
             )
@@ -512,9 +513,11 @@ fun PlayQueueSheet(
                 playMode = playMode,
                 playContext = playContext,
                 sleepTimerRemaining = sleepTimerRemaining,
+                intelligenceAvailable = intelligenceAvailable,
                 onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
                 onDisableIntelligence = onDisableIntelligence,
+                onStartIntelligence = onStartIntelligence,
                 onShowTimerClick = {
                     scope.launch {
                         sheetState.hide()
@@ -578,7 +581,6 @@ private fun PlayModeInfoRow(
     playMode: PlayMode,
     playContext: String?,
     compact: Boolean,
-    onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit
 ) {
@@ -597,17 +599,20 @@ private fun PlayModeInfoRow(
             playMode == PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne to "单曲循环"
             else -> Icons.Default.Shuffle to "随机播放"
         }
+        // 普通播放模式下这里只展示当前状态，不再提供第二个随机切换入口；
+        // 漫游/心动这类特殊模式仍可点击退出。
+        val clickable = if (isRoaming || isIntelligence) {
+            Modifier.clickable {
+                if (isRoaming) onDisableRoaming() else onDisableIntelligence()
+            }
+        } else {
+            Modifier
+        }
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(MelodiaColors.Surface)
-                .clickable {
-                    when {
-                        isRoaming -> onDisableRoaming()
-                        isIntelligence -> onDisableIntelligence()
-                        else -> onToggleShuffle()
-                    }
-                }
+                .then(clickable)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -644,9 +649,11 @@ private fun BottomActionRow(
     playMode: PlayMode,
     playContext: String?,
     sleepTimerRemaining: Long,
+    intelligenceAvailable: Boolean,
     onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onStartIntelligence: () -> Unit,
     onShowTimerClick: () -> Unit
 ) {
     Row(
@@ -657,18 +664,32 @@ private fun BottomActionRow(
     ) {
         val isRoaming = playContext == "similar_roaming"
         val isIntelligence = playContext == "intelligence"
-        val shuffleActive = isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE
-        val shuffleContent = if (shuffleActive) MelodiaColors.OnAccent else MelodiaColors.TextPrimary
+        // 左槽优先显示心动模式；只有当前内容不能作为种子时才退回随机播放。
+        // 随机播放本身在播放器四态按钮里已有入口，这里仅在心动不可用时兜底。
+        val shuffleActive = playMode == PlayMode.SHUFFLE
+        val leftActive = isRoaming || isIntelligence || (!intelligenceAvailable && shuffleActive)
+        val leftContent = if (leftActive) MelodiaColors.OnAccent else MelodiaColors.TextPrimary
+        val leftIcon = when {
+            isRoaming -> Icons.Rounded.AllInclusive
+            isIntelligence || intelligenceAvailable -> Icons.Rounded.AutoAwesome
+            else -> Icons.Default.Shuffle
+        }
+        val leftLabel = when {
+            isRoaming -> "关闭漫游"
+            isIntelligence -> "关闭心动模式"
+            intelligenceAvailable -> "心动模式"
+            else -> "随机播放"
+        }
+        val onLeftClick = when {
+            isRoaming -> onDisableRoaming
+            isIntelligence -> onDisableIntelligence
+            intelligenceAvailable -> onStartIntelligence
+            else -> onToggleShuffle
+        }
         MelodiaButton(
-            onClick = {
-                when {
-                    isRoaming -> onDisableRoaming()
-                    isIntelligence -> onDisableIntelligence()
-                    else -> onToggleShuffle()
-                }
-            },
+            onClick = onLeftClick,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (shuffleActive) MelodiaColors.Accent else MelodiaColors.Surface
+                containerColor = if (leftActive) MelodiaColors.Accent else MelodiaColors.Surface
             ),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
@@ -676,25 +697,13 @@ private fun BottomActionRow(
                 .height(44.dp)
         ) {
             Icon(
-                imageVector = when {
-                    isRoaming -> Icons.Rounded.AllInclusive
-                    isIntelligence -> Icons.Rounded.AutoAwesome
-                    else -> Icons.Default.Shuffle
-                },
+                imageVector = leftIcon,
                 contentDescription = null,
-                tint = shuffleContent,
+                tint = leftContent,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(Modifier.width(8.dp))
-            Text(
-                when {
-                    isRoaming -> "关闭漫游"
-                    isIntelligence -> "关闭心动模式"
-                    else -> "随机播放"
-                },
-                color = shuffleContent,
-                fontSize = 13.sp
-            )
+            Text(leftLabel, color = leftContent, fontSize = 13.sp)
         }
         val timerText = if (sleepTimerRemaining > 0L) {
             formatSleepTimerRemaining(sleepTimerRemaining)

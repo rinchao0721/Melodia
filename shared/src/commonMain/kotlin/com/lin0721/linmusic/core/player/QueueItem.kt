@@ -16,5 +16,7 @@ data class QueueItem(
     // 播客节目所属电台 id，非播客为 0
     val radioId: Long = 0,
     // 外部平台歌曲，localUri 为空时由播放器轮到时再经换源插件解析直链
-    val external: ExternalTrack? = null
+    val external: ExternalTrack? = null,
+    // 来自「我的云盘」的歌曲：云盘文件没有在线曲库 id，不能作为心动模式种子
+    val cloudDisk: Boolean = false
 )

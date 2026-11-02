@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.intelligenceSeedBlockReason
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 
 private const val TAG = "HomeViewModel"
@@ -430,6 +431,20 @@ class HomeViewModel(
         if (current != null) {
             val songId = current.songId ?: return
             viewModelScope.launch {
+                // 与播放页入口共用同一套内容判断，避免首页入口在播客/云盘/本地歌曲上误开
+                val blockReason = intelligenceSeedBlockReason(
+                    item = playerManager.currentQueueItem.value,
+                    isPodcast = podcastPlayer.state.value.isPodcast,
+                    playContext = playerManager.playContext.value
+                )
+                if (blockReason != null) {
+                    _toastEvent.emit(blockReason)
+                    return@launch
+                }
+                if (userPreferences.userProfile.first() == null) {
+                    _toastEvent.emit("登录后才能开启心动模式")
+                    return@launch
+                }
                 playbackRepository.getIntelligenceSongs(songId, 0).collect { result ->
                     result.onSuccess { tracks ->
                         if (tracks.isNotEmpty()) {

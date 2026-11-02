@@ -58,6 +58,7 @@ import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.model.getQualityBadgeLabel
 import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.canUseIntelligenceAsSeed
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
@@ -293,6 +294,12 @@ private fun FullPlayerScreenContent(
         null
     }
     val podcast by viewModel.podcastState.collectAsStateWithLifecycle()
+    // 心动模式以当前曲目为种子；播客/云盘/本地/第三方音源没有在线曲目 id，不能开启
+    val intelligenceAvailable = canUseIntelligenceAsSeed(
+        item = currentQueueItem,
+        isPodcast = podcast.isPodcast,
+        playContext = playContext
+    )
     // 播客节目没有歌词、歌曲评论与歌手专辑信息，信息卡与小歌词整体不展示
     val storedCardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val cardLayout = if (podcast.isPodcast) emptyList() else storedCardLayout
@@ -1049,6 +1056,10 @@ private fun FullPlayerScreenContent(
             )
         }
 
+        val startIntelligence: () -> Unit = {
+            val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
+            viewModel.startIntelligenceMode(songId, title, artist, coverUrl)
+        }
         FullPlayerSheets(
             songState = songDetailState,
             showQueueSheet = showQueueSheet,
@@ -1061,6 +1072,7 @@ private fun FullPlayerScreenContent(
             currentQueueIndex = currentQueueIndex,
             playMode = playMode,
             playContext = playContext,
+            intelligenceAvailable = intelligenceAvailable,
             isPlaying = isPlaying,
             title = title,
             artist = artist,
@@ -1080,6 +1092,7 @@ private fun FullPlayerScreenContent(
             },
             onDisableRoaming = { viewModel.playerManager.disableRoaming() },
             onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+            onStartIntelligence = startIntelligence,
             onQueueDismiss = { showQueueSheet = false },
             onToggleLike = viewModel::toggleLike,
             onAlbumClick = {
@@ -1095,12 +1108,7 @@ private fun FullPlayerScreenContent(
             },
             onQualitySelected = viewModel::updateQuality,
             onToggleIntelligence = { checked ->
-                if (checked) {
-                    val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
-                    viewModel.startIntelligenceMode(songId, title, artist, coverUrl)
-                } else {
-                    viewModel.playerManager.disableIntelligence()
-                }
+                if (checked) startIntelligence() else viewModel.playerManager.disableIntelligence()
             },
             onStartSimilarRoaming = {
                 val songId = currentTrack.mediaId.toLongOrNull() ?: 0L
