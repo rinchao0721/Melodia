@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.localmusic.data
 
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.data.scan.resolveArtistAndTitle
+import com.lin0721.linmusic.feature.localmusic.data.scan.resolveMediaStoreAlbum
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,6 +71,25 @@ class LocalLibrarySyncTest {
         val scanned = entity("same", source = LocalTrackSource.EXTERNAL)
         val diff = computeLocalLibrarySyncDiff(listOf(imported), listOf(scanned)) { false }
         assertEquals(listOf(scanned), diff.upserts)
+        assertTrue(diff.deleteUris.isEmpty())
+    }
+
+    @Test
+    fun `旧目录占位在重扫后更新即使文件修改日期未变`() {
+        val old = entity("a").copy(album = "Download", path = "/Download/track.flac")
+        val scanned = old.copy(album = resolveMediaStoreAlbum(old.album, "/Download") { null })
+        val diff = computeLocalLibrarySyncDiff(listOf(old), listOf(scanned)) { true }
+        assertEquals(listOf(old.copy(album = null)), diff.upserts)
+        assertTrue(diff.deleteUris.isEmpty())
+        assertEquals(old.dateModifiedMs, diff.upserts.single().dateModifiedMs)
+    }
+
+    @Test
+    fun `重扫确认真实同名标签后结果稳定且不重复写入`() {
+        val old = entity("a").copy(album = "50 Classical Masterworks", path = "/Music/50 Classical Masterworks/01.flac")
+        val scanned = old.copy(album = resolveMediaStoreAlbum(old.album, "/Music/50 Classical Masterworks") { old.album })
+        val diff = computeLocalLibrarySyncDiff(listOf(old), listOf(scanned)) { true }
+        assertTrue(diff.upserts.isEmpty())
         assertTrue(diff.deleteUris.isEmpty())
     }
 

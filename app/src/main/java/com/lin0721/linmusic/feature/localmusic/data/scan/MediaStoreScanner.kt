@@ -8,12 +8,15 @@ import android.provider.MediaStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
+import com.lin0721.linmusic.feature.localmusic.domain.folderPathOf
 
 private const val TAG = "MediaStoreScanner"
 private const val UNKNOWN_TITLE = "未知曲目"
 private const val UNKNOWN_ARTIST = "未知艺术家"
 
 class MediaStoreScanner(private val context: Context) {
+
+    private val albumReader = MediaStoreAlbumReader(context)
 
     // 失败返回 null 而非空列表，否则同步会误删整库
     fun scan(): List<LocalTrackEntity>? {
@@ -59,20 +62,25 @@ class MediaStoreScanner(private val context: Context) {
                 val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
+                    val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                    val path = cursor.getString(dataCol)
+                    val album = resolveMediaStoreAlbum(cursor.getString(albumCol), folderPathOf(path)) {
+                        albumReader.readAlbum(uri)
+                    }
                     val (artist, title) = resolveArtistAndTitle(
                         rawArtist = cursor.getString(artistCol).orEmpty(),
                         rawTitle = cursor.getString(titleCol) ?: UNKNOWN_TITLE
                     )
                     results += LocalTrackEntity(
-                        uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString(),
+                        uri = uri.toString(),
                         mediaStoreId = id,
                         songId = null,
                         title = title,
                         artist = artist,
-                        album = cursor.getString(albumCol),
+                        album = album,
                         durationMs = cursor.getLong(durationCol),
                         sizeBytes = cursor.getLong(sizeCol),
-                        path = cursor.getString(dataCol),
+                        path = path,
                         dateAddedMs = cursor.getLong(dateAddedCol) * 1000,
                         dateModifiedMs = cursor.getLong(dateModifiedCol) * 1000,
                         source = LocalTrackSource.EXTERNAL.name,
