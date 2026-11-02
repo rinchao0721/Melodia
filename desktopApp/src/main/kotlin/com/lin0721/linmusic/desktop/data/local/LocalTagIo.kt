@@ -117,8 +117,11 @@ object LocalTagIo {
 
     private fun readAudio(file: File): AudioFile? = runCatching { AudioFileIO.read(file) }.getOrNull()
 
+    // WAV 的 LIST INFO 字符串以 NUL 结尾，jaudiotagger 会原样保留
     private fun Tag?.field(key: FieldKey): String =
-        this?.let { runCatching { it.getFirst(key) }.getOrNull() }?.trim().orEmpty()
+        this?.let { runCatching { it.getFirst(key) }.getOrNull() }
+            ?.trim { it.isWhitespace() || it == '\u0000' }
+            .orEmpty()
 
     private fun Tag.putOrDelete(key: FieldKey, value: String) {
         val trimmed = value.trim()

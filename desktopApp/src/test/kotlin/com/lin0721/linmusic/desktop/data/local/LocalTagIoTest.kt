@@ -8,6 +8,8 @@ import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.file.Files
 import javax.sound.sampled.AudioFileFormat
 import javax.sound.sampled.AudioFormat
@@ -53,6 +55,28 @@ class LocalTagIoTest {
         assertEquals(3, read.trackNumber)
         assertTrue(read.durationMs in 1500L..2500L)
         assertEquals("3/11", LocalTagIo.readEditable(file)?.trackNumber)
+    }
+
+    private fun riffChunk(id: String, data: ByteArray): ByteArray {
+        val size = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(data.size).array()
+        val padding = if (data.size % 2 == 1) byteArrayOf(0) else byteArrayOf()
+        return id.toByteArray() + size + data + padding
+    }
+
+    @Test
+    fun listInfoValuesDropTrailingNul() {
+        val file = silentWav("file_name.wav")
+        val info = riffChunk("INAM", "晴天\u0000".toByteArray()) +
+            riffChunk("IART", "周杰伦\u0000".toByteArray()) +
+            riffChunk("IPRD", "叶惠美\u0000".toByteArray())
+        val bytes = file.readBytes() + riffChunk("LIST", "INFO".toByteArray() + info)
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(4, bytes.size - 8)
+        file.writeBytes(bytes)
+
+        val read = LocalTagIo.read(file)
+        assertEquals("晴天", read.title)
+        assertEquals("周杰伦", read.artist)
+        assertEquals("叶惠美", read.album)
     }
 
     @Test
