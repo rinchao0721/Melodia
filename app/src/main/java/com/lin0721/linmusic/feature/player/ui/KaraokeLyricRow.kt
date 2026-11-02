@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextLayoutResult
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
 private const val TAG = "KaraokeLyricRow"
 
@@ -180,7 +183,9 @@ fun KaraokeLyricRow(
     isPlaying: Boolean = true,
     fontWeight: FontWeight = FontWeight.ExtraBold,
     isActive: Boolean = true,
-    featherWidth: Dp = KaraokeEdgeFeather
+    featherWidth: Dp = KaraokeEdgeFeather,
+    // 只加在底层未播文字上，已播层裁剪覆盖在其上，阴影不会叠两遍
+    shadow: Shadow? = null
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
@@ -191,6 +196,8 @@ fun KaraokeLyricRow(
     // 没有它的话，重绘只能被 50ms 一次的播放器进度轮询触发，逐字扫色会掉到 20Hz。
     var frameTick by remember(line) { mutableLongStateOf(0L) }
 
+    // 加色光晕只在深色底上可见，浅色底上会把文字冲淡
+    val glowVisible = glowEffect && MelodiaColors.IsDark
     LaunchedEffect(isPlaying, line, isActive, advancedEffect, glowEffect) {
         if (isPlaying && isActive) {
             // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
@@ -279,6 +286,7 @@ fun KaraokeLyricRow(
             fontWeight = fontWeight,
             color = inactiveColor,
             textAlign = textAlign,
+            style = LocalTextStyle.current.copy(shadow = shadow),
             onTextLayout = { textLayoutResult = it },
             modifier = Modifier.fillMaxWidth()
         )
@@ -298,10 +306,15 @@ fun KaraokeLyricRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
+                    val ready = lyricLayoutInfo != null && isActive
                     // 走逐字裁剪时，排版结果出来之前先不显示，避免闪一帧整行高亮
-                    alpha = if (lyricLayoutInfo != null && isActive) 1f else 0f
-                    // DstIn 只混合本层文字像素，不擦除底层灰色歌词与背景。
-                    compositingStrategy = CompositingStrategy.Offscreen
+                    alpha = if (ready) 1f else 0f
+                    // 仅在激活且启用 DstIn 柔边遮罩时开启离屏合成，避免非激活行或纯硬裁剪分配离屏层
+                    compositingStrategy = if (ready && advancedEffect && featherWidth > 0.dp) {
+                        CompositingStrategy.Offscreen
+                    } else {
+                        CompositingStrategy.Auto
+                    }
                 }
                 .drawWithContent {
                     val info = lyricLayoutInfo
@@ -354,7 +367,7 @@ fun KaraokeLyricRow(
                                     }
                                 }
                             }
-                            if (glowEffect) {
+                            if (glowVisible) {
                                 // 绘制原版演唱字词的呼吸光晕微光脉冲
                                 info.wordLayouts.forEach { word ->
                                     if (relativeProgress in word.startMs..word.endMs) {
@@ -373,8 +386,6 @@ fun KaraokeLyricRow(
                                 }
                             }
                         }
-                    } else {
-                        drawContent()
                     }
                 }
         )

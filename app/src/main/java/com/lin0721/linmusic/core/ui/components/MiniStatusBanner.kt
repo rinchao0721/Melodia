@@ -21,11 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.TextGray
 
 // mini 播放栏上方的通用状态横幅
 @Composable
@@ -37,7 +35,7 @@ fun MiniStatusBanner(
     progress: Float? = null,
     // 自定义进度区域，提供时替代默认进度条
     progressContent: (@Composable () -> Unit)? = null,
-    iconTint: Color = NeteaseRed,
+    iconTint: Color = MelodiaColors.Accent,
     trailingText: String? = null,
     onClick: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null
@@ -48,8 +46,8 @@ fun MiniStatusBanner(
             .padding(horizontal = MelodiaSpacing.sm)
             .padding(bottom = MelodiaSpacing.xs)
             .clip(RoundedCornerShape(InfoCardRadius))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(InfoCardRadius))
-            .background(BackgroundDark)
+            .border(0.5.dp, MelodiaColors.Divider, RoundedCornerShape(InfoCardRadius))
+            .background(MelodiaColors.Background)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
     ) {
@@ -64,7 +62,7 @@ fun MiniStatusBanner(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -74,7 +72,7 @@ fun MiniStatusBanner(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -88,7 +86,7 @@ fun MiniStatusBanner(
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.fillMaxWidth(),
-                        color = NeteaseRed
+                        color = MelodiaColors.AccentText
                     )
                 }
             }
@@ -96,7 +94,7 @@ fun MiniStatusBanner(
                 Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
                 Text(
                     text = trailingText,
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -105,7 +103,7 @@ fun MiniStatusBanner(
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = "关闭",
-                    tint = TextGray,
+                    tint = MelodiaColors.TextSecondary,
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)

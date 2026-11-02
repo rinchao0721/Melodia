@@ -16,10 +16,11 @@ import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.player.domain.LyricPlaybackState
-import com.lin0721.linmusic.core.player.domain.LyricTimeline
+import com.lin0721.linmusic.core.player.domain.LyricProgressTracker
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepository
+import com.lin0721.linmusic.core.comment.data.qqSongThreadId
+import com.lin0721.linmusic.core.source.QQSongIdResolver
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -45,6 +46,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -87,7 +89,9 @@ data class PlayerSongDetailState(
     val artists: List<ArtistCardItem> = emptyList(),
     val selectedArtistIndex: Int = 0,
     // 未匹配网易云的本地歌曲，没有评论/百科等在线数据
-    val isLocalOnly: Boolean = false
+    val isLocalOnly: Boolean = false,
+    // 外部平台歌曲同样没有网易云在线数据，但评论取自 QQ 音乐
+    val isExternal: Boolean = false
 ) {
     val currentArtistItem: ArtistCardItem?
         get() = artists.getOrNull(selectedArtistIndex) ?: artists.firstOrNull()
@@ -117,7 +121,8 @@ class PlayerViewModel(
     private val resourceProvider: ResourceProvider,
     private val songDownloadManager: SongDownloader,
     private val lyricsResolver: LyricsResolver,
-    private val podcastPlayer: PodcastPlayerController
+    private val podcastPlayer: PodcastPlayerController,
+    private val qqSongIdResolver: QQSongIdResolver
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -176,12 +181,6 @@ class PlayerViewModel(
         initialValue = FullPlayerCardLayout.DEFAULT
     )
 
-    fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
-        viewModelScope.launch {
-            settingsPreferences.saveFullPlayerCardLayout(layout)
-        }
-    }
-
     // 播放页小歌词显隐
     val showMiniLyric: StateFlow<Boolean> = settingsPreferences.showMiniLyric.stateIn(
         scope = viewModelScope,
@@ -225,10 +224,7 @@ class PlayerViewModel(
 
     // 有状态的歌词播放进度。advance() 的 displayIndices 需要「旧行在新行加入前继续保持显示」，
     // 这个判断依赖上一次的状态，所以必须跨进度回调持有；无状态的 activeIndices 表达不了。
-    private var lyricPlaybackState = LyricPlaybackState()
-
-    // 上一次进度回调的位置，用来识别跳转（拖动进度条、点歌词行、切歌续播）
-    private var lastLyricPositionMs: Long? = null
+    private val lyricProgress = LyricProgressTracker()
 
     private val _songDetailState = MutableStateFlow(PlayerSongDetailState())
     val songDetailState: StateFlow<PlayerSongDetailState> = _songDetailState.asStateFlow()
@@ -274,7 +270,7 @@ class PlayerViewModel(
                 playerManager.nowPlaying.map { it?.songId ?: -1L },
                 songLikeRepository.likedSongIds
             ) { songId, likedIds ->
-                songId > 0L && songId in likedIds
+                (songId > 0L || isExternalSong(songId)) && songId in likedIds
             }.distinctUntilChanged()
                 .collect { isLiked ->
                     _songDetailState.update { it.copy(isLiked = isLiked) }
@@ -292,9 +288,13 @@ class PlayerViewModel(
         }
     }
 
+    // 负数 id 里只有外部平台歌曲能喜欢，本地文件的占位 id 不行
+    private fun isExternalSong(songId: Long): Boolean =
+        songId < 0L && playerManager.queue.value.any { it.songId == songId && it.external != null }
+
     fun toggleLike() {
         val songId = currentSongId
-        if (songId <= 0L) return
+        if (songId <= 0L && !isExternalSong(songId)) return
 
         val newLiked = !_songDetailState.value.isLiked
         viewModelScope.launch {
@@ -341,9 +341,10 @@ class PlayerViewModel(
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
-                        val isLiked = songId > 0L && songId in songLikeRepository.likedSongIds.value
+                        val isLiked = (songId > 0L || isExternalSong(songId)) && songId in songLikeRepository.likedSongIds.value
                         val isLocalOnly = songId <= 0L
-                        clearState(isLiked, isLocalOnly)
+                        val external = playerManager.queue.value.firstOrNull { it.songId == songId }?.external
+                        clearState(isLiked, isLocalOnly, isExternal = external != null)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
@@ -355,22 +356,24 @@ class PlayerViewModel(
                                 launch { loadChorus(songId) }
                                 launch { commentsController.load("R_SO_4_$songId") }
                             }
+                            if (external != null) {
+                                launch { commentsController.load(qqSongThreadId(qqSongIdResolver.resolve(external) ?: 0L)) }
+                            }
                         }
                     }
                 }
         }
     }
 
-    private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false) {
-        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly)
+    private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false, isExternal: Boolean = false) {
+        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly, isExternal = isExternal)
         resetLyricPlayback()
     }
 
     // 作废累积的歌词播放状态。换歌、换歌词、清空状态时都要调用，
     // 否则上一套歌词的暂留行会挂在新歌词上
     private fun resetLyricPlayback() {
-        lyricPlaybackState = LyricPlaybackState()
-        lastLyricPositionMs = null
+        lyricProgress.reset()
         _primaryLyricIndex.value = -1
         _activeLyricIndices.value = emptySet()
     }
@@ -378,26 +381,11 @@ class PlayerViewModel(
     private fun updateLyricPlayback(positionMs: Long, isSeek: Boolean = false) {
         val lines = _songDetailState.value.lyrics
         if (lines.isEmpty()) return
-        val previousPosition = lastLyricPositionMs
-        // 进度回退、或前进远超一个轮询周期，都视为跳转：此时不做旧行暂留，
-        // 直接对齐目标位置，否则拖动进度条会看到一路残留的高亮。
-        // 这里不读 playerManager 的轮询间隔 —— PlaybackController 只暴露了 setter；
-        // 而需要这个判断的场合（全屏播放页）间隔固定 50ms，2000ms 已远大于它。
-        val discontinuity = previousPosition != null && (
-            positionMs < previousPosition - LyricSeekBackwardToleranceMs ||
-                positionMs - previousPosition > LyricSeekForwardThresholdMs
-            )
-        lyricPlaybackState = LyricTimeline.advance(
-            lines = lines,
-            positionMs = positionMs,
-            previous = lyricPlaybackState,
-            isSeek = isSeek || discontinuity
-        )
-        lastLyricPositionMs = positionMs
-        _activeLyricIndices.value = lyricPlaybackState.displayIndices
+        val state = lyricProgress.update(lines, positionMs, isSeek)
+        _activeLyricIndices.value = state.displayIndices
         // 与原版一致：锚点跟随过渡显示状态，重叠旧行暂留时不跳到后面的行；
         // 手动跳转由 advance(isSeek = true) 立即重置高亮集合与锚点。
-        _primaryLyricIndex.value = lyricPlaybackState.primaryIndex
+        _primaryLyricIndex.value = state.primaryIndex
     }
 
     private fun observePosition() {
@@ -409,7 +397,13 @@ class PlayerViewModel(
     }
 
     private suspend fun loadLyrics(songId: Long) {
-        settingsPreferences.amllLyricsEnabled.distinctUntilChanged().collectLatest {
+        combine(
+            settingsPreferences.amllLyricsEnabled,
+            settingsPreferences.qqLyricsEnabled,
+            settingsPreferences.neteaseLyricsEnabled
+        ) { amll, qq, netease ->
+            Triple(amll, qq, netease)
+        }.distinctUntilChanged().collectLatest {
             reloadLyrics(songId)
         }
     }
@@ -418,17 +412,23 @@ class PlayerViewModel(
         _songDetailState.update { it.copy(isLyricsLoading = true) }
         lyricsResolver.lyricsWithSourceFor(songId).collect { result ->
             result.onSuccess { resolved ->
-                _songDetailState.update { it.copy(lyrics = resolved.lines, lyricsSource = resolved.source) }
+                _songDetailState.update { it.copy(lyrics = resolved.lines, lyricsSource = resolved.source, isLyricsLoading = false) }
                 // 换了一套歌词，上一套累积的暂留行必须作废；并按当前位置立即对齐一次，
                 // 不等下一次进度回调，否则进入播放页时会短暂停留在上一首的残留行
                 resetLyricPlayback()
                 updateLyricPlayback(playerManager.currentPosition.value, isSeek = true)
             }.onFailure {
-                _songDetailState.update { it.copy(lyrics = emptyList(), lyricsSource = null) }
+                _songDetailState.update { it.copy(lyrics = emptyList(), lyricsSource = null, isLyricsLoading = false) }
                 resetLyricPlayback()
             }
         }
         _songDetailState.update { it.copy(isLyricsLoading = false) }
+    }
+
+    // 已加载的详情直接用，否则现取一次；失败返回 null
+    suspend fun resolveSongDetail(songId: Long): Track? {
+        _songDetailState.value.songDetail?.takeIf { it.id == songId }?.let { return it }
+        return playerRepository.getSongDetail(songId).firstOrNull()?.getOrNull()
     }
 
     private suspend fun loadSongDetail(songId: Long) {
@@ -718,10 +718,3 @@ class PlayerViewModel(
         playerManager.clearQueue()
     }
 }
-
-// 进度小幅回退不算跳转：播放器采样与四舍五入会带来 1~2ms 级别的抖动
-private const val LyricSeekBackwardToleranceMs = 250L
-
-// 进度前进超过该值即判定为跳转。全屏播放页的进度轮询间隔是 50ms，
-// 3 个周期才 150ms，取 2000ms 是留足余量避免把正常推进误判为跳转
-private const val LyricSeekForwardThresholdMs = 2000L

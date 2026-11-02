@@ -115,7 +115,7 @@ class MpvRecordingTest {
 
         assertTrue("播完应触发录制完成回调", await(10_000) { finished.isNotEmpty() })
         assertEquals(1L, finished.single().first)
-        assertTrue(runBlocking { cache.commit(File(finished.single().second), Long.MAX_VALUE) })
+        assertTrue(runBlocking { cache.commit(File(finished.single().second)) })
         val cached = cache.completeFile(1, "standard")
         assertTrue(cached != null && cached.length() > 0)
 
@@ -168,8 +168,8 @@ class MpvRecordingTest {
 
         assertTrue("渐出曲目也应完成录制", await(10_000) { finished.any { it.first == 10L } })
         assertTrue("新主曲目播完后完成录制", await(10_000) { finished.any { it.first == 11L } })
-        assertTrue(runBlocking { cache.commit(File(finished.first { it.first == 10L }.second), Long.MAX_VALUE) })
-        assertTrue(runBlocking { cache.commit(File(finished.first { it.first == 11L }.second), Long.MAX_VALUE) })
+        assertTrue(runBlocking { cache.commit(File(finished.first { it.first == 10L }.second)) })
+        assertTrue(runBlocking { cache.commit(File(finished.first { it.first == 11L }.second)) })
         assertEquals(setOf(10L, 11L), cache.playableIds(listOf(10, 11)))
     }
 }

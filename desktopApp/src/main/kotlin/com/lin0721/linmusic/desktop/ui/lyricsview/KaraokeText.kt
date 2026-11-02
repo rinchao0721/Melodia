@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui.lyricsview
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,7 +62,9 @@ fun KaraokeText(
     advancedEffect: Boolean = true,
     // 演唱中的字词叠加呼吸高亮微光
     glowEffect: Boolean = false,
-    fontWeight: FontWeight = FontWeight.ExtraBold
+    fontWeight: FontWeight = FontWeight.ExtraBold,
+    // 只加在底层未播文字上，已播层裁剪覆盖在其上，阴影不会叠两遍
+    shadow: Shadow? = null
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val positionState = rememberUpdatedState(positionProvider)
@@ -94,6 +98,7 @@ fun KaraokeText(
             fontWeight = fontWeight,
             color = inactiveColor,
             textAlign = textAlign,
+            style = LocalTextStyle.current.copy(shadow = shadow),
             onTextLayout = { textLayoutResult = it },
             modifier = Modifier.fillMaxWidth()
         )

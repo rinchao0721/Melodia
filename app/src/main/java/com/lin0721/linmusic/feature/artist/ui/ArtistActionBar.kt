@@ -26,9 +26,11 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 操作控制行：粉丝数、关注状态、更多菜单与随机/全部播放
 @Composable
@@ -45,13 +47,19 @@ fun ArtistActionBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp) // 固定高度为 80.dp
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.60f), // 顶部：80% 不透明
-                        MaterialTheme.colorScheme.background.copy(alpha = 1.00f)  // 底部：90% 不透明
+            .then(
+                if (MelodiaColors.HasBackdrop) {
+                    Modifier.paneBackdrop(MaterialTheme.colorScheme.background)
+                } else {
+                    Modifier.background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.60f), // 顶部：80% 不透明
+                                MaterialTheme.colorScheme.background.copy(alpha = 1.00f)  // 底部：90% 不透明
+                            )
+                        )
                     )
-                )
+                }
             )
             .padding(start = MelodiaSpacing.md, end = MelodiaSpacing.md, top = MelodiaSpacing.xs, bottom = MelodiaSpacing.xs),
         verticalAlignment = Alignment.Bottom
@@ -62,7 +70,7 @@ fun ArtistActionBar(
         ) {
             Text(
                 text = "共有 ${formatFansCount(fansCount)} 位听众",
-                color = Color.White.copy(alpha = 0.6f),
+                color = MelodiaColors.TextPrimary.copy(alpha = 0.6f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -78,7 +86,7 @@ fun ArtistActionBar(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        .border(1.dp, MelodiaColors.Overlay.copy(alpha = 0.2f), CircleShape)
                 )
 
                 Spacer(Modifier.width(12.dp))
@@ -92,7 +100,7 @@ fun ArtistActionBar(
                             onClick = onFollowClick
                         )
                         .border(
-                            border = if (isFollowed) BorderStroke(1.dp, Color.White.copy(alpha = 0.4f))
+                            border = if (isFollowed) BorderStroke(1.dp, MelodiaColors.Overlay.copy(alpha = 0.4f))
                             else BorderStroke(0.dp, Color.Transparent),
                             shape = RoundedCornerShape(PillRadius)
                         )

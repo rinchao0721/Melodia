@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,8 +38,13 @@ import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.*
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.flow.collectLatest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
@@ -49,7 +55,7 @@ enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, v
     PRIVACY("隐私设置", emptyList(), Icons.Outlined.PrivacyTip),
     STORAGE("储存空间", listOf("存储管理"), Icons.Outlined.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
-    EXTENSIONS("扩展", listOf("悬浮与桌面", "设备与集成", "底部导航栏", "平板布局", "显示"), Icons.Outlined.Extension),
+    EXTENSIONS("扩展", listOf("悬浮与桌面", "设备与集成", "底部导航栏", "平板布局", "显示", "插件"), Icons.Outlined.Extension),
     LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词"), Icons.Outlined.Subtitles),
     ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
 
@@ -63,7 +69,13 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
-    var activeSubMenu by remember { mutableStateOf<SettingsSubMenu?>(null) }
+    // 缩放变更会重建 Activity，当前打开的子菜单要随之保留
+    var activeSubMenu by rememberSaveable { mutableStateOf<SettingsSubMenu?>(null) }
+    val floatingLyricRequests: FloatingLyricRequests = koinInject()
+    val pendingLyricSettings by floatingLyricRequests.pendingOpenSettings.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLyricSettings) {
+        if (pendingLyricSettings && floatingLyricRequests.consumeOpenSettings()) activeSubMenu = SettingsSubMenu.LYRICS
+    }
 
     // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
     BackHandler(enabled = activeSubMenu != null && !LocalGlobalOverlayOpen.current) {
@@ -106,28 +118,31 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MelodiaColors.PageFill
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MelodiaColors.PageFill
     ) { innerPadding ->
         AdaptiveContentWidth(
             modifier = Modifier.padding(innerPadding)
         ) {
             // 使用 AnimatedContent 实现主菜单和子菜单的平滑切换动画
+            val motion = LocalUiMotion.current
             AnimatedContent(
                 targetState = activeSubMenu,
                 transitionSpec = {
-                    if (targetState != null) {
-                        // 进入子菜单：从右往左滑入
-                        slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    } else {
-                        // 返回主菜单：从左向右滑入
-                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> width } + fadeOut()
-                    }
+                    motion.transform(
+                        if (targetState != null) {
+                            // 进入子菜单：从右往左滑入
+                            slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                    slideOutHorizontally { width -> -width } + fadeOut()
+                        } else {
+                            // 返回主菜单：从左向右滑入
+                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                    slideOutHorizontally { width -> width } + fadeOut()
+                        }
+                    )
                 },
                 label = "SettingsMenuTransition"
             ) { subMenu ->

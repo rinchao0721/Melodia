@@ -4,8 +4,10 @@ import com.lin0721.linmusic.desktop.platform.AutoStartService
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.MediaSessionService
+import com.lin0721.linmusic.desktop.platform.TaskbarThumbnailService
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.platform.windows.smtc.SmtcSession
+import com.lin0721.linmusic.desktop.platform.windows.taskbar.WindowsTaskbarThumbnail
 import org.koin.dsl.module
 import java.io.File
 
@@ -13,7 +15,9 @@ val windowsPlatformModule = module {
     single<MediaSessionService> { SmtcSession() }
     single<GlobalHotkeyService> { Win32GlobalHotkeys() }
     single<AutoStartService> { WindowsAutoStart() }
-    single<WindowEffects> { WindowsWindowEffects() }
+    single { WindowsWindowEffects() }
+    single<WindowEffects> { get<WindowsWindowEffects>() }
+    single<TaskbarThumbnailService> { WindowsTaskbarThumbnail(get()) }
     single<BrowserLocator> { BrowserLocator(::findEdge) }
 }
 

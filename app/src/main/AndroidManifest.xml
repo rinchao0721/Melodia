@@ -12,7 +12,6 @@
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Android 8/9 写入公共 MediaStore 所需权限 -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -47,6 +46,20 @@
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.Melodia">
+
+        <!-- 词幕 Provider 模块声明 -->
+        <meta-data
+            android:name="lyricon_module"
+            android:value="true" />
+        <meta-data
+            android:name="lyricon_module_author"
+            android:value="Melodia" />
+        <meta-data
+            android:name="lyricon_module_description"
+            android:value="Melodia 歌词推送" />
+        <meta-data
+            android:name="lyricon_module_tags"
+            android:resource="@array/lyricon_module_tags" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -36,9 +36,14 @@ bouncycastle = "1.85.2"
 workManager = "2.10.1"
 documentfile = "1.0.1"
 taglib = "1.0.5"
+lyriconProvider = "0.1.70"
 orgJson = "20230227"
 room = "2.8.5"
 ksp = "2.3.12"
+profileinstaller = "1.4.1"
+baselineprofile = "1.5.0"
+benchmarkMacroJunit4 = "1.5.0"
+uiautomator = "2.3.0"
 
 [libraries]
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
@@ -53,6 +58,7 @@ jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jau
 # 桌面端 LX 插件脚本引擎（GraalJS）
 graal-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvm" }
 graal-js-community = { group = "org.graalvm.polyglot", name = "js-community", version.ref = "graalvm" }
+graal-wasm-community = { group = "org.graalvm.polyglot", name = "wasm-community", version.ref = "graalvm" }
 # LX 插件压缩包（7z）解析
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
@@ -124,8 +130,18 @@ android-image-cropper = { group = "com.vanniktech", name = "android-image-croppe
 # 二维码生成（登录二维码）
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
+# 词幕 Provider
+lyricon-provider = { group = "io.github.proify.lyricon", name = "provider", version.ref = "lyriconProvider" }
+
+# Baseline Profile
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmarkMacroJunit4" }
+androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

@@ -1,9 +1,9 @@
 package com.lin0721.linmusic
 
+import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -48,7 +48,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,18 +67,20 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
 import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
+import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
+import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.BackgroundBlack
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.update.UpdateManager
-import com.lin0721.linmusic.core.update.UpdateUiState
+import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -104,6 +105,7 @@ import com.lin0721.linmusic.core.ui.theme.PanelRiseSpec
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import kotlin.math.roundToInt
 
 private val SidebarWidth = 310.dp
@@ -127,6 +129,7 @@ private class PanelRevealShape(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MelodiaApp() {
+    val motion = LocalUiMotion.current
     val viewModel: HomeViewModel = koinViewModel()
     val libraryViewModel: LibraryViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
@@ -136,6 +139,9 @@ fun MelodiaApp() {
     val playerPageMode by settingsPreferences.playerPageMode
         .collectAsStateWithLifecycle(initialValue = SettingsPreferences.PLAYER_PAGE_MODE_AUTO)
     val sidePlayerPinned by settingsPreferences.sidePlayerPinned.collectAsStateWithLifecycle(initialValue = true)
+    val sidePlayerPosition by settingsPreferences.sidePlayerPosition
+        .collectAsStateWithLifecycle(initialValue = SettingsPreferences.SIDE_PLAYER_POSITION_RIGHT)
+    val isPanelAtStart = sidePlayerPosition == SettingsPreferences.SIDE_PLAYER_POSITION_LEFT
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
     // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
     val playerManager: PlayerManager = koinInject()
@@ -177,6 +183,8 @@ fun MelodiaApp() {
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
+    val pluginContent: PluginContent = koinInject()
+    LaunchedEffect(navigation) { pluginContent.opens.collect { navigation.openPlaylist(it.id, false) } }
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
 
     // 动态同步底栏首个可用路由为首选根 Tab
@@ -213,6 +221,12 @@ fun MelodiaApp() {
     LaunchedEffect(pendingRecognitionResult) {
         if (pendingRecognitionResult) showRecognition = true
     }
+    // 悬浮歌词的设置按钮：先进设置页，由设置页消费请求并展开歌词子菜单
+    val floatingLyricRequests: FloatingLyricRequests = koinInject()
+    val pendingLyricSettings by floatingLyricRequests.pendingOpenSettings.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLyricSettings) {
+        if (pendingLyricSettings) navigation.navigateTo(Screen.Settings)
+    }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
@@ -247,11 +261,11 @@ fun MelodiaApp() {
             panelRise.snapTo(0f)
             panelFullscreen.snapTo(0f)
         } else if (isPanelVisible) {
-            panelRise.animateTo(1f, PanelRiseSpec)
+            panelRise.animateTo(1f, motion.spec(PanelRiseSpec))
             isPanelDocked = true
         } else {
             isPanelDocked = false
-            panelRise.animateTo(0f, PanelRiseSpec)
+            panelRise.animateTo(0f, motion.spec(PanelRiseSpec))
         }
     }
     // 切到侧栏模式（设置变更或旋转）时收起已打开的底部全屏播放页
@@ -268,7 +282,7 @@ fun MelodiaApp() {
         if (isPanelFullscreen && panelRise.value == 0f) {
             panelFullscreen.snapTo(1f)
         } else {
-            panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, PanelFullscreenSpec)
+            panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, motion.spec(PanelFullscreenSpec))
         }
     }
     val panelWidth = rememberMelodiaPlayerPanelWidth()
@@ -358,11 +372,15 @@ fun MelodiaApp() {
         isPanelExpanded = false
     }
 
-    val isDrawerDraggable = userProfile != null && (sidebar.isOpen || sidebar.isTouchStartingAtEdge)
+    // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
+    val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
+    val isDrawerDraggable = userProfile != null &&
+        (sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked))
 
     CompositionLocalProvider(
         LocalMelodiaWindowSizeClass provides windowSizeClass,
-        LocalMelodiaOrientationClass provides orientationClass
+        LocalMelodiaOrientationClass provides orientationClass,
+        LocalMelodiaPlayerPanelAtStart provides isPanelAtStart
     ) {
     Box(
         modifier = Modifier
@@ -388,7 +406,7 @@ fun MelodiaApp() {
                 orientation = Orientation.Horizontal,
                 enabled = isDrawerDraggable
             )
-            .background(BackgroundDark)
+            .skinBackdropRoot(MelodiaColors.Background)
     ) {
         // 1. 侧边栏层 (位于最底层或同步移动)
         userProfile?.let { profile ->
@@ -434,14 +452,16 @@ fun MelodiaApp() {
                     shadowElevation = (sidebar.progress * 30f)
                 }
                 // 面板展开时画布压暗一档，靠缝隙处的明度差勾出两张卡片轮廓
-                .background(if (isPanelDocked) BackgroundBlack else BackgroundDark)
+                .background(if (isPanelDocked) MelodiaColors.CanvasFill else MelodiaColors.ShellFill)
         ) {
+            // 双卡片模式下靠屏幕边一侧只留 sm，靠面板一侧让出面板宽度 + 两侧间距
+            val edgeGap = if (isPanelDocked) MelodiaSpacing.sm else 0.dp
+            val panelGap = if (isPanelDocked) panelWidth + MelodiaSpacing.sm * 2 else 0.dp
             Row(modifier = Modifier.fillMaxSize()) {
-                // 双卡片模式下内容卡片左侧留白
                 Spacer(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(if (isPanelDocked) MelodiaSpacing.sm else 0.dp)
+                        .width(if (isPanelAtStart) panelGap else edgeGap)
                 )
                 CompositionLocalProvider(
                     LocalBottomOverlayInset provides bottomOverlayHeight,
@@ -459,7 +479,7 @@ fun MelodiaApp() {
                                         .padding(top = statusBarTop, bottom = navigationBarBottom)
                                         .consumeWindowInsets(WindowInsets.statusBars.union(WindowInsets.navigationBars))
                                         .clip(RoundedCornerShape(InfoCardRadius))
-                                        .background(BackgroundDark)
+                                        .background(MelodiaColors.ShellFill)
                                 } else {
                                     Modifier
                                 }
@@ -502,7 +522,7 @@ fun MelodiaApp() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f))
+                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f))
                                     .pressable(MelodiaPress.None) { showCreateSheet = false }
                             )
                         }
@@ -562,7 +582,7 @@ fun MelodiaApp() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.4f * sidebar.progress))
+                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f * sidebar.progress))
                                     .pressable(
                                         style = MelodiaPress.None,
                                         enabled = sidebar.isOpen,
@@ -573,27 +593,29 @@ fun MelodiaApp() {
                     }
                 }
 
-                // 播放面板让位占位：面板宽度 + 两侧间距
                 Spacer(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(if (isPanelDocked) panelWidth + MelodiaSpacing.sm * 2 else 0.dp)
+                        .width(if (isPanelAtStart) edgeGap else panelGap)
                 )
             }
 
-            // 平板常驻播放面板：浮在内容区之上的卡片，避开状态栏与手势条，右侧与迷你条同样留 sm 边距。
+            // 平板常驻播放面板：浮在内容区之上的卡片，避开状态栏与手势条，靠屏幕边一侧与迷你条同样留 sm 边距。
             // 卡片底边与迷你条所在行的底边只差 sm，起始矩形与迷你条重合；
             // 内容按卡片全高布局，只动画裁剪区域，避免 FullPlayerScreen 逐帧重排。
-            // 全屏时左边缘向左推到距屏幕左边 sm 处，宽度只在布局阶段读进度
+            // 全屏时朝内容区一侧推到距对侧屏幕边 sm 处，宽度只在布局阶段读进度
             if ((isPanelShown || hasPanelBeenShown) && usePanel) {
+                val panelEdgePadding = if (isLyricsFullScreen) 0.dp else MelodiaSpacing.sm
+                val panelRadius = InfoCardRadius
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(if (isPanelAtStart) Alignment.TopStart else Alignment.TopEnd)
                         // 首次展开后保留组合，收起时不测量也不摆放（不绘制、不接收触摸），再次展开无需重建整个播放器
                         .then(if (isPanelShown) Modifier else Modifier.layout { _, _ -> layout(0, 0) {} })
                         .padding(
+                            start = if (isPanelAtStart) panelEdgePadding else 0.dp,
                             top = if (isLyricsFullScreen) 0.dp else statusBarTop,
-                            end = if (isLyricsFullScreen) 0.dp else MelodiaSpacing.sm,
+                            end = if (isPanelAtStart) 0.dp else panelEdgePadding,
                             bottom = if (isLyricsFullScreen) 0.dp else navigationBarBottom
                         )
                         .layout { measurable, constraints ->
@@ -620,7 +642,7 @@ fun MelodiaApp() {
                                 val miniBottom = size.height - MelodiaSpacing.sm.toPx()
                                 val miniTop = miniBottom - ExpandedBottomBarHeight.toPx()
                                 val radius = PanelRiseStartRadius.toPx() +
-                                    (InfoCardRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
+                                    (panelRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
                                 clip = true
                                 shape = PanelRevealShape(
                                     top = miniTop * (1f - progress),
@@ -672,7 +694,7 @@ fun MelodiaApp() {
             currentTrack = currentTrack,
             screenHeightPx = playerSheet.screenHeightPx,
             isPlayerOpen = playerSheet.isOpen,
-            playerOffsetY = playerSheet.offsetY,
+            playerOffsetY = { playerSheet.offsetY },
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
             duration = duration,
@@ -721,8 +743,8 @@ fun MelodiaApp() {
         // 放在 Toast 之前，识别页上仍能看到提示
         AnimatedVisibility(
             visible = showRecognition,
-            enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
-            exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+            enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
         ) {
             RecognitionScreen(
                 onClose = { showRecognition = false },
@@ -768,17 +790,16 @@ fun MelodiaApp() {
         MelodiaToastHost(toastMessage = toastMessage)
 
         // 6. 全局更新弹窗，由更新横幅或设置页手动检查打开
-        val updateManager: UpdateManager = koinInject()
-        val updateState by updateManager.uiState.collectAsStateWithLifecycle()
-        val isDialogVisible by updateManager.isDialogVisible.collectAsStateWithLifecycle()
-        if (isDialogVisible && updateState !is UpdateUiState.Idle) {
+        val updateChecker: UpdateChecker = koinInject()
+        val availableUpdate by updateChecker.availableUpdate.collectAsStateWithLifecycle()
+        val isUpdateDialogVisible by updateChecker.isDialogVisible.collectAsStateWithLifecycle()
+        val shownUpdate = availableUpdate
+        if (isUpdateDialogVisible && shownUpdate != null) {
             UpdateDialog(
-                state = updateState,
-                onDismiss = { updateManager.dismiss() },
-                onHide = { updateManager.hideDialog() },
-                onIgnore = { updateManager.ignoreCurrentVersion() },
-                onStartDownload = { updateManager.startDownload() },
-                onInstall = { updateManager.retryInstall() }
+                info = shownUpdate,
+                onDismiss = { updateChecker.dismiss() },
+                onHide = { updateChecker.hideDialog() },
+                onIgnore = { updateChecker.ignoreCurrentVersion() }
             )
         }
 
@@ -798,7 +819,7 @@ fun MelodiaApp() {
 
 // 订阅全局 Toast 事件，展示 2 秒后自动清空
 @Composable
-private fun rememberGlobalToastMessage(): String? {
+internal fun rememberGlobalToastMessage(): String? {
     var message by remember { mutableStateOf<String?>(null) }
     var trigger by remember { mutableStateOf(0) }
 

@@ -25,14 +25,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.lin0721.linmusic.core.ui.theme.BackgroundBlack
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.WebLoginBackground
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
 import com.lin0721.linmusic.core.network.RealIpProvider
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
@@ -103,7 +103,7 @@ fun WebViewLoginScreen(
                         text = "安全授权登录",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MelodiaColors.TextPrimary
                     )
                 },
                 navigationIcon = {
@@ -111,12 +111,12 @@ fun WebViewLoginScreen(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "关闭",
-                            tint = Color.White
+                            tint = MelodiaColors.TextPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BackgroundBlack
+                    containerColor = MelodiaColors.WindowBackground
                 )
             )
         },
@@ -182,13 +182,13 @@ fun WebViewLoginScreen(
             // 加载过渡
             AnimatedVisibility(
                 visible = isLoading,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = uiEnter(fadeIn()),
+                exit = uiExit(fadeOut()),
                 modifier = Modifier.fillMaxSize()
             ) {
                 // 加载页背景也改成网页同款浅灰，保持视觉过渡一致
                 Box(modifier = Modifier.fillMaxSize().background(WebLoginBackground), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = NeteaseRed)
+                    CircularProgressIndicator(color = MelodiaColors.Accent)
                 }
             }
         }

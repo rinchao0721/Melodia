@@ -1,10 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.comments
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -45,11 +43,13 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.presentation.allComments
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.OverlayPanelHeader
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -140,8 +140,8 @@ fun CommentsPanel(
                     )
                 }
             }
-            // 输入栏常驻底部，不因中间内容状态消失
-            CommentInputBar(
+            // 输入栏常驻底部，不因中间内容状态消失；只读评论不提供
+            if ((state as? CommentsState.Success)?.readOnly != true) CommentInputBar(
                 replyTarget = replyTarget,
                 composerState = composerState,
                 focusRequester = focusRequester,
@@ -164,8 +164,8 @@ fun CommentsPanel(
         // 楼层详情盖在评论列表之上，不透明底并吞掉点击，避免操作穿透到下层
         AnimatedVisibility(
             visible = floorState !is CommentFloorState.Idle,
-            enter = fadeIn(tween(FLOOR_FADE_MS)),
-            exit = fadeOut(tween(FLOOR_FADE_MS))
+            enter = fadeIn(uiTween(FLOOR_FADE_MS)),
+            exit = fadeOut(uiTween(FLOOR_FADE_MS))
         ) {
             CommentFloorPanel(
                 floorState = floorState,
@@ -174,7 +174,7 @@ fun CommentsPanel(
                 currentUserId = currentUserId,
                 host = host,
                 onRequestDelete = { comment -> deleteTarget = comment },
-                modifier = Modifier.background(DesktopColors.Pane).clickable(
+                modifier = Modifier.paneBackdrop(DesktopColors.Pane).clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {}
@@ -245,9 +245,10 @@ private fun CommentList(
             items(comments, key = { it.commentId }) { comment ->
                 CommentRow(
                     comment = comment,
+                    canLike = !state.readOnly,
                     onLike = { host.like(comment) },
-                    onReply = { onReply(comment) },
-                    onExpandFloor = { onExpandFloor(comment) },
+                    onReply = if (state.readOnly) null else ({ onReply(comment) }),
+                    onExpandFloor = if (state.readOnly) null else ({ onExpandFloor(comment) }),
                     onDelete = if (comment.user.userId == currentUserId) ({ onDelete(comment) }) else null
                 )
             }

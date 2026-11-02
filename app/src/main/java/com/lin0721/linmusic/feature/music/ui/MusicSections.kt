@@ -31,9 +31,9 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.music.domain.StyleAlbumItem
 import com.lin0721.linmusic.feature.music.domain.StyleArtistItem
 import com.lin0721.linmusic.feature.music.domain.StylePlaylistItem
@@ -60,7 +60,7 @@ fun MusicSectionTitle(title: String, trailing: String? = null) {
             modifier = Modifier.weight(1f, fill = false)
         )
         trailing?.let {
-            Text(text = it, color = TextGray, fontSize = 11.5.sp, modifier = Modifier.padding(start = 8.dp))
+            Text(text = it, color = MelodiaColors.TextSecondary, fontSize = 11.5.sp, modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -94,7 +94,7 @@ fun MusicPlaylistRow(playlists: List<StylePlaylistItem>, onClick: (StylePlaylist
                 )
                 Text(
                     text = item.playCount.toPlayCountText(),
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 11.sp,
                     maxLines = 1,
                     modifier = Modifier.padding(top = 2.dp)
@@ -117,7 +117,7 @@ fun MusicSongRow(index: Int, track: Track, isCurrent: Boolean, onClick: () -> Un
     ) {
         Text(
             text = "${index + 1}",
-            color = if (isCurrent) highlight else TextGray,
+            color = if (isCurrent) highlight else MelodiaColors.TextSecondary,
             fontSize = 12.sp,
             modifier = Modifier.width(26.dp)
         )
@@ -142,7 +142,7 @@ fun MusicSongRow(index: Int, track: Track, isCurrent: Boolean, onClick: () -> Un
                 text = listOf(track.ar.joinToString("/") { it.name }, track.al.name)
                     .filter { it.isNotBlank() }
                     .joinToString(" · "),
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -183,7 +183,7 @@ fun MusicAlbumRow(albums: List<StyleAlbumItem>, onClick: (StyleAlbumItem) -> Uni
                     ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).year.toString() }
                 Text(
                     text = listOfNotNull(year, item.artistName.ifBlank { null }).joinToString(" · "),
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -225,7 +225,7 @@ fun MusicArtistRow(artists: List<StyleArtistItem>, onClick: (StyleArtistItem) ->
                 if (item.musicSize > 0) {
                     Text(
                         text = "${item.musicSize} 首",
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 10.sp,
                         maxLines = 1
                     )

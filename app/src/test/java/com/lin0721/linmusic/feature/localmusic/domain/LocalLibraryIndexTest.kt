@@ -62,24 +62,24 @@ class LocalLibraryIndexTest {
     // ======================= 专辑名识别 =======================
 
     @Test
-    fun `专辑名等于所在文件夹名时视为无专辑标签`() {
-        assertNull(albumTitleOf("边听边存", "/storage/emulated/0/Music/Melodia/边听边存"))
+    fun `展示层保留扫描层已经核实的专辑标签`() {
+        assertEquals("50 Classical Masterworks", albumTitleOf("50 Classical Masterworks"))
     }
 
     @Test
     fun `正常专辑名保留`() {
-        assertEquals("魔法使いの夜", albumTitleOf(" 魔法使いの夜 ", "/storage/emulated/0/Download"))
+        assertEquals("魔法使いの夜", albumTitleOf(" 魔法使いの夜 "))
     }
 
     @Test
     fun `空专辑名与 unknown 视为无专辑`() {
-        assertNull(albumTitleOf("", "/sdcard/Music"))
-        assertNull(albumTitleOf("<unknown>", "/sdcard/Music"))
-        assertNull(albumTitleOf(null, null))
+        assertNull(albumTitleOf(""))
+        assertNull(albumTitleOf("<unknown>"))
+        assertNull(albumTitleOf(null))
     }
 
     @Test
-    fun `导入条目没有路径时不做文件夹名比对`() {
-        assertEquals("Music", albumTitleOf("Music", null))
+    fun `导入条目的嵌入专辑名直接保留`() {
+        assertEquals("Music", albumTitleOf("Music"))
     }
 }

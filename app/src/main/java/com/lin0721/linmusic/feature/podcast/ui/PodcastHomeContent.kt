@@ -28,8 +28,8 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
@@ -210,7 +210,7 @@ private fun LazyListScope.subscribedSections(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(text = "登录后查看你订阅的电台", color = TextGray, fontSize = 13.sp)
+                Text(text = "登录后查看你订阅的电台", color = MelodiaColors.TextSecondary, fontSize = 13.sp)
                 MelodiaButton(onClick = actions.onLoginClick) { Text("去登录") }
             }
         }
@@ -293,7 +293,7 @@ internal fun SectionError(message: String, onRetry: () -> Unit) {
     ) {
         Text(
             text = message.ifBlank { "加载失败" },
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 12.sp,
             textAlign = TextAlign.Center
         )
@@ -305,7 +305,7 @@ internal fun SectionError(message: String, onRetry: () -> Unit) {
 internal fun SectionHint(text: String) {
     Text(
         text = text,
-        color = TextGray,
+        color = MelodiaColors.TextSecondary,
         fontSize = 12.sp,
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)

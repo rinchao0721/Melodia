@@ -19,6 +19,9 @@ interface HomeRepository {
     // 获取每日推荐歌曲（需登录）
     fun getDailyRecommendSongs(): Flow<Result<List<DailySong>>>
 
+    // 日推歌曲“减少推荐”（需登录）
+    fun dislikeDailySong(songId: Long): Flow<Result<Unit>>
+
     // 获取历史日推可用日期列表（VIP）
     fun getHistoryRecommendDates(): Flow<Result<List<String>>>
 

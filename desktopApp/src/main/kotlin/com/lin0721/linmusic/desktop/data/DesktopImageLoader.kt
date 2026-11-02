@@ -14,7 +14,8 @@ import java.io.File
 
 private const val TAG = "DesktopImageLoader"
 
-private const val MEMORY_CACHE_PERCENT = 0.15
+// 位图像素在 Skia 原生内存里，按堆比例会随最大堆放大，改为固定上限
+private const val MEMORY_CACHE_MAX_BYTES = 64L * 1024 * 1024
 private const val DECODER_PARALLELISM = 4
 private const val FETCHER_PARALLELISM = 8
 
@@ -33,7 +34,7 @@ object DesktopImageLoader {
     @OptIn(ExperimentalCoroutinesApi::class)
     fun create(context: PlatformContext, cacheDir: File = DesktopPaths.imageCacheDir, maxBytes: Long = DISK_CACHE_MAX_BYTES): ImageLoader =
         ImageLoader.Builder(context)
-            .memoryCache { MemoryCache.Builder().maxSizePercent(context, MEMORY_CACHE_PERCENT).build() }
+            .memoryCache { MemoryCache.Builder().maxSizeBytes(MEMORY_CACHE_MAX_BYTES).build() }
             .diskCache { DiskCache.Builder().directory(cacheDir.toOkioPath()).maxSizeBytes(maxBytes).build() }
             .decoderCoroutineContext(Dispatchers.IO.limitedParallelism(DECODER_PARALLELISM))
             .fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(FETCHER_PARALLELISM))
@@ -45,6 +46,13 @@ object DesktopImageLoader {
         val loader = SingletonImageLoader.get(PlatformContext.INSTANCE)
         loader.memoryCache?.clear()
         loader.diskCache?.clear()
+    }
+
+    // 界面长时间不可见时调用；Skia 位图的原生内存要等 GC 回收包装对象后才释放
+    fun releaseMemory() {
+        SingletonImageLoader.get(PlatformContext.INSTANCE).memoryCache?.clear()
+        System.gc()
+        AppLogger.i(TAG, "后台释放图片内存缓存")
     }
 
     // Coil 旧默认缓存在临时目录，后台删除

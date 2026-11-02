@@ -38,7 +38,7 @@ class AudioCacheTest {
         val temp = cache.tempFile(7, "lossless").apply { writeBytes(ByteArray(100)) }
 
         assertNull(cache.completeFile(7, "lossless"))
-        assertTrue(runBlocking { cache.commit(temp, Long.MAX_VALUE) })
+        assertTrue(runBlocking { cache.commit(temp) })
 
         assertFalse(temp.exists())
         assertNotNull(cache.completeFile(7, "lossless"))
@@ -50,7 +50,7 @@ class AudioCacheTest {
     fun emptyTempIsRejected() {
         val cache = AudioCache(dir)
         val temp = cache.tempFile(1, "standard").apply { writeBytes(ByteArray(0)) }
-        assertFalse(runBlocking { cache.commit(temp, Long.MAX_VALUE) })
+        assertFalse(runBlocking { cache.commit(temp) })
         assertNull(cache.completeFile(1, "standard"))
     }
 
@@ -66,30 +66,15 @@ class AudioCacheTest {
     }
 
     @Test
-    fun evictRemovesLeastRecentlyUsedFirst() {
+    fun hitRefreshesModifiedTime() {
         val cache = AudioCache(dir)
-        file("1_standard.mka", 100, 1_000)
-        file("2_standard.mka", 100, 2_000)
-        file("3_standard.mka", 100, 3_000)
-
-        cache.evict(250)
-
-        assertFalse(File(dir, "1_standard.mka").exists())
-        assertTrue(File(dir, "2_standard.mka").exists())
-        assertTrue(File(dir, "3_standard.mka").exists())
-    }
-
-    @Test
-    fun hitRefreshesRecencySoItSurvivesEviction() {
-        val cache = AudioCache(dir)
-        file("1_standard.mka", 100, 1_000)
+        val hit = file("1_standard.mka", 100, 1_000)
         file("2_standard.mka", 100, 2_000)
 
         assertNotNull(cache.completeFile(1, "standard"))
-        cache.evict(150)
 
-        assertTrue(File(dir, "1_standard.mka").exists())
-        assertFalse(File(dir, "2_standard.mka").exists())
+        assertTrue(hit.lastModified() > 2_000)
+        assertEquals(setOf("1_standard.mka", "2_standard.mka"), cache.completeFiles().map { it.name }.toSet())
     }
 
     @Test

@@ -4,11 +4,20 @@
   ?template=fix.md       修复
   ?template=refactor.md  重构
 其余情况（文档、构建、依赖等）直接填写下面的内容。
+
+目标分支：功能、修复、重构类 PR 请推送到 dev
+请勿直接向 main 提交功能改动。
 -->
 
 ## 概述
 
 <!-- 做了什么、为什么做；关联 Issue 用 Closes #编号 -->
+
+## 影响平台
+
+- [ ] Android 手机
+- [ ] Android 平板
+- [ ] Windows 桌面端
 
 ## 改动
 

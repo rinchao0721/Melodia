@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.comment.domain
 
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.data.isQQThread
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.model.CommentUser
@@ -125,7 +126,8 @@ class CommentsSectionController(
                         sortType = sortType,
                         cursor = data.cursor,
                         hasMore = data.hasMore,
-                        isLoadingMore = false
+                        isLoadingMore = false,
+                        readOnly = isQQThread(requestThreadId)
                     )
                     _commentsState.value = newState
                     sortCache[sortType] = TabCacheEntry(state = newState, pageNo = pageNo)

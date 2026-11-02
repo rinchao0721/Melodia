@@ -1,15 +1,26 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -22,9 +33,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -35,16 +51,17 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.theme.uiSpring
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeChild
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.feature.player.share.LyricShareSheet
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import org.koin.compose.koinInject
@@ -61,6 +78,8 @@ fun FullScreenLyricsView(
     isLoading: Boolean,
     title: String,
     artist: String,
+    coverUrl: String = "",
+    songLink: String? = null,
     base: Color,
     highlightColor: Color,
     onSeek: (Long) -> Unit,
@@ -78,7 +97,9 @@ fun FullScreenLyricsView(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
-    onControlsVisibilityChange: (Boolean) -> Unit = {}
+    onControlsVisibilityChange: (Boolean) -> Unit = {},
+    coverage: LyricsOverlayCoverage? = null,
+    isFullyEntered: () -> Boolean = { true }
 ) {
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -92,16 +113,22 @@ fun FullScreenLyricsView(
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenKaraokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
+    val neteaseLyricsEnabled by settingsPreferences.neteaseLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val qqLyricsEnabled by settingsPreferences.qqLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
     val fullScreenLyricAutoHideControls by settingsPreferences.fullScreenLyricAutoHideControls.collectAsStateWithLifecycle(initialValue = false)
+    val fullScreenLyricCenterFirstLine by settingsPreferences.fullScreenLyricCenterFirstLine.collectAsStateWithLifecycle(initialValue = false)
+    // 状态栏随控件隐藏时仍需避开挖孔摄像头
+    val topSafeInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top)
     var areControlsVisible by remember { mutableStateOf(true) }
     var autoHideJob by remember { mutableStateOf<Job?>(null) }
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showShareSheet by remember { mutableStateOf(false) }
 
     val scheduleAutoHide: () -> Unit = {
         autoHideJob?.cancel()
@@ -147,21 +174,7 @@ fun FullScreenLyricsView(
             onControlsVisibilityChange(true)
         }
     }
-    val context = LocalContext.current
-
-    val handleShareLyrics: () -> Unit = {
-        val currentLyricText = lyrics.getOrNull(currentIndex)?.text?.takeIf { it.isNotBlank() }
-        val shareText = if (currentLyricText != null) {
-            "「$currentLyricText」\n——《$title》$artist"
-        } else {
-            "《$title》- $artist"
-        }
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareText)
-        }
-        context.startActivity(Intent.createChooser(intent, "分享歌词"))
-    }
+    val handleShareLyrics: () -> Unit = { showShareSheet = true }
 
     val handleToggleSecondaryMode: () -> Unit = {
         val nextMode = when {
@@ -205,6 +218,15 @@ fun FullScreenLyricsView(
     DisposableEffect(Unit) {
         onDispose {
             dragState.reset()
+        }
+    }
+
+    // 下拉时下层播放页会从顶部露出，此时不算完整盖住
+    val isFullyEnteredState = rememberUpdatedState(isFullyEntered)
+    if (coverage != null) {
+        DisposableEffect(coverage, dragState) {
+            coverage.coveringProvider = { isFullyEnteredState.value() && dragState.offsetY == 0f }
+            onDispose { coverage.coveringProvider = { false } }
         }
     }
 
@@ -265,6 +287,7 @@ fun FullScreenLyricsView(
     PlayerBackdrop(
         base = base,
         mode = BackdropMode.Immersive,
+        animateMesh = isPlaying,
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { dragState.onScreenHeightChange(it.height.toFloat()) }
@@ -283,107 +306,111 @@ fun FullScreenLyricsView(
             }
     ) {
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeChild(state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f))
-                .statusBarsPadding()
-        ) {
-            AnimatedVisibility(
-                visible = areControlsVisible,
-                enter = fadeIn(tween(260)) + slideInVertically(tween(260)) { -it / 3 },
-                exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { -it / 3 },
-                modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
-                    if (fullScreenLyricAutoHideControls) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                awaitPointerEvent()
-                                scheduleAutoHide()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeChild(state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f))
+                    .windowInsetsPadding(topSafeInsets)
+            ) {
+                AnimatedVisibility(
+                    visible = areControlsVisible,
+                    enter = fadeIn(uiTween(260)) + slideInVertically(uiTween(260)) { -it / 3 },
+                    exit = fadeOut(uiTween(220)) + slideOutVertically(uiTween(220)) { -it / 3 },
+                    modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
+                        if (fullScreenLyricAutoHideControls) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent()
+                                    scheduleAutoHide()
+                                }
                             }
                         }
                     }
+                ) {
+                    FullScreenLyricsHeader(
+                        title = title,
+                        artist = artist,
+                        onClose = onClose,
+                        onMoreClick = onMoreClick,
+                        onDragDelta = { delta -> dragState.onHeaderDrag(delta) },
+                        onDragStart = { dragState.onHeaderDragStart() },
+                        onDragRelease = { velocity -> dragState.handleDragRelease(velocity = velocity) }
+                    )
                 }
-            ) {
-                FullScreenLyricsHeader(
-                    title = title,
-                    artist = artist,
-                    onClose = onClose,
-                    onMoreClick = onMoreClick,
-                    onDragDelta = { delta -> dragState.onHeaderDrag(delta) },
-                    onDragStart = { dragState.onHeaderDragStart() },
-                    onDragRelease = { velocity -> dragState.handleDragRelease(velocity = velocity) }
-                )
-            }
 
-            FullScreenLyricsList(
-                lyrics = lyrics,
-                currentIndex = currentIndex,
-                activeIndices = activeIndices,
-                isLoading = isLoading,
-                isUserScrolling = isUserScrolling,
-                highlightColor = highlightColor,
-                currentPositionProvider = lyricPositionProvider,
-                lazyListState = lazyListState,
-                viewportHeightPx = dragState.viewportHeightPx,
-                onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
-                gestureModifier = gestureModifier,
-                fontSize = effectiveLyricTextSize,
-                alignment = fullScreenLyricAlignment,
-                secondaryMode = fullScreenLyricSecondaryMode,
-                lineSpacing = fullScreenLyricLineSpacing,
-                secondarySpacing = fullScreenLyricSecondarySpacing,
-                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
-                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
-                isPlaying = isPlaying,
-                onSeek = handleSeek,
-                onLyricClick = { line ->
-                    if (fullScreenLyricAutoHideControls && areControlsVisible) {
-                        // 当控制栏显示时，轻触屏幕任意区域（包括歌词行）均立即隐藏控制栏，且不误触跳转进度
-                        autoHideJob?.cancel()
-                        areControlsVisible = false
-                    } else {
-                        // 控制栏处于隐藏状态（或未开启自动隐藏）时，点击歌词行正常跳转播放进度
-                        timerJob?.cancel()
-                        handleSeek(line.timeMs)
-                    }
-                }
-            )
-
-            AnimatedVisibility(
-                visible = areControlsVisible,
-                enter = fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 3 },
-                exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { it / 3 },
-                modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
-                    if (fullScreenLyricAutoHideControls) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                awaitPointerEvent()
-                                scheduleAutoHide()
-                            }
-                        }
-                    }
-                }
-            ) {
-                FullScreenControls(
-                    isPlaying = isPlaying,
-                    currentPositionProvider = currentPositionProvider,
-                    duration = duration,
-                    onSeek = handleSeek,
-                    onTogglePlay = onTogglePlay,
-                    onPlayNext = onPlayNext,
-                    onPlayPrevious = onPlayPrevious,
-                    playMode = playMode,
-                    onToggleShuffle = onToggleShuffle,
-                    onToggleRepeat = onToggleRepeat,
+                FullScreenLyricsList(
+                    centerFirstLine = fullScreenLyricCenterFirstLine,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    lyrics = lyrics,
+                    currentIndex = currentIndex,
+                    activeIndices = activeIndices,
+                    isLoading = isLoading,
+                    isUserScrolling = isUserScrolling,
+                    highlightColor = highlightColor,
+                    currentPositionProvider = lyricPositionProvider,
+                    lazyListState = lazyListState,
+                    viewportHeightPx = dragState.viewportHeightPx,
+                    onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
+                    gestureModifier = gestureModifier,
+                    fontSize = effectiveLyricTextSize,
+                    alignment = fullScreenLyricAlignment,
                     secondaryMode = fullScreenLyricSecondaryMode,
-                    hasTranslation = hasTranslation,
-                    hasRoma = hasRoma,
-                    onToggleSecondaryMode = handleToggleSecondaryMode,
-                    onShareLyrics = handleShareLyrics,
-                    onLyricsSettingsClick = { showSettingsSheet = true }
+                    lineSpacing = fullScreenLyricLineSpacing,
+                    secondarySpacing = fullScreenLyricSecondarySpacing,
+                    advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                    karaokeGlowEffect = fullScreenKaraokeGlowEffect,
+                    isPlaying = isPlaying,
+                    onSeek = handleSeek,
+                    onLyricClick = { line ->
+                        if (fullScreenLyricAutoHideControls && areControlsVisible) {
+                            // 当控制栏显示时，轻触屏幕任意区域（包括歌词行）均立即隐藏控制栏，且不误触跳转进度
+                            autoHideJob?.cancel()
+                            areControlsVisible = false
+                        } else {
+                            // 控制栏处于隐藏状态（或未开启自动隐藏）时，点击歌词行正常跳转播放进度
+                            timerJob?.cancel()
+                            handleSeek(line.timeMs)
+                        }
+                    }
                 )
+
+                AnimatedVisibility(
+                    visible = areControlsVisible,
+                    enter = fadeIn(uiTween(260)) + slideInVertically(uiTween(260)) { it / 3 },
+                    exit = fadeOut(uiTween(220)) + slideOutVertically(uiTween(220)) { it / 3 },
+                    modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
+                        if (fullScreenLyricAutoHideControls) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent()
+                                    scheduleAutoHide()
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    FullScreenControls(
+                        isPlaying = isPlaying,
+                        currentPositionProvider = currentPositionProvider,
+                        duration = duration,
+                        onSeek = handleSeek,
+                        onTogglePlay = onTogglePlay,
+                        onPlayNext = onPlayNext,
+                        onPlayPrevious = onPlayPrevious,
+                        playMode = playMode,
+                        onToggleShuffle = onToggleShuffle,
+                        onToggleRepeat = onToggleRepeat,
+                        secondaryMode = fullScreenLyricSecondaryMode,
+                        hasTranslation = hasTranslation,
+                        hasRoma = hasRoma,
+                        onToggleSecondaryMode = handleToggleSecondaryMode,
+                        onShareLyrics = handleShareLyrics,
+                        onLyricsSettingsClick = { showSettingsSheet = true }
+                    )
+                }
             }
-        }
 
         if (showSettingsSheet) {
             FullScreenLyricsSettingsSheet(
@@ -417,6 +444,14 @@ fun FullScreenLyricsView(
                 onKaraokeGlowEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(enabled) }
                 },
+                neteaseLyricsEnabled = neteaseLyricsEnabled,
+                onNeteaseLyricsEnabledChange = { enabled ->
+                    scope.launch { settingsPreferences.saveNeteaseLyricsEnabled(enabled) }
+                },
+                qqLyricsEnabled = qqLyricsEnabled,
+                onQqLyricsEnabledChange = { enabled ->
+                    scope.launch { settingsPreferences.saveQqLyricsEnabled(enabled) }
+                },
                 amllLyricsEnabled = amllLyricsEnabled,
                 onAmllLyricsEnabledChange = { enabled ->
                     scope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
@@ -425,7 +460,24 @@ fun FullScreenLyricsView(
                 onAutoHideControlsChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenLyricAutoHideControls(enabled) }
                 },
+                centerFirstLine = fullScreenLyricCenterFirstLine,
+                onCenterFirstLineChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricCenterFirstLine(enabled) }
+                },
                 onDismiss = { showSettingsSheet = false }
+            )
+        }
+
+        if (showShareSheet) {
+            LyricShareSheet(
+                lyrics = lyrics,
+                currentIndex = currentIndex,
+                title = title,
+                artist = artist,
+                coverUrl = coverUrl,
+                durationMs = duration,
+                songLink = songLink,
+                onDismiss = { showShareSheet = false }
             )
         }
     }

@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.ui.nowplaying
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
@@ -24,6 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.styledCardRadius
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 private const val ENTER_MS = 250
@@ -37,7 +38,7 @@ fun InfoCard(
     headerTrailing: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface)) {
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(styledCardRadius(8.dp))).background(DesktopColors.CardSurface)) {
         backdrop?.invoke(this)
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -62,6 +63,6 @@ fun InfoCardEnter(modifier: Modifier = Modifier, content: @Composable () -> Unit
     AnimatedVisibility(
         visibleState = state,
         modifier = modifier,
-        enter = fadeIn(tween(ENTER_MS)) + expandVertically(tween(ENTER_MS))
+        enter = fadeIn(uiTween(ENTER_MS)) + expandVertically(uiTween(ENTER_MS))
     ) { content() }
 }

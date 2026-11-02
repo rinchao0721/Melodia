@@ -54,10 +54,19 @@ class SingleInstanceTest {
     @Test
     fun secondInstanceActivatesFirstAndReportsNotPrimary() {
         val activations = AtomicInteger(0)
-        assertTrue(instance().acquire { activations.incrementAndGet() })
+        assertTrue(instance().acquire({ activations.incrementAndGet() }))
 
-        assertFalse("已有实例时后来者不应成为首个实例", instance().acquire { error("后来者的回调不应被触发") })
+        assertFalse("已有实例时后来者不应成为首个实例", instance().acquire({ error("后来者的回调不应被触发") }))
         assertTrue(awaitCondition { activations.get() == 1 })
+    }
+
+    @Test
+    fun requestQuitNotifiesPrimaryInstance() {
+        val quits = AtomicInteger(0)
+        assertTrue(instance().acquire(onActivate = { }, onQuit = { quits.incrementAndGet() }))
+
+        assertTrue(instance().requestQuit())
+        assertTrue(awaitCondition { quits.get() == 1 })
     }
 
     @Test

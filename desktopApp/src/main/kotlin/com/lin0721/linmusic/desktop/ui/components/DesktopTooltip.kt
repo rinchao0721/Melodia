@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -27,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import kotlinx.coroutines.delay
 import kotlin.math.max
 
@@ -96,8 +95,9 @@ private fun TooltipPopup(tooltipContent: @Composable () -> Unit, side: TooltipSi
     val provider = remember(side, density) {
         with(density) { TooltipPositionProvider(side, AnchorGap.roundToPx(), WindowMargin.roundToPx()) }
     }
+    val motion = LocalUiMotion.current
     val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { progress.animateTo(1f, tween(FADE_MS)) }
+    LaunchedEffect(Unit) { progress.animateTo(1f, motion.tween(FADE_MS)) }
     val slidePx = with(density) { SlideDistance.toPx() }
     Popup(popupPositionProvider = provider, properties = PopupProperties(focusable = false)) {
         // 外圈留白给阴影，避免被弹层边界裁掉
@@ -114,7 +114,7 @@ private fun TooltipPopup(tooltipContent: @Composable () -> Unit, side: TooltipSi
                 }
             }
         ) {
-            Box(Modifier.shadow(4.dp, RoundedCornerShape(6.dp))) { tooltipContent() }
+            Box(Modifier.themedShadow(4.dp, RoundedCornerShape(6.dp))) { tooltipContent() }
         }
     }
 }

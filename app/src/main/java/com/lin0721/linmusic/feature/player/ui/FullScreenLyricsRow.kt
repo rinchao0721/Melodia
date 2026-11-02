@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -168,21 +170,28 @@ fun FullScreenLyricsRow(
                     scaleY = animatedScale
                     alpha = animatedAlpha
                     transformOrigin = targetTransformOrigin
+                    // 非当前行各子项纵向堆叠不重叠，直接调制画笔透明度避免触发 saveLayer
+                    compositingStrategy = if (!isCurrent && animatedAlpha < 0.999f) {
+                        CompositingStrategy.ModulateAlpha
+                    } else {
+                        CompositingStrategy.Auto
+                    }
                 }
                 .pressable(MelodiaPress.None) {
                     onClick()
                 },
             horizontalAlignment = horizontalAlignment
         ) {
-            if (isCurrent && line.words.isNotEmpty()) {
+            if (line.words.isNotEmpty()) {
+                // 保留逐字组件和排版缓存，换句只切换高亮层，避免重建时闪烁。
                 // 逐字高亮行拿不到排版结果，命中范围退化为整行
                 textBounds?.mainLayout = null
                 Box(modifier = reportMainBounds) {
                     KaraokeLyricRow(
                         line = line,
                         currentPositionProvider = currentPositionProvider,
-                        inactiveColor = highlightColor.copy(alpha = 0.5f),
-                        activeColor = Color.White,
+                        inactiveColor = highlightColor,
+                        activeColor = MelodiaColors.TextPrimary,
                         fontSize = mainFontSize,
                         lineHeight = mainLineHeight,
                         textAlign = textAlign,
@@ -197,7 +206,7 @@ fun FullScreenLyricsRow(
                     text = line.text,
                     fontSize = mainFontSize,
                     lineHeight = mainLineHeight,
-                    color = if (isCurrent) Color.White else highlightColor,
+                    color = if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.mainLayout = it },
@@ -218,7 +227,7 @@ fun FullScreenLyricsRow(
                     text = secondaryText,
                     fontSize = translationFontSize,
                     lineHeight = translationLineHeight,
-                    color = if (isCurrent) Color.White else highlightColor,
+                    color = if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.secondaryLayout = it },
                     modifier = Modifier
@@ -233,8 +242,8 @@ fun FullScreenLyricsRow(
             // 整体缩进到 90% 宽并按自身对齐方式摆放，避免和主声部抢视觉重心。
             line.backgroundLine?.let { background ->
                 // 未激活和本行激活但和声尚未开唱时使用同一底色，避免状态切换变色。
-                val backgroundInactiveColor = Color.White.copy(alpha = 0.22f)
-                val backgroundActiveColor = Color.White.copy(alpha = 0.82f)
+                val backgroundInactiveColor = MelodiaColors.TextPrimary.copy(alpha = 0.22f)
+                val backgroundActiveColor = MelodiaColors.TextPrimary.copy(alpha = 0.82f)
                 val backgroundTextAlign = textAlign
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(
@@ -245,7 +254,7 @@ fun FullScreenLyricsRow(
                         else -> Alignment.Start
                     }
                 ) {
-                    if (background.words.isNotEmpty()) {
+                    if (isCurrent && background.words.isNotEmpty()) {
                         KaraokeLyricRow(
                             line = background,
                             currentPositionProvider = currentPositionProvider,

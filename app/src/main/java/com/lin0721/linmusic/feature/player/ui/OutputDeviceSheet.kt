@@ -26,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -41,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.compose.koinInject
 
@@ -216,12 +216,12 @@ fun OutputDeviceSheet(
                     val rowBackground = if (isSelected) {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     } else {
-                        Color.White.copy(alpha = 0.05f)
+                        MelodiaColors.Overlay.copy(alpha = 0.05f)
                     }
                     val badgeBackground = if (isSelected) {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                     } else {
-                        Color.White.copy(alpha = 0.08f)
+                        MelodiaColors.Overlay.copy(alpha = 0.08f)
                     }
                     val iconTint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -285,7 +285,7 @@ fun OutputDeviceSheet(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f)),
+                            .background(MelodiaColors.Fill),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

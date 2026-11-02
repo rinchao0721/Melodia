@@ -285,7 +285,7 @@ private fun RankedRadioRow(rank: Int, radio: PodcastRadio) {
     ) {
         Text(
             text = "$rank",
-            color = if (rank <= 3) DesktopColors.Accent else DesktopColors.TextGray,
+            color = if (rank <= 3) DesktopColors.AccentText else DesktopColors.TextGray,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,

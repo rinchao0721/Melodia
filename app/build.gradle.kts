@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.baselineprofile)
 }
 
 // 签名材料一律来自仓库外：本地读 local.properties，CI 读同名环境变量。
@@ -84,6 +85,11 @@ android {
         buildConfig = true
         aidl = true
     }
+    packaging {
+        dex {
+            useLegacyPackaging = false
+        }
+    }
     testOptions {
         unitTests {
             // AppLogger 内部调用 android.util.Log，纯 JVM 单测下未做该 mock 会直接抛异常
@@ -100,6 +106,11 @@ ksp {
 // 自定义输出 APK 文件名：Melodia-v{versionName}-{buildType}.apk
 base {
     archivesName.set("Melodia-v${android.defaultConfig.versionName}")
+}
+
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    saveInSrc = true
 }
 
 // Room Gradle 插件在 AGP 9 下会重复注册 copyRoomSchemas，改用 KSP 参数导出 schema
@@ -153,6 +164,9 @@ dependencies {
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)
     implementation(libs.bouncycastle)
+    implementation(libs.lyricon.provider)
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

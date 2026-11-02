@@ -125,7 +125,7 @@ private fun weightedMeanHue(swatches: List<VibrantSwatch>): Float? {
     return if (hue < 0f) hue + 1f else hue
 }
 
-private fun hueDistance(a: Float, b: Float): Float {
+internal fun hueDistance(a: Float, b: Float): Float {
     val d = abs(a - b) % 1f
     return min(d, 1f - d)
 }

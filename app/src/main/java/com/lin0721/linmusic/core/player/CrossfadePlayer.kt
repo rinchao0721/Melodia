@@ -23,7 +23,8 @@ private const val FADE_STEP_MS = 16L
 
 // 会话播放器：内部两台 ExoPlayer 轮换，对外始终是同一个 Player。
 // 带 crossfadeMs 的切歌先在空闲播放器里静音缓冲，就绪后才接管并等功率交叉淡化；
-// 缓冲期间 setMediaItems 的 future 保持未完成，SimpleBasePlayer 用占位状态对外只报一次切歌
+// 缓冲期间 setMediaItems 的 future 保持未完成，SimpleBasePlayer 用占位状态对外只报一次切歌。
+// 音量平衡的曲目增益由 extras 给出初值，播放中经 setVolume 更新并平滑过渡，淡化时作为淡入目标
 @OptIn(UnstableApi::class)
 class CrossfadePlayer(
     private val primary: ExoPlayer,
@@ -39,11 +40,17 @@ class CrossfadePlayer(
     private var pendingIncoming: ExoPlayer? = null
     private var pendingFuture: SettableFuture<Unit>? = null
     private var pendingFadeMs = 0L
+    private var pendingGain = 1f
 
     private var outgoing: ExoPlayer? = null
     private var outgoingStartGain = 1f
     private var fadeStartElapsedMs = 0L
     private var fadeDurationMs = 0L
+
+    // 当前曲目增益，以及向它平滑过渡的起点
+    private var trackGain = 1f
+    private var gainRampFrom = 1f
+    private var gainRampStartElapsedMs = 0L
 
     private val active: ExoPlayer
         get() = if (player === secondary) secondary else primary
@@ -59,12 +66,22 @@ class CrossfadePlayer(
             val out = outgoing ?: return
             val progress = ((SystemClock.elapsedRealtime() - fadeStartElapsedMs).toFloat() / fadeDurationMs).coerceIn(0f, 1f)
             out.volume = CrossfadePolicy.fadeOutGain(progress, outgoingStartGain)
-            active.volume = CrossfadePolicy.fadeInGain(progress)
+            active.volume = CrossfadePolicy.fadeInGain(progress) * trackGain
             if (progress >= 1f) {
                 releaseOutgoing()
             } else {
                 handler.postDelayed(this, FADE_STEP_MS)
             }
+        }
+    }
+
+    private val gainStep = object : Runnable {
+        override fun run() {
+            // 淡化进行中由淡入曲线负责，结束后直接落在目标增益上
+            if (outgoing != null) return
+            val progress = ((SystemClock.elapsedRealtime() - gainRampStartElapsedMs).toFloat() / LoudnessPolicy.RAMP_MS).coerceIn(0f, 1f)
+            active.volume = gainRampFrom + (trackGain - gainRampFrom) * progress
+            if (progress < 1f) handler.postDelayed(this, FADE_STEP_MS)
         }
     }
 
@@ -134,6 +151,7 @@ class CrossfadePlayer(
         val extras = mediaItems.getOrNull(startIndex.coerceAtLeast(0))?.mediaMetadata?.extras
         val fadeMs = extras?.getLong(CrossfadePolicy.EXTRA_CROSSFADE_MS, 0L) ?: 0L
         val startOffsetMs = extras?.getLong(CrossfadePolicy.EXTRA_CROSSFADE_START_MS, 0L) ?: 0L
+        val gain = LoudnessPolicy.amplitude(extras?.getDouble(LoudnessPolicy.EXTRA_TRACK_GAIN_DB, 0.0) ?: 0.0)
         // 上一轮还在缓冲就被新请求顶替：缓冲中的播放器直接复用，旧 future 推迟到新操作入队后再完成，
         // 否则两次操作之间 SimpleBasePlayer 会读到旧播放器状态，多报一次切回旧歌
         pendingFuture?.let { stale -> handler.post { stale.set(Unit) } }
@@ -146,10 +164,12 @@ class CrossfadePlayer(
                 clearMediaItems()
             }
             releaseOutgoing()
-            return super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
+            val future = super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
+            applyGainImmediately(gain)
+            return future
         }
         // 新歌跳过开头静音，直接从有效开头起播
-        return startCrossfade(mediaItems, startIndex, maxOf(startPositionMs, startOffsetMs), fadeMs)
+        return startCrossfade(mediaItems, startIndex, maxOf(startPositionMs, startOffsetMs), fadeMs, gain)
     }
 
     // 上/下一首已由会话回调 onPlayerCommandRequest 转给 PlayerManager；
@@ -170,6 +190,21 @@ class CrossfadePlayer(
             releaseOutgoing()
         }
         return super.handleSetPlayWhenReady(playWhenReady)
+    }
+
+    override fun handleSetVolume(volume: Float, volumeOperationType: Int): ListenableFuture<*> {
+        val target = volume.coerceIn(0f, 1f)
+        // 新歌还在缓冲时增益属于它，接管后再生效
+        if (pendingIncoming != null) {
+            pendingGain = target
+        } else if (target != trackGain) {
+            trackGain = target
+            gainRampFrom = active.volume
+            gainRampStartElapsedMs = SystemClock.elapsedRealtime()
+            handler.removeCallbacks(gainStep)
+            handler.post(gainStep)
+        }
+        return Futures.immediateVoidFuture()
     }
 
     override fun handleStop(): ListenableFuture<*> {
@@ -198,7 +233,8 @@ class CrossfadePlayer(
         mediaItems: List<MediaItem>,
         startIndex: Int,
         startPositionMs: Long,
-        fadeMs: Long
+        fadeMs: Long,
+        gain: Float
     ): ListenableFuture<*> {
         // 上一轮淡出还没结束时先停掉它；正在淡入的当前播放器保持现有音量，成为新一轮的淡出方
         stopOutgoing()
@@ -214,6 +250,7 @@ class CrossfadePlayer(
         pendingIncoming = incoming
         pendingFuture = future
         pendingFadeMs = fadeMs
+        pendingGain = gain
         return future
     }
 
@@ -226,6 +263,8 @@ class CrossfadePlayer(
         outgoingStartGain = previous.volume
         fadeStartElapsedMs = SystemClock.elapsedRealtime()
         fadeDurationMs = pendingFadeMs.coerceAtLeast(1L)
+        handler.removeCallbacks(gainStep)
+        trackGain = pendingGain
         handler.post(fadeStep)
         finishPending()
     }
@@ -242,7 +281,9 @@ class CrossfadePlayer(
         val incoming = pendingIncoming ?: return
         val previous = active
         takeOver(incoming)
-        incoming.volume = 1f
+        handler.removeCallbacks(gainStep)
+        trackGain = pendingGain
+        incoming.volume = trackGain
         if (!playWhenReady) incoming.playWhenReady = false
         previous.stop()
         previous.clearMediaItems()
@@ -257,11 +298,17 @@ class CrossfadePlayer(
         future?.set(Unit)
     }
 
-    // 中止淡化：停掉淡出方，当前播放器恢复满音量
+    // 中止淡化：停掉淡出方，当前播放器恢复到曲目增益
     private fun releaseOutgoing() {
         val hadOutgoing = outgoing != null
         stopOutgoing()
-        if (hadOutgoing) active.volume = 1f
+        if (hadOutgoing) active.volume = trackGain
+    }
+
+    private fun applyGainImmediately(gain: Float) {
+        handler.removeCallbacks(gainStep)
+        trackGain = gain
+        active.volume = gain
     }
 
     private fun stopOutgoing() {

@@ -14,6 +14,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.feature.newworks.data.NewWorksRepository
+import com.lin0721.linmusic.feature.newworks.domain.NewWorksQueue
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksTrack
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
@@ -88,6 +89,24 @@ class NewWorksViewModel(
     private var loaded = false
     private var job: Job? = null
 
+    // 连续播放中的新作队列：endIndex 是已入队的最后一条发布在列表里的下标，songIds 用于追加时去重
+    private class FeedQueue(val endIndex: Int, val songIds: Set<Long>)
+
+    private var feedQueue: FeedQueue? = null
+    private var extending = false
+
+    init {
+        // 队列接近末尾、翻页结果到达、播放上下文变化时都重新判断是否要追加
+        viewModelScope.launch {
+            combine(
+                playbackController.queue,
+                playbackController.currentIndex,
+                playbackController.playContext,
+                _uiState
+            ) { _, _, _, _ -> }.collect { maybeExtendQueue() }
+        }
+    }
+
     // 首页音乐 tab 每次挂载都会调，避免切来切去重复请求
     fun loadIfNeeded() {
         if (!loaded) load()
@@ -95,6 +114,8 @@ class NewWorksViewModel(
 
     fun load() {
         loaded = true
+        // 刷新后列表下标整体作废，不再按旧下标追加
+        feedQueue = null
         cursor = System.currentTimeMillis()
         job?.cancel()
         viewModelScope.launch { refreshLibraryAlbums() }
@@ -152,12 +173,49 @@ class NewWorksViewModel(
         }
     }
 
-    // 单曲直接播放，专辑播放整张
+    // 从该发布起，按列表顺序（由新到旧）连续播放后面所有已加载的发布，专辑展开成逐首曲目；
+    // 播到接近队列末尾时自动翻页并追加
     fun playRelease(release: NewWorksRelease) {
         viewModelScope.launch {
-            val tracks = resolveTracks(release)
+            val releases = (_uiState.value as? NewWorksUiState.Success)?.releases.orEmpty()
+            val start = releases.indexOfFirst { it.isAlbum == release.isAlbum && it.id == release.id }
+            val queued = if (start >= 0) releases.drop(start) else listOf(release)
+            val tracks = NewWorksQueue.build(queued, emptySet(), ::resolveTracks)
             if (tracks.isEmpty()) return@launch
+            feedQueue = if (start >= 0) FeedQueue(releases.lastIndex, tracks.map { it.id }.toSet()) else null
             playbackController.playQueue(tracks.map { it.toQueueItem() }, 0, PLAY_CONTEXT)
+        }
+    }
+
+    private fun maybeExtendQueue() {
+        val queue = feedQueue ?: return
+        if (extending) return
+        if (playbackController.playContext.value != PLAY_CONTEXT) {
+            feedQueue = null
+            return
+        }
+        if (!NewWorksQueue.shouldExtend(playbackController.queue.value.size, playbackController.currentIndex.value)) return
+
+        val state = _uiState.value as? NewWorksUiState.Success ?: return
+        val pending = state.releases.drop(queue.endIndex + 1)
+        if (pending.isEmpty()) {
+            if (state.hasMore && !state.isLoadingMore) loadMore()
+            return
+        }
+        extending = true
+        viewModelScope.launch {
+            try {
+                val tracks = NewWorksQueue.build(pending, queue.songIds, ::resolveTracks)
+                // 补拉期间用户可能已切走队列或刷新了列表
+                if (feedQueue === queue && playbackController.playContext.value == PLAY_CONTEXT) {
+                    feedQueue = FeedQueue(state.releases.lastIndex, queue.songIds + tracks.map { it.id })
+                    playbackController.appendToQueue(tracks.map { it.toQueueItem() })
+                }
+            } finally {
+                extending = false
+            }
+            // 追加的全是重复曲目时队列没变，主动再判断一次，避免卡在队尾
+            maybeExtendQueue()
         }
     }
 

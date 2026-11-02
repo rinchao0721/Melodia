@@ -26,10 +26,13 @@ fun QueueItem.toMediaItem(url: String, playContext: String? = null, artworkUri: 
         .setCustomCacheKey(streamCacheKey(songId, url))
         .build()
 
+// 离线缓存曲目的占位地址前缀，本身不可访问
+internal const val OFFLINE_PLACEHOLDER_URI_PREFIX = "https://offline.invalid/"
+
 // 离线播放已完整缓存的歌曲：URL 只用于推断容器格式，完整缓存命中时不会发起网络请求
 fun QueueItem.toOfflineCachedMediaItem(cacheKey: String, playContext: String? = null, artworkUri: String? = coverUrl): MediaItem =
     MediaItem.Builder()
-        .setUri("https://offline.invalid/" + Uri.encode(cacheKey.substringAfter('/')))
+        .setUri(OFFLINE_PLACEHOLDER_URI_PREFIX + Uri.encode(cacheKey.substringAfter('/')))
         .setMediaId(songId.toString())
         .setMediaMetadata(toMetadata(playContext, artworkUri))
         .setCustomCacheKey(cacheKey)

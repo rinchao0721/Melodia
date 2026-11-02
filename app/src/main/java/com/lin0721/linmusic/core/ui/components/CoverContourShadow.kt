@@ -3,6 +3,9 @@ package com.lin0721.linmusic.core.ui.components
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.LruCache
+import com.lin0721.linmusic.core.log.AppLogger
+
+private const val TAG = "CoverContourShadow"
 
 // 透明封面检测与状态缓存
 object CoverContourShadowHelper {
@@ -20,9 +23,26 @@ object CoverContourShadowHelper {
         synchronized(transparencyCache) { transparencyCache.put(url, isTransparent) }
     }
 
-    // 采样边缘判定是否为透明封面
+    // 采样边缘判定是否为透明封面；硬件位图不能读像素，带透明通道时才临时拷一份软件位图
     fun detectIsTransparentCover(bitmap: Bitmap): Boolean {
         if (!bitmap.hasAlpha()) return false
+        if (bitmap.config == Bitmap.Config.HARDWARE) {
+            val copy = try {
+                bitmap.copy(Bitmap.Config.ARGB_8888, false)
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "硬件位图拷贝失败，按不透明处理", e)
+                null
+            } ?: return false
+            return try {
+                sampleTransparentEdges(copy)
+            } finally {
+                copy.recycle()
+            }
+        }
+        return sampleTransparentEdges(bitmap)
+    }
+
+    private fun sampleTransparentEdges(bitmap: Bitmap): Boolean {
         val width = bitmap.width
         val height = bitmap.height
         if (width <= 0 || height <= 0) return false

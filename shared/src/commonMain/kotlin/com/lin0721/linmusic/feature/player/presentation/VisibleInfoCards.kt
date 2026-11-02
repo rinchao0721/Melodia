@@ -37,8 +37,10 @@ fun visibleInfoCards(
     val cards = mutableListOf<FullPlayerCard>()
     for (setting in cardLayout) {
         if (!setting.visible || setting.card !in supported) continue
-        // 本地未匹配歌曲不请求在线数据，只展示歌词
-        if (songState.isLocalOnly && setting.card != FullPlayerCard.LYRICS) continue
+        // 本地未匹配歌曲不请求在线数据，只展示歌词；外部平台歌曲另有 QQ 音乐评论
+        if (songState.isLocalOnly && setting.card != FullPlayerCard.LYRICS &&
+            !(songState.isExternal && setting.card == FullPlayerCard.COMMENTS_PREVIEW)
+        ) continue
         val (settled, ready) = slotState(setting.card)
         if (!settled) return cards
         if (ready) cards += setting.card

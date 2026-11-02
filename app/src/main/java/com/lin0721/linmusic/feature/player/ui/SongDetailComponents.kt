@@ -36,17 +36,15 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.player.domain.SongMusicMemory
 import com.lin0721.linmusic.feature.player.domain.SongWikiCreatorRole
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @Composable
@@ -68,7 +66,7 @@ fun SongDetailCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "歌曲详情",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -83,7 +81,7 @@ fun SongDetailCard(
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = NeteaseRed,
+                        color = MelodiaColors.AccentText,
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
@@ -171,7 +169,7 @@ fun MusicMemoryCard(
     memory: SongMusicMemory,
     cardColor: Color
 ) {
-    val emphasis = SpanStyle(color = Color.White, fontWeight = FontWeight.Medium)
+    val emphasis = SpanStyle(color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Medium)
     val text = remember(memory) { buildMusicMemoryText(memory, emphasis) }
     if (text.isEmpty()) return
 
@@ -185,14 +183,14 @@ fun MusicMemoryCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "回忆坐标",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = text,
-                color = Color.White.copy(alpha = 0.8f),
+                color = MelodiaColors.TextPrimary.copy(alpha = 0.8f),
                 fontSize = 14.sp,
                 lineHeight = 24.sp
             )
@@ -235,7 +233,7 @@ private fun SongCreatorsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -248,7 +246,7 @@ private fun SongCreatorsSheet(
         ) {
             Text(
                 text = "制作信息",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
@@ -262,13 +260,13 @@ private fun SongCreatorsSheet(
                 ) {
                     Text(
                         text = role.roleName,
-                        color = TextGray.copy(alpha = 0.6f),
+                        color = MelodiaColors.TextTertiary,
                         fontSize = 14.sp,
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
                         text = role.artistNames.joinToString(" / "),
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
@@ -297,7 +295,7 @@ fun SongDetailRow(
     ) {
         Text(
             text = label,
-            color = TextGray.copy(alpha = 0.6f),
+            color = MelodiaColors.TextTertiary,
             fontSize = 14.sp,
             fontWeight = FontWeight.Normal,
             modifier = Modifier.width(70.dp)
@@ -306,7 +304,7 @@ fun SongDetailRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = value,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = maxLines,
@@ -315,7 +313,7 @@ fun SongDetailRow(
             if (supportingText != null) {
                 Text(
                     text = supportingText,
-                    color = TextGray.copy(alpha = 0.6f),
+                    color = MelodiaColors.TextTertiary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -326,7 +324,7 @@ fun SongDetailRow(
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = TextGray.copy(alpha = 0.5f),
+                tint = MelodiaColors.TextSecondary.copy(alpha = 0.5f),
                 modifier = Modifier
                     .size(20.dp)
                     .padding(start = MelodiaSpacing.xs)
@@ -354,7 +352,7 @@ fun SimilarArtistsCard(
         Column(modifier = Modifier.padding(vertical = 20.dp)) {
             Text(
                 "探索类似艺人",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -370,7 +368,7 @@ fun SimilarArtistsCard(
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = NeteaseRed,
+                        color = MelodiaColors.AccentText,
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
@@ -398,7 +396,7 @@ fun SimilarArtistsCard(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = artist.name,
-                                color = Color.White,
+                                color = MelodiaColors.TextPrimary,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
@@ -480,7 +478,7 @@ fun AboutArtistCard(
                     Column(modifier = Modifier.weight(1f).padding(end = MelodiaSpacing.md)) {
                         Text(
                             text = artistDetail.name,
-                            color = Color.White,
+                            color = MelodiaColors.TextPrimary,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -493,7 +491,7 @@ fun AboutArtistCard(
                             } else {
                                 "--粉丝"
                             },
-                            color = TextGray,
+                            color = MelodiaColors.TextSecondary,
                             fontSize = 13.sp
                         )
                     }
@@ -501,7 +499,7 @@ fun AboutArtistCard(
                         onClick = onFollowClick,
                         shape = RoundedCornerShape(PillRadius),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White,
+                            contentColor = MelodiaColors.TextPrimary,
                             containerColor = Color.Transparent
                         ),
                         border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
@@ -530,7 +528,7 @@ fun AboutArtistCard(
                             append("... ")
                             withStyle(
                                 style = SpanStyle(
-                                    color = Color.White,
+                                    color = MelodiaColors.TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             ) {
@@ -541,7 +539,7 @@ fun AboutArtistCard(
                             append(" ")
                             withStyle(
                                 style = SpanStyle(
-                                    color = Color.White,
+                                    color = MelodiaColors.TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             ) {
@@ -554,7 +552,7 @@ fun AboutArtistCard(
 
                     Text(
                         text = annotatedText,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         modifier = Modifier
@@ -682,7 +680,7 @@ fun ArtistAlbumsCard(
         Column(modifier = Modifier.padding(vertical = 20.dp)) {
             Text(
                 text = if (artistName != null) "${artistName}的更多专辑" else "更多专辑",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -725,7 +723,7 @@ private fun ImperativeLazyRow(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = album.name,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 13.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis

@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -27,8 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
+import com.lin0721.linmusic.core.ui.theme.uiTween
 
 // 播放页顶栏，仅在封面滚出视野后显示歌名与快捷操作
 @Composable
@@ -50,14 +54,14 @@ fun FullPlayerTopBar(
     // 与全屏背景顶部同色纯色铺底，不做光斑/模糊
     AnimatedVisibility(
         visible = showTitle,
-        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { -it / 3 },
-        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it / 3 },
+        enter = fadeIn(uiTween(220)) + slideInVertically(uiTween(220)) { -it / 3 },
+        exit = fadeOut(uiTween(180)) + slideOutVertically(uiTween(180)) { -it / 3 },
         modifier = modifier
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(backgroundColor)
+                .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(backgroundColor) else Modifier.background(backgroundColor))
         ) {
             Row(
                 modifier = Modifier
@@ -71,7 +75,7 @@ fun FullPlayerTopBar(
                     Icon(
                         Icons.Rounded.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -82,7 +86,7 @@ fun FullPlayerTopBar(
                 ) {
                     Text(
                         text = title,
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -90,7 +94,7 @@ fun FullPlayerTopBar(
                     )
                     Text(
                         text = artist,
-                        color = Color.White.copy(alpha = 0.75f),
+                        color = MelodiaColors.TextPrimary.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -105,19 +109,21 @@ fun FullPlayerTopBar(
                         Icon(
                             if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MelodiaColors.TextPrimary,
                             modifier = Modifier.size(26.dp)
                         )
                     }
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                        PlayPauseIcon(isPlaying, Color.White)
+                        PlayPauseIcon(isPlaying, MelodiaColors.TextPrimary)
                     }
                 }
             }
             // 边缘进度条，跟 mini 栏同一个组件
             MiniPlayerProgress(
                 currentPositionProvider = currentPositionProvider,
-                duration = duration
+                duration = duration,
+                // 浅色收起顶栏是浅底，轨道改用描边色
+                trackColor = if (MelodiaColors.IsDark) MelodiaColors.TextPrimary.copy(alpha = 0.18f) else MelodiaColors.Outline
             )
         }
     }

@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.newworks.ui
 
-import com.lin0721.linmusic.core.ui.components.StateIcon
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -24,8 +23,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,11 +60,16 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.shimmerBackground
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
+import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import com.lin0721.linmusic.feature.newworks.domain.formatRelativeTime
 import com.lin0721.linmusic.feature.newworks.domain.trackSummary
@@ -178,13 +181,12 @@ private fun NewWorksFeedList(
         items(state.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
             ReleaseFeedCard(
                 release = release,
-                inLibrary = status.isInLibrary(release),
                 playing = status.isReleasePlaying(release),
                 onClick = { if (release.isAlbum) actions.onAlbumClick(release.id) else actions.onTogglePlay(release) },
                 onPlay = { actions.onTogglePlay(release) },
                 onAdd = {
                     if (release.isAlbum) {
-                        actions.onToggleLibrary(release)
+                        actions.onPrepareImportTargets { importRelease = release }
                     } else {
                         actions.onPrepareCollect(release.id) { collectSongId = release.id }
                     }
@@ -254,7 +256,6 @@ private fun NewWorksFeedList(
 @Composable
 private fun ReleaseFeedCard(
     release: NewWorksRelease,
-    inLibrary: Boolean,
     playing: Boolean,
     onClick: () -> Unit,
     onPlay: () -> Unit,
@@ -265,7 +266,13 @@ private fun ReleaseFeedCard(
     val baseColor by produceState(initialValue = FallbackBase, release.coverUrl) {
         value = extractBaseColorFromUrl(context, release.coverUrl)
     }
-    val cardColor by animateColorAsState(lerp(baseColor, Color.Black, CARD_COLOR_DARKEN), label = "releaseCardColor")
+    val isDark = MelodiaColors.IsDark
+    val cardColor by animateColorAsState(
+        coverBase(CoverGroup.CARDS, baseColor)?.let { if (isDark) lerp(it, Color.Black, CARD_COLOR_DARKEN) else immersiveMidFill(it) }
+            ?: MelodiaColors.ShellFill,
+        animationSpec = uiSpring(),
+        label = "releaseCardColor"
+    )
     val timeText = remember(release.publishTime) { formatRelativeTime(release.publishTime, System.currentTimeMillis()) }
 
     Column(
@@ -289,7 +296,7 @@ private fun ReleaseFeedCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = release.artistName,
-                    color = Color.White,
+                    color = MelodiaColors.OnCoverCard,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -298,21 +305,21 @@ private fun ReleaseFeedCard(
                 Spacer(Modifier.height(MelodiaSpacing.xs))
                 Text(
                     text = listOf(release.title, timeText).filter { it.isNotBlank() }.joinToString(" • "),
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MelodiaColors.OnCoverCard.copy(alpha = 0.7f),
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             MelodiaIconButton(onClick = onMore) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = Color.White)
+                Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.OnCoverCard)
             }
         }
 
         Spacer(Modifier.height(MelodiaSpacing.md))
         Text(
             text = release.trackSummary(),
-            color = Color.White.copy(alpha = 0.85f),
+            color = MelodiaColors.OnCoverCard.copy(alpha = 0.85f),
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -325,25 +332,23 @@ private fun ReleaseFeedCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onAdd) {
-                StateIcon(inLibrary) { added ->
-                    Icon(
-                        imageVector = if (added) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = if (added) "已添加" else "添加",
-                        tint = if (added) MaterialTheme.colorScheme.primary else Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Rounded.AddCircleOutline,
+                    contentDescription = "添加到歌单",
+                    tint = MelodiaColors.OnCoverCard,
+                    modifier = Modifier.size(28.dp)
+                )
             }
             Spacer(Modifier.width(MelodiaSpacing.xs))
             MelodiaIconButton(
                 onClick = onPlay,
                 style = MelodiaPress.Transport,
-                containerColor = Color.White,
+                containerColor = MelodiaColors.OnCoverCard,
                 modifier = Modifier.size(PlayButtonSize).clip(CircleShape)
             ) {
                 PlayPauseIcon(
                     isPlaying = playing,
-                    tint = Color.Black,
+                    tint = MelodiaColors.OnCoverCardInverse,
                     size = 30.dp,
                     contentDescription = if (playing) "暂停" else "播放"
                 )

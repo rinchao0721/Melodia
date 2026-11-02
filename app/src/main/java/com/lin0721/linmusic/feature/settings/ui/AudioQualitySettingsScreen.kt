@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +19,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +43,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                     subtitle = getQualityDisplayName(wifiQuality),
                     onClick = { qualityDialogTarget = "wifi" }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "移动网络环境播放音质",
                     subtitle = getQualityDisplayName(mobileQuality),

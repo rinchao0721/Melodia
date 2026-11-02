@@ -4,15 +4,26 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -33,9 +44,30 @@ class DownloadPreferences(private val context: Context) {
         private val json = Json { ignoreUnknownKeys = true }
     }
 
-    val records: Flow<List<DownloadRecord>> = context.downloadDataStore.data.map { prefs ->
-        decodeRecords(prefs[KEY_RECORDS])
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val verifiedUris = ConcurrentHashMap.newKeySet<String>()
+
+    // 共享已反序列化的下载记录，避免列表多行订阅时重复解析 JSON
+    val records: SharedFlow<List<DownloadRecord>> = context.downloadDataStore.data
+        .map { prefs -> decodeRecords(prefs[KEY_RECORDS]) }
+        .shareIn(scope, SharingStarted.Eagerly, replay = 1)
+
+    // 按歌曲 ID 索引的内存快照，供列表行 O(1) 读取
+    var recordsByIdSnapshot by mutableStateOf<Map<Long, DownloadRecord>>(emptyMap())
+        private set
+
+    init {
+        scope.launch {
+            records.collect { list ->
+                val byId = list.associateBy { it.songId }
+                Snapshot.withMutableSnapshot {
+                    recordsByIdSnapshot = byId
+                }
+            }
+        }
     }
+
+    fun isUriVerifiedCached(uriString: String): Boolean = uriString in verifiedUris
 
     suspend fun isDownloaded(songId: Long): Boolean = downloadedQualityFor(songId).first() != null
 
@@ -68,7 +100,11 @@ class DownloadPreferences(private val context: Context) {
 
     // 校验文件存在性并清理失效记录
     private suspend fun verifyOrPurge(record: DownloadRecord): DownloadRecord? =
-        if (fileExists(record.mediaStoreUri)) record else {
+        if (record.mediaStoreUri in verifiedUris || fileExists(record.mediaStoreUri)) {
+            verifiedUris.add(record.mediaStoreUri)
+            record
+        } else {
+            verifiedUris.remove(record.mediaStoreUri)
             removeRecord(record.songId)
             null
         }
@@ -82,6 +118,7 @@ class DownloadPreferences(private val context: Context) {
 
     // 删除下载文件；非本应用创建的 MediaStore 文件无删除权限时返回 false
     suspend fun deleteFile(uriString: String): Boolean = withContext(Dispatchers.IO) {
+        verifiedUris.remove(uriString)
         runCatching {
             val uri = Uri.parse(uriString)
             if (isDefaultDownloadDirectoryUri(uriString)) {
@@ -101,6 +138,7 @@ class DownloadPreferences(private val context: Context) {
 
     // 添加或更新下载记录
     suspend fun addRecord(record: DownloadRecord) {
+        verifiedUris.add(record.mediaStoreUri)
         context.downloadDataStore.edit { prefs ->
             val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId == record.songId } + record
             prefs[KEY_RECORDS] = json.encodeToString(updated)

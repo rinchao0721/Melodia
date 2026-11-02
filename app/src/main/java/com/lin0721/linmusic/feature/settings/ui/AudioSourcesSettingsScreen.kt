@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +36,7 @@ import com.lin0721.linmusic.core.source.UnmApiClient
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import kotlinx.coroutines.Dispatchers
@@ -111,7 +111,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     checked = searchAggregationEnabled,
                     onCheckedChange = { viewModel.updateSearchAggregationEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "无版权/VIP 自动换源",
                     subtitle = "官方网易云音源不可用或仅为试听时，自动从可用音源解析完整播放直链",
@@ -119,7 +119,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     onCheckedChange = { viewModel.updateFallbackEnabled(it) }
                 )
                 if (fallbackEnabled) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "社区源优先",
                         subtitle = "开启后优先尝试通过 LX 插件脚本解析，失败后 fallback 到远程 UNM 服务；关闭则先尝试远程 UNM",
@@ -322,7 +322,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (unmRemoteFallbackEnabled) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
 
                     SettingsRow(
                         title = "远程服务接口 (Base URL)",
@@ -330,7 +330,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         onClick = { showServerUrlDialog = true }
                     )
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
 
                     SettingsSwitchRow(
                         title = "服务端自动选择模式",
@@ -457,7 +457,8 @@ private fun ServerUrlEditDialog(
                 OutlinedTextField(
                     value = textValue,
                     onValueChange = {
-                        textValue = it
+                        // 复制来的地址常带换行，单行输入框只显示首行会像是空的
+                        textValue = it.filterNot(Char::isWhitespace)
                         testResult = null
                     },
                     placeholder = { Text("例如 https://your-unm-server.com", fontSize = 13.sp) },

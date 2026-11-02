@@ -9,12 +9,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @Composable
@@ -37,7 +37,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                     checked = wifiOnlyPlay,
                     onCheckedChange = { viewModel.updateWifiOnlyPlay(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "流量播放警告提示",
                     subtitle = "从 Wi-Fi 切换为移动数据时弹出提醒",
@@ -57,7 +57,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (useRealIp) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -81,7 +81,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                     }
                 }
 
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
 
                 SettingsSwitchRow(
                     title = "使用代理服务器",

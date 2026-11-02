@@ -7,7 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @Composable
@@ -20,7 +20,7 @@ fun PrivacySettingsView(viewModel: SettingsViewModel) {
     ) {
         Text(
             text = "隐私设置开发中",
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 14.sp
         )
     }

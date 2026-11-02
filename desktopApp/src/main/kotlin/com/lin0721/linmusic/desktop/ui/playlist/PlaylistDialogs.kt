@@ -101,16 +101,14 @@ internal fun EditPlaylistDialog(
     val changed = name.trim() != initialName.trim() || description.trim() != initialDescription.trim() || coverBytes != null
     val canSubmit = name.isNotBlank() && changed && !isSaving
 
-    val pickCover = {
-        val file = chooseImageFile("选择歌单封面")
-        if (file != null) {
-            scope.launch {
-                val prepared = withContext(Dispatchers.IO) { CoverImage.prepareJpeg(file) }
-                prepared.onSuccess { bytes ->
-                    coverBytes = bytes
-                    coverPreview = withContext(Dispatchers.IO) { SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap() }
-                }.onFailure { navigator.showMessage(it.message ?: "无法处理该图片") }
-            }
+    val pickCover: () -> Unit = {
+        scope.launch {
+            val file = chooseImageFile("选择歌单封面") ?: return@launch
+            val prepared = withContext(Dispatchers.IO) { CoverImage.prepareJpeg(file) }
+            prepared.onSuccess { bytes ->
+                coverBytes = bytes
+                coverPreview = withContext(Dispatchers.IO) { SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap() }
+            }.onFailure { navigator.showMessage(it.message ?: "无法处理该图片") }
         }
     }
 

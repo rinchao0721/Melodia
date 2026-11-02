@@ -10,6 +10,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AmllLyricsClientTest {
+    @Test fun primaryExceedingSixSecondsIsDiscarded() = runBlocking {
+        MockWebServer().use { server ->
+            val xml = """<tt xmlns="http://www.w3.org/ns/ttml"><body><div><p begin="1s" end="2s"><span begin="1s" end="2s">slow TLS or body</span></p></div></body></tt>"""
+            server.enqueue(MockResponse().setBody(xml).setBodyDelay(6200, TimeUnit.MILLISECONDS))
+            assertNull(AmllLyricsClient().fetchFrom(listOf(server.url("/primary").toString())))
+        }
+    }
+
     @Test fun rawHitSkipsNetworkAndAll404CreatesNegativeCache() = runBlocking {
         val root = Files.createTempDirectory("amll-client-cache").toFile()
         try {

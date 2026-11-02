@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -34,13 +35,9 @@ import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.model.qualityRank
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SvipGold
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import org.koin.compose.koinInject
 
 // VIP 与 SVIP 专属档位
@@ -53,7 +50,9 @@ private fun requiredPlanLabel(quality: String): String? = when {
     else -> null
 }
 
-private fun requiredPlanColor(quality: String): Color = if (quality in SVIP_TIERS) SvipGold else NeteaseRed
+@Composable
+@ReadOnlyComposable
+private fun requiredPlanColor(quality: String): Color = if (quality in SVIP_TIERS) MelodiaColors.Vip else MelodiaColors.Accent
 
 // 各档位的格式与规格说明
 private fun qualityDescription(quality: String): String = when (quality) {
@@ -119,7 +118,7 @@ fun DownloadQualityPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -134,7 +133,7 @@ fun DownloadQualityPickerSheet(
             Column(modifier = Modifier.padding(horizontal = MelodiaSpacing.sm)) {
                 Text(
                     text = "选择下载音质",
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -146,7 +145,7 @@ fun DownloadQualityPickerSheet(
                     Spacer(Modifier.height(MelodiaSpacing.xs))
                     Text(
                         text = context,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -156,7 +155,7 @@ fun DownloadQualityPickerSheet(
                     Spacer(Modifier.height(MelodiaSpacing.xs))
                     Text(
                         text = "已下载同等或更高音质的歌曲会自动跳过",
-                        color = TextGray.copy(alpha = 0.7f),
+                        color = MelodiaColors.TextSecondary.copy(alpha = 0.7f),
                         fontSize = 12.sp
                     )
                 }
@@ -224,7 +223,7 @@ private fun QualityRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -237,7 +236,7 @@ private fun QualityRow(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = description,
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -245,11 +244,11 @@ private fun QualityRow(
         if (status != null) {
             Spacer(Modifier.width(MelodiaSpacing.sm))
             if (status.highlighted) {
-                OutlinedBadge(text = status.text, color = DownloadedGreen)
+                OutlinedBadge(text = status.text, color = MelodiaColors.Success)
             } else {
                 Text(
                     text = status.text,
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 12.sp,
                     maxLines = 1
                 )

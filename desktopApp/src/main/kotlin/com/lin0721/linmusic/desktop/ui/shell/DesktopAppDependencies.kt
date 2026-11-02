@@ -1,14 +1,22 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.core.plugin.PlayerCardSource
+import com.lin0721.linmusic.core.plugin.PluginCommands
+import com.lin0721.linmusic.core.plugin.PluginPageHost
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
+import com.lin0721.linmusic.desktop.data.recognition.DesktopRecognition
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
+import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
+import com.lin0721.linmusic.desktop.ui.local.LocalMusicActions
 import com.lin0721.linmusic.desktop.ui.settings.DesktopSettingsViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
@@ -46,12 +54,20 @@ class DesktopAppDependencies(
     val commonSettingsViewModel: CommonSettingsViewModel,
     val desktopSettingsViewModel: DesktopSettingsViewModel,
     val lxPluginSettingsViewModel: LxPluginSettingsViewModel,
+    val plugins: PluginRepository,
+    val pluginPages: PluginPageHost,
+    val pluginCommands: PluginCommands,
+    val playerCards: PlayerCardSource,
     val playbackController: DesktopPlaybackController,
     val downloader: DesktopSongDownloader,
     val desktopPreferences: DesktopPreferences,
     val settingsPreferences: SettingsPreferences,
     val sessionMonitor: SessionMonitor,
     val browserLocator: BrowserLocator,
+    val updateChecker: UpdateChecker,
     val songActions: SongActionSources,
+    val localMusic: LocalMusicActions,
+    val cloudMusic: CloudMusicActions,
+    val recognition: DesktopRecognition,
     val pageViewModels: PageViewModelFactory
 )

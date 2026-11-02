@@ -231,7 +231,7 @@ class CloudViewModel(
         }
         val queueItems = currentList.map { item ->
             QueueItem(
-                songId = item.songId,
+                songId = item.playSongId,
                 title = item.name,
                 artist = item.artist,
                 coverUrl = item.coverUrl.orEmpty()
@@ -255,11 +255,11 @@ class CloudViewModel(
     // 喜欢是即时切换，不像添加到歌单/重新匹配那样需要跳到下一个浮层，直接收起面板
     fun toggleLike() {
         val song = (_overlay.value as? CloudOverlay.Options)?.song ?: return
-        val isLike = song.songId !in songLikeRepository.likedSongIds.value
+        val isLike = song.playSongId !in songLikeRepository.likedSongIds.value
         _overlay.value = CloudOverlay.Hidden
 
         viewModelScope.launch {
-            songLikeRepository.likeSong(song.songId, isLike).first()
+            songLikeRepository.likeSong(song.playSongId, isLike).first()
                 .onSuccess {
                     _toastEvent.emit(if (isLike) "已添加到我喜欢的音乐" else "已从我喜欢的音乐中移除")
                 }
@@ -379,7 +379,7 @@ class CloudViewModel(
         val song = (_overlay.value as? CloudOverlay.Options)?.song ?: return
         _overlay.value = CloudOverlay.AddToPlaylist(song)
         viewModelScope.launch {
-            songCollectDelegate.prepare(song.songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            songCollectDelegate.prepare(song.playSongId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
@@ -413,7 +413,8 @@ class CloudViewModel(
                         name = target.name,
                         artist = target.ar.joinToString(" / ") { artist -> artist.name },
                         coverUrl = target.al.picUrl.ifBlank { null },
-                        isUnmatched = false
+                        isUnmatched = false,
+                        playSongId = target.id
                     )
                 } else {
                     it

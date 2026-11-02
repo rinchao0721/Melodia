@@ -16,7 +16,7 @@ object DesktopCacheMigration {
         migrate(File(data, "meta_cache"), DesktopPaths.metadataCacheDir)
         migrate(File(data, "download_tmp"), DesktopPaths.downloadTempDir)
         // 歌词缓存旧位置是 数据目录/cache/lyrics，迁完清掉空的 cache 目录
-        migrate(File(File(data, "cache"), "lyrics"), File(DesktopPaths.localCacheDir, "lyrics"))
+        migrate(File(File(data, "cache"), "lyrics"), DesktopPaths.lyricsCacheDir)
         File(data, "cache").takeIf { it.absoluteFile != DesktopPaths.localCacheDir.absoluteFile }?.delete()
     }
 

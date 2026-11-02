@@ -60,3 +60,6 @@
 # 压缩包解析（zip/7z）：编解码器与压缩方法按名称查找，不能裁剪
 -keep class org.apache.commons.compress.** { *; }
 -keep class org.tukaani.xz.** { *; }
+
+# 音频标签读写：枚举 values() 与帧类型按反射访问，裁剪后静态初始化会失败
+-keep class org.jaudiotagger.** { *; }

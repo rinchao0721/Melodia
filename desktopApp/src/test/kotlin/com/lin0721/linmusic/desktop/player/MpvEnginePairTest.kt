@@ -155,4 +155,31 @@ class MpvEnginePairTest {
         assertFalse(pair.spareReady)
         assertEquals(null, pair.promote(500L))
     }
+
+    // -6dB 对应 mpv 音量系数约 0.794
+    @Test
+    fun trackGainAppliesOnLoadAndRampsAtRuntime() {
+        val pair = newPair()
+        pair.load(wav("a.wav", 6, 440.0), 0L, gainDb = -6.0)
+        assertTrue(await(5_000) { positions.isNotEmpty() })
+        assertEquals(79.4, pair.volumes().first ?: -1.0, 0.2)
+
+        pair.setTrackGain(0.0)
+        Thread.sleep(800)
+        val mid = pair.volumes().first ?: -1.0
+        assertTrue("增益应平滑变化：$mid", mid > 80.0 && mid < 99.5)
+        assertTrue(await(3_000) { (pair.volumes().first ?: 0.0) > 99.9 })
+    }
+
+    @Test
+    fun crossfadeEndsAtIncomingTrackGain() {
+        val pair = newPair()
+        pair.load(wav("a.wav", 4, 440.0), 0L)
+        assertTrue(await(5_000) { positions.isNotEmpty() })
+        assertTrue(pair.prepareSpare(wav("b.wav", 4, 660.0), gainDb = -6.0))
+        assertTrue(await(5_000) { pair.spareReady })
+        pair.promote(500L)
+        assertTrue(await(3_000) { !pair.isFading })
+        assertEquals(79.4, pair.volumes().first ?: -1.0, 0.2)
+    }
 }

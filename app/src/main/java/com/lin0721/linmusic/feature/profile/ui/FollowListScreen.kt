@@ -29,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,8 +41,8 @@ import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -150,7 +149,7 @@ fun FollowListScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = user.nickname,
-                                        color = Color.White,
+                                        color = MelodiaColors.TextPrimary,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Medium,
                                         maxLines = 1,
@@ -161,7 +160,7 @@ fun FollowListScreen(
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = user.signature,
-                                            color = TextGray,
+                                            color = MelodiaColors.TextSecondary,
                                             fontSize = 12.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis

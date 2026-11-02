@@ -22,11 +22,14 @@ import androidx.compose.ui.unit.dp
 // 二态图标切换：新图标弹性放大淡入、旧图标缩小淡出，让点击结果立刻可见
 @Composable
 fun StateIcon(active: Boolean, content: @Composable (Boolean) -> Unit) {
+    val motion = LocalUiMotion.current
     AnimatedContent(
         targetState = active,
         transitionSpec = {
-            (scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn()) togetherWith
-                (scaleOut() + fadeOut())
+            motion.transform(
+                (scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn()) togetherWith
+                    (scaleOut() + fadeOut())
+            )
         },
         label = "stateIcon"
     ) { content(it) }

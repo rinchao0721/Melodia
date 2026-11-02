@@ -2,7 +2,7 @@ package com.lin0721.linmusic.core.player
 
 private const val MAX_SLEEP_TIMER_HOURS = 23
 private const val MINUTES_PER_HOUR = 60
-private const val MAX_SLEEP_TIMER_MINUTES = MAX_SLEEP_TIMER_HOURS * MINUTES_PER_HOUR + 59
+const val MAX_SLEEP_TIMER_MINUTES =MAX_SLEEP_TIMER_HOURS * MINUTES_PER_HOUR + 59
 
 data class SleepTimerSelection(
     val hours: Int,

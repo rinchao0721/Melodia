@@ -11,10 +11,20 @@ import com.sun.jna.win32.W32APIOptions
 internal interface Dwmapi : Library {
     fun DwmSetWindowAttribute(hwnd: Pointer, dwAttribute: Int, pvAttribute: IntByReference, cbAttribute: Int): Int
 
+    // 由调用方在响应 WM_DWMSENDICONICTHUMBNAIL 时提供缩略图位图（32 位 DIB）
+    fun DwmSetIconicThumbnail(hwnd: Pointer, hbmp: Pointer, dwSITFlags: Int): Int
+    // 响应 WM_DWMSENDICONICLIVEPREVIEWBITMAP 时提供预览位图
+    fun DwmSetIconicLivePreviewBitmap(hwnd: Pointer, hbmp: Pointer, pptClient: Pointer?, dwSITFlags: Int): Int
+    fun DwmInvalidateIconicBitmaps(hwnd: Pointer): Int
+
     companion object {
         val INSTANCE: Dwmapi by lazy { Native.load("dwmapi", Dwmapi::class.java, W32APIOptions.DEFAULT_OPTIONS) }
 
         const val DWMWA_TRANSITIONS_FORCEDISABLED = 3
+        const val DWMWA_FORCE_ICONIC_REPRESENTATION = 7
+        const val DWMWA_HAS_ICONIC_BITMAP = 10
+        const val DWMWA_DISALLOW_PEEK = 11
+        const val DWMWA_EXCLUDED_FROM_PEEK = 12
         const val DWMWA_WINDOW_CORNER_PREFERENCE = 33
         const val DWMWA_BORDER_COLOR = 34
 

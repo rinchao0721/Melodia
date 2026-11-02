@@ -3,8 +3,6 @@ package com.lin0721.linmusic.core.comment.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -30,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import com.lin0721.linmusic.core.comment.data.CommentSortType
 import com.lin0721.linmusic.core.ui.components.shimmerBackground
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +45,10 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.uiSpring
+import com.lin0721.linmusic.core.ui.theme.uiTween
 
 @Composable
 fun CommentsPreviewCard(
@@ -80,19 +78,19 @@ fun CommentsPreviewCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Comment,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "评论",
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     if (commentsState is CommentsState.Success) {
                         Text(
                             text = "(${commentsState.total})",
-                            color = TextGray.copy(alpha = 0.8f),
+                            color = MelodiaColors.TextSecondary.copy(alpha = 0.8f),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -111,7 +109,7 @@ fun CommentsPreviewCard(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            color = NeteaseRed,
+                            color = MelodiaColors.AccentText,
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp
                         )
@@ -127,13 +125,13 @@ fun CommentsPreviewCard(
                     ) {
                         Text(
                             text = "加载评论失败: ${commentsState.message}",
-                            color = TextGray,
+                            color = MelodiaColors.TextSecondary,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
                         MelodiaTextButton(
                             onClick = onRetry,
-                            colors = ButtonDefaults.textButtonColors(contentColor = NeteaseRed)
+                            colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
                         ) {
                             Text("重试", fontWeight = FontWeight.Bold)
                         }
@@ -147,7 +145,7 @@ fun CommentsPreviewCard(
                     if (allComments.isEmpty()) {
                         Text(
                             text = "暂无评论",
-                            color = TextGray,
+                            color = MelodiaColors.TextSecondary,
                             fontSize = 14.sp,
                             modifier = Modifier.padding(vertical = MelodiaSpacing.md)
                         )
@@ -164,7 +162,7 @@ fun CommentsPreviewCard(
                                 )
                                 if (index < allComments.size - 1) {
                                     HorizontalDivider(
-                                        color = Color.White.copy(alpha = 0.08f),
+                                        color = MelodiaColors.Divider,
                                         thickness = 0.5.dp
                                     )
                                 }
@@ -174,7 +172,7 @@ fun CommentsPreviewCard(
 
                             Text(
                                 text = "查看全部 ${commentsState.total} 条评论",
-                                color = NeteaseRed,
+                                color = MelodiaColors.AccentText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
@@ -210,13 +208,13 @@ fun CommentSortTabs(
         tabs.forEach { (type, label) ->
             val isSelected = type == current
             val bgColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
-                animationSpec = tween(220),
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MelodiaColors.Overlay.copy(alpha = 0.1f),
+                animationSpec = uiTween(220),
                 label = "sort_pill_bg"
             )
             val contentColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.LightGray,
-                animationSpec = tween(220),
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MelodiaColors.PillContent,
+                animationSpec = uiTween(220),
                 label = "sort_pill_content"
             )
             Box(
@@ -225,7 +223,7 @@ fun CommentSortTabs(
                     .pressable(MelodiaPress.Pill) { onSelect(type) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(bgColor)
-                    .animateContentSize(spring(stiffness = Spring.StiffnessMedium))
+                    .animateContentSize(uiSpring(stiffness = Spring.StiffnessMedium))
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -246,6 +244,8 @@ fun CommentRowItem(
     modifier: Modifier = Modifier,
     contentMaxLines: Int = Int.MAX_VALUE,
     isLikeClickable: Boolean = true,
+    // 只读评论（QQ 音乐）不能回复，也没有楼层
+    allowReply: Boolean = true,
     onLikeClick: () -> Unit = {},
     onUserClick: (Long) -> Unit = {},
     onReplyClick: () -> Unit = {},
@@ -292,7 +292,7 @@ fun CommentRowItem(
                 ) {
                     Text(
                         text = comment.user.nickname,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = MelodiaColors.TextPrimary.copy(alpha = 0.9f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -300,7 +300,7 @@ fun CommentRowItem(
                     )
                     Text(
                         text = comment.timeStr ?: "",
-                        color = TextGray.copy(alpha = 0.6f),
+                        color = MelodiaColors.TextTertiary,
                         fontSize = 11.sp
                     )
                 }
@@ -321,13 +321,13 @@ fun CommentRowItem(
                 ) {
                     Text(
                         text = formatLikedCount(comment.likedCount),
-                        color = if (comment.liked) NeteaseRed else TextGray.copy(alpha = 0.8f),
+                        color = if (comment.liked) MelodiaColors.AccentText else MelodiaColors.TextSecondary.copy(alpha = 0.8f),
                         fontSize = 12.sp
                     )
                     Icon(
                         imageVector = Icons.Rounded.ThumbUp,
                         contentDescription = null,
-                        tint = if (comment.liked) NeteaseRed else TextGray.copy(alpha = 0.6f),
+                        tint = if (comment.liked) MelodiaColors.Accent else MelodiaColors.TextTertiary,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -342,7 +342,7 @@ fun CommentRowItem(
                         .then(
                             if (isInteractive) {
                                 Modifier.combinedClickable(
-                                    onClick = onReplyClick,
+                                    onClick = { if (allowReply) onReplyClick() },
                                     onLongClick = { showActionMenu = true }
                                 )
                             } else {
@@ -352,7 +352,7 @@ fun CommentRowItem(
                 ) {
                     Text(
                         text = comment.content,
-                        color = Color.White.copy(alpha = 0.95f),
+                        color = MelodiaColors.TextPrimary.copy(alpha = 0.95f),
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
                         maxLines = contentMaxLines,
@@ -365,12 +365,12 @@ fun CommentRowItem(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color.White.copy(alpha = 0.06f))
+                                .background(MelodiaColors.Overlay.copy(alpha = 0.06f))
                                 .padding(horizontal = MelodiaSpacing.sm, vertical = 6.dp)
                         ) {
                             Text(
                                 text = "回复 ${quoted.user?.nickname.orEmpty()}：${quoted.content.orEmpty()}",
-                                color = TextGray.copy(alpha = 0.85f),
+                                color = MelodiaColors.TextSecondary.copy(alpha = 0.85f),
                                 fontSize = 12.sp,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
@@ -384,7 +384,7 @@ fun CommentRowItem(
                         expanded = showActionMenu,
                         onDismissRequest = { showActionMenu = false },
                         shape = RoundedCornerShape(20.dp),
-                        containerColor = SurfaceDark
+                        containerColor = MelodiaColors.Surface
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.xs),
@@ -398,14 +398,16 @@ fun CommentRowItem(
                                     clipboardManager.setText(AnnotatedString(comment.content))
                                 }
                             )
-                            CommentActionMenuItem(
-                                icon = Icons.AutoMirrored.Rounded.Reply,
-                                label = "回复",
-                                onClick = {
-                                    showActionMenu = false
-                                    onReplyClick()
-                                }
-                            )
+                            if (allowReply) {
+                                CommentActionMenuItem(
+                                    icon = Icons.AutoMirrored.Rounded.Reply,
+                                    label = "回复",
+                                    onClick = {
+                                        showActionMenu = false
+                                        onReplyClick()
+                                    }
+                                )
+                            }
                             CommentActionMenuItem(
                                 icon = Icons.Rounded.Share,
                                 label = "分享",
@@ -422,7 +424,7 @@ fun CommentRowItem(
                                 CommentActionMenuItem(
                                     icon = Icons.Rounded.Delete,
                                     label = "删除",
-                                    tint = NeteaseRed,
+                                    tint = MelodiaColors.Accent,
                                     onClick = {
                                         showActionMenu = false
                                         onDeleteClick()
@@ -434,11 +436,11 @@ fun CommentRowItem(
                 }
             }
 
-            if (isInteractive && comment.replyCount > 0) {
+            if (isInteractive && allowReply && comment.replyCount > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "展开 ${comment.replyCount} 条回复 ›",
-                    color = NeteaseRed,
+                    color = MelodiaColors.AccentText,
                     fontSize = 12.sp,
                     modifier = Modifier.pressable(MelodiaPress.Pill, onClick = onExpandFloorClick)
                 )
@@ -453,7 +455,7 @@ private fun CommentActionMenuItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    tint: Color = Color.White
+    tint: Color = MelodiaColors.TextPrimary
 ) {
     Column(
         modifier = Modifier
@@ -578,7 +580,7 @@ fun CommentFloorSkeleton(modifier: Modifier = Modifier) {
         CommentItemSkeleton()
         HorizontalDivider(
             modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
-            color = Color.White.copy(alpha = 0.08f)
+            color = MelodiaColors.Divider
         )
         Box(
             modifier = Modifier
@@ -591,7 +593,7 @@ fun CommentFloorSkeleton(modifier: Modifier = Modifier) {
             CommentItemSkeleton()
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
-                color = Color.White.copy(alpha = 0.06f)
+                color = MelodiaColors.Overlay.copy(alpha = 0.06f)
             )
         }
     }

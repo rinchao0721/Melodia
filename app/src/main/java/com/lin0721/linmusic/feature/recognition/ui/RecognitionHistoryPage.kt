@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.recognition.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,11 +39,9 @@ import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.SwipeDeleteBackground
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import com.lin0721.linmusic.feature.recognition.data.MAX_RECOGNITION_HISTORY
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionHistoryEntry
@@ -72,7 +68,7 @@ internal fun RecognitionHistoryPage(
         actions = {
             if (history.isNotEmpty()) {
                 MelodiaTextButton(onClick = { confirmClear = true }) {
-                    Text(text = "清空", color = TextGray, fontSize = 15.sp)
+                    Text(text = "清空", color = MelodiaColors.TextSecondary, fontSize = 15.sp)
                 }
             }
         }
@@ -91,25 +87,25 @@ internal fun RecognitionHistoryPage(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("清空识别历史", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("确定要清空全部 ${history.size} 条识别记录吗？", color = TextGray, fontSize = 14.sp) },
+            title = { Text("清空识别历史", color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("确定要清空全部 ${history.size} 条识别记录吗？", color = MelodiaColors.TextSecondary, fontSize = 14.sp) },
             confirmButton = {
                 MelodiaTextButton(
                     onClick = {
                         confirmClear = false
                         onClear()
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = NeteaseRed)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
                 ) {
                     Text("是的", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { confirmClear = false }) {
-                    Text("取消", color = Color.White)
+                    Text("取消", color = MelodiaColors.TextPrimary)
                 }
             },
-            containerColor = SurfaceDark,
+            containerColor = MelodiaColors.Surface,
             shape = RoundedCornerShape(10.dp)
         )
     }
@@ -127,7 +123,7 @@ private fun HistoryList(
             item(key = "header_${section.label}") {
                 Text(
                     text = section.label,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(
@@ -145,7 +141,7 @@ private fun HistoryList(
         item(key = "footer") {
             Text(
                 text = "只保存识别成功的记录，最多 $MAX_RECOGNITION_HISTORY 条 · 左滑删除单条",
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(vertical = MelodiaSpacing.lg)
@@ -180,7 +176,7 @@ private fun HistoryRow(
         enableDismissFromStartToEnd = false
     ) {
         // 前景必须有底色，否则左滑前就会透出红色底层
-        Box(modifier = Modifier.background(BackgroundDark)) {
+        Box(modifier = Modifier.paneBackdrop(MelodiaColors.Background)) {
             SongRow(
                 data = SongRowData(
                     id = entry.songId,
@@ -196,7 +192,7 @@ private fun HistoryRow(
                 // 同一首歌可能有多条历史，正在播放时这些行都标为播放态
                 if (!isCurrent) MelodiaButton(
                     onClick = { onPlay(entry) },
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Surface, contentColor = MelodiaColors.TextPrimary),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     modifier = Modifier.padding(start = MelodiaSpacing.sm).height(32.dp)
                 ) {

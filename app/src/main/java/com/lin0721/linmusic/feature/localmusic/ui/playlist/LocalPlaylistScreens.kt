@@ -62,7 +62,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
@@ -92,7 +93,7 @@ fun LocalPlaylistsScreen(
         onBack = navigation.onBack,
         actions = {
             MelodiaIconButton(onClick = { showCreate = true }) {
-                Icon(Icons.Rounded.Add, contentDescription = "新建歌单", tint = Color.White)
+                Icon(Icons.Rounded.Add, contentDescription = "新建歌单", tint = MelodiaColors.TextPrimary)
             }
         }
     ) {
@@ -176,7 +177,7 @@ fun LocalPlaylistScreen(
 
     BackHandler(enabled = editing) { editing = false }
 
-    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) {
             when {
                 playlist == null -> MissingPlaylist(onBack = navigation.onBack)
@@ -196,12 +197,12 @@ fun LocalPlaylistScreen(
                             actions = {
                                 if (playlist.tracks.isNotEmpty()) {
                                     MelodiaIconButton(onClick = { editing = true }) {
-                                        Icon(Icons.Rounded.Edit, contentDescription = "编辑歌单", tint = Color.White)
+                                        Icon(Icons.Rounded.Edit, contentDescription = "编辑歌单", tint = MelodiaColors.TextPrimary)
                                     }
                                 }
                                 Box {
                                     MelodiaIconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = Color.White)
+                                        Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
                                     }
                                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                         DropdownMenuItem(text = { Text("重命名") }, onClick = {
@@ -294,7 +295,7 @@ private fun PlaylistHeroInfo(playlist: LocalPlaylist) {
         Column {
             Text(
                 text = playlist.name,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 3,
@@ -304,7 +305,7 @@ private fun PlaylistHeroInfo(playlist: LocalPlaylist) {
             Text(
                 text = listOfNotNull("本地歌单", "${playlist.tracks.size} 首", minutes.takeIf { it > 0 }?.let { "$it 分钟" })
                     .joinToString(" · "),
-                color = Color.White.copy(alpha = 0.7f),
+                color = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = MelodiaSpacing.xs)
             )
@@ -331,11 +332,11 @@ private fun EditPlaylistContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onCancel) {
-                Icon(Icons.Rounded.Close, contentDescription = "放弃修改", tint = Color.White)
+                Icon(Icons.Rounded.Close, contentDescription = "放弃修改", tint = MelodiaColors.TextPrimary)
             }
             Text(
                 text = "编辑歌单",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f).padding(start = MelodiaSpacing.xs)
@@ -360,7 +361,7 @@ private fun EditPlaylistContent(
                 val dragging = reorder.draggingKey == key
                 Row(
                     modifier = Modifier
-                        .then(if (dragging) Modifier.zIndex(1f) else Modifier.animateItem())
+                        .then(if (dragging) Modifier.zIndex(1f) else if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier)
                         .graphicsLayer { translationY = if (dragging) reorder.dragOffset else 0f }
                         .fillMaxWidth()
                         .background(if (dragging) MaterialTheme.colorScheme.surface else Color.Transparent)
@@ -409,7 +410,7 @@ private fun EditPlaylistContent(
 private fun MissingPlaylist(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         MelodiaIconButton(onClick = onBack, modifier = Modifier.padding(MelodiaSpacing.xs)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(icon = Icons.AutoMirrored.Rounded.QueueMusic, title = "歌单不存在或已删除")

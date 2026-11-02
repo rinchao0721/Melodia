@@ -28,6 +28,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.SleepTimerSelection
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
@@ -111,7 +112,7 @@ fun SleepTimerSheet(
                 }
 
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.08f),
+                    color = MelodiaColors.Divider,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
 
@@ -134,7 +135,7 @@ fun SleepTimerSheet(
                     Icon(
                         imageVector = Icons.Rounded.ChevronRight,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.3f),
+                        tint = MelodiaColors.TextDisabled,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -190,7 +191,7 @@ fun SleepTimerSheet(
                         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
                         Text(
                             text = "时",
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = MelodiaColors.TextPrimary.copy(alpha = 0.5f),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
@@ -200,7 +201,7 @@ fun SleepTimerSheet(
 
                     Text(
                         text = ":",
-                        color = Color.White.copy(alpha = 0.2f),
+                        color = MelodiaColors.Overlay.copy(alpha = 0.2f),
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Light,
                         modifier = Modifier.padding(bottom = 6.dp)
@@ -221,7 +222,7 @@ fun SleepTimerSheet(
                         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
                         Text(
                             text = "分",
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = MelodiaColors.TextPrimary.copy(alpha = 0.5f),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
@@ -253,7 +254,7 @@ fun SleepTimerSheet(
                                     .weight(1f)
                                     .height(36.dp)
                                     .clip(RoundedCornerShape(PillRadius))
-                                    .background(Color.White.copy(alpha = if (enabled) 0.05f else 0.02f))
+                                    .background(MelodiaColors.TextPrimary.copy(alpha = if (enabled) 0.05f else 0.02f))
                                     .clickable(enabled = enabled) {
                                         customTime = customTime.adjustMinutes(delta)
                                     },
@@ -261,7 +262,7 @@ fun SleepTimerSheet(
                             ) {
                                 Text(
                                     text = label,
-                                    color = Color.White.copy(alpha = if (enabled) 0.8f else 0.25f),
+                                    color = MelodiaColors.TextPrimary.copy(alpha = if (enabled) 0.8f else 0.25f),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -290,8 +291,8 @@ fun SleepTimerSheet(
                                     .background(
                                         when {
                                             label == "重置" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                            enabled -> Color.White.copy(alpha = 0.05f)
-                                            else -> Color.White.copy(alpha = 0.02f)
+                                            enabled -> MelodiaColors.Overlay.copy(alpha = 0.05f)
+                                            else -> MelodiaColors.Overlay.copy(alpha = 0.02f)
                                         }
                                     )
                                     .clickable(enabled = enabled) {
@@ -307,8 +308,8 @@ fun SleepTimerSheet(
                                     text = label,
                                     color = when {
                                         label == "重置" -> MaterialTheme.colorScheme.primary
-                                        enabled -> Color.White.copy(alpha = 0.8f)
-                                        else -> Color.White.copy(alpha = 0.25f)
+                                        enabled -> MelodiaColors.TextPrimary.copy(alpha = 0.8f)
+                                        else -> MelodiaColors.TextPrimary.copy(alpha = 0.25f)
                                     },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
@@ -331,7 +332,7 @@ fun SleepTimerSheet(
                     enabled = totalTargetMinutes > 0,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent,
-                        disabledContainerColor = Color.White.copy(alpha = 0.04f)
+                        disabledContainerColor = MelodiaColors.Overlay.copy(alpha = 0.04f)
                     ),
                     contentPadding = PaddingValues(),
                     shape = RoundedCornerShape(12.dp),
@@ -349,8 +350,8 @@ fun SleepTimerSheet(
                             } else {
                                 Brush.horizontalGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = 0.04f),
-                                        Color.White.copy(alpha = 0.04f)
+                                        MelodiaColors.Overlay.copy(alpha = 0.04f),
+                                        MelodiaColors.Overlay.copy(alpha = 0.04f)
                                     )
                                 )
                             },
@@ -437,12 +438,12 @@ private fun TimeWheelPicker(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 thickness = 1.dp,
                 modifier = Modifier.padding(top = itemHeight)
             )
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 thickness = 1.dp,
                 modifier = Modifier.padding(bottom = itemHeight)
             )

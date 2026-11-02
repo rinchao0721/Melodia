@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.comments
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -41,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -80,8 +79,8 @@ fun CommentInputBar(
         }
     }
 
-    Column(modifier.fillMaxWidth().background(DesktopColors.Pane)) {
-        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+    Column(modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)) {
+        HorizontalDivider(color = DesktopColors.Divider)
         if (replyTarget != null) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp),
@@ -89,7 +88,7 @@ fun CommentInputBar(
             ) {
                 Text(
                     "回复 @${replyTarget.user.nickname}:",
-                    color = DesktopColors.Accent,
+                    color = DesktopColors.AccentText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
@@ -134,9 +133,9 @@ fun CommentInputBar(
                 )
             ) {
                 if (isSubmitting) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = DesktopColors.OnAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("发送", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("发送", color = DesktopColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

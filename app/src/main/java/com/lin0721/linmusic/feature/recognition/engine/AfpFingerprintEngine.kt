@@ -25,11 +25,6 @@ private const val BRIDGE_NAME = "AfpBridge"
 private const val PAGE_LOAD_TIMEOUT_MS = 10_000L
 private const val FINGERPRINT_TIMEOUT_MS = 10_000L
 
-fun interface FingerprintGenerator {
-    // 输入 8 kHz 单声道 PCM，返回网易 afp 指纹的 base64
-    suspend fun generate(pcm: FloatArray): String
-}
-
 // 隐藏 WebView 承载网易云 afp WASM；JS 跑在 WebView 渲染线程，不占主线程，无需 Web Worker
 class AfpFingerprintEngine(private val context: Context) : FingerprintGenerator {
 

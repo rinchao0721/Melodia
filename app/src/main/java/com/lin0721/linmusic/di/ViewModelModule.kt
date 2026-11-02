@@ -26,7 +26,6 @@ import com.lin0721.linmusic.feature.recent.ui.RecentPlayViewModel
 import com.lin0721.linmusic.feature.cloud.ui.CloudViewModel
 import com.lin0721.linmusic.feature.downloads.ui.DownloadsViewModel
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
-import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
@@ -62,7 +61,7 @@ val viewModelModule = module {
             loadLikedSongIdsUseCase = get(),
             songLikeRepository = get(),
             syncProfileAfterLoginUseCase = get(),
-            sourceProviders = getAll<AudioSourceProvider>(),
+            externalResolver = get(),
             searchProviders = getAll<PlatformSearchProvider>(),
             settingsPreferences = getOrNull(),
             sourcePreferences = getOrNull()

@@ -1,20 +1,26 @@
 package com.lin0721.linmusic.core.player
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -29,6 +35,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import coil3.SingletonImageLoader
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
@@ -44,6 +51,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -54,8 +63,37 @@ private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
 private const val PLAYBACK_CHANNEL_NAME = "正在播放"
+private const val ACTION_UNLOCK_FLOATING_LYRIC = "ACTION_UNLOCK_FLOATING_LYRIC"
+private const val ACTION_PREPARE_FOREGROUND = "com.lin0721.linmusic.action.PREPARE_FOREGROUND"
+private const val ACTION_STOP_PENDING_FOREGROUND = "com.lin0721.linmusic.action.STOP_PENDING_FOREGROUND"
+private const val EXTRA_PENDING_TITLE = "extra_pending_title"
+private const val EXTRA_PENDING_ARTIST = "extra_pending_artist"
 
 class MelodiaPlaybackService : MediaSessionService() {
+
+    companion object {
+        // 拉取在线播放链接前趁应用仍具前台资格先行提升前台服务，避免切后台后网络受限或 FGS 被拒
+        fun startForPendingPlay(context: Context, title: String, artist: String) {
+            val intent = Intent(context, MelodiaPlaybackService::class.java).apply {
+                action = ACTION_PREPARE_FOREGROUND
+                putExtra(EXTRA_PENDING_TITLE, title)
+                putExtra(EXTRA_PENDING_ARTIST, artist)
+            }
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "预启动播放前台服务失败", e)
+            }
+        }
+
+        // 待播拉链被取消或彻底失败且底层未在播放时，移除预启动的前台状态
+        fun stopPendingForeground(context: Context) {
+            val intent = Intent(context, MelodiaPlaybackService::class.java).apply {
+                action = ACTION_STOP_PENDING_FOREGROUND
+            }
+            runCatching { context.startService(intent) }
+        }
+    }
 
     private val playerManager: PlayerManager by inject()
     private val settingsPreferences: SettingsPreferences by inject()
@@ -67,6 +105,8 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
     private var isShowLockscreenEnabled = true
+    // 悬浮歌词开启且已锁定时，通知栏提供解锁按钮
+    private var isFloatingLyricLocked = false
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
@@ -99,8 +139,16 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
         serviceScope.launch(Dispatchers.IO) {
             try {
+                val raw = coverUri.toString()
+                val dataModel: Any = if ((raw.startsWith("http://") || raw.startsWith("https://")) && !raw.contains('?')) {
+                    "$raw?param=300y300"
+                } else {
+                    coverUri
+                }
                 val request = ImageRequest.Builder(this@MelodiaPlaybackService)
-                    .data(coverUri)
+                    .data(dataModel)
+                    .size(256, 256)
+                    .memoryCachePolicy(CachePolicy.DISABLED)
                     .allowHardware(false)
                     .build()
                 val result = SingletonImageLoader.get(this@MelodiaPlaybackService).execute(request)
@@ -137,6 +185,15 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
+        serviceScope.launch {
+            combine(settingsPreferences.showDesktopLrc, settingsPreferences.floatingLyricLocked) { shown, locked -> shown && locked }
+                .distinctUntilChanged()
+                .collect { locked ->
+                    isFloatingLyricLocked = locked
+                    updateMediaSessionButtons()
+                }
+        }
+
         // 允许跨协议重定向（如 HTTPS 到 HTTP）
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -169,15 +226,17 @@ class MelodiaPlaybackService : MediaSessionService() {
             .build()
         // 耳机拔出 / 蓝牙耳机断开（如收回耳机盒）时系统发出 AUDIO_BECOMING_NOISY，需自动暂停，避免外放；
         // 两台都开启：交叉淡化期间淡出方和缓冲中的新歌也要一起停
+        val primaryPlayer = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+        val secondaryPlayer = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
         val sessionPlayer = CrossfadePlayer(
-            primary = ExoPlayer.Builder(this)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .setHandleAudioBecomingNoisy(true)
-                .build(),
-            secondary = ExoPlayer.Builder(this)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .setHandleAudioBecomingNoisy(true)
-                .build(),
+            primary = primaryPlayer,
+            secondary = secondaryPlayer,
             audioAttributes = audioAttributes
         )
         sessionPlayer.setMetadataTransformer { base ->
@@ -189,6 +248,15 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
                 sessionPlayer.setHandleAudioFocus(!playWithOtherApps)
+            }
+        }
+        // 设置页已保证两者互斥，这里再兜底一次，避免淡化时两台播放器争用卸载通道
+        serviceScope.launch {
+            combine(settingsPreferences.audioOffload, settingsPreferences.crossfadeEnabled) { offload, crossfade ->
+                offload && !crossfade
+            }.distinctUntilChanged().collect { enabled ->
+                primaryPlayer.setAudioOffloadEnabled(enabled)
+                secondaryPlayer.setAudioOffloadEnabled(enabled)
             }
         }
 
@@ -255,6 +323,66 @@ class MelodiaPlaybackService : MediaSessionService() {
                 }
             }
         })
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_PREPARE_FOREGROUND -> {
+                val title = intent.getStringExtra(EXTRA_PENDING_TITLE)
+                val artist = intent.getStringExtra(EXTRA_PENDING_ARTIST)
+                promoteToForegroundForPendingPlay(title, artist)
+            }
+            ACTION_STOP_PENDING_FOREGROUND -> {
+                val currentPlayer = player
+                if (currentPlayer == null || (currentPlayer.playbackState == Player.STATE_IDLE && !currentPlayer.isPlaying)) {
+                    runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
+                }
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun promoteToForegroundForPendingPlay(pendingTitle: String?, pendingArtist: String?) {
+        ensureNotificationChannel()
+        val title = pendingTitle?.takeIf { it.isNotBlank() }
+            ?: player?.currentMediaItem?.mediaMetadata?.title?.toString()?.takeIf { it.isNotBlank() }
+            ?: getString(R.string.app_name)
+        val artist = pendingArtist?.takeIf { it.isNotBlank() }
+            ?: player?.currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
+        val notification = buildPendingForegroundNotification(title, artist)
+        val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        } else {
+            0
+        }
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, fgsType)
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "进入待播前台服务失败", e)
+        }
+    }
+
+    private fun buildPendingForegroundNotification(title: String, artist: String): Notification {
+        val builder = NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(artist)
+            .setContentIntent(sessionActivityPendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setShowWhen(false)
+        currentCoverBitmap?.let { builder.setLargeIcon(it) }
+        mediaSession?.let { session ->
+            val mediaStyle = MediaNotificationCompat.MediaStyle()
+                .setMediaSession(
+                    android.support.v4.media.session.MediaSessionCompat.Token.fromToken(
+                        session.platformToken
+                    )
+                )
+            builder.setStyle(mediaStyle)
+        }
+        return builder.build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -328,8 +456,18 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     @OptIn(UnstableApi::class)
+    private fun buildUnlockLyricButton(): CommandButton =
+        CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setCustomIconResId(R.drawable.ic_lock_open)
+            .setSessionCommand(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
+            .setDisplayName("解锁歌词")
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .build()
+
+    // 解锁按钮随锁定状态增删，布局变化会让 Media3 重建通知
+    @OptIn(UnstableApi::class)
     private fun buildCustomLayout(): List<CommandButton> {
-        return listOf(buildLikeButton())
+        return listOfNotNull(buildLikeButton(), buildUnlockLyricButton().takeIf { isFloatingLyricLocked })
     }
 
     // 不能在这里声明 SLOT_BACK / SLOT_FORWARD 的上/下一首按钮：Media3 一旦发现这两个槽位被占用，
@@ -346,6 +484,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             .add(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
             .add(SessionCommand("ACTION_TOGGLE_PLAY_MODE", Bundle()))
             .add(SessionCommand("ACTION_SET_PREFERRED_AUDIO_DEVICE", Bundle()))
+            .add(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
             .build()
     }
 
@@ -431,6 +570,12 @@ class MelodiaPlaybackService : MediaSessionService() {
                     if (songId != -1L) {
                         toggleLike(songId)
                     }
+                    return com.google.common.util.concurrent.Futures.immediateFuture(
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    )
+                }
+                ACTION_UNLOCK_FLOATING_LYRIC -> {
+                    serviceScope.launch { settingsPreferences.saveFloatingLyricLocked(false) }
                     return com.google.common.util.concurrent.Futures.immediateFuture(
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     )
@@ -526,6 +671,18 @@ class MelodiaPlaybackService : MediaSessionService() {
                 .addAction(nextAction)
                 .addAction(likeAction)
 
+            if (isFloatingLyricLocked) {
+                builder.addAction(
+                    actionFactory.createCustomAction(
+                        session,
+                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_lock_open),
+                        "解锁歌词",
+                        ACTION_UNLOCK_FLOATING_LYRIC,
+                        Bundle.EMPTY
+                    )
+                )
+            }
+
             val lyricInfo = metadata?.extras?.getString(EXTRA_LYRIC_INFO)
             if (!lyricInfo.isNullOrBlank()) {
                 builder.addExtras(Bundle().apply { putString(EXTRA_LYRIC_INFO, lyricInfo) })
@@ -556,6 +713,19 @@ class MelodiaPlaybackService : MediaSessionService() {
         override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo =
             MediaNotification.Provider.NotificationChannelInfo(PLAYBACK_CHANNEL_ID, PLAYBACK_CHANNEL_NAME)
     }
+}
+
+// 音频卸载交给 DSP 解码；格式或设备不支持时 ExoPlayer 自动回退软件解码，播放中切换会重配音频输出
+@OptIn(UnstableApi::class)
+private fun ExoPlayer.setAudioOffloadEnabled(enabled: Boolean) {
+    val mode = if (enabled) {
+        AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+    } else {
+        AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
+    }
+    trackSelectionParameters = trackSelectionParameters.buildUpon()
+        .setAudioOffloadPreferences(AudioOffloadPreferences.Builder().setAudioOffloadMode(mode).build())
+        .build()
 }
 
 

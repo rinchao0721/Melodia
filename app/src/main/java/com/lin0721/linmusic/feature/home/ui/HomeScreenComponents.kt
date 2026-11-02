@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 各区块共用的标题栏
@@ -26,7 +27,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 fun SectionHeader(title: String, showAction: Boolean = true) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 36.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(text = title, color = MaterialTheme.colorScheme.onSurface, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        if (showAction) { Text(text = "显示全部", color = Color.Gray, fontSize = 12.sp) }
+        if (showAction) { Text(text = "显示全部", color = MelodiaColors.HintText, fontSize = 12.sp) }
     }
 }
 
@@ -39,7 +40,7 @@ fun LoadingIndicator() {
 fun ErrorContent(message: String, onRetry: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(MelodiaSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("哎呀，获取数据失败了哦！", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
-        Text(message, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(top = MelodiaSpacing.sm))
+        Text(message, color = MelodiaColors.HintText, fontSize = 12.sp, modifier = Modifier.padding(top = MelodiaSpacing.sm))
         MelodiaButton(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { Text("重试") }
     }
 }

@@ -11,9 +11,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -27,13 +26,13 @@ fun ScrollArrow(revealed: Boolean, left: Boolean, description: String, modifier:
         IconButton(
             onClick = onClick,
             enabled = revealed,
-            modifier = Modifier.size(ScrollArrowSize).shadow(4.dp, CircleShape).clip(CircleShape)
+            modifier = Modifier.size(ScrollArrowSize).themedShadow(4.dp, CircleShape).clip(CircleShape)
                 .background(DesktopColors.Surface)
         ) {
             Icon(
                 if (left) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 description,
-                tint = Color.White,
+                tint = DesktopColors.TextPrimary,
                 modifier = Modifier.size(ArrowIconSize)
             )
         }

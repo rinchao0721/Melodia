@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 # 同一分支上的新推送取消仍在跑的旧任务，避免排队浪费

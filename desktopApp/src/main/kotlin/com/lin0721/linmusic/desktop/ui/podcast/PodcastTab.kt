@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.podcast
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,8 +48,7 @@ class PodcastTabActions(
     val onRetryCategoryRadios: () -> Unit
 )
 
-// 「播客」tab：顶部吸顶筛选条，下面按筛选展示总览 / 我的订阅 / 某个分类
-@OptIn(ExperimentalFoundationApi::class)
+// 「播客」tab：顶部筛选条，下面按筛选展示总览 / 我的订阅 / 某个分类
 @Composable
 fun PodcastTab(state: PodcastHomeState, listState: LazyListState, actions: PodcastTabActions) {
     HoverScrollbarBox(listState) {
@@ -60,7 +58,7 @@ fun PodcastTab(state: PodcastHomeState, listState: LazyListState, actions: Podca
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            stickyHeader(key = "filters") {
+            item(key = "filters") {
                 PodcastFilterBar(state.categories, state.filter, actions.onFilterSelect)
             }
             when (val filter = state.filter) {

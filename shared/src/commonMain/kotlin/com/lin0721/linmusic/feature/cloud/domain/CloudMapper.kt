@@ -21,6 +21,9 @@ fun CloudSongItem.toDomain(nowMs: Long): CloudSong {
         addedAtText = formatUploadedAt(addTime, nowMs),
         // 未识别歌曲的 al.picUrl 是网易云通用占位图，不是真封面，置空走占位图标
         coverUrl = if (isUnmatched) null else simpleSong.al.picUrl.ifBlank { null },
-        isUnmatched = isUnmatched
+        isUnmatched = isUnmatched,
+        durationMs = simpleSong.dt,
+        addedAtMs = addTime,
+        playSongId = if (!isUnmatched && simpleSong.id > 0) simpleSong.id else songId
     )
 }

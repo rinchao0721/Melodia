@@ -28,10 +28,8 @@ import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadiusLarge
 
@@ -54,7 +52,7 @@ fun ProfileSidebar(
         modifier = Modifier
             .fillMaxHeight()
             .width(310.dp)
-            .background(BackgroundDark)
+            .background(MelodiaColors.ShellFill)
             .statusBarsPadding() // 避开状态栏
     ) {
         // 1. 头部：用户资料区
@@ -85,21 +83,21 @@ fun ProfileSidebar(
                     text = userProfile.nickname,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "查看个人资料",
                     fontSize = 13.sp,
-                    color = TextGray
+                    color = MelodiaColors.TextSecondary
                 )
             }
         }
 
         // 极细分割线
         HorizontalDivider(
-            color = Color.White.copy(alpha = 0.1f),
+            color = MelodiaColors.Overlay.copy(alpha = 0.1f),
             thickness = 1.dp,
             modifier = Modifier.padding(horizontal = 20.dp)
         )
@@ -161,7 +159,7 @@ fun ProfileSidebar(
                     .pressScale(MelodiaPress.Action, interactionSource),
                 shape = RoundedCornerShape(PillRadiusLarge),
                 color = Color.Transparent,
-                border = BorderStroke(1.dp, NeteaseRed.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, MelodiaColors.Accent.copy(alpha = 0.6f)),
                 interactionSource = interactionSource
             ) {
                 Row(
@@ -172,13 +170,13 @@ fun ProfileSidebar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Logout,
                         contentDescription = null,
-                        tint = NeteaseRed,
+                        tint = MelodiaColors.Accent,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "退出登录",
-                        color = NeteaseRed,
+                        color = MelodiaColors.AccentText,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -206,13 +204,13 @@ private fun SidebarMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = title,
-            tint = Color.White,
+            tint = MelodiaColors.TextPrimary,
             modifier = Modifier.size(26.dp) // 微调图标尺寸
         )
         Spacer(modifier = Modifier.width(20.dp))
         Text(
             text = title,
-            color = Color.White,
+            color = MelodiaColors.TextPrimary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Normal,
             letterSpacing = 0.5.sp, // 稍微拉开字间距
@@ -221,7 +219,7 @@ private fun SidebarMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = TextGray,
+            tint = MelodiaColors.TextSecondary,
             modifier = Modifier.size(20.dp)
         )
     }

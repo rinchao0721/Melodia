@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,7 +64,7 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 private val AvatarSize = 36.dp
 private val MoreButtonSize = 28.dp
-private val SubtleText = DesktopColors.TextGray.copy(alpha = 0.6f)
+private val SubtleText: Color @Composable @ReadOnlyComposable get() = DesktopColors.TextTertiary
 
 // 单条评论。interactive 为假时是预览卡里的静态展示，不响应悬停、点赞与菜单；
 // 悬停出现“更多”按钮，右键同样打开菜单（复制 / 回复 / 自己的评论可删除）
@@ -74,6 +75,7 @@ fun CommentRow(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
     contentMaxLines: Int = Int.MAX_VALUE,
+    canLike: Boolean = true,
     onLike: () -> Unit = {},
     onReply: (() -> Unit)? = null,
     onExpandFloor: (() -> Unit)? = null,
@@ -112,7 +114,7 @@ fun CommentRow(
                     Modifier
                 }
             )
-            .background(if (revealed) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (revealed) DesktopColors.Hover else Color.Transparent)
             .padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -122,7 +124,7 @@ fun CommentRow(
                 Column(Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
                         comment.user.nickname,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = DesktopColors.TextPrimary.copy(alpha = 0.9f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -161,12 +163,12 @@ fun CommentRow(
                         )
                     }
                 }
-                LikeButton(comment, interactive, onLike)
+                LikeButton(comment, interactive && canLike, onLike)
             }
 
             Text(
                 comment.content,
-                color = Color.White.copy(alpha = 0.95f),
+                color = DesktopColors.TextPrimary.copy(alpha = 0.95f),
                 fontSize = 13.sp,
                 lineHeight = 19.sp,
                 maxLines = contentMaxLines,
@@ -181,13 +183,13 @@ fun CommentRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 8.dp, vertical = 6.dp)
+                        .background(DesktopColors.Overlay.copy(alpha = 0.06f)).padding(horizontal = 8.dp, vertical = 6.dp)
                 )
             }
             if (interactive && onExpandFloor != null && comment.replyCount > 0) {
                 Text(
                     "展开 ${comment.replyCount} 条回复 ›",
-                    color = DesktopColors.Accent,
+                    color = DesktopColors.AccentText,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(4.dp))
                         .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onExpandFloor)

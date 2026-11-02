@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.ui.shell
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
@@ -25,11 +26,15 @@ class DesktopNavigator(
     // 新建歌单对话框里隐私开关的初始值
     val defaultPlaylistPrivate: Boolean,
     val downloadTrack: (Track) -> Unit,
+    // 指定下载音质，供需要先选音质的入口使用
+    val downloadTrackAt: (Track, level: String) -> Unit,
     val showMessage: (String) -> Unit,
     val goBack: () -> Unit,
     // 在右侧栏打开（或关闭已打开的）歌单评论
     val toggleCommentsPanel: (CommentsHost) -> Unit,
-    val isCommentsPanelOpen: (CommentsHost) -> Boolean
+    val isCommentsPanelOpen: (CommentsHost) -> Boolean,
+    // 为当前播放的歌曲打开分享卡片
+    val openShareCard: (ShareCardKind) -> Unit
 )
 
 val LocalDesktopNavigator = compositionLocalOf<DesktopNavigator> {

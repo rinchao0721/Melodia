@@ -5,7 +5,7 @@
 
 
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square)](https://developer.android.com)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Windows-green?style=flat-square)](https://github.com/rinchao0721/Melodia/releases)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 </div>
@@ -34,6 +34,18 @@
   <img src="docs/screenshots/tablet-landscape-panel.webp" width="32%" alt="平板横屏播放侧栏" />
   <img src="docs/screenshots/tablet-fullscreen-lyrics.webp" width="32%" alt="平板全屏播放页歌词" />
   <img src="docs/screenshots/tablet-fullscreen-info.webp" width="32%" alt="平板全屏播放页歌曲信息" />
+</div>
+
+### 桌面端
+
+<div align="center">
+  <img src="docs/screenshots/desktop-home.webp" width="49%" alt="桌面端首页" />
+  <img src="docs/screenshots/desktop-library.webp" width="49%" alt="桌面端音乐库" />
+</div>
+<div align="center">
+  <img src="docs/screenshots/desktop-lyrics.webp" width="32%" alt="桌面端歌词" />
+  <img src="docs/screenshots/desktop-artist.webp" width="32%" alt="桌面端歌手页" />
+  <img src="docs/screenshots/desktop-library-compact.webp" width="32%" alt="桌面端音乐库（紧凑）" />
 </div>
 
 ---
@@ -123,7 +135,7 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
   - 64 位 Windows 10 及以上
   - `libmpv-2.dll`：使用定制的精简音频版（[mpv-winbuild-cmake](https://github.com/rinchao0721/mpv-winbuild-cmake) 的 `AUDIO_ONLY` 构建），运行或打包前由 Gradle 按 `gradle.properties` 中固定的 Release 自动下载到 `desktopApp/native/` 并校验 SHA256（不入库）；也可单独执行 `./gradlew :desktopApp:downloadLibmpv`
   - SMTC 桥接 DLL 由 Gradle 在运行与打包前自动调用 CMake 编译，需安装 CMake 与 Visual Studio（含“使用 C++ 的桌面开发”工作负载及 Windows 10/11 SDK）；本地缺少时跳过编译，运行时退回全局媒体键（发版构建传 `-PrequireSmtc=true`，编不出来直接失败）
-  - 打包 MSI 需安装 [WiX Toolset 3.14](https://github.com/wixtoolset/wix3/releases) 并将其 `bin` 目录加入 `PATH`；打包所用 JDK 21 由 Gradle 工具链自动下载
+  - 打包安装程序需安装 [WiX Toolset 3.14](https://github.com/wixtoolset/wix3/releases) 并将其 `bin` 目录加入 `PATH`（用于生成内嵌在 `setup.exe` 中的 MSI），安装与卸载程序同样由 CMake 编译；打包所用 JDK 21 由 Gradle 工具链自动下载
 
 ### 常用命令
 
@@ -145,7 +157,7 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
   ```
 - **打包桌面端**（发布版启用 ProGuard 裁剪，产物位于 `desktopApp/build/compose/binaries/main-release/`）：
   ```bash
-  ./gradlew :desktopApp:packageReleaseZip :desktopApp:packageReleaseMsi
+  ./gradlew :desktopApp:packageReleaseZip :desktopApp:packageReleaseSetup
   ```
 
 ### 混淆与签名说明
@@ -162,6 +174,7 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 - [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) - 增强接口与加密逻辑参考
 - [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) - 取色算法参考
 - [SPlayer](https://github.com/SPlayer-Dev/SPlayer) - 现代流媒体架构设计启发
+- [Mei](https://github.com/ljyh223/Mei) — QQ 音乐歌词解析参考
 - [AMLL 歌词库](https://github.com/amll-dev/amll-ttml-db) - TTML 逐字歌词、对唱与背景和声歌词来源
 - [Spotify](https://spotify.com) - 优秀的移动端流媒体交互范式与 UI/UX 体验灵感
 - [SuperLyric](https://github.com/HChenX/SuperLyric) - 系统级实时歌词协议与 AIDL 规范

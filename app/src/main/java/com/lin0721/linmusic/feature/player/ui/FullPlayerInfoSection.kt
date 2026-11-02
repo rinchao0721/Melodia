@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
+import com.lin0721.linmusic.core.preferences.PlayerCardEntries
+import com.lin0721.linmusic.core.plugin.PluginCardView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Box
@@ -21,8 +23,11 @@ import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
+import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
+import com.lin0721.linmusic.core.ui.theme.uiTween
 
 private const val EDIT_CARDS_KEY = "edit_cards"
 
@@ -55,8 +60,10 @@ internal fun visibleInfoCards(
     val cards = mutableListOf<FullPlayerCard>()
     for (setting in cardLayout) {
         if (!setting.visible) continue
-        // 本地未匹配歌曲不请求在线数据，评论状态会停留在上一首或 Loading，需直接跳过
-        if (songState.isLocalOnly && setting.card != FullPlayerCard.LYRICS) continue
+        // 本地未匹配歌曲不请求在线数据，评论状态会停留在上一首或 Loading，需直接跳过；外部平台歌曲另有 QQ 音乐评论
+        if (songState.isLocalOnly && setting.card != FullPlayerCard.LYRICS &&
+            !(songState.isExternal && setting.card == FullPlayerCard.COMMENTS_PREVIEW)
+        ) continue
         val (settled, ready) = slotState(setting.card)
         if (!settled) return VisibleInfoCards(cards, allSettled = false)
         if (ready) cards += setting.card
@@ -70,7 +77,10 @@ fun LazyListScope.fullPlayerInfoSection(
     colors: PlayerBackdropPalette,
     commentsState: CommentsState,
     currentLyricIndex: Int,
+    animateLyricsMesh: Boolean,
     cardLayout: List<FullPlayerCardSetting>,
+    // 含插件卡片的完整顺序
+    cardEntries: List<PlayerCardEntry>,
     onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
@@ -81,8 +91,13 @@ fun LazyListScope.fullPlayerInfoSection(
     onSelectArtist: (Int) -> Unit = {}
 ) {
     val visible = visibleInfoCards(songState, commentsState, cardLayout)
-    for (card in visible.cards) {
-        item(key = card.key) {
+    for (entry in PlayerCardEntries.ordered(cardEntries, visible.cards, visible.allSettled)) {
+        val card = entry.card
+        if (card == null) {
+            pluginCardItem(entry.key)
+            continue
+        }
+        item(key = entry.key) {
             FullPlayerItemEnterAnimation {
                 FullPlayerInfoCard(
                     card = card,
@@ -90,6 +105,7 @@ fun LazyListScope.fullPlayerInfoSection(
                     colors = colors,
                     commentsState = commentsState,
                     currentLyricIndex = currentLyricIndex,
+                    animateLyricsMesh = animateLyricsMesh,
                     onOpenFullScreenLyrics = onOpenFullScreenLyrics,
                     onCommentsClick = onCommentsClick,
                     onRetryComments = onRetryComments,
@@ -111,6 +127,7 @@ fun LazyListScope.fullPlayerInfoGrid(
     colors: PlayerBackdropPalette,
     commentsState: CommentsState,
     cardLayout: List<FullPlayerCardSetting>,
+    cardEntries: List<PlayerCardEntry>,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
     onFollowArtistClick: (Long?) -> Unit,
@@ -153,6 +170,7 @@ fun LazyListScope.fullPlayerInfoGrid(
                                 colors = colors,
                                 commentsState = commentsState,
                                 currentLyricIndex = -1,
+                                animateLyricsMesh = false,
                                 onOpenFullScreenLyrics = {},
                                 onCommentsClick = onCommentsClick,
                                 onRetryComments = onRetryComments,
@@ -167,7 +185,19 @@ fun LazyListScope.fullPlayerInfoGrid(
             }
         }
     }
+    // 网格按内置规则成行，插件卡片排在其后
+    PlayerCardEntries.ordered(cardEntries, visible.cards, visible.allSettled)
+        .filter { it.card == null }
+        .forEach { pluginCardItem(it.key) }
     if (visible.allSettled) editCardsItem(onEditCardsClick)
+}
+
+private fun LazyListScope.pluginCardItem(key: String) {
+    item(key = key) {
+        FullPlayerItemEnterAnimation {
+            PluginCardView(key, Modifier.padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm))
+        }
+    }
 }
 
 // 等可见卡片全部出结论再出现，避免按钮先露出又被后到的卡片顶下去
@@ -193,6 +223,7 @@ private fun FullPlayerInfoCard(
     colors: PlayerBackdropPalette,
     commentsState: CommentsState,
     currentLyricIndex: Int,
+    animateLyricsMesh: Boolean,
     onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
@@ -202,14 +233,19 @@ private fun FullPlayerInfoCard(
     onSelectArtist: (Int) -> Unit
 ) {
     when (card) {
-        FullPlayerCard.LYRICS -> LyricsCard(
-            lyrics = songState.lyrics,
-            currentIndex = currentLyricIndex,
-            isLoading = false,
-            base = colors.base,
-            isAmll = songState.lyricsSource == LyricsSource.AMLL,
-            onOpenFullScreen = onOpenFullScreenLyrics
-        )
+        // 歌词卡在浅色页面里保持有色底白字
+        FullPlayerCard.LYRICS -> ImmersiveTheme {
+            LyricsCard(
+                lyrics = songState.lyrics,
+                currentIndex = currentLyricIndex,
+                isLoading = false,
+                base = colors.base,
+                animateMesh = animateLyricsMesh,
+                isAmll = songState.lyricsSource == LyricsSource.AMLL,
+                isQrc = songState.lyricsSource == LyricsSource.QQ && songState.lyrics.any { it.words.isNotEmpty() },
+                onOpenFullScreen = onOpenFullScreenLyrics
+            )
+        }
         FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(
             commentsState = commentsState,
             cardColor = MaterialTheme.colorScheme.surface,
@@ -273,8 +309,8 @@ fun LazyItemScope.FullPlayerItemEnterAnimation(content: @Composable () -> Unit) 
     visibleState.targetState = true
     AnimatedVisibility(
         visibleState = visibleState,
-        enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 6 },
-        modifier = Modifier.animateItem()
+        enter = fadeIn(uiTween(300)) + slideInVertically(uiTween(300)) { it / 6 },
+        modifier = if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier
     ) {
         content()
     }

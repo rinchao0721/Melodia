@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.music.domain.MusicStyle
 import com.lin0721.linmusic.feature.music.domain.StylePortrait
@@ -150,7 +151,7 @@ private fun PortraitSummary(portrait: StylePortrait) {
     Row(
         Modifier.padding(horizontal = EdgePadding).fillMaxWidth().clip(RoundedCornerShape(6.dp))
             .pointerHoverIcon(PointerIcon.Hand).clickable { expanded = !expanded }
-            .animateContentSize().padding(vertical = 4.dp),
+            .animateContentSize(uiSpring()).padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
         Column(Modifier.weight(1f)) {
@@ -165,7 +166,7 @@ private fun PortraitSummary(portrait: StylePortrait) {
             if (expanded && portrait.dataTip.isNotBlank()) {
                 Text(
                     portrait.dataTip,
-                    color = DesktopColors.TextGray.copy(alpha = 0.6f),
+                    color = DesktopColors.TextTertiary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp)
                 )
@@ -242,7 +243,7 @@ private fun StyleTile(style: MusicStyle, onClick: () -> Unit) {
     }
 }
 
-// 选中为白底、未选中为描边的胶囊，曲风二级标签与播客分类共用
+// 选中为白底、未选中为白色半透明底色的胶囊，曲风二级标签与播客分类共用
 @Composable
 internal fun OutlineChip(text: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
@@ -251,12 +252,12 @@ internal fun OutlineChip(text: String, selected: Boolean, onClick: () -> Unit) {
         label = { Text(text, fontSize = 13.sp) },
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = Color.Transparent,
-            labelColor = DesktopColors.TextGray,
+            containerColor = Color.White.copy(alpha = 0.1f),
+            labelColor = DesktopColors.TextPrimary,
             selectedContainerColor = DesktopColors.TextPrimary,
             selectedLabelColor = DesktopColors.Pane
         ),
-        border = if (selected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+        border = null
     )
 }
 

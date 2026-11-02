@@ -1,19 +1,16 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.LongState
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
@@ -33,9 +30,14 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.saturateIfChromatic
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
+import com.lin0721.linmusic.core.ui.theme.rememberImmersiveColors
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
+import com.lin0721.linmusic.core.ui.theme.themedCoverBase
+import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 enum class BackdropMode { Collapsed, Immersive }
@@ -53,6 +55,9 @@ private const val NOISE_TILE_PX = 128
 private const val NOISE_MAX_ALPHA = 4
 private const val NOISE_MASK_SOLID_FRACTION = 0.9f
 private const val NOISE_SEED = 20261005
+
+// 光斑游走周期十几秒、位移很小，约 20fps 推进肉眼无差别，避免整块模糊层满帧重绘
+private const val MESH_TICK_MS = 50L
 
 private fun createNoiseBrush(): ShaderBrush {
     val random = Random(NOISE_SEED)
@@ -98,6 +103,31 @@ internal fun DrawScope.drawSingleHueMesh(
     )
 }
 
+// 光斑游走相位（毫秒）：仅 animate 为真时推进，停下即定格；只应在绘制阶段读取，避免触发重组
+@Composable
+internal fun rememberMeshPhaseMs(animate: Boolean): LongState {
+    val phaseMs = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(animate) {
+        if (!animate) return@LaunchedEffect
+        // 帧时钟在页面不可见时挂起，后台不会空转；回到前台的首个间隔封顶，避免光斑跳位
+        var last = withFrameMillis { it }
+        while (true) {
+            delay(MESH_TICK_MS)
+            val now = withFrameMillis { it }
+            phaseMs.longValue += (now - last).coerceIn(0L, MESH_TICK_MS * 2)
+            last = now
+        }
+    }
+    return phaseMs
+}
+
+// 往返线性插值：periodMs 为单程时长，与 infiniteRepeatable(tween(periodMs), Reverse) 等效
+internal fun meshPingPong(phaseMs: Long, periodMs: Long, from: Float, to: Float): Float {
+    val t = (phaseMs % (periodMs * 2)).toFloat() / periodMs
+    val fraction = if (t <= 1f) t else 2f - t
+    return from + (to - from) * fraction
+}
+
 // 全屏播放器背景：Collapsed（Hero）单色平滑渐隐，Immersive（歌词全屏）单色相双光斑游走
 // 背景绘制和 content 拆成两个子 Box：仅 Immersive 模糊背景层，content 保持清晰
 @Composable
@@ -105,20 +135,28 @@ fun PlayerBackdrop(
     base: Color,
     mode: BackdropMode,
     modifier: Modifier = Modifier,
+    // 仅 Immersive 生效：为假时光斑定格
+    animateMesh: Boolean = false,
     translationYProvider: () -> Float = { 0f },
     content: @Composable BoxScope.() -> Unit = {}
 ) {
+    // 透出皮肤背景图时由外层整页画背景，这里只在歌词全屏层补画一次
+    if (isCoverBackdrop(CoverGroup.PLAYER)) {
+        Box(modifier.then(if (mode == BackdropMode.Immersive) Modifier.playerBackdrop(Color.Transparent) else Modifier), content = content)
+        return
+    }
     when (mode) {
         BackdropMode.Collapsed -> {
             val density = LocalDensity.current
             val gradientEndY = with(density) { COLLAPSED_GRADIENT_END_DP.dp.toPx() }
 
-            // base 本身已偏深且明度有上限，直接铺底不再压暗
-            val fillColor = base
-            val gradientBrush = remember(fillColor, gradientEndY) {
+            // base 本身已偏深且明度有上限，深色下直接铺底；浅色下取同色相浅调，两者都渐隐到页面底
+            val fillColor = themedCoverBase(base)
+            val endColor = Color.Transparent
+            val gradientBrush = remember(fillColor, endColor, gradientEndY) {
                 Brush.smoothVerticalGradient(
                     from = fillColor,
-                    to = Color.Transparent,
+                    to = endColor,
                     startY = 0f,
                     endY = gradientEndY,
                     fadeEndFraction = COLLAPSED_FADE_END_FRACTION,
@@ -167,30 +205,10 @@ fun PlayerBackdrop(
         }
 
         BackdropMode.Immersive -> {
-            val infiniteTransition = rememberInfiniteTransition(label = "fluid_mesh_fullscreen")
-
-            val darkCenterX by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = 1.4f,
-                animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "dark_x"
-            )
-            val darkCenterY by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = 1.5f,
-                animationSpec = infiniteRepeatable(tween(16000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "dark_y"
-            )
-            val darkRadiusScale by infiniteTransition.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 0.7f,
-                animationSpec = infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "dark_radius"
-            )
-
-            val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
-            val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
-            val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
+            val meshPhaseMs = rememberMeshPhaseMs(animateMesh)
+            val immersive = rememberImmersiveColors(base)
+            val fillColor = immersive.fill
+            val darkBlob = immersive.blob
 
             Box(modifier = modifier) {
                 Box(
@@ -199,6 +217,10 @@ fun PlayerBackdrop(
                         .blur(BACKDROP_BLUR_RADIUS)
                         .drawBehind {
                             val baseSize = size.minDimension
+                            val phaseMs = meshPhaseMs.longValue
+                            val darkCenterX = meshPingPong(phaseMs, 20000L, 1.0f, 1.4f)
+                            val darkCenterY = meshPingPong(phaseMs, 16000L, 1.0f, 1.5f)
+                            val darkRadiusScale = meshPingPong(phaseMs, 12000L, 0.5f, 0.7f)
                             drawSingleHueMesh(
                                 fill = fillColor,
                                 darkBlob = darkBlob,

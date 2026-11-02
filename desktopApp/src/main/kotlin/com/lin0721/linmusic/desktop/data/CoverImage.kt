@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.data
 
-import java.awt.FileDialog
-import java.awt.Frame
+import com.lin0721.linmusic.desktop.platform.chooseFile
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -21,12 +20,19 @@ object CoverImage {
     fun prepareJpeg(file: File): Result<ByteArray> = runCatching {
         require(file.isFile && file.length() in 1..MAX_FILE_BYTES) { "图片文件无效或超过 30MB" }
         val source = ImageIO.read(file) ?: throw IllegalArgumentException("无法读取该图片，请选择 JPG 或 PNG")
-        encodeJpeg(squareFit(source))
+        encodeJpeg(squareFit(source, MAX_EDGE))
     }
 
-    private fun squareFit(source: BufferedImage): BufferedImage {
+    // 内嵌封面转缩略图
+    fun thumbnailJpeg(bytes: ByteArray, maxEdge: Int): Result<ByteArray> = runCatching {
+        require(bytes.isNotEmpty() && maxEdge > 0) { "封面数据为空" }
+        val source = ImageIO.read(bytes.inputStream()) ?: throw IllegalArgumentException("无法解码封面")
+        encodeJpeg(squareFit(source, maxEdge))
+    }
+
+    private fun squareFit(source: BufferedImage, maxEdge: Int): BufferedImage {
         val side = minOf(source.width, source.height)
-        val target = minOf(side, MAX_EDGE)
+        val target = minOf(side, maxEdge)
         val left = (source.width - side) / 2
         val top = (source.height - side) / 2
         val output = BufferedImage(target, target, BufferedImage.TYPE_INT_RGB)
@@ -62,13 +68,5 @@ object CoverImage {
     }
 }
 
-// 系统文件选择框，会阻塞到关闭；取消返回 null
-fun chooseImageFile(title: String): File? {
-    val dialog = FileDialog(null as Frame?, title, FileDialog.LOAD).apply {
-        // Windows 原生对话框把 file 当作过滤模式
-        file = "*.jpg;*.jpeg;*.png;*.bmp;*.gif"
-        isVisible = true
-    }
-    val name = dialog.file ?: return null
-    return File(dialog.directory.orEmpty(), name)
-}
+// 取消返回 null
+suspend fun chooseImageFile(title: String): File? = chooseFile(title, "*.jpg;*.jpeg;*.png;*.bmp;*.gif")

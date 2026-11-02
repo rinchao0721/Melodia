@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -39,7 +40,8 @@ object SourceHttpClient {
     suspend fun get(
         url: String,
         headers: Map<String, String> = emptyMap(),
-        httpClient: OkHttpClient = client
+        httpClient: OkHttpClient = client,
+        maxBodyBytes: Long? = null
     ): String =
         withContext(Dispatchers.IO) {
             val builder = Request.Builder().url(url).get()
@@ -48,9 +50,25 @@ object SourceHttpClient {
                 if (!response.isSuccessful) {
                     throw SourceException("HTTP ${response.code}: $url")
                 }
-                response.body?.string() ?: throw SourceException("空响应体: $url")
+                readBody(response, url, maxBodyBytes)
             }
         }
+
+    // 限制了 maxBodyBytes 时只缓冲 maxBodyBytes+1 字节，超限直接报错，避免大文件撑爆堆
+    private fun readBody(response: Response, url: String, maxBodyBytes: Long?): String {
+        if (maxBodyBytes == null) {
+            return response.body?.string() ?: throw SourceException("空响应体: $url")
+        }
+        val declared = response.body?.contentLength() ?: -1L
+        if (declared > maxBodyBytes) {
+            throw SourceException("响应体过大(${declared}B): $url")
+        }
+        val peeked = response.peekBody(maxBodyBytes + 1)
+        if (peeked.contentLength() > maxBodyBytes) {
+            throw SourceException("响应体超过 ${maxBodyBytes}B: $url")
+        }
+        return peeked.string()
+    }
 
     suspend fun getOrNull(url: String, headers: Map<String, String> = emptyMap()): String? =
         try {
@@ -82,7 +100,12 @@ object SourceHttpClient {
             }
         }
 
-    suspend fun post(url: String, body: String, headers: Map<String, String> = emptyMap()): String =
+    suspend fun post(
+        url: String,
+        body: String,
+        headers: Map<String, String> = emptyMap(),
+        maxBodyBytes: Long? = null
+    ): String =
         withContext(Dispatchers.IO) {
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val requestBody = body.toRequestBody(mediaType)
@@ -92,7 +115,7 @@ object SourceHttpClient {
                 if (!response.isSuccessful) {
                     throw SourceException("HTTP ${response.code}: $url")
                 }
-                response.body?.string() ?: throw SourceException("空响应体: $url")
+                readBody(response, url, maxBodyBytes)
             }
         }
 }

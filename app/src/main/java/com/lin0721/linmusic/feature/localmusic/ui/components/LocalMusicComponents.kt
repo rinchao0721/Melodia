@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.localmusic.ui.components
 
 import android.net.Uri
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -60,15 +58,15 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
@@ -95,7 +93,7 @@ fun LocalCover(
     val coverUrl = rememberLocalCoverUrl(sourceUri)
     val placeholder = @Composable {
         Box(
-            modifier = Modifier.fillMaxSize().background(SurfaceLight),
+            modifier = Modifier.fillMaxSize().background(MelodiaColors.SurfaceLight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -188,8 +186,8 @@ fun LocalPlayShuffleButtons(
         MelodiaButton(
             onClick = onShuffle,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White.copy(alpha = 0.14f),
-                contentColor = Color.White
+                containerColor = MelodiaColors.Overlay.copy(alpha = 0.14f),
+                contentColor = MelodiaColors.TextPrimary
             ),
             modifier = Modifier.weight(1f)
         ) {
@@ -214,12 +212,12 @@ fun LocalHeroHeader(
     LaunchedEffect(coverUrl) {
         baseColor = coverUrl?.let { extractBaseColorFromUrl(context, it) } ?: FallbackBase
     }
-    val animatedBase by animateColorAsState(baseColor, tween(500), label = "local_hero_base")
+    val animatedBase by animateColorAsState(baseColor, uiTween(500), label = "local_hero_base")
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.smoothVerticalGradient(from = animatedBase.darken(0.25f), to = BackgroundDark))
+            .background(Brush.smoothVerticalGradient(from = headerCoverBase(animatedBase, 0.25f) ?: MelodiaColors.PageFill, to = MelodiaColors.PageFill))
             .statusBarsPadding()
             .padding(bottom = MelodiaSpacing.md)
     ) {
@@ -228,7 +226,7 @@ fun LocalHeroHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
             }
             Spacer(Modifier.weight(1f))
             actions()

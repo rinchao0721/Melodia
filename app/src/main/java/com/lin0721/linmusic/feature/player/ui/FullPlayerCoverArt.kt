@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -23,7 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +32,9 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -116,6 +118,8 @@ fun FullPlayerSourceBar(
     onPlaylistClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val motion = LocalUiMotion.current
+    val isPanelAtStart = LocalMelodiaPlayerPanelAtStart.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,11 +133,14 @@ fun FullPlayerSourceBar(
                         .size(32.dp)
                         .offset(x = (-4).dp)
                 ) {
+                    // 图标里的侧栏画在右侧，面板停靠左侧时水平翻转
                     Icon(
                         if (isSidebarFullscreen) Icons.Filled.ViewSidebar else Icons.Outlined.ViewSidebar,
                         contentDescription = if (isSidebarFullscreen) "收回侧栏" else "展开全屏",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        tint = MelodiaColors.TextPrimary,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer { scaleX = if (isPanelAtStart) -1f else 1f }
                     )
                 }
                 Spacer(modifier = Modifier.width(SidebarToggleGap))
@@ -147,7 +154,7 @@ fun FullPlayerSourceBar(
                 Icon(
                     Icons.Rounded.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -155,15 +162,15 @@ fun FullPlayerSourceBar(
         AnimatedContent(
             targetState = playContext,
             transitionSpec = {
-                (fadeIn(animationSpec = tween(260)) +
-                        slideInVertically(animationSpec = tween(260)) { height -> height / 3 })
+                (fadeIn(animationSpec = motion.tween(260)) +
+                        slideInVertically(animationSpec = motion.tween(260)) { height -> height / 3 })
                     .togetherWith(
-                        fadeOut(animationSpec = tween(200)) +
-                                slideOutVertically(animationSpec = tween(200)) { height -> -height / 3 }
+                        fadeOut(animationSpec = motion.tween(200)) +
+                                slideOutVertically(animationSpec = motion.tween(200)) { height -> -height / 3 }
                     ).using(
                         SizeTransform(
                             clip = false,
-                            sizeAnimationSpec = { _, _ -> tween(280) }
+                            sizeAnimationSpec = { _, _ -> motion.tween(280) }
                         )
                     )
             },
@@ -192,7 +199,7 @@ fun FullPlayerSourceBar(
             ) {
                 Text(
                     text = sourceText,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = MelodiaColors.TextPrimary.copy(alpha = 0.6f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
@@ -202,7 +209,7 @@ fun FullPlayerSourceBar(
                 if (detailText != null) {
                     Text(
                         text = "“$detailText”",
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -220,7 +227,7 @@ fun FullPlayerSourceBar(
                     Icon(
                         Icons.Rounded.Fullscreen,
                         contentDescription = "全屏歌词",
-                        tint = Color.White,
+                        tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -238,7 +245,7 @@ fun FullPlayerSourceBar(
                 Icon(
                     Icons.Default.MoreVert,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }

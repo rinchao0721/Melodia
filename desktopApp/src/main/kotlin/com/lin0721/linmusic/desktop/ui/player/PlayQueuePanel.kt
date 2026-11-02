@@ -48,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -72,12 +71,14 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.SimilarRoamingController
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.OverlayPanelHeader
@@ -247,7 +248,7 @@ fun PlayQueuePanel(
                             },
                             actions = actions,
                             onRemove = { controller.removeFromQueue(index) },
-                            modifier = Modifier.animateItem()
+                            modifier = if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier
                         )
                     }
                 }
@@ -382,7 +383,7 @@ private fun QueueRow(
                 .then(
                     if (lifted) {
                         Modifier.zIndex(1f).graphicsLayer { translationY = offsetY }
-                            .then(if (dragging) Modifier.shadow(8.dp, shape) else Modifier)
+                            .then(if (dragging) Modifier.themedShadow(8.dp, shape) else Modifier)
                     } else {
                         Modifier
                     }
@@ -391,7 +392,7 @@ private fun QueueRow(
                 .background(
                     when {
                         dragging -> DesktopColors.Surface
-                        revealed || contextMenuOffset != null -> DesktopColors.PaneHover
+                        revealed || contextMenuOffset != null -> DesktopColors.Hover
                         else -> Color.Transparent
                     }
                 )
@@ -437,7 +438,7 @@ private fun QueueRow(
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(
                     item.title,
-                    color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextPrimary,
+                    color = if (isCurrent) DesktopColors.AccentText else DesktopColors.TextPrimary,
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

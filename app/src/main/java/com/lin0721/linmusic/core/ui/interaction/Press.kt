@@ -28,6 +28,7 @@ import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.PressDownSpec
 import com.lin0721.linmusic.core.ui.theme.PressStyle
@@ -73,25 +74,26 @@ private class PressHighlightNode(
 
     override fun onAttach() {
         val longPressDelayMs = currentValueOf(LocalViewConfiguration).longPressTimeoutMillis
+        val motion = currentValueOf(LocalUiMotion)
         coroutineScope.launch {
             interactionSource.interactions.collect { interaction ->
                 when (interaction) {
                     is PressInteraction.Press -> {
                         scaleJob?.cancel()
-                        scaleJob = coroutineScope.launch { scale.animateTo(pressedScale, PressDownSpec) }
+                        scaleJob = coroutineScope.launch { scale.animateTo(pressedScale, motion.spec(PressDownSpec)) }
                         dimJob?.cancel()
                         // 缩放立刻响应，压暗要按住过了系统长按阈值才出现
                         dimJob = coroutineScope.launch {
                             delay(longPressDelayMs)
-                            dim.animateTo(dimAlpha, PressDownSpec)
+                            dim.animateTo(dimAlpha, motion.spec(PressDownSpec))
                         }
                     }
                     is PressInteraction.Release, is PressInteraction.Cancel -> {
                         // 取消尚未到点的延时，抬手立刻回落
                         scaleJob?.cancel()
-                        scaleJob = coroutineScope.launch { scale.animateTo(1f, PressUpSpec) }
+                        scaleJob = coroutineScope.launch { scale.animateTo(1f, motion.spec(PressUpSpec)) }
                         dimJob?.cancel()
-                        dimJob = coroutineScope.launch { dim.animateTo(0f, PressUpSpec) }
+                        dimJob = coroutineScope.launch { dim.animateTo(0f, motion.spec(PressUpSpec)) }
                     }
                     else -> Unit
                 }
@@ -164,12 +166,13 @@ private fun Modifier.pressDecoration(
     shape: Shape,
     interactionSource: InteractionSource
 ): Modifier {
+    val motion = LocalUiMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
     val scale = remember { Animatable(1f) }
     LaunchedEffect(pressed, style.scale) {
         scale.animateTo(
             targetValue = if (pressed) style.scale else 1f,
-            animationSpec = if (pressed) PressDownSpec else PressUpSpec
+            animationSpec = if (pressed) motion.spec(PressDownSpec) else motion.spec(PressUpSpec)
         )
     }
     val needsClip = shape !== RectangleShape

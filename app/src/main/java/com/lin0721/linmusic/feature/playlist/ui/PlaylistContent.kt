@@ -6,7 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -33,10 +34,14 @@ import com.lin0721.linmusic.core.ui.components.TrackSelectionOverlay
 import com.lin0721.linmusic.core.ui.components.rememberSelectionBottomPadding
 import com.lin0721.linmusic.core.ui.components.SelectionAction
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
-import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -57,6 +62,8 @@ fun PlaylistContent(
     isPlaying: Boolean,
     likedSongIds: Set<Long>,
     unplayableIds: Set<Long> = emptySet(),
+    externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
+    showTrackIndex: Boolean = false,
     collectState: PlaylistCollectState,
     isLoggedIn: Boolean,
     recommendedSongs: List<Track>,
@@ -93,6 +100,7 @@ fun PlaylistContent(
     onSelectedHistoryDateChange: (String) -> Unit = {},
     onLoadHistoryDetail: (String) -> Unit = {},
     onLoadDailyRecommend: () -> Unit = {},
+    onReduceRecommend: (Long) -> Unit = {},
     canRemoveFromPlaylist: Boolean = false,
     onRemoveFromPlaylist: (Long) -> Unit = {},
     onAddMusicClick: () -> Unit = {},
@@ -109,6 +117,7 @@ fun PlaylistContent(
     onToggleSelectAll: (List<Long>) -> Unit = {},
     onExitSelection: () -> Unit = {}
 ) {
+    val motion = LocalUiMotion.current
     val density = LocalDensity.current
 
     val isDailyRecommend = playlist.id == -1L || playlist.id == -2L
@@ -141,10 +150,12 @@ fun PlaylistContent(
 
     // ── 定位当前播放歌曲：目标不在已加载/未过滤出的范围内时展示悬浮按钮
     val targetTrackId = currentTrackId?.toLongOrNull()
-    val belongsToPlaylist = targetTrackId != null && if (playlist.trackIds.isNotEmpty()) {
-        playlist.trackIds.any { it.id == targetTrackId }
-    } else {
-        playlist.tracks.any { it.id == targetTrackId }
+    val belongsToPlaylist = remember(playlist.trackIds, playlist.tracks, targetTrackId) {
+        targetTrackId != null && if (playlist.trackIds.isNotEmpty()) {
+            playlist.trackIds.any { it.id == targetTrackId }
+        } else {
+            playlist.tracks.any { it.id == targetTrackId }
+        }
     }
     // 曲目行在 LazyColumn 里的起始下标：header + 视条件出现的胶囊行/日期行
     val trackListStartIndex = 1 +
@@ -152,7 +163,9 @@ fun PlaylistContent(
         (if (playlist.id == -1L && showHistoryDatePicker) 1 else 0) +
         (if (playlist.id == -2L) 1 else 0)
 
-    val targetIndexInFiltered = if (targetTrackId == null) -1 else filteredTracks.indexOfFirst { it.id == targetTrackId }
+    val targetIndexInFiltered = remember(filteredTracks, targetTrackId) {
+        if (targetTrackId == null) -1 else filteredTracks.indexOfFirst { it.id == targetTrackId }
+    }
     val isTargetVisibleOnScreen by remember(targetIndexInFiltered, trackListStartIndex, historySongsLoading) {
         derivedStateOf {
             if (targetIndexInFiltered < 0 || historySongsLoading) return@derivedStateOf false
@@ -177,7 +190,7 @@ fun PlaylistContent(
         if (index < 0) return@LaunchedEffect
         val itemIndex = trackListStartIndex + index
         // 先粗定位让目标行进入可测量范围，再用真实测量结果二次校正，使其停在屏幕正中央
-        listState.animateScrollToItem(itemIndex)
+        motion.scrollToItem(listState, itemIndex)
         val info = listState.layoutInfo
         val itemInfo = info.visibleItemsInfo.find { it.index == itemIndex }
         if (itemInfo != null) {
@@ -187,7 +200,7 @@ fun PlaylistContent(
             val visibleCenter = (visibleTop + info.viewportEndOffset) / 2f
             val itemCenter = itemInfo.offset + itemInfo.size / 2f
             val delta = itemCenter - visibleCenter
-            if (kotlin.math.abs(delta) > 1f) listState.animateScrollBy(delta)
+            if (kotlin.math.abs(delta) > 1f) motion.scrollBy(listState, delta)
         }
         pendingLocateTrackId = null
     }
@@ -205,8 +218,6 @@ fun PlaylistContent(
     }
 
     val coverSize: Dp     = COVER_MAX_SIZE
-    // 封面透明度：滚动一开始就同步淡出，65% 处完全消失
-    val coverAlpha        = 1f - (progress / 0.65f).coerceIn(0f, 1f)
 
     // 播放按钮停靠位：按钮中心正好卡在顶栏下边缘
     val dockedYPx = with(density) { (overlayHeight - 28.dp).toPx() }
@@ -248,14 +259,13 @@ fun PlaylistContent(
                 Box(modifier = Modifier.heightIn(min = 1.dp)) {
                     AnimatedVisibility(
                         visible = !searchFullyRevealed,
-                        enter   = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                        exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+                        enter   = uiEnter(fadeIn() + expandVertically(expandFrom = Alignment.Top)),
+                        exit    = uiExit(fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top))
                     ) {
                         PlaylistHeaderItem(
                             playlist            = playlist,
                             coverSize           = coverSize,
-                            coverAlpha          = coverAlpha,
-                            progress            = progress,
+                            progressProvider    = { progress },
                             statusBarHeight     = statusBarHeight,
                             dominantColor       = dominantColor,
                             onColorCalculated   = { dominantColor = it },
@@ -289,8 +299,8 @@ fun PlaylistContent(
                 item(key = "action_pills") {
                     AnimatedVisibility(
                         visible = !searchFullyRevealed,
-                        enter   = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                        exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+                        enter   = uiEnter(fadeIn() + expandVertically(expandFrom = Alignment.Top)),
+                        exit    = uiExit(fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top))
                     ) {
                         PlaylistActionPillsRow(
                             isOwnedPlaylist = canRemoveFromPlaylist,
@@ -357,7 +367,9 @@ fun PlaylistContent(
                     onMoreClick        = { activeSongMoreOptions = it },
                     trackPlayCounts    = trackPlayCounts,
                     unplayableIds      = unplayableIds,
-                    selectionUi        = selectionUi
+                    selectionUi        = selectionUi,
+                    externalPlatforms  = externalPlatforms,
+                    showIndex          = showTrackIndex
                 )
 
                 if (isLoadingMoreTracks) {
@@ -380,7 +392,8 @@ fun PlaylistContent(
                     isPlaying                = isPlaying,
                     onRefreshRecommendations = onRefreshRecommendations,
                     onPlaySong               = onPlayRecommendedSong,
-                    onAddRecommendSong       = onAddRecommendSong
+                    onAddRecommendSong       = onAddRecommendSong,
+                    showIndex                = showTrackIndex
                 )
             }
         }
@@ -402,27 +415,29 @@ fun PlaylistContent(
 
         // ── 3. 固定 Overlay ───────────────────────────────────────────────
         PlaylistTopBar(
-            title           = playlist.name,
-            progress        = if (searchFullyRevealed) 1f else progress,
-            overlayHeight   = overlayHeight,
-            statusBarHeight = statusBarHeight,
-            dominantColor   = dominantColor,
+            title            = playlist.name,
+            progressProvider = { if (searchFullyRevealed) 1f else progress },
+            overlayHeight    = overlayHeight,
+            statusBarHeight  = statusBarHeight,
+            dominantColor    = dominantColor,
             // 搜索展开中：返回箭头先关搜索，不直接退出歌单页
-            onBack          = {
+            onBack           = {
                 if (searchBarRevealState.isOpen) searchBarRevealState.close() else onBack()
             },
-            onScrollToTop   = {
+            onScrollToTop    = {
                 coroutineScope.launch {
-                    listState.animateScrollToItem(0)
+                    motion.scrollToItem(listState, 0)
                 }
             }
         )
 
+        val visibleTrackIds = remember(filteredTracks) { filteredTracks.map { it.id } }
+        val selectionHeaderColor = headerCoverBase(dominantColor, 0.35f) ?: MelodiaColors.Background
         TrackSelectionOverlay(
             selectionUi = selectionUi,
             actions = selectionActions,
-            visibleIds = filteredTracks.map { it.id },
-            headerColor = dominantColor.darken(0.35f),
+            visibleIds = visibleTrackIds,
+            headerColor = selectionHeaderColor,
             onToggleSelectAll = onToggleSelectAll,
             onExit = onExitSelection
         )
@@ -490,6 +505,8 @@ fun PlaylistContent(
 
     if (activeSongMoreOptions != null) {
         val track = activeSongMoreOptions!!
+        // 外部平台歌曲没有网易云歌手、专辑与下载
+        val isExternal = track.id in externalPlatforms
         PlaylistSongOptionsSheet(
             track = track,
             isLiked = track.id in likedSongIds,
@@ -506,7 +523,14 @@ fun PlaylistContent(
             onRequireLogin = onRequireLogin,
             canRemoveFromPlaylist = canRemoveFromPlaylist,
             onRemoveFromPlaylist = onRemoveFromPlaylist,
-            onDownloadClick = onDownloadSongClick
+            onDownloadClick = onDownloadSongClick.takeIf { !isExternal },
+            showArtistOption = !isExternal,
+            showAlbumOption = !isExternal,
+            onReduceRecommend = if (playlist.id == -1L && selectedHistoryDate == "今天" && isLoggedIn) {
+                { onReduceRecommend(it.id) }
+            } else {
+                null
+            }
         )
     }
 

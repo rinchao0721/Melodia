@@ -10,6 +10,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LookaheadScope
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 
 // 与移动端平板首页一致的重排动画：卡片先按新排版算出目标位置与尺寸，再从旧位置平滑过去
 const val LAYOUT_REFLOW_MS = 300
@@ -29,7 +30,7 @@ private val HomeReflowBoundsTransform = BoundsTransform { _, _ ->
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.homeReflowBounds(): Modifier {
-    if (LocalPaneResizing.current) return this
+    if (LocalPaneResizing.current || !LocalUiMotion.current.enabled) return this
     val scope = LocalHomeLookaheadScope.current ?: return this
     return this.animateBounds(lookaheadScope = scope, boundsTransform = HomeReflowBoundsTransform)
 }

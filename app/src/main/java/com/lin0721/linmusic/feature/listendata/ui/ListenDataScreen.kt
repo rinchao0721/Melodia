@@ -45,6 +45,7 @@ import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.DataEnterSpec
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
@@ -75,17 +76,20 @@ fun ListenDataScreen(
 
         // 药丸行固定在顶部，列表须限定在剩余空间内，否则滚动内容会画到药丸上
         Box(modifier = Modifier.weight(1f)) {
+            val motion = LocalUiMotion.current
             AnimatedContent(
                 targetState = uiState,
                 // 顺着药丸的左右次序滑动，切走的方向和手指选中的方向一致
                 transitionSpec = {
                     val forward = targetState.selectedTab.ordinal >= initialState.selectedTab.ordinal
                     val offset = if (forward) 1 else -1
-                    (slideInHorizontally(TabSwitchOffsetSpec) { it / 6 * offset } + fadeIn(TabSwitchSpec))
-                        .togetherWith(
-                            slideOutHorizontally(TabSwitchOffsetSpec) { -it / 6 * offset } +
-                                fadeOut(TabSwitchSpec)
-                        )
+                    motion.transform(
+                        (slideInHorizontally(TabSwitchOffsetSpec) { it / 6 * offset } + fadeIn(TabSwitchSpec))
+                            .togetherWith(
+                                slideOutHorizontally(TabSwitchOffsetSpec) { -it / 6 * offset } +
+                                    fadeOut(TabSwitchSpec)
+                            )
+                    )
                 },
                 // Tab 与内容之外的字段（如累计时长后到）变化时不重播过渡
                 contentKey = { it.selectedTab to it.content },
@@ -133,10 +137,11 @@ fun ListenDataScreen(
 // 入场进度：在列表外层持有，避免 LazyColumn 回收 item 后动画重播
 @Composable
 private fun rememberDataEnterProgress(key: Any?): Float {
+    val motion = LocalUiMotion.current
     val progress = remember { Animatable(0f) }
     LaunchedEffect(key) {
         progress.snapTo(0f)
-        progress.animateTo(1f, DataEnterSpec)
+        progress.animateTo(1f, motion.spec(DataEnterSpec))
     }
     return progress.value
 }

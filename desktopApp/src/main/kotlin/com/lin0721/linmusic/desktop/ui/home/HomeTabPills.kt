@@ -1,11 +1,13 @@
 package com.lin0721.linmusic.desktop.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.delay
 
@@ -86,10 +89,10 @@ fun HomeTabPills(
                 // 平移与裁剪宽度同步，胶囊保持完整尺寸从主胶囊背后推出
                 AnimatedVisibility(
                     visible = secondaryVisible,
-                    enter = slideInHorizontally(tween(SECONDARY_ANIM_MS)) { -it } +
-                        expandHorizontally(tween(SECONDARY_ANIM_MS), expandFrom = Alignment.Start),
-                    exit = slideOutHorizontally(tween(SECONDARY_ANIM_MS)) { -it } +
-                        shrinkHorizontally(tween(SECONDARY_ANIM_MS), shrinkTowards = Alignment.Start),
+                    enter = slideInHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
+                        expandHorizontally(uiTween(SECONDARY_ANIM_MS), expandFrom = Alignment.Start),
+                    exit = slideOutHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
+                        shrinkHorizontally(uiTween(SECONDARY_ANIM_MS), shrinkTowards = Alignment.Start),
                     modifier = Modifier.overlapStart(PillRadius)
                 ) {
                     HomePill(
@@ -117,14 +120,22 @@ private fun HomePill(
     selectedContainerColor: Color = DesktopColors.TextPrimary,
     labelStartInset: Dp = 0.dp
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val containerColor by animateColorAsState(
+        if (hovered) DesktopColors.Overlay.copy(alpha = 0.2f) else DesktopColors.Overlay.copy(alpha = 0.1f),
+        uiTween(150),
+        label = "homePillBg"
+    )
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(text, fontSize = 13.sp, modifier = Modifier.padding(start = labelStartInset)) },
         modifier = modifier,
         shape = shape,
+        interactionSource = interaction,
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = DesktopColors.Surface,
+            containerColor = containerColor,
             labelColor = DesktopColors.TextPrimary,
             selectedContainerColor = selectedContainerColor,
             selectedLabelColor = DesktopColors.Pane

@@ -39,6 +39,9 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         setOption("idle", "yes")
         setOption("audio-display", "no")
         setOption("keep-open", "no")
+        // 在线播放的读取缓存默认前向 150MiB、后向 50MiB，两个实例并存时占用可观；单曲文件通常远小于此
+        setOption("demuxer-max-bytes", "32MiB")
+        setOption("demuxer-max-back-bytes", "16MiB")
         extraOptions.forEach { (name, value) -> setOption(name, value) }
         check(mpv.mpv_initialize(ctx) >= 0) { "mpv_initialize 失败" }
         mpv.mpv_observe_property(ctx, OBSERVE_TIME_POS, "time-pos", MpvConst.FORMAT_DOUBLE)
@@ -59,6 +62,17 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         setProperty("pause", if (paused) "yes" else "no")
         command("loadfile", url, "replace")
     }
+
+    // 分析用：start 按 mpv 语法给出，如 "+12.5" 或 "25%"
+    fun loadSegment(url: String, start: String) {
+        setProperty("stream-record", "")
+        setProperty("start", start)
+        setProperty("pause", "no")
+        command("loadfile", url, "replace")
+    }
+
+    // 已载入文件的标签值，mpv 按键名不区分大小写匹配
+    fun metadataValue(key: String): String? = getProperty("metadata/by-key/$key")
 
     fun setPaused(paused: Boolean) = setProperty("pause", if (paused) "yes" else "no")
 

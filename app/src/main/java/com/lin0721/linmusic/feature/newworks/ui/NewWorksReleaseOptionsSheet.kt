@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +41,7 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import com.lin0721.linmusic.feature.newworks.domain.typeLabel
@@ -107,7 +107,7 @@ fun NewWorksReleaseOptionsSheet(
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 

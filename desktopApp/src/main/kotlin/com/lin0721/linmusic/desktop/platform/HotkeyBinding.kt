@@ -8,7 +8,8 @@ enum class HotkeyAction(val label: String) {
     Next("下一首"),
     VolumeUp("音量加"),
     VolumeDown("音量减"),
-    ToggleDesktopLyric("桌面歌词开关")
+    ToggleDesktopLyric("桌面歌词开关"),
+    ToggleDesktopLyricLock("锁定/解锁桌面歌词")
 }
 
 // 与平台无关的组合键；修饰键位与键码取值沿用 Win32 的 MOD_* 与虚拟键码，已保存的配置因此无需迁移，
@@ -66,7 +67,8 @@ data class HotkeyCombo(val modifiers: Int, val vk: Int) {
                 HotkeyAction.Next to HotkeyCombo(ctrlAlt, VK_RIGHT),
                 HotkeyAction.VolumeUp to HotkeyCombo(ctrlAlt, VK_UP),
                 HotkeyAction.VolumeDown to HotkeyCombo(ctrlAlt, VK_DOWN),
-                HotkeyAction.ToggleDesktopLyric to HotkeyCombo(ctrlAlt, 'L'.code)
+                HotkeyAction.ToggleDesktopLyric to HotkeyCombo(ctrlAlt, 'L'.code),
+                HotkeyAction.ToggleDesktopLyricLock to HotkeyCombo(ctrlAlt, 'K'.code)
             )
         }
 

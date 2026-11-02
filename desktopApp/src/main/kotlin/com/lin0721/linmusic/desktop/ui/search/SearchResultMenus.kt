@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import com.lin0721.linmusic.core.model.Artist
+import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
@@ -26,6 +27,8 @@ import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.songInfoText
 import com.lin0721.linmusic.desktop.ui.shell.DesktopNavigator
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
+import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
+import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 
@@ -171,11 +174,12 @@ internal fun MenuScope.ProgramMenuItems(
     })
 }
 
-// 外部平台歌曲没有网易云 id，不提供喜欢、收藏、下载
+// 外部平台歌曲没有网易云 id，不提供喜欢、下载；收藏到歌单只存本机
 @Composable
 internal fun MenuScope.ExternalTrackMenuItems(
     track: ExternalTrack,
     viewModel: SearchViewModel,
+    actions: TrackActions,
     onPlay: () -> Unit,
     dismiss: () -> Unit
 ) {
@@ -188,6 +192,17 @@ internal fun MenuScope.ExternalTrackMenuItems(
         dismiss()
         viewModel.addExternalToPlayNext(track)
     })
+    val asTrack = track.toPlaylistTrack()
+    if (navigator.isLoggedIn) {
+        SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(asTrack) }) {
+            CollectSubmenuContent(asTrack, actions, dismiss)
+        }
+    } else {
+        MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+            dismiss()
+            navigator.showMessage("请先登录账号")
+        })
+    }
     MenuDivider()
     MenuItem("在网易云中搜索", icon = Icons.Rounded.Search, onClick = {
         dismiss()

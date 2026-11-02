@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.search.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -46,6 +45,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -86,6 +86,7 @@ internal fun SearchResultsContent(
     onRadioClick: (Long) -> Unit,
     onProgramClick: (PodcastProgram) -> Unit,
     onExternalSongClick: (ExternalTrack) -> Unit,
+    onOpenExternalOptions: (ExternalTrack) -> Unit,
     onLoadMore: () -> Unit,
     onLoadMoreExternal: (MusicPlatform) -> Unit,
     onRetry: () -> Unit,
@@ -93,6 +94,7 @@ internal fun SearchResultsContent(
     onLikeClick: (Long) -> Unit,
     onOpenMoreOptions: (Track) -> Unit
 ) {
+    val motion = LocalUiMotion.current
     val types = SearchType.entries
     Column(modifier = Modifier.fillMaxSize()) {
         if (searchPlatforms.size > 1) {
@@ -107,8 +109,8 @@ internal fun SearchResultsContent(
         AnimatedContent(
             targetState = selectedPlatform,
             transitionSpec = {
-                fadeIn(tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
-                    .togetherWith(fadeOut(tween(TAB_EXIT_DURATION)))
+                fadeIn(motion.tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
+                    .togetherWith(fadeOut(motion.tween(TAB_EXIT_DURATION)))
             },
             label = "search_platform_switch"
         ) { platform ->
@@ -123,8 +125,8 @@ internal fun SearchResultsContent(
                     AnimatedContent(
                         targetState = selectedType,
                         transitionSpec = {
-                            fadeIn(tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
-                                .togetherWith(fadeOut(tween(TAB_EXIT_DURATION)))
+                            fadeIn(motion.tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
+                                .togetherWith(fadeOut(motion.tween(TAB_EXIT_DURATION)))
                         },
                         label = "search_type_tab_switch"
                     ) { type ->
@@ -159,6 +161,7 @@ internal fun SearchResultsContent(
                     currentTrackId = currentTrackId,
                     isPlaying = isPlaying,
                     onSongClick = onExternalSongClick,
+                    onOpenOptions = onOpenExternalOptions,
                     onLoadMore = { onLoadMoreExternal(platform) },
                     onRetry = { onRetryExternal(platform) }
                 )
@@ -175,6 +178,7 @@ private fun ExternalSearchResultsList(
     currentTrackId: String?,
     isPlaying: Boolean,
     onSongClick: (ExternalTrack) -> Unit,
+    onOpenOptions: (ExternalTrack) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -236,7 +240,20 @@ private fun ExternalSearchResultsList(
                         isActive = isActive,
                         isPlaying = isPlaying,
                         copyable = true,
-                        onClick = { onSongClick(track) }
+                        onClick = { onSongClick(track) },
+                        trailingSlot = {
+                            MelodiaIconButton(
+                                onClick = { onOpenOptions(track) },
+                                modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "更多操作",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     )
                 }
 

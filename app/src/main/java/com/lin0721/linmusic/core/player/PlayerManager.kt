@@ -12,6 +12,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
+import java.io.File
 import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -19,9 +20,11 @@ import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,7 +68,8 @@ class PlayerManager(
     private val localMusicApi: LocalMusicApi,
     private val songDownloadManager: SongDownloadManager,
     private val externalInterruptionResumeController: ExternalInterruptionResumeController,
-    private val onlineState: OnlineStateProvider
+    private val onlineState: OnlineStateProvider,
+    private val externalResolver: ExternalTrackResolver
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -180,13 +184,22 @@ class PlayerManager(
     // 切歌交叉淡化设置，由 DataStore 持续同步
     @Volatile private var crossfadeEnabled = false
     @Volatile private var crossfadeDurationMs = CrossfadePolicy.DEFAULT_DURATION_MS
+    @Volatile private var smartCrossfadeEnabled = false
+    @Volatile private var loudnessEnabled = false
 
     // 已提前触发自动交叉淡化的歌曲，防止随后到达的 ENDED 再推进一次队列
     private var autoCrossfadeTriggeredSongId: Long = -1L
     private var pendingAutoFadeMs: Long = 0L
     private var autoCrossfadeScheduledSongId: Long = -1L
     private var autoCrossfadeJob: Job? = null
-    private val edgeAnalyzer = TrackEdgeAnalyzer(context)
+    private val pcmDecoder = PcmWindowDecoder(context)
+    private val edgeAnalyzer = TrackEdgeAnalyzer(pcmDecoder)
+
+    // 音量平衡：每首歌只测一次，结果持久缓存
+    private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_gain.json")), pcmDecoder)
+    private val replayGainReader = ReplayGainReader(context)
+    private var loudnessMeasuredSongId: Long = -1L
+    private var loudnessPremeasuredSongId: Long = -1L
 
     // 最近一次下发的播放源 (songId, uri)，供尾部分析读取当前歌的实际音频
     private var requestedSource: Pair<Long, String>? = null
@@ -239,6 +252,18 @@ class PlayerManager(
         scope.launch {
             settingsPreferences.crossfadeDurationMs.collect { crossfadeDurationMs = it }
         }
+        scope.launch {
+            settingsPreferences.smartCrossfadeEnabled.collect { smartCrossfadeEnabled = it }
+        }
+        scope.launch {
+            settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
+                loudnessEnabled = enabled
+                // 关闭时立即恢复原音量；开启后由进度回调为当前歌补测
+                loudnessMeasuredSongId = -1L
+                loudnessPremeasuredSongId = -1L
+                if (!enabled) controllerHolder.setVolume(1f)
+            }
+        }
 
         progress.start(
             isPlaying = { _isPlaying.value },
@@ -250,6 +275,8 @@ class PlayerManager(
                     roaming.onProgressTick(songId, remainingMs)
                     maybePrefetchNextTrackUrl(remainingMs)
                     maybeScheduleAutoCrossfade(songId, remainingMs, dur)
+                    maybeMeasureCurrentLoudness(songId)
+                    maybePremeasureNextLoudness(remainingMs)
                     maybeCheckStreamCacheProgress(songId, positionMs, dur)
                 }
 
@@ -330,7 +357,7 @@ class PlayerManager(
 
         if ((playContext == CONTEXT_INTELLIGENCE || playContext == SimilarRoamingController.CONTEXT_ROAMING) && isCurrentPlayingTrack) {
             // 以当前正在播放的曲目为种子时平滑衔接，不重载音频与重置进度
-            roaming.prefetchOnPlay(targetItem.songId, currentIndex)
+            roaming.prefetchOnPlay(targetItem.songId)
             return
         }
 
@@ -360,6 +387,21 @@ class PlayerManager(
 
         playbackQueue.insertNext(items)
         saveQueueState()
+    }
+
+    override fun appendToQueue(items: List<QueueItem>) {
+        if (items.isEmpty()) return
+        if (playbackQueue.isEmpty) {
+            playQueue(items, 0)
+            return
+        }
+        playbackQueue.append(items)
+        saveQueueState()
+    }
+
+    override fun extendQueue(source: PlaySource, items: List<QueueItem>) {
+        if (playbackQueue.playSource.value != source) return
+        if (playbackQueue.extend(items)) saveQueueState()
     }
 
     // 插播到"下一首"并立即从指定位置播放，保留原队列
@@ -457,6 +499,14 @@ class PlayerManager(
     }
 
     override fun pause() {
+        // 播放地址尚未返回时按暂停，取消拉链并还原待播状态
+        if (pendingSkipFromIndex != null) {
+            activePlayJob?.cancel()
+            pendingSkipFromIndex = null
+            pausedForPendingPlay = false
+            clearPendingTrack(restorePlayWhenReady = false)
+            MelodiaPlaybackService.stopPendingForeground(context)
+        }
         _playWhenReady.value = false
         externalInterruptionResumeController.onExplicitUserPause()
         controllerHolder.pause()
@@ -593,6 +643,9 @@ class PlayerManager(
         val fromIndex = playbackQueue.currentIndex.value
         if (playWhenReady) {
             externalInterruptionResumeController.onExplicitUserPlay()
+            if (networkRetryAttempt == 0 && item.localUri == null) {
+                MelodiaPlaybackService.startForPendingPlay(context, item.title, item.artist)
+            }
         }
 
         activePlayJob = scope.launch {
@@ -607,7 +660,7 @@ class PlayerManager(
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -626,12 +679,13 @@ class PlayerManager(
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
                 if (playWhenReady) showPendingTrack(item)
                 val mediaItem = item.toOfflineCachedMediaItem(cacheKey, playbackQueue.playContext.value)
-                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
             if (localRecord == null && networkGuard.blockPlaybackOnMobile()) {
                 pendingStartPosition = 0L
+                MelodiaPlaybackService.stopPendingForeground(context)
                 return@launch
             }
 
@@ -644,13 +698,32 @@ class PlayerManager(
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
             if (playWhenReady) showPendingTrack(item)
 
-            roaming.prefetchOnPlay(item.songId, index)
+            // 外部平台歌曲轮到时才经换源插件解析，解析失败按播放失败跳下一首
+            val external = item.external
+            if (external != null) {
+                if (playWhenReady && !autoTransition && _currentTrack.value?.mediaId?.toLongOrNull() != item.songId) {
+                    pauseOutgoingWhilePending()
+                }
+                val url = prefetchedUrl ?: externalResolver.resolve(external)
+                if (url == null) {
+                    AppLogger.w(TAG, "外部歌曲解析失败 songId=${item.songId} platform=${external.platform.key}")
+                    Toast.makeText(context, externalResolver.explainFailure(external), Toast.LENGTH_SHORT).show()
+                    skipToNextOnError(index)
+                    return@launch
+                }
+                pendingSkipFromIndex = null
+                val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
+                controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                return@launch
+            }
+
+            roaming.prefetchOnPlay(item.songId)
 
             if (localRecord != null) {
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
-                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -659,7 +732,7 @@ class PlayerManager(
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 publishPlaybackLevel(item.songId, prefetchedLevel)
                 pendingSkipFromIndex = null
-                controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
 
@@ -672,11 +745,12 @@ class PlayerManager(
                 result.onSuccess { info ->
                     val mediaItem = item.toMediaItem(info.url, playbackQueue.playContext.value)
                     publishPlaybackLevel(item.songId, info.level)
+                    rememberNeteaseGain(item.songId, info)
                     pendingSkipFromIndex = null
                     if (info.trialFallback && playWhenReady) {
                         Toast.makeText(context, "换源失败，当前仅可试听", Toast.LENGTH_SHORT).show()
                     }
-                    controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 }.onFailure { throwable ->
                     AppLogger.w(TAG, "获取播放URL失败 songId=${item.songId} index=$index networkRetryAttempt=$networkRetryAttempt", throwable)
                     if (throwable is AppError.NetworkError) {
@@ -730,6 +804,7 @@ class PlayerManager(
             }
         }
         pendingStartPosition = 0L
+        MelodiaPlaybackService.stopPendingForeground(context)
         Toast.makeText(context, "离线状态下没有可播放的已缓存歌曲", Toast.LENGTH_SHORT).show()
     }
 
@@ -751,6 +826,8 @@ class PlayerManager(
         if (pausedForPendingPlay) {
             pausedForPendingPlay = false
             controllerHolder.play()
+        } else if (!_isPlaying.value) {
+            MelodiaPlaybackService.stopPendingForeground(context)
         }
         // resetTo() 已经把进度条乐观置零/清空时长，撤销后按播放器的真实位置纠正回来
         progress.setPosition(controllerHolder.currentPosition)
@@ -817,6 +894,11 @@ class PlayerManager(
 
         prefetchJob?.cancel()
         prefetchJob = scope.launch {
+            val external = nextItem.external
+            if (external != null) {
+                externalResolver.resolve(external)?.let { prefetchedNextUrl = PrefetchedUrl(nextItem.songId, it) }
+                return@launch
+            }
             // 下一首已下载时跳过网络预取
             if (downloadPreferences.findVerifiedRecord(nextItem.songId) != null) return@launch
             repository.getSongPlaybackInfo(nextItem.songId).collect { result ->
@@ -824,6 +906,7 @@ class PlayerManager(
                     // 退回试听的结果不缓存，真正切歌时重新取链并提示
                     if (info.trialFallback) return@onSuccess
                     prefetchedNextUrl = PrefetchedUrl(nextItem.songId, info.url, info.level)
+                    rememberNeteaseGain(nextItem.songId, info)
                 }
             }
         }
@@ -840,7 +923,7 @@ class PlayerManager(
         fetchUrlAndPlay(nextIndex, prefetchedUrl = cached?.url, prefetchedLevel = cached?.level, autoTransition = true)
     }
 
-    // 临近结尾时分析当前歌的有效结尾与下一首的有效开头，在"有效结尾 - 淡化时长"处精确触发自动切歌；
+    // 智能过渡开启时，临近结尾分析当前歌的有效结尾与下一首的有效开头，在"有效结尾 - 淡化时长"处精确触发自动切歌；
     // 仅 Wi-Fi 下预分析，否则按歌曲时长倒推
     private fun maybeScheduleAutoCrossfade(songId: Long, remainingMs: Long, durationMs: Long) {
         if (!canAutoCrossfade()) return
@@ -849,7 +932,7 @@ class PlayerManager(
         autoCrossfadeScheduledSongId = songId
         autoCrossfadeJob?.cancel()
         autoCrossfadeJob = scope.launch {
-            val analyze = isWifiConnected()
+            val analyze = smartCrossfadeEnabled && isWifiConnected()
             val sourceUri = requestedSource?.takeIf { it.first == songId }?.second
             // 尾部与下一首开头并行分析
             val endDeferred = async {
@@ -887,21 +970,25 @@ class PlayerManager(
     private fun canAutoCrossfade(): Boolean =
         crossfadeEnabled && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP && playbackQueue.size > 1
 
-    private suspend fun analyzeNextTrackStart(): Long? {
-        val nextItem = playbackQueue.nextItemByMode() ?: return null
-        val uri = nextItem.localUri
+    // 下一首的可解码音频：本地 > 已下载 > 预取到的在线链接
+    private suspend fun nextTrackSourceUri(nextItem: QueueItem): String? =
+        nextItem.localUri
             ?: downloadPreferences.findVerifiedRecord(nextItem.songId)?.mediaStoreUri
             ?: run {
                 prefetchJob?.join()
                 prefetchedNextUrl?.takeIf { it.songId == nextItem.songId }?.url
             }
-            ?: return null
+
+    private suspend fun analyzeNextTrackStart(): Long? {
+        val nextItem = playbackQueue.nextItemByMode() ?: return null
+        val uri = nextTrackSourceUri(nextItem) ?: return null
         val startMs = edgeAnalyzer.effectiveStartMs(nextItem.songId.toString(), uri) ?: return null
         pendingStartOffset = nextItem.songId to startMs
         return startMs
     }
 
-    private fun MediaItem.withCrossfade(autoTransition: Boolean, startPosition: Long): MediaItem {
+    // 写入交叉淡化参数与曲目增益，供服务侧切歌时使用
+    private suspend fun MediaItem.withPlaybackExtras(autoTransition: Boolean, startPosition: Long): MediaItem {
         val songId = mediaId.toLongOrNull()
         val uri = localConfiguration?.uri?.toString()
         if (songId != null && uri != null) requestedSource = songId to uri
@@ -912,15 +999,66 @@ class PlayerManager(
             startPositionMs = startPosition,
             autoFadeMs = pendingAutoFadeMs
         )
-        if (fadeMs <= 0L) return this
+        val gainDb = if (songId != null && uri != null) knownGainDb(songId, uri) else null
+        if (fadeMs <= 0L && gainDb == null) return this
         val startOffsetMs = pendingStartOffset?.takeIf { it.first == songId }?.second ?: 0L
         val extras = Bundle(mediaMetadata.extras ?: Bundle()).apply {
-            putLong(CrossfadePolicy.EXTRA_CROSSFADE_MS, fadeMs)
-            if (startOffsetMs > 0L) putLong(CrossfadePolicy.EXTRA_CROSSFADE_START_MS, startOffsetMs)
+            if (fadeMs > 0L) putLong(CrossfadePolicy.EXTRA_CROSSFADE_MS, fadeMs)
+            if (fadeMs > 0L && startOffsetMs > 0L) putLong(CrossfadePolicy.EXTRA_CROSSFADE_START_MS, startOffsetMs)
+            if (gainDb != null) putDouble(LoudnessPolicy.EXTRA_TRACK_GAIN_DB, gainDb)
         }
         return buildUpon()
             .setMediaMetadata(mediaMetadata.buildUpon().setExtras(extras).build())
             .build()
+    }
+
+    // 网易返回的有效增益优先于自测，覆盖已缓存的值
+    private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
+        val gainDb = info.gainDb ?: return
+        if (loudnessEnabled) loudnessMeter.remember(songId, gainDb)
+    }
+
+    // 已知的曲目增益：缓存优先，本地文件再读 ReplayGain 标签；音量平衡关闭时为 null
+    private suspend fun knownGainDb(songId: Long, uri: String): Double? {
+        if (!loudnessEnabled) return null
+        loudnessMeter.cachedGainDb(songId)?.let { return it }
+        val tagged = replayGainReader.trackGainDb(uri) ?: return null
+        loudnessMeter.remember(songId, tagged)
+        return tagged
+    }
+
+    // 在线链接仅 Wi-Fi 下解码自测，本地与已下载文件不受限；离线缓存的占位地址无法直接解码
+    private fun canMeasure(uri: String): Boolean = when {
+        uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX) -> false
+        uri.startsWith("http") -> isWifiConnected()
+        else -> true
+    }
+
+    // 当前歌没有已知增益时补测，测完平滑过渡到目标音量
+    private fun maybeMeasureCurrentLoudness(songId: Long) {
+        if (!loudnessEnabled || loudnessMeasuredSongId == songId) return
+        val uri = requestedSource?.takeIf { it.first == songId }?.second ?: return
+        loudnessMeasuredSongId = songId
+        scope.launch {
+            val gainDb = knownGainDb(songId, uri)
+                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri) else null)
+                ?: return@launch
+            if (!loudnessEnabled || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return@launch
+            controllerHolder.setVolume(LoudnessPolicy.amplitude(gainDb))
+        }
+    }
+
+    // 临近结尾时预测下一首，切过去时直接带上增益
+    private fun maybePremeasureNextLoudness(remainingMs: Long) {
+        if (!loudnessEnabled || remainingMs > CrossfadePolicy.prefetchWindowMs(crossfadeEnabled)) return
+        val nextItem = playbackQueue.nextItemByMode() ?: return
+        if (loudnessPremeasuredSongId == nextItem.songId) return
+        loudnessPremeasuredSongId = nextItem.songId
+        scope.launch {
+            val uri = nextTrackSourceUri(nextItem) ?: return@launch
+            if (knownGainDb(nextItem.songId, uri) != null || !canMeasure(uri)) return@launch
+            loudnessMeter.measure(nextItem.songId, uri)
+        }
     }
 
     // 网络类失败原地重试同一首（退避延迟），重试耗尽后不放弃，转为等待网络恢复自动续播
@@ -988,8 +1126,9 @@ class PlayerManager(
     private var reportingSource: PlaySource? = null
 
     // 歌曲一开始播放就立即打卡（进「最近播放」），跟切歌时补报的时长上报分开、各自独立失败互不影响
+    // 负数 id 是外部平台歌曲或未匹配的本地歌曲，不属于网易云曲库，不上报
     private fun reportStartPlay(mediaItem: MediaItem) {
-        val songId = mediaItem.mediaId.toLongOrNull() ?: return
+        val songId = mediaItem.mediaId.toLongOrNull()?.takeIf { it > 0L } ?: return
         val source = playbackQueue.playSource.value
         reportingSource = source
         scope.launch {
@@ -1001,7 +1140,7 @@ class PlayerManager(
 
     // 切歌/退出播放时把刚播完的这首上报播放时长打卡（用挂钟时间差算出的播放时长）；听不满 5 秒的跳过不算
     private fun reportPlayedTrack() {
-        val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: return
+        val songId = _currentTrack.value?.mediaId?.toLongOrNull()?.takeIf { it > 0L } ?: return
         val playedSeconds = currentTrackPlayedMs() / 1000
         if (playedSeconds < 5) {
             AppLogger.i(TAG, "打卡上报跳过（未满5秒）songId=$songId playedSeconds=$playedSeconds")
@@ -1037,6 +1176,7 @@ class PlayerManager(
             _playWhenReady.value = false
             pausedForPendingPlay = false
             clearPendingTrack(restorePlayWhenReady = false)
+            MelodiaPlaybackService.stopPendingForeground(context)
             scope.launch {
                 Toast.makeText(context, "无法获取该歌曲的播放链接", Toast.LENGTH_SHORT).show()
             }

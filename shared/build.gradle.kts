@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.multiplatform)
 }
 
 kotlin {
@@ -37,6 +39,10 @@ kotlin {
             implementation(libs.xz)
             // Android 自带 org.json，只在编译期引用
             compileOnly(libs.org.json)
+            // 分享卡片排版两端共用
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.ui)
         }
         getByName("desktopMain").dependencies {
             implementation(libs.org.json)

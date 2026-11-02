@@ -6,16 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,17 +38,13 @@ import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-private val PendingGray = Color(0xFF555555)
+private val PendingGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextDisabled
 
 // 下载管理面板的分类
 enum class DownloadManagerTab(val label: String) {
@@ -140,7 +137,7 @@ fun DownloadManagerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -172,13 +169,13 @@ fun DownloadManagerSheet(
                 ) {
                     Text(
                         text = "下载管理",
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier.weight(1f)
                     )
                     if (tasks.isNotEmpty()) {
-                        TextAction("编辑", Color.White) { editing = true }
+                        TextAction("编辑", MelodiaColors.TextPrimary) { editing = true }
                     }
                 }
             }
@@ -219,7 +216,7 @@ fun DownloadManagerSheet(
                     TabChip(
                         text = "${entry.label} $count",
                         selected = tab == entry,
-                        accent = if (entry == DownloadManagerTab.FAILED && count > 0) DownloadFailedRed else null,
+                        accent = if (entry == DownloadManagerTab.FAILED && count > 0) MelodiaColors.Error else null,
                         onClick = {
                             tab = entry
                             selectedIds = emptySet()
@@ -258,11 +255,11 @@ fun DownloadManagerSheet(
     if (showClearFailedDialog) {
         AlertDialog(
             onDismissRequest = { showClearFailedDialog = false },
-            title = { Text("清除失败任务", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("清除失败任务", color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     text = if (counts.failed > 0) "确定清除全部 ${counts.failed} 首失败的下载任务吗？" else "确定清除全部失败的下载任务吗？",
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 14.sp
                 )
             },
@@ -272,17 +269,17 @@ fun DownloadManagerSheet(
                         actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.FAILED })
                         showClearFailedDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = DownloadFailedRed)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Error)
                 ) {
                     Text("清除", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { showClearFailedDialog = false }) {
-                    Text("取消", color = Color.White)
+                    Text("取消", color = MelodiaColors.TextPrimary)
                 }
             },
-            containerColor = SurfaceDark,
+            containerColor = MelodiaColors.Surface,
             shape = RoundedCornerShape(12.dp)
         )
     }
@@ -385,9 +382,9 @@ private fun EditableTaskList(
                     null
                 },
                 modifier = Modifier
-                    .then(if (dragging) Modifier.zIndex(1f) else Modifier.animateItem())
+                    .then(if (dragging) Modifier.zIndex(1f) else if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier)
                     .graphicsLayer { translationY = if (dragging) reorder.dragOffset else 0f }
-                    .background(if (dragging) SurfaceDark else Color.Transparent, RoundedCornerShape(12.dp))
+                    .background(if (dragging) MelodiaColors.Surface else Color.Transparent, RoundedCornerShape(12.dp))
             )
         }
     }
@@ -399,16 +396,16 @@ private fun EditHeader(selectedCount: Int, allSelected: Boolean, onToggleAll: ()
         modifier = Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextAction(if (allSelected) "全不选" else "全选", Color.White, onToggleAll)
+        TextAction(if (allSelected) "全不选" else "全选", MelodiaColors.TextPrimary, onToggleAll)
         Text(
             text = if (selectedCount > 0) "已选 $selectedCount 项" else "选择任务",
-            color = Color.White,
+            color = MelodiaColors.TextPrimary,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f)
         )
-        TextAction("完成", NeteaseRed, onDone)
+        TextAction("完成", MelodiaColors.Accent, onDone)
     }
 }
 
@@ -427,11 +424,11 @@ private fun SummaryCard(
             .padding(horizontal = MelodiaSpacing.md)
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark.copy(alpha = 0.6f))
+            .background(MelodiaColors.Surface.copy(alpha = 0.6f))
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(text = "${counts.settled}", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(text = "${counts.settled}", color = MelodiaColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Text(
                 text = " / ${counts.total} 首",
                 color = MutedText,
@@ -443,10 +440,10 @@ private fun SummaryCard(
         DownloadSegmentedProgress(counts = counts, height = 6.dp)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            LegendDot(DownloadedGreen, "完成 ${counts.succeeded}")
-            LegendDot(Color.White, "下载中 ${counts.running}")
+            LegendDot(MelodiaColors.Success, "完成 ${counts.succeeded}")
+            LegendDot(MelodiaColors.TextPrimary, "下载中 ${counts.running}")
             LegendDot(PendingGray, if (counts.paused > 0) "等待 ${counts.waiting} · 暂停 ${counts.paused}" else "等待 ${counts.waiting}")
-            LegendDot(DownloadFailedRed, "失败 ${counts.failed}")
+            LegendDot(MelodiaColors.Error, "失败 ${counts.failed}")
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -458,7 +455,7 @@ private fun SummaryCard(
             ActionPill(
                 text = if (counts.failed > 0) "重试失败 ${counts.failed}" else "重试失败",
                 enabled = counts.failed > 0,
-                color = DownloadFailedRed,
+                color = MelodiaColors.Error,
                 onClick = onRetryFailed,
                 modifier = Modifier.weight(1f)
             )
@@ -467,7 +464,7 @@ private fun SummaryCard(
                 ActionPill(
                     text = "清除失败",
                     enabled = counts.failed > 0,
-                    color = DownloadFailedRed,
+                    color = MelodiaColors.Error,
                     onClick = onClearFailed,
                     modifier = Modifier.weight(1f)
                 )
@@ -495,9 +492,9 @@ internal fun DownloadSegmentedProgress(counts: DownloadCounts, height: Dp, modif
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         val remaining = counts.total - counts.settled - counts.runningFraction
-        if (counts.succeeded > 0) Box(Modifier.weight(counts.succeeded.toFloat()).fillMaxHeight().background(DownloadedGreen))
-        if (counts.failed > 0) Box(Modifier.weight(counts.failed.toFloat()).fillMaxHeight().background(DownloadFailedRed))
-        if (counts.runningFraction > 0f) Box(Modifier.weight(counts.runningFraction).fillMaxHeight().background(Color.White))
+        if (counts.succeeded > 0) Box(Modifier.weight(counts.succeeded.toFloat()).fillMaxHeight().background(MelodiaColors.Success))
+        if (counts.failed > 0) Box(Modifier.weight(counts.failed.toFloat()).fillMaxHeight().background(MelodiaColors.Error))
+        if (counts.runningFraction > 0f) Box(Modifier.weight(counts.runningFraction).fillMaxHeight().background(MelodiaColors.TextPrimary))
         if (remaining > 0f) Spacer(Modifier.weight(remaining))
     }
 }
@@ -507,7 +504,7 @@ private fun LegendDot(color: Color, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(5.dp))
-        Text(text = text, color = TextGray, fontSize = 12.sp)
+        Text(text = text, color = MelodiaColors.TextSecondary, fontSize = 12.sp)
     }
 }
 
@@ -517,13 +514,13 @@ private fun ActionPill(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    color: Color = Color.White
+    color: Color = MelodiaColors.TextPrimary
 ) {
     Box(
         modifier = modifier
             .height(36.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.08f))
+            .background(MelodiaColors.Fill)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -542,7 +539,7 @@ private fun TabChip(text: String, selected: Boolean, accent: Color?, onClick: ()
         modifier = Modifier
             .height(32.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Color.White else Color.White.copy(alpha = 0.08f))
+            .background(if (selected) MelodiaColors.TextPrimary else MelodiaColors.Fill)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
@@ -550,9 +547,9 @@ private fun TabChip(text: String, selected: Boolean, accent: Color?, onClick: ()
         Text(
             text = text,
             color = when {
-                selected -> BackgroundDark
+                selected -> MelodiaColors.Background
                 accent != null -> accent
-                else -> TextGray
+                else -> MelodiaColors.TextSecondary
             },
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
@@ -579,7 +576,7 @@ private fun GroupHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -590,13 +587,13 @@ private fun GroupHeader(
         when {
             tab == DownloadManagerTab.ACTIVE && tasks.size > 1 -> {
                 if (tasks.any { it.isActive }) {
-                    TextAction("暂停", Color.White, onPause)
+                    TextAction("暂停", MelodiaColors.TextPrimary, onPause)
                 } else {
-                    TextAction("继续", Color.White, onResume)
+                    TextAction("继续", MelodiaColors.TextPrimary, onResume)
                 }
                 TextAction("取消", MutedText, onCancel)
             }
-            tab == DownloadManagerTab.FAILED && tasks.size > 1 -> TextAction("全部重试", DownloadFailedRed, onRetry)
+            tab == DownloadManagerTab.FAILED && tasks.size > 1 -> TextAction("全部重试", MelodiaColors.Error, onRetry)
         }
     }
 }

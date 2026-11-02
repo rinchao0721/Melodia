@@ -27,7 +27,7 @@ class AudioCache(private val dir: File) {
         deleteTemps()
     }
 
-    // 命中时刷新修改时间，淘汰按它排序
+    // 命中时刷新修改时间，缓存总量淘汰按它排序
     fun completeFile(songId: Long, level: String): File? =
         File(dir, "${songId}_$level.$EXTENSION").takeIf { it.isFile && it.length() > 0 }?.also { it.setLastModified(System.currentTimeMillis()) }
 
@@ -49,13 +49,12 @@ class AudioCache(private val dir: File) {
     fun totalSize(): Long = completeFiles().sumOf { it.length() }
 
     // 临时文件在 mpv 关闭前改名会失败，重试到成功即说明文件已完整落盘
-    suspend fun commit(temp: File, maxBytes: Long): Boolean = withContext(Dispatchers.IO) {
+    suspend fun commit(temp: File): Boolean = withContext(Dispatchers.IO) {
         val target = File(dir, "${temp.name.substringBefore(TEMP_MARK)}.$EXTENSION")
         repeat(COMMIT_ATTEMPTS) {
             if (!temp.isFile || temp.length() == 0L) return@withContext false
             try {
                 Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                evict(maxBytes)
                 return@withContext true
             } catch (e: IOException) {
                 delay(COMMIT_RETRY_MS)
@@ -66,21 +65,11 @@ class AudioCache(private val dir: File) {
         false
     }
 
-    // 按最近使用从旧到新淘汰，删不掉的（正在播放）跳过
-    fun evict(maxBytes: Long) {
-        var total = totalSize()
-        for (file in completeFiles().sortedBy { it.lastModified() }) {
-            if (total <= maxBytes) break
-            val length = file.length()
-            if (file.delete()) total -= length
-        }
-    }
-
     fun clear() {
         dir.listFiles()?.filter { it.isFile }?.forEach { it.delete() }
     }
 
-    private fun completeFiles(): List<File> =
+    fun completeFiles(): List<File> =
         dir.listFiles { file -> file.isFile && file.name.endsWith(".$EXTENSION") && !file.name.contains(TEMP_MARK) }.orEmpty().toList()
 
     private fun deleteTemps() {

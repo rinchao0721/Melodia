@@ -16,6 +16,7 @@ import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -24,6 +25,9 @@ import com.lin0721.linmusic.core.userartist.UserArtistRepositoryImpl
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepositoryImpl
 import com.lin0721.linmusic.feature.artist.data.ArtistRepositoryImpl
 import com.lin0721.linmusic.feature.cloud.data.CloudRepositoryImpl
+import com.lin0721.linmusic.feature.cloud.upload.CloudUploadManager
+import com.lin0721.linmusic.feature.cloud.upload.CloudUploadRunner
+import com.lin0721.linmusic.feature.recognition.data.RecognitionRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepositoryImpl
 import com.lin0721.linmusic.feature.home.data.HomeRepositoryImpl
 import com.lin0721.linmusic.feature.library.data.LibraryRepositoryImpl
@@ -66,6 +70,7 @@ class SharedModulesResolveTest {
             single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
             single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
+            single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
             single { ContentFilter(get()) }
             single { ResourceProvider() }
             single<NetworkStateProvider> { NetworkStateProvider { true } }
@@ -90,6 +95,7 @@ class SharedModulesResolveTest {
                 UpdatePlaylistCoverUseCase::class, SongCollectDelegate::class, SyncProfileAfterLoginUseCase::class,
                 LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, ProfileRepositoryImpl::class,
                 PodcastProgressPreferences::class, PodcastSeenPreferences::class, OfflinePlayability::class,
+                CloudUploadManager::class, CloudUploadRunner::class, RecognitionRepository::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

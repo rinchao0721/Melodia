@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -30,6 +31,17 @@ import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalEntry
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
+import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
+import com.lin0721.linmusic.core.playlistexternal.mergeExternalTracks
+import com.lin0721.linmusic.core.playlistexternal.toQueueItem
+import com.lin0721.linmusic.core.playlistexternal.toTrackIds
+import com.lin0721.linmusic.core.source.ExternalTrack
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
@@ -76,7 +88,9 @@ class PlaylistViewModel(
     private val searchRepository: SearchRepository,
     private val songDownloadManager: SongDownloader,
     private val offlinePlayability: OfflinePlayability,
-    private val trackBatchActions: TrackBatchActionsDelegate
+    private val trackBatchActions: TrackBatchActionsDelegate,
+    private val externalStore: PlaylistExternalTrackStore,
+    private val pluginContent: PluginContent
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -86,14 +100,31 @@ class PlaylistViewModel(
     private var loadJob: Job? = null
     // 起播/下载前补全全部曲目的任务，切换歌单时需一并取消，避免补全完成后误播上一个歌单
     private var fullTrackJob: Job? = null
+    // 先播后补的补全任务不随页面销毁取消
+    private val queueFillScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var queueFillJob: Job? = null
 
+    // 内部只保存网易云曲目，分页补全与接口增删都基于它；外部平台歌曲在对外的 uiState 里按加入时间混排
     private val _uiState = MutableStateFlow<PlaylistUiState>(PlaylistUiState.Loading)
-    val uiState: StateFlow<PlaylistUiState> = _uiState.asStateFlow()
+
+    private val externalEntries = MutableStateFlow<List<PlaylistExternalEntry>>(emptyList())
+    private var externalJob: Job? = null
+    // 当前歌单的外部歌曲在本机存储里的 key，「我喜欢的音乐」用账号派生 key；不支持混排时为 null
+    private var externalKey: Long? = null
+
+    val uiState: StateFlow<PlaylistUiState> = combine(_uiState, externalEntries) { state, entries ->
+        withExternalTracks(state, entries)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, PlaylistUiState.Loading)
+
+    // 当前歌单里的外部平台歌曲，按展示用的 Track.id 索引，界面据此显示平台角标、隐藏网易云专属操作
+    val externalTracks: StateFlow<Map<Long, ExternalTrack>> = externalEntries
+        .map { entries -> entries.associate { it.track.queueSongId to it.track } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     // 离线时本机没有音频的曲目，列表据此置灰；在线时恒为空
     val unplayableIds: StateFlow<Set<Long>> = combine(
         offlinePlayability.online,
-        _uiState.map { state -> (state as? PlaylistUiState.Success)?.playlist?.tracks?.map { it.id } }.distinctUntilChanged()
+        uiState.map { state -> (state as? PlaylistUiState.Success)?.playlist?.tracks?.map { it.id } }.distinctUntilChanged()
     ) { _, ids -> ids }
         .map { ids -> if (ids == null) emptySet() else offlinePlayability.unplayableIds(ids) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -158,7 +189,10 @@ class PlaylistViewModel(
     }
 
     fun loadPlaylist(id: Long, isAlbum: Boolean = false) {
-        if (requestedPlaylistId != id) _selection.value = TrackSelection()
+        if (requestedPlaylistId != id) {
+            _selection.value = TrackSelection()
+            stopExternalTracks()
+        }
         requestedPlaylistId = id
         isAlbumMode = isAlbum
         _uiState.value = PlaylistUiState.Loading
@@ -216,9 +250,10 @@ class PlaylistViewModel(
                             isSubscribed = detail.subscribed,
                             pendingTrackIds = pendingTrackIds(detail)
                         )
+                        if (!isAlbum) observeExternalTracks(detail)
                         val baseSong = detail.tracks.firstOrNull()
 
-                        if (baseSong != null && !isAlbum) {
+                        if (baseSong != null && !isAlbum && detail.id > 0L) {
                             loadRecommendations(detail.tracks)
                         } else {
                             allRecommendedTracks = emptyList()
@@ -235,6 +270,48 @@ class PlaylistViewModel(
             }
         }
     }
+
+    private fun stopExternalTracks() {
+        externalJob?.cancel()
+        externalJob = null
+        externalKey = null
+        externalEntries.value = emptyList()
+    }
+
+    private fun observeExternalTracks(detail: PlaylistDetail) {
+        if (detail.id <= 0L) return
+        externalJob?.cancel()
+        externalJob = viewModelScope.launch {
+            val uid = userPreferences.userProfile.first()?.uid
+            val key = if (uid != null && isLikedSongsPlaylist(detail.name, detail.id, uid)) likedExternalKey(uid) else detail.id
+            externalKey = key
+            externalStore.entriesOf(key).collect { entries ->
+                if (requestedPlaylistId == detail.id) externalEntries.value = entries
+            }
+        }
+    }
+
+    private fun withExternalTracks(state: PlaylistUiState, entries: List<PlaylistExternalEntry>): PlaylistUiState {
+        if (state !is PlaylistUiState.Success || entries.isEmpty() || state.playlist.id != requestedPlaylistId) return state
+        val playlist = state.playlist
+        return state.copy(
+            playlist = playlist.copy(
+                tracks = mergeExternalTracks(playlist.tracks, playlist.trackIds, entries, fullyLoaded = !state.hasMoreTracks),
+                trackIds = playlist.trackIds + entries.toTrackIds(),
+                trackCount = playlist.trackCount + entries.size
+            )
+        )
+    }
+
+    // 网易云曲目已补全时，按同样规则混入外部歌曲，供起播、下一首播放等需要完整列表的操作使用
+    private fun withExternal(neteaseTracks: List<Track>): List<Track> {
+        val trackIds = (_uiState.value as? PlaylistUiState.Success)?.playlist?.trackIds.orEmpty()
+        return mergeExternalTracks(neteaseTracks, trackIds, externalEntries.value, fullyLoaded = true)
+    }
+
+    private fun Track.toQueueItem(separator: String = ", "): QueueItem =
+        (externalTracks.value[id] ?: pluginContent.externalTrack(id))?.toQueueItem()
+            ?: QueueItem(id, name, ar.joinToString(separator) { it.name }, al.picUrl)
 
     private fun checkAlbumSubscribed(albumId: Long) {
         viewModelScope.launch {
@@ -330,7 +407,7 @@ class PlaylistViewModel(
     fun ensureAllTracksLoaded(onReady: (List<Track>) -> Unit) {
         val current = _uiState.value as? PlaylistUiState.Success ?: return
         if (!current.hasMoreTracks) {
-            onReady(current.playlist.tracks)
+            onReady(withExternal(current.playlist.tracks))
             return
         }
         if (current.isLoadingMoreTracks) return
@@ -338,7 +415,7 @@ class PlaylistViewModel(
         viewModelScope.launch {
             val result = loadTracksUntil { false }
             if (result != null) {
-                onReady(result)
+                onReady(withExternal(result))
             } else {
                 _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
             }
@@ -347,17 +424,29 @@ class PlaylistViewModel(
 
     // 补全到目标曲目出现为止再执行回调：定位当前播放歌曲用，靠前的歌不用像 ensureAllTracksLoaded 那样拉完
     fun ensureTrackLoaded(trackId: Long, onReady: (List<Track>) -> Unit = {}) {
-        val current = _uiState.value as? PlaylistUiState.Success ?: return
-        if (current.playlist.tracks.any { it.id == trackId }) {
-            onReady(current.playlist.tracks)
+        val visible = (uiState.value as? PlaylistUiState.Success)?.playlist?.tracks
+        if (visible != null && visible.any { it.id == trackId }) {
+            onReady(visible)
             return
         }
+        // 外部歌曲的插入点可能还在未加载部分，只能补全全部
+        if (trackId < 0L) {
+            if (externalTracks.value.containsKey(trackId)) ensureAllTracksLoaded(onReady)
+            return
+        }
+        val current = _uiState.value as? PlaylistUiState.Success ?: return
         if (current.isLoadingMoreTracks) return
         _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
         viewModelScope.launch {
             val result = loadTracksUntil { tracks -> tracks.any { it.id == trackId } }
             if (result != null) {
-                onReady(result)
+                val latest = _uiState.value as? PlaylistUiState.Success
+                onReady(
+                    mergeExternalTracks(
+                        result, latest?.playlist?.trackIds.orEmpty(), externalEntries.value,
+                        fullyLoaded = latest?.hasMoreTracks == false
+                    )
+                )
             } else {
                 _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
             }
@@ -369,7 +458,7 @@ class PlaylistViewModel(
     private fun withAllTracks(action: (tracks: List<Track>) -> Unit) {
         val initial = _uiState.value as? PlaylistUiState.Success ?: return
         if (!initial.hasMoreTracks) {
-            action(initial.playlist.tracks)
+            action(withExternal(initial.playlist.tracks))
             return
         }
         fullTrackJob?.cancel()
@@ -390,28 +479,66 @@ class PlaylistViewModel(
             }
             val current = _uiState.value as? PlaylistUiState.Success
             if (current == null || current.playlist.id != playlistId) return@launch
-            action(loaded ?: current.playlist.tracks)
+            action(withExternal(loaded ?: current.playlist.tracks))
         }
     }
 
-    // 播放全部：需要时先补全全部曲目，shuffle 为真则打乱后起播
+    // 播放全部：shuffle 为真则打乱后起播
     fun playAll(shuffle: Boolean) {
-        withAllTracks { tracks ->
-            val ordered = if (shuffle) tracks.shuffled() else tracks
-            viewModelScope.launch {
-                // 离线时从第一首可播放的歌曲起播
-                val unplayable = offlinePlayability.unplayableIds(ordered.map { it.id })
-                ordered.firstOrNull { it.id !in unplayable }?.let { playSongInList(it, ordered) }
-            }
+        playLoadedThenFill(shuffle) { ordered ->
+            // 离线时从第一首可播放的歌曲起播
+            val unplayable = offlinePlayability.unplayableIds(ordered.map { it.id })
+            ordered.firstOrNull { it.id !in unplayable }
         }
     }
 
-    // 点击某首歌起播：队列必须包含歌单全部曲目，而不只是已滚动加载的部分
+    // 点击某首歌起播：队列最终包含歌单全部曲目，而不只是已滚动加载的部分
     fun playTrackInPlaylist(track: Track) {
         // 离线时置灰曲目点击无响应
         if (track.id in unplayableIds.value) return
-        withAllTracks { tracks -> playSongInList(track, tracks) }
+        playLoadedThenFill(shuffle = false) { track }
     }
+
+    // 超过截断阈值的大歌单逐批补全要好几秒，先用已加载部分起播，剩余曲目补全后接到队列末尾。
+    // 补全跑在独立作用域里，起播后离开歌单页也能补完；队列已被换掉时由 extendQueue 按播放来源丢弃
+    private fun playLoadedThenFill(shuffle: Boolean, pickStart: suspend (ordered: List<Track>) -> Track?) {
+        val state = _uiState.value as? PlaylistUiState.Success ?: return
+        val playlist = state.playlist
+        val pendingIds = state.pendingTrackIds
+        val entries = externalEntries.value
+        val loaded = mergeExternalTracks(playlist.tracks, playlist.trackIds, entries, fullyLoaded = pendingIds.isEmpty())
+        val ordered = if (shuffle) loaded.shuffled() else loaded
+        val source = currentPlaySource()
+        queueFillJob?.cancel()
+        queueFillJob = queueFillScope.launch {
+            val start = pickStart(ordered) ?: return@launch
+            playSongInList(start, ordered)
+            if (pendingIds.isEmpty() || source == null) return@launch
+
+            val fetched = ArrayList<Track>(pendingIds.size)
+            for (chunk in pendingIds.chunked(TRACK_PAGE_SIZE)) {
+                val result = playlistRepository.loadMoreTracks(chunk).first()
+                val tracks = result.getOrNull()
+                if (tracks == null) {
+                    // 补全失败时保留已起播的部分队列
+                    val error = result.exceptionOrNull() ?: IllegalStateException("补全歌单曲目失败")
+                    _toastEvent.emit(error.toUserMessage(resourceProvider))
+                    return@launch
+                }
+                fetched.addAll(tracks)
+            }
+            val queuedIds = ordered.mapTo(HashSet()) { it.id }
+            val rest = mergeExternalTracks(playlist.tracks + fetched, playlist.trackIds, entries, fullyLoaded = true)
+                .filter { it.id !in queuedIds }
+            if (rest.isEmpty()) return@launch
+            playerManager.extendQueue(source, (if (shuffle) rest.shuffled() else rest).map { it.toQueueItem() })
+        }
+    }
+
+    private fun currentPlaySource(): PlaySource? =
+        (_uiState.value as? PlaylistUiState.Success)?.playlist?.let {
+            PlaySource(if (isAlbumMode) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST, it.id, it.name, it.coverImgUrl)
+        }
 
     // 全部加入下一首播放
     fun addAllTracksToPlayNext() {
@@ -420,14 +547,9 @@ class PlaylistViewModel(
 
     fun playSongInList(track: Track, allTracks: List<Track>) {
         val playlist = (_uiState.value as? PlaylistUiState.Success)?.playlist
-        val queueItems = allTracks.map { t ->
-            QueueItem(t.id, t.name, t.ar.joinToString { it.name }, t.al.picUrl)
-        }
+        val queueItems = allTracks.map { it.toQueueItem() }
         val startIndex = allTracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-        val source = playlist?.let {
-            PlaySource(if (isAlbumMode) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST, it.id, it.name, it.coverImgUrl)
-        }
-        playerManager.playQueue(queueItems, startIndex, playlist?.name, source)
+        playerManager.playQueue(queueItems, startIndex, playlist?.name, currentPlaySource())
     }
 
     // 点击推荐歌曲：插播到当前队列的下一首并立即播放，保留原队列。推荐歌曲不在歌单里，
@@ -444,15 +566,13 @@ class PlaylistViewModel(
     }
 
     fun addTrackToPlayNext(track: Track) {
-        val queueItem = QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
+        val queueItem = track.toQueueItem("/")
         playerManager.addToPlayNext(listOf(queueItem))
         viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
     fun addTracksToPlayNext(tracks: List<Track>) {
-        val queueItems = tracks.map { t ->
-            QueueItem(t.id, t.name, t.ar.joinToString("/") { it.name }, t.al.picUrl)
-        }
+        val queueItems = tracks.map { it.toQueueItem("/") }
         playerManager.addToPlayNext(queueItems)
         viewModelScope.launch { _toastEvent.emit("已添加 ${queueItems.size} 首歌曲至播放队列") }
     }
@@ -605,11 +725,33 @@ class PlaylistViewModel(
 
     // 从当前歌单中删除一首歌，仅限歌单创建者可调用（由调用方按 UI 状态判断是否展示入口）
     fun removeTrackFromPlaylist(playlistId: Long, trackId: Long) {
+        if (trackId < 0L) {
+            val key = externalKey ?: return
+            viewModelScope.launch {
+                externalStore.remove(key, setOf(trackId))
+                _toastEvent.emit("已从歌单中删除")
+            }
+            return
+        }
         viewModelScope.launch {
             playlistRepository.manipulatePlaylistTracks("del", playlistId, listOf(trackId)).collect { result ->
                 result.onSuccess {
                     _toastEvent.emit("已从歌单中删除")
                     dropTracksFromState(playlistId, setOf(trackId))
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    // 日推“减少推荐”：成功后仅把该歌从日推列表移除，不打断正在播放的歌曲
+    fun reduceDailyRecommend(trackId: Long) {
+        viewModelScope.launch {
+            homeRepository.dislikeDailySong(trackId).collect { result ->
+                result.onSuccess {
+                    _toastEvent.emit("已减少此类推荐")
+                    dropTracksFromState(-1L, setOf(trackId))
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }
@@ -653,7 +795,7 @@ class PlaylistViewModel(
     }
 
     private fun selectedTracks(): List<Track> {
-        val state = _uiState.value as? PlaylistUiState.Success ?: return emptyList()
+        val state = uiState.value as? PlaylistUiState.Success ?: return emptyList()
         return _selection.value.pick(state.playlist.tracks)
     }
 
@@ -671,15 +813,15 @@ class PlaylistViewModel(
     }
 
     fun batchPlayNext() = runBatch { tracks ->
-        trackBatchActions.playNext(tracks, unplayableIds.value) { _toastEvent.emit(it) }
+        trackBatchActions.playNext(tracks, unplayableIds.value, externalTracks.value) { _toastEvent.emit(it) }
     }
 
     fun batchAddToPlaylist(targetPlaylistId: Long) = runBatch(needLogin = true) { tracks ->
-        trackBatchActions.addToPlaylist(targetPlaylistId, tracks) { _toastEvent.emit(it) }
+        trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externalTracks.value) { _toastEvent.emit(it) }
     }
 
     fun batchCreatePlaylistAndAdd(name: String, isPrivate: Boolean = false) = runBatch(needLogin = true) { tracks ->
-        trackBatchActions.createPlaylistAndAdd(name, playlistPrivacyOf(isPrivate), tracks) { _toastEvent.emit(it) }
+        trackBatchActions.createPlaylistAndAdd(name, playlistPrivacyOf(isPrivate), tracks, externalTracks.value) { _toastEvent.emit(it) }
     }
 
     fun batchLike() = runBatch(needLogin = true) { tracks ->
@@ -694,7 +836,7 @@ class PlaylistViewModel(
     // 仅限歌单创建者可调用（由调用方按 UI 状态判断是否展示入口）
     fun batchRemove() = runBatch(needLogin = true) { tracks ->
         val playlistId = (_uiState.value as? PlaylistUiState.Success)?.playlist?.id ?: return@runBatch false
-        val removed = trackBatchActions.removeFromPlaylist(playlistId, tracks) { _toastEvent.emit(it) }
+        val removed = trackBatchActions.removeFromPlaylist(playlistId, tracks, externalKey ?: playlistId) { _toastEvent.emit(it) }
         if (removed) dropTracksFromState(playlistId, tracks.map { it.id }.toSet())
         removed
     }
@@ -703,14 +845,12 @@ class PlaylistViewModel(
     fun importAllTracksTo(targetPlaylistId: Long) {
         ensureAllTracksLoaded { tracks ->
             if (tracks.isEmpty()) return@ensureAllTracksLoaded
+            val externals = externalTracks.value
             viewModelScope.launch {
-                playlistRepository.manipulatePlaylistTracks("add", targetPlaylistId, tracks.map { it.id }).collect { result ->
-                    result.onSuccess {
-                        _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
-                    }.onFailure { e ->
-                        _toastEvent.emit(e.toUserMessage(resourceProvider))
-                    }
+                val ok = trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externals) { message ->
+                    if (!message.startsWith("已添加")) _toastEvent.emit(message)
                 }
+                if (ok) _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
             }
         }
     }
@@ -718,9 +858,12 @@ class PlaylistViewModel(
     // 新建歌单并把当前歌单全部歌曲导入进去
     fun createPlaylistAndImportAll(name: String, isPrivate: Boolean = false) {
         ensureAllTracksLoaded { tracks ->
+            val externals = externalTracks.value
+            val (externalRows, neteaseTracks) = tracks.partition { it.id in externals }
             viewModelScope.launch {
-                createPlaylistAndAddSongUseCase(name, tracks.map { it.id }, playlistPrivacyOf(isPrivate)).collect { result ->
-                    result.onSuccess {
+                createPlaylistAndAddSongUseCase(name, neteaseTracks.map { it.id }, playlistPrivacyOf(isPrivate)).collect { result ->
+                    result.onSuccess { playlist ->
+                        externalStore.add(playlist.id, externalRows.mapNotNull { externals[it.id] })
                         _toastEvent.emit("已创建歌单并导入 ${tracks.size} 首歌曲")
                     }.onFailure { e ->
                         _toastEvent.emit(e.toUserMessage(resourceProvider))
@@ -1013,6 +1156,7 @@ class PlaylistViewModel(
             playlistRepository.deletePlaylist(id).collect { result ->
                 result.fold(
                     onSuccess = {
+                        externalStore.clearPlaylist(id)
                         playlistMutationBus.emit(PlaylistMutationEvent.Deleted(id))
                         _toastEvent.emit("歌单已删除")
                         onSuccess()
@@ -1092,7 +1236,9 @@ class PlaylistViewModel(
 
     // ==================== 拖拽排序保存 ====================
 
-    fun updateTrackOrder(playlistId: Long, newTracks: List<Track>, onComplete: (Boolean) -> Unit) {
+    // 外部歌曲的位置由加入时间决定，不参与网易云的顺序覆盖
+    fun updateTrackOrder(playlistId: Long, orderedTracks: List<Track>, onComplete: (Boolean) -> Unit) {
+        val newTracks = orderedTracks.filter { it.id > 0L }
         // op=update 是全量覆盖，空列表会把整个歌单清空
         if (newTracks.isEmpty()) {
             onComplete(false)
@@ -1118,7 +1264,8 @@ class PlaylistViewModel(
 
     // 批量下载歌单曲目：超过1000首的歌单先补全全部曲目再入队
     fun downloadPlaylist(playlistId: Long, playlistName: String, level: String) {
-        withAllTracks { tracks ->
+        withAllTracks { all ->
+            val tracks = all.filter { it.id > 0L }
             if (tracks.isEmpty()) {
                 viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
                 return@withAllTracks
@@ -1141,6 +1288,10 @@ class PlaylistViewModel(
 
     // 下载单首歌曲
     fun downloadTrack(track: Track, level: String) {
+        if (track.id < 0L) {
+            viewModelScope.launch { _toastEvent.emit("外部平台歌曲暂不支持下载") }
+            return
+        }
         val downloadTrack = DownloadTrackInfo(
             track.id,
             track.name,

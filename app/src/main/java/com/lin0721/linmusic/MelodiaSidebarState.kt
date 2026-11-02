@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.exponentialDecay
-import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -69,6 +69,7 @@ class MelodiaSidebarState(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun rememberMelodiaSidebarState(width: androidx.compose.ui.unit.Dp = 310.dp): MelodiaSidebarState {
+    val motion = LocalUiMotion.current
     val scope = rememberCoroutineScope()
     val density: Density = LocalDensity.current
     val widthPx = with(density) { width.toPx() }
@@ -78,7 +79,7 @@ fun rememberMelodiaSidebarState(width: androidx.compose.ui.unit.Dp = 310.dp): Me
             initialValue = AppSidebarState.Closed,
             positionalThreshold = { distance: Float -> distance * 0.5f },
             velocityThreshold = { with(density) { 100.dp.toPx() } },
-            snapAnimationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            snapAnimationSpec = motion.spring(stiffness = Spring.StiffnessMediumLow),
             decayAnimationSpec = exponentialDecay()
         )
     }

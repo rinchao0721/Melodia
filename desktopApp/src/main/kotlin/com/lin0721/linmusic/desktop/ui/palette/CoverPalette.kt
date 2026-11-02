@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.palette
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.graphics.lerp
@@ -8,6 +10,10 @@ import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.toBitmap
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
+import com.lin0721.linmusic.core.ui.theme.coverHeaderTint
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +30,24 @@ private const val HIGHLIGHT_MIX = 0.85f
 data class CoverPalette(val base: Color, val textHighlight: Color)
 
 val FallbackCoverPalette = CoverPalette(FallbackBase, lerp(FallbackBase, Color.White, HIGHLIGHT_MIX))
+
+// 封面色作页面背景：深色主题按比例压暗，浅色主题取同色相浅调，正文沿用主题文字色
+@Composable
+@ReadOnlyComposable
+fun themedCoverBackground(base: Color, darkenFraction: Float): Color =
+    if (DesktopColors.IsDark) lerp(base, Color.Black, darkenFraction) else coverHeaderTint(base)
+
+// 页面头部渐变：按皮肤取色区设置换底色；透出背景图时为全透明页面底，渐变自然消失
+@Composable
+@ReadOnlyComposable
+fun headerCoverBackground(base: Color, darkenFraction: Float): Color =
+    coverBase(CoverGroup.HEADER, base)?.let { themedCoverBackground(it, darkenFraction) } ?: DesktopColors.PageFill
+
+// 封面色卡片：透出背景图时改铺与外壳同款的半透明面板底
+@Composable
+@ReadOnlyComposable
+fun cardCoverBackground(base: Color, darkenFraction: Float): Color =
+    coverBase(CoverGroup.CARDS, base)?.let { themedCoverBackground(it, darkenFraction) } ?: DesktopColors.ShellFill
 
 // 像素为 ARGB_8888 packed int；无可用像素或取色异常时返回兜底色板
 fun extractCoverPalette(pixels: IntArray): CoverPalette {

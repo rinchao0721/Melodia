@@ -50,7 +50,7 @@ body:
       label: 桌面端安装方式（Android 无需填写）
       options:
         - 不适用
-        - MSI 安装版
+        - 安装版（setup.exe）
         - 免安装版（zip）
     validations:
       required: false

@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,13 +47,14 @@ import com.lin0721.linmusic.core.comment.domain.CommentComposerState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 import com.lin0721.linmusic.core.ui.theme.melodiaNavigationBarBottomPadding
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
 
 // 评论区底部常驻输入栏：随软键盘升降，支持直接发表主评论与针对指定用户的回复
 @Composable
@@ -109,17 +109,17 @@ fun CommentInputBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(BackgroundDark.copy(alpha = 0.98f))
+            .paneBackdrop(MelodiaColors.Background.copy(alpha = 0.98f))
             .pointerInput(Unit) { detectTapGestures { } }
             .padding(bottom = bottomPadding)
     ) {
-        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+        HorizontalDivider(color = MelodiaColors.Divider)
 
         // 回复目标标签栏
         AnimatedVisibility(
             visible = replyTarget != null,
-            enter = fadeIn(),
-            exit = fadeOut()
+            enter = uiEnter(fadeIn()),
+            exit = uiExit(fadeOut())
         ) {
             if (replyTarget != null) {
                 Row(
@@ -131,7 +131,7 @@ fun CommentInputBar(
                 ) {
                     Text(
                         text = "回复 @${replyTarget.user.nickname}:",
-                        color = NeteaseRed,
+                        color = MelodiaColors.AccentText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -144,7 +144,7 @@ fun CommentInputBar(
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "取消回复",
-                            tint = TextGray,
+                            tint = MelodiaColors.TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -174,16 +174,16 @@ fun CommentInputBar(
                 maxLines = 4,
                 shape = RoundedCornerShape(24.dp),
                 focusRequester = focusRequester,
-                containerColor = Color.White.copy(alpha = 0.12f),
-                textColor = Color.White,
-                placeholderColor = TextGray.copy(alpha = 0.8f),
+                containerColor = MelodiaColors.Overlay.copy(alpha = 0.12f),
+                textColor = MelodiaColors.TextPrimary,
+                placeholderColor = MelodiaColors.TextSecondary.copy(alpha = 0.8f),
                 modifier = Modifier.weight(1f)
             )
 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (canSubmit) NeteaseRed else NeteaseRed.copy(alpha = 0.35f))
+                    .background(if (canSubmit) MelodiaColors.Accent else MelodiaColors.Accent.copy(alpha = 0.35f))
                     .then(
                         if (canSubmit) {
                             Modifier.pressable(MelodiaPress.Pill) {
@@ -200,14 +200,14 @@ fun CommentInputBar(
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = MelodiaColors.OnAccent,
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
                     Text(
                         text = "发送",
-                        color = if (canSubmit) Color.White else Color.White.copy(alpha = 0.6f),
+                        color = if (canSubmit) MelodiaColors.OnAccent else MelodiaColors.OnAccent.copy(alpha = 0.6f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )

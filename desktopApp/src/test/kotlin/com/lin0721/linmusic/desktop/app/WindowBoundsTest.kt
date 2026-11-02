@@ -106,6 +106,11 @@ class WindowBoundsTest {
     }
 
     @Test
+    fun scaledMinSizeNeverBelowBaseWhenScaleBelowOne() {
+        assertEquals(MIN_WINDOW_WIDTH to MIN_WINDOW_HEIGHT, scaledMinWindowSize(0.8f, 1920, 1080))
+    }
+
+    @Test
     fun scaledMinSizeNeverBelowBaseWhenScreenUnknown() {
         assertEquals(MIN_WINDOW_WIDTH to MIN_WINDOW_HEIGHT, scaledMinWindowSize(2f, 0, 0))
     }

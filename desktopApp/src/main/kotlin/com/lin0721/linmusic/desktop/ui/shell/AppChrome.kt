@@ -10,9 +10,11 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.ui.cloud.uploadBatchMessage
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 import com.lin0721.linmusic.desktop.ui.nowplaying.DockOverlay
 import com.lin0721.linmusic.desktop.ui.player.PlayerBar
+import com.lin0721.linmusic.desktop.ui.player.collectSelectedAudioDevice
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.feature.search.ui.DiscoveryUiState
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +35,11 @@ internal fun WindowScope.AppTitleBar(
     val searchInput by searchViewModel.inputState.collectAsState()
     val discovery by searchViewModel.discoveryState.collectAsState()
     val downloadTasks by deps.downloader.tasks.collectAsState()
+    val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
     LaunchedEffect(Unit) { searchViewModel.songHitsEnabled = true }
+    LaunchedEffect(Unit) {
+        deps.cloudMusic.uploadRunner.batchFinished.collect { state.showMessage(uploadBatchMessage(it.succeeded, it.failed)) }
+    }
     val defaultKeyword = (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
     val isMaximized = windowState.placement == WindowPlacement.Maximized
     val openSearch = { state.navigate(DesktopRoute.Search) }
@@ -71,13 +77,18 @@ internal fun WindowScope.AppTitleBar(
         },
         isBrowseActive = state.backStack.current == DesktopRoute.Browse,
         onBrowseClick = { state.navigate(DesktopRoute.Browse) },
+        recognitionOpen = state.showRecognition,
+        onRecognitionClick = { state.showRecognition = true },
+        cloudMusic = deps.cloudMusic,
         downloadTasks = downloadTasks,
         downloadsOpen = state.isOverlayOpen(DockOverlay.Downloads),
         onDownloadsClick = { state.toggleOverlay(DockOverlay.Downloads) },
         onLoginClick = { state.showLogin = true },
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
         onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },
+        onCloudClick = state::openCloud,
         onSettingsClick = { state.navigate(DesktopRoute.Settings) },
+        hasUpdate = availableUpdate != null,
         onLogoutClick = deps.homeViewModel::logout,
         onMinimize = { windowState.isMinimized = true },
         onToggleMaximize = {
@@ -93,17 +104,20 @@ internal fun AppPlayerBar(
     state: DesktopAppState,
     deps: DesktopAppDependencies,
     audioOutput: AudioOutputControl?,
-    fullscreen: FullscreenState
+    fullscreen: FullscreenState,
+    onEnterMiniPlayer: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val controller = deps.playbackController
     val lyricsView = state.lyricsView
     val volume = controller.volume.collectAsState().value.takeIf { audioOutput != null }
+    val lastAudibleVolume by controller.lastAudibleVolume.collectAsState()
     val showDesktopLyric by deps.settingsPreferences.showDesktopLrc.collectAsState(initial = false)
     PlayerBar(
         controller = controller,
         playerViewModel = deps.playerViewModel,
         volume = volume,
+        lastAudibleVolume = lastAudibleVolume,
         onVolumeChange = controller::setVolume,
         nowPlayingOpen = state.dockOpen && state.dockOverlay == null,
         onToggleNowPlaying = state::toggleNowPlaying,
@@ -112,11 +126,13 @@ internal fun AppPlayerBar(
         devicesOpen = state.isOverlayOpen(DockOverlay.Devices),
         // 占位播放器没有输出设备能力时不显示按钮
         onToggleDevices = audioOutput?.let { { state.toggleOverlay(DockOverlay.Devices) } },
+        outputDevice = audioOutput?.let { collectSelectedAudioDevice(it) },
         isFullscreen = fullscreen.isFullscreen,
         onToggleFullscreen = fullscreen::toggle,
         lyricVisible = showDesktopLyric,
         onToggleLyric = { scope.launch { deps.settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } },
         lyricsViewOpen = lyricsView.isOpen,
-        onToggleLyricsView = { if (lyricsView.isOpen) lyricsView.close() else lyricsView.open() }
+        onToggleLyricsView = state::toggleLyricsView,
+        onEnterMiniPlayer = onEnterMiniPlayer
     )
 }

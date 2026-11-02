@@ -65,9 +65,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -103,7 +107,9 @@ fun FullPlayerWideLayout(
     onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 插件布局：替换左栏的封面与播放控件
+    pluginLeftColumn: (@Composable () -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         sourceBar(
@@ -124,23 +130,29 @@ fun FullPlayerWideLayout(
                     .padding(start = LeftColumnStartPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = LeftColumnMaxWidth)
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
-                    Box(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                if (pluginLeftColumn != null) {
+                    Box(modifier = Modifier.widthIn(max = LeftColumnMaxWidth).fillMaxSize()) {
+                        pluginLeftColumn()
                     }
-                    Spacer(modifier = Modifier.height(MelodiaSpacing.md))
-                    playbackControls()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = LeftColumnMaxWidth)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
+                        Box(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                        }
+                        Spacer(modifier = Modifier.height(MelodiaSpacing.md))
+                        playbackControls()
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(ColumnGap))
@@ -180,6 +192,7 @@ private fun WideRightColumn(
     infoCards: LazyListScope.() -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val motion = LocalUiMotion.current
     val settingsPreferences: SettingsPreferences = koinInject()
     val lyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
     val effectiveLyricTextSize = lyricTextSize.coerceIn(20, 40)
@@ -336,17 +349,17 @@ private fun WideRightColumn(
 
         AnimatedVisibility(
             visible = showBackToLyrics,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = uiEnter(fadeIn()),
+            exit = uiExit(fadeOut()),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = MelodiaSpacing.sm)
         ) {
             Surface(
-                color = Color.White.copy(alpha = 0.16f),
+                color = MelodiaColors.Overlay.copy(alpha = 0.16f),
                 shape = RoundedCornerShape(PillRadius),
                 modifier = Modifier.pressable(MelodiaPress.Pill) {
-                    scope.launch { columnState.animateScrollToItem(0) }
+                    scope.launch { motion.scrollToItem(columnState, 0) }
                 }
             ) {
                 Row(
@@ -356,11 +369,11 @@ private fun WideRightColumn(
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowUp,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(MelodiaSpacing.xs))
-                    Text(text = "回到歌词", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(text = "回到歌词", color = MelodiaColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }

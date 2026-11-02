@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.comment.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,15 +36,14 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 楼层详情页：某条评论的完整子回复列表，全屏 overlay，内嵌底部回复输入栏
 @Composable
@@ -69,7 +66,7 @@ fun CommentFloorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .paneBackdrop(MelodiaColors.Background)
             .statusBarsPadding()
     ) {
         Row(
@@ -82,12 +79,12 @@ fun CommentFloorScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "返回",
-                    tint = Color.White
+                    tint = MelodiaColors.TextPrimary
                 )
             }
             Text(
                 text = "评论详情",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = MelodiaSpacing.xs)
@@ -105,13 +102,13 @@ fun CommentFloorScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(floorState.message, color = TextGray, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Text(floorState.message, color = MelodiaColors.TextSecondary, fontSize = 14.sp, textAlign = TextAlign.Center)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(MelodiaSpacing.sm))
                     MelodiaButton(
                         onClick = onRetry,
-                        colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed)
+                        colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent)
                     ) {
-                        Text("重试", color = Color.White)
+                        Text("重试", color = MelodiaColors.OnAccent)
                     }
                 }
             }
@@ -157,11 +154,11 @@ fun CommentFloorScreen(
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
-                            color = Color.White.copy(alpha = 0.08f)
+                            color = MelodiaColors.Divider
                         )
                         Text(
                             text = "全部回复 · ${floorState.replies.size}",
-                            color = TextGray,
+                            color = MelodiaColors.TextSecondary,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
                         )
@@ -186,7 +183,7 @@ fun CommentFloorScreen(
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = MelodiaSpacing.sm),
-                            color = Color.White.copy(alpha = 0.06f)
+                            color = MelodiaColors.Overlay.copy(alpha = 0.06f)
                         )
                     }
                     if (floorState.hasMore) {
@@ -196,11 +193,11 @@ fun CommentFloorScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (floorState.isLoadingMore) {
-                                    CircularProgressIndicator(color = NeteaseRed, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(color = MelodiaColors.Accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                 } else {
                                     Text(
                                         text = "加载更多",
-                                        color = NeteaseRed,
+                                        color = MelodiaColors.AccentText,
                                         fontSize = 13.sp,
                                         modifier = Modifier.padding(8.dp)
                                     )

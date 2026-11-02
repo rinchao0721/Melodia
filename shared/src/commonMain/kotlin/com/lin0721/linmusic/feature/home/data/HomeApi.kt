@@ -30,6 +30,12 @@ interface HomeApi {
         @Body body: EmptyBody = EmptyBody()
     ): DailyRecommendSongsResponse
 
+    // 日推歌曲“减少推荐”（需登录）
+    @POST("/weapi/v2/discovery/recommend/dislike")
+    suspend fun dislikeDailySong(
+        @Body body: DislikeDailySongRequest
+    ): DislikeDailySongResponse
+
     // 获取可用的历史日推日期列表（黑胶 VIP 功能）
     @POST("/weapi/discovery/recommend/songs/history/recent")
     suspend fun getHistoryRecommendDates(
@@ -105,6 +111,20 @@ data class DailySong(
     // 推荐理由（例如："根据你喜欢的 xxx 推荐"）
     val reason: String? = null
 )
+
+@Serializable
+data class DislikeDailySongRequest(
+    val resId: Long,
+    val resType: Int = 4,
+    val sceneType: Int = 1
+)
+
+@Serializable
+data class DislikeDailySongResponse(
+    val code: Int = 0
+) {
+    val isSuccess: Boolean get() = code == 200
+}
 
 // ======================= 历史日推模型 =======================
 

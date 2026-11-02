@@ -82,8 +82,11 @@ data class CloudSongItem(
 
 @Serializable
 data class CloudSimpleSong(
+    // 已识别歌曲对应的正版歌曲 id
+    val id: Long = 0,
     val ar: List<Artist> = emptyList(),
-    val al: Album = Album()
+    val al: Album = Album(),
+    val dt: Long = 0
 )
 
 // ======================= 写操作响应（删除/匹配共用） =======================

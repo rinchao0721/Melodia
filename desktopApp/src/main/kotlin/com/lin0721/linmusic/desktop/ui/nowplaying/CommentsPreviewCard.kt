@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +49,7 @@ fun CommentsPreviewCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text("加载评论失败: ${state.message}", color = DesktopColors.TextGray, fontSize = 13.sp, textAlign = TextAlign.Center)
-                TextButton(onClick = onRetry) { Text("重试", color = DesktopColors.Accent, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = onRetry) { Text("重试", color = DesktopColors.AccentText, fontWeight = FontWeight.Bold) }
             }
             is CommentsState.Success -> {
                 val comments = previewComments(state)
@@ -61,12 +60,12 @@ fun CommentsPreviewCard(
                         comments.forEachIndexed { index, comment ->
                             CommentRow(comment, interactive = false, contentMaxLines = PREVIEW_MAX_LINES)
                             if (index < comments.lastIndex) {
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 0.5.dp)
+                                HorizontalDivider(color = DesktopColors.Divider, thickness = 0.5.dp)
                             }
                         }
                         Text(
                             "查看全部 ${state.total} 条评论",
-                            color = DesktopColors.Accent,
+                            color = DesktopColors.AccentText,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)

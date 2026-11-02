@@ -3,7 +3,7 @@ package com.lin0721.linmusic.feature.playlist.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,6 +22,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -35,14 +35,15 @@ fun LazyListScope.playlistRecommendItems(
     isPlaying: Boolean,
     onRefreshRecommendations: () -> Unit,
     onPlaySong: (Track) -> Unit,
-    onAddRecommendSong: (Track) -> Unit
+    onAddRecommendSong: (Track) -> Unit,
+    showIndex: Boolean = false
 ) {
     item(key = "recommendation_header") {
         RecommendationHeader(
             onRefresh = onRefreshRecommendations
         )
     }
-    items(recommendedSongs, key = { "rec_${it.id}" }) { track ->
+    itemsIndexed(recommendedSongs, key = { _, track -> "rec_${track.id}" }) { index, track ->
         SongRow(
             data = SongRowData(
                 id = track.id,
@@ -53,6 +54,7 @@ fun LazyListScope.playlistRecommendItems(
             ),
             isActive = currentTrackId == track.id.toString(),
             isPlaying = isPlaying,
+            index = if (showIndex) index + 1 else null,
             copyable = true,
             onClick = { onPlaySong(track) },
             trailingSlot = {
@@ -66,7 +68,7 @@ fun LazyListScope.playlistRecommendItems(
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
                             .size(22.dp)
-                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            .background(MelodiaColors.Overlay.copy(alpha = 0.1f), CircleShape)
                             .padding(MelodiaSpacing.xxs)
                     )
                 }

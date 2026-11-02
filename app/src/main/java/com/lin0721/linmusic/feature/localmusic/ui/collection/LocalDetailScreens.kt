@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +46,7 @@ import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.localmusic.domain.LocalAlbum
@@ -92,7 +91,7 @@ fun LocalArtistScreen(
         artist?.tracks?.mapNotNull { library.album(it.albumKey) }?.filterNot { it.isUnknown }?.distinctBy { it.key }.orEmpty()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) { state ->
             if (artist == null) {
                 MissingContent(title = "该歌手已没有本地歌曲", onBack = navigation.onBack)
@@ -116,7 +115,7 @@ fun LocalArtistScreen(
                             Column {
                                 Text(
                                     text = artist.name,
-                                    color = Color.White,
+                                    color = MelodiaColors.TextPrimary,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 2,
@@ -124,7 +123,7 @@ fun LocalArtistScreen(
                                 )
                                 Text(
                                     text = "${artist.tracks.size} 首 · ${artist.albumCount} 张专辑",
-                                    color = Color.White.copy(alpha = 0.7f),
+                                    color = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                                     fontSize = 13.sp
                                 )
                             }
@@ -197,7 +196,7 @@ fun LocalAlbumScreen(
     LocalSelectionLifecycle(viewModel, selecting = success?.isSelectionMode == true)
     val album = library.album(albumKey)
 
-    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         LocalLibraryStateGate(viewModel) { state ->
             if (album == null) {
                 MissingContent(title = "该专辑已没有本地歌曲", onBack = navigation.onBack)
@@ -221,7 +220,7 @@ fun LocalAlbumScreen(
                             Column {
                                 Text(
                                     text = album.name,
-                                    color = Color.White,
+                                    color = MelodiaColors.TextPrimary,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 3,
@@ -229,7 +228,7 @@ fun LocalAlbumScreen(
                                 )
                                 Text(
                                     text = "${album.artist} ›",
-                                    color = Color.White.copy(alpha = 0.85f),
+                                    color = MelodiaColors.TextPrimary.copy(alpha = 0.85f),
                                     fontSize = 14.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -241,7 +240,7 @@ fun LocalAlbumScreen(
                                 )
                                 Text(
                                     text = albumMeta(album, withDuration = true),
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    color = MelodiaColors.TextPrimary.copy(alpha = 0.6f),
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
@@ -395,7 +394,7 @@ private fun LocalSelectionLifecycle(viewModel: LocalMusicViewModel, selecting: B
 private fun MissingContent(title: String, onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         MelodiaIconButton(onClick = onBack, modifier = Modifier.padding(MelodiaSpacing.xs)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(icon = Icons.Rounded.LibraryMusic, title = title)

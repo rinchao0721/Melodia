@@ -17,6 +17,7 @@ private const val TAG = "SingleInstance"
 private const val LOCK_NAME = "instance.lock"
 private const val PORT_NAME = "instance.port"
 private const val ACTIVATE = "ACTIVATE"
+private const val QUIT = "QUIT"
 private const val ACKNOWLEDGED = "OK"
 private const val BACKLOG = 5
 private const val CONNECT_TIMEOUT_MS = 500
@@ -34,15 +35,20 @@ class SingleInstance(
     private var lock: FileLock? = null
     private var server: ServerSocket? = null
 
-    // true 为首个实例，onActivate 在其他实例要求激活时回调（非主线程）
+    // true 为首个实例，回调均在后台线程触发
     // false 表示已通知已有实例，调用方应直接退出
-    fun acquire(onActivate: () -> Unit): Boolean {
-        if (tryBecomePrimary(onActivate)) return true
-        notifyPrimary()
+    fun acquire(onActivate: () -> Unit = {}): Boolean = acquire(onActivate, {})
+
+    fun acquire(onActivate: () -> Unit, onQuit: () -> Unit): Boolean {
+        if (tryBecomePrimary(onActivate, onQuit)) return true
+        notifyPrimary(ACTIVATE)
         return false
     }
 
-    private fun tryBecomePrimary(onActivate: () -> Unit): Boolean {
+    // 供卸载流程请求运行中的实例主动释放句柄并退出
+    fun requestQuit(): Boolean = notifyPrimary(QUIT)
+
+    private fun tryBecomePrimary(onActivate: () -> Unit, onQuit: () -> Unit): Boolean {
         return try {
             dir.mkdirs()
             val candidate = FileChannel.open(File(dir, LOCK_NAME).toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
@@ -60,7 +66,7 @@ class SingleInstance(
             lock = acquired
             server = listener
             File(dir, PORT_NAME).writeText(listener.localPort.toString())
-            thread(isDaemon = true, name = "single-instance") { serve(listener, onActivate) }
+            thread(isDaemon = true, name = "single-instance") { serve(listener, onActivate, onQuit) }
             true
         } catch (e: IOException) {
             // 守卫失败时放行启动
@@ -70,21 +76,22 @@ class SingleInstance(
     }
 
     // 首个实例可能还没写好端口，重试
-    private fun notifyPrimary() {
+    private fun notifyPrimary(command: String): Boolean {
         repeat(retries) {
             val port = runCatching { File(dir, PORT_NAME).readText().trim().toInt() }.getOrNull()
-            if (port != null && sendActivate(port)) return
+            if (port != null && sendCommand(port, command)) return true
             Thread.sleep(retryDelayMs)
         }
-        AppLogger.w(TAG, "已有实例持有锁但未响应激活请求")
+        AppLogger.w(TAG, "已有实例持有锁但未响应请求：$command")
+        return false
     }
 
-    private fun sendActivate(port: Int): Boolean = try {
+    private fun sendCommand(port: Int, command: String): Boolean = try {
         Socket().use { socket ->
             socket.connect(InetSocketAddress(InetAddress.getLoopbackAddress(), port), CONNECT_TIMEOUT_MS)
             socket.soTimeout = READ_TIMEOUT_MS
             socket.getOutputStream().apply {
-                write("$ACTIVATE\n".toByteArray())
+                write("$command\n".toByteArray())
                 flush()
             }
             socket.getInputStream().bufferedReader().readLine() == ACKNOWLEDGED
@@ -93,22 +100,32 @@ class SingleInstance(
         false
     }
 
-    private fun serve(listener: ServerSocket, onActivate: () -> Unit) {
+    private fun serve(listener: ServerSocket, onActivate: () -> Unit, onQuit: () -> Unit) {
         while (!listener.isClosed) {
             try {
                 listener.accept().use { socket ->
                     socket.soTimeout = READ_TIMEOUT_MS
-                    if (socket.getInputStream().bufferedReader().readLine() == ACTIVATE) {
-                        onActivate()
-                        socket.getOutputStream().apply {
-                            write("$ACKNOWLEDGED\n".toByteArray())
-                            flush()
+                    when (socket.getInputStream().bufferedReader().readLine()) {
+                        ACTIVATE -> {
+                            onActivate()
+                            acknowledge(socket)
+                        }
+                        QUIT -> {
+                            acknowledge(socket)
+                            onQuit()
                         }
                     }
                 }
             } catch (e: IOException) {
-                if (!listener.isClosed) AppLogger.w(TAG, "处理激活请求失败", e)
+                if (!listener.isClosed) AppLogger.w(TAG, "处理单实例请求失败", e)
             }
+        }
+    }
+
+    private fun acknowledge(socket: Socket) {
+        socket.getOutputStream().apply {
+            write("$ACKNOWLEDGED\n".toByteArray())
+            flush()
         }
     }
 

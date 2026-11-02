@@ -2,6 +2,7 @@ name: Release
 
 # 推送 v1.2.3 或 v1.2.3-beta.1/-rc.1 形式的 tag 时触发：Android 与桌面端并行构建，
 # 两端都成功后才创建 GitHub Release，避免发出缺一端安装包的版本。
+# 预发布 tag 必须打在 dev 上，正式版 tag 必须打在 main 上，否则直接失败。
 # 手动运行为演练：按输入的版本号打两端安装包、作为 artifact 留存，不创建 Release
 on:
   push:
@@ -27,6 +28,11 @@ jobs:
       prerelease: ${{ steps.version.outputs.prerelease }}
 
     steps:
+      # 校验 tag 所在分支需要完整历史与远端分支
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 从 tag 解析版本号
         id: version
         env:
@@ -80,6 +86,23 @@ jobs:
           echo "name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      # 手动演练没有 tag，按所选分支构建，不做校验
+      - name: 校验 tag 所在分支
+        if: github.event_name == 'push'
+        env:
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            BRANCH=dev
+          else
+            BRANCH=main
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$BRANCH"; then
+            echo "tag $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 $BRANCH 分支上，预发布需打在 dev、正式版需打在 main" >&2
+            exit 1
+          fi
+          echo "tag $GITHUB_REF_NAME 位于 $BRANCH 分支"
 
   android:
     needs: version
@@ -141,7 +164,7 @@ jobs:
           path: app/build/outputs/apk/release/Melodia-v${{ needs.version.outputs.name }}-release.apk
           retention-days: 7
 
-  # windows-latest 自带 CMake、VS 2022（编 SMTC 桥接 DLL）与 WiX 3（打 MSI）
+  # windows-latest 自带 CMake、VS 2022（编 SMTC 桥接 DLL 与安装/卸载程序）与 WiX 3（打内嵌的 MSI）
   desktop:
     needs: version
     runs-on: windows-latest
@@ -162,16 +185,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       # libmpv 按 gradle.properties 固定的 Release 下载并校验 SHA256；SMTC 编不出来直接失败
-      # 预发布版只出免安装版：MSI 升级只比较三段数字版本，beta 与正式版同号时装了 beta 升不到正式版
       - name: 桌面端打包
         run: |
-          TASKS=":desktopApp:packageReleaseZip"
-          if [ "${{ needs.version.outputs.prerelease }}" = "false" ]; then
-            TASKS="$TASKS :desktopApp:packageReleaseMsi"
-          fi
-          ./gradlew $TASKS \
+          ./gradlew :desktopApp:packageReleaseZip :desktopApp:packageReleaseSetup \
             -PreleaseVersionName=${{ needs.version.outputs.name }} \
             -PrequireSmtc=true \
+            -PrequireUninstaller=true \
             --no-daemon
 
       - name: 整理安装包
@@ -179,9 +198,7 @@ jobs:
           OUT=desktopApp/build/compose/binaries/main-release
           mkdir -p dist
           cp "$OUT/zip/Melodia-v${{ needs.version.outputs.name }}-windows-x64.zip" dist/
-          if [ "${{ needs.version.outputs.prerelease }}" = "false" ]; then
-            cp "$OUT"/msi/*.msi "dist/Melodia-v${{ needs.version.outputs.name }}-windows-x64.msi"
-          fi
+          cp "$OUT/setup/Melodia-v${{ needs.version.outputs.name }}-windows-x64-setup.exe" dist/
           ls -l dist
 
       - name: 上传桌面端安装包
@@ -248,7 +265,8 @@ jobs:
               echo ""
             fi
             echo "### 💻 桌面端安装说明"
-            echo "- Windows 10 及以上 64 位系统，正式版提供 MSI 安装包与免安装 zip，预发布版只提供免安装 zip"
+            echo "- Windows 10 及以上 64 位系统，提供安装程序（setup.exe）与免安装 zip"
+            echo "- 安装程序支持静默安装：\`setup.exe /S [/allusers] [/nodesktop] [/autostart] [/run] [/D=安装目录]\`"
             echo "- 安装包暂未做代码签名，首次运行若出现 SmartScreen 提示，点击「更多信息」→「仍要运行」即可"
             echo ""
             if [ -n "$PREV_TAG" ]; then

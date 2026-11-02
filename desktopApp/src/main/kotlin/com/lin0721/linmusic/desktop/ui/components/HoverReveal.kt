@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,7 +27,7 @@ fun HoverReveal(
     content: @Composable () -> Unit
 ) {
     if (reserveSpace) {
-        val progress by animateFloatAsState(if (revealed) 1f else 0f, tween(REVEAL_DURATION_MS), label = "hoverReveal")
+        val progress by animateFloatAsState(if (revealed) 1f else 0f, uiTween(REVEAL_DURATION_MS), label = "hoverReveal")
         Box(
             modifier.graphicsLayer {
                 alpha = progress
@@ -41,8 +40,8 @@ fun HoverReveal(
         AnimatedVisibility(
             visible = revealed,
             modifier = modifier,
-            enter = expandHorizontally(tween(REVEAL_DURATION_MS)) + fadeIn(tween(REVEAL_DURATION_MS)),
-            exit = shrinkHorizontally(tween(REVEAL_DURATION_MS)) + fadeOut(tween(REVEAL_DURATION_MS))
+            enter = expandHorizontally(uiTween(REVEAL_DURATION_MS)) + fadeIn(uiTween(REVEAL_DURATION_MS)),
+            exit = shrinkHorizontally(uiTween(REVEAL_DURATION_MS)) + fadeOut(uiTween(REVEAL_DURATION_MS))
         ) { content() }
     }
 }

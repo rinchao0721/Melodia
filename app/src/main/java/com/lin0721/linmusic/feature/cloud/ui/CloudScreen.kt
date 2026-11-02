@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,8 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -64,9 +61,12 @@ import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.themedShadow
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import org.koin.androidx.compose.koinViewModel
 
@@ -115,13 +115,13 @@ fun CloudScreen(
                 MelodiaIconButton(onClick = { viewModel.toggleSearch() }) {
                     Crossfade(
                         targetState = success.isSearchActive,
-                        animationSpec = tween(durationMillis = 200),
+                        animationSpec = uiTween(durationMillis = 200),
                         label = "cloud_search_icon"
                     ) { isSearching ->
                         Icon(
                             if (isSearching) Icons.Rounded.Close else Icons.Rounded.Search,
                             contentDescription = if (isSearching) "关闭搜索" else "搜索",
-                            tint = Color.White
+                            tint = MelodiaColors.TextPrimary
                         )
                     }
                 }
@@ -160,16 +160,16 @@ fun CloudScreen(
                         AnimatedVisibility(
                             visible = state.isSearchActive,
                             enter = expandVertically(
-                                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                                animationSpec = uiTween(durationMillis = 260, easing = FastOutSlowInEasing),
                                 expandFrom = Alignment.Top
                             ) + fadeIn(
-                                animationSpec = tween(durationMillis = 200)
+                                animationSpec = uiTween(durationMillis = 200)
                             ),
                             exit = shrinkVertically(
-                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                animationSpec = uiTween(durationMillis = 220, easing = FastOutSlowInEasing),
                                 shrinkTowards = Alignment.Top
                             ) + fadeOut(
-                                animationSpec = tween(durationMillis = 150)
+                                animationSpec = uiTween(durationMillis = 150)
                             )
                         ) {
                             CloudSearchField(
@@ -256,7 +256,7 @@ fun CloudScreen(
                     )
                     .pressScale(MelodiaPress.Transport, fabInteraction)
                     .size(56.dp)
-                    .shadow(8.dp, CircleShape)
+                    .themedShadow(8.dp, CircleShape)
             ) {
                 if (hasActiveUploads) {
                     CircularProgressIndicator(
@@ -290,7 +290,7 @@ fun CloudScreen(
         is CloudOverlay.Options -> {
             CloudSongOptionsSheet(
                 song = current.song,
-                isLiked = current.song.songId in likedSongIds,
+                isLiked = current.song.playSongId in likedSongIds,
                 onDismiss = { viewModel.dismissOverlay() },
                 onToggleLikeClick = { viewModel.toggleLike() },
                 onAddToPlaylistClick = { viewModel.openAddToPlaylist() },
@@ -301,7 +301,7 @@ fun CloudScreen(
 
         is CloudOverlay.AddToPlaylist -> {
             PlaylistCollectSheet(
-                songId = current.song.songId,
+                songId = current.song.playSongId,
                 collectState = collectState,
                 onDismiss = { viewModel.dismissOverlay() },
                 onSaveCollection = { songId, items -> viewModel.saveAddToPlaylist(songId, items) },
@@ -367,8 +367,8 @@ private fun CloudSearchField(
 
         AnimatedVisibility(
             visible = isFetchingAll,
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150))
+            enter = fadeIn(uiTween(150)),
+            exit = fadeOut(uiTween(150))
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.width(MelodiaSpacing.xs))
@@ -382,8 +382,8 @@ private fun CloudSearchField(
 
         AnimatedVisibility(
             visible = !isFetchingAll && query.isNotEmpty(),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150))
+            enter = fadeIn(uiTween(150)),
+            exit = fadeOut(uiTween(150))
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.width(MelodiaSpacing.xs))

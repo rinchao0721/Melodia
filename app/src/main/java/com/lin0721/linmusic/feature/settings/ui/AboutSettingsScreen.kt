@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,8 +30,9 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.update.UpdateManager
+import com.lin0721.linmusic.core.update.UpdateChecker
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,24 +71,24 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            val updateManager: UpdateManager = koinInject()
+            val updateChecker: UpdateChecker = koinInject()
             val autoCheckUpdateEnabled by viewModel.autoCheckUpdateEnabled.collectAsStateWithLifecycle()
             val allowPrereleaseChannel by viewModel.allowPrereleaseChannel.collectAsStateWithLifecycle()
 
             SettingsGroupCard(SettingsSubMenu.ABOUT.sectionTitles[0]) {
                 SettingsRow(
                     title = "检查更新",
-                    subtitle = "前往 GitHub 获取最新安装包",
-                    onClick = { updateManager.checkForUpdate(manual = true) }
+                    subtitle = "发现新版本后前往 GitHub 发布页下载",
+                    onClick = { updateChecker.checkForUpdate(manual = true) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "自动检查更新",
                     subtitle = "启动应用时后台检查一次更新",
                     checked = autoCheckUpdateEnabled,
                     onCheckedChange = { viewModel.updateAutoCheckUpdateEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "接收测试版更新",
                     subtitle = "包含 beta/rc 预览版本，可能不稳定",
@@ -109,7 +109,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
                     Text("开源协议 (MIT LICENSE)", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -139,7 +139,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "当前: ${logLevelLabel(currentLogLevel)}，越详细越利于排查问题",
                     onClick = { showLogLevelSheet = true }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "导出并分享日志",
                     subtitle = "当应用发生故障时，可将本地运行日志导出",
@@ -147,7 +147,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                         exportAndShareLogs(context)
                     }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "清空日志文件",
                     subtitle = "清除本地保存的运行日志，清空后将无法再导出",

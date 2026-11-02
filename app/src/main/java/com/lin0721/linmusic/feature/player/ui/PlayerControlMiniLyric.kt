@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -58,13 +59,13 @@ fun MiniLyricLine(
         ) { text ->
             if (text.isEmpty()) {
                 LoadingDotsAnimation(
-                    color = Color.White.copy(alpha = 0.35f),
+                    color = MelodiaColors.TextPrimary.copy(alpha = 0.35f),
                     isPlaying = isPlaying
                 )
             } else {
                 Text(
                     text = text,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,

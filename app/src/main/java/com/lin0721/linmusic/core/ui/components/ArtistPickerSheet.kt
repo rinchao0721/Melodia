@@ -13,11 +13,10 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import kotlinx.coroutines.launch
 
@@ -41,7 +40,7 @@ fun ArtistPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -54,7 +53,7 @@ fun ArtistPickerSheet(
         ) {
             Text(
                 text = "选择歌手",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)

@@ -28,6 +28,7 @@ import com.lin0721.linmusic.feature.player.data.PlayerApi
 import com.lin0721.linmusic.feature.playlist.data.PlaylistApi
 import com.lin0721.linmusic.feature.profile.data.ProfileApi
 import com.lin0721.linmusic.feature.recent.data.RecentApi
+import com.lin0721.linmusic.feature.recognition.data.RecognitionApi
 import com.lin0721.linmusic.feature.search.data.SearchApi
 import com.lin0721.linmusic.feature.settings.data.SettingsApi
 import kotlinx.serialization.json.Json
@@ -171,6 +172,7 @@ val networkModule = module {
     single<UserArtistApi> { get<Retrofit>().create(UserArtistApi::class.java) }
     single<SettingsApi> { get<Retrofit>().create(SettingsApi::class.java) }
     single<ProfileApi> { get<Retrofit>().create(ProfileApi::class.java) }
+    single<RecognitionApi> { get<Retrofit>().create(RecognitionApi::class.java) }
 }
 
 object NetworkConfig {

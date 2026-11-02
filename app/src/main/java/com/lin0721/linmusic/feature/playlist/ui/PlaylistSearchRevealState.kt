@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.playlist.ui
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +16,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -31,6 +32,7 @@ class SearchBarRevealState internal constructor(
     private val listState: LazyListState,
     private val isDailyRecommend: Boolean,
     private val scope: CoroutineScope,
+    private val motion: UiMotion,
     private val flingVelocityThresholdPx: Float
 ) {
     // 搜索栏自身高度，由调用方在 onSizeChanged 中回填
@@ -116,7 +118,7 @@ class SearchBarRevealState internal constructor(
             animate(
                 initialValue = revealPx,
                 targetValue = max,
-                animationSpec = spring(
+                animationSpec = motion.spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow
                 )
@@ -136,13 +138,13 @@ class SearchBarRevealState internal constructor(
         settleJob = scope.launch {
             try {
                 if (listState.firstVisibleItemIndex != savedIndex || listState.firstVisibleItemScrollOffset != savedOffset) {
-                    listState.animateScrollToItem(savedIndex, savedOffset)
+                    motion.scrollToItem(listState, savedIndex, savedOffset)
                 }
                 isOpen = false
                 animate(
                     initialValue = revealPx,
                     targetValue = 0f,
-                    animationSpec = spring(
+                    animationSpec = motion.spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow
                     )
@@ -173,7 +175,7 @@ class SearchBarRevealState internal constructor(
                 initialValue = revealPx,
                 targetValue = target,
                 initialVelocity = velocity,
-                animationSpec = spring(
+                animationSpec = motion.spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow
                 )
@@ -192,11 +194,13 @@ fun rememberSearchBarRevealState(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val flingVelocityThresholdPx = with(density) { 300.dp.toPx() }
-    return remember(listState, isDailyRecommend) {
+    val motion = LocalUiMotion.current
+    return remember(listState, isDailyRecommend, motion) {
         SearchBarRevealState(
             listState = listState,
             isDailyRecommend = isDailyRecommend,
             scope = scope,
+            motion = motion,
             flingVelocityThresholdPx = flingVelocityThresholdPx
         )
     }

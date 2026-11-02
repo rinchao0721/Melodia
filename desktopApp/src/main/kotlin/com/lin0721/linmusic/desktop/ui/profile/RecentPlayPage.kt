@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.profile
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -209,7 +209,7 @@ private fun DayHeader(label: String) {
         color = DesktopColors.TextPrimary,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.fillMaxWidth().background(DesktopColors.Pane)
+        modifier = Modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)
             .padding(horizontal = ContentPadding, vertical = 10.dp)
     )
 }

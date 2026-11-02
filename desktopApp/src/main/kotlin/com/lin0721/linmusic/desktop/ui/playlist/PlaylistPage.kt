@@ -1,10 +1,10 @@
 package com.lin0721.linmusic.desktop.ui.playlist
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
@@ -73,6 +74,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +84,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -99,6 +100,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.ui.comments.asCommentsHost
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -107,9 +109,12 @@ import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
+import com.lin0721.linmusic.desktop.ui.components.uiSpring
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
 import com.lin0721.linmusic.desktop.ui.library.EMPTY_NAME_MESSAGE
 import com.lin0721.linmusic.desktop.ui.library.LibraryPopupMenu
@@ -119,6 +124,7 @@ import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.ui.library.SEARCH_ANIMATION_MS
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.player.rememberQueueReorderState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -126,6 +132,7 @@ import com.lin0721.linmusic.desktop.ui.track.ADDED_COLUMN_WIDTH
 import com.lin0721.linmusic.desktop.ui.track.ImportSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.TrackReorder
 import com.lin0721.linmusic.desktop.ui.track.TrackRowSelection
+import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.desktop.ui.track.TrackSelectionBar
 import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
@@ -204,6 +211,183 @@ fun PlaylistPage(
     }
 }
 
+private class PlaylistDialogState {
+    var showEdit by mutableStateOf(false)
+    var showAddSongs by mutableStateOf(false)
+    var showDelete by mutableStateOf(false)
+    var showCreateImport by mutableStateOf(false)
+    var showBatchCreate by mutableStateOf(false)
+    var showBatchRemove by mutableStateOf(false)
+}
+
+@Composable
+private fun rememberPlaylistDialogState(playlistId: Long): PlaylistDialogState =
+    remember(playlistId) { PlaylistDialogState() }
+
+@Composable
+private fun PlaylistDialogsHost(
+    playlist: PlaylistDetail,
+    viewModel: PlaylistViewModel,
+    dialogState: PlaylistDialogState
+) {
+    val navigator = LocalDesktopNavigator.current
+    if (dialogState.showEdit) {
+        val isSavingInfo by viewModel.isSavingInfo.collectAsState()
+        EditPlaylistDialog(
+            initialName = playlist.name,
+            initialDescription = playlist.description.orEmpty(),
+            coverUrl = playlist.coverImgUrl,
+            isSaving = isSavingInfo,
+            onDismiss = { dialogState.showEdit = false },
+            onConfirm = { name, description, coverBytes ->
+                viewModel.updatePlaylistInfo(
+                    playlist.id, playlist.name, name, playlist.description, description, coverBytes
+                ) { success -> if (success) dialogState.showEdit = false }
+            }
+        )
+    }
+    if (dialogState.showAddSongs) {
+        AddSongsDialog(
+            playlistId = playlist.id,
+            existingIds = remember(playlist.tracks) { playlist.tracks.mapTo(HashSet()) { it.id } },
+            viewModel = viewModel,
+            onDismiss = { dialogState.showAddSongs = false }
+        )
+    }
+    if (dialogState.showCreateImport) {
+        CreatePlaylistDialog(
+            onDismiss = { dialogState.showCreateImport = false },
+            onCreate = { name, isPrivate ->
+                dialogState.showCreateImport = false
+                viewModel.createPlaylistAndImportAll(name, isPrivate)
+            },
+            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+        )
+    }
+    if (dialogState.showBatchCreate) {
+        CreatePlaylistDialog(
+            onDismiss = { dialogState.showBatchCreate = false },
+            onCreate = { name, isPrivate ->
+                dialogState.showBatchCreate = false
+                viewModel.batchCreatePlaylistAndAdd(name, isPrivate)
+            },
+            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+        )
+    }
+    if (dialogState.showBatchRemove) {
+        val selection by viewModel.selection.collectAsState()
+        DesktopDialog(
+            title = "从歌单中删除",
+            onDismiss = { dialogState.showBatchRemove = false },
+            width = 340.dp,
+            actions = {
+                DialogButton("取消", { dialogState.showBatchRemove = false })
+                DialogButton("删除", {
+                    dialogState.showBatchRemove = false
+                    viewModel.batchRemove()
+                }, danger = true)
+            }
+        ) {
+            Text("确定要从歌单中删除选中的 ${selection.count} 首歌曲吗？", color = DesktopColors.TextGray, fontSize = 13.sp)
+        }
+    }
+    if (dialogState.showDelete) {
+        DesktopDialog(
+            title = "删除歌单",
+            onDismiss = { dialogState.showDelete = false },
+            width = 340.dp,
+            actions = {
+                DialogButton("取消", { dialogState.showDelete = false })
+                DialogButton("删除", {
+                    dialogState.showDelete = false
+                    viewModel.deletePlaylist(playlist.id) { navigator.goBack() }
+                }, danger = true)
+            }
+        ) {
+            Text("确定要删除歌单「${playlist.name}」吗？", color = DesktopColors.TextGray, fontSize = 13.sp)
+        }
+    }
+}
+
+private class PlaylistPlaybackState(
+    val isShuffleActive: Boolean,
+    val isCurrentlyPlayingThis: Boolean,
+    val onPlayClick: () -> Unit,
+    val playFrom: (Track) -> Unit
+)
+
+@Composable
+private fun rememberPlaylistPlaybackState(
+    playlist: PlaylistDetail,
+    viewModel: PlaylistViewModel,
+    controller: PlaybackController,
+    unplayableIds: Set<Long>,
+    customView: Boolean,
+    query: String,
+    order: PlaylistSortOrder,
+    addedAt: Map<Long, Long>
+): PlaylistPlaybackState {
+    val playMode by controller.playMode.collectAsState()
+    val isShuffleActive = playMode == PlayMode.SHUFFLE
+    val isPlaying by controller.playWhenReady.collectAsState()
+    val playContext by controller.playContext.collectAsState()
+    val playSource by controller.playSource.collectAsState()
+    val isThisPlaylistContext = playSource?.id == playlist.id || (playlist.name.isNotBlank() && playContext == playlist.name)
+    val isCurrentlyPlayingThis = isThisPlaylistContext && isPlaying
+
+    val viewOf = remember(query, order, addedAt) {
+        { all: List<Track> -> sortTracks(filterTracks(all, query), order, addedAt) }
+    }
+    val playFrom: (Track) -> Unit = remember(customView, isShuffleActive, viewOf, viewModel) {
+        { track ->
+            if (customView && !isShuffleActive) {
+                viewModel.playTrackInPlaylist(track)
+            } else {
+                viewModel.ensureAllTracksLoaded { all ->
+                    val list = viewOf(all)
+                    val ordered = if (isShuffleActive) {
+                        val remaining = list.filter { it.id != track.id }.shuffled()
+                        listOf(track) + remaining
+                    } else {
+                        list
+                    }
+                    viewModel.playSongInList(track, ordered)
+                }
+            }
+        }
+    }
+    val playDisplayed: (Boolean) -> Unit = remember(customView, viewOf, unplayableIds, viewModel) {
+        { shuffle ->
+            if (customView) {
+                viewModel.playAll(shuffle)
+            } else {
+                viewModel.ensureAllTracksLoaded { all ->
+                    val ordered = viewOf(all).let { if (shuffle) it.shuffled() else it }
+                    ordered.firstOrNull { it.id !in unplayableIds }?.let { viewModel.playSongInList(it, ordered) }
+                }
+            }
+        }
+    }
+    val onPlayClick: () -> Unit = remember(isThisPlaylistContext, isShuffleActive, controller, playDisplayed) {
+        {
+            if (isThisPlaylistContext) {
+                controller.togglePlayPause()
+            } else {
+                playDisplayed(isShuffleActive)
+            }
+        }
+    }
+
+    return remember(isShuffleActive, isCurrentlyPlayingThis, onPlayClick, playFrom) {
+        PlaylistPlaybackState(
+            isShuffleActive = isShuffleActive,
+            isCurrentlyPlayingThis = isCurrentlyPlayingThis,
+            onPlayClick = onPlayClick,
+            playFrom = playFrom
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistContent(
@@ -220,6 +404,9 @@ private fun PlaylistContent(
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val unplayableIds by viewModel.unplayableIds.collectAsState()
     val collectState by viewModel.collectState.collectAsState()
+    val importState by viewModel.importState.collectAsState()
+    val selection by viewModel.selection.collectAsState()
+    val externalTracks by viewModel.externalTracks.collectAsState()
 
     val uid = profile?.uid
     val isLikedView = uid != null && !isAlbum && isLikedSongsPlaylist(playlist.name, playlist.id, uid)
@@ -239,20 +426,17 @@ private fun PlaylistContent(
         onPrepareCollect = viewModel::prepareCollectDialog,
         onSaveCollect = viewModel::savePlaylistCollection,
         onCreateAndAdd = viewModel::createPlaylistAndAddSong,
-        onRemove = removeTrack
+        onRemove = removeTrack,
+        onReduceRecommend = if (playlist.id == DAILY_RECOMMEND_ID && navigator.isLoggedIn) {
+            { track -> viewModel.reduceDailyRecommend(track.id) }
+        } else {
+            null
+        }
     )
 
     val commentsHost = remember(viewModel) { viewModel.asCommentsHost() }
     val commentsOpen = navigator.isCommentsPanelOpen(commentsHost)
-    val isSavingInfo by viewModel.isSavingInfo.collectAsState()
-    var showEdit by remember(playlist.id) { mutableStateOf(false) }
-    var showAddSongs by remember(playlist.id) { mutableStateOf(false) }
-    var showDelete by remember(playlist.id) { mutableStateOf(false) }
-    var showCreateImport by remember(playlist.id) { mutableStateOf(false) }
-    val importState by viewModel.importState.collectAsState()
-    val selection by viewModel.selection.collectAsState()
-    var showBatchCreate by remember(playlist.id) { mutableStateOf(false) }
-    var showBatchRemove by remember(playlist.id) { mutableStateOf(false) }
+    val dialogState = rememberPlaylistDialogState(playlist.id)
     var query by remember(playlist.id) { mutableStateOf("") }
     var order by remember(playlist.id) { mutableStateOf(PlaylistSortOrder()) }
     val addedAt = remember(playlist.trackIds) { playlist.trackIds.associate { it.id to it.at } }
@@ -261,6 +445,17 @@ private fun PlaylistContent(
     val displayed = remember(playlist.tracks, query, order, addedAt) {
         sortTracks(filterTracks(playlist.tracks, query), order, addedAt)
     }
+
+    val playbackState = rememberPlaylistPlaybackState(
+        playlist = playlist,
+        viewModel = viewModel,
+        controller = controller,
+        unplayableIds = unplayableIds,
+        customView = customView,
+        query = query,
+        order = order,
+        addedAt = addedAt
+    )
 
     // 排序与搜索针对全部曲目，自建歌单的拖动调序按全量提交，都需要把没加载的补齐
     LaunchedEffect(customView, isOwned, playlist.id, state.hasMoreTracks) {
@@ -305,25 +500,6 @@ private fun PlaylistContent(
         }
     }
 
-    val viewOf = { all: List<Track> -> sortTracks(filterTracks(all, query), order, addedAt) }
-    val playFrom: (Track) -> Unit = { track ->
-        if (customView) {
-            viewModel.playTrackInPlaylist(track)
-        } else {
-            viewModel.ensureAllTracksLoaded { all -> viewModel.playSongInList(track, viewOf(all)) }
-        }
-    }
-    val playDisplayed: (Boolean) -> Unit = { shuffle ->
-        if (customView) {
-            viewModel.playAll(shuffle)
-        } else {
-            viewModel.ensureAllTracksLoaded { all ->
-                val ordered = viewOf(all).let { if (shuffle) it.shuffled() else it }
-                ordered.firstOrNull { it.id !in unplayableIds }?.let { viewModel.playSongInList(it, ordered) }
-            }
-        }
-    }
-
     val count = when {
         playlist.trackIds.isNotEmpty() -> playlist.trackIds.size
         playlist.trackCount > 0 -> playlist.trackCount
@@ -335,13 +511,14 @@ private fun PlaylistContent(
     LaunchedEffect(playlist.coverImgUrl) {
         if (playlist.coverImgUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(playlist.coverImgUrl).base
     }
-    val heroColor by animateColorAsState(lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), label = "playlistHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "playlistHero")
 
     val density = LocalDensity.current
     val barHeightPx = with(density) { StickyBarHeight.roundToPx() }
     val playButtonBottomPx = with(density) { (ActionBarVerticalPadding + PlayButtonSize).roundToPx() }
-    var heroHeightPx by remember(playlist.id) { mutableIntStateOf(0) }
-    var headerHeightPx by remember(playlist.id) { mutableIntStateOf(0) }
+    // 恢复页面现场时列表直接停在中间，大标题不会再测一次，高度要随现场保存
+    var heroHeightPx by rememberSaveable(playlist.id) { mutableIntStateOf(0) }
+    var headerHeightPx by rememberSaveable(playlist.id) { mutableIntStateOf(0) }
     // 大标题整体滑到横栏之下时出现歌单名，操作栏的播放按钮滑到横栏之下时再出现播放按钮
     val showTitleBar by remember(barHeightPx) {
         derivedStateOf { heroHeightPx > 0 && listState.scrolledPast(heroHeightPx - barHeightPx) }
@@ -370,7 +547,7 @@ private fun PlaylistContent(
             item(key = "header") {
                 Column(
                     Modifier.fillMaxWidth().onSizeChanged { headerHeightPx = it.height }
-                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         PlaylistHero(playlist, isAlbum, count, totalMs)
@@ -383,15 +560,17 @@ private fun PlaylistContent(
                         order = order,
                         showAdded = hasDates,
                         canDelete = isOwned,
-                        onDelete = { showDelete = true },
+                        onDelete = { dialogState.showDelete = true },
                         showComments = playlist.id > 0,
                         commentsOpen = commentsOpen,
                         onToggleComments = {
                             if (!commentsOpen) viewModel.loadPlaylistComments(playlist.id)
                             navigator.toggleCommentsPanel(commentsHost)
                         },
-                        onPlay = { playDisplayed(false) },
-                        onShuffle = { playDisplayed(true) },
+                        isPlaying = playbackState.isCurrentlyPlayingThis,
+                        onPlay = playbackState.onPlayClick,
+                        isShuffleActive = playbackState.isShuffleActive,
+                        onToggleShuffle = controller::toggleShuffle,
                         onToggleSubscribe = {
                             if (navigator.isLoggedIn) viewModel.toggleSubscribePlaylist() else navigator.showMessage("请先登录账号")
                         },
@@ -400,8 +579,9 @@ private fun PlaylistContent(
                         importState = importState,
                         onPrepareImport = { viewModel.prepareImportTargets(playlist.id) },
                         onImportTo = { target -> viewModel.importAllTracksTo(target.id) },
-                        onCreateImport = { showCreateImport = true },
+                        onCreateImport = { dialogState.showCreateImport = true },
                         canCopyLink = playlist.id > 0,
+                        canDownload = !isPluginCollectionId(playlist.id),
                         onCopyLink = {
                             navigator.showMessage(if (copyPlaylistLink(isAlbum, playlist.id)) "已复制链接" else "复制失败")
                         },
@@ -414,8 +594,8 @@ private fun PlaylistContent(
                             Modifier.padding(start = HeaderPadding, end = HeaderPadding, bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaylistPill(Icons.Rounded.Add, "添加") { showAddSongs = true }
-                            PlaylistPill(Icons.Rounded.Edit, "名称和详情") { showEdit = true }
+                            PlaylistPill(Icons.Rounded.Add, "添加") { dialogState.showAddSongs = true }
+                            PlaylistPill(Icons.Rounded.Edit, "名称和详情") { dialogState.showEdit = true }
                         }
                     }
                 }
@@ -430,7 +610,7 @@ private fun PlaylistContent(
                         }
                     }
                 ) {
-                    Column(Modifier.background(DesktopColors.Pane)) {
+                    Column(Modifier.paneBackdrop(DesktopColors.Pane)) {
                         if (selection.active) {
                             val shownIds = shown.map { it.id }
                             TrackSelectionBar(
@@ -442,10 +622,10 @@ private fun PlaylistContent(
                                 onPlayNext = viewModel::batchPlayNext,
                                 onPrepareImport = { viewModel.prepareImportTargets(playlist.id) },
                                 onImportTo = { target -> viewModel.batchAddToPlaylist(target.id) },
-                                onCreateImport = { showBatchCreate = true },
+                                onCreateImport = { dialogState.showBatchCreate = true },
                                 onLike = viewModel::batchLike,
                                 onDownload = { viewModel.batchDownload(navigator.downloadLevel) },
-                                onRemove = { showBatchRemove = true },
+                                onRemove = { dialogState.showBatchRemove = true },
                                 onExit = viewModel::exitSelection
                             )
                         }
@@ -460,7 +640,7 @@ private fun PlaylistContent(
                     index = index,
                     track = track,
                     isCurrent = nowPlaying?.songId == track.id,
-                    onPlay = { playFrom(track) },
+                    onPlay = { playbackState.playFrom(track) },
                     actions = actions,
                     // 多选态下不可播放的歌曲也能勾选
                     enabled = selection.active || track.id !in unplayableIds,
@@ -474,9 +654,11 @@ private fun PlaylistContent(
                     },
                     // 抬起中的行自己负责位移，交给 animateItem 会和手动位移打架
                     modifier = Modifier.padding(horizontal = 16.dp)
-                        .then(if (dragging || settling) Modifier.zIndex(1f) else Modifier.animateItem()),
+                        .then(if (dragging || settling) Modifier.zIndex(1f) else if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier),
                     addedAtText = if (hasDates) formatAddedDate(addedAt[track.id] ?: 0L) else null,
-                    reorder = if (!selection.active && (canReorder || dragging)) {
+                    sourcePlatform = externalTracks[track.id]?.platform,
+                    // 外部歌曲的位置跟随加入时间，不参与拖动调序
+                    reorder = if (!selection.active && track.id > 0L && (canReorder || dragging)) {
                         TrackReorder(
                             dragging = dragging,
                             offsetY = reorder.offsetOf(index),
@@ -545,88 +727,19 @@ private fun PlaylistContent(
         Box(Modifier.fillMaxWidth().clipToBounds()) {
             AnimatedVisibility(
                 visible = showTitleBar,
-                enter = fadeIn(tween(STICKY_BAR_ANIMATION_MS)) + slideInVertically(tween(STICKY_BAR_ANIMATION_MS)) { -it / 2 },
-                exit = fadeOut(tween(STICKY_BAR_ANIMATION_MS)) + slideOutVertically(tween(STICKY_BAR_ANIMATION_MS)) { -it / 2 }
+                enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + slideInVertically(uiTween(STICKY_BAR_ANIMATION_MS)) { -it / 2 },
+                exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + slideOutVertically(uiTween(STICKY_BAR_ANIMATION_MS)) { -it / 2 }
             ) {
-                PlaylistStickyBar(playlist.name, heroColor, showPlayButton, listState) { playDisplayed(false) }
+                PlaylistStickyBar(playlist.name, heroColor, showPlayButton, playbackState.isCurrentlyPlayingThis, listState, playbackState.onPlayClick)
             }
         }
     }
 
-    if (showEdit) {
-        EditPlaylistDialog(
-            initialName = playlist.name,
-            initialDescription = playlist.description.orEmpty(),
-            coverUrl = playlist.coverImgUrl,
-            isSaving = isSavingInfo,
-            onDismiss = { showEdit = false },
-            onConfirm = { name, description, coverBytes ->
-                viewModel.updatePlaylistInfo(
-                    playlist.id, playlist.name, name, playlist.description, description, coverBytes
-                ) { success -> if (success) showEdit = false }
-            }
-        )
-    }
-    if (showAddSongs) {
-        AddSongsDialog(
-            playlistId = playlist.id,
-            existingIds = remember(playlist.tracks) { playlist.tracks.mapTo(HashSet()) { it.id } },
-            viewModel = viewModel,
-            onDismiss = { showAddSongs = false }
-        )
-    }
-    if (showCreateImport) {
-        CreatePlaylistDialog(
-            onDismiss = { showCreateImport = false },
-            onCreate = { name, isPrivate ->
-                showCreateImport = false
-                viewModel.createPlaylistAndImportAll(name, isPrivate)
-            },
-            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
-        )
-    }
-    if (showBatchCreate) {
-        CreatePlaylistDialog(
-            onDismiss = { showBatchCreate = false },
-            onCreate = { name, isPrivate ->
-                showBatchCreate = false
-                viewModel.batchCreatePlaylistAndAdd(name, isPrivate)
-            },
-            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
-        )
-    }
-    if (showBatchRemove) {
-        DesktopDialog(
-            title = "从歌单中删除",
-            onDismiss = { showBatchRemove = false },
-            width = 340.dp,
-            actions = {
-                DialogButton("取消", { showBatchRemove = false })
-                DialogButton("删除", {
-                    showBatchRemove = false
-                    viewModel.batchRemove()
-                }, danger = true)
-            }
-        ) {
-            Text("确定要从歌单中删除选中的 ${selection.count} 首歌曲吗？", color = DesktopColors.TextGray, fontSize = 13.sp)
-        }
-    }
-    if (showDelete) {
-        DesktopDialog(
-            title = "删除歌单",
-            onDismiss = { showDelete = false },
-            width = 340.dp,
-            actions = {
-                DialogButton("取消", { showDelete = false })
-                DialogButton("删除", {
-                    showDelete = false
-                    viewModel.deletePlaylist(playlist.id) { navigator.goBack() }
-                }, danger = true)
-            }
-        ) {
-            Text("确定要删除歌单「${playlist.name}」吗？", color = DesktopColors.TextGray, fontSize = 13.sp)
-        }
-    }
+    PlaylistDialogsHost(
+        playlist = playlist,
+        viewModel = viewModel,
+        dialogState = dialogState
+    )
 }
 
 @Composable
@@ -634,6 +747,7 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
     val typeLabel = when {
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"
+        isPluginCollectionId(playlist.id) -> "歌单"
         playlist.privacy == PRIVATE_PLAYLIST -> "隐私歌单"
         else -> "公开歌单"
     }
@@ -685,14 +799,15 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
 }
 
 // 表头项已滚出视野，或滚动距离达到阈值
-private fun LazyListState.scrolledPast(thresholdPx: Int): Boolean =
+internal fun LazyListState.scrolledPast(thresholdPx: Int): Boolean =
     firstVisibleItemIndex > 0 || firstVisibleItemScrollOffset >= thresholdPx
 
 @Composable
-private fun PlaylistStickyBar(
+internal fun PlaylistStickyBar(
     name: String,
     color: Color,
     showPlay: Boolean,
+    isPlaying: Boolean,
     listState: LazyListState,
     onPlay: () -> Unit
 ) {
@@ -705,10 +820,10 @@ private fun PlaylistStickyBar(
     ) {
         AnimatedVisibility(
             visible = showPlay,
-            enter = fadeIn(tween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(tween(STICKY_BAR_ANIMATION_MS)),
-            exit = fadeOut(tween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(tween(STICKY_BAR_ANIMATION_MS))
+            enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
+            exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
-            PlayCircleButton(StickyPlayButtonSize, 28.dp, onPlay, Modifier.padding(end = 12.dp))
+            PlayCircleButton(StickyPlayButtonSize, 28.dp, isPlaying, onPlay, Modifier.padding(end = 12.dp))
         }
         Text(
             name,
@@ -722,14 +837,25 @@ private fun PlaylistStickyBar(
 }
 
 @Composable
-private fun PlayCircleButton(size: Dp, iconSize: Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    DesktopTooltip("播放") {
+internal fun PlayCircleButton(
+    size: Dp,
+    iconSize: Dp,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    DesktopTooltip(if (isPlaying) "暂停" else "播放全部") {
         Box(
             modifier.size(size).clip(CircleShape).background(DesktopColors.Accent)
                 .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.PlayArrow, "播放全部", tint = DesktopColors.TextPrimary, modifier = Modifier.size(iconSize))
+            Icon(
+                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                if (isPlaying) "暂停" else "播放全部",
+                tint = DesktopColors.TextPrimary,
+                modifier = Modifier.size(iconSize)
+            )
         }
     }
 }
@@ -747,8 +873,10 @@ private fun PlaylistActionBar(
     showComments: Boolean,
     commentsOpen: Boolean,
     onToggleComments: () -> Unit,
+    isPlaying: Boolean,
     onPlay: () -> Unit,
-    onShuffle: () -> Unit,
+    isShuffleActive: Boolean,
+    onToggleShuffle: () -> Unit,
     onToggleSubscribe: () -> Unit,
     onDownload: () -> Unit,
     onPlayNextAll: () -> Unit,
@@ -757,6 +885,7 @@ private fun PlaylistActionBar(
     onImportTo: (UserPlaylist) -> Unit,
     onCreateImport: () -> Unit,
     canCopyLink: Boolean,
+    canDownload: Boolean,
     onCopyLink: () -> Unit,
     onQueryChange: (String) -> Unit,
     onOrderChange: (PlaylistSortOrder) -> Unit,
@@ -768,8 +897,13 @@ private fun PlaylistActionBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PlayCircleButton(PlayButtonSize, 32.dp, onPlay)
-        ActionIcon(Icons.Rounded.Shuffle, "随机播放", onClick = onShuffle)
+        PlayCircleButton(PlayButtonSize, 32.dp, isPlaying, onPlay)
+        ActionIcon(
+            Icons.Rounded.Shuffle,
+            if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
+            tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
+            onClick = onToggleShuffle
+        )
         if (canSubscribe) {
             ActionIcon(
                 if (isSubscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -786,7 +920,7 @@ private fun PlaylistActionBar(
                 onClick = onToggleComments
             )
         }
-        ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
+        if (canDownload) ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
         PlaylistMoreMenu(
             resourceLabel, canDelete, canCopyLink, onPlayNextAll,
             importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete
@@ -801,7 +935,7 @@ private fun PlaylistActionBar(
 }
 
 @Composable
-private fun ActionIcon(
+internal fun ActionIcon(
     icon: ImageVector,
     description: String,
     tint: Color = DesktopColors.TextGray,
@@ -870,7 +1004,7 @@ private fun PlaylistMoreMenu(
 }
 
 @Composable
-private fun PlaylistPill(icon: ImageVector, text: String, onClick: () -> Unit) {
+internal fun PlaylistPill(icon: ImageVector, text: String, onClick: () -> Unit) {
     Row(
         Modifier.clip(RoundedCornerShape(16.dp)).background(DesktopColors.Surface)
             .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
@@ -890,18 +1024,18 @@ private fun PlaylistPill(icon: ImageVector, text: String, onClick: () -> Unit) {
 
 // 点图标展开成输入框，失焦且为空时收回；Esc 清空并收回
 @Composable
-private fun PlaylistSearchBox(query: String, onQueryChange: (String) -> Unit) {
+internal fun PlaylistSearchBox(query: String, onQueryChange: (String) -> Unit) {
     var searching by remember { mutableStateOf(false) }
     var focusedOnce by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val width by animateDpAsState(
         if (searching) SearchWidth else ControlHeight,
-        tween(SEARCH_ANIMATION_MS, easing = FastOutSlowInEasing),
+        uiTween(SEARCH_ANIMATION_MS, easing = FastOutSlowInEasing),
         label = "playlistSearchWidth"
     )
     val background by animateColorAsState(
-        if (searching) DesktopColors.Surface else Color.Transparent,
-        tween(SEARCH_ANIMATION_MS),
+        if (searching) DesktopColors.Surface else DesktopColors.Surface.copy(alpha = 0f),
+        uiTween(SEARCH_ANIMATION_MS),
         label = "playlistSearchBackground"
     )
     LaunchedEffect(searching) {
@@ -941,7 +1075,7 @@ private fun PlaylistSearchBox(query: String, onQueryChange: (String) -> Unit) {
 }
 
 @Composable
-private fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSelect: (PlaylistSortKey) -> Unit) {
+internal fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSelect: (PlaylistSortKey) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var anchorWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
@@ -969,8 +1103,8 @@ private fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSel
 
 // 列宽与 TrackRow 逐项对齐：序号 32、封面槽 56、标题 0.45、专辑 0.35、[添加日期]、红心槽 32、时长 48、更多槽 36
 @Composable
-private fun TrackColumnHeader(order: PlaylistSortOrder, showAdded: Boolean, onSort: (PlaylistSortKey) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(DesktopColors.Pane)) {
+internal fun TrackColumnHeader(order: PlaylistSortOrder, showAdded: Boolean, onSort: (PlaylistSortKey) -> Unit) {
+    Column(Modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically

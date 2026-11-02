@@ -1,8 +1,8 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,9 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -43,16 +43,18 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
-import coil3.request.allowHardware
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.ui.theme.themedShadow
+import com.lin0721.linmusic.core.ui.theme.uiTween
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全出血 Hero（LazyColumn Item 1）
@@ -62,8 +64,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 fun PlaylistHeaderItem(
     playlist: PlaylistDetail,
     coverSize: Dp,
-    coverAlpha: Float,
-    progress: Float,
+    progressProvider: () -> Float,
     statusBarHeight: Dp,
     dominantColor: Color,
     onColorCalculated: (Color) -> Unit,
@@ -108,14 +109,13 @@ fun PlaylistHeaderItem(
     // 只有标题随折叠渐隐（40%-80%），跟顶栏小标题的淡入
     // 区间（60%-100%）有重叠形成交错过渡；创建者/简介/歌曲数/操作按钮不做特殊处理，
     // 当作普通内容随手指滚动划走即可
-    val titleAlpha = 1f - ((progress - 0.4f) / 0.4f).coerceIn(0f, 1f)
     val animatedDominant by animateColorAsState(
         targetValue = dominantColor,
-        animationSpec = tween(800),
+        animationSpec = uiTween(800),
         label = "playlist_header_color"
     )
-    val gradientTop = remember(animatedDominant) { animatedDominant.darken(0.35f) }
-    val bgDark = MaterialTheme.colorScheme.background
+    val gradientTop = headerCoverBase(animatedDominant, 0.35f) ?: MelodiaColors.PageFill
+    val bgDark = MelodiaColors.PageFill
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -133,7 +133,6 @@ fun PlaylistHeaderItem(
             val coverRequest = remember(playlist.coverImgUrl) {
                 ImageRequest.Builder(context)
                     .data("${playlist.coverImgUrl}?param=400y400")
-                    .allowHardware(false)
                     .crossfade(true)
                     .build()
             }
@@ -151,9 +150,11 @@ fun PlaylistHeaderItem(
                 error              = { CoverPlaceholder() },
                 modifier           = Modifier
                     .size(coverSize)
-                    .shadow(elevation = 16.dp, shape = RoundedCornerShape(RadiusCompact), clip = false)
+                    .graphicsLayer {
+                        alpha = 1f - (progressProvider() / 0.65f).coerceIn(0f, 1f)
+                    }
+                    .themedShadow(elevation = 16.dp, shape = RoundedCornerShape(RadiusCompact), clip = false)
                     .clip(RoundedCornerShape(RadiusCompact))
-                    .then(if (coverAlpha < 1f) Modifier.alpha(coverAlpha) else Modifier)
             )
         }
 
@@ -161,7 +162,9 @@ fun PlaylistHeaderItem(
         Column(modifier = Modifier.padding(horizontal = MelodiaSpacing.md)) {
                     Text(playlist.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold,
                         fontSize = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.alpha(titleAlpha))
+                        modifier = Modifier.graphicsLayer {
+                            alpha = 1f - ((progressProvider() - 0.4f) / 0.4f).coerceIn(0f, 1f)
+                        })
                     Spacer(Modifier.height(6.dp))
                     if (playlist.id == -1L) {
                         Text(displayDateStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
@@ -256,7 +259,7 @@ fun PlaylistHeaderItem(
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                             // 收藏对系统歌单和自建歌单都没有意义：前者本来就是自己的红心集合，
                             // 后者不能收藏自己创建的东西
-                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist) {
+                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
                                         imageVector = if (isSubscribed) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
@@ -266,21 +269,23 @@ fun PlaylistHeaderItem(
                                     )
                                 }
                             }
-                            MelodiaIconButton(onClick = onCommentsClick) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Comment,
-                                    contentDescription = "评论",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            MelodiaIconButton(onClick = onShareClick) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "分享",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            if (!isPluginCollectionId(playlist.id)) {
+                                MelodiaIconButton(onClick = onCommentsClick) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        contentDescription = "评论",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                MelodiaIconButton(onClick = onShareClick) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "分享",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                             // 订阅他人的歌单不在顶部放下载入口，收进"更多"里；系统歌单和自建歌单顶部保留
                             if (isLikedSongsPlaylistView || isOwnedPlaylist) {

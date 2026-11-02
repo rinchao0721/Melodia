@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.ui.artist
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -63,7 +62,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -80,11 +78,15 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.uiSpring
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
@@ -200,14 +202,15 @@ private fun ArtistContent(
     LaunchedEffect(backdropUrl) {
         if (backdropUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(backdropUrl).base
     }
-    val heroColor by animateColorAsState(lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), label = "artistHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "artistHero")
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val barHeightPx = with(density) { StickyBarHeight.roundToPx() }
     val playButtonBottomPx = with(density) { (ActionBarVerticalPadding + PlayButtonSize).roundToPx() }
-    var backdropHeightPx by remember(state.artist.id) { mutableIntStateOf(0) }
-    var headerHeightPx by remember(state.artist.id) { mutableIntStateOf(0) }
+    // 恢复页面现场时列表直接停在中间，大标题不会再测一次，高度要随现场保存
+    var backdropHeightPx by rememberSaveable(state.artist.id) { mutableIntStateOf(0) }
+    var headerHeightPx by rememberSaveable(state.artist.id) { mutableIntStateOf(0) }
 
     val showTitleBar by remember(barHeightPx) {
         derivedStateOf { backdropHeightPx > 0 && listState.scrolledPast(backdropHeightPx - barHeightPx) }
@@ -259,7 +262,7 @@ private fun ArtistContent(
                                     translationY = (barHeightPx - naturalY).coerceIn(0, barHeightPx).toFloat()
                                 }
                             }
-                            .background(DesktopColors.Pane)
+                            .paneBackdrop(DesktopColors.Pane)
                             .padding(horizontal = ContentPadding, vertical = 8.dp)
                     ) {
                         TabBar(ArtistTab.entries, tab, { it.label }, { tab = it })
@@ -340,8 +343,8 @@ private fun ArtistContent(
             Box(Modifier.fillMaxWidth().clipToBounds()) {
                 AnimatedVisibility(
                     visible = showTitleBar,
-                    enter = fadeIn(tween(STICKY_BAR_ANIMATION_MS)) + slideInVertically(tween(STICKY_BAR_ANIMATION_MS)) { -it / 2 },
-                    exit = fadeOut(tween(STICKY_BAR_ANIMATION_MS)) + slideOutVertically(tween(STICKY_BAR_ANIMATION_MS)) { -it / 2 }
+                    enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + slideInVertically(uiTween(STICKY_BAR_ANIMATION_MS)) { -it / 2 },
+                    exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + slideOutVertically(uiTween(STICKY_BAR_ANIMATION_MS)) { -it / 2 }
                 ) {
                     ArtistStickyBar(
                         name = state.artist.name,
@@ -453,8 +456,8 @@ private fun ArtistStickyBar(
     ) {
         AnimatedVisibility(
             visible = showPlay,
-            enter = fadeIn(tween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(tween(STICKY_BAR_ANIMATION_MS)),
-            exit = fadeOut(tween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(tween(STICKY_BAR_ANIMATION_MS))
+            enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
+            exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
             PlayCircleButton(StickyPlayButtonSize, 28.dp, onPlay, Modifier.padding(end = 12.dp))
         }
@@ -512,7 +515,7 @@ private fun ArtistHeader(
             }
             Box(
                 Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.Pane.copy(alpha = 0.6f), DesktopColors.Pane))
+                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.PageFill.let { it.copy(alpha = it.alpha * 0.6f) }, DesktopColors.PageFill))
                 )
             )
             Column(Modifier.align(Alignment.BottomStart).padding(ContentPadding)) {

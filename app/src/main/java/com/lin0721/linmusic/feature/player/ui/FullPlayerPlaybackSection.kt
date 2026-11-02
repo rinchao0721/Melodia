@@ -3,7 +3,6 @@ package com.lin0721.linmusic.feature.player.ui
 import android.media.AudioDeviceInfo
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -132,14 +132,14 @@ fun LazyListScope.fullPlayerPlaybackSection(
         AnimatedVisibility(
             visible = showMiniLyric,
             enter = expandVertically(
-                animationSpec = tween(300, easing = FastOutSlowInEasing)
+                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
             ) + fadeIn(
-                animationSpec = tween(200)
+                animationSpec = uiTween(200)
             ),
             exit = shrinkVertically(
-                animationSpec = tween(300, easing = FastOutSlowInEasing)
+                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
             ) + fadeOut(
-                animationSpec = tween(200)
+                animationSpec = uiTween(200)
             )
         ) {
             MiniLyricLine(

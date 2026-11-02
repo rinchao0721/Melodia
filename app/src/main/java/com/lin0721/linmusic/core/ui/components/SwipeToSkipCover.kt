@@ -30,7 +30,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
+import com.lin0721.linmusic.core.ui.theme.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -130,7 +132,8 @@ private fun settleSwipe(
     onConfirmPrevious: () -> Unit,
     onConfirmNext: () -> Unit,
     onCancelPending: () -> Boolean,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    motion: UiMotion
 ) {
     val containerWidthPx = state.containerWidthPx
     val threshold = containerWidthPx * SwipeConfirmFraction
@@ -146,20 +149,20 @@ private fun settleSwipe(
     state.settleJob = scope.launch {
         when {
             confirmNext -> {
-                animate(state.offsetX, -containerWidthPx, velocity, SwipeCoverSpringSpec) { value, _ ->
+                animate(state.offsetX, -containerWidthPx, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                     state.offsetX = value
                 }
                 onConfirmNext()
                 // 位移停在滑出终点，等 syncCurrentKey 检测到真实曲目数据到位后再归零
             }
             confirmPrevious -> {
-                animate(state.offsetX, containerWidthPx, velocity, SwipeCoverSpringSpec) { value, _ ->
+                animate(state.offsetX, containerWidthPx, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                     state.offsetX = value
                 }
                 onConfirmPrevious()
             }
             else -> {
-                animate(state.offsetX, 0f, velocity, SwipeCoverSpringSpec) { value, _ ->
+                animate(state.offsetX, 0f, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                     state.offsetX = value
                 }
                 if (wasTransitioning) {
@@ -182,6 +185,7 @@ fun rememberSwipeToSkipDragModifier(
     onCancelPending: () -> Boolean = { false }
 ): Modifier {
     val scope = rememberCoroutineScope()
+    val motion = LocalUiMotion.current
     if (!canSwipeToPrevious && !canSwipeToNext) return Modifier
     return Modifier.draggable(
         orientation = Orientation.Horizontal,
@@ -194,7 +198,7 @@ fun rememberSwipeToSkipDragModifier(
         onDragStarted = { state.isDragActive = true },
         onDragStopped = { velocity ->
             state.isDragActive = false
-            settleSwipe(state, velocity, canSwipeToPrevious, canSwipeToNext, onConfirmPrevious, onConfirmNext, onCancelPending, scope)
+            settleSwipe(state, velocity, canSwipeToPrevious, canSwipeToNext, onConfirmPrevious, onConfirmNext, onCancelPending, scope, motion)
         }
     )
 }
@@ -226,6 +230,7 @@ fun SwipeToSkipCover(
     // 快速滑回中间时尝试撤销上一次已确认但还没落地的切歌；返回 true 表示撤销成功
     onCancelPending: () -> Boolean = { false }
 ) {
+    val motion = LocalUiMotion.current
     val scope = rememberCoroutineScope()
     var offsetX by remember { mutableFloatStateOf(0f) }
     var containerWidthPx by remember { mutableStateOf(0f) }
@@ -309,7 +314,7 @@ fun SwipeToSkipCover(
     }
     LaunchedEffect(pendingSlideInKey) {
         if (pendingSlideInKey != null) {
-            animate(offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
+            animate(offsetX, 0f, 0f, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                 offsetX = value
             }
             outgoingSlideInfo = null
@@ -348,19 +353,19 @@ fun SwipeToSkipCover(
                             settleJob = scope.launch {
                                 when {
                                     confirmNext -> {
-                                        animate(offsetX, -containerWidthPx, velocity, SwipeCoverSpringSpec) { value, _ ->
+                                        animate(offsetX, -containerWidthPx, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                                             offsetX = value
                                         }
                                         onConfirmNext()
                                     }
                                     confirmPrevious -> {
-                                        animate(offsetX, containerWidthPx, velocity, SwipeCoverSpringSpec) { value, _ ->
+                                        animate(offsetX, containerWidthPx, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                                             offsetX = value
                                         }
                                         onConfirmPrevious()
                                     }
                                     else -> {
-                                        animate(offsetX, 0f, velocity, SwipeCoverSpringSpec) { value, _ ->
+                                        animate(offsetX, 0f, velocity, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                                             offsetX = value
                                         }
                                         if (wasTransitioning) {

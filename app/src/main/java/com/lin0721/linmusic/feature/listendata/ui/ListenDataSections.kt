@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,8 +53,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.DataEnterStaggerFraction
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -67,8 +68,8 @@ import com.lin0721.linmusic.feature.listendata.domain.toHours
 import com.lin0721.linmusic.feature.listendata.domain.toHoursText
 
 private val CardShape = RoundedCornerShape(10.dp)
-private val CardColor = Color.White.copy(alpha = 0.06f)
-private val TrackColor = Color.White.copy(alpha = 0.06f)
+private val CardColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Overlay.copy(alpha = 0.06f)
+private val TrackColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Overlay.copy(alpha = 0.06f)
 // 柱体最高值，横轴标签的高度由 Row 自适应撑开，不能并进固定高度里
 private val BarMaxHeight = 72.dp
 private val BarMinHeight = 3.dp
@@ -184,10 +185,10 @@ private fun BoxScope.CoverWall(urls: List<String>) {
             .background(
                 Brush.verticalGradient(
                     // 顶部收进底色接住药丸行，中段留出封面色调，底部实色收尾接下方卡片
-                    0f to BackgroundDark.copy(alpha = 0.95f),
-                    0.35f to BackgroundDark.copy(alpha = 0.86f),
-                    0.8f to BackgroundDark.copy(alpha = 0.93f),
-                    1f to BackgroundDark
+                    0f to MelodiaColors.pageFill(0.95f),
+                    0.35f to MelodiaColors.pageFill(0.86f),
+                    0.8f to MelodiaColors.pageFill(0.93f),
+                    1f to MelodiaColors.PageFill
                 )
             )
     )
@@ -761,7 +762,7 @@ fun FriendsSection(friends: List<FriendListening>, keywords: List<String>) {
                     maxLines = 1,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
+                        .background(MelodiaColors.Fill)
                         .padding(horizontal = MelodiaSpacing.sm + MelodiaSpacing.xs, vertical = 5.dp)
                 )
             }

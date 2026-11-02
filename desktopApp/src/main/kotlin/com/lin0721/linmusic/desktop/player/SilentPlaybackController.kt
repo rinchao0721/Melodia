@@ -24,6 +24,7 @@ class SilentPlaybackController : DesktopPlaybackController {
     override val unavailableReason: String = UNAVAILABLE_MESSAGE
 
     override val volume: StateFlow<Int> = MutableStateFlow(100).asStateFlow()
+    override val lastAudibleVolume: StateFlow<Int> = MutableStateFlow(100).asStateFlow()
     override val audioDevices: StateFlow<List<AudioDevice>> = MutableStateFlow(emptyList<AudioDevice>()).asStateFlow()
     override val audioDevice: StateFlow<String> = MutableStateFlow(AUTO_AUDIO_DEVICE).asStateFlow()
 
@@ -97,6 +98,15 @@ class SilentPlaybackController : DesktopPlaybackController {
         playQueue(listOf(QueueItem(songId, title, artist, coverUrl)), 0, playContext, null)
     }
 
+    override fun playNextNow(item: QueueItem, startPositionMs: Long) {
+        if (_queue.value.isEmpty()) {
+            playQueue(listOf(item), 0, null)
+            return
+        }
+        addToPlayNext(listOf(item))
+        playNext()
+    }
+
     override fun addToPlayNext(items: List<QueueItem>) {
         if (items.isEmpty()) return
         val current = _queue.value
@@ -106,6 +116,25 @@ class SilentPlaybackController : DesktopPlaybackController {
         }
         val insertAt = (_currentIndex.value + 1).coerceIn(0, current.size)
         _queue.value = current.take(insertAt) + items + current.drop(insertAt)
+        refreshNeighbours()
+    }
+
+    override fun appendToQueue(items: List<QueueItem>) {
+        if (items.isEmpty()) return
+        if (_queue.value.isEmpty()) {
+            playQueue(items, 0, null)
+            return
+        }
+        _queue.value = _queue.value + items
+        refreshNeighbours()
+    }
+
+    override fun extendQueue(source: PlaySource, items: List<QueueItem>) {
+        if (_playSource.value != source) return
+        val queuedIds = _queue.value.mapTo(HashSet()) { it.songId }
+        val fresh = items.filter { it.songId !in queuedIds }
+        if (fresh.isEmpty()) return
+        _queue.value = _queue.value + fresh
         refreshNeighbours()
     }
 

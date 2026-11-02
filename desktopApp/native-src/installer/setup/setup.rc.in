@@ -1,0 +1,34 @@
+#pragma code_page(65001)
+#include <windows.h>
+
+101 ICON "@MELODIA_ICON@"
+201 RCDATA "@MELODIA_SETUP_MSI_PATH@"
+202 RCDATA "@MELODIA_LICENSE@"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @MELODIA_VERSION_COMMA@,0
+ PRODUCTVERSION @MELODIA_VERSION_COMMA@,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName", "Melodia"
+            VALUE "FileDescription", "Melodia 安装程序"
+            VALUE "FileVersion", "@MELODIA_DISPLAY_VERSION@"
+            VALUE "LegalCopyright", "Copyright (c) 2026 rinchao0721"
+            VALUE "OriginalFilename", "setup.exe"
+            VALUE "ProductName", "Melodia"
+            VALUE "ProductVersion", "@MELODIA_DISPLAY_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END

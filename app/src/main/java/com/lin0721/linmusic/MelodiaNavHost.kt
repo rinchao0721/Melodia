@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,6 +16,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumsScreen
@@ -34,7 +35,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
@@ -66,6 +66,7 @@ fun MelodiaNavHost(
     onOpenRecognition: () -> Unit,
     onBack: () -> Unit
 ) {
+    val motion = LocalUiMotion.current
     val localMusicNavigation = remember(onBack, onNavigateToScreen, onNavigateToArtist, onNavigateToPlaylist, onLoginScreenVisibilityChanged) {
         LocalMusicNavigation(
             onBack = onBack,
@@ -101,18 +102,18 @@ fun MelodiaNavHost(
             val forward = targetState.screen != Screen.Home
             val offsetY = 40
             if (forward) {
-                (fadeIn(tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
-                        + slideInVertically(tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
+                (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
+                        + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
                     .togetherWith(
-                        fadeOut(tween(300, easing = FastOutSlowInEasing))
-                                + slideOutVertically(tween(300, easing = FastOutSlowInEasing)) { -offsetY }
+                        fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
+                                + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { -offsetY }
                     )
             } else {
-                (fadeIn(tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
-                        + slideInVertically(tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
+                (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
+                        + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
                     .togetherWith(
-                        fadeOut(tween(300, easing = FastOutSlowInEasing))
-                                + slideOutVertically(tween(300, easing = FastOutSlowInEasing)) { offsetY }
+                        fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
+                                + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { offsetY }
                     )
             }.using(SizeTransform(clip = false))
         },
@@ -274,7 +275,7 @@ fun MelodiaNavHost(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(BackgroundDark)
+                                .background(MelodiaColors.PageFill)
                         )
                     }
                 }

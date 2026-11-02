@@ -26,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
@@ -34,7 +33,7 @@ import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
 
@@ -60,7 +59,7 @@ fun ProfileScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(MelodiaColors.PageFill)
     ) {
         when (val state = uiState) {
             ProfileUiState.Loading -> {
@@ -204,7 +203,7 @@ private fun TopNavigationBar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "返回",
-                tint = Color.White
+                tint = MelodiaColors.TextPrimary
             )
         }
 
@@ -215,7 +214,7 @@ private fun TopNavigationBar(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "更多",
-                    tint = Color.White
+                    tint = MelodiaColors.TextPrimary
                 )
             }
         }

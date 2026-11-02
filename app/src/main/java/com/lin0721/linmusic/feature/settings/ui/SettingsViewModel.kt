@@ -5,11 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.preferences.ThemeMode
+import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
 import com.lin0721.linmusic.feature.settings.data.VipInfoData
@@ -42,7 +46,8 @@ class SettingsViewModel(
     private val lxPluginManager: LxPluginManager,
     private val userPreferences: UserPreferences,
     private val authRepository: AuthRepository,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    val skins: SkinRepository
 ) : ViewModel() {
 
     // DataStore 的偏好流统一以相同策略转为 StateFlow，避免每项重复五行样板
@@ -96,11 +101,17 @@ class SettingsViewModel(
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
+    val audioOffload = settingsPreferences.audioOffload.asState(false)
+
     val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
 
     val crossfadeDurationMs = settingsPreferences.crossfadeDurationMs.asState(CrossfadePolicy.DEFAULT_DURATION_MS)
+
+    val smartCrossfadeEnabled = settingsPreferences.smartCrossfadeEnabled.asState(false)
+
+    val loudnessNormalizationEnabled = settingsPreferences.loudnessNormalizationEnabled.asState(false)
 
     val wifiOnlyPlay = settingsPreferences.wifiOnlyPlay.asState(false)
 
@@ -127,13 +138,20 @@ class SettingsViewModel(
 
     val sidePlayerPinned = settingsPreferences.sidePlayerPinned.asState(true)
 
+    val sidePlayerPosition = settingsPreferences.sidePlayerPosition.asState(SettingsPreferences.SIDE_PLAYER_POSITION_RIGHT)
+
     val tabletImmersiveMode = settingsPreferences.tabletImmersiveMode.asState(false)
 
     val uiScalePercent = settingsPreferences.uiScalePercent.asState(UiScale.DEFAULT_PERCENT)
+    val themeSettings = settingsPreferences.themeSettings.asState(ThemeSettings())
 
-    val lyricTextSize = settingsPreferences.lyricTextSize.asState(14)
+    val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
 
-    val lyricTextColor = settingsPreferences.lyricTextColor.asState("#FFFFFF")
+    val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
+
+    val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
+
+    val floatingLyricLocked = settingsPreferences.floatingLyricLocked.asState(false)
 
     val fullScreenLyricTextSize = settingsPreferences.fullScreenLyricTextSize.asState(22)
 
@@ -341,11 +359,17 @@ class SettingsViewModel(
 
     fun updatePlayWithOtherApps(enabled: Boolean) = launchSave { settingsPreferences.savePlayWithOtherApps(enabled) }
 
+    fun updateAudioOffload(enabled: Boolean) = launchSave { settingsPreferences.saveAudioOffload(enabled) }
+
     fun updateResumeAfterExternalInterruption(enabled: Boolean) = launchSave { settingsPreferences.saveResumeAfterExternalInterruption(enabled) }
 
     fun updateCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveCrossfadeEnabled(enabled) }
 
     fun updateCrossfadeDurationMs(durationMs: Int) = launchSave { settingsPreferences.saveCrossfadeDurationMs(durationMs) }
+
+    fun updateSmartCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSmartCrossfadeEnabled(enabled) }
+
+    fun updateLoudnessNormalizationEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLoudnessNormalizationEnabled(enabled) }
 
     fun updateWifiOnlyPlay(enabled: Boolean) = launchSave { settingsPreferences.saveWifiOnlyPlay(enabled) }
 
@@ -374,14 +398,27 @@ class SettingsViewModel(
     fun updatePlayerPageMode(mode: String) = launchSave { settingsPreferences.savePlayerPageMode(mode) }
 
     fun updateSidePlayerPinned(pinned: Boolean) = launchSave { settingsPreferences.saveSidePlayerPinned(pinned) }
+
+    fun updateSidePlayerPosition(position: String) = launchSave { settingsPreferences.saveSidePlayerPosition(position) }
  
     fun updateTabletImmersiveMode(enabled: Boolean) = launchSave { settingsPreferences.saveTabletImmersiveMode(enabled) }
 
     fun updateUiScalePercent(percent: Int) = launchSave { settingsPreferences.saveUiScalePercent(percent) }
 
-    fun updateLyricTextSize(size: Int) = launchSave { settingsPreferences.saveLyricTextSize(size) }
+    fun updateThemeMode(mode: ThemeMode) = launchSave { settingsPreferences.saveThemeMode(mode) }
 
-    fun updateLyricTextColor(color: String) = launchSave { settingsPreferences.saveLyricTextColor(color) }
+    fun updateThemeAccent(isDark: Boolean, accentId: String) = launchSave { settingsPreferences.saveThemeAccent(isDark, accentId) }
+
+    fun updateThemeCustomColor(isDark: Boolean, hex: String) = launchSave { settingsPreferences.saveThemeCustomColor(isDark, hex) }
+
+    fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
+
+    fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
+
+    fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
+        launchSave { settingsPreferences.saveFloatingLyricStyle(transform(settingsPreferences.floatingLyricStyle.first())) }
+
+    fun updateFloatingLyricLocked(locked: Boolean) = launchSave { settingsPreferences.saveFloatingLyricLocked(locked) }
 
     fun updateFullScreenLyricTextSize(size: Int) = launchSave { settingsPreferences.saveFullScreenLyricTextSize(size) }
 

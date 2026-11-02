@@ -9,8 +9,10 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,9 +28,14 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -51,10 +58,15 @@ fun PlaylistSongOptionsSheet(
     onRequireLogin: () -> Unit,
     // 歌手详情页场景下点击「歌手」等于跳到当前页本身，传 false 隐藏该项
     showArtistOption: Boolean = true,
+    // 外部平台搜索结果不在任何歌单与队列里，无法记住红心，也没有网易云专辑
+    showLikeOption: Boolean = true,
+    showAlbumOption: Boolean = true,
     // 仅当前歌单创建者可从歌单中移除歌曲，由调用方按登录态与创建者身份算好传入
     canRemoveFromPlaylist: Boolean = false,
     onRemoveFromPlaylist: (Long) -> Unit = {},
     onDownloadClick: ((Track) -> Unit)? = null,
+    // 仅今天的日推传入，菜单才出现“减少推荐”
+    onReduceRecommend: ((Track) -> Unit)? = null,
     // 额外操作项
     extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -119,7 +131,7 @@ fun PlaylistSongOptionsSheet(
             }
 
             HorizontalDivider(
-                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
@@ -139,19 +151,21 @@ fun PlaylistSongOptionsSheet(
                 val likeIconTint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 val likeText = if (isLiked) "取消喜欢" else "喜欢"
 
-                OptionRow(
-                    icon = likeIcon,
-                    text = likeText,
-                    iconTint = likeIconTint,
-                    onClick = {
-                        onDismiss()
-                        if (!isLoggedIn) {
-                            onRequireLogin()
-                        } else {
-                            onToggleLike(track.id, !isLiked)
+                if (showLikeOption) {
+                    OptionRow(
+                        icon = likeIcon,
+                        text = likeText,
+                        iconTint = likeIconTint,
+                        onClick = {
+                            onDismiss()
+                            if (!isLoggedIn) {
+                                onRequireLogin()
+                            } else {
+                                onToggleLike(track.id, !isLiked)
+                            }
                         }
-                    }
-                )
+                    )
+                }
 
                 OptionRow(
                     icon = Icons.AutoMirrored.Filled.PlaylistAdd,
@@ -173,6 +187,17 @@ fun PlaylistSongOptionsSheet(
                         onClick = {
                             onDismiss()
                             onDownloadClick(track)
+                        }
+                    )
+                }
+
+                if (onReduceRecommend != null) {
+                    OptionRow(
+                        icon = Icons.Default.HeartBroken,
+                        text = "减少推荐",
+                        onClick = {
+                            onDismiss()
+                            onReduceRecommend(track)
                         }
                     )
                 }
@@ -220,20 +245,34 @@ fun PlaylistSongOptionsSheet(
                     )
                 }
 
-                OptionRow(
-                    icon = Icons.Default.Album,
-                    text = "专辑: ${track.al.name}",
-                    onClick = {
-                        onDismiss()
-                        if (track.al.id > 0) {
-                            onAlbumClick(track.al.id)
-                        } else {
-                            ToastManager.showToast("暂无专辑信息")
+                if (showAlbumOption) {
+                    OptionRow(
+                        icon = Icons.Default.Album,
+                        text = "专辑: ${track.al.name}",
+                        onClick = {
+                            onDismiss()
+                            if (track.al.id > 0) {
+                                onAlbumClick(track.al.id)
+                            } else {
+                                ToastManager.showToast("暂无专辑信息")
+                            }
                         }
-                    }
-                )
+                    )
+                }
 
                 extraOptions()
+
+                val pluginCommands = LocalPluginCommands.current
+                rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
+                    OptionRow(
+                        icon = Icons.Default.Extension,
+                        text = item.title,
+                        onClick = {
+                            onDismiss()
+                            pluginCommands?.run(item, pluginSongArgs(track.id, track.name, track.ar.joinToString(" / ") { it.name }, track.al.name, track.al.picUrl))
+                        }
+                    )
+                }
             }
         }
     }

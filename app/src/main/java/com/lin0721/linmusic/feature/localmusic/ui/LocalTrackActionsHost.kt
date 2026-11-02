@@ -3,7 +3,6 @@ package com.lin0721.linmusic.feature.localmusic.ui
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -32,6 +31,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import com.lin0721.linmusic.feature.localmusic.ui.components.rememberLocalCoverUrl
@@ -203,8 +203,8 @@ fun LocalTrackActionsHost(
 
     AnimatedVisibility(
         visible = showWebViewLogin,
-        enter = slideInVertically(tween(ScreenSlideDurationMs)) { it } + fadeIn(tween(ScreenSlideDurationMs)),
-        exit = slideOutVertically(tween(ScreenSlideDurationMs)) { it } + fadeOut(tween(ScreenSlideDurationMs))
+        enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
+        exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
     ) {
         WebViewLoginScreen(
             onClose = { showWebViewLogin = false },

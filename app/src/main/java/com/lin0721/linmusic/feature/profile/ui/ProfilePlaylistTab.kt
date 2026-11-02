@@ -30,9 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.EmptyState
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
 
 // 小封面列表行样式
@@ -108,7 +108,7 @@ private fun ProfilePlaylistRow(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = if (playlist.trackCount > 0) "${playlist.trackCount}首" else playlist.creatorName,
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

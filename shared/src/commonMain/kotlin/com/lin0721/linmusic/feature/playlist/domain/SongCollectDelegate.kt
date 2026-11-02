@@ -4,6 +4,10 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.playlistexternal.ExternalSongLikes
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
+import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
+import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -28,7 +32,9 @@ class SongCollectDelegate(
     private val songLikeRepository: SongLikeRepository,
     private val createPlaylistAndAddSongUseCase: CreatePlaylistAndAddSongUseCase,
     private val userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val externalStore: PlaylistExternalTrackStore,
+    private val externalSongLikes: ExternalSongLikes
 ) {
 
     companion object {
@@ -48,25 +54,12 @@ class SongCollectDelegate(
 
     // 拉取当前的歌单并逐个判定是否已包含该歌曲；未缓存歌单异步补齐
     suspend fun prepare(songId: Long, likedSongIds: Set<Long>, onToast: suspend (String) -> Unit) {
-        val profile = userPreferences.userProfile.first() ?: return
-
-        // 优先使用已缓存的自建歌单列表，避免重复网络请求
-        val cachedPlaylists = userPlaylistsCache[profile.uid]
-        val playlists = if (cachedPlaylists != null) {
-            cachedPlaylists
-        } else {
-            _state.update { it.copy(songId = songId, isLoading = true, collectItems = emptyList()) }
-            val result = userPlaylistRepository.getUserPlaylists(profile.uid).firstOrNull()
-            val fetched = result?.getOrNull()?.filter { it.userId == profile.uid }
-            if (fetched != null) {
-                userPlaylistsCache[profile.uid] = fetched
-                fetched
-            } else {
-                _state.update { it.copy(isLoading = false) }
-                result?.exceptionOrNull()?.let { onToast(it.toUserMessage(resourceProvider)) }
-                return
-            }
+        if (songId < 0L) {
+            withExternal(songId, onToast) { prepareExternal(it, onToast) }
+            return
         }
+        val profile = userPreferences.userProfile.first() ?: return
+        val playlists = ownPlaylists(profile.uid, songId, onToast) ?: return
 
         // 立即渲染歌单列表，已缓存或“我喜欢的音乐”即时打勾，未缓存项先显式呈开展现
         val initialItems = playlists.map { playlist ->
@@ -121,6 +114,83 @@ class SongCollectDelegate(
         }
     }
 
+    // 优先使用已缓存的自建歌单列表，避免重复网络请求；失败返回 null 并已 toast
+    private suspend fun ownPlaylists(uid: Long, songId: Long, onToast: suspend (String) -> Unit): List<UserPlaylist>? {
+        userPlaylistsCache[uid]?.let { return it }
+        _state.update { it.copy(songId = songId, isLoading = true, collectItems = emptyList()) }
+        val result = userPlaylistRepository.getUserPlaylists(uid).firstOrNull()
+        val fetched = result?.getOrNull()?.filter { it.userId == uid }
+        if (fetched == null) {
+            _state.update { it.copy(isLoading = false) }
+            result?.exceptionOrNull()?.let { onToast(it.toUserMessage(resourceProvider)) }
+            return null
+        }
+        userPlaylistsCache[uid] = fetched
+        return fetched
+    }
+
+    // 负数 id 是外部平台歌曲，从播放队列或本机歌单里找回歌曲信息
+    private suspend fun withExternal(songId: Long, onToast: suspend (String) -> Unit, block: suspend (ExternalTrack) -> Unit) {
+        val track = externalSongLikes.find(songId)
+        if (track == null) {
+            onToast("找不到该歌曲信息")
+            return
+        }
+        block(track)
+    }
+
+    // 外部歌曲只写本机，「我喜欢的音乐」存在账号派生的 key 下
+    private fun externalKeyOf(playlist: PlaylistCollectItem, uid: Long): Long =
+        if (isLikedSongsPlaylist(playlist.playlistName, playlist.playlistId, uid)) likedExternalKey(uid) else playlist.playlistId
+
+    suspend fun prepareExternal(track: ExternalTrack, onToast: suspend (String) -> Unit) {
+        val profile = userPreferences.userProfile.first()
+        if (profile == null) {
+            onToast("请先登录账号")
+            return
+        }
+        val songId = track.queueSongId
+        val playlists = ownPlaylists(profile.uid, songId, onToast) ?: return
+        val entries = externalStore.all.first()
+        val items = playlists.map { playlist ->
+            val item = PlaylistCollectItem(
+                playlistId = playlist.id,
+                playlistName = playlist.name,
+                coverUrl = playlist.coverImgUrl,
+                isInitiallyContains = false,
+                isContains = false
+            )
+            val contains = entries[externalKeyOf(item, profile.uid)].orEmpty().any { it.track.resolveKey == track.resolveKey }
+            item.copy(isInitiallyContains = contains, isContains = contains)
+        }
+        _state.update { it.copy(songId = songId, isLoading = false, collectItems = items) }
+    }
+
+    suspend fun saveExternal(track: ExternalTrack, items: List<PlaylistCollectItem>, onToast: suspend (String) -> Unit) {
+        val profile = userPreferences.userProfile.first()
+        if (profile == null) {
+            onToast("请先登录账号")
+            return
+        }
+        items.forEach { item ->
+            if (item.isContains == item.isInitiallyContains) return@forEach
+            val key = externalKeyOf(item, profile.uid)
+            if (item.isContains) externalStore.add(key, listOf(track)) else externalStore.remove(key, setOf(track.queueSongId))
+        }
+        onToast("歌单收藏更新成功")
+    }
+
+    suspend fun createAndAddExternal(name: String, track: ExternalTrack, onToast: suspend (String) -> Unit) {
+        createPlaylistAndAddSongUseCase(name, emptyList()).firstOrNull()
+            ?.onSuccess { playlist ->
+                externalStore.add(playlist.id, listOf(track))
+                onToast("创建并加入歌单成功")
+                userPreferences.userProfile.first()?.let { userPlaylistsCache.remove(it.uid) }
+                prepareExternal(track, onToast)
+            }
+            ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }
+    }
+
     // 提交勾选变更；红心歌单走红心接口并在内存回写红心集合，其余走歌单增删并同步更新内存缓存
     suspend fun save(
         songId: Long,
@@ -129,6 +199,10 @@ class SongCollectDelegate(
         onToast: suspend (String) -> Unit,
         onLikedChanged: (Set<Long>) -> Unit
     ) {
+        if (songId < 0L) {
+            withExternal(songId, onToast) { saveExternal(it, items, onToast) }
+            return
+        }
         val profile = userPreferences.userProfile.first()
         var liked = likedSongIds
 
@@ -164,6 +238,10 @@ class SongCollectDelegate(
         likedSongIds: Set<Long>,
         onToast: suspend (String) -> Unit
     ) {
+        if (songId < 0L) {
+            withExternal(songId, onToast) { createAndAddExternal(name, it, onToast) }
+            return
+        }
         createPlaylistAndAddSongUseCase(name, listOf(songId)).firstOrNull()
             ?.onSuccess {
                 onToast("创建并加入歌单成功")

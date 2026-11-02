@@ -20,10 +20,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
@@ -54,9 +55,10 @@ fun LyricsSettingsPanel(
     val options = remember(hasTranslation, hasRoma) { secondaryOptions(hasTranslation, hasRoma) }
     Column(
         modifier.width(PanelWidth).heightIn(max = PanelMaxHeight)
-            .shadow(16.dp, RoundedCornerShape(12.dp))
+            .themedShadow(16.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(DesktopColors.PopupSurface)
+            .floatingOutline(RoundedCornerShape(12.dp))
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -80,6 +82,8 @@ fun LyricsSettingsPanel(
             TabBar(options.map { it.first }, settings.secondaryMode, { key -> options.first { it.first == key }.second }, actions.setSecondaryMode, small = true)
         }
 
+        SwitchSetting("启用网易云歌词源", "提供歌词、翻译与逐字歌词", settings.neteaseEnabled, actions.setNeteaseEnabled)
+        SwitchSetting("启用QQ音乐歌词源", "提供更多逐字歌词", settings.qqEnabled, actions.setQqEnabled)
         SwitchSetting("启用 AMLL 歌词源", "支持对唱分边与背景和声，对下一次加载的歌词生效", settings.amllEnabled, actions.setAmllEnabled)
         SwitchSetting("逐字歌词流光动效", "开启柔和渐变推进边缘", settings.advancedEffect, actions.setAdvancedEffect)
         SwitchSetting("字词呼吸光晕动效", "演唱字词叠加呼吸高亮微光", settings.glowEffect, actions.setGlowEffect)

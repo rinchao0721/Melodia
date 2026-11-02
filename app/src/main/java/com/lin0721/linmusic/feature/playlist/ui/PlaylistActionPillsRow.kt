@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.playlist.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.uiSpring
 
 // 歌单详情页自建歌单快捷操作小胶囊行
 @Composable
@@ -108,7 +108,7 @@ private fun ActionPill(
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
             // 排序胶囊的 label 会随选中项切换（"排序"/"歌曲名"/"歌手名"…），宽度跟着变；
-            .animateContentSize(spring(stiffness = Spring.StiffnessMedium))
+            .animateContentSize(uiSpring(stiffness = Spring.StiffnessMedium))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Row(

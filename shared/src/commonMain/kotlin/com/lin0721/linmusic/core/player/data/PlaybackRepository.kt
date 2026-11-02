@@ -12,7 +12,9 @@ data class SongPlaybackInfo(
     val isFreeTrial: Boolean = false,
     val level: String? = null,
     // 官方只有试听且换源全部未命中，只能退回播放官方试听片段
-    val trialFallback: Boolean = false
+    val trialFallback: Boolean = false,
+    // 已换算到本地目标的网易曲目增益，换源或拿不到有效值时为空
+    val gainDb: Double? = null
 )
 
 // 播放引擎数据仓储（core 共享能力，服务于 PlayerManager/FloatingLyricService 及多个域的推荐入口）

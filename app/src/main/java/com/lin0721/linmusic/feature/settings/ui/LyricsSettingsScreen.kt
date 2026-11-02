@@ -1,9 +1,11 @@
 package com.lin0721.linmusic.feature.settings.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
@@ -19,9 +21,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.player.external.FluidCloudLyricNotifier
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
@@ -31,8 +39,8 @@ import kotlin.math.roundToInt
 @Composable
 fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val showDesktopLrc by viewModel.showDesktopLrc.collectAsStateWithLifecycle()
-    val lyricTextSize by viewModel.lyricTextSize.collectAsStateWithLifecycle()
-    val lyricTextColor by viewModel.lyricTextColor.collectAsStateWithLifecycle()
+    val floatingStyle by viewModel.floatingLyricStyle.collectAsStateWithLifecycle()
+    val floatingLocked by viewModel.floatingLyricLocked.collectAsStateWithLifecycle()
     val superLyricEnabled by viewModel.superLyricEnabled.collectAsStateWithLifecycle()
     val lyricInfoEnabled by viewModel.lyricInfoEnabled.collectAsStateWithLifecycle()
     val bluetoothLyricEnabled by viewModel.bluetoothLyricEnabled.collectAsStateWithLifecycle()
@@ -43,17 +51,9 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val fluidCloudLyricEnabled by viewModel.fluidCloudLyricEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var showSizeSheet by remember { mutableStateOf(false) }
-    var showColorSheet by remember { mutableStateOf(false) }
+    var floatingSheet by remember { mutableStateOf<FloatingSheet?>(null) }
     var showAlignmentSheet by remember { mutableStateOf(false) }
 
-    val sizeLabel = "${lyricTextSize} sp"
-    val colorLabel = when (lyricTextColor) {
-        "#FFFFFF" -> "白色"
-        "#E03E3E" -> "网易红"
-        "#10B981" -> "绿色"
-        else -> lyricTextColor
-    }
     val alignmentLabel = when (fullScreenLyricAlignment) {
         "center" -> "居中对齐"
         "right" -> "右对齐"
@@ -105,13 +105,13 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                             valueRange = fontSizeRange
                         )
                     }
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsRow(
                         title = "歌词对齐方式",
                         subtitle = alignmentLabel,
                         onClick = { showAlignmentSheet = true }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "逐字歌词流光动效",
                         subtitle = "开启柔和渐变推进边缘",
@@ -129,18 +129,47 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         checked = showDesktopLrc,
                         onCheckedChange = { viewModel.updateShowDesktopLrc(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    SettingsRow(
-                        title = "悬浮歌词字号",
-                        subtitle = sizeLabel,
-                        onClick = { showSizeSheet = true }
-                    )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    SettingsRow(
-                        title = "悬浮歌词颜色",
-                        subtitle = colorLabel,
-                        onClick = { showColorSheet = true }
-                    )
+                    if (showDesktopLrc) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "锁定悬浮歌词",
+                            subtitle = "锁定后不可拖动与点击，可在播放通知中解锁",
+                            checked = floatingLocked,
+                            onCheckedChange = { viewModel.updateFloatingLyricLocked(it) }
+                        )
+                        FloatingSheet.entries.filterNot { it.shadowDetail }.forEach { sheet ->
+                            HorizontalDivider(color = MelodiaColors.Divider)
+                            SettingsRow(
+                                title = sheet.title,
+                                subtitle = sheet.currentLabel(floatingStyle),
+                                onClick = { floatingSheet = sheet }
+                            )
+                        }
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "文字阴影",
+                            subtitle = "浅色壁纸上也能看清歌词",
+                            checked = floatingStyle.shadow,
+                            onCheckedChange = { on -> viewModel.updateFloatingLyricStyle { it.copy(shadow = on) } }
+                        )
+                        if (floatingStyle.shadow) {
+                            FloatingSheet.entries.filter { it.shadowDetail }.forEach { sheet ->
+                                HorizontalDivider(color = MelodiaColors.Divider)
+                                SettingsRow(
+                                    title = sheet.title,
+                                    subtitle = sheet.currentLabel(floatingStyle),
+                                    onClick = { floatingSheet = sheet }
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "粗体",
+                            subtitle = "关闭后使用常规字重",
+                            checked = floatingStyle.bold,
+                            onCheckedChange = { on -> viewModel.updateFloatingLyricStyle { it.copy(bold = on) } }
+                        )
+                    }
                 }
             }
 
@@ -152,28 +181,28 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         checked = superLyricEnabled,
                         onCheckedChange = { viewModel.updateSuperLyricEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "LyricInfo 系统歌词（测试）",
                         subtitle = "向系统媒体会话元数据注入整轨歌词 JSON，供锁屏岛等插件读取",
                         checked = lyricInfoEnabled,
                         onCheckedChange = { viewModel.updateLyricInfoEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "车载蓝牙歌词（测试）",
                         subtitle = "播放时将当前行歌词实时同步至蓝牙设备标题栏，暂停时恢复原曲名",
                         checked = bluetoothLyricEnabled,
                         onCheckedChange = { viewModel.updateBluetoothLyricEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "Lyricon 词幕投屏（测试）",
                         subtitle = "向 Lyricon 独立词幕服务同步当前播放曲目与歌词进度",
                         checked = lyriconEnabled,
                         onCheckedChange = { viewModel.updateLyriconEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "状态栏歌词胶囊（测试）",
                         subtitle = "Android 16+ 实时更新通知，支持 ColorOS 流体云、三星 Now Bar、Pixel 状态栏等",
@@ -255,109 +284,141 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
             }
         }
 
-        // 字号选择弹层
-        if (showSizeSheet) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = { showSizeSheet = false },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.background,
-                shape = BottomSheetShape,
-                dragHandle = { MelodiaDragHandle() }
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
-                ) {
-                    Text(
-                        text = "选择悬浮歌词字号",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(bottom = MelodiaSpacing.md)
-                    )
-
-                    val options = listOf(12, 14, 16, 18, 20)
-                    options.forEach { size ->
-                        val isSelected = lyricTextSize == size
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.updateLyricTextSize(size)
-                                    showSizeSheet = false
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${size} sp",
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontSize = 15.sp
-                            )
-                            if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
-            }
+        floatingSheet?.let { sheet ->
+            FloatingOptionSheet(
+                sheet = sheet,
+                style = floatingStyle,
+                onSelect = { transform ->
+                    viewModel.updateFloatingLyricStyle(transform)
+                    floatingSheet = null
+                },
+                onDismiss = { floatingSheet = null }
+            )
         }
+    }
+}
 
-        // 颜色选择弹层
-        if (showColorSheet) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = { showColorSheet = false },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.background,
-                shape = BottomSheetShape,
-                dragHandle = { MelodiaDragHandle() }
-            ) {
-                Column(
+// 悬浮歌词各项样式的选项弹层，选项与当前值都从样式对象读写
+// shadowDetail 为真的项只在开启文字阴影后显示
+private enum class FloatingSheet(val title: String, val shadowDetail: Boolean = false) {
+    SIZE("悬浮歌词字号"),
+    PLAYED_COLOR("已播颜色"),
+    UNPLAYED_COLOR("未播颜色"),
+    SECONDARY("第二行"),
+    ALIGN("对齐方式"),
+    BACKGROUND("背景不透明度"),
+    SHADOW_ALPHA("阴影强度", shadowDetail = true),
+    SHADOW_BLUR("阴影模糊", shadowDetail = true),
+    SHADOW_COLOR("阴影颜色", shadowDetail = true);
+
+    val isColor: Boolean get() = this == PLAYED_COLOR || this == UNPLAYED_COLOR || this == SHADOW_COLOR
+
+    fun options(): List<Pair<String, String>> = when (this) {
+        SIZE -> FloatingLyricFontSizes.map { it.toString() to "$it sp" }
+        PLAYED_COLOR -> FloatingLyricPalette.played.map { it.hex to it.label }
+        UNPLAYED_COLOR -> FloatingLyricPalette.unplayed.map { it.hex to it.label }
+        SECONDARY -> FloatingLyricSecondary.entries.map { it.key to it.label }
+        ALIGN -> FloatingLyricAlign.entries.map { it.key to it.label }
+        BACKGROUND -> FloatingLyricBackgroundAlphas.map { it.toString() to "$it%" }
+        SHADOW_ALPHA -> FloatingLyricShadow.alphas.map { it.toString() to "$it%" }
+        SHADOW_BLUR -> FloatingLyricShadow.blursDp.map { it.toString() to FloatingLyricShadow.blurLabel(it) }
+        SHADOW_COLOR -> FloatingLyricShadow.colors.map { it.hex to it.label }
+    }
+
+    fun currentKey(style: FloatingLyricStyle): String = when (this) {
+        SIZE -> style.fontSizeSp.toString()
+        PLAYED_COLOR -> style.playedColor
+        UNPLAYED_COLOR -> style.unplayedColor
+        SECONDARY -> style.secondary.key
+        ALIGN -> style.align.key
+        BACKGROUND -> style.backgroundAlpha.toString()
+        SHADOW_ALPHA -> style.shadowAlpha.toString()
+        SHADOW_BLUR -> style.shadowBlurDp.toString()
+        SHADOW_COLOR -> style.shadowColor
+    }
+
+    fun currentLabel(style: FloatingLyricStyle): String {
+        val key = currentKey(style)
+        return options().firstOrNull { it.first.equals(key, ignoreCase = true) }?.second ?: key
+    }
+
+    // 选项 key 均由 options() 生成，数字解析失败时保持原样式
+    fun apply(style: FloatingLyricStyle, key: String): FloatingLyricStyle = when (this) {
+        SIZE -> key.toIntOrNull()?.let { style.copy(fontSizeSp = it) } ?: style
+        PLAYED_COLOR -> style.copy(playedColor = key)
+        UNPLAYED_COLOR -> style.copy(unplayedColor = key)
+        SECONDARY -> style.copy(secondary = FloatingLyricSecondary.fromKey(key))
+        ALIGN -> style.copy(align = FloatingLyricAlign.fromKey(key))
+        BACKGROUND -> key.toIntOrNull()?.let { style.copy(backgroundAlpha = it) } ?: style
+        SHADOW_ALPHA -> key.toIntOrNull()?.let { style.copy(shadowAlpha = it) } ?: style
+        SHADOW_BLUR -> key.toIntOrNull()?.let { style.copy(shadowBlurDp = it) } ?: style
+        SHADOW_COLOR -> style.copy(shadowColor = key)
+    }
+}
+
+private val FloatingLyricFontSizes = listOf(12, 14, 16, 18, 20, 22, 24)
+private val FloatingLyricBackgroundAlphas = listOf(0, 20, 40, 60, 70, 80)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FloatingOptionSheet(
+    sheet: FloatingSheet,
+    style: FloatingLyricStyle,
+    onSelect: ((FloatingLyricStyle) -> FloatingLyricStyle) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val currentKey = sheet.currentKey(style)
+    val isColor = sheet.isColor
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.background,
+        shape = BottomSheetShape,
+        dragHandle = { MelodiaDragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
+        ) {
+            Text(
+                text = "选择${sheet.title}",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(bottom = MelodiaSpacing.md)
+            )
+            sheet.options().forEach { (key, label) ->
+                val isSelected = key.equals(currentKey, ignoreCase = true)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
+                        .clickable { onSelect { sheet.apply(it, key) } }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "选择悬浮歌词颜色",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(bottom = MelodiaSpacing.md)
-                    )
-
-                    val options = listOf(
-                        "#FFFFFF" to "白色",
-                        "#E03E3E" to "网易红",
-                        "#10B981" to "绿色"
-                    )
-                    options.forEach { (colorCode, label) ->
-                        val isSelected = lyricTextColor == colorCode
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.updateLyricTextColor(colorCode)
-                                    showColorSheet = false
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = label,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontSize = 15.sp
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isColor) {
+                            Box(
+                                Modifier
+                                    .padding(end = 12.dp)
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, MelodiaColors.Overlay.copy(alpha = 0.3f), CircleShape)
+                                    .background(Color((FloatingLyricPalette.parseArgb(key) ?: 0xFFFFFFFFL).toInt()))
                             )
-                            if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
                         }
+                        Text(
+                            text = label,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp
+                        )
+                    }
+                    if (isSelected) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

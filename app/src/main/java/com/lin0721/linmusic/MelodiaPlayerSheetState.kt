@@ -2,7 +2,6 @@ package com.lin0721.linmusic
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,12 +9,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 // 全屏播放器的展开/收起状态机：统一管理弹簧动画与拖拽跟手位移
-class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
+class MelodiaPlayerSheetState(private val scope: CoroutineScope, private val motion: UiMotion) {
 
     var isOpen by mutableStateOf(false)
         private set
@@ -44,13 +46,19 @@ class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
     fun animateTo(open: Boolean, velocity: Float, initialOffset: Float = Float.NaN) {
         springJobRef[0]?.cancel()
         if (open) {
+            // 先让它在屏幕外完成首次组合，再起弹簧；上滑展开时 onDrag 已经挂载，无需等待
+            val needsMount = !isOpen
             isOpen = true
             springJobRef[0] = scope.launch {
+                if (needsMount) {
+                    withFrameNanos { }
+                    withFrameNanos { }
+                }
                 animate(
                     initialValue = offsetY,
                     targetValue = 0f,
                     initialVelocity = velocity,
-                    animationSpec = spring(
+                    animationSpec = motion.spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessLow
                     )
@@ -65,7 +73,7 @@ class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
                     initialValue = offsetY,
                     targetValue = screenHeightPx,
                     initialVelocity = velocity,
-                    animationSpec = spring(
+                    animationSpec = motion.spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessLow
                     )
@@ -93,7 +101,8 @@ class MelodiaPlayerSheetState(private val scope: CoroutineScope) {
 @Composable
 fun rememberMelodiaPlayerSheetState(): MelodiaPlayerSheetState {
     val scope = rememberCoroutineScope()
-    val state = remember(scope) { MelodiaPlayerSheetState(scope) }
+    val motion = LocalUiMotion.current
+    val state = remember(scope, motion) { MelodiaPlayerSheetState(scope, motion) }
     LaunchedEffect(state.screenHeightPx) {
         state.settleToBottomIfClosed()
     }

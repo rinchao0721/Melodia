@@ -43,13 +43,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.music.domain.StyleSort
 import org.koin.androidx.compose.koinViewModel
@@ -78,7 +78,7 @@ fun StyleDetailScreen(
         viewModel.toastEvent.collect { ToastManager.showToast(it) }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             StyleDetailUiState.Loading -> PlaceholderPage(name) { MusicSectionLoading() }
             is StyleDetailUiState.Error -> PlaceholderPage(name) {
@@ -256,13 +256,13 @@ private fun ActionRow(data: StyleDetailData, onPlayAll: () -> Unit, onPlayFavour
                 .size(48.dp)
                 .pressable(MelodiaPress.Icon, enabled = canPlay) { onPlayAll() }
                 .clip(CircleShape)
-                .background(if (canPlay) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f)),
+                .background(if (canPlay) MaterialTheme.colorScheme.primary else MelodiaColors.Selected),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
                 contentDescription = "播放全部",
-                tint = Color.White,
+                tint = MelodiaColors.OnAccent,
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -282,11 +282,11 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit, modifier: M
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = sort.label(), color = TextGray, fontSize = 12.sp)
+            Text(text = sort.label(), color = MelodiaColors.TextSecondary, fontSize = 12.sp)
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
                 contentDescription = "排序方式",
-                tint = TextGray,
+                tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(16.dp)
             )
         }

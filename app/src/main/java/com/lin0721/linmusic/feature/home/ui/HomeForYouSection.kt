@@ -40,9 +40,9 @@ import com.lin0721.linmusic.core.ui.theme.EntryHeartGradient
 import com.lin0721.linmusic.core.ui.theme.EntryHotGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRadarGradient
 import com.lin0721.linmusic.core.ui.theme.EntryRoamingGradient
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 
@@ -210,7 +210,7 @@ private fun ForYouCard(entry: ForYouEntry, modifier: Modifier = Modifier) {
 
         Text(
             text = entry.subtitle,
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 11.5.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

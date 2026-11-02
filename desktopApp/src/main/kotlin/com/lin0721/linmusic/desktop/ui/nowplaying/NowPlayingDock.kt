@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -32,13 +31,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
@@ -46,6 +46,7 @@ import com.lin0721.linmusic.desktop.ui.comments.CommentsPanel
 import com.lin0721.linmusic.desktop.ui.comments.asCommentsHost
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.download.DownloadsPanel
 import com.lin0721.linmusic.desktop.ui.player.AudioDevicePanel
 import com.lin0721.linmusic.desktop.ui.player.PlayQueuePanel
@@ -104,7 +105,7 @@ fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean, openWidth: Dp,
     }
     val target = if (peeking.value && hasTrack && !open) DesktopDimens.NowPlayingPeekWidth else settled
     // 拖动调宽时跟手，不走过渡动画
-    val spec = if (resizing) snap<Dp>() else tween<Dp>(PANE_ANIMATION_MS, easing = FastOutSlowInEasing)
+    val spec = if (resizing) snap<Dp>() else uiTween<Dp>(PANE_ANIMATION_MS, easing = FastOutSlowInEasing)
     val width = animateDpAsState(target, spec, label = "nowPlayingDock")
     return NowPlayingDockState(width, settled, openWidth, peeking)
 }
@@ -115,11 +116,11 @@ fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean, openWidth: Dp,
 private fun OverlayLayer(visible: Boolean, content: @Composable (Modifier) -> Unit) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(OVERLAY_FADE_MS)),
-        exit = fadeOut(tween(OVERLAY_FADE_MS))
+        enter = fadeIn(uiTween(OVERLAY_FADE_MS)),
+        exit = fadeOut(uiTween(OVERLAY_FADE_MS))
     ) {
         content(
-            Modifier.background(DesktopColors.Pane).clickable(
+            Modifier.paneBackdrop(DesktopColors.Pane).clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {}
@@ -183,7 +184,7 @@ fun NowPlayingDock(
             Box(
                 Modifier.width(width).fillMaxHeight()
                     .clip(RoundedCornerShape(DesktopDimens.PaneRadius))
-                    .background(DesktopColors.Pane)
+                    .background(DesktopColors.ShellFill)
                     .hoverable(hoverSource)
                     .then(
                         if (collapsed) {
@@ -277,7 +278,7 @@ fun FloatingDockPanel(
 ) {
     val shape = RoundedCornerShape(DesktopDimens.PaneRadius)
     val playerCommentsHost = remember(playerViewModel) { playerViewModel.asCommentsHost() }
-    Box(modifier.shadow(16.dp, shape).clip(shape).background(DesktopColors.Pane)) {
+    Box(modifier.themedShadow(16.dp, shape).clip(shape).paneBackdrop(DesktopColors.Pane)) {
         when (overlay) {
             DockOverlay.Comments -> CommentsPanel(host = playerCommentsHost, onClose = onClose)
             DockOverlay.PlaylistComments -> playlistComments?.let { CommentsPanel(host = it, onClose = onClose) }

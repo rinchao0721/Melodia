@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.core.ui.components
 
+import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import androidx.compose.material.icons.rounded.SkipPrevious
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -49,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,19 +63,26 @@ import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.canvasBackdrop
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
+import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
+import com.lin0721.linmusic.core.ui.theme.progressScaled
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
-import com.lin0721.linmusic.core.ui.theme.NavPillSelected
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -108,6 +120,7 @@ fun MiniPlayerCard(
     likeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
     expanded: Boolean = false
 ) {
+    val motion = LocalUiMotion.current
     if (currentTrack == null) return
 
     val context = LocalContext.current
@@ -134,11 +147,15 @@ fun MiniPlayerCard(
     // 平滑过渡背景色变化；卡片背景在 base 基础上再压暗一档才不会太扎眼。
     // 平板宽屏下悬浮在深色页面背景上，压暗幅度收窄一档，避免浅色封面取色后和背景融在一起
     val animatedBase by animateColorAsState(
-        targetValue = colorPalette.base,
-        animationSpec = tween(800),
+        targetValue = coverBase(CoverGroup.PLAYER, colorPalette.base) ?: colorPalette.base,
+        animationSpec = uiTween(800),
         label = "mini_player_base"
     )
-    val fillColor = remember(animatedBase, expanded) { animatedBase.darken(if (expanded) 0.20f else 0.45f) }
+    // 浅色下取中调，与播放页铺底一致
+    val isDark = MelodiaColors.IsDark
+    val fillColor = remember(animatedBase, expanded, isDark) {
+        if (isDark) animatedBase.darken(if (expanded) 0.20f else 0.45f) else immersiveMidFill(animatedBase)
+    }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -169,7 +186,7 @@ fun MiniPlayerCard(
     }
     LaunchedEffect(pendingSlideInKey) {
         if (pendingSlideInKey != null) {
-            animate(swipeState.offsetX, 0f, 0f, SwipeCoverSpringSpec) { value, _ ->
+            animate(swipeState.offsetX, 0f, 0f, motion.spec(SwipeCoverSpringSpec)) { value, _ ->
                 swipeState.offsetX = value
             }
         }
@@ -186,18 +203,19 @@ fun MiniPlayerCard(
 
     val miniPlayerCornerRadius = 8.dp
     val miniPlayerShape = RoundedCornerShape(miniPlayerCornerRadius)
+    val miniPlayerShadowAlpha = if (MelodiaColors.IsDark) 0.4f else 0.16f
     Box(
         modifier = modifier
             .fillMaxWidth()
-            // 弥散阴影让卡片从纯黑背景上浮起来，避免边缘跟背景生硬贴死
+            // 弥散阴影让卡片从背景上浮起来，避免边缘跟背景生硬贴死；浅色底上阴影需要淡很多
             .shadow(
                 elevation = 16.dp,
                 shape = miniPlayerShape,
-                ambientColor = Color.Black.copy(alpha = 0.4f),
-                spotColor = Color.Black.copy(alpha = 0.4f)
+                ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = miniPlayerShadowAlpha),
+                spotColor = MelodiaColors.ShadowSpot.copy(alpha = miniPlayerShadowAlpha)
             )
             .clip(miniPlayerShape)
-            .border(0.5.dp, Color.White.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
+            .border(0.5.dp, MelodiaColors.OnPlayer.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -222,9 +240,48 @@ fun MiniPlayerCard(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(fillColor)
+                .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
         )
-        Column {
+        val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
+        if (pluginLayout != null) {
+            val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
+            PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth()) { node, nodeModifier ->
+                val scale = node.size.scale
+                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
+                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+                when (node.type) {
+                    LayoutNodeType.COVER -> AntiFlickerCoverImage(
+                        url = miniThumbUrl(displayedCleanCoverUrl),
+                        contentScale = ContentScale.Crop,
+                        modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                    )
+                    LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
+                    LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
+                    LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
+                        MiniTitleText(title, Modifier, node.maxLines, scale)
+                        MiniArtistText(artist, Modifier, scale)
+                    }
+                    LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
+                    LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
+                        node.buttons.forEach { button ->
+                            when (button) {
+                                "previous" -> MelodiaIconButton(onClick = onPrevious) {
+                                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                }
+                                "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                                    PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                }
+                                "next" -> MelodiaIconButton(onClick = onNext) {
+                                    Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                }
+                            }
+                        }
+                    }
+                    LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
+                    else -> Unit
+                }
+            }
+        } else Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -254,31 +311,17 @@ fun MiniPlayerCard(
 
                 Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
                     // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
-                    if (likeMode != MiniPlayerLikeMode.Hidden) {
-                        val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
-                        MelodiaIconButton(onClick = onLikeClick) {
-                            Icon(
-                                imageVector = when {
-                                    subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
-                                    isLiked -> Icons.Rounded.CheckCircle
-                                    else -> Icons.Rounded.AddCircleOutline
-                                },
-                                contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-                                tint = if (isLiked) MaterialTheme.colorScheme.primary else Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+                    MiniLikeButton(likeMode, isLiked, onLikeClick)
                     // 播放/暂停按钮
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                        PlayPauseIcon(displayedIsPlaying, Color.White, contentDescription = "播放/暂停")
+                        PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
                     }
                     // 下一首按钮
                     MelodiaIconButton(onClick = onNext) {
                         Icon(
                             imageVector = Icons.Rounded.SkipNext,
                             contentDescription = "下一首",
-                            tint = Color.White,
+                            tint = MelodiaColors.OnPlayer,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -293,6 +336,65 @@ fun MiniPlayerCard(
             )
         }
     }
+}
+
+private const val MINI_COVER_SIZE = 44f
+private const val MIN_PLUGIN_MINI_HEIGHT = 48f
+private const val MAX_PLUGIN_MINI_HEIGHT = 140f
+
+private fun miniThumbUrl(coverUrl: String): String =
+    if ((coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) && !coverUrl.contains('?')) {
+        "$coverUrl?param=150y150"
+    } else {
+        coverUrl
+    }
+
+@Composable
+private fun MiniLikeButton(
+    likeMode: MiniPlayerLikeMode,
+    isLiked: Boolean,
+    onLikeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (likeMode == MiniPlayerLikeMode.Hidden) return
+    val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
+    MelodiaIconButton(onClick = onLikeClick, modifier = modifier) {
+        Icon(
+            imageVector = when {
+                subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
+                isLiked -> Icons.Rounded.CheckCircle
+                else -> Icons.Rounded.AddCircleOutline
+            },
+            contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
+            tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.OnPlayer,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun MiniTitleText(title: String, modifier: Modifier, lines: Int, scale: Float) {
+    Text(
+        text = title,
+        color = MelodiaColors.OnPlayer,
+        fontSize = (14 * scale).sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = lines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun MiniArtistText(artist: String, modifier: Modifier, scale: Float) {
+    Text(
+        text = artist,
+        color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
+        fontSize = (12 * scale).sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
 }
 
 // 单层的展示数据 + 位置：按 key驱动 Compose 复用，见 MiniPlayerSlidingContent 顶部注释
@@ -323,20 +425,23 @@ private fun MiniPlayerSlidingContent(
             .clipToBounds()
             .onSizeChanged { state.containerWidthPx = it.width.toFloat() }
     ) {
+        val shouldShowNeighbors = state.isDragActive || state.isTransitioning || state.offsetX != 0f
         val layers = buildList {
-            previousQueueItem?.let { item ->
-                add(
-                    MiniPlayerSlideLayer(
-                        // QueueItem.songId 是 Long，currentKey（mediaId）是 String，
-                        // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
-                        key = item.songId.toString(),
-                        title = item.title,
-                        artist = item.artist,
-                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
-                        connectedDevice = null,
-                        translationXProvider = { state.offsetX - state.containerWidthPx }
+            if (shouldShowNeighbors) {
+                previousQueueItem?.let { item ->
+                    add(
+                        MiniPlayerSlideLayer(
+                            // QueueItem.songId 是 Long，currentKey（mediaId）是 String，
+                            // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
+                            key = item.songId.toString(),
+                            title = item.title,
+                            artist = item.artist,
+                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                            connectedDevice = null,
+                            translationXProvider = { state.offsetX - state.containerWidthPx }
+                        )
                     )
-                )
+                }
             }
             add(
                 MiniPlayerSlideLayer(
@@ -348,19 +453,21 @@ private fun MiniPlayerSlidingContent(
                     translationXProvider = { state.offsetX }
                 )
             )
-            nextQueueItem?.let { item ->
-                add(
-                    MiniPlayerSlideLayer(
-                        // 队列只有两首歌时上一首/下一首指向同一首曲目，key 会撞上前面那层，加个后缀区分开；
-                        // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
-                        key = if (item.songId == previousQueueItem?.songId) "${item.songId}-next" else item.songId.toString(),
-                        title = item.title,
-                        artist = item.artist,
-                        coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
-                        connectedDevice = null,
-                        translationXProvider = { state.offsetX + state.containerWidthPx }
+            if (shouldShowNeighbors) {
+                nextQueueItem?.let { item ->
+                    add(
+                        MiniPlayerSlideLayer(
+                            // 队列只有两首歌时上一首/下一首指向同一首曲目，key 会撞上前面那层，加个后缀区分开；
+                            // 统一转成 String 才能在角色切换（下一首→当前）时被 Compose 判定为同一个 key
+                            key = if (item.songId == previousQueueItem?.songId) "${item.songId}-next" else item.songId.toString(),
+                            title = item.title,
+                            artist = item.artist,
+                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                            connectedDevice = null,
+                            translationXProvider = { state.offsetX + state.containerWidthPx }
+                        )
                     )
-                )
+                }
             }
         }
         layers.forEach { layer ->
@@ -386,6 +493,7 @@ private fun MiniPlayerContentRow(
     connectedDevice: AudioDeviceInfo?,
     translationXProvider: () -> Float
 ) {
+    val thumbUrl = remember(coverUrl) { miniThumbUrl(coverUrl) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -393,7 +501,7 @@ private fun MiniPlayerContentRow(
             .graphicsLayer { translationX = translationXProvider() }
     ) {
         AntiFlickerCoverImage(
-            url = coverUrl,
+            url = thumbUrl,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(44.dp)
@@ -407,7 +515,7 @@ private fun MiniPlayerContentRow(
             val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
             Text(
                 text = titleLine,
-                color = Color.White,
+                color = MelodiaColors.OnPlayer,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -444,7 +552,7 @@ private fun MiniPlayerContentRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = Color.White.copy(alpha = 0.75f),
+                    color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -463,14 +571,16 @@ private fun MiniPlayerContentRow(
 fun MiniPlayerProgress(
     currentPositionProvider: () -> Long,
     duration: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trackColor: Color = MelodiaColors.OnPlayer.copy(alpha = 0.18f),
+    progressColor: Color = MelodiaColors.Accent
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(2.dp)
+            .height(progressScaled(2.dp))
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f))
+            .background(trackColor)
     ) {
         val currentPosition = currentPositionProvider()
         val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
@@ -479,7 +589,7 @@ fun MiniPlayerProgress(
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .fillMaxHeight()
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.85f))
+                .background(progressColor)
         )
     }
 }
@@ -499,18 +609,30 @@ fun MelodiaNavigationBar(
     expanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // 平板宽屏下用 SurfaceDark（比页面背景 BackgroundDark 亮一档）+ 描边，
-    // 避免和几乎所有页面都在用的 BackgroundDark 背景融为一体
+    // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
+    val hasBackdrop = !expanded && MelodiaColors.HasBackdrop
     Surface(
-        color = if (expanded) SurfaceDark else BackgroundDark,
+        color = when {
+            expanded -> MelodiaColors.Surface
+            hasBackdrop -> Color.Transparent
+            else -> MelodiaColors.NavigationBar
+        },
         shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
         modifier = modifier
             .fillMaxWidth()
             .then(
+                // 有皮肤背景图时底栏按原配色归属取对齐的背景：深色同页面，浅色同画布
+                when {
+                    !hasBackdrop -> Modifier
+                    MelodiaColors.IsDark -> Modifier.paneBackdrop(MelodiaColors.NavigationBar)
+                    else -> Modifier.canvasBackdrop(MelodiaColors.NavigationBar)
+                }
+            )
+            .then(
                 if (expanded) {
                     Modifier
                         .fillMaxHeight()
-                        .border(0.5.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(InfoCardRadius))
+                        .border(0.5.dp, if (MelodiaColors.IsDark) MelodiaColors.TextPrimary.copy(alpha = 0.14f) else MelodiaColors.Outline, RoundedCornerShape(InfoCardRadius))
                 } else {
                     Modifier
                 }
@@ -573,7 +695,7 @@ fun MelodiaNavigationBar(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) NavPillSelected else Color.Transparent)
+                            .background(if (isSelected) MelodiaColors.NavPillSelected else Color.Transparent)
                             .padding(
                                 horizontal = MelodiaSpacing.md,
                                 vertical = if (iconOnly) 6.dp else 1.dp
@@ -583,14 +705,14 @@ fun MelodiaNavigationBar(
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
-                            tint = if (isSelected) Color.White else TextGray,
+                            tint = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
                             modifier = Modifier.size(if (iconOnly) 24.dp else 22.dp)
                         )
                     }
                     if (!iconOnly) {
                         Text(
                             text = label,
-                            color = if (isSelected) Color.White else TextGray,
+                            color = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

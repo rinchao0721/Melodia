@@ -70,6 +70,13 @@ class HomeRepositoryImpl(
             )
         }
 
+    override fun dislikeDailySong(songId: Long): Flow<Result<Unit>> = apiFlow(
+        request = { apiService.dislikeDailySong(DislikeDailySongRequest(resId = songId)) },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { Unit }
+    )
+
     override fun getHistoryRecommendDates(): Flow<Result<List<String>>> = apiFlow(
         request = { apiService.getHistoryRecommendDates() },
         isSuccess = { it.code == 200 && it.data != null },

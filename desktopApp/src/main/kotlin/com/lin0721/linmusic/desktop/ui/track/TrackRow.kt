@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.desktop.ui.track
 
+import androidx.compose.material.icons.rounded.Extension
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
+import kotlinx.serialization.json.JsonObject
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -9,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +28,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
@@ -34,6 +43,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -73,10 +82,14 @@ import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.theme.densityScaled
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
+import com.lin0721.linmusic.desktop.ui.components.MenuScope
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
@@ -94,7 +107,7 @@ private const val DISABLED_ROW_ALPHA = 0.38f
 // 与歌单页表头的“添加日期”列同宽
 internal val ADDED_COLUMN_WIDTH = 120.dp
 
-internal val DangerColor = Color(0xFFFF6B6B)
+internal val DangerColor: Color @Composable @ReadOnlyComposable get() = DesktopColors.Error
 
 // 多选态下的行勾选状态与切换回调
 @Immutable
@@ -130,9 +143,15 @@ fun TrackRow(
     // 无 actions 时行尾的自定义操作（推荐区的添加按钮）
     trailingAction: (@Composable () -> Unit)? = null,
     // 非 null 表示多选态：首列显示复选框，点击整行切换勾选，悬停操作与右键菜单停用
-    selection: TrackRowSelection? = null
+    selection: TrackRowSelection? = null,
+    // 非 null 时用它替换默认的歌曲菜单（本地歌曲）
+    menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
+    // 混排进歌单的外部平台歌曲，歌名后显示来源角标
+    sourcePlatform: MusicPlatform? = null
 ) {
     val activeActions = actions.takeIf { selection == null }
+    val activeMenu = menuContent.takeIf { selection == null }
+    val hasMenu = activeActions != null || activeMenu != null
     val navigator = LocalDesktopNavigator.current
     val density = LocalDensity.current
     var hovered by remember { mutableStateOf(false) }
@@ -153,7 +172,7 @@ fun TrackRow(
             .then(
                 if (lifted && reorder != null) {
                     Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offsetY }
-                        .then(if (dragging) Modifier.shadow(8.dp, rowShape) else Modifier)
+                        .then(if (dragging) Modifier.themedShadow(8.dp, rowShape) else Modifier)
                 } else {
                     Modifier
                 }
@@ -166,14 +185,14 @@ fun TrackRow(
                 .background(
                     when {
                         dragging -> DesktopColors.Surface
-                        hovered || contextMenuOffset != null || moreMenuOpen -> DesktopColors.PaneHover
+                        hovered || contextMenuOffset != null || moreMenuOpen -> DesktopColors.Hover
                         else -> Color.Transparent
                     }
                 )
                 .onPointerEvent(PointerEventType.Enter) { hovered = true }
                 .onPointerEvent(PointerEventType.Exit) { hovered = false }
                 .onPointerEvent(PointerEventType.Press) { event ->
-                    if (activeActions != null && event.buttons.isSecondaryPressed) {
+                    if (hasMenu && event.buttons.isSecondaryPressed) {
                         val position = event.changes.firstOrNull()?.position ?: return@onPointerEvent
                         contextMenuOffset = with(density) {
                             DpOffset(position.x.toDp(), (position.y - rowHeightPx).toDp())
@@ -202,7 +221,7 @@ fun TrackRow(
                         Modifier
                     }
                 )
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = densityScaled(6.dp)),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selection != null) {
@@ -231,7 +250,7 @@ fun TrackRow(
             } else {
                 Text(
                     "${index + 1}",
-                    color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextGray,
+                    color = if (isCurrent) DesktopColors.AccentText else DesktopColors.TextGray,
                     fontSize = 14.sp,
                     textAlign = TextAlign.End,
                     modifier = Modifier.width(32.dp)
@@ -239,13 +258,17 @@ fun TrackRow(
             }
             Cover(track.al.picUrl, 40.dp, modifier = Modifier.padding(start = 16.dp))
             Column(Modifier.weight(0.45f).padding(start = 12.dp)) {
-                Text(
-                    track.name,
-                    color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextPrimary,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        track.name,
+                        color = if (isCurrent) DesktopColors.AccentText else DesktopColors.TextPrimary,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
+                }
                 Text(
                     artistLinks(track.ar, navigator.openArtist),
                     color = DesktopColors.TextGray,
@@ -289,6 +312,8 @@ fun TrackRow(
                         )
                     }
                 }
+            } else if (activeMenu != null) {
+                Spacer(Modifier.width(32.dp))
             }
             Text(
                 formatDuration(track.dt),
@@ -297,8 +322,8 @@ fun TrackRow(
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(48.dp)
             )
-            if (activeActions == null) trailingAction?.invoke()
-            if (activeActions != null) {
+            if (!hasMenu) trailingAction?.invoke()
+            if (hasMenu) {
                 Box {
                     IconButton(
                         onClick = { moreMenuOpen = true },
@@ -309,27 +334,31 @@ fun TrackRow(
                             Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
                         }
                     }
-                    TrackMenu(
-                        expanded = moreMenuOpen,
-                        offset = DpOffset.Zero,
-                        track = track,
-                        actions = activeActions,
-                        onPlay = onPlay,
-                        onDismiss = { moreMenuOpen = false }
-                    )
+                    RowMenu(moreMenuOpen, DpOffset.Zero, track, activeActions, activeMenu, onPlay) { moreMenuOpen = false }
                 }
             }
         }
-        if (activeActions != null) {
-            TrackMenu(
-                expanded = contextMenuOffset != null,
-                offset = contextMenuOffset ?: DpOffset.Zero,
-                track = track,
-                actions = activeActions,
-                onPlay = onPlay,
-                onDismiss = { contextMenuOffset = null }
-            )
+        if (hasMenu) {
+            RowMenu(contextMenuOffset != null, contextMenuOffset ?: DpOffset.Zero, track, activeActions, activeMenu, onPlay) {
+                contextMenuOffset = null
+            }
         }
+    }
+}
+
+@Composable
+private fun RowMenu(
+    expanded: Boolean,
+    offset: DpOffset,
+    track: Track,
+    actions: TrackActions?,
+    menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)?,
+    onPlay: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    when {
+        menuContent != null -> DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) { menuContent(onDismiss) }
+        actions != null -> TrackMenu(expanded, offset, track, actions, onPlay, onDismiss)
     }
 }
 
@@ -340,7 +369,7 @@ private fun copySongLink(songId: Long): Boolean = runCatching {
 }.isSuccess
 
 @Composable
-private fun TrackMenu(
+internal fun TrackMenu(
     expanded: Boolean,
     offset: DpOffset,
     track: Track,
@@ -349,6 +378,7 @@ private fun TrackMenu(
     onDismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
+    val pluginCommands = LocalPluginCommands.current
     val isLiked = track.id in actions.likedSongIds
     val artists = track.ar.filter { it.id > 0 }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
@@ -399,15 +429,27 @@ private fun TrackMenu(
                 navigator.openAlbum(track.al.id, track.al.name)
             })
         }
-        MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
-            onDismiss()
-            actions.onDownload(track)
-        })
-        MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
-            onDismiss()
-            val ok = copySongLink(track.id)
-            navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-        })
+        // 外部平台歌曲没有网易云 id，不能下载与分享网易云链接
+        val isExternal = track.id < 0L
+        if (!isExternal) {
+            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+                onDismiss()
+                actions.onDownload(track)
+            })
+        }
+        actions.onReduceRecommend?.let { reduce ->
+            MenuItem("减少推荐", icon = Icons.Rounded.HeartBroken, onClick = {
+                onDismiss()
+                reduce(track)
+            })
+        }
+        if (!isExternal) {
+            MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+                onDismiss()
+                val ok = copySongLink(track.id)
+                navigator.showMessage(if (ok) "已复制链接" else "复制失败")
+            })
+        }
         MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
             onDismiss()
             val ok = copyTextToClipboard(songInfoText(track.name, track.ar.joinToString(" / ") { it.name }))
@@ -420,12 +462,33 @@ private fun TrackMenu(
                 remove(track)
             })
         }
+        actions.extraMenuItems?.invoke(this, track, onDismiss)
+        val pluginItems = rememberPluginCommands(PluginMenuLocation.SONG)
+        if (pluginItems.isNotEmpty()) MenuDivider()
+        pluginItems.forEach { item ->
+            MenuItem(item.title, icon = Icons.Rounded.Extension, onClick = {
+                onDismiss()
+                pluginCommands?.run(item, track.toPluginArgs())
+            })
+        }
     }
 }
 
-private val LinkStyles = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
+private fun Track.toPluginArgs(): JsonObject =
+    pluginSongArgs(id, name, ar.joinToString(" / ") { it.name }, al.name, al.picUrl)
+
+private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
 
 // 多位歌手各自可点，无 id 的歌手只展示名字
+@Composable
+fun PlatformBadge(platform: MusicPlatform, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.size(6.dp).background(Color(platform.brandColorArgb), CircleShape))
+        Text(platform.badgeName, color = DesktopColors.TextGray, fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
+    }
+}
+
+@Composable
 fun artistLinks(artists: List<Artist>, onClick: (Long, String) -> Unit): AnnotatedString = buildAnnotatedString {
     artists.forEachIndexed { i, artist ->
         if (i > 0) append(" / ")
@@ -439,6 +502,7 @@ fun artistLinks(artists: List<Artist>, onClick: (Long, String) -> Unit): Annotat
     }
 }
 
+@Composable
 private fun albumLink(track: Track, onClick: (Long, String) -> Unit): AnnotatedString = buildAnnotatedString {
     if (track.al.id > 0) {
         withLink(LinkAnnotation.Clickable("album_${track.al.id}", LinkStyles) { onClick(track.al.id, track.al.name) }) {

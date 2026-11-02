@@ -143,7 +143,7 @@ private fun WebLogin(browserLocator: BrowserLocator, onLoginSuccess: (String) ->
         if (loginError != null) {
             Text(
                 loginError ?: "登录窗口启动失败",
-                color = DesktopColors.Accent,
+                color = DesktopColors.AccentText,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center
             )
@@ -160,7 +160,7 @@ private fun WebLogin(browserLocator: BrowserLocator, onLoginSuccess: (String) ->
         } else {
             CircularProgressIndicator(
                 modifier = Modifier.size(36.dp),
-                color = DesktopColors.Accent,
+                color = DesktopColors.AccentText,
                 strokeWidth = 3.dp
             )
             Spacer(Modifier.height(20.dp))
@@ -231,7 +231,7 @@ private fun CookieLogin(viewModel: LoginViewModel, onLoginSuccess: (String) -> U
     )
     Text(
         error ?: "仅保存在本机，用于调用网易云接口",
-        color = if (error != null) DesktopColors.Accent else DesktopColors.TextGray,
+        color = if (error != null) DesktopColors.AccentText else DesktopColors.TextGray,
         fontSize = 12.sp,
         modifier = Modifier.fillMaxWidth().height(28.dp).padding(top = 8.dp)
     )
@@ -266,7 +266,7 @@ private fun QrContent(state: QrLoginState, onRetry: () -> Unit) {
             CircularProgressIndicator(color = DesktopColors.Accent)
         }
         QrLoginState.Expired, is QrLoginState.Error -> TextButton(onClick = onRetry) {
-            Text("刷新二维码", color = DesktopColors.Accent, fontWeight = FontWeight.Bold)
+            Text("刷新二维码", color = DesktopColors.AccentText, fontWeight = FontWeight.Bold)
         }
     }
 }

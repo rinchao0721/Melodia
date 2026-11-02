@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.player.data
 
 import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
+import com.lin0721.linmusic.core.log.AppLogger
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -27,9 +28,9 @@ class AmllLyricsClient(private val cache: LyricsCache? = null) {
 
     internal val client = OkHttpClient.Builder()
         .cookieJar(CookieJar.NO_COOKIES)
-        .callTimeout(2500, TimeUnit.MILLISECONDS)
-        .connectTimeout(1800, TimeUnit.MILLISECONDS)
-        .readTimeout(2200, TimeUnit.MILLISECONDS)
+        .callTimeout(6, TimeUnit.SECONDS)
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
         .build()
 
     suspend fun fetch(songId: Long): String? {
@@ -46,6 +47,7 @@ class AmllLyricsClient(private val cache: LyricsCache? = null) {
         cached(songId)?.let { return@withContext it }
         if (cache?.isNegative(songId) == true) return@withContext null
         val result = fetchFromDetailed(urls)
+        AppLogger.d("AmllLyricsClient", "查询完成 songId=$songId found=${result.xml != null} allNotFound=${result.allNotFound}")
         result.xml?.let { cache?.putRaw(songId, it) }
         if (result.allNotFound) cache?.putNegative(songId)
         result.xml
@@ -66,8 +68,7 @@ class AmllLyricsClient(private val cache: LyricsCache? = null) {
         val results = Channel<DownloadResult>(urls.size)
         val jobs = urls.mapIndexed { index, url ->
             launch {
-                // Give the primary a head start, but do not let a stalled TLS handshake
-                // consume the resolver's entire initial selection window.
+                // 镜像交错并发，单个慢握手不会阻塞其他镜像。
                 delay(index * 250L)
                 val outcome = try {
                     downloadResult(url)
@@ -96,12 +97,17 @@ class AmllLyricsClient(private val cache: LyricsCache? = null) {
 
     private suspend fun downloadResult(url: String): DownloadResult = suspendCancellableCoroutine { continuation ->
         val call = client.newCall(Request.Builder().url(url).build())
+        val started = System.nanoTime()
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) { continuation.resumeWithException(e) }
+            override fun onFailure(call: Call, e: IOException) {
+                AppLogger.d("AmllLyricsClient", "镜像失败 host=${call.request().url.host} elapsedMs=${(System.nanoTime() - started) / 1_000_000} reason=${e.javaClass.simpleName}")
+                continuation.resumeWithException(e)
+            }
             override fun onResponse(call: Call, response: Response) {
                 try {
                     val value = response.use {
+                        AppLogger.d("AmllLyricsClient", "镜像响应 host=${it.request.url.host} status=${it.code} elapsedMs=${(System.nanoTime() - started) / 1_000_000}")
                         val body = it.body
                         if (!it.isSuccessful || body == null) DownloadResult(null, it.code == 404)
                         else {

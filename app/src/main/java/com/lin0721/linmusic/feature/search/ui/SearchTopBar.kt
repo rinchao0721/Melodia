@@ -3,7 +3,6 @@ package com.lin0721.linmusic.feature.search.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -60,6 +59,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.uiTween
 
 private const val BAR_ANIM_DURATION = 250
 
@@ -81,13 +81,13 @@ internal fun SearchTopBar(
     onOpenRecognition: () -> Unit
 ) {
     val isDiscovery = mode == SearchMode.Discovery
-    val barTween = tween<Float>(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)
+    val barTween = uiTween<Float>(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         AnimatedVisibility(
             visible = isDiscovery,
-            enter = expandVertically(tween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeIn(barTween),
-            exit = shrinkVertically(tween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeOut(barTween)
+            enter = expandVertically(uiTween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeIn(barTween),
+            exit = shrinkVertically(uiTween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeOut(barTween)
         ) {
             Row(
                 modifier = Modifier
@@ -153,8 +153,8 @@ internal fun SearchTopBar(
             )
             AnimatedVisibility(
                 visible = !isDiscovery,
-                enter = expandHorizontally(tween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeIn(barTween),
-                exit = shrinkHorizontally(tween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeOut(barTween)
+                enter = expandHorizontally(uiTween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeIn(barTween),
+                exit = shrinkHorizontally(uiTween(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)) + fadeOut(barTween)
             ) {
                 MelodiaTextButton(onClick = onCancel) {
                     Text(text = "取消", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
@@ -176,7 +176,7 @@ private fun SearchField(
     onFieldFocused: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorSpec = tween<Color>(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)
+    val colorSpec = uiTween<Color>(BAR_ANIM_DURATION, easing = FastOutSlowInEasing)
     val containerColor by animateColorAsState(
         targetValue = if (isDiscovery) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface,
         animationSpec = colorSpec,
@@ -254,8 +254,8 @@ private fun SearchField(
             )
             AnimatedVisibility(
                 visible = query.isNotEmpty(),
-                enter = fadeIn(tween(150)),
-                exit = fadeOut(tween(150))
+                enter = fadeIn(uiTween(150)),
+                exit = fadeOut(uiTween(150))
             ) {
                 MelodiaIconButton(onClick = { onQueryChange("") }) {
                     Icon(

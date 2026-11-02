@@ -76,7 +76,7 @@ internal fun SearchResultRow(
     Box(modifier.fillMaxWidth().onSizeChanged { rowHeightPx = it.height }) {
         Row(
             Modifier.fillMaxWidth().clip(rowShape)
-                .background(if (hovered || contextMenuOffset != null || moreMenuOpen) DesktopColors.PaneHover else Color.Transparent)
+                .background(if (hovered || contextMenuOffset != null || moreMenuOpen) DesktopColors.Hover else Color.Transparent)
                 .onPointerEvent(PointerEventType.Enter) { hovered = true }
                 .onPointerEvent(PointerEventType.Exit) { hovered = false }
                 .onPointerEvent(PointerEventType.Press) { event ->
@@ -102,7 +102,7 @@ internal fun SearchResultRow(
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(
                     title,
-                    color = if (highlighted) DesktopColors.Accent else DesktopColors.TextPrimary,
+                    color = if (highlighted) DesktopColors.AccentText else DesktopColors.TextPrimary,
                     fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

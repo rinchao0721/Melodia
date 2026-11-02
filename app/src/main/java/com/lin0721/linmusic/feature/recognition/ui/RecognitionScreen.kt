@@ -19,7 +19,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,7 +49,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,10 +62,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import org.koin.androidx.compose.koinViewModel
 
@@ -85,6 +86,7 @@ fun RecognitionScreen(
     backHandlerEnabled: Boolean = true,
     viewModel: RecognitionViewModel = koinViewModel()
 ) {
+    val motion = LocalUiMotion.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
@@ -197,7 +199,7 @@ fun RecognitionScreen(
     val showMiniPlayer = nowPlaying != null && uiState !is RecognitionUiState.Listening
 
     // Surface 吃掉触摸，避免点击穿透到下层页面
-    Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MelodiaColors.PageFill) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 底部导航栏留白由最外层统一处理，内部（含历史页 Scaffold）不再重复计算
             Box(
@@ -220,7 +222,7 @@ fun RecognitionScreen(
                             targetState = uiState,
                             contentKey = { it::class },
                             transitionSpec = {
-                                fadeIn(tween(ContentSwitchDurationMs)) togetherWith fadeOut(tween(ContentSwitchDurationMs))
+                                fadeIn(motion.tween(ContentSwitchDurationMs)) togetherWith fadeOut(motion.tween(ContentSwitchDurationMs))
                             },
                             label = "recognition_state"
                         ) { state ->
@@ -270,8 +272,8 @@ fun RecognitionScreen(
                 // 外层 Column 的作用域会劫持重载解析，这里显式调用非作用域版本
                 androidx.compose.animation.AnimatedVisibility(
                     visible = showHistory,
-                    enter = slideInHorizontally(tween(ContentSwitchDurationMs)) { it } + fadeIn(tween(ContentSwitchDurationMs)),
-                    exit = slideOutHorizontally(tween(ContentSwitchDurationMs)) { it } + fadeOut(tween(ContentSwitchDurationMs))
+                    enter = slideInHorizontally(uiTween(ContentSwitchDurationMs)) { it } + fadeIn(uiTween(ContentSwitchDurationMs)),
+                    exit = slideOutHorizontally(uiTween(ContentSwitchDurationMs)) { it } + fadeOut(uiTween(ContentSwitchDurationMs))
                 ) {
                     RecognitionHistoryPage(
                         history = history,
@@ -286,8 +288,8 @@ fun RecognitionScreen(
 
             AnimatedVisibility(
                 visible = showMiniPlayer,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                enter = uiEnter(slideInVertically(initialOffsetY = { it }) + fadeIn()),
+                exit = uiExit(slideOutVertically(targetOffsetY = { it }) + fadeOut())
             ) {
                 // 平板上与内容列同宽居中，手机上 680dp 上限不生效
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -317,17 +319,17 @@ private fun RecognitionTopBar(
             .padding(horizontal = 4.dp)
     ) {
         MelodiaIconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).size(48.dp)) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(28.dp))
         }
         Text(
             text = title,
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.Center)
         )
         MelodiaIconButton(onClick = onOpenHistory, modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)) {
-            Icon(Icons.Rounded.History, contentDescription = "识别历史", tint = Color.White)
+            Icon(Icons.Rounded.History, contentDescription = "识别历史", tint = MelodiaColors.TextPrimary)
         }
     }
 }

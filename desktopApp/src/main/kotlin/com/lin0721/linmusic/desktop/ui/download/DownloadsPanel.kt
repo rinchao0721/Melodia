@@ -180,7 +180,7 @@ private fun TaskStatusLine(task: DownloadTask) {
             LinearProgressIndicator(
                 progress = { task.progress / 100f },
                 modifier = Modifier.weight(1f).height(3.dp),
-                color = DesktopColors.Accent,
+                color = DesktopColors.AccentText,
                 trackColor = DesktopColors.SurfaceLight
             )
             Text("${task.progress}%", color = DesktopColors.TextGray, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))

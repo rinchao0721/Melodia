@@ -22,13 +22,21 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         commonSettingsViewModel = get(),
         desktopSettingsViewModel = get(),
         lxPluginSettingsViewModel = get(),
+        plugins = get(),
+        pluginPages = get(),
+        pluginCommands = get(),
+        playerCards = get(),
         playbackController = get(),
         downloader = get(),
         desktopPreferences = get(),
         settingsPreferences = get(),
         sessionMonitor = get(),
         browserLocator = get(),
+        updateChecker = get(),
         songActions = SongActionSources(likes = get(), collect = get()),
+        localMusic = get(),
+        cloudMusic = get(),
+        recognition = get(),
         pageViewModels = object : PageViewModelFactory {
             override fun <T : ViewModel> create(modelClass: KClass<T>): T = koin.get(modelClass)
         }

@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.comment.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -44,16 +42,15 @@ import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 
 // 全屏主评论页：全屏 overlay 覆盖层，展示完整评论流并内嵌底部输入栏
 @Composable
@@ -79,7 +76,7 @@ fun CommentFullScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .paneBackdrop(MelodiaColors.Background)
             .statusBarsPadding()
     ) {
         val totalCount = commentsState.totalCount ?: (commentsState as? CommentsState.Success)?.total ?: 0
@@ -97,12 +94,12 @@ fun CommentFullScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "返回",
-                    tint = Color.White
+                    tint = MelodiaColors.TextPrimary
                 )
             }
             Text(
                 text = titleText,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -136,16 +133,16 @@ fun CommentFullScreen(
                     ) {
                         Text(
                             text = "加载失败: ${commentsState.message}",
-                            color = TextGray,
+                            color = MelodiaColors.TextSecondary,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         MelodiaButton(
                             onClick = onRetry,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed)
+                            colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent)
                         ) {
-                            Text("重试", color = Color.White)
+                            Text("重试", color = MelodiaColors.OnAccent)
                         }
                     }
                 }
@@ -160,7 +157,7 @@ fun CommentFullScreen(
                         ) {
                             Text(
                                 text = "暂无评论",
-                                color = TextGray,
+                                color = MelodiaColors.TextSecondary,
                                 fontSize = 14.sp
                             )
                         }
@@ -189,6 +186,8 @@ fun CommentFullScreen(
                             items(allComments, key = { it.commentId }) { comment ->
                                 CommentRowItem(
                                     comment = comment,
+                                    isLikeClickable = !commentsState.readOnly,
+                                    allowReply = !commentsState.readOnly,
                                     onLikeClick = { onLikeComment(comment) },
                                     onUserClick = onUserClick,
                                     onReplyClick = {
@@ -216,7 +215,7 @@ fun CommentFullScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         CircularProgressIndicator(
-                                            color = NeteaseRed,
+                                            color = MelodiaColors.AccentText,
                                             modifier = Modifier.size(20.dp),
                                             strokeWidth = 2.dp
                                         )
@@ -229,8 +228,8 @@ fun CommentFullScreen(
             }
         }
 
-        // 底部输入栏：常驻底部，不因中间内容状态消失
-        CommentInputBar(
+        // 底部输入栏：常驻底部，不因中间内容状态消失；只读评论不提供
+        if ((commentsState as? CommentsState.Success)?.readOnly != true) CommentInputBar(
             replyTarget = replyTarget,
             composerState = composerState,
             focusRequester = focusRequester,

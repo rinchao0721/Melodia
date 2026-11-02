@@ -1,13 +1,9 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
+import com.lin0721.linmusic.desktop.ui.palette.ImmersiveColors
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -32,10 +28,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,7 +51,6 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -67,15 +64,19 @@ import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.icons.LyricCardIcons
-import com.lin0721.linmusic.desktop.ui.palette.darken
-import com.lin0721.linmusic.desktop.ui.palette.lighten
-import com.lin0721.linmusic.desktop.ui.palette.saturateIfChromatic
+import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.ImmersiveTheme
+import kotlinx.coroutines.delay
 
 private val MeshBlurRadius = 32.dp
 private val FadeHeight = 28.dp
 private val HeaderButtonSize = 28.dp
 private val HeaderIconSize = 22.dp
 private const val VIEWPORT_ANIM_MS = 300
+// 光斑漂移周期以十秒计，20fps 足够平滑，不必逐帧重绘模糊
+private const val MESH_TICK_MS = 50L
+private const val NANOS_PER_MS = 1_000_000L
 
 // 歌词卡：背景随封面主色着色并缓慢游走（移植自移动端）。
 // 折叠只看当前行与下一行，展开后显示六行；歌词随播放自动滚动，不响应滚轮，点击歌词行跳转到该处
@@ -84,35 +85,48 @@ fun LyricsCard(
     lines: List<LyricLine>,
     currentIndex: Int,
     base: Color,
+    isPlaying: Boolean,
     onSeek: (Long) -> Unit,
     onOpenFullscreen: () -> Unit,
     onOpenLyricsView: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sourceLabel: String? = null
 ) {
-    val transition = rememberInfiniteTransition(label = "lyricMesh")
-    val darkCenterX by transition.animateFloat(
-        initialValue = 1.20f,
-        targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "meshX"
-    )
-    val darkCenterY by transition.animateFloat(
-        initialValue = 1.20f,
-        targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(tween(13000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "meshY"
-    )
-    val darkRadiusScale by transition.animateFloat(
-        initialValue = 0.40f,
-        targetValue = 0.50f,
-        animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "meshRadius"
-    )
-    val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
-    val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
-    val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
-    // 与全屏歌词同配方：文字单独再提一档饱和度与明度，不然混完白会发灰
-    val inactiveColor = remember(base) { lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), Color.White, 0.5f) }
+    // 与全屏歌词同配方；配色在切换到沉浸主题之前按外层主题深浅算好
+    val immersive = rememberImmersiveColors(base)
+    ImmersiveTheme {
+        LyricsCardContent(lines, currentIndex, immersive, isPlaying, onSeek, onOpenFullscreen, onOpenLyricsView, modifier, sourceLabel)
+    }
+}
+
+@Composable
+private fun LyricsCardContent(
+    lines: List<LyricLine>,
+    currentIndex: Int,
+    immersive: ImmersiveColors,
+    isPlaying: Boolean,
+    onSeek: (Long) -> Unit,
+    onOpenFullscreen: () -> Unit,
+    onOpenLyricsView: () -> Unit,
+    modifier: Modifier,
+    sourceLabel: String?
+) {
+    // 漂移进度只在播放时推进，暂停即停在原处；仅在绘制阶段读取，不触发重组
+    var meshPhaseNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) return@LaunchedEffect
+        var last = System.nanoTime()
+        while (true) {
+            delay(MESH_TICK_MS)
+            val now = System.nanoTime()
+            meshPhaseNanos += now - last
+            last = now
+        }
+    }
+    val fillColor = immersive.fill
+    val darkBlob = immersive.blob
+    val inactiveColor = immersive.inactive
+    val contentColor = immersive.content
 
     var expanded by remember { mutableStateOf(false) }
     // 当前行实际折行数，由当前行文字回报，用来撑高视口
@@ -133,6 +147,10 @@ fun LyricsCard(
         backdrop = {
             Box(
                 Modifier.matchParentSize().blur(MeshBlurRadius).drawBehind {
+                    val phaseMs = meshPhaseNanos / NANOS_PER_MS
+                    val darkCenterX = pingPong(phaseMs, 15000L, 1.20f, 1.35f)
+                    val darkCenterY = pingPong(phaseMs, 13000L, 1.20f, 1.35f)
+                    val darkRadiusScale = pingPong(phaseMs, 10000L, 0.40f, 0.50f)
                     drawSingleHueMesh(
                         fill = fillColor,
                         darkBlob = darkBlob,
@@ -151,11 +169,15 @@ fun LyricsCard(
             null
         }
     ) {
+        sourceLabel?.let {
+            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        }
         Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(viewportHeight)) {
             LyricList(
                 lines = lines,
                 currentIndex = currentIndex,
                 inactiveColor = inactiveColor,
+                contentColor = contentColor,
                 expanded = expanded,
                 viewportHeight = viewportHeight,
                 onSeek = onSeek,
@@ -166,7 +188,7 @@ fun LyricsCard(
                 Button(
                     onClick = { expanded = !expanded },
                     enabled = hovered,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.TextPrimary, contentColor = DesktopColors.InverseText),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
@@ -182,10 +204,17 @@ private fun HeaderIconButton(icon: ImageVector, description: String, revealed: B
     HoverReveal(revealed = revealed) {
         DesktopTooltip(description) {
             IconButton(onClick = onClick, enabled = revealed, modifier = Modifier.size(HeaderButtonSize)) {
-                Icon(icon, description, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(HeaderIconSize))
+                Icon(icon, description, tint = DesktopColors.TextPrimary.copy(alpha = 0.8f), modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
+}
+
+// 线性往返：等价于 LinearEasing 的 RepeatMode.Reverse 无限动画
+private fun pingPong(phaseMs: Long, periodMs: Long, from: Float, to: Float): Float {
+    val t = (phaseMs % (periodMs * 2)).toFloat() / periodMs
+    val fraction = if (t <= 1f) t else 2f - t
+    return from + (to - from) * fraction
 }
 
 // 单一色相的光斑：深色底 + 一枚渐隐光斑；fill 必须是明显压暗过的变体，不能直接传未处理的 base
@@ -224,6 +253,7 @@ private fun LyricList(
     lines: List<LyricLine>,
     currentIndex: Int,
     inactiveColor: Color,
+    contentColor: Color,
     expanded: Boolean,
     viewportHeight: Dp,
     onSeek: (Long) -> Unit,
@@ -253,6 +283,7 @@ private fun LyricList(
                 isCurrent = index == currentIndex,
                 look = lyricLineLook(index, currentIndex),
                 inactiveColor = inactiveColor,
+                contentColor = contentColor,
                 onClick = { onSeek(line.timeMs) },
                 onCurrentLineLayout = onCurrentLineLayout
             )
@@ -260,13 +291,14 @@ private fun LyricList(
     }
 }
 
-// 悬停时变白并加下划线，点击跳转；当前行与远近缩放、透明度沿用移动端
+// 悬停时变为当前行色并加下划线，点击跳转；当前行与远近缩放、透明度沿用移动端
 @Composable
 private fun LyricRow(
     line: LyricLine,
     isCurrent: Boolean,
     look: LyricLineLook,
     inactiveColor: Color,
+    contentColor: Color,
     onClick: () -> Unit,
     onCurrentLineLayout: (Int) -> Unit
 ) {
@@ -279,7 +311,7 @@ private fun LyricRow(
         tween(300, easing = FastOutSlowInEasing),
         label = "lyricTranslationAlpha"
     )
-    val textColor = if (isCurrent || hovered) Color.White else inactiveColor
+    val textColor = if (isCurrent || hovered) contentColor else inactiveColor
     val mainSize = if (isCurrent) 20.sp else 18.sp
     val translationSize = if (isCurrent) 15.sp else 14.sp
 

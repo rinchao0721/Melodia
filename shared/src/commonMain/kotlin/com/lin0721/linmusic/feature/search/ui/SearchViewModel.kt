@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.search.ui
 
+import kotlinx.coroutines.flow.combine
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -26,12 +27,11 @@ import com.lin0721.linmusic.feature.podcast.domain.playPodcastPrograms
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
-import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.source.SourcePreferences
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -61,7 +61,7 @@ class SearchViewModel(
     private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
     private val songLikeRepository: SongLikeRepository,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
-    private val sourceProviders: List<AudioSourceProvider> = emptyList(),
+    private val externalResolver: ExternalTrackResolver? = null,
     private val searchProviders: List<PlatformSearchProvider> = emptyList(),
     private val settingsPreferences: SettingsPreferences? = null,
     private val sourcePreferences: SourcePreferences? = null,
@@ -108,19 +108,23 @@ class SearchViewModel(
     private val allExternalPlatforms = listOf(
         MusicPlatform.KUGOU,
         MusicPlatform.KUWO,
-        MusicPlatform.QQ
+        MusicPlatform.QQ,
+        MusicPlatform.LX
     )
 
-    // 开关打开后才展示已注册搜索源的平台 Tab
-    val searchPlatforms: StateFlow<List<MusicPlatform>> = (sourcePreferences?.searchAggregationEnabled ?: flowOf(false))
-        .map { enabled ->
-            if (enabled) {
-                val available = searchProviders.mapTo(hashSetOf()) { it.platform }
-                listOf(MusicPlatform.NETEASE) + allExternalPlatforms.filter { it in available }
-            } else {
-                listOf(MusicPlatform.NETEASE)
-            }
+    // 开关打开后才展示已注册搜索源的平台 Tab；插件平台由插件自己决定，不受开关影响
+    val searchPlatforms: StateFlow<List<MusicPlatform>> = combine(
+        sourcePreferences?.searchAggregationEnabled ?: flowOf(false),
+        searchProviders.firstOrNull { it.platform == MusicPlatform.LX }?.available ?: flowOf(false)
+    ) { enabled, pluginAvailable ->
+        val platforms = if (enabled) {
+            val available = searchProviders.mapTo(hashSetOf()) { it.platform }
+            allExternalPlatforms.filter { it in available && it != MusicPlatform.LX }
+        } else {
+            emptyList()
         }
+        listOf(MusicPlatform.NETEASE) + platforms + listOfNotNull(MusicPlatform.LX.takeIf { pluginAvailable })
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(MusicPlatform.NETEASE))
 
     private val _selectedPlatform = MutableStateFlow(MusicPlatform.NETEASE)
@@ -176,12 +180,14 @@ class SearchViewModel(
     }
 
     fun prepareCollectDialog(songId: Long) {
+        searchedExternal(songId)?.let { return prepareExternalCollectDialog(it) }
         viewModelScope.launch {
             songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
     fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+        searchedExternal(songId)?.let { return saveExternalCollection(it, items) }
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
@@ -196,6 +202,7 @@ class SearchViewModel(
     }
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
+        searchedExternal(songId)?.let { return createPlaylistAndAddExternal(name, it) }
         viewModelScope.launch {
             songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
@@ -472,9 +479,9 @@ class SearchViewModel(
         externalPlayJob = viewModelScope.launch {
             _resolvingTrackKey.value = key
             try {
-                val playUrl = resolveExternalUrl(track)
+                val playUrl = externalResolver?.resolve(track)
                 if (playUrl == null) {
-                    _toastEvent.emit(explainResolveFailure(track))
+                    _toastEvent.emit(externalResolver?.explainFailure(track) ?: "当前平台暂无可用换源插件")
                     return@launch
                 }
                 playerManager.playQueue(listOf(track.toQueueItem(playUrl)), 0, "搜索")
@@ -484,60 +491,46 @@ class SearchViewModel(
         }
     }
 
-    // 先解析直链再入队，直链可能在排队期间过期，到点播放失败时由播放器按常规失败处理
+    // 不预先解析，轮到时由播放器解析，避免直链在排队期间过期
     fun addExternalToPlayNext(track: ExternalTrack) {
-        val key = track.resolveKey
-        if (_resolvingTrackKey.value == key) return
-        viewModelScope.launch {
-            _resolvingTrackKey.value = key
-            try {
-                val playUrl = resolveExternalUrl(track)
-                if (playUrl == null) {
-                    _toastEvent.emit(explainResolveFailure(track))
-                    return@launch
-                }
-                playerManager.addToPlayNext(listOf(track.toQueueItem(playUrl)))
-                _toastEvent.emit("已添加至下一首播放")
-            } finally {
-                if (_resolvingTrackKey.value == key) _resolvingTrackKey.value = null
-            }
-        }
+        playerManager.addToPlayNext(listOf(track.toQueueItem(null)))
+        viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
-    private fun ExternalTrack.toQueueItem(playUrl: String) = QueueItem(
+    // 外部平台搜索结果不在队列与歌单里，收藏时按展示 id 从当前结果中找回
+    private fun searchedExternal(songId: Long): ExternalTrack? {
+        if (songId >= 0L) return null
+        return _externalResults.values.asSequence()
+            .mapNotNull { (it.value as? ExternalSearchUiState.Success)?.tracks }
+            .flatten()
+            .firstOrNull { it.queueSongId == songId }
+    }
+
+    private fun ExternalTrack.toQueueItem(playUrl: String?) = QueueItem(
         songId = queueSongId,
         title = name,
         artist = artists,
         coverUrl = coverUrl,
-        localUri = playUrl
+        localUri = playUrl,
+        external = this
     )
 
-    // 与换源一致，交给已启用的换源插件按歌曲信息解析
-    private suspend fun resolveExternalUrl(track: ExternalTrack): String? {
-        for (provider in sourceProviders) {
-            val url = runCatching {
-                provider.resolveUrl(
-                    songId = track.hash ?: track.id,
-                    songName = track.name,
-                    artists = track.artists,
-                    albumName = track.albumName,
-                    durationMs = track.durationMs,
-                    quality = "lossless",
-                    origin = track.platform
-                )?.url
-            }.getOrNull()
-            if (!url.isNullOrBlank()) return url
+    fun prepareExternalCollectDialog(track: ExternalTrack) {
+        viewModelScope.launch {
+            songCollectDelegate.prepareExternal(track) { _toastEvent.emit(it) }
         }
-        return null
     }
 
-    // 区分没配置与配置了但没解析出来，让用户知道该去哪里处理
-    private suspend fun explainResolveFailure(track: ExternalTrack): String {
-        if (sourceProviders.isEmpty()) return "当前平台暂无可用换源插件"
-        val prefs = sourcePreferences ?: return "无法获取播放直链"
-        if (!prefs.lxPluginEnabled.first()) return "未启用社区源插件，请到 设置 › 音源与换源 中开启"
-        if (prefs.lxPlugins.first().none { it.isEnabled }) return "没有已启用的 LX 插件，请先在 设置 › 音源与换源 中启用"
-        return "《${track.name}》解析失败，可能暂无该音源或插件已失效"
+    fun saveExternalCollection(track: ExternalTrack, items: List<PlaylistCollectItem>) {
+        viewModelScope.launch {
+            songCollectDelegate.saveExternal(track, items) { _toastEvent.emit(it) }
+        }
+    }
+
+    fun createPlaylistAndAddExternal(name: String, track: ExternalTrack) {
+        viewModelScope.launch {
+            songCollectDelegate.createAndAddExternal(name, track) { _toastEvent.emit(it) }
+        }
     }
 
     // 外部歌曲没有网易云 id，只能按歌名歌手回到网易云重新搜索

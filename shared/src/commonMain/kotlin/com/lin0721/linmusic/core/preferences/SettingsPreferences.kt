@@ -10,7 +10,18 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
+import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
+import com.lin0721.linmusic.core.ui.theme.ThemeAccents
+import com.lin0721.linmusic.core.ui.theme.parseRgbHex
+import com.lin0721.linmusic.core.ui.theme.toRgbHex
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private const val TAG = "SettingsPreferences"
@@ -47,12 +58,18 @@ class SettingsPreferences(
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
         // 与其他应用同时播放，默认 false
         private val KEY_PLAY_WITH_OTHER_APPS = booleanPreferencesKey("play_with_other_apps")
+        // 硬件音频解码（音频卸载），默认 false
+        private val KEY_AUDIO_OFFLOAD = booleanPreferencesKey("audio_offload")
         // 外部音视频停止后自动恢复，默认 true
         private val KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION = booleanPreferencesKey("resume_after_external_interruption")
         // 切歌交叉淡化，默认 false
         private val KEY_CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         // 自动切歌交叉淡化时长 (ms)，默认 3000
         private val KEY_CROSSFADE_DURATION_MS = intPreferencesKey("crossfade_duration_ms")
+        // 智能过渡（跳过首尾静音），默认 false
+        private val KEY_SMART_CROSSFADE_ENABLED = booleanPreferencesKey("smart_crossfade_enabled")
+        // 音量平衡（整曲响度归一化），默认 false
+        private val KEY_LOUDNESS_NORMALIZATION_ENABLED = booleanPreferencesKey("loudness_normalization_enabled")
         // 默认播放顺序，默认 "loop" (列表循环)
         // 仅 Wi-Fi 网络下联网播放，默认 false
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
@@ -72,23 +89,53 @@ class SettingsPreferences(
         private val KEY_PANEL_DEFAULT_FULLSCREEN = booleanPreferencesKey("panel_default_fullscreen")
         private val KEY_PLAYER_PAGE_MODE = stringPreferencesKey("player_page_mode")
         private val KEY_SIDE_PLAYER_PINNED = booleanPreferencesKey("side_player_pinned")
+        private val KEY_SIDE_PLAYER_POSITION = stringPreferencesKey("side_player_position")
         // 平板全局沉浸，默认 false
         private val KEY_TABLET_IMMERSIVE_MODE = booleanPreferencesKey("tablet_immersive_mode")
         // 界面缩放百分比，默认 100
         private val KEY_UI_SCALE_PERCENT = intPreferencesKey("ui_scale_percent")
+        // 主题模式与深浅两套主色，默认深色网易红
+        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_THEME_DARK_ACCENT = stringPreferencesKey("theme_dark_accent")
+        private val KEY_THEME_LIGHT_ACCENT = stringPreferencesKey("theme_light_accent")
+        private val KEY_THEME_DARK_CUSTOM_COLOR = stringPreferencesKey("theme_dark_custom_color")
+        private val KEY_THEME_LIGHT_CUSTOM_COLOR = stringPreferencesKey("theme_light_custom_color")
+        // 旧版深浅共用的皮肤，首次按模式保存时拆到两个槽位
+        private val KEY_THEME_SKIN_LEGACY = stringPreferencesKey("theme_skin")
+        private val KEY_THEME_SKIN_DARK = stringPreferencesKey("theme_skin_dark")
+        private val KEY_THEME_SKIN_LIGHT = stringPreferencesKey("theme_skin_light")
         const val PLAYER_PAGE_MODE_AUTO = "auto"
         const val PLAYER_PAGE_MODE_FULLSCREEN = "fullscreen"
         const val PLAYER_PAGE_MODE_SIDE = "side"
+        const val SIDE_PLAYER_POSITION_RIGHT = "right"
+        const val SIDE_PLAYER_POSITION_LEFT = "left"
         // 悬浮歌词字体大小，默认 14sp
         private val KEY_LYRIC_TEXT_SIZE = intPreferencesKey("lyric_text_size")
         // 悬浮歌词颜色，默认 "#FFFFFF"
         private val KEY_LYRIC_TEXT_COLOR = stringPreferencesKey("lyric_text_color")
+        // 悬浮歌词其余样式；字号与已播色沿用上面两个旧键
+        private val KEY_FLOATING_LYRIC_UNPLAYED_COLOR = stringPreferencesKey("floating_lyric_unplayed_color")
+        private val KEY_FLOATING_LYRIC_SHADOW = booleanPreferencesKey("floating_lyric_shadow")
+        private val KEY_FLOATING_LYRIC_BACKGROUND_ALPHA = intPreferencesKey("floating_lyric_background_alpha")
+        private val KEY_FLOATING_LYRIC_ALIGN = stringPreferencesKey("floating_lyric_align")
+        private val KEY_FLOATING_LYRIC_SECONDARY = stringPreferencesKey("floating_lyric_secondary")
+        private val KEY_FLOATING_LYRIC_BOLD = booleanPreferencesKey("floating_lyric_bold")
+        private val KEY_FLOATING_LYRIC_SHADOW_ALPHA = intPreferencesKey("floating_lyric_shadow_alpha")
+        private val KEY_FLOATING_LYRIC_SHADOW_BLUR = intPreferencesKey("floating_lyric_shadow_blur")
+        private val KEY_FLOATING_LYRIC_SHADOW_COLOR = stringPreferencesKey("floating_lyric_shadow_color")
+        private val KEY_FLOATING_LYRIC_LOCKED = booleanPreferencesKey("floating_lyric_locked")
+        // 悬浮窗位置与宽度（px），未保存过时为空
+        private val KEY_FLOATING_LYRIC_BOUNDS = stringPreferencesKey("floating_lyric_bounds")
         // 日志级别 KEY，默认 debug 包 "DEBUG"、release 包 "WARN"
         private val KEY_LOG_LEVEL = stringPreferencesKey("log_level")
         // 启动时自动检查更新，默认 true
         private val KEY_AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
         // 是否接收测试版（beta/rc）更新推送，默认 false 只接收正式版
         private val KEY_ALLOW_PRERELEASE_CHANNEL = booleanPreferencesKey("allow_prerelease_channel")
+        // 界面过渡动画开关，默认 true；不影响歌词与音频淡入淡出
+        private val KEY_UI_ANIMATIONS_ENABLED = booleanPreferencesKey("ui_animations_enabled")
+        // 歌单与推荐歌曲显示序号，默认 false
+        private val KEY_PLAYLIST_TRACK_INDEX_ENABLED = booleanPreferencesKey("playlist_track_index_enabled")
         // 用户主动忽略的更新版本 tag，默认空串表示未忽略任何版本
         private val KEY_IGNORED_UPDATE_TAG = stringPreferencesKey("ignored_update_tag")
         // 全屏歌词字体大小，默认 22sp
@@ -104,12 +151,15 @@ class SettingsPreferences(
         // 逐字歌词字词呼吸光晕动效，默认 false
         private val KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT = booleanPreferencesKey("full_screen_karaoke_glow_effect")
         private val KEY_AMLL_LYRICS_ENABLED = booleanPreferencesKey("amll_lyrics_enabled")
+        private val KEY_QQ_LYRICS_ENABLED = booleanPreferencesKey("qq_lyrics_enabled")
+        private val KEY_NETEASE_LYRICS_ENABLED = booleanPreferencesKey("netease_lyrics_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING = intPreferencesKey("full_screen_lyric_secondary_spacing")
         // 全屏歌词自动隐藏控制组件，默认 false
         private val KEY_FULL_SCREEN_LYRIC_AUTO_HIDE_CONTROLS = booleanPreferencesKey("full_screen_lyric_auto_hide_controls")
+        private val KEY_FULL_SCREEN_LYRIC_CENTER_FIRST_LINE = booleanPreferencesKey("full_screen_lyric_center_first_line")
         // 全屏播放页信息卡片顺序与显隐，格式见 FullPlayerCardLayout
         private val KEY_FULL_PLAYER_CARD_LAYOUT = stringPreferencesKey("full_player_card_layout")
         // 底栏项目排序与显隐，格式见 BottomBarLayout
@@ -267,6 +317,19 @@ class SettingsPreferences(
         }
     }
 
+    // 硬件音频解码 Flow
+    val audioOffload: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_AUDIO_OFFLOAD] ?: false
+    }
+
+    // 与切歌交叉淡化互斥
+    suspend fun saveAudioOffload(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_AUDIO_OFFLOAD] = enabled
+            if (enabled) prefs[KEY_CROSSFADE_ENABLED] = false
+        }
+    }
+
     // 外部音视频停止后自动恢复 Flow
     val resumeAfterExternalInterruption: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: true
@@ -283,9 +346,11 @@ class SettingsPreferences(
         prefs[KEY_CROSSFADE_ENABLED] ?: false
     }
 
+    // 与硬件音频解码互斥：淡化时两台播放器同时出声，会争用唯一的卸载通道
     suspend fun saveCrossfadeEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_CROSSFADE_ENABLED] = enabled
+            if (enabled) prefs[KEY_AUDIO_OFFLOAD] = false
         }
     }
 
@@ -297,6 +362,28 @@ class SettingsPreferences(
     suspend fun saveCrossfadeDurationMs(durationMs: Int) {
         dataStore.edit { prefs ->
             prefs[KEY_CROSSFADE_DURATION_MS] = CrossfadePolicy.normalizeDurationMs(durationMs)
+        }
+    }
+
+    // 智能过渡开关 Flow
+    val smartCrossfadeEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SMART_CROSSFADE_ENABLED] ?: false
+    }
+
+    suspend fun saveSmartCrossfadeEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SMART_CROSSFADE_ENABLED] = enabled
+        }
+    }
+
+    // 音量平衡开关 Flow
+    val loudnessNormalizationEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LOUDNESS_NORMALIZATION_ENABLED] ?: false
+    }
+
+    suspend fun saveLoudnessNormalizationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LOUDNESS_NORMALIZATION_ENABLED] = enabled
         }
     }
 
@@ -442,6 +529,17 @@ class SettingsPreferences(
         }
     }
 
+    // 平板侧边播放页停靠在哪一侧
+    val sidePlayerPosition: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_SIDE_PLAYER_POSITION] ?: SIDE_PLAYER_POSITION_RIGHT
+    }
+
+    suspend fun saveSidePlayerPosition(position: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SIDE_PLAYER_POSITION] = position
+        }
+    }
+
     // 平板全局沉浸 Flow
     val tabletImmersiveMode: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_TABLET_IMMERSIVE_MODE] ?: false
@@ -464,26 +562,99 @@ class SettingsPreferences(
         }
     }
 
-    // 悬浮歌词字号 Flow
-    val lyricTextSize: Flow<Int> = dataStore.data.map { prefs ->
-        prefs[KEY_LYRIC_TEXT_SIZE] ?: 14
-    }
+    val themeSettings: Flow<ThemeSettings> = dataStore.data.map { prefs ->
+        ThemeSettings(
+            mode = ThemeMode.fromKey(prefs[KEY_THEME_MODE]),
+            darkAccentId = prefs[KEY_THEME_DARK_ACCENT] ?: ThemeAccents.DEFAULT_ID,
+            lightAccentId = prefs[KEY_THEME_LIGHT_ACCENT] ?: ThemeAccents.DEFAULT_ID,
+            darkCustomHex = prefs[KEY_THEME_DARK_CUSTOM_COLOR],
+            lightCustomHex = prefs[KEY_THEME_LIGHT_CUSTOM_COLOR],
+            darkSkinId = prefs[KEY_THEME_SKIN_DARK] ?: prefs[KEY_THEME_SKIN_LEGACY] ?: BUILTIN_SKIN_ID,
+            lightSkinId = prefs[KEY_THEME_SKIN_LIGHT] ?: prefs[KEY_THEME_SKIN_LEGACY] ?: BUILTIN_SKIN_ID
+        )
+    }.distinctUntilChanged()
 
-    suspend fun saveLyricTextSize(size: Int) {
+    suspend fun saveThemeSkin(isDark: Boolean, skinId: String) {
         dataStore.edit { prefs ->
-            prefs[KEY_LYRIC_TEXT_SIZE] = size
+            prefs[KEY_THEME_SKIN_LEGACY]?.let { legacy ->
+                if (prefs[KEY_THEME_SKIN_DARK] == null) prefs[KEY_THEME_SKIN_DARK] = legacy
+                if (prefs[KEY_THEME_SKIN_LIGHT] == null) prefs[KEY_THEME_SKIN_LIGHT] = legacy
+                prefs.remove(KEY_THEME_SKIN_LEGACY)
+            }
+            prefs[if (isDark) KEY_THEME_SKIN_DARK else KEY_THEME_SKIN_LIGHT] = skinId
         }
     }
 
-    // 悬浮歌词颜色 Flow
-    val lyricTextColor: Flow<String> = dataStore.data.map { prefs ->
-        prefs[KEY_LYRIC_TEXT_COLOR] ?: "#FFFFFF"
+    suspend fun saveThemeMode(mode: ThemeMode) {
+        dataStore.edit { prefs ->
+            prefs[KEY_THEME_MODE] = mode.key
+        }
     }
 
-    suspend fun saveLyricTextColor(color: String) {
+    suspend fun saveThemeAccent(isDark: Boolean, accentId: String) {
         dataStore.edit { prefs ->
-            prefs[KEY_LYRIC_TEXT_COLOR] = color
+            prefs[if (isDark) KEY_THEME_DARK_ACCENT else KEY_THEME_LIGHT_ACCENT] = accentId
         }
+    }
+
+    // 保存自定义色并切换到自定义主色；非法色值直接忽略
+    suspend fun saveThemeCustomColor(isDark: Boolean, hex: String) {
+        val normalized = parseRgbHex(hex)?.toRgbHex() ?: return
+        dataStore.edit { prefs ->
+            prefs[if (isDark) KEY_THEME_DARK_CUSTOM_COLOR else KEY_THEME_LIGHT_CUSTOM_COLOR] = normalized
+            prefs[if (isDark) KEY_THEME_DARK_ACCENT else KEY_THEME_LIGHT_ACCENT] = ThemeAccents.CUSTOM_ID
+        }
+    }
+
+    // 悬浮歌词完整样式；旧版只有 70% 黑底，背景默认值与之保持一致
+    val floatingLyricStyle: Flow<FloatingLyricStyle> = dataStore.data.map { prefs ->
+        FloatingLyricStyle(
+            fontSizeSp = prefs[KEY_LYRIC_TEXT_SIZE] ?: 14,
+            playedColor = prefs[KEY_LYRIC_TEXT_COLOR] ?: FloatingLyricPalette.DEFAULT_PLAYED,
+            unplayedColor = prefs[KEY_FLOATING_LYRIC_UNPLAYED_COLOR] ?: FloatingLyricPalette.DEFAULT_UNPLAYED,
+            shadow = prefs[KEY_FLOATING_LYRIC_SHADOW] ?: true,
+            backgroundAlpha = (prefs[KEY_FLOATING_LYRIC_BACKGROUND_ALPHA] ?: 70).coerceIn(0, 100),
+            align = FloatingLyricAlign.fromKey(prefs[KEY_FLOATING_LYRIC_ALIGN]),
+            secondary = FloatingLyricSecondary.fromKey(prefs[KEY_FLOATING_LYRIC_SECONDARY]),
+            bold = prefs[KEY_FLOATING_LYRIC_BOLD] ?: true,
+            shadowAlpha = (prefs[KEY_FLOATING_LYRIC_SHADOW_ALPHA] ?: FloatingLyricShadow.DEFAULT_ALPHA).coerceIn(0, 100),
+            shadowBlurDp = (prefs[KEY_FLOATING_LYRIC_SHADOW_BLUR] ?: FloatingLyricShadow.DEFAULT_BLUR_DP).coerceAtLeast(0),
+            shadowColor = prefs[KEY_FLOATING_LYRIC_SHADOW_COLOR] ?: FloatingLyricShadow.DEFAULT_COLOR
+        )
+    }.distinctUntilChanged()
+
+    suspend fun saveFloatingLyricStyle(style: FloatingLyricStyle) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LYRIC_TEXT_SIZE] = style.fontSizeSp
+            prefs[KEY_LYRIC_TEXT_COLOR] = style.playedColor
+            prefs[KEY_FLOATING_LYRIC_UNPLAYED_COLOR] = style.unplayedColor
+            prefs[KEY_FLOATING_LYRIC_SHADOW] = style.shadow
+            prefs[KEY_FLOATING_LYRIC_BACKGROUND_ALPHA] = style.backgroundAlpha.coerceIn(0, 100)
+            prefs[KEY_FLOATING_LYRIC_ALIGN] = style.align.key
+            prefs[KEY_FLOATING_LYRIC_SECONDARY] = style.secondary.key
+            prefs[KEY_FLOATING_LYRIC_BOLD] = style.bold
+            prefs[KEY_FLOATING_LYRIC_SHADOW_ALPHA] = style.shadowAlpha.coerceIn(0, 100)
+            prefs[KEY_FLOATING_LYRIC_SHADOW_BLUR] = style.shadowBlurDp.coerceAtLeast(0)
+            prefs[KEY_FLOATING_LYRIC_SHADOW_COLOR] = style.shadowColor
+        }
+    }
+
+    val floatingLyricLocked: Flow<Boolean> = dataStore.data.map { it[KEY_FLOATING_LYRIC_LOCKED] ?: false }.distinctUntilChanged()
+
+    suspend fun saveFloatingLyricLocked(locked: Boolean) {
+        dataStore.edit { it[KEY_FLOATING_LYRIC_LOCKED] = locked }
+    }
+
+    // 格式 "x,y,width"，解析失败视为未保存
+    suspend fun loadFloatingLyricBounds(): Triple<Int, Int, Int>? {
+        val raw = dataStore.data.first()[KEY_FLOATING_LYRIC_BOUNDS] ?: return null
+        val parts = raw.split(',').map { it.trim().toIntOrNull() ?: return null }
+        if (parts.size != 3 || parts[2] <= 0) return null
+        return Triple(parts[0], parts[1], parts[2])
+    }
+
+    suspend fun saveFloatingLyricBounds(x: Int, y: Int, width: Int) {
+        dataStore.edit { it[KEY_FLOATING_LYRIC_BOUNDS] = "$x,$y,$width" }
     }
 
     // 日志级别 Flow，取值为 AppLogger.LogLevel 的 name（DEBUG/INFO/WARN/ERROR）
@@ -516,6 +687,28 @@ class SettingsPreferences(
     suspend fun saveAllowPrereleaseChannel(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_ALLOW_PRERELEASE_CHANNEL] = enabled
+        }
+    }
+
+    // 界面过渡动画开关 Flow
+    val uiAnimationsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_UI_ANIMATIONS_ENABLED] ?: true
+    }
+
+    suspend fun saveUiAnimationsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_UI_ANIMATIONS_ENABLED] = enabled
+        }
+    }
+
+    // 歌单序号开关 Flow
+    val playlistTrackIndexEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] ?: false
+    }
+
+    suspend fun savePlaylistTrackIndexEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] = enabled
         }
     }
 
@@ -573,6 +766,24 @@ class SettingsPreferences(
             prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE] = mode
             prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = mode != "none"
         }
+    }
+
+    // 网易歌词源开关，默认启用。
+    val neteaseLyricsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_NETEASE_LYRICS_ENABLED] ?: true
+    }
+
+    suspend fun saveNeteaseLyricsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_NETEASE_LYRICS_ENABLED] = enabled }
+    }
+
+    // QQ 歌词源开关，默认启用。
+    val qqLyricsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_QQ_LYRICS_ENABLED] ?: true
+    }
+
+    suspend fun saveQqLyricsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_QQ_LYRICS_ENABLED] = enabled }
     }
 
     // AMLL 歌词源开关，默认启用。
@@ -639,6 +850,17 @@ class SettingsPreferences(
         }
     }
 
+    // 全屏歌词首行居中 Flow（默认关闭，沿用原样式）
+    val fullScreenLyricCenterFirstLine: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_CENTER_FIRST_LINE] ?: false
+    }
+
+    suspend fun saveFullScreenLyricCenterFirstLine(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_CENTER_FIRST_LINE] = enabled
+        }
+    }
+
     // 全屏播放页信息卡片顺序与显隐 Flow
     val fullPlayerCardLayout: Flow<List<FullPlayerCardSetting>> = dataStore.data.map { prefs ->
         FullPlayerCardLayout.decode(prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
@@ -646,7 +868,17 @@ class SettingsPreferences(
 
     suspend fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
         dataStore.edit { prefs ->
-            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = FullPlayerCardLayout.encode(layout)
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] =
+                PlayerCardEntries.withPluginTokens(FullPlayerCardLayout.encode(layout), prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
+        }
+    }
+
+    // 含插件卡片的原始配置，格式见 PlayerCardEntries
+    val fullPlayerCardRaw: Flow<String?> = dataStore.data.map { prefs -> prefs[KEY_FULL_PLAYER_CARD_LAYOUT] }
+
+    suspend fun saveFullPlayerCardEntries(entries: List<PlayerCardEntry>) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FULL_PLAYER_CARD_LAYOUT] = PlayerCardEntries.encode(entries, prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
         }
     }
 

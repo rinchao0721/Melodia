@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,9 +74,12 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
+    val audioOffload by viewModel.audioOffload.collectAsStateWithLifecycle()
     val resumeAfterExternalInterruption by viewModel.resumeAfterExternalInterruption.collectAsStateWithLifecycle()
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
+    val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
+    val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
@@ -111,21 +114,35 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     checked = autoPlayNext,
                     onCheckedChange = { viewModel.updateAutoPlayNext(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "与其他应用同时播放",
                     subtitle = "开启后不被其他应用打断播放",
                     checked = playWithOtherApps,
                     onCheckedChange = { viewModel.updatePlayWithOtherApps(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "硬件音频解码",
+                    subtitle = "交给音频芯片解码，后台播放更省电；与切歌淡入淡出不能同时开启",
+                    checked = audioOffload,
+                    onCheckedChange = { viewModel.updateAudioOffload(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "外部音视频停止后自动恢复",
                     subtitle = "被其他音视频打断暂停后，在对方停止播放时尝试自动继续",
                     checked = resumeAfterExternalInterruption,
                     onCheckedChange = { viewModel.updateResumeAfterExternalInterruption(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "音量平衡（实验性）",
+                    subtitle = "按每首歌的响度统一音量；在线歌曲仅 Wi-Fi 下分析",
+                    checked = loudnessNormalizationEnabled,
+                    onCheckedChange = { viewModel.updateLoudnessNormalizationEnabled(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "切歌淡入淡出",
                     subtitle = "歌曲临近结束时与下一首交叠过渡，手动切歌不触发",
@@ -160,6 +177,12 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                             endLabel = "长"
                         )
                     }
+                    SettingsSwitchRow(
+                        title = "智能过渡（实验性）",
+                        subtitle = "跳过歌曲首尾的静音段；仅 Wi-Fi 或本地歌曲生效",
+                        checked = smartCrossfadeEnabled,
+                        onCheckedChange = { viewModel.updateSmartCrossfadeEnabled(it) }
+                    )
                 }
             }
         }
@@ -171,7 +194,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     checked = streamCacheEnabled,
                     onCheckedChange = { viewModel.updateStreamCacheEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "下载目录",
                     subtitle = downloadFolderSubtitle,
@@ -180,7 +203,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                         folderPickerLauncher.launch(initialUri)
                     }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "内嵌歌词",
                     subtitle = "下载歌曲与边听边存时将逐字歌词内嵌写入音频文件",
@@ -188,7 +211,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     onCheckedChange = { viewModel.updateDownloadLyricsEnabled(it) }
                 )
                 if (!downloadFolderUri.isNullOrBlank()) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsRow(
                         title = "恢复默认下载目录",
                         subtitle = "改回 Music/Melodia",

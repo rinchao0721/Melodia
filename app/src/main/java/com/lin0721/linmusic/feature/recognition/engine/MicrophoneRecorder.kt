@@ -14,12 +14,6 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
-// 采集源抽象，便于识别流程脱离真机单测
-fun interface AudioCapture {
-    // 持续发射 8 kHz 单声道 Float32 块，直到收集方取消
-    fun capture(): Flow<FloatArray>
-}
-
 // 麦克风采集：优先 8 kHz 直采，设备不支持时退回更高采样率再抽样
 class MicrophoneRecorder(private val context: Context) : AudioCapture {
 

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import coil3.imageLoader
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
@@ -13,6 +14,7 @@ import com.lin0721.linmusic.core.ui.theme.vibrant.VibrantSwatch
 import com.lin0721.linmusic.core.ui.theme.vibrant.defaultVibrantFilter
 import com.lin0721.linmusic.core.ui.theme.vibrant.hslToRgb
 import com.lin0721.linmusic.core.ui.theme.vibrant.medianCutQuantize
+import kotlinx.coroutines.CancellationException
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -54,6 +56,7 @@ suspend fun extractBackdropPaletteFromUrl(context: Context, url: String): Player
         val request = ImageRequest.Builder(context)
             .data(canonicalUrl)
             .size(DECODE_MAX_DIMENSION, DECODE_MAX_DIMENSION)
+            .memoryCachePolicy(CachePolicy.DISABLED)
             .allowHardware(false)
             .build()
         val bitmap = context.imageLoader.execute(request).image?.toBitmap() ?: return FallbackBackdropPalette
@@ -63,6 +66,48 @@ suspend fun extractBackdropPaletteFromUrl(context: Context, url: String): Player
         FallbackBackdropPalette
     }
 }
+
+// 分享卡片用的三色：主色、与主色色相拉开的次色、最深色；不足时由主色推出深浅变体
+suspend fun extractShareColorsFromUrl(context: Context, url: String): List<Color> {
+    val canonicalUrl = url.substringBefore("?param=")
+    val fallback = shareColorsFrom(FallbackBase)
+    if (canonicalUrl.isBlank()) return fallback
+    return try {
+        val request = ImageRequest.Builder(context)
+            .data(canonicalUrl)
+            .size(DECODE_MAX_DIMENSION, DECODE_MAX_DIMENSION)
+            .memoryCachePolicy(CachePolicy.DISABLED)
+            .allowHardware(false)
+            .build()
+        val bitmap = context.imageLoader.execute(request).image?.toBitmap() ?: return fallback
+        val scaled = scaleDownByQuality(bitmap, VIBRANT_QUALITY)
+        val pixels = IntArray(scaled.width * scaled.height)
+        scaled.getPixels(pixels, 0, scaled.width, 0, 0, scaled.width, scaled.height)
+        val quantized = medianCutQuantize(pixels, VIBRANT_COLOR_COUNT, ::defaultVibrantFilter)
+        if (quantized.isEmpty() || isGrayscaleSwatches(quantized)) return fallback
+        val base = pickBaseColor(quantized)
+        val baseHue = VibrantSwatch(base, 1).hsl[0]
+        val usable = quantized.filter { it.hsl[2] in 0.12f..0.85f && it.chroma >= MEANINGFUL_CHROMA }
+        val accent = usable
+            .filter { hueDistance(it.hsl[0], baseHue) > SHARE_ACCENT_HUE_GAP }
+            .maxByOrNull { it.population }?.rgb
+            ?: lerp(base, Color.White, 0.35f)
+        val deep = usable.minByOrNull { it.hsl[2] }?.rgb?.let { lerp(it, Color.Black, 0.2f) }
+            ?: lerp(base, Color.Black, 0.45f)
+        listOf(base, accent, deep)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        AppLogger.d(TAG, "分享取色失败，使用默认色", e)
+        fallback
+    }
+}
+
+// 色相按 0..1 计，约 30 度
+private const val SHARE_ACCENT_HUE_GAP = 30f / 360f
+
+private fun shareColorsFrom(base: Color): List<Color> =
+    listOf(base, lerp(base, Color.White, 0.35f), lerp(base, Color.Black, 0.45f))
 
 suspend fun extractBaseColorFromUrl(context: Context, url: String): Color {
     return extractBackdropPaletteFromUrl(context, url).base

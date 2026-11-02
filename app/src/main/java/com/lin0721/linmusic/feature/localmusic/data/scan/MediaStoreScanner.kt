@@ -11,12 +11,15 @@ import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.metadata.mergeWavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.metadata.readWavTags
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
+import com.lin0721.linmusic.feature.localmusic.domain.folderPathOf
 
 private const val TAG = "MediaStoreScanner"
 private const val UNKNOWN_TITLE = "未知曲目"
 private const val UNKNOWN_ARTIST = "未知艺术家"
 
 class MediaStoreScanner(private val context: Context) {
+
+    private val albumReader = MediaStoreAlbumReader(context)
 
     // 失败返回 null 而非空列表，否则同步会误删整库
     fun scan(): List<LocalTrackEntity>? {
@@ -67,17 +70,24 @@ class MediaStoreScanner(private val context: Context) {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
                     val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                    val path = cursor.getString(dataCol)
+                    val systemAlbum = cursor.getString(albumCol)
+                    val embedded = readWavTags(context, uri, cursor.getString(nameCol), cursor.getString(mimeCol))
                     val metadata = mergeWavMetadata(
                         system = WavMetadata(
                             title = cursor.getString(titleCol),
                             artist = cursor.getString(artistCol),
-                            album = cursor.getString(albumCol),
+                            album = systemAlbum,
                             albumArtist = albumArtistCol.takeIf { it >= 0 }?.let { cursor.getString(it) }?.trim()?.takeIf { it.isNotEmpty() },
                             year = cursor.getIntOrNull(yearCol)?.takeIf { it > 0 },
                             trackNumber = cursor.getIntOrNull(trackCol)?.takeIf { it > 0 }
                         ),
-                        embedded = readWavTags(context, uri, cursor.getString(nameCol), cursor.getString(mimeCol))
+                        embedded = embedded
                     )
+                    // WAV 已读到的专辑是真实标签，其余情况仍要排除文件夹占位
+                    val album = embedded?.album ?: resolveMediaStoreAlbum(systemAlbum, folderPathOf(path)) {
+                        albumReader.readAlbum(uri)
+                    }
                     val (artist, title) = resolveArtistAndTitle(
                         rawArtist = metadata.artist.orEmpty(),
                         rawTitle = metadata.title ?: UNKNOWN_TITLE
@@ -88,10 +98,10 @@ class MediaStoreScanner(private val context: Context) {
                         songId = null,
                         title = title,
                         artist = artist,
-                        album = metadata.album,
+                        album = album,
                         durationMs = cursor.getLong(durationCol),
                         sizeBytes = cursor.getLong(sizeCol),
-                        path = cursor.getString(dataCol),
+                        path = path,
                         dateAddedMs = cursor.getLong(dateAddedCol) * 1000,
                         dateModifiedMs = cursor.getLong(dateModifiedCol) * 1000,
                         source = LocalTrackSource.EXTERNAL.name,

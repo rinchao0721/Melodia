@@ -39,15 +39,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import kotlinx.coroutines.launch
 
 // 本地曲目操作面板
@@ -79,7 +77,7 @@ fun LocalTrackOptionsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -108,7 +106,7 @@ fun LocalTrackOptionsSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -116,7 +114,7 @@ fun LocalTrackOptionsSheet(
                     )
                     Text(
                         text = track.artist,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -126,7 +124,7 @@ fun LocalTrackOptionsSheet(
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
@@ -153,7 +151,7 @@ fun LocalTrackOptionsSheet(
             SheetOptionRow(icon = Icons.Rounded.Info, label = "查看详情") {
                 runThenHide(onDetailClick)
             }
-            SheetOptionRow(icon = Icons.Rounded.DeleteOutline, label = "删除", tint = NeteaseRed) {
+            SheetOptionRow(icon = Icons.Rounded.DeleteOutline, label = "删除", tint = MelodiaColors.Accent) {
                 runThenHide(onDeleteClick)
             }
         }
@@ -164,7 +162,7 @@ fun LocalTrackOptionsSheet(
 private fun SheetOptionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    tint: Color = Color.White.copy(alpha = 0.7f),
+    tint: Color = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
     onClick: () -> Unit
 ) {
     Row(
@@ -177,7 +175,7 @@ private fun SheetOptionRow(
         Icon(icon, contentDescription = null, tint = tint)
         Text(
             text = label,
-            color = if (tint == NeteaseRed) NeteaseRed else Color.White,
+            color = if (tint == MelodiaColors.AccentText) MelodiaColors.AccentText else MelodiaColors.TextPrimary,
             fontSize = 15.sp,
             modifier = Modifier.padding(start = 16.dp)
         )

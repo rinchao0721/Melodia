@@ -46,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.format.formatCompactCount
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
+import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.player.presentation.descPreview
@@ -78,6 +80,10 @@ fun AboutArtistCard(
 
     val pagerState = rememberPagerState(initialPage = initialAboutPage(valid, artists, selectedIndex)) { valid.size }
     val scope = rememberCoroutineScope()
+    val motion = LocalUiMotion.current
+    val turnPage: suspend (Int) -> Unit = { page ->
+        if (motion.enabled) pagerState.animateScrollToPage(page) else pagerState.scrollToPage(page)
+    }
     LaunchedEffect(pagerState.currentPage, valid) {
         val target = valid.getOrNull(pagerState.currentPage) ?: return@LaunchedEffect
         val originalIndex = artists.indexOfFirst { it.artistId == target.artistId }
@@ -97,13 +103,13 @@ fun AboutArtistCard(
                 left = true,
                 description = "上一位歌手",
                 modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = ArrowTop)
-            ) { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } }
+            ) { scope.launch { turnPage(pagerState.currentPage - 1) } }
             ScrollArrow(
                 revealed = hovered && pagerState.currentPage < valid.lastIndex,
                 left = false,
                 description = "下一位歌手",
                 modifier = Modifier.align(Alignment.TopEnd).padding(end = 8.dp, top = ArrowTop)
-            ) { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }
+            ) { scope.launch { turnPage(pagerState.currentPage + 1) } }
         }
         Row(
             Modifier.padding(top = 8.dp),
@@ -153,7 +159,7 @@ private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, mod
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
             )
         }
-        Column(Modifier.padding(16.dp).animateContentSize()) {
+        Column(Modifier.padding(16.dp).animateContentSize(uiSpring())) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(

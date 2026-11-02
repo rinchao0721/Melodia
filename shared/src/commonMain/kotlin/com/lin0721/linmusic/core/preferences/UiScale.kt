@@ -3,7 +3,7 @@ package com.lin0721.linmusic.core.preferences
 // 界面缩放：以百分比存储，两端共用同一套范围与换算
 object UiScale {
 
-    const val MIN_PERCENT = 100
+    const val MIN_PERCENT = 80
     const val MAX_PERCENT = 250
     const val DEFAULT_PERCENT = 100
 

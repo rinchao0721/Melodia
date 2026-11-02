@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.track
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -48,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Size
@@ -78,9 +76,11 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
+import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.max
 
@@ -113,7 +113,7 @@ fun CollectToPlaylistPopup(
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true)
     ) {
-        CollectPanel(songId, state, onSave, onCreate, onDismiss, Modifier.shadow(16.dp, PanelShape))
+        CollectPanel(songId, state, onSave, onCreate, onDismiss, Modifier.themedShadow(16.dp, PanelShape))
     }
 }
 
@@ -148,7 +148,7 @@ private fun CollectPanel(
     var newName by remember(songId) { mutableStateOf("") }
     val ready = state.songId == songId && !state.isLoading
     val listState = rememberLazyListState()
-    val topShadowAlpha by animateFloatAsState(if (listState.canScrollBackward) 1f else 0f, tween(SHADOW_FADE_MS), label = "listTopShadow")
+    val topShadowAlpha by animateFloatAsState(if (listState.canScrollBackward) 1f else 0f, uiTween(SHADOW_FADE_MS), label = "listTopShadow")
 
     val keyword = query.trim()
     val searching = keyword.isNotEmpty()
@@ -220,7 +220,7 @@ private fun CollectPanel(
             }
             state.collectItems.isEmpty() -> EmptyHint("还没有自建歌单")
             visible.isEmpty() -> EmptyHint("未找到匹配的歌单")
-            else -> HoverScrollbarBox(listState, Modifier.topScrollShadow { topShadowAlpha }) {
+            else -> HoverScrollbarBox(listState, Modifier.topScrollShadow(DesktopColors.ShadowSpot) { topShadowAlpha }) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxWidth().heightIn(max = ListMaxHeight),
@@ -271,13 +271,13 @@ private fun CollectPanel(
 }
 
 // 列表向下滚动后，在顶部分隔线下方叠一道渐隐阴影，提示上方还有被滚走的内容
-private fun Modifier.topScrollShadow(alpha: () -> Float): Modifier = drawWithContent {
+private fun Modifier.topScrollShadow(shadow: Color, alpha: () -> Float): Modifier = drawWithContent {
     drawContent()
     val current = alpha()
     if (current > 0f) {
         val height = ShadowHeight.toPx()
         drawRect(
-            Brush.verticalGradient(listOf(Color.Black.copy(alpha = SHADOW_ALPHA * current), Color.Transparent), endY = height),
+            Brush.verticalGradient(listOf(shadow.copy(alpha = SHADOW_ALPHA * current), shadow.copy(alpha = 0f)), endY = height),
             size = Size(size.width, height)
         )
     }
@@ -377,7 +377,7 @@ private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: ()
     val hovered by hoverSource.collectIsHoveredAsState()
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-            .background(if (hovered) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (hovered) DesktopColors.Hover else Color.Transparent)
             .hoverable(hoverSource).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onToggle)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically

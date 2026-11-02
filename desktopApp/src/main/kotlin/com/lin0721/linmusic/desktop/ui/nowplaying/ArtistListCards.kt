@@ -1,8 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.player.presentation.artistAlbumsTitle
@@ -109,8 +110,12 @@ private fun HoverArrowRow(modifier: Modifier = Modifier, content: LazyListScope.
     val scope = rememberCoroutineScope()
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
+    val motion = LocalUiMotion.current
     val scrollBy: (Int) -> Unit = { direction ->
-        scope.launch { state.animateScrollBy(state.layoutInfo.viewportSize.width * SCROLL_FRACTION * direction, tween(SCROLL_MS)) }
+        val distance = state.layoutInfo.viewportSize.width * SCROLL_FRACTION * direction
+        scope.launch {
+            if (motion.enabled) state.animateScrollBy(distance, motion.tween(SCROLL_MS)) else state.scrollBy(distance)
+        }
     }
     Box(modifier.fillMaxWidth().hoverable(hoverSource)) {
         LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(8.dp), content = content)

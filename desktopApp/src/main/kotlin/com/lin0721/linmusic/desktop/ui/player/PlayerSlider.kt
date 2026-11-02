@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.theme.progressScaled
 import com.lin0721.linmusic.desktop.ui.components.TooltipLabel
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.roundToInt
@@ -51,26 +52,28 @@ fun PlayerSlider(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
-    previewLabel: ((fraction: Float) -> String)? = null
+    previewLabel: ((fraction: Float) -> String)? = null,
+    externalActive: Boolean = false
 ) {
     val density = LocalDensity.current
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     var dragging by remember { mutableStateOf(false) }
-    val active = enabled && (hovered || dragging)
+    val active = enabled && (hovered || dragging || externalActive)
 
     var widthPx by remember { mutableStateOf(0) }
     var hoverX by remember { mutableStateOf<Float?>(null) }
     val thumbPx = with(density) { ThumbSize.toPx() }
     val hoverFraction = hoverX?.takeIf { widthPx > thumbPx }
         ?.let { ((it - thumbPx / 2) / (widthPx - thumbPx)).coerceIn(0f, 1f) }
-    val previewing = previewLabel != null && enabled && hoverFraction != null
+    val previewing = !externalActive && previewLabel != null && enabled && hoverFraction != null
 
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
 
     val fraction = value.coerceIn(0f, 1f)
-    val shape = RoundedCornerShape(TrackHeight / 2)
+    val trackHeight = progressScaled(TrackHeight)
+    val shape = RoundedCornerShape(trackHeight / 2)
 
     Box(
         modifier = modifier
@@ -113,7 +116,7 @@ fun PlayerSlider(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(TrackHeight)
+                .height(trackHeight)
                 .clip(shape)
                 .background(DesktopColors.SurfaceLight)
         )
@@ -123,7 +126,7 @@ fun PlayerSlider(
             Box(
                 Modifier
                     .fillMaxWidth(hoverFraction)
-                    .height(TrackHeight)
+                    .height(trackHeight)
                     .clip(shape)
                     .background(DesktopColors.TextGray.copy(alpha = 0.6f))
             )
@@ -133,7 +136,7 @@ fun PlayerSlider(
         Box(
             Modifier
                 .fillMaxWidth(fraction)
-                .height(TrackHeight)
+                .height(trackHeight)
                 .clip(shape)
                 .background(
                     when {
@@ -165,8 +168,11 @@ fun PlayerSlider(
             Box(
                 Modifier.align(Alignment.TopStart).layout { measurable, _ ->
                     val placeable = measurable.measure(Constraints())
+                    val minX = 0
+                    val maxX = (widthPx - placeable.width).coerceAtLeast(0)
+                    val left = (x.roundToInt() - placeable.width / 2).coerceIn(minX, maxX)
                     layout(0, 0) {
-                        placeable.place(x.roundToInt() - placeable.width / 2, -placeable.height - PreviewGap.roundToPx())
+                        placeable.place(left, -placeable.height - PreviewGap.roundToPx())
                     }
                 }
             ) {

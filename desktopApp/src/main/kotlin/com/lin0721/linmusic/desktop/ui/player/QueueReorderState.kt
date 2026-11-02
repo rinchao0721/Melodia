@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.ui.player
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
@@ -15,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
+import com.lin0721.linmusic.desktop.ui.components.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -25,6 +26,7 @@ import kotlin.math.min
 @Stable
 class QueueReorderState internal constructor(
     private val listState: LazyListState,
+    private val motion: UiMotion,
     private val fallbackItemHeightPx: Float,
     private val topEdgePx: Float,
     private val bottomEdgePx: Float
@@ -80,7 +82,7 @@ class QueueReorderState internal constructor(
         settlingIndex = queueIndex
         scope.launch {
             settleOffset.snapTo(released)
-            settleOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+            settleOffset.animateTo(0f, motion.spring(stiffness = Spring.StiffnessMediumLow))
             settlingIndex = -1
         }
     }
@@ -201,9 +203,10 @@ fun rememberQueueReorderState(
     onMove: (from: Int, to: Int) -> Unit
 ): QueueReorderState {
     val density = LocalDensity.current
-    val state = remember(listState, density) {
+    val motion = LocalUiMotion.current
+    val state = remember(listState, density, motion) {
         with(density) {
-            QueueReorderState(listState, FallbackItemHeight.toPx(), TopEdgeThreshold.toPx(), BottomEdgeThreshold.toPx())
+            QueueReorderState(listState, motion, FallbackItemHeight.toPx(), TopEdgeThreshold.toPx(), BottomEdgeThreshold.toPx())
         }
     }
     state.update(upcomingStart, queueSize, upcomingFirstLazyIndex, onMove)

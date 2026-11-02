@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -38,10 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +58,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
+import kotlin.math.roundToInt
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
 
@@ -88,8 +92,15 @@ class MenuScope internal constructor() {
     internal var subMaxHeightPx by mutableIntStateOf(Int.MAX_VALUE)
     internal var mainHeightPx = 0
 
-    // 组合阶段登记，供定位弹层预留宽度
-    internal var subWidth: Dp = 0.dp
+    // 主菜单顶边的窗口坐标，与悬停条目的窗口坐标相减得到二级菜单的垂直偏移
+    internal var mainTopPx = 0f
+    internal var subTopOffsetPx by mutableIntStateOf(0)
+
+    // 组合阶段登记，供定位弹层与左侧预留位计算宽度；只在布局阶段读取
+    internal var subWidth by mutableStateOf(0.dp)
+
+    // 主菜单靠右对齐锚点时，二级菜单改在主菜单左侧展开
+    internal var subOnLeft by mutableStateOf(false)
 }
 
 // 统一的紧凑菜单：34dp 行高、16dp 图标；二级菜单与主菜单同属一个弹层，悬停条目时在右侧展开
@@ -106,8 +117,9 @@ fun DesktopMenu(
     val scope = remember { MenuScope() }
     val density = LocalDensity.current
     val positionProvider = remember(offset, width, density) { MenuPositionProvider(offset, width, density, scope) }
+    val motion = LocalUiMotion.current
     val fade = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { fade.animateTo(1f, tween(FADE_IN_MS)) }
+    LaunchedEffect(Unit) { fade.animateTo(1f, motion.tween(FADE_IN_MS)) }
     // 弹层透明，主菜单与二级菜单各自成面板；弹层位置只取决于主菜单
     Popup(
         popupPositionProvider = positionProvider,
@@ -119,19 +131,48 @@ fun DesktopMenu(
             horizontalArrangement = Arrangement.spacedBy(PanelGap),
             verticalAlignment = Alignment.Top
         ) {
-            Column(Modifier.onSizeChanged { scope.mainHeightPx = it.height }.menuPanel(width)) { scope.content() }
-            scope.activeSub?.let { slot ->
-                val maxHeight = if (scope.subMaxHeightPx == Int.MAX_VALUE) Dp.Infinity else with(density) { scope.subMaxHeightPx.toDp() }
-                CompositionLocalProvider(LocalSubMenuMaxHeight provides maxHeight) {
-                    Column(Modifier.menuPanel(slot.width)) { slot.content.value() }
+            val subPanel: @Composable () -> Unit = {
+                scope.activeSub?.let { slot ->
+                    val maxHeight = if (scope.subMaxHeightPx == Int.MAX_VALUE) Dp.Infinity else with(density) { scope.subMaxHeightPx.toDp() }
+                    CompositionLocalProvider(LocalSubMenuMaxHeight provides maxHeight) {
+                        // 顶边对齐触发条目，放不下时整体上移到窗口可用范围内
+                        Box(
+                            Modifier.layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                                val maxY = (scope.subMaxHeightPx - placeable.height).coerceAtLeast(0)
+                                val y = scope.subTopOffsetPx.coerceIn(0, maxY)
+                                layout(placeable.width, y + placeable.height) { placeable.place(0, y) }
+                            }
+                        ) {
+                            Column(Modifier.menuPanel(slot.width, DesktopColors.PopupSurface)) { slot.content.value() }
+                        }
+                    }
                 }
             }
+            // 左侧预留位始终占住二级菜单的宽度，主菜单位置不随二级菜单展开收起而移动
+            if (scope.subOnLeft) {
+                Box(
+                    Modifier.layout { measurable, constraints ->
+                        val reserved = scope.subWidth.roundToPx()
+                        val placeable = measurable.measure(constraints.copy(minWidth = reserved, maxWidth = reserved))
+                        layout(reserved, placeable.height) { placeable.place(0, 0) }
+                    },
+                    contentAlignment = Alignment.TopEnd
+                ) { subPanel() }
+            }
+            Column(
+                Modifier.onSizeChanged { scope.mainHeightPx = it.height }
+                    .onGloballyPositioned { scope.mainTopPx = it.positionInWindow().y }
+                    .menuPanel(width, DesktopColors.PopupSurface)
+            ) { scope.content() }
+            if (!scope.subOnLeft) subPanel()
         }
     }
 }
 
-private fun Modifier.menuPanel(width: Dp): Modifier =
-    this.width(width).shadow(PanelElevation, MenuShape).background(DesktopColors.PopupSurface, MenuShape)
+@Composable
+private fun Modifier.menuPanel(width: Dp, background: Color): Modifier =
+    this.width(width).themedShadow(PanelElevation, MenuShape).background(background, MenuShape).floatingOutline(MenuShape)
         .padding(horizontal = 4.dp, vertical = PanelVerticalPadding)
 
 // 面板左上角落在 锚点左边缘 + offset.x、锚点下边缘 + offset.y，放不下时翻转；
@@ -157,18 +198,25 @@ private class MenuPositionProvider(
             val margin = PanelShadowMargin.roundToPx()
             val hasSub = scope.subWidth > 0.dp
             val subExtra = if (hasSub) (PanelGap + scope.subWidth).roundToPx() else 0
-            val panelWidth = maxOf(popupContentSize.width - 2 * margin, menuWidth.roundToPx() + subExtra)
+            val mainWidth = menuWidth.roundToPx()
             val panelHeight = if (scope.mainHeightPx > 0) scope.mainHeightPx else popupContentSize.height - 2 * margin
             val offsetX = offset.x.roundToPx()
             val offsetY = offset.y.roundToPx()
             val verticalMargin = ScreenMargin.roundToPx()
 
-            val horizontal = listOf(
-                anchorBounds.left + offsetX,
-                anchorBounds.right - panelWidth - offsetX,
-                windowSize.width - panelWidth
-            )
-            val x = horizontal.firstOrNull { it >= 0 && it + panelWidth <= windowSize.width } ?: horizontal.last()
+            // 优先与锚点左缘对齐、二级菜单在右；放不下则与锚点右缘对齐、二级菜单在左
+            val leftAligned = anchorBounds.left + offsetX
+            val rightAligned = anchorBounds.right - mainWidth - offsetX
+            var subOnLeft = false
+            val x = when {
+                leftAligned >= 0 && leftAligned + mainWidth + subExtra <= windowSize.width -> leftAligned
+                rightAligned - subExtra >= 0 && rightAligned + mainWidth <= windowSize.width -> {
+                    subOnLeft = hasSub
+                    rightAligned
+                }
+                else -> (windowSize.width - mainWidth - subExtra).coerceAtLeast(0)
+            }
+            if (scope.subOnLeft != subOnLeft) scope.subOnLeft = subOnLeft
             // offset.y 为负是锚点内的点击位置，向上翻转时底边贴着该点，否则贴着锚点上沿
             val flippedBottom = if (offsetY < 0) anchorBounds.bottom + offsetY else anchorBounds.top
             val vertical = listOf(
@@ -179,7 +227,7 @@ private class MenuPositionProvider(
             val y = vertical.firstOrNull { it >= verticalMargin && it + panelHeight <= windowSize.height - verticalMargin }
                 ?: vertical[1].coerceAtLeast(verticalMargin)
             if (hasSub) scope.subMaxHeightPx = windowSize.height - y - verticalMargin
-            IntOffset(x - margin, y - margin)
+            IntOffset(x - margin - if (subOnLeft) subExtra else 0, y - margin)
         }
         lockedKey = key
         lockedPosition = position
@@ -217,8 +265,12 @@ fun MenuScope.SubMenuItem(
     if (width > subWidth) subWidth = width
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
+    val itemTop = remember { FloatArray(1) }
+    val panelPaddingPx = with(LocalDensity.current) { PanelVerticalPadding.toPx() }
     val open = {
         if (activeSub !== slot) {
+            // 二级面板与主面板的上内边距相同，减去后两边的首个条目对齐
+            subTopOffsetPx = (itemTop[0] - mainTopPx - panelPaddingPx).roundToInt().coerceAtLeast(0)
             activeSub = slot
             onOpen()
         }
@@ -232,7 +284,7 @@ fun MenuScope.SubMenuItem(
         highlighted = hovered || activeSub === slot,
         source = source,
         onClick = open,
-        modifier = modifier,
+        modifier = modifier.onGloballyPositioned { itemTop[0] = it.positionInWindow().y },
         trailing = {
             Icon(Icons.Rounded.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
         }
@@ -254,7 +306,8 @@ private fun MenuRow(
     source: MutableInteractionSource,
     onClick: () -> Unit,
     modifier: Modifier,
-    trailing: (@Composable () -> Unit)?
+    trailing: (@Composable () -> Unit)?,
+    leading: (@Composable () -> Unit)? = null
 ) {
     val color = if (danger) DangerColor else DesktopColors.TextPrimary
     Row(
@@ -268,6 +321,9 @@ private fun MenuRow(
     ) {
         if (icon != null) {
             Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(10.dp))
+        } else if (leading != null) {
+            leading()
             Spacer(Modifier.width(10.dp))
         }
         Text(text, color = color, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -285,9 +341,11 @@ fun SimpleMenuItem(
     danger: Boolean = false,
     selected: Boolean = false,
     enabled: Boolean = true,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    // 非图标的前置内容，如颜色色块；与 icon 同时传入时以 icon 为准
+    leading: (@Composable () -> Unit)? = null
 ) {
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
-    MenuRow(text, icon, danger, enabled, hovered || selected, source, onClick, modifier, trailing)
+    MenuRow(text, icon, danger, enabled, hovered || selected, source, onClick, modifier, trailing, leading)
 }
