@@ -2,6 +2,8 @@ package com.lin0721.linmusic.desktop.player
 
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.nextPlayMode
+import com.lin0721.linmusic.core.player.nextRepeatMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -54,6 +56,7 @@ class SilentPlaybackController : DesktopPlaybackController {
     private val _currentIndex = MutableStateFlow(-1)
     override val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
 
+    private var modeBeforeShuffle: PlayMode = PlayMode.LIST_LOOP
     private val _playMode = MutableStateFlow(PlayMode.LIST_LOOP)
     override val playMode: StateFlow<PlayMode> = _playMode.asStateFlow()
 
@@ -184,19 +187,23 @@ class SilentPlaybackController : DesktopPlaybackController {
     }
 
     override fun toggleShuffle() {
-        _playMode.value = if (_playMode.value == PlayMode.SHUFFLE) PlayMode.LIST_LOOP else PlayMode.SHUFFLE
+        if (_playMode.value == PlayMode.SHUFFLE) {
+            _playMode.value = modeBeforeShuffle
+        } else {
+            modeBeforeShuffle = _playMode.value
+            _playMode.value = PlayMode.SHUFFLE
+        }
     }
 
     override fun toggleRepeat() {
-        _playMode.value = if (_playMode.value == PlayMode.SINGLE_LOOP) PlayMode.LIST_LOOP else PlayMode.SINGLE_LOOP
+        val mode = _playMode.value
+        _playMode.value = if (mode == PlayMode.SHUFFLE) modeBeforeShuffle else mode.nextRepeatMode()
     }
 
     override fun rotatePlayMode() {
-        _playMode.value = when (_playMode.value) {
-            PlayMode.LIST_LOOP -> PlayMode.SINGLE_LOOP
-            PlayMode.SINGLE_LOOP -> PlayMode.SHUFFLE
-            PlayMode.SHUFFLE -> PlayMode.LIST_LOOP
-        }
+        val next = _playMode.value.nextPlayMode()
+        if (next != PlayMode.SHUFFLE) modeBeforeShuffle = next
+        _playMode.value = next
     }
 
     override fun pause() {

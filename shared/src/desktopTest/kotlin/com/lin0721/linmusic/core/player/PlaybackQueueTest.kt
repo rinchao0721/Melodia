@@ -56,6 +56,48 @@ class PlaybackQueueTest {
         assertEquals(1L, queue.nextItemByMode()?.songId)
     }
 
+    @Test
+    fun `顺序播放未到队尾时正常取下一首`() {
+        val queue = queueOf(1, 2, 3, startIndex = 1)
+        queue.setPlayMode(PlayMode.SEQUENCE)
+        assertFalse(queue.isAtLast)
+        assertEquals(3L, queue.nextItemByMode()?.songId)
+    }
+
+    @Test
+    fun `顺序播放到队尾不再续播`() {
+        val queue = queueOf(1, 2, 3, startIndex = 2)
+        queue.setPlayMode(PlayMode.SEQUENCE)
+        assertTrue(queue.isAtLast)
+        assertNull(queue.nextItemByMode())
+    }
+
+    @Test
+    fun `切到顺序播放会还原原始顺序并保留当前曲目`() {
+        val queue = queueOf(1, 2, 3, 4)
+        queue.applyMode(PlayMode.SHUFFLE, queue.currentItem())
+        val current = queue.currentItem()!!
+        queue.applyMode(PlayMode.SEQUENCE, current)
+        assertEquals(listOf(1L, 2L, 3L, 4L), queue.ids())
+        assertEquals(current.songId, queue.currentItem()?.songId)
+        assertEquals(PlayMode.SEQUENCE, queue.playMode.value)
+    }
+
+    @Test
+    fun `循环按钮在顺序列表单曲之间轮转`() {
+        assertEquals(PlayMode.LIST_LOOP, PlayMode.SEQUENCE.nextRepeatMode())
+        assertEquals(PlayMode.SINGLE_LOOP, PlayMode.LIST_LOOP.nextRepeatMode())
+        assertEquals(PlayMode.SEQUENCE, PlayMode.SINGLE_LOOP.nextRepeatMode())
+    }
+
+    @Test
+    fun `播放模式完整轮转包含随机`() {
+        assertEquals(PlayMode.LIST_LOOP, PlayMode.SEQUENCE.nextPlayMode())
+        assertEquals(PlayMode.SINGLE_LOOP, PlayMode.LIST_LOOP.nextPlayMode())
+        assertEquals(PlayMode.SHUFFLE, PlayMode.SINGLE_LOOP.nextPlayMode())
+        assertEquals(PlayMode.SEQUENCE, PlayMode.SHUFFLE.nextPlayMode())
+    }
+
     // ======================= 移除 =======================
 
     @Test

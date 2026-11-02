@@ -3,7 +3,22 @@ package com.lin0721.linmusic.core.player
 import com.lin0721.linmusic.core.source.ExternalTrack
 import kotlinx.serialization.Serializable
 
-enum class PlayMode { LIST_LOOP, SINGLE_LOOP, SHUFFLE }
+enum class PlayMode { SEQUENCE, LIST_LOOP, SINGLE_LOOP, SHUFFLE }
+
+// 循环按钮的轮转：顺序 → 列表循环 → 单曲循环 → 顺序（随机由独立的随机按钮切换）
+fun PlayMode.nextRepeatMode(): PlayMode = when (this) {
+    PlayMode.SEQUENCE, PlayMode.SHUFFLE -> PlayMode.LIST_LOOP
+    PlayMode.LIST_LOOP -> PlayMode.SINGLE_LOOP
+    PlayMode.SINGLE_LOOP -> PlayMode.SEQUENCE
+}
+
+// 通知栏「播放模式」动作的完整轮转：顺序 → 列表循环 → 单曲循环 → 随机 → 顺序
+fun PlayMode.nextPlayMode(): PlayMode = when (this) {
+    PlayMode.SEQUENCE -> PlayMode.LIST_LOOP
+    PlayMode.LIST_LOOP -> PlayMode.SINGLE_LOOP
+    PlayMode.SINGLE_LOOP -> PlayMode.SHUFFLE
+    PlayMode.SHUFFLE -> PlayMode.SEQUENCE
+}
 
 @Serializable
 data class QueueItem(

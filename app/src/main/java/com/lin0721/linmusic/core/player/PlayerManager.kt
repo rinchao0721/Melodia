@@ -166,6 +166,9 @@ class PlayerManager(
     private var moveSaveJob: Job? = null
     private var consecutiveErrors = 0
 
+    // 随机是独立开关：记录进入随机前的循环模式，关闭随机时原样恢复
+    private var modeBeforeShuffle: PlayMode = PlayMode.LIST_LOOP
+
     // 滑动切歌手势撤销窗口：记录最近一次 fetchUrlAndPlay 之前的队列位置，playItem 真正调用前有效
     private var pendingSkipFromIndex: Int? = null
 
@@ -420,6 +423,11 @@ class PlayerManager(
 
     override fun playNext() {
         if (playbackQueue.isEmpty) return
+        // 顺序播放没有下一首时停在队尾，手动点下一首也不回绕
+        if (playbackQueue.playMode.value == PlayMode.SEQUENCE && playbackQueue.isAtLast) {
+            stopAtQueueEnd()
+            return
+        }
         consecutiveErrors = 0
         fetchUrlAndPlay(playbackQueue.nextIndex())
     }
@@ -465,33 +473,29 @@ class PlayerManager(
     }
 
     override fun toggleShuffle() {
-        val currentItem = playbackQueue.currentItem()
-        when (playbackQueue.playMode.value) {
-            PlayMode.SHUFFLE -> applyMode(PlayMode.LIST_LOOP, currentItem)
-            else -> applyMode(PlayMode.SHUFFLE, currentItem)
+        // 随机是独立开关，关掉时回到进入随机前的循环模式，而不是固定回列表循环
+        val target = if (playbackQueue.playMode.value == PlayMode.SHUFFLE) {
+            modeBeforeShuffle
+        } else {
+            PlayMode.SHUFFLE
         }
+        applyMode(target, playbackQueue.currentItem())
     }
 
+    // 循环按钮：顺序 → 列表循环 → 单曲循环；随机态下点它先退出随机
     override fun toggleRepeat() {
-        val currentItem = playbackQueue.currentItem()
-        when (playbackQueue.playMode.value) {
-            PlayMode.LIST_LOOP -> applyMode(PlayMode.SINGLE_LOOP, currentItem)
-            PlayMode.SINGLE_LOOP -> applyMode(PlayMode.LIST_LOOP, currentItem)
-            PlayMode.SHUFFLE -> applyMode(PlayMode.SINGLE_LOOP, currentItem)
-        }
+        val mode = playbackQueue.playMode.value
+        val target = if (mode == PlayMode.SHUFFLE) modeBeforeShuffle else mode.nextRepeatMode()
+        applyMode(target, playbackQueue.currentItem())
     }
 
+    // 通知栏「播放模式」：顺序 → 列表循环 → 单曲循环 → 随机，四态完整轮转
     override fun rotatePlayMode() {
-        val currentItem = playbackQueue.currentItem()
-        val nextMode = when (playbackQueue.playMode.value) {
-            PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
-            PlayMode.SHUFFLE -> PlayMode.SINGLE_LOOP
-            PlayMode.SINGLE_LOOP -> PlayMode.LIST_LOOP
-        }
-        applyMode(nextMode, currentItem)
+        applyMode(playbackQueue.playMode.value.nextPlayMode(), playbackQueue.currentItem())
     }
 
     private fun applyMode(newMode: PlayMode, currentItem: QueueItem?) {
+        if (newMode != PlayMode.SHUFFLE) modeBeforeShuffle = newMode
         playbackQueue.applyMode(newMode, currentItem)
         controllerHolder.setRepeatMode(newMode)
         stateStore.savePlayMode(newMode)
@@ -516,6 +520,8 @@ class PlayerManager(
     override fun resume() {
         _playWhenReady.value = true
         externalInterruptionResumeController.onExplicitUserPlay()
+        // 顺序播放停在队尾时播放器处于 ENDED，直接 play() 不会重放，先回到开头
+        if (controllerHolder.isEnded) controllerHolder.seekTo(0)
         controllerHolder.play()
     }
 
@@ -551,7 +557,12 @@ class PlayerManager(
             }
             _playWhenReady.value = true
             val indexToPlay = playbackQueue.currentIndex.value.coerceAtLeast(0)
-            fetchUrlAndPlay(indexToPlay, progress.currentPosition.value)
+            // 顺序播放停在队尾时位置等于时长，直接从这里起播会立刻再次结束，改为从头开始
+            val startPosition = progress.currentPosition.value.let { position ->
+                val duration = progress.duration.value
+                if (duration > 0 && position >= duration - 1_000L) 0L else position
+            }
+            fetchUrlAndPlay(indexToPlay, startPosition)
             return
         }
         if (_isPlaying.value) pause() else resume()
@@ -915,6 +926,11 @@ class PlayerManager(
     // 歌曲自然播完时自动切下一首，优先使用预取缓存实现无缝衔接
     private fun playNextOnEnded() {
         if (playbackQueue.isEmpty) return
+        // 顺序播放没有下一首时停在队尾，不自动续播（列表循环/随机仍按 nextIndex 回绕）
+        if (playbackQueue.playMode.value == PlayMode.SEQUENCE && playbackQueue.isAtLast) {
+            stopAtQueueEnd()
+            return
+        }
         consecutiveErrors = 0
         val nextIndex = playbackQueue.nextIndex()
         val nextItem = playbackQueue.itemAt(nextIndex)
@@ -967,8 +983,19 @@ class PlayerManager(
         }
     }
 
+    // 顺序播放播到队尾：停在当前曲目末尾，再次播放时由 resume/togglePlayPause 从头重放
+    private fun stopAtQueueEnd() {
+        AppLogger.i(TAG, "顺序播放已到队尾，停止续播")
+        _playWhenReady.value = false
+        controllerHolder.pause()
+        saveState()
+    }
+
     private fun canAutoCrossfade(): Boolean =
-        crossfadeEnabled && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP && playbackQueue.size > 1
+        crossfadeEnabled &&
+            playbackQueue.playMode.value != PlayMode.SINGLE_LOOP &&
+            !(playbackQueue.playMode.value == PlayMode.SEQUENCE && playbackQueue.isAtLast) &&
+            playbackQueue.size > 1
 
     // 下一首的可解码音频：本地 > 已下载 > 预取到的在线链接
     private suspend fun nextTrackSourceUri(nextItem: QueueItem): String? =

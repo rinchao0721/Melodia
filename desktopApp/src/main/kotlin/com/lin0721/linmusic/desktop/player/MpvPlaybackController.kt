@@ -6,6 +6,8 @@ import com.lin0721.linmusic.core.player.LoudnessPolicy
 import com.lin0721.linmusic.core.player.LoudnessStore
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.nextPlayMode
+import com.lin0721.linmusic.core.player.nextRepeatMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackPreferences
@@ -153,6 +155,9 @@ class MpvPlaybackController(
 
     private var playJob: Job? = null
     private var consecutiveFailures = 0
+
+    // 随机是独立开关：记录进入随机前的循环模式
+    private var modeBeforeShuffle: PlayMode = PlayMode.LIST_LOOP
 
     // mpv 已载入的曲目；冷启动恢复出的曲目只有元数据，首次播放时才取地址载入
     private var loadedSongId: Long? = null
@@ -432,24 +437,23 @@ class MpvPlaybackController(
     }
 
     override fun toggleShuffle() {
-        applyMode(if (playbackQueue.playMode.value == PlayMode.SHUFFLE) PlayMode.LIST_LOOP else PlayMode.SHUFFLE)
+        // 与 Android 一致：关闭随机时回到进入随机前的循环模式
+        applyMode(if (playbackQueue.playMode.value == PlayMode.SHUFFLE) modeBeforeShuffle else PlayMode.SHUFFLE)
     }
 
+    // 循环按钮：顺序 → 列表循环 → 单曲循环；随机态下先退出随机
     override fun toggleRepeat() {
-        applyMode(if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP) PlayMode.LIST_LOOP else PlayMode.SINGLE_LOOP)
+        val mode = playbackQueue.playMode.value
+        applyMode(if (mode == PlayMode.SHUFFLE) modeBeforeShuffle else mode.nextRepeatMode())
     }
 
+    // 播放模式按钮：顺序 → 列表循环 → 单曲循环 → 随机，四态完整轮转
     override fun rotatePlayMode() {
-        applyMode(
-            when (playbackQueue.playMode.value) {
-                PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
-                PlayMode.SHUFFLE -> PlayMode.SINGLE_LOOP
-                PlayMode.SINGLE_LOOP -> PlayMode.LIST_LOOP
-            }
-        )
+        applyMode(playbackQueue.playMode.value.nextPlayMode())
     }
 
     private fun applyMode(mode: PlayMode) {
+        if (mode != PlayMode.SHUFFLE) modeBeforeShuffle = mode
         playbackQueue.applyMode(mode, playbackQueue.currentItem())
         stateStore.savePlayMode(mode)
         saveQueueState()
@@ -467,6 +471,11 @@ class MpvPlaybackController(
         // 恢复出的曲目尚未载入，按记录的进度取地址起播
         if (current != null && loadedSongId != current.songId) {
             playIndex(playbackQueue.currentIndex.value, _currentPosition.value)
+            return
+        }
+        // 顺序播放停在队尾后再次播放：位置等于时长，需要从头重放
+        if (_duration.value > 0L && _currentPosition.value >= _duration.value - 1_000L) {
+            playIndex(playbackQueue.currentIndex.value, 0L)
             return
         }
         _playWhenReady.value = true
@@ -808,14 +817,17 @@ class MpvPlaybackController(
         nextIndex(fromUser = true)?.let { playIndex(it) }
     }
 
-    // 单曲循环仅在自然播完时重播本曲，手动切歌照常前进；随机顺序已由队列打乱
+    // 单曲循环仅在自然播完时重播本曲，手动切歌照常前进；顺序播放播到队尾返回 null 表示停止
     private fun nextIndex(fromUser: Boolean): Int? {
         if (playbackQueue.isEmpty) return null
-        return if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP && !fromUser) {
-            playbackQueue.currentIndex.value.coerceAtLeast(0)
-        } else {
-            playbackQueue.nextIndex()
+        if (!fromUser) {
+            when (playbackQueue.playMode.value) {
+                PlayMode.SINGLE_LOOP -> return playbackQueue.currentIndex.value.coerceAtLeast(0)
+                PlayMode.SEQUENCE -> return if (playbackQueue.isAtLast) null else playbackQueue.currentIndex.value + 1
+                else -> Unit
+            }
         }
+        return playbackQueue.nextIndex()
     }
 
     private fun saveQueueState() {

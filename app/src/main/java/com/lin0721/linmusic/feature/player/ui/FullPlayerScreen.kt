@@ -659,6 +659,7 @@ private fun FullPlayerScreenContent(
             onCancelSkip = viewModel.playerManager::cancelPendingSkip,
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
+            onCyclePlayMode = viewModel.playerManager::rotatePlayMode,
             onOutputDeviceClick = { showOutputDeviceSheet = true },
             onQueueClick = { showQueueSheet = true },
             onShareClick = { shareCurrentSong() },
@@ -798,6 +799,7 @@ private fun FullPlayerScreenContent(
                         onPlayPrevious = viewModel.playerManager::playPrevious,
                         onToggleShuffle = viewModel.playerManager::toggleShuffle,
                         onToggleRepeat = viewModel.playerManager::toggleRepeat,
+                        onCyclePlayMode = viewModel.playerManager::rotatePlayMode,
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
@@ -940,10 +942,15 @@ private fun FullPlayerScreenContent(
                         isRoaming = playContext == "similar_roaming",
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         isIntelligence = playContext == "intelligence",
-                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
-                        showModeButtons = !podcast.isPodcast
+                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() }
                     )
                     ActionButtons(
+                        playMode = playMode,
+                        onCyclePlayMode = viewModel.playerManager::rotatePlayMode,
+                        isRoaming = playContext == "similar_roaming",
+                        onDisableRoaming = { viewModel.playerManager.disableRoaming() },
+                        isIntelligence = playContext == "intelligence",
+                        onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },

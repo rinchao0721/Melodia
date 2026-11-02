@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.MoreVert
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_MODE
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -33,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 @Composable
 fun PlayerActionRow(
     buttons: List<String>,
+    playMode: PlayMode,
+    onCyclePlayMode: () -> Unit,
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -48,6 +54,15 @@ fun PlayerActionRow(
     ) {
         buttons.forEach { button ->
             when (button) {
+                // 播放模式：图标随模式变化，点击在 顺序 → 列表循环 → 单曲循环 → 随机 之间轮转
+                CONTROL_PLAY_MODE -> MelodiaIconButton(onClick = onCyclePlayMode) {
+                    Icon(
+                        playMode.modeIcon(),
+                        contentDescription = playMode.modeLabel(),
+                        tint = if (playMode != PlayMode.LIST_LOOP) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 "device" -> MelodiaIconButton(onClick = onOutputDeviceClick) {
                     Icon(
                         connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup,
@@ -77,9 +92,16 @@ fun PlayerActionRow(
 // connectedDevice 非空时说明当前连着非扬声器设备（有线/蓝牙），图标换类型、变主题色，并在图标后显示设备名；扬声器播放时保持默认
 @Composable
 fun ActionButtons(
+    playMode: PlayMode,
+    onCyclePlayMode: () -> Unit,
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
+    // 漫游/心动模式没有对应的 PlayMode，按下模式键时用来退出该模式
+    isRoaming: Boolean = false,
+    onDisableRoaming: () -> Unit = {},
+    isIntelligence: Boolean = false,
+    onDisableIntelligence: () -> Unit = {},
     connectedDevice: AudioDeviceInfo? = null,
     // 实际音质短标签，为空时不显示
     qualityLabel: String? = null,
@@ -134,6 +156,32 @@ fun ActionButtons(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)
             ) {
+                // 播放模式：图标随模式变化，点击在 顺序 → 列表循环 → 单曲循环 → 随机 之间轮转
+                val modeHighlighted = isRoaming || isIntelligence || playMode != PlayMode.LIST_LOOP
+                MelodiaIconButton(
+                    onClick = {
+                        when {
+                            isRoaming -> onDisableRoaming()
+                            isIntelligence -> onDisableIntelligence()
+                            else -> onCyclePlayMode()
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = when {
+                            isRoaming -> Icons.Rounded.AllInclusive
+                            isIntelligence -> Icons.Rounded.AutoAwesome
+                            else -> playMode.modeIcon()
+                        },
+                        contentDescription = when {
+                            isRoaming -> "关闭相似歌曲漫游"
+                            isIntelligence -> "关闭心动模式"
+                            else -> playMode.modeLabel()
+                        },
+                        tint = if (modeHighlighted) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 if (showLyricsControls) {
                     val hasAnySecondary = hasTranslation || hasRoma
                     val (badgeText, badgeSub) = when (secondaryMode) {

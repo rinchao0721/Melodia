@@ -31,8 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
@@ -818,13 +816,17 @@ fun FullScreenControls(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
+                    .background(
+                        if (playMode == PlayMode.SHUFFLE) MelodiaColors.Accent.copy(alpha = 0.16f)
+                        else Color.Transparent
+                    )
                     .pressable(MelodiaPress.Icon) { onToggleShuffle() },
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
-                    contentDescription = null,
-                    tint = if (playMode == PlayMode.SHUFFLE) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentDescription = if (playMode == PlayMode.SHUFFLE) "关闭随机播放" else "随机播放",
+                    tint = if (playMode == PlayMode.SHUFFLE) MelodiaColors.Accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -893,17 +895,21 @@ fun FullScreenControls(
                 }
             }
 
+            val modeActive = playMode != PlayMode.LIST_LOOP && playMode != PlayMode.SHUFFLE
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
+                    .background(
+                        if (modeActive) MelodiaColors.Accent.copy(alpha = 0.16f) else Color.Transparent
+                    )
                     .pressable(MelodiaPress.Icon) { onToggleRepeat() },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
-                    imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                    contentDescription = null,
-                    tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    imageVector = playMode.modeIcon(),
+                    contentDescription = playMode.modeLabel(),
+                    tint = if (modeActive) MelodiaColors.Accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(26.dp)
                 )
             }

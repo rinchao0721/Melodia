@@ -133,14 +133,24 @@ class SilentPlaybackControllerTest {
     fun playModesRotateAndToggle() {
         val controller = SilentPlaybackController()
 
+        // 模式按钮轮转：列表循环 → 单曲循环 → 顺序 → 列表循环 → 单曲循环 → 随机 → 顺序
         controller.rotatePlayMode()
         assertEquals(PlayMode.SINGLE_LOOP, controller.playMode.value)
         controller.toggleRepeat()
-        assertEquals(PlayMode.LIST_LOOP, controller.playMode.value)
-        controller.toggleShuffle()
-        assertEquals(PlayMode.SHUFFLE, controller.playMode.value)
+        assertEquals(PlayMode.SEQUENCE, controller.playMode.value)
         controller.rotatePlayMode()
         assertEquals(PlayMode.LIST_LOOP, controller.playMode.value)
+        controller.rotatePlayMode()
+        controller.rotatePlayMode()
+        assertEquals(PlayMode.SHUFFLE, controller.playMode.value)
+        controller.rotatePlayMode()
+        assertEquals(PlayMode.SEQUENCE, controller.playMode.value)
+
+        // 随机开关记忆：开启随机后关闭，回到进入随机前的模式
+        controller.toggleShuffle()
+        assertEquals(PlayMode.SHUFFLE, controller.playMode.value)
+        controller.toggleShuffle()
+        assertEquals(PlayMode.SEQUENCE, controller.playMode.value)
     }
 
     @Test

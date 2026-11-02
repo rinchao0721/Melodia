@@ -68,6 +68,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onPlayPrevious: () -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
+    onCyclePlayMode: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
     onOutputDeviceClick: () -> Unit,
@@ -178,8 +179,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
             isRoaming = playContext == "similar_roaming",
             onDisableRoaming = onDisableRoaming,
             isIntelligence = playContext == "intelligence",
-            onDisableIntelligence = onDisableIntelligence,
-            showModeButtons = !podcast.isPodcast
+            onDisableIntelligence = onDisableIntelligence
         )
     }
 
@@ -187,6 +187,12 @@ fun LazyListScope.fullPlayerPlaybackSection(
 
     item(key = "actions") {
         ActionButtons(
+            playMode = playMode,
+            onCyclePlayMode = onCyclePlayMode,
+            isRoaming = playContext == "similar_roaming",
+            onDisableRoaming = onDisableRoaming,
+            isIntelligence = playContext == "intelligence",
+            onDisableIntelligence = onDisableIntelligence,
             onOutputDeviceClick = onOutputDeviceClick,
             onQueueClick = onQueueClick,
             onShareClick = onShareClick,

@@ -208,10 +208,15 @@ enum class PlayerLayoutArea(
 }
 
 private val CONTAINERS = setOf(LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX)
-private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more")
+// 播放模式按钮和分享/队列/输出设备放在同一行，避免控制行挤爆
+private val ANDROID_ACTIONS = listOf(CONTROL_PLAY_MODE, "device", "queue", "share", "quality", "more")
 
 const val CONTROL_PLAY_PAUSE = "playPause"
-val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
+// 合并后的播放模式按钮：点击在 顺序播放 → 列表循环 → 单曲循环 → 随机播放 之间轮转
+const val CONTROL_PLAY_MODE = "playMode"
+// 控制行只放传输键：5 个按钮在 300dp 宽（大字号/高密度）的屏幕上会挤到屏幕外，
+// 模式按钮统一搬到下方操作行；shuffle / repeat 仍保留给旧版自定义布局，渲染端继续兼容
+val CONTROL_BUTTONS = listOf("previous", CONTROL_PLAY_PAUSE, "next")
 
 sealed interface PlayerLayoutParseResult {
     data class Success(val root: PlayerLayoutNode, val warnings: List<String>) : PlayerLayoutParseResult

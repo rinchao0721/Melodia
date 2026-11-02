@@ -58,6 +58,7 @@ class FullPlayerLayoutParts(
     val onCancelSkip: () -> Boolean,
     val onToggleShuffle: () -> Unit,
     val onToggleRepeat: () -> Unit,
+    val onCyclePlayMode: () -> Unit,
     val onOutputDeviceClick: () -> Unit,
     val onQueueClick: () -> Unit,
     val onShareClick: () -> Unit,
@@ -121,6 +122,7 @@ class FullPlayerLayoutParts(
                 onPlayPrevious = onPlayPrevious,
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
+                onCyclePlayMode = onCyclePlayMode,
                 playMode = playMode,
                 showModeButtons = !podcast.isPodcast,
                 modifier = modifier,
@@ -128,6 +130,8 @@ class FullPlayerLayoutParts(
             )
             LayoutNodeType.ACTIONS -> PlayerActionRow(
                 buttons = node.buttons,
+                playMode = playMode,
+                onCyclePlayMode = onCyclePlayMode,
                 onOutputDeviceClick = onOutputDeviceClick,
                 onQueueClick = onQueueClick,
                 onShareClick = onShareClick,

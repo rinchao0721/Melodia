@@ -593,9 +593,7 @@ private fun PlayModeInfoRow(
         val (icon, label) = when {
             isRoaming -> Icons.Rounded.AllInclusive to "相似歌曲漫游"
             isIntelligence -> Icons.Rounded.AutoAwesome to "心动模式"
-            playMode == PlayMode.LIST_LOOP -> Icons.Default.Repeat to "列表循环"
-            playMode == PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne to "单曲循环"
-            else -> Icons.Default.Shuffle to "随机播放"
+            else -> playMode.modeIcon() to playMode.modeLabel()
         }
         Row(
             modifier = Modifier

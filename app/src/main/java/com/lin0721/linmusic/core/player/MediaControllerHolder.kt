@@ -67,6 +67,9 @@ class MediaControllerHolder(private val context: Context) {
         }
     }
 
+    // 顺序播放播完队尾后播放器停在 ENDED，用于再次播放时决定是否需要先回到开头
+    val isEnded: Boolean get() = controller?.playbackState == Player.STATE_ENDED
+
     fun setRepeatMode(mode: PlayMode) {
         controller?.repeatMode = if (mode == PlayMode.SINGLE_LOOP)
             Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
