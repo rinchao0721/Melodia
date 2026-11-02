@@ -58,6 +58,7 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
+    val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
     val pluginRepository = koinInject<PluginRepository>()
 
@@ -209,6 +210,13 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "关闭后切页、面板展开收起等直接切换，不影响歌词滚动",
                         checked = uiAnimationsEnabled,
                         onCheckedChange = { viewModel.updateUiAnimationsEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "歌单显示序号",
+                        subtitle = "在歌单和推荐歌曲的每首歌前显示序号",
+                        checked = playlistTrackIndexEnabled,
+                        onCheckedChange = { viewModel.updatePlaylistTrackIndexEnabled(it) }
                     )
                 }
             }

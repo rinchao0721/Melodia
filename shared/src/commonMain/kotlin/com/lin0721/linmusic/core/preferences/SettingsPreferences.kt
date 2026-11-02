@@ -134,6 +134,8 @@ class SettingsPreferences(
         private val KEY_ALLOW_PRERELEASE_CHANNEL = booleanPreferencesKey("allow_prerelease_channel")
         // 界面过渡动画开关，默认 true；不影响歌词与音频淡入淡出
         private val KEY_UI_ANIMATIONS_ENABLED = booleanPreferencesKey("ui_animations_enabled")
+        // 歌单与推荐歌曲显示序号，默认 false
+        private val KEY_PLAYLIST_TRACK_INDEX_ENABLED = booleanPreferencesKey("playlist_track_index_enabled")
         // 用户主动忽略的更新版本 tag，默认空串表示未忽略任何版本
         private val KEY_IGNORED_UPDATE_TAG = stringPreferencesKey("ignored_update_tag")
         // 全屏歌词字体大小，默认 22sp
@@ -696,6 +698,17 @@ class SettingsPreferences(
     suspend fun saveUiAnimationsEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_UI_ANIMATIONS_ENABLED] = enabled
+        }
+    }
+
+    // 歌单序号开关 Flow
+    val playlistTrackIndexEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] ?: false
+    }
+
+    suspend fun savePlaylistTrackIndexEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PLAYLIST_TRACK_INDEX_ENABLED] = enabled
         }
     }
 

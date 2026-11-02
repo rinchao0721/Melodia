@@ -35,7 +35,8 @@ fun LazyListScope.playlistRecommendItems(
     isPlaying: Boolean,
     onRefreshRecommendations: () -> Unit,
     onPlaySong: (Track) -> Unit,
-    onAddRecommendSong: (Track) -> Unit
+    onAddRecommendSong: (Track) -> Unit,
+    showIndex: Boolean = false
 ) {
     item(key = "recommendation_header") {
         RecommendationHeader(
@@ -53,7 +54,7 @@ fun LazyListScope.playlistRecommendItems(
             ),
             isActive = currentTrackId == track.id.toString(),
             isPlaying = isPlaying,
-            index = index + 1,
+            index = if (showIndex) index + 1 else null,
             copyable = true,
             onClick = { onPlaySong(track) },
             trailingSlot = {
