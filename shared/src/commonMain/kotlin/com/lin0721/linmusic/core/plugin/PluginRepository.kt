@@ -136,9 +136,13 @@ class PluginRepository(
         plugins.filter(::isActive).flatMap { plugin ->
             val manifest = plugin.manifest ?: return@flatMap emptyList()
             manifest.contributes.pages.mapIndexed { index, page ->
-                val active = when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
-                    is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
-                    is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
+                val active = if (page.compose) {
+                    ActivePluginPage(manifest, page, null, null)
+                } else {
+                    when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
+                        is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
+                        is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
+                    }
                 }
                 Extension(ExtensionPoints.PAGE, manifest.id, manifest.name, page.id, active, index)
             }
@@ -159,6 +163,9 @@ class PluginRepository(
                     }
                 }
         }
+
+    fun composePage(pluginId: String, pageId: String): ComposePageExtension? =
+        registry.get(ExtensionPoints.COMPOSE_PAGE).firstOrNull { it.pluginId == pluginId && it.localId == pageId }?.value
 
     // choice 为插件 id、LAYOUT_CHOICE_DEFAULT，或 null 表示按最近启用的插件
     suspend fun chooseLayout(area: PlayerLayoutArea, choice: String?) {

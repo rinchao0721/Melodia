@@ -6,7 +6,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 1
+const val PLUGIN_API_MINOR = 2
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 插件清单 permissions 里的取值，改名会让已发布的插件失效
@@ -100,7 +100,9 @@ data class PluginPage(
     val title: String,
     val icon: String?,
     val ui: PluginUiRef,
-    val placement: PluginPagePlacement
+    val placement: PluginPagePlacement,
+    // 原生插件用 Compose 绘制，没有声明式界面
+    val compose: Boolean = false
 )
 
 data class PluginSourceEntry(val id: String, val name: String)

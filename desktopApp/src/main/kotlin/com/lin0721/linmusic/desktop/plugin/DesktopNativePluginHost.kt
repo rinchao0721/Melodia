@@ -52,13 +52,27 @@ private const val REASON_NOT_ALLOWED = "「允许原生插件」未开启"
 private val BLOCK_REASONS = setOf(REASON_SAFE_MODE, REASON_NOT_ALLOWED)
 
 // 这些类由宿主提供，保证插件与宿主看到的是同一份；其余类只能来自 JDK 或插件自己的 JAR
-private val HOST_PACKAGES = listOf("com.lin0721.linmusic.plugin.api.", "kotlin.", "kotlinx.coroutines.")
+private val HOST_PACKAGES = listOf(
+    "com.lin0721.linmusic.plugin.api.",
+    "kotlin.",
+    "kotlinx.coroutines.",
+    "androidx.compose.",
+    "androidx.collection.",
+    "androidx.lifecycle.",
+    "androidx.savedstate.",
+    "org.jetbrains.compose.",
+    "org.jetbrains.skia.",
+    "org.jetbrains.skiko."
+)
+
+// 图标库体积大，发布版已裁掉，插件要用就自己打进 JAR
+private const val PLUGIN_OWNED_PACKAGE = "androidx.compose.material.icons."
 
 internal class NativePluginClassLoader(jar: File, private val host: ClassLoader) :
     URLClassLoader("melodia-plugin", arrayOf(jar.toURI().toURL()), ClassLoader.getPlatformClassLoader()) {
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> =
-        if (HOST_PACKAGES.any(name::startsWith)) host.loadClass(name) else super.loadClass(name, resolve)
+        if (!name.startsWith(PLUGIN_OWNED_PACKAGE) && HOST_PACKAGES.any(name::startsWith)) host.loadClass(name) else super.loadClass(name, resolve)
 }
 
 private val NATIVE_POINTS: Set<ExtensionPoint<*>> = setOf(
@@ -68,7 +82,8 @@ private val NATIVE_POINTS: Set<ExtensionPoint<*>> = setOf(
     ExtensionPoints.COMMAND,
     ExtensionPoints.CONTENT_SOURCE,
     ExtensionPoints.ACTION,
-    ExtensionPoints.BACKDROP
+    ExtensionPoints.BACKDROP,
+    ExtensionPoints.COMPOSE_PAGE
 )
 
 private class NativeLoadException(message: String, cause: Throwable? = null) : Exception(message, cause)

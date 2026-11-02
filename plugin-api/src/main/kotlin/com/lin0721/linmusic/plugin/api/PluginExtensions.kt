@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.plugin.api
 
+import androidx.compose.runtime.Composable
+
 // id 必须已在清单 contributes 里声明，否则抛 IllegalArgumentException
 interface PluginExtensions {
     fun audioSource(id: String, source: AudioSource)
@@ -15,6 +17,9 @@ interface PluginExtensions {
 
     // API 1.1 起提供
     fun backdropSource(id: String, source: BackdropSource)
+
+    // API 1.2 起提供；对应清单 pages 里 compose 为 true 的页面，在独立的窗口层渲染，出错只影响这个页面
+    fun composePage(id: String, content: @Composable () -> Unit)
 }
 
 // 窗口背景的逐帧来源；帧率与遮罩写在清单 backdrops 里，窗口隐藏时不调用

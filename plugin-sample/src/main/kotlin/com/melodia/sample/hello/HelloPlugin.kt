@@ -21,6 +21,7 @@ class HelloPlugin : MelodiaPlugin {
             }
         })
         context.extensions.backdropSource("aurora", AuroraBackdrop())
+        context.extensions.composePage("counter") { CounterPage() }
         context.scope.launch {
             val starts = (context.storage.get(KEY_STARTS)?.toIntOrNull() ?: 0) + 1
             context.storage.set(KEY_STARTS, starts.toString())

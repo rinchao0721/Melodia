@@ -65,5 +65,18 @@
 -keep class kotlin.** { *; }
 -keep class kotlinx.coroutines.** { *; }
 
+# 原生插件的 Compose 页面要用到这些公开 API；图标库除外，由插件自带
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+-keep class androidx.compose.foundation.** { *; }
+-keep class androidx.compose.animation.** { *; }
+-keep class androidx.compose.material3.** { *; }
+-keep class androidx.compose.material.ripple.** { *; }
+-keep class androidx.collection.** { *; }
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.savedstate.** { *; }
+-keep class org.jetbrains.skia.** { *; }
+-keep class org.jetbrains.skiko.** { *; }
+
 # 音频标签读写：枚举 values() 与帧类型按反射访问，裁剪后静态初始化会失败
 -keep class org.jaudiotagger.** { *; }

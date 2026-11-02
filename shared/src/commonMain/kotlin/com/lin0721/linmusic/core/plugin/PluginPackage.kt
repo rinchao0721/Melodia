@@ -96,7 +96,7 @@ object PluginPackage {
                 is PlayerLayoutParseResult.Success -> layout.warnings.forEach { extra += "${area.label}布局：$it" }
             }
         }
-        manifest.contributes.pages.forEach { page ->
+        manifest.contributes.pages.filterNot { it.compose }.forEach { page ->
             when (val layout = PlayerLayoutParser.loadPage(manifest, page)) {
                 is PlayerLayoutParseResult.Failure -> extra += "页面「${page.title}」无效：${layout.reason}"
                 is PlayerLayoutParseResult.Success -> layout.warnings.forEach { extra += "页面「${page.title}」：$it" }

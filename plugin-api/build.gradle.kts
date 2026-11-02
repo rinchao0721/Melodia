@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.multiplatform)
 }
 
 java {
@@ -15,4 +17,5 @@ kotlin {
 
 dependencies {
     api(libs.kotlinx.coroutines.core)
+    api(compose.runtime)
 }

@@ -61,6 +61,19 @@ class PluginParserTest {
     }
 
     @Test
+    fun `Compose 页面只有原生插件能用，并固定在侧栏`() {
+        val sandbox = contributesV2(""""pages":[{"id":"a","title":"页","compose":true}],"playerLayouts":{"desktop.playerBar":"ui/bar.json"}""")
+        assertTrue(sandbox.manifest.contributes.pages.isEmpty())
+        val page = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0","main":"com.example.Main",
+                "contributes":{"pages":[{"id":"a","title":"页","compose":true,"placement":"nowPlayingCard"}]}}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest.contributes.pages.single()
+        assertTrue(page.compose)
+        assertEquals(PluginPagePlacement.SIDEBAR, page.placement)
+    }
+
+    @Test
     fun `沙盒插件申请 native 权限时被忽略`() {
         val result = parseV2(""","permissions":["native"]""") as PluginParseResult.Success
         assertTrue(PluginPermission.NATIVE !in result.manifest.permissions)

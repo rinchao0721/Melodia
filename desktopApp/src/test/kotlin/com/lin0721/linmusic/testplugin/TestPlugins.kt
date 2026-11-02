@@ -54,4 +54,10 @@ class ProbePlugin : MelodiaPlugin {
     }
 }
 
+class ComposePagePlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.composePage("panel") {}
+    }
+}
+
 class NoInterfacePlugin

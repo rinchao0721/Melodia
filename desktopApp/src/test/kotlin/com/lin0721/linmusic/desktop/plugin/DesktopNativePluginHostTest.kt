@@ -195,6 +195,20 @@ class DesktopNativePluginHostTest {
     }
 
     @Test
+    fun `Compose 页面要在清单声明，卸载时一并注销`() = runBlocking {
+        val declared = install("ComposePagePlugin", extra = ""","pages":[{"id":"panel","title":"面板","compose":true}]""")
+        val undeclared = install("ComposePagePlugin", id = "com.example.undeclared")
+        val host = host()
+        host.sync(listOf(declared, undeclared), allowed = true)
+        assertTrue(host.isActive(declared.id))
+        assertEquals("panel", registry.get(ExtensionPoints.COMPOSE_PAGE).single().localId)
+        assertFalse(host.isActive(undeclared.id))
+        assertTrue(failures.single().second.contains("panel"))
+        host.unload(declared.id)
+        assertTrue(registry.get(ExtensionPoints.COMPOSE_PAGE).isEmpty())
+    }
+
+    @Test
     fun `入口类无效时给出原因`() = runBlocking {
         val missing = install("Missing", id = "com.example.missing")
         val wrong = install("NoInterfacePlugin", id = "com.example.wrong")

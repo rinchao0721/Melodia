@@ -50,14 +50,14 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.1` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.2` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
 ### contributes
 
 - `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`、`desktop.playerBar`、`desktop.nowPlaying`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
-- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）或 `nowPlayingCard`。
+- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）或 `nowPlayingCard`。原生插件可以写 `"compose": true` 代替 `ui`，见「原生插件」一节，这种页面只能放在侧栏。
 - `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
 - `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
@@ -427,9 +427,10 @@ class HelloPlugin : MelodiaPlugin {
 
 完整示例在 `plugin-sample` 模块，`gradlew :plugin-sample:packagePlugin` 生成可导入的包。
 
-- **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库和 kotlinx.coroutines，这些不要打进 `plugin.jar`；其他依赖打进 JAR。应用内部的类对插件不可见。
+- **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库、kotlinx.coroutines 和 Compose（runtime、ui、foundation、animation、material3 与 Skia），这些不要打进 `plugin.jar`；其他依赖打进 JAR，包括 Compose 图标库。应用内部的类对插件不可见。
+- **Compose 页面**：清单写 `{ "id": "panel", "title": "面板", "compose": true }`，代码里调用 `context.extensions.composePage("panel") { ... }`。需要 API 1.2，用与应用相同的 Compose 版本（当前 1.10）编译，Compose 有不兼容升级时 API 主版本会提升。页面在独立的窗口层渲染：出错只影响这个页面，但不继承应用主题，自己铺背景，也盖在应用内的弹层和菜单上方。
 - **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
-- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面用声明式页面，不能写 Compose。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
 - **宿主能力**：`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
 - **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。

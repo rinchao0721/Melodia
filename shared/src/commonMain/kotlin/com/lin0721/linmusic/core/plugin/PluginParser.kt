@@ -211,6 +211,13 @@ object PluginParser {
             val title = item.string("title")?.trim()?.takeIf { it.isNotEmpty() } ?: return@parseEntries null.also {
                 warnings += "页面 $id 缺少标题，已忽略"
             }
+            if ((item["compose"] as? JsonPrimitive)?.booleanOrNull == true) {
+                if (kind != PluginKind.NATIVE) return@parseEntries null.also { warnings += "页面 $id 用了 compose，只有原生插件支持，已忽略" }
+                return@parseEntries PluginPage(
+                    id, title.take(MAX_NAME_LENGTH), item.string("icon")?.trim()?.takeIf { it.isNotEmpty() },
+                    PluginUiRef.Inline(JsonObject(emptyMap())), PluginPagePlacement.SIDEBAR, compose = true
+                )
+            }
             val ui = parseUiRef(item["ui"]) ?: return@parseEntries null.also { warnings += "页面 $id 的界面描述无效，已忽略" }
             val placementKey = item.string("placement")
             val placement = if (placementKey == null) {

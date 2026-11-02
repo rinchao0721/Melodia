@@ -6,11 +6,12 @@
   "version": "1.0.0",
   "author": "Melodia",
   "description": "演示原生插件的命令、播放事件与数据存储",
-  "apiVersion": "1.1",
+  "apiVersion": "1.2",
   "platforms": ["desktop"],
   "main": "com.melodia.sample.hello.HelloPlugin",
   "permissions": ["ui.notify", "playback.read", "storage"],
   "contributes": {
+    "pages": [{ "id": "counter", "title": "计数器", "compose": true }],
     "commands": [{ "id": "hello", "title": "原生插件问好" }],
     "menus": [{ "command": "hello", "location": "toolbar" }],
     "events": ["songChanged"],

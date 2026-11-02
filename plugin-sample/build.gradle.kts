@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.multiplatform)
 }
 
 java {
@@ -16,6 +18,7 @@ kotlin {
 dependencies {
     // 运行时由宿主提供，不打进插件
     compileOnly(project(":plugin-api"))
+    compileOnly(compose.material3)
 }
 
 tasks.jar {

@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.plugin
 
+import androidx.compose.runtime.Composable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ object ExtensionPoints {
     val CONTENT_SOURCE = ExtensionPoint<ContentSourceExtension>("contentSource", ExtensionMerge.ORDERED)
     val ACTION = ExtensionPoint<ActionExtension>("action", ExtensionMerge.ALL)
     val BACKDROP = ExtensionPoint<BackdropExtension>("backdropSource", ExtensionMerge.SINGLE)
+    val COMPOSE_PAGE = ExtensionPoint<ComposePageExtension>("composeSlot", ExtensionMerge.ALL)
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
@@ -71,6 +73,9 @@ interface BackdropExtension {
 
     fun render(width: Int, height: Int, timeMs: Long, pixels: IntArray): Boolean
 }
+
+// 原生插件的 Compose 页面；组合时的异常无法就地捕获，由宿主放进独立窗口层后交给 onError
+class ComposePageExtension(val content: @Composable () -> Unit, val onError: (Throwable) -> Unit)
 
 // pluginId + point + localId 唯一；order 为同一插件内的声明顺序
 data class Extension<T : Any>(

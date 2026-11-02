@@ -1,10 +1,12 @@
 package com.lin0721.linmusic.desktop.plugin
 
+import androidx.compose.runtime.Composable
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.plugin.ActionExtension
 import com.lin0721.linmusic.core.plugin.AudioSourceExtension
 import com.lin0721.linmusic.core.plugin.BackdropExtension
 import com.lin0721.linmusic.core.plugin.CommandExtension
+import com.lin0721.linmusic.core.plugin.ComposePageExtension
 import com.lin0721.linmusic.core.plugin.ContentSourceExtension
 import com.lin0721.linmusic.core.plugin.EventExtension
 import com.lin0721.linmusic.core.plugin.Extension
@@ -185,6 +187,17 @@ internal class NativePluginContext(
                 }
             }
             registry.register(Extension(ExtensionPoints.BACKDROP, pluginId, manifest.name, id, extension, order))
+        }
+
+        override fun composePage(id: String, content: @Composable () -> Unit) {
+            val pages = manifest.contributes.pages.filter { it.compose }
+            val order = indexOf(pages.map { it.id }, id, " Compose 页面")
+            track("composePage:$id")
+            val extension = ComposePageExtension(content) { error ->
+                AppLogger.w(TAG, "[$pluginId] Compose 页面 $id 出错", error)
+                guard.recordError("页面 $id 出错：${error.message ?: error.javaClass.simpleName}")
+            }
+            registry.register(Extension(ExtensionPoints.COMPOSE_PAGE, pluginId, manifest.name, id, extension, order))
         }
 
         override fun playbackListener(listener: PlaybackListener) {
