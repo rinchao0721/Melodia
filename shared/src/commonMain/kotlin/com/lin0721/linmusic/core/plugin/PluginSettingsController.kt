@@ -56,8 +56,15 @@ class PluginSettingsController(
         scope.launch { repository.refresh() }
     }
 
-    // open 在 IO 线程调用，返回 null 视为用户取消
-    fun import(open: suspend () -> InputStream?) {
+    val nativeSupported: Boolean = repository.nativeSupported
+    val nativeAllowed: StateFlow<Boolean> = repository.nativeAllowed
+
+    fun setNativeAllowed(allowed: Boolean) {
+        scope.launch { repository.setNativeAllowed(allowed) }
+    }
+
+    // open 在 IO 线程调用，返回 null 视为用户取消；sourceName 在 open 成功后读取
+    fun import(sourceName: () -> String? = { null }, open: suspend () -> InputStream?) {
         if (step == PluginImportStep.Working) return
         scope.launch {
             step = PluginImportStep.Working
@@ -76,7 +83,7 @@ class PluginSettingsController(
                 step = PluginImportStep.Idle
                 return@launch
             }
-            step = when (val result = repository.stage(input)) {
+            step = when (val result = repository.stage(input, sourceName())) {
                 is PluginStageResult.Failure -> PluginImportStep.Failed(result.reason)
                 is PluginStageResult.Success -> PluginImportStep.Preview(
                     result.staged,
@@ -95,7 +102,8 @@ class PluginSettingsController(
                 step = PluginImportStep.Failed("安装插件失败")
             } else {
                 step = PluginImportStep.Idle
-                message = if (preview.existing != null) "已升级「${plugin.name}」" else "已安装并启用「${plugin.name}」"
+                val restart = if (plugin.manifest?.kind == PluginKind.NATIVE) "，重启后生效" else ""
+                message = (if (preview.existing != null) "已升级「${plugin.name}」" else "已安装并启用「${plugin.name}」") + restart
             }
         }
     }
@@ -152,8 +160,11 @@ fun rememberPluginSettingsController(repository: PluginRepository): PluginSettin
 fun pluginExportFileName(plugin: InstalledPlugin): String = "${plugin.id}.$PLUGIN_FILE_EXTENSION"
 
 // 导入预览里的高风险提示
-fun pluginRiskWarning(manifest: PluginManifest): String? =
-    if (PluginPermission.NETEASE_WRITE in manifest.permissions) "这个插件可以修改你的网易云账号，只安装你信任的插件" else null
+fun pluginRiskWarning(manifest: PluginManifest): String? = when {
+    manifest.kind == PluginKind.NATIVE -> "这是原生插件，等同于运行任意程序：上面的权限只是声明，无法真正限制它。只安装你信任的插件"
+    PluginPermission.NETEASE_WRITE in manifest.permissions -> "这个插件可以修改你的网易云账号，只安装你信任的插件"
+    else -> null
+}
 
 // 列表与预览里的能力摘要
 fun pluginFeatureSummary(manifest: PluginManifest): String {
@@ -180,7 +191,8 @@ fun pluginStatusLine(plugin: InstalledPlugin, status: PluginRuntimeStatus?): Plu
         manifest == null || plugin.loadError != null -> PluginStatusLine("无法加载：${plugin.loadError ?: "清单无效"}", true)
         plugin.missingPermissions.isNotEmpty() -> PluginStatusLine("有未确认的权限，重新导入插件后才能启用", true)
         !plugin.state.enabled -> PluginStatusLine(plugin.state.disabledReason ?: "已停用", plugin.state.disabledReason != null)
-        !manifest.contributes.needsScript -> PluginStatusLine("已启用", false)
+        manifest.kind == PluginKind.NATIVE && status == null -> PluginStatusLine("重启后生效", false)
+        manifest.kind == PluginKind.SANDBOX && !manifest.contributes.needsScript -> PluginStatusLine("已启用", false)
         status?.running == true && status.lastError != null -> PluginStatusLine("运行中，最近一次出错：${status.lastError}", true)
         status?.running == true -> PluginStatusLine("运行中", false)
         status?.lastError != null -> PluginStatusLine(status.lastError, true)

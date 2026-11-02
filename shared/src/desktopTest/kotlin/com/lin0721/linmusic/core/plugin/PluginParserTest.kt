@@ -27,6 +27,24 @@ class PluginParserTest {
     ) as PluginParseResult.Success)
 
     @Test
+    fun `原生插件可以不提供扩展，并自动带上 native 权限`() {
+        val manifest = (PluginParser.parse(
+            """{"format":2,"kind":"native","id":"com.example.demo","name":"示例","version":"1.0.0","apiVersion":"1.0","main":"com.example.Main"}""",
+            platform = PluginPlatform.DESKTOP
+        ) as PluginParseResult.Success).manifest
+        assertEquals(PluginKind.NATIVE, manifest.kind)
+        assertEquals("com.example.Main", manifest.main)
+        assertTrue(PluginPermission.NATIVE in manifest.permissions)
+    }
+
+    @Test
+    fun `沙盒插件申请 native 权限时被忽略`() {
+        val result = parseV2(""","permissions":["native"]""") as PluginParseResult.Success
+        assertTrue(PluginPermission.NATIVE !in result.manifest.permissions)
+        assertEquals(1, result.warnings.size)
+    }
+
+    @Test
     fun `解析命令与菜单`() {
         val result = contributesV2(
             """"commands":[{"id":"share","title":"分享"},{"id":"bad"}],
@@ -93,7 +111,8 @@ class PluginParserTest {
     @Test
     fun `原生插件暂不能导入且 Android 明确拒绝`() {
         assertEquals("Android 不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.ANDROID))
-        assertEquals("当前版本还不支持原生插件", reasonV2(""","kind":"native"""", PluginPlatform.DESKTOP))
+        assertTrue(reasonV2(""","kind":"native","apiVersion":"1.0"""", PluginPlatform.DESKTOP).contains("main"))
+        assertTrue(reasonV2(""","kind":"native","main":"com.example.Main"""", PluginPlatform.DESKTOP).contains("apiVersion"))
     }
 
     @Test

@@ -1,0 +1,57 @@
+package com.lin0721.linmusic.testplugin
+
+import com.lin0721.linmusic.plugin.api.MelodiaPlugin
+import com.lin0721.linmusic.plugin.api.PluginContext
+import java.io.File
+
+// 这些类打进临时 JAR，由插件类加载器加载，和测试只能通过文件与注册表交换结果
+
+class NormalPlugin : MelodiaPlugin {
+    private lateinit var directory: File
+
+    override fun onLoad(context: PluginContext) {
+        directory = context.dataDirectory
+        context.extensions.command("run") { File(directory, "ran").writeText("yes") }
+    }
+
+    override fun onUnload() {
+        File(directory, "unloaded").writeText("yes")
+    }
+}
+
+class ThrowingPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("run") {}
+        throw IllegalStateException("加载炸了")
+    }
+}
+
+class HangingPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        Thread.sleep(60_000)
+    }
+}
+
+class UndeclaredPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("ghost") {}
+    }
+}
+
+class FailingCommandPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("run") { throw NoClassDefFoundError("缺类") }
+    }
+}
+
+// 宿主内部类不应该可见
+class ProbePlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        val internal = runCatching { Class.forName("com.lin0721.linmusic.core.plugin.PluginStore", false, javaClass.classLoader) }
+        val api = runCatching { Class.forName("com.lin0721.linmusic.plugin.api.PluginApiVersion", false, javaClass.classLoader) }
+        File(context.dataDirectory, "probe").writeText("${internal.isSuccess},${api.isSuccess}")
+        context.extensions.command("run") {}
+    }
+}
+
+class NoInterfacePlugin

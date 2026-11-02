@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop
 
+import com.lin0721.linmusic.desktop.di.DesktopLaunchOptions
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -150,7 +151,8 @@ private data class WindowSnapshot(
 )
 
 @OptIn(FlowPreview::class)
-fun main() {
+fun main(args: Array<String>) {
+    DesktopLaunchOptions.safeMode = "--safe-mode" in args
     DesktopLogging.install()
     DesktopImageLoader.install()
     // 已有实例则唤起它并退出

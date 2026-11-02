@@ -98,6 +98,11 @@ interface PluginPageUi {
 
 // 页面运行所需的宿主操作
 class PluginPageHost(private val runtime: PluginRuntime, private val api: PluginHostApi) {
+    private fun nativeAction(pluginId: String, name: String): ActionExtension? =
+        runtime.registry.get(ExtensionPoints.ACTION).firstOrNull { it.pluginId == pluginId && it.localId == name }?.value
+
+    private fun hasAction(pluginId: String, name: String): Boolean = nativeAction(pluginId, name) != null ||
+        "${PluginPrelude.KIND_ACTION}:$name" in runtime.status.value[pluginId]?.registrations.orEmpty()
 
     fun state(pluginId: String, pageId: String): JsonObject =
         api.uiStates.value["$pluginId/$pageId"] ?: JsonObject(emptyMap())
@@ -105,13 +110,13 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
     val states get() = api.uiStates
 
     suspend fun action(pluginId: String, name: String, args: JsonElement = JsonNull): Boolean =
-        runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null
+        nativeAction(pluginId, name)?.run(args)
+            ?: (runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null)
 
     // 页面打开时给脚本一次刷新数据的机会
     suspend fun open(pluginId: String, pageId: String) {
         val name = "open:$pageId"
-        val registered = runtime.status.value[pluginId]?.registrations.orEmpty()
-        if ("${PluginPrelude.KIND_ACTION}:$name" in registered) action(pluginId, name)
+        if (hasAction(pluginId, name)) action(pluginId, name)
     }
 
     fun setField(pluginId: String, pageId: String, field: String, value: JsonElement) =
@@ -125,8 +130,7 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
     // 脚本注册了 settingsChanged 时通知一次
     suspend fun setSetting(manifest: PluginManifest, key: String, value: JsonElement) {
         api.setSetting(manifest, key, value)
-        val registered = runtime.status.value[manifest.id]?.registrations.orEmpty()
-        if ("${PluginPrelude.KIND_ACTION}:$SETTINGS_CHANGED" in registered) {
+        if (hasAction(manifest.id, SETTINGS_CHANGED)) {
             action(manifest.id, SETTINGS_CHANGED, buildJsonObject {
                 put("key", key)
                 put("value", value)

@@ -61,5 +61,9 @@
 -keep class org.apache.commons.compress.** { *; }
 -keep class org.tukaani.xz.** { *; }
 
+# 原生插件编译时依赖 Kotlin 标准库与协程，运行时由宿主提供
+-keep class kotlin.** { *; }
+-keep class kotlinx.coroutines.** { *; }
+
 # 音频标签读写：枚举 values() 与帧类型按反射访问，裁剪后静态初始化会失败
 -keep class org.jaudiotagger.** { *; }

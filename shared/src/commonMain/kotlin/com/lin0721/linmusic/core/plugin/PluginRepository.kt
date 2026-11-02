@@ -1,10 +1,15 @@
 package com.lin0721.linmusic.core.plugin
 
 import com.lin0721.linmusic.core.log.AppLogger
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -19,13 +24,23 @@ class PluginRepository(
     private val store: PluginStore,
     private val runtime: PluginRuntime,
     private val api: PluginHostApi,
-    private val events: PluginEventDispatcher? = null
+    private val events: PluginEventDispatcher? = null,
+    private val native: NativePluginHost? = null,
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) {
     private val refreshLock = Mutex()
     private val registry = runtime.registry
     private val _installed = MutableStateFlow<List<InstalledPlugin>>(emptyList())
     val installed: StateFlow<List<InstalledPlugin>> = _installed.asStateFlow()
-    val status: StateFlow<Map<String, PluginRuntimeStatus>> = runtime.status
+    val status: StateFlow<Map<String, PluginRuntimeStatus>> = native?.let { host ->
+        combine(runtime.status, host.status) { script, loaded -> script + loaded }
+            .stateIn(scope, SharingStarted.Eagerly, runtime.status.value + host.status.value)
+    } ?: runtime.status
+
+    // Android 没有原生层
+    val nativeSupported: Boolean = native != null
+    private val _nativeAllowed = MutableStateFlow(false)
+    val nativeAllowed: StateFlow<Boolean> = _nativeAllowed.asStateFlow()
 
     private val _layouts = MutableStateFlow(PlayerLayoutState())
     // 各区域生效的插件布局、候选插件与用户的选择
@@ -37,10 +52,12 @@ class PluginRepository(
 
     init {
         runtime.setFailureHandler(::disableForErrors)
+        native?.setFailureHandler(::disableForErrors)
     }
 
     // 启动时调用一次，拉起已启用插件并开始分发播放事件
     suspend fun warmUp() {
+        _nativeAllowed.value = withContext(Dispatchers.IO) { store.nativeAllowed() }
         refresh()
         events?.start()
     }
@@ -49,7 +66,18 @@ class PluginRepository(
         val plugins = withContext(Dispatchers.IO) { store.list() }
         publish(plugins)
         runtime.sync(plugins)
+        if (native != null && plugins.any { it.manifest?.kind == PluginKind.NATIVE }) {
+            val allowed = withContext(Dispatchers.IO) { store.nativeAllowed() }
+            _nativeAllowed.value = allowed
+            native.sync(plugins, allowed)
+            // 页面和菜单要等原生插件加载后才生效
+            publish(plugins)
+        }
     }
+
+    // 沙盒插件随状态生效；原生插件只有本次启动加载成功的才算
+    private fun isActive(plugin: InstalledPlugin): Boolean =
+        if (plugin.manifest?.kind == PluginKind.NATIVE) native?.isActive(plugin.id) == true else plugin.state.enabled && plugin.canRun
 
     private suspend fun publish(plugins: List<InstalledPlugin>) {
         _installed.value = plugins
@@ -63,7 +91,7 @@ class PluginRepository(
     }
 
     private fun menuExtensions(plugins: List<InstalledPlugin>): List<Extension<PluginMenuEntry>> =
-        plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->
+        plugins.filter(::isActive).flatMap { plugin ->
             val manifest = plugin.manifest ?: return@flatMap emptyList()
             manifest.contributes.menus.mapIndexed { index, menu ->
                 Extension(ExtensionPoints.MENU, manifest.id, manifest.name, "${menu.location.key}/${menu.commandId}", menu, index)
@@ -71,7 +99,7 @@ class PluginRepository(
         }
 
     private fun pageExtensions(plugins: List<InstalledPlugin>): List<Extension<ActivePluginPage>> =
-        plugins.filter { it.state.enabled && it.canRun }.flatMap { plugin ->
+        plugins.filter(::isActive).flatMap { plugin ->
             val manifest = plugin.manifest ?: return@flatMap emptyList()
             manifest.contributes.pages.mapIndexed { index, page ->
                 val active = when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
@@ -85,7 +113,7 @@ class PluginRepository(
     private fun layoutExtensions(plugins: List<InstalledPlugin>): List<Extension<PlayerLayoutExtension>> =
         PlayerLayoutArea.entries.flatMap { area ->
             plugins
-                .filter { it.state.enabled && it.canRun && it.manifest?.contributes?.playerLayouts?.containsKey(area.key) == true }
+                .filter { isActive(it) && it.manifest?.contributes?.playerLayouts?.containsKey(area.key) == true }
                 .mapNotNull { plugin ->
                     when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
                         is PlayerLayoutParseResult.Success ->
@@ -122,7 +150,23 @@ class PluginRepository(
     }
 
     // 调用方负责打开输入流，这里读完即关闭
-    suspend fun stage(input: InputStream): PluginStageResult = withContext(Dispatchers.IO) { input.use { store.stage(it) } }
+    suspend fun stage(input: InputStream, sourceName: String? = null): PluginStageResult = withContext(Dispatchers.IO) {
+        val result = input.use { store.stage(it, sourceName) }
+        val staged = (result as? PluginStageResult.Success)?.staged
+        if (staged?.manifest?.kind == PluginKind.NATIVE && !store.nativeAllowed()) {
+            store.discard(staged)
+            PluginStageResult.Failure("这是原生插件，请先开启「允许原生插件」")
+        } else {
+            result
+        }
+    }
+
+    // 关闭后立即卸载已加载的原生插件；开启后要重启才加载
+    suspend fun setNativeAllowed(allowed: Boolean) {
+        withContext(Dispatchers.IO) { store.setNativeAllowed(allowed) }
+        _nativeAllowed.value = allowed
+        refresh()
+    }
 
     suspend fun discard(staged: StagedPlugin) = withContext(Dispatchers.IO) { store.discard(staged) }
 
@@ -131,6 +175,7 @@ class PluginRepository(
     // 安装即视为用户确认了清单里的全部权限，并直接启用
     suspend fun install(staged: StagedPlugin): InstalledPlugin? {
         runtime.stop(staged.manifest.id)
+        native?.unload(staged.manifest.id)
         val plugin = withContext(Dispatchers.IO) { store.install(staged, enabled = true) }
         refresh()
         return plugin
@@ -150,6 +195,7 @@ class PluginRepository(
 
     suspend fun delete(id: String) {
         runtime.stop(id)
+        native?.unload(id)
         api.clearUiState(id)
         withContext(Dispatchers.IO) { store.delete(id) }
         refresh()

@@ -62,8 +62,9 @@ class PluginRuntime(
 
     // 让运行中的沙盒与可运行的已启用插件保持一致；只提供布局的插件不需要沙盒
     suspend fun sync(plugins: List<InstalledPlugin>) = lifecycleLock.withLock {
-        val targets = plugins.filter { it.state.enabled && it.canRun && it.manifest?.contributes?.needsScript == true }
-            .associateBy { it.id }
+        val targets = plugins.filter {
+            it.state.enabled && it.canRun && it.manifest?.kind == PluginKind.SANDBOX && it.manifest.contributes.needsScript
+        }.associateBy { it.id }
         running.keys.filter { it !in targets }.forEach { stopLocked(it) }
         _status.update { it.filterKeys { id -> id in targets } }
         for ((id, plugin) in targets) {

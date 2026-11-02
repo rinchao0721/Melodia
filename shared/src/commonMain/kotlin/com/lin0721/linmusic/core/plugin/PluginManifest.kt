@@ -21,7 +21,8 @@ enum class PluginPermission(val key: String, val label: String) {
     LIBRARY_READ("library.read", "读取你的歌单与红心列表"),
     CONTENT_SOURCE("contentSource", "提供歌曲、歌单与搜索结果"),
     NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
-    NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注");
+    NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注"),
+    NATIVE("native", "在主进程运行原生代码，不受其他权限限制");
 
     companion object {
         fun fromKey(key: String): PluginPermission? = entries.firstOrNull { it.key == key }
@@ -163,7 +164,9 @@ data class PluginManifest(
     val kind: PluginKind = PluginKind.SANDBOX,
     // 为空表示所有平台
     val platforms: Set<PluginPlatform> = emptySet(),
-    val apiVersion: String? = null
+    val apiVersion: String? = null,
+    // 原生插件入口类
+    val main: String? = null
 ) {
     val scriptFile: File? get() = directory?.let { File(it, PluginPaths.SCRIPT) }?.takeIf { it.isFile }
 
@@ -176,6 +179,8 @@ object PluginPaths {
     const val SCRIPT = "main.js"
     const val UI_PREFIX = "ui/"
     const val ASSETS_PREFIX = "assets/"
+    const val JAR = "plugin.jar"
+    const val NATIVE_LIBRARY_PREFIX = "native/windows-x64/"
 
     private val FILE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
     private val imageExtensions = setOf("png", "jpg", "jpeg", "webp")
@@ -184,7 +189,10 @@ object PluginPaths {
 
     fun isAsset(path: String): Boolean = inFolder(path, ASSETS_PREFIX) && extension(path) in imageExtensions
 
-    fun isAllowed(path: String): Boolean = path == MANIFEST || path == SCRIPT || isUi(path) || isAsset(path)
+    fun isNativeLibrary(path: String): Boolean = inFolder(path, NATIVE_LIBRARY_PREFIX) && extension(path) == "dll"
+
+    fun isAllowed(path: String): Boolean =
+        path == MANIFEST || path == SCRIPT || path == JAR || isUi(path) || isAsset(path) || isNativeLibrary(path)
 
     private fun inFolder(path: String, prefix: String): Boolean {
         if (!path.startsWith(prefix)) return false

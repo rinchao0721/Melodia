@@ -39,6 +39,7 @@ import com.lin0721.linmusic.core.plugin.InstalledPlugin
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PLUGIN_FILE_EXTENSION
 import com.lin0721.linmusic.core.plugin.PluginImportStep
+import com.lin0721.linmusic.core.plugin.PluginKind
 import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
@@ -62,9 +63,11 @@ import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import java.io.File
 
 private val PluginRowShape = RoundedCornerShape(8.dp)
 private const val MAX_REPORT_LINES = 8
+private const val HASH_PREVIEW_LENGTH = 16
 
 // 插件设置：已安装插件列表与启停、导入导出；导入先预览权限再确认
 @Composable
@@ -73,7 +76,9 @@ internal fun PluginSetting(repository: PluginRepository) {
     val installed by controller.installed.collectAsState()
     val status by controller.status.collectAsState()
     val layouts by controller.layouts.collectAsState()
+    val nativeAllowed by controller.nativeAllowed.collectAsState()
     val navigator = LocalDesktopNavigator.current
+    var confirmNative by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
     var settingsTarget by remember { mutableStateOf<PluginManifest?>(null) }
     val pageHost = LocalPluginCards.current?.host
@@ -127,10 +132,20 @@ internal fun PluginSetting(repository: PluginRepository) {
                 }
             }
         }
+        if (controller.nativeSupported) {
+            SettingRow("允许原生插件", "原生插件在主进程运行，等同于运行任意程序。关闭后立即卸载，开启后重启生效") {
+                SettingSwitch(nativeAllowed, onChange = { if (it) confirmNative = true else controller.setNativeAllowed(false) })
+            }
+        }
         Row(Modifier.padding(top = 8.dp)) {
             DialogButton(
                 "导入插件",
-                onClick = { controller.import { chooseFile("选择插件包", "*.$PLUGIN_FILE_EXTENSION")?.inputStream() } },
+                onClick = {
+                    var chosen: File? = null
+                    controller.import(sourceName = { chosen?.name }) {
+                        chooseFile("选择插件包", "*.$PLUGIN_FILE_EXTENSION")?.also { chosen = it }?.inputStream()
+                    }
+                },
                 loading = controller.step == PluginImportStep.Working
             )
         }
@@ -150,6 +165,26 @@ internal fun PluginSetting(repository: PluginRepository) {
             Text(step.message, color = DesktopColors.TextGray, fontSize = 13.sp)
         }
         else -> Unit
+    }
+
+    if (confirmNative) {
+        DesktopDialog(
+            title = "允许原生插件？",
+            onDismiss = { confirmNative = false },
+            actions = {
+                DialogButton("取消", onClick = { confirmNative = false })
+                DialogButton("允许", onClick = {
+                    confirmNative = false
+                    controller.setNativeAllowed(true)
+                }, danger = true)
+            }
+        ) {
+            Text(
+                "原生插件在主进程运行，可以读写你的文件、访问网络和账号，权限声明无法限制它。崩溃也可能带崩应用，下次启动会自动停用导致崩溃的插件；用 --safe-mode 启动可跳过所有原生插件。",
+                color = DesktopColors.TextGray,
+                fontSize = 13.sp
+            )
+        }
     }
 
     val settingsManifest = settingsTarget
@@ -212,8 +247,19 @@ private fun PluginRow(
             val primary = if (plugin.state.enabled) DesktopColors.TextPrimary else DesktopColors.TextGray
             Text(title, color = primary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (manifest != null) {
-                val meta = listOfNotNull(manifest.author, pluginFeatureSummary(manifest).takeIf { it.isNotEmpty() }).joinToString(" · ")
+                val kindLabel = "原生".takeIf { manifest.kind == PluginKind.NATIVE }
+                val meta = listOfNotNull(kindLabel, manifest.author, pluginFeatureSummary(manifest).takeIf { it.isNotEmpty() }).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, color = DesktopColors.TextGray, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                if (manifest.kind == PluginKind.NATIVE) {
+                    Text(
+                        listOfNotNull(plugin.state.source, plugin.state.nativeHash?.let { "SHA-256 ${it.take(HASH_PREVIEW_LENGTH)}" }).joinToString(" · "),
+                        color = DesktopColors.TextTertiary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
                 manifest.description?.let {
                     Text(it, color = DesktopColors.TextGray, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 }
@@ -300,12 +346,14 @@ private fun PluginPreviewDialog(
                     Text("等共 ${preview.staged.warnings.size} 项", color = DesktopColors.TextTertiary, fontSize = 12.sp)
                 }
             }
-            Text(
-                "插件脚本在隔离环境中运行，只能使用上面列出的权限",
-                color = DesktopColors.TextTertiary,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 12.dp)
-            )
+            if (manifest.kind == PluginKind.SANDBOX) {
+                Text(
+                    "插件脚本在隔离环境中运行，只能使用上面列出的权限",
+                    color = DesktopColors.TextTertiary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
         }
     }
 }

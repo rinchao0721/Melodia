@@ -10,6 +10,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipOutputStream
@@ -17,7 +18,9 @@ import java.util.zip.ZipOutputStream
 data class StagedPlugin(
     val manifest: PluginManifest,
     val warnings: List<String>,
-    val directory: File
+    val directory: File,
+    // 导入时选择的文件名，原生插件在列表里展示
+    val sourceName: String? = null
 )
 
 sealed interface PluginStageResult {
@@ -30,16 +33,19 @@ object PluginPackage {
 
     private const val MAX_ENTRIES = 64
     private const val MAX_TOTAL_BYTES = 10L * 1024 * 1024
+    private const val MAX_NATIVE_TOTAL_BYTES = 200L * 1024 * 1024
+    private const val MAX_NATIVE_FILE_BYTES = 64L * 1024 * 1024
     private const val MAX_MANIFEST_BYTES = 256L * 1024
     private const val MAX_SCRIPT_BYTES = 2L * 1024 * 1024
     private const val MAX_UI_BYTES = 256L * 1024
     private const val MAX_ASSET_BYTES = 2L * 1024 * 1024
+    private const val MAX_SOURCE_NAME_LENGTH = 100
 
-    fun stage(input: InputStream, directory: File): PluginStageResult {
+    fun stage(input: InputStream, directory: File, sourceName: String? = null, platform: PluginPlatform = currentPluginPlatform): PluginStageResult {
         directory.deleteRecursively()
         if (!directory.mkdirs()) return PluginStageResult.Failure("无法创建临时目录")
         val result = try {
-            unpack(input, directory)
+            unpack(input, directory, sourceName, platform)
         } catch (e: ZipLimitExceeded) {
             PluginStageResult.Failure(e.message ?: "插件包超出大小限制")
         } catch (e: ZipException) {
@@ -53,9 +59,13 @@ object PluginPackage {
         return result
     }
 
-    private fun unpack(input: InputStream, directory: File): PluginStageResult {
-        val extracted = SafeZip.extract(input, directory, "插件包", MAX_ENTRIES, MAX_TOTAL_BYTES) { name ->
+    private fun unpack(input: InputStream, directory: File, sourceName: String?, platform: PluginPlatform): PluginStageResult {
+        // 插件类型要读完清单才知道，先按平台上限解包，沙盒包再单独核对
+        val nativeAllowed = platform == PluginPlatform.DESKTOP
+        val maxTotal = if (nativeAllowed) MAX_NATIVE_TOTAL_BYTES else MAX_TOTAL_BYTES
+        val extracted = SafeZip.extract(input, directory, "插件包", MAX_ENTRIES, maxTotal) { name ->
             when {
+                nativeAllowed && (name == PluginPaths.JAR || PluginPaths.isNativeLibrary(name)) -> MAX_NATIVE_FILE_BYTES
                 name == PluginPaths.MANIFEST -> MAX_MANIFEST_BYTES
                 name == PluginPaths.SCRIPT -> MAX_SCRIPT_BYTES
                 PluginPaths.isUi(name) -> MAX_UI_BYTES
@@ -70,15 +80,16 @@ object PluginPackage {
         val manifestFile = File(directory, PluginPaths.MANIFEST)
         if (!manifestFile.isFile) return PluginStageResult.Failure("插件包里缺少 ${PluginPaths.MANIFEST}")
         val root = readManifest(manifestFile) ?: return PluginStageResult.Failure("${PluginPaths.MANIFEST} 不是有效的 JSON 对象")
-        val parsed = when (val result = PluginParser.parse(root, directory)) {
+        val parsed = when (val result = PluginParser.parse(root, directory, platform)) {
             is PluginParseResult.Failure -> return PluginStageResult.Failure(result.reason)
             is PluginParseResult.Success -> result
         }
         val manifest = parsed.manifest
         checkFiles(manifest, directory)?.let { return PluginStageResult.Failure(it) }
-        val unusedScript = !manifest.contributes.needsScript && File(directory, PluginPaths.SCRIPT).isFile
+        checkSandboxPackage(manifest, directory)?.let { return PluginStageResult.Failure(it) }
+        val unusedScript = (!manifest.contributes.needsScript || manifest.kind == PluginKind.NATIVE) && File(directory, PluginPaths.SCRIPT).isFile
         val extra = mutableListOf<String>()
-        if (unusedScript) extra += "插件只提供布局，${PluginPaths.SCRIPT} 不会运行"
+        if (unusedScript) extra += "这个插件不运行 ${PluginPaths.SCRIPT}，文件已忽略"
         manifest.contributes.playerLayouts.keys.mapNotNull(PlayerLayoutArea::fromKey).forEach { area ->
             when (val layout = PlayerLayoutParser.load(manifest, area)) {
                 is PlayerLayoutParseResult.Failure -> extra += "${area.label}布局无效（${layout.reason}），将使用默认布局"
@@ -91,12 +102,41 @@ object PluginPackage {
                 is PlayerLayoutParseResult.Success -> layout.warnings.forEach { extra += "页面「${page.title}」：$it" }
             }
         }
-        return PluginStageResult.Success(StagedPlugin(manifest, warnings + parsed.warnings + extra, directory))
+        return PluginStageResult.Success(StagedPlugin(manifest, warnings + parsed.warnings + extra, directory, sourceName?.take(MAX_SOURCE_NAME_LENGTH)))
+    }
+
+    private fun checkSandboxPackage(manifest: PluginManifest, directory: File): String? {
+        if (manifest.kind != PluginKind.SANDBOX) return null
+        val files = directory.walkTopDown().filter { it.isFile }.toList()
+        val hasNative = files.any {
+            val path = it.relativeTo(directory).invariantSeparatorsPath
+            path == PluginPaths.JAR || PluginPaths.isNativeLibrary(path)
+        }
+        return when {
+            hasNative -> "沙盒插件不能包含 ${PluginPaths.JAR} 或动态库"
+            files.sumOf { it.length() } > MAX_TOTAL_BYTES -> "插件包超过 ${MAX_TOTAL_BYTES / 1024 / 1024}MB"
+            else -> null
+        }
+    }
+
+    fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(1 shl 16)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     // 已安装的插件文件可能被外部改动，加载时同样调用
     fun checkFiles(manifest: PluginManifest, directory: File): String? {
-        if (manifest.contributes.needsScript && !File(directory, PluginPaths.SCRIPT).isFile) {
+        if (manifest.kind == PluginKind.NATIVE) {
+            if (!File(directory, PluginPaths.JAR).isFile) return "原生插件包里缺少 ${PluginPaths.JAR}"
+        } else if (manifest.contributes.needsScript && !File(directory, PluginPaths.SCRIPT).isFile) {
             return "插件提供了页面、音源、歌词源或事件处理，但包里缺少 ${PluginPaths.SCRIPT}"
         }
         val missing = manifest.contributes.uiFiles.firstOrNull { !File(directory, it).isFile }

@@ -10,8 +10,10 @@
 | `main.js` | 脚本入口；声明了页面、音源、歌词源或事件时必需 | 2MB |
 | `ui/*.json` | 页面与布局描述，只允许一层 | 单个 256KB |
 | `assets/*.png/jpg/jpeg/webp` | 图片，只允许一层 | 单个 2MB |
+| `plugin.jar` | 原生插件的代码，仅桌面端 | 64MB |
+| `native/windows-x64/*.dll` | 原生插件的动态库，可选，仅桌面端 | 单个 64MB |
 
-整个包最多 64 个文件，解压后不超过 10MB。白名单之外的文件会被忽略，并在导入时提示。
+整个包最多 64 个文件，解压后不超过 10MB，原生插件不超过 200MB。沙盒插件不能包含 `plugin.jar` 和动态库。白名单之外的文件会被忽略，并在导入时提示。
 
 ## 清单
 
@@ -44,10 +46,11 @@
 | `author` / `description` / `minAppVersion` | 可选 |
 | `permissions` | 见下文；未知权限会被忽略并提示 |
 | `network.hosts` | 申请 `network` 时必需；`*.example.com` 只匹配子域名，不匹配 `example.com` 本身 |
-| `contributes` | 至少提供一项能力，否则插件无效 |
-| `kind` | format 2；`sandbox`（默认）。`native` 为桌面端原生插件，当前版本尚不支持，导入时拒绝 |
+| `contributes` | 沙盒插件至少提供一项能力，否则插件无效；原生插件可以为空 |
+| `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
+| `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；可选，写成 `1.0`。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.0` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.0` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -80,7 +83,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
 | `netease.write` | 以当前用户身份调用网易写方法 | |
 
-提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。
+提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。`native` 权限由 `kind` 决定，沙盒插件申请时会被忽略。
 
 ## 脚本
 
@@ -373,8 +376,37 @@ melodia.register.command('scrobble', async function(song) {
 - **打开页面**：如果注册了 `open:<页面 id>`，每次打开页面都会调用一次，可以用来刷新数据。
 - **入口**：`placement` 为 `sidebar` 时，桌面端在音乐库侧栏底部的「插件」分组，Android 在「设置 → 扩展 → 插件」；为 `nowPlayingCard` 时，页面作为卡片显示在桌面「正在播放」面板与 Android 全屏播放页，可以在卡片编辑器里排序和隐藏。宽屏播放页的插件卡片排在内置卡片之后。
 
+## 原生插件
+
+只有桌面端支持，用于沙盒做不到的场景。原生插件在主进程运行，等同于运行任意程序：权限声明只对通过 API 的调用生效，无法真正限制它。Android 导入时直接拒绝。
+
+要先在「设置 → 插件」开启「允许原生插件」（默认关闭）才能导入和加载。
+
+```kotlin
+class HelloPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("hello") {
+            context.ui.toast("你好")
+        }
+    }
+}
+```
+
+完整示例在 `plugin-sample` 模块，`gradlew :plugin-sample:packagePlugin` 生成可导入的包。
+
+- **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库和 kotlinx.coroutines，这些不要打进 `plugin.jar`；其他依赖打进 JAR。应用内部的类对插件不可见。
+- **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面用声明式页面，不能写 Compose。
+- **宿主能力**：`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
+- **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
+- **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。
+- **生命周期**：只在应用启动时加载。导入、升级和重新启用都要重启才生效；停用、删除和关闭总开关时立即调用 `onUnload` 并注销扩展，已加载的类要到重启才释放。
+- **出错处理**：回调抛异常或超时按没有结果处理，连续 5 次自动停用。加载时导致应用退出的插件，下次启动自动停用。用 `--safe-mode` 启动可以跳过所有原生插件。DLL 崩溃、死循环和阻塞无法拦截。
+- **完整性**：不做签名校验。列表显示来源文件名和 `plugin.jar` 的 SHA-256；文件与安装时不一致时拒绝加载，需要重新导入。
+
 ## 存储
 
 - 已安装的插件放在应用数据目录的 `plugins/<id>/` 下，启用状态与已确认的权限记录在 `plugins/.state.json`。
+- 原生插件运行时使用 `plugins/.native/run/<id>/` 下的副本，每次启动重建。
 - 插件数据放在 `plugins/.data/<id>/`，升级时保留，删除插件时一并删除。
 - 导出时只打包安装文件，不包含插件数据。

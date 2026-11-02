@@ -29,7 +29,11 @@ data class PluginState(
     // 最近一次启用的时间，同一区域有多个插件布局时默认取最近启用的
     val enabledAt: Long = 0L,
     // 用户是否允许过写入网易账号；重新安装后需要再次确认
-    val neteaseWriteApproved: Boolean = false
+    val neteaseWriteApproved: Boolean = false,
+    // 原生插件 JAR 的 SHA-256，加载时核对
+    val nativeHash: String? = null,
+    // 导入时选择的文件名
+    val source: String? = null
 )
 
 data class InstalledPlugin(
@@ -54,14 +58,18 @@ class PluginStore(private val root: File) {
     private val dataRoot = File(root, ".data")
     private val stateFile = File(root, ".state.json")
     private val layoutFile = File(root, ".layouts.json")
+    private val optionsFile = File(root, ".options.json")
     private val idPattern = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
     private val lock = Any()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val stateSerializer = MapSerializer(String.serializer(), PluginState.serializer())
     private val choiceSerializer = MapSerializer(String.serializer(), String.serializer())
 
-    fun stage(input: InputStream): PluginStageResult =
-        PluginPackage.stage(input, File(stagingRoot, UUID.randomUUID().toString()))
+    // 原生插件的运行副本与加载标记；运行时只用副本，安装目录随时可以替换
+    val nativeRoot: File = File(root, ".native")
+
+    fun stage(input: InputStream, sourceName: String? = null): PluginStageResult =
+        PluginPackage.stage(input, File(stagingRoot, UUID.randomUUID().toString()), sourceName)
 
     fun discard(staged: StagedPlugin) {
         staged.directory.deleteRecursively()
@@ -84,7 +92,9 @@ class PluginStore(private val root: File) {
                 PluginState(
                     enabled = enabled,
                     granted = staged.manifest.permissions.mapTo(HashSet()) { it.key },
-                    enabledAt = if (enabled) System.currentTimeMillis() else 0L
+                    enabledAt = if (enabled) System.currentTimeMillis() else 0L,
+                    nativeHash = File(target, PluginPaths.JAR).takeIf { staged.manifest.kind == PluginKind.NATIVE }?.let(PluginPackage::sha256),
+                    source = staged.sourceName
                 )
             }
             load(id)
@@ -157,6 +167,14 @@ class PluginStore(private val root: File) {
         }
     }
 
+    fun nativeAllowed(): Boolean = synchronized(lock) { readJson(optionsFile, choiceSerializer)[OPTION_ALLOW_NATIVE] == "true" }
+
+    fun setNativeAllowed(allowed: Boolean) {
+        synchronized(lock) {
+            writeJson(optionsFile, choiceSerializer, readJson(optionsFile, choiceSerializer) + (OPTION_ALLOW_NATIVE to allowed.toString()))
+        }
+    }
+
     // 插件私有数据目录，与安装目录分开，升级不丢失
     fun dataDirectoryOf(id: String): File? = if (idPattern.matches(id)) File(dataRoot, id) else null
 
@@ -204,4 +222,8 @@ class PluginStore(private val root: File) {
 
     // id 来自状态文件与插件清单，拼路径前先校验，防止越出插件目录
     private fun directoryOf(id: String): File? = if (idPattern.matches(id)) File(root, id) else null
+
+    private companion object {
+        const val OPTION_ALLOW_NATIVE = "allowNative"
+    }
 }

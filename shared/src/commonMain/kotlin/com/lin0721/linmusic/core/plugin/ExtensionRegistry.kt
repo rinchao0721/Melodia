@@ -20,6 +20,7 @@ object ExtensionPoints {
     val COMMAND = ExtensionPoint<CommandExtension>("command", ExtensionMerge.ALL)
     val MENU = ExtensionPoint<PluginMenuEntry>("menu", ExtensionMerge.ALL)
     val CONTENT_SOURCE = ExtensionPoint<ContentSourceExtension>("contentSource", ExtensionMerge.ORDERED)
+    val ACTION = ExtensionPoint<ActionExtension>("action", ExtensionMerge.ALL)
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
@@ -56,6 +57,11 @@ interface CommandExtension {
     val title: String
 
     suspend fun execute(args: JsonElement): Boolean
+}
+
+// 原生插件的页面动作；沙盒插件的动作走脚本调用
+interface ActionExtension {
+    suspend fun run(args: JsonElement): Boolean
 }
 
 // pluginId + point + localId 唯一；order 为同一插件内的声明顺序
