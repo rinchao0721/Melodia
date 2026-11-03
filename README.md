@@ -58,6 +58,14 @@
 - **交流 QQ 群也可以下载**：`331832966`
 
 ---
+
+## 插件
+
+- **插件仓库**：[rinchao0721/melodia-plugins](https://github.com/rinchao0721/melodia-plugins)
+- **在线浏览与下载**：<https://rinchao0721.github.io/melodia-plugins/>
+- **插件规范**：[docs/plugin-format.md](docs/plugin-format.md)；目录格式见 [docs/plugin-catalog.md](docs/plugin-catalog.md)
+
+---
 ## 项目架构
 
 项目由三个 Gradle 模块组成，网易云接口、加密、数据仓储与大部分 ViewModel 只在 `shared` 中维护一份，Android 与桌面端各自负责界面和平台能力：
