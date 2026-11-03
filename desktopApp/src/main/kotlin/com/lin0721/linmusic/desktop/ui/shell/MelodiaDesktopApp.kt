@@ -144,7 +144,7 @@ fun WindowScope.MelodiaDesktopApp(
     val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
     CompositionLocalProvider(
         LocalDesktopNavigator provides navigator,
-        LocalPlayerLayouts provides pluginLayouts.roots,
+        LocalPlayerLayouts provides pluginLayouts.specs,
         LocalPluginCards provides pluginCards,
         LocalPluginCommands provides deps.pluginCommands
     ) {

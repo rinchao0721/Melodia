@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
             }
             CompositionLocalProvider(
                 LocalUiMotion provides uiMotion,
-                LocalPlayerLayouts provides pluginLayouts.roots,
+                LocalPlayerLayouts provides pluginLayouts.specs,
                 LocalPluginCards provides pluginCards,
                 LocalPluginCommands provides pluginCommands
             ) {

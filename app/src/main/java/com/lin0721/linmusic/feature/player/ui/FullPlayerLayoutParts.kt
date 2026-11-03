@@ -2,25 +2,33 @@ package com.lin0721.linmusic.feature.player.ui
 
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalInLayoutPager
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
+import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 
@@ -62,7 +70,13 @@ class FullPlayerLayoutParts(
     val onQueueClick: () -> Unit,
     val onShareClick: () -> Unit,
     val onMoreClick: () -> Unit,
-    val onOpenFullScreenLyrics: () -> Unit
+    val onOpenFullScreenLyrics: () -> Unit,
+    val onClose: () -> Unit,
+    val onToggleSidebarFullscreen: (() -> Unit)?,
+    val isSidebarFullscreen: Boolean,
+    val playContext: String?,
+    val podcastRadioName: String,
+    val onPlaylistClick: (() -> Unit)?
 ) {
     @Composable
     fun Component(node: PlayerLayoutNode, modifier: Modifier) {
@@ -72,15 +86,17 @@ class FullPlayerLayoutParts(
                 // 占比分配高度时以高度为准定宽，否则以宽度为准定高
                 val byHeight = node.weight != null
                 val limited = node.maxSize?.let { modifier.widthIn(max = it.dp) } ?: modifier
+                // 分页器里左右滑动用于翻页，不提供相邻封面即关闭滑动切歌
+                val swipeEnabled = !LocalInLayoutPager.current
                 SwipeToSkipCover(
                     coverUrl = coverUrl,
-                    previousCoverUrl = previousCoverUrl,
-                    nextCoverUrl = nextCoverUrl,
+                    previousCoverUrl = previousCoverUrl.takeIf { swipeEnabled },
+                    nextCoverUrl = nextCoverUrl.takeIf { swipeEnabled },
                     onConfirmPrevious = onPlayPrevious,
                     onConfirmNext = onPlayNext,
                     currentKey = currentKey,
-                    previousKey = previousKey,
-                    nextKey = nextKey,
+                    previousKey = previousKey.takeIf { swipeEnabled },
+                    nextKey = nextKey.takeIf { swipeEnabled },
                     contentScale = ContentScale.Crop,
                     shape = node.layoutShape(),
                     modifier = (if (byHeight) limited.fillMaxHeight() else limited.fillMaxWidth())
@@ -151,6 +167,9 @@ class FullPlayerLayoutParts(
                     )
                 }
             }
+            LayoutNodeType.COLLAPSE_BUTTON -> FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
+            LayoutNodeType.MORE_BUTTON -> FullPlayerMoreButton(onMoreClick, modifier)
+            LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, modifier)
             else -> Unit
         }
     }
@@ -158,16 +177,30 @@ class FullPlayerLayoutParts(
 
 // 插件布局的首屏：整体作为一个视口高度的列表项，key 沿用 cover，滚动指标与背景位移照常工作
 fun LazyListScope.fullPlayerPluginSection(
-    root: PlayerLayoutNode,
+    spec: PlayerLayoutSpec,
     parts: FullPlayerLayoutParts,
+    isLandscape: Boolean,
     sourceBar: @Composable (Modifier) -> Unit
 ) {
     item(key = "cover") {
         FullPlayerItemEnterAnimation {
-            Column(Modifier.fillParentMaxHeight()) {
-                sourceBar(Modifier.fillMaxWidth())
-                PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth()) { node, modifier ->
-                    parts.Component(node, modifier)
+            BoxWithConstraints(Modifier.fillParentMaxHeight()) {
+                val root = spec.select(maxWidth.value, isLandscape)
+                val hostHeader = spec.frame.header == LayoutHeader.HOST
+                Column(Modifier.fillMaxSize()) {
+                    if (hostHeader) sourceBar(Modifier.fillMaxWidth())
+                    PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth()) { node, modifier ->
+                        parts.Component(node, modifier)
+                    }
+                }
+                // 去掉来源栏而布局里没有收起按钮时由宿主补上，保证随时能收起
+                if (!hostHeader && !root.contains(LayoutNodeType.COLLAPSE_BUTTON)) {
+                    FullPlayerCollapseButtons(
+                        onClose = parts.onClose,
+                        onToggleSidebarFullscreen = parts.onToggleSidebarFullscreen,
+                        isSidebarFullscreen = parts.isSidebarFullscreen,
+                        modifier = Modifier.align(Alignment.TopStart).padding(horizontal = MelodiaSpacing.lg)
+                    )
                 }
             }
         }

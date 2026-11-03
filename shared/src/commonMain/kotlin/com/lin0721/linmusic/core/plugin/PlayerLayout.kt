@@ -30,6 +30,10 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     LYRICS_CARD("lyricsCard"),
     SPACER("spacer"),
     TEXT("text"),
+    PAGER("pager", true),
+    COLLAPSE_BUTTON("collapseButton"),
+    MORE_BUTTON("moreButton"),
+    SOURCE_LABEL("sourceLabel"),
 
     // 以下只用于插件页面
     HEADING("heading"),
@@ -84,6 +88,41 @@ enum class LayoutTextStyle(val key: String) {
     }
 }
 
+// row / column 主轴排列
+enum class LayoutArrange(val key: String) {
+    START("start"), CENTER("center"), END("end"),
+    SPACE_BETWEEN("spaceBetween"), SPACE_AROUND("spaceAround"), SPACE_EVENLY("spaceEvenly");
+
+    companion object {
+        fun fromKey(key: String): LayoutArrange? = entries.firstOrNull { it.key == key }
+    }
+}
+
+// 子节点在父容器里的位置；row / column 里只取交叉轴方向
+enum class LayoutPosition(val key: String, val horizontal: LayoutAlign, val vertical: LayoutAlign) {
+    TOP_START("topStart", LayoutAlign.START, LayoutAlign.START),
+    TOP("top", LayoutAlign.CENTER, LayoutAlign.START),
+    TOP_END("topEnd", LayoutAlign.END, LayoutAlign.START),
+    START("start", LayoutAlign.START, LayoutAlign.CENTER),
+    CENTER("center", LayoutAlign.CENTER, LayoutAlign.CENTER),
+    END("end", LayoutAlign.END, LayoutAlign.CENTER),
+    BOTTOM_START("bottomStart", LayoutAlign.START, LayoutAlign.END),
+    BOTTOM("bottom", LayoutAlign.CENTER, LayoutAlign.END),
+    BOTTOM_END("bottomEnd", LayoutAlign.END, LayoutAlign.END);
+
+    companion object {
+        fun fromKey(key: String): LayoutPosition? = entries.firstOrNull { it.key == key }
+    }
+}
+
+enum class PagerIndicator(val key: String) {
+    NONE("none"), DOTS("dots"), BAR("bar");
+
+    companion object {
+        fun fromKey(key: String): PagerIndicator? = entries.firstOrNull { it.key == key }
+    }
+}
+
 data class LayoutPadding(val top: Float = 0f, val end: Float = 0f, val bottom: Float = 0f, val start: Float = 0f) {
     companion object {
         val Zero = LayoutPadding()
@@ -100,9 +139,24 @@ data class PlayerLayoutNode(
     val weight: Float? = null,
     val width: Float? = null,
     val height: Float? = null,
+    // 百分比尺寸，按父容器剩余空间计算，与固定尺寸互斥
+    val widthFraction: Float? = null,
+    val heightFraction: Float? = null,
+    val minWidth: Float? = null,
+    val maxWidth: Float? = null,
+    val minHeight: Float? = null,
+    val maxHeight: Float? = null,
+    val arrange: LayoutArrange? = null,
+    val alignSelf: LayoutPosition? = null,
+    val offsetX: Float = 0f,
+    val offsetY: Float = 0f,
     val background: PaletteToken? = null,
     val shape: LayoutShape = LayoutShape.RECT,
     val cornerRadius: Float = DEFAULT_CORNER_RADIUS,
+    // 分角圆角，写了时优先于 cornerRadius
+    val corners: LayoutCorners? = null,
+    val indicator: PagerIndicator = PagerIndicator.NONE,
+    val initialPage: Int = 0,
     // controls / actions 的按钮及顺序
     val buttons: List<String> = emptyList(),
     val size: LayoutSize = LayoutSize.MEDIUM,
@@ -145,25 +199,30 @@ enum class PlayerLayoutArea(
     val label: String,
     val components: Set<LayoutNodeType>,
     val actionButtons: List<String> = emptyList(),
-    val controlButtons: List<String> = CONTROL_BUTTONS
+    val controlButtons: List<String> = CONTROL_BUTTONS,
+    // frame 里本区域支持的字段
+    val frameFields: Set<String> = emptySet()
 ) {
     ANDROID_FULL_PLAYER(
         "android.fullPlayer", "Android 全屏播放页",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.ACTIONS, LayoutNodeType.LYRICS_CARD, LayoutNodeType.SPACER, LayoutNodeType.TEXT
+            LayoutNodeType.ACTIONS, LayoutNodeType.LYRICS_CARD, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
+            LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL
         ),
-        ANDROID_ACTIONS
+        ANDROID_ACTIONS,
+        frameFields = setOf("header", "cards")
     ),
     ANDROID_FULL_PLAYER_WIDE(
         "android.fullPlayerWide", "Android 宽屏播放页",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT
+            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER
         ),
-        ANDROID_ACTIONS
+        ANDROID_ACTIONS,
+        frameFields = setOf("split")
     ),
     ANDROID_MINI_PLAYER(
         "android.miniPlayer", "Android 迷你播放器",
@@ -172,7 +231,8 @@ enum class PlayerLayoutArea(
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
             LayoutNodeType.SPACER, LayoutNodeType.TEXT
         ),
-        controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next")
+        controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next"),
+        frameFields = setOf("background", "radius", "shadow", "border")
     ),
     DESKTOP_PLAYER_BAR(
         "desktop.playerBar", "桌面播放栏",
@@ -216,7 +276,14 @@ const val CONTROL_PLAY_PAUSE = "playPause"
 val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
 
 sealed interface PlayerLayoutParseResult {
-    data class Success(val root: PlayerLayoutNode, val warnings: List<String>) : PlayerLayoutParseResult
+    data class Success(
+        val root: PlayerLayoutNode,
+        val warnings: List<String>,
+        val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
+        val variants: List<PlayerLayoutVariant> = emptyList()
+    ) : PlayerLayoutParseResult {
+        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(root, frame, variants)
+    }
     data class Failure(val reason: String) : PlayerLayoutParseResult
 }
 
@@ -245,13 +312,54 @@ object PlayerLayoutParser {
         LayoutNodeType.SELECT, LayoutNodeType.SLIDER, LayoutNodeType.PROGRESS_BAR, LayoutNodeType.BADGE, LayoutNodeType.TABS
     )
 
+    private const val MAX_PAGES = 5
+    private const val MAX_VARIANTS = 4
+    private const val MAX_OFFSET = 200f
+    private val WRAPPER_KEYS = setOf("layout", "frame", "variants", "styles")
+    // 后续版本的字段，提前识别以便提示
+    private val FUTURE_NODE_KEYS = listOf("animation", "onTap", "onDoubleTap", "onLongPress")
+
     private class TooLarge(message: String) : Exception(message)
 
+    // 值可以直接是布局树，也可以是带 layout 字段的外壳对象
     fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
+        if ("layout" !in root || "type" in root) return parseAreaTree(area, root)
+        val layout = root["layout"] as? JsonObject ?: return PlayerLayoutParseResult.Failure("layout 不是有效的布局对象")
+        val main = parseAreaTree(area, layout)
+        if (main !is PlayerLayoutParseResult.Success) return main
+        val warnings = main.warnings.toMutableList()
+        root.keys.filter { it !in WRAPPER_KEYS }.forEach { warnings += "布局不支持字段 $it，已忽略" }
+        if ("styles" in root) warnings += "当前版本暂不支持 styles，已忽略"
+        val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
+        return main.copy(warnings = warnings, frame = frame, variants = variants(area, root["variants"], warnings))
+    }
+
+    private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
         val node = parseTree(root, area.components, area.label, area.controlButtons, area.actionButtons)
         if (node !is PlayerLayoutParseResult.Success) return node
         area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
         return node
+    }
+
+    // 每条变体单独校验，无效的只跳过这一条
+    private fun variants(area: PlayerLayoutArea, value: JsonElement?, warnings: MutableList<String>): List<PlayerLayoutVariant> {
+        if (value == null) return emptyList()
+        val array = value as? JsonArray ?: return emptyList<PlayerLayoutVariant>().also { warnings += "variants 不是数组，已忽略" }
+        if (array.size > MAX_VARIANTS) warnings += "variants 最多 $MAX_VARIANTS 条，多出的已忽略"
+        return array.take(MAX_VARIANTS).mapIndexedNotNull { index, item ->
+            val label = "variants 第 ${index + 1} 条"
+            val obj = item as? JsonObject ?: return@mapIndexedNotNull null.also { warnings += "$label 不是对象，已忽略" }
+            val condition = PlayerLayoutFrameParser.parseCondition(obj["when"], warnings, label)
+                ?: return@mapIndexedNotNull null.also { warnings += "$label 没有有效的 when 条件，已忽略" }
+            val layout = obj["layout"] as? JsonObject ?: return@mapIndexedNotNull null.also { warnings += "$label 缺少 layout，已忽略" }
+            when (val parsed = parseAreaTree(area, layout)) {
+                is PlayerLayoutParseResult.Failure -> null.also { warnings += "$label 无效（${parsed.reason}），已忽略" }
+                is PlayerLayoutParseResult.Success -> {
+                    parsed.warnings.forEach { warnings += "$label：$it" }
+                    PlayerLayoutVariant(condition, parsed.root)
+                }
+            }
+        }
     }
 
     // 插件页面：组件集合不同，节点的绑定字段需要额外校验
@@ -267,7 +375,7 @@ object PlayerLayoutParser {
     ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
-        fun build(json: JsonElement, depth: Int): PlayerLayoutNode? {
+        fun build(json: JsonElement, depth: Int, inPager: Boolean): PlayerLayoutNode? {
             if (depth > MAX_DEPTH) throw TooLarge("布局层级超过 $MAX_DEPTH 层")
             count++
             if (count > MAX_NODES) throw TooLarge("布局节点超过 $MAX_NODES 个")
@@ -275,10 +383,20 @@ object PlayerLayoutParser {
             val typeKey = obj.string("type")
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
-            val children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {
-                (obj["children"] as? JsonArray)?.mapNotNull { build(it, depth + 1) }.orEmpty()
+            if (type == LayoutNodeType.PAGER && inPager) return null.also { warnings += "pager 不能嵌套，已忽略" }
+            FUTURE_NODE_KEYS.filter { it in obj }.forEach { warnings += "当前版本暂不支持 $it，已忽略" }
+            val childInPager = inPager || type == LayoutNodeType.PAGER
+            var children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {
+                (obj["children"] as? JsonArray)?.mapNotNull { build(it, depth + 1, childInPager) }.orEmpty()
             } else {
                 emptyList()
+            }
+            if (type == LayoutNodeType.PAGER) {
+                if (children.isEmpty()) return null.also { warnings += "pager 没有子节点，已忽略" }
+                if (children.size > MAX_PAGES) {
+                    warnings += "pager 最多 $MAX_PAGES 页，多出的已忽略"
+                    children = children.take(MAX_PAGES)
+                }
             }
             val buttons = when (type) {
                 LayoutNodeType.CONTROLS -> buttons(obj, controlButtons, "播放控制", warnings) ?: controlButtons
@@ -297,6 +415,7 @@ object PlayerLayoutParser {
             val max = obj.float("max") ?: 1f
             if (type == LayoutNodeType.SLIDER && min >= max) return null.also { warnings += "slider 的 min、max 无效，已忽略" }
             if (type == LayoutNodeType.TABS && children.isEmpty()) return null.also { warnings += "tabs 没有子节点，已忽略" }
+            val offset = offset(obj, warnings)
             return PlayerLayoutNode(
                 type = type,
                 children = children,
@@ -306,11 +425,30 @@ object PlayerLayoutParser {
                 weight = obj.float("weight")?.coerceIn(MIN_WEIGHT, MAX_WEIGHT),
                 width = obj.float("width")?.coerceIn(0f, MAX_DIMENSION),
                 height = obj.float("height")?.coerceIn(0f, MAX_DIMENSION),
+                widthFraction = fraction(obj, "width", warnings),
+                heightFraction = fraction(obj, "height", warnings),
+                minWidth = obj.float("minWidth")?.coerceIn(0f, MAX_DIMENSION),
+                maxWidth = obj.float("maxWidth")?.coerceIn(0f, MAX_DIMENSION),
+                minHeight = obj.float("minHeight")?.coerceIn(0f, MAX_DIMENSION),
+                maxHeight = obj.float("maxHeight")?.coerceIn(0f, MAX_DIMENSION),
+                arrange = enumValue(obj, "arrange", LayoutArrange::fromKey, warnings),
+                alignSelf = enumValue(obj, "alignSelf", LayoutPosition::fromKey, warnings),
+                offsetX = offset?.first ?: 0f,
+                offsetY = offset?.second ?: 0f,
                 background = obj.string("background")?.let { key ->
                     PaletteToken.fromKey(key) ?: null.also { warnings += "背景 $key 不是色板项，已忽略" }
                 },
                 shape = enumValue(obj, "shape", LayoutShape::fromKey, warnings) ?: LayoutShape.RECT,
                 cornerRadius = obj.float("radius")?.coerceIn(0f, MAX_RADIUS) ?: PlayerLayoutNode.DEFAULT_CORNER_RADIUS,
+                corners = (obj["radius"] as? JsonArray)?.let { array ->
+                    parseCorners(array, MAX_RADIUS) ?: null.also { warnings += "radius 无效，已忽略" }
+                },
+                indicator = if (type == LayoutNodeType.PAGER) {
+                    enumValue(obj, "indicator", PagerIndicator::fromKey, warnings) ?: PagerIndicator.NONE
+                } else {
+                    PagerIndicator.NONE
+                },
+                initialPage = obj.int("initialPage")?.coerceIn(0, (children.size - 1).coerceAtLeast(0)) ?: 0,
                 buttons = buttons,
                 size = enumValue(obj, "size", LayoutSize::fromKey, warnings) ?: LayoutSize.MEDIUM,
                 text = obj.string("text")?.take(MAX_TEXT).orEmpty(),
@@ -333,7 +471,7 @@ object PlayerLayoutParser {
             )
         }
         val node = try {
-            build(root, 1)
+            build(root, 1, inPager = false)
         } catch (e: TooLarge) {
             return PlayerLayoutParseResult.Failure(e.message ?: "布局过大")
         } ?: return PlayerLayoutParseResult.Failure("布局根节点无效")
@@ -422,6 +560,23 @@ object PlayerLayoutParser {
         }
     }
 
+    // "45%" 形式的尺寸；数字由 width / height 处理
+    private fun fraction(obj: JsonObject, key: String, warnings: MutableList<String>): Float? {
+        val text = obj.string(key)?.trim() ?: return null
+        val percent = text.removeSuffix("%").takeIf { text.endsWith("%") }?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
+            ?: return null.also { warnings += "$key 取值 $text 无效，已忽略" }
+        return (percent / 100f).coerceAtMost(1f)
+    }
+
+    private fun offset(obj: JsonObject, warnings: MutableList<String>): Pair<Float, Float>? {
+        val value = obj["offset"] ?: return null
+        val numbers = (value as? JsonArray)?.map { (it as? JsonPrimitive)?.takeIf { p -> !p.isString }?.floatOrNull?.takeIf { v -> v.isFinite() } }
+        val x = numbers?.getOrNull(0)
+        val y = numbers?.getOrNull(1)
+        if (numbers?.size != 2 || x == null || y == null) return null.also { warnings += "offset 无效，已忽略" }
+        return x.coerceIn(-MAX_OFFSET, MAX_OFFSET) to y.coerceIn(-MAX_OFFSET, MAX_OFFSET)
+    }
+
     private fun <T> enumValue(obj: JsonObject, key: String, from: (String) -> T?, warnings: MutableList<String>): T? {
         val text = obj.string(key) ?: return null
         return from(text) ?: null.also { warnings += "$key 取值 $text 无效，已忽略" }
@@ -432,4 +587,4 @@ object PlayerLayoutParser {
 }
 
 // 当前生效的播放器布局，key 为区域；没有插件布局的区域不在表里
-val LocalPlayerLayouts = staticCompositionLocalOf<Map<PlayerLayoutArea, PlayerLayoutNode>> { emptyMap() }
+val LocalPlayerLayouts = staticCompositionLocalOf<Map<PlayerLayoutArea, PlayerLayoutSpec>> { emptyMap() }

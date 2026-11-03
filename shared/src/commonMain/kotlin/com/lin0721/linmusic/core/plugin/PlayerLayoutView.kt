@@ -6,26 +6,41 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 
-// 播放器布局的通用部分：容器、留白与固定文字；其余组件交给各端的 component 映射到已有实现
+// 节点是否在分页器里；分页器里的封面要让出左右滑动手势
+val LocalInLayoutPager = staticCompositionLocalOf { false }
+
+// 播放器布局的通用部分：容器、分页、留白与固定文字；其余组件交给各端的 component 映射到已有实现
 @Composable
 fun PlayerLayoutView(
     node: PlayerLayoutNode,
@@ -39,25 +54,32 @@ fun PlayerLayoutView(
     when (current.type) {
         LayoutNodeType.COLUMN -> Column(
             nodeModifier,
-            verticalArrangement = Arrangement.spacedBy(current.spacing.dp),
+            verticalArrangement = current.verticalArrangement(),
             horizontalAlignment = current.align.horizontal()
         ) {
             current.children.forEach { child ->
-                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, resolve, component)
+                var childModifier = child.weight?.let { Modifier.weight(it) } ?: Modifier
+                child.alignSelf?.let { childModifier = childModifier.align(it.horizontal.horizontal()) }
+                PlayerLayoutView(child, childModifier, resolve, component)
             }
         }
         LayoutNodeType.ROW -> Row(
             nodeModifier,
-            horizontalArrangement = Arrangement.spacedBy(current.spacing.dp),
+            horizontalArrangement = current.horizontalArrangement(),
             verticalAlignment = current.align.vertical()
         ) {
             current.children.forEach { child ->
-                PlayerLayoutView(child, child.weight?.let { Modifier.weight(it) } ?: Modifier, resolve, component)
+                var childModifier = child.weight?.let { Modifier.weight(it) } ?: Modifier
+                child.alignSelf?.let { childModifier = childModifier.align(it.vertical.vertical()) }
+                PlayerLayoutView(child, childModifier, resolve, component)
             }
         }
         LayoutNodeType.BOX -> Box(nodeModifier, contentAlignment = current.align.box()) {
-            current.children.forEach { child -> PlayerLayoutView(child, Modifier, resolve, component) }
+            current.children.forEach { child ->
+                PlayerLayoutView(child, child.alignSelf?.let { Modifier.align(it.alignment()) } ?: Modifier, resolve, component)
+            }
         }
+        LayoutNodeType.PAGER -> LayoutPager(current, nodeModifier, resolve, component)
         LayoutNodeType.SPACER -> Spacer(nodeModifier)
         LayoutNodeType.TEXT -> {
             val palette = LocalMelodiaPalette.current
@@ -78,12 +100,56 @@ fun PlayerLayoutView(
     }
 }
 
-// 固定尺寸、裁切形状、背景与内边距，按这个顺序叠加
+// 每个子节点一页，页面撑满分页器；高度不受限时按页面内容取高
+@Composable
+private fun LayoutPager(
+    node: PlayerLayoutNode,
+    modifier: Modifier,
+    resolve: (PlayerLayoutNode) -> PlayerLayoutNode?,
+    component: @Composable (node: PlayerLayoutNode, modifier: Modifier) -> Unit
+) {
+    val pages = node.children
+    val state = rememberPagerState(initialPage = node.initialPage.coerceIn(0, pages.lastIndex)) { pages.size }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        HorizontalPager(state = state, modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) { page ->
+            CompositionLocalProvider(LocalInLayoutPager provides true) {
+                PlayerLayoutView(pages[page], Modifier.fillMaxSize(), resolve, component)
+            }
+        }
+        if (node.indicator != PagerIndicator.NONE && pages.size > 1) {
+            val palette = LocalMelodiaPalette.current
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(pages.size) { index ->
+                    val selected = index == state.currentPage
+                    val color = if (selected) palette.textPrimary else palette.textPrimary.copy(alpha = 0.3f)
+                    val dotModifier = when (node.indicator) {
+                        PagerIndicator.BAR -> Modifier.size(width = if (selected) 16.dp else 8.dp, height = 3.dp).clip(RoundedCornerShape(2.dp))
+                        else -> Modifier.size(6.dp).clip(CircleShape)
+                    }
+                    Box(dotModifier.background(color))
+                }
+            }
+        }
+    }
+}
+
+// 位移、尺寸上下限、尺寸、裁切形状、背景与内边距，按这个顺序叠加
 @Composable
 private fun PlayerLayoutNode.boxModifier(): Modifier {
     var result: Modifier = Modifier
-    width?.let { result = result.width(it.dp) }
-    height?.let { result = result.height(it.dp) }
+    if (offsetX != 0f || offsetY != 0f) result = result.offset(offsetX.dp, offsetY.dp)
+    if (minWidth != null || maxWidth != null) {
+        result = result.widthIn(min = minWidth?.dp ?: Dp.Unspecified, max = maxWidth?.dp ?: Dp.Unspecified)
+    }
+    if (minHeight != null || maxHeight != null) {
+        result = result.heightIn(min = minHeight?.dp ?: Dp.Unspecified, max = maxHeight?.dp ?: Dp.Unspecified)
+    }
+    width?.let { result = result.width(it.dp) } ?: widthFraction?.let { result = result.fillMaxWidth(it) }
+    height?.let { result = result.height(it.dp) } ?: heightFraction?.let { result = result.fillMaxHeight(it) }
     val shape = layoutShape()
     background?.let { token ->
         result = result.clip(shape).background(token.read(LocalMelodiaPalette.current))
@@ -96,8 +162,41 @@ private fun PlayerLayoutNode.boxModifier(): Modifier {
 
 fun PlayerLayoutNode.layoutShape(): Shape = when (shape) {
     LayoutShape.RECT -> RectangleShape
-    LayoutShape.ROUNDED -> RoundedCornerShape(cornerRadius.dp)
+    LayoutShape.ROUNDED -> corners?.toShape() ?: RoundedCornerShape(cornerRadius.dp)
     LayoutShape.CIRCLE -> CircleShape
+}
+
+fun LayoutCorners.toShape(): Shape =
+    RoundedCornerShape(topStart = topStart.dp, topEnd = topEnd.dp, bottomEnd = bottomEnd.dp, bottomStart = bottomStart.dp)
+
+private fun PlayerLayoutNode.horizontalArrangement(): Arrangement.Horizontal = when (arrange) {
+    null, LayoutArrange.START -> Arrangement.spacedBy(spacing.dp, Alignment.Start)
+    LayoutArrange.CENTER -> Arrangement.spacedBy(spacing.dp, Alignment.CenterHorizontally)
+    LayoutArrange.END -> Arrangement.spacedBy(spacing.dp, Alignment.End)
+    LayoutArrange.SPACE_BETWEEN -> Arrangement.SpaceBetween
+    LayoutArrange.SPACE_AROUND -> Arrangement.SpaceAround
+    LayoutArrange.SPACE_EVENLY -> Arrangement.SpaceEvenly
+}
+
+private fun PlayerLayoutNode.verticalArrangement(): Arrangement.Vertical = when (arrange) {
+    null, LayoutArrange.START -> Arrangement.spacedBy(spacing.dp, Alignment.Top)
+    LayoutArrange.CENTER -> Arrangement.spacedBy(spacing.dp, Alignment.CenterVertically)
+    LayoutArrange.END -> Arrangement.spacedBy(spacing.dp, Alignment.Bottom)
+    LayoutArrange.SPACE_BETWEEN -> Arrangement.SpaceBetween
+    LayoutArrange.SPACE_AROUND -> Arrangement.SpaceAround
+    LayoutArrange.SPACE_EVENLY -> Arrangement.SpaceEvenly
+}
+
+private fun LayoutPosition.alignment(): Alignment = when (this) {
+    LayoutPosition.TOP_START -> Alignment.TopStart
+    LayoutPosition.TOP -> Alignment.TopCenter
+    LayoutPosition.TOP_END -> Alignment.TopEnd
+    LayoutPosition.START -> Alignment.CenterStart
+    LayoutPosition.CENTER -> Alignment.Center
+    LayoutPosition.END -> Alignment.CenterEnd
+    LayoutPosition.BOTTOM_START -> Alignment.BottomStart
+    LayoutPosition.BOTTOM -> Alignment.BottomCenter
+    LayoutPosition.BOTTOM_END -> Alignment.BottomEnd
 }
 
 private fun LayoutAlign.horizontal(): Alignment.Horizontal = when (this) {

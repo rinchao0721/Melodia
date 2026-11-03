@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 4
+const val PLUGIN_API_MINOR = 5
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion

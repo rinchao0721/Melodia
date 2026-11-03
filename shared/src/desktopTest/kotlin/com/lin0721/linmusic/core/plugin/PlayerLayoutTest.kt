@@ -119,6 +119,144 @@ class PlayerLayoutTest {
         assertEquals(listOf("previous", "playPause", "next"), defaults.root.children.single().buttons)
     }
 
+    private val minimalFull = """{"type":"column","children":[{"type":"controls","buttons":["playPause"]}]}"""
+
+    @Test
+    fun `外壳对象解析外框与变体，旧写法使用默认外框`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"frame":{"header":"none","cards":false},"layout":$minimalFull,
+                "variants":[{"when":{"orientation":"landscape","minWidth":600},"layout":{"type":"row","children":[{"type":"controls"}]}}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(LayoutHeader.NONE, result.frame.header)
+        assertEquals(false, result.frame.cards)
+        assertTrue(result.warnings.isEmpty())
+        val spec = result.spec
+        assertEquals(LayoutNodeType.ROW, spec.select(700f, landscape = true).type)
+        assertEquals(LayoutNodeType.COLUMN, spec.select(500f, landscape = true).type)
+        assertEquals(LayoutNodeType.COLUMN, spec.select(700f, landscape = false).type)
+
+        val legacy = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, minimalFull) as PlayerLayoutParseResult.Success
+        assertEquals(PlayerLayoutFrame.Default, legacy.frame)
+        assertTrue(legacy.variants.isEmpty())
+    }
+
+    @Test
+    fun `外框字段按区域过滤，取值收到边界内`() {
+        val wide = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
+            """{"frame":{"split":0.9,"cards":false},"layout":$minimalFull}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(0.7f, wide.frame.split)
+        assertTrue(wide.frame.cards)
+        assertEquals(1, wide.warnings.size)
+
+        val mini = parse(
+            PlayerLayoutArea.ANDROID_MINI_PLAYER,
+            """{"frame":{"background":"cardSurface","radius":[12,12,0,0],"shadow":false,"border":"no"},
+                "layout":{"type":"row","children":[{"type":"controls"}]}}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(FrameBackground.Token(PaletteToken.CARD_SURFACE), mini.frame.background)
+        assertEquals(LayoutCorners(12f, 12f, 0f, 0f), mini.frame.corners)
+        assertEquals(false, mini.frame.shadow)
+        assertTrue(mini.frame.border)
+        assertEquals(1, mini.warnings.size)
+
+        val bar = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"frame":{"header":"none"},"layout":$validBar}""") as PlayerLayoutParseResult.Success
+        assertEquals(PlayerLayoutFrame.Default, bar.frame)
+        assertEquals(1, bar.warnings.size)
+    }
+
+    @Test
+    fun `无效的变体只跳过这一条`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"layout":$minimalFull,"variants":[
+                {"when":{"minWidth":600},"layout":{"type":"column","children":[{"type":"cover"}]}},
+                {"when":{"tilt":1},"layout":$minimalFull},
+                {"layout":$minimalFull},
+                {"when":{"maxWidth":400},"layout":$minimalFull},
+                {"when":{"minWidth":1},"layout":$minimalFull}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(1, result.variants.size)
+        assertEquals(400f, result.variants.single().condition.maxWidth)
+        // 第一条缺少播放键、第二条条件无效（两条提示）、第三条缺少条件、超出条数
+        assertEquals(5, result.warnings.size)
+    }
+
+    @Test
+    fun `外壳缺少有效 layout 时区域无效，预留字段提示暂不支持`() {
+        assertTrue(parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":"ui/a.json"}""") is PlayerLayoutParseResult.Failure)
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"styles":{},"theme":1,"layout":{"type":"column","children":[{"type":"controls","animation":"spin","onTap":"next"}]}}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(4, result.warnings.size)
+        assertTrue(result.warnings.any { it.contains("styles") })
+    }
+
+    @Test
+    fun `分页器不能嵌套，页数与初始页收到边界内`() {
+        val pages = (1..6).joinToString(",") { """{"type":"spacer"}""" }
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"pager","indicator":"dots","initialPage":9,"children":[$pages,{"type":"pager","children":[{"type":"spacer"}]}]},
+                {"type":"pager","children":[]},
+                {"type":"controls"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val pager = result.root.children.first()
+        assertEquals(LayoutNodeType.PAGER, pager.type)
+        assertEquals(5, pager.children.size)
+        assertEquals(PagerIndicator.DOTS, pager.indicator)
+        assertEquals(4, pager.initialPage)
+        assertEquals(listOf(LayoutNodeType.PAGER, LayoutNodeType.CONTROLS), result.root.children.map { it.type })
+        assertEquals(3, result.warnings.size)
+
+        val mini = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[{"type":"pager","children":[{"type":"spacer"}]},{"type":"controls"}]}""")
+        assertEquals(1, (mini as PlayerLayoutParseResult.Success).warnings.size)
+    }
+
+    @Test
+    fun `尺寸、排列、位置与分角圆角`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"box","children":[
+                {"type":"row","width":"45%","height":"150%","maxWidth":2000,"minHeight":20,"arrange":"spaceEvenly","children":[{"type":"controls"}]},
+                {"type":"cover","alignSelf":"bottomEnd","offset":[300,-8],"shape":"rounded","radius":[16,16,0,0]},
+                {"type":"spacer","width":"wide","offset":[1],"radius":[1,2],"arrange":"around","alignSelf":"middle"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val row = result.root.children[0]
+        assertEquals(0.45f, row.widthFraction)
+        assertEquals(1f, row.heightFraction)
+        assertNull(row.width)
+        assertEquals(1000f, row.maxWidth)
+        assertEquals(20f, row.minHeight)
+        assertEquals(LayoutArrange.SPACE_EVENLY, row.arrange)
+        val cover = result.root.children[1]
+        assertEquals(LayoutPosition.BOTTOM_END, cover.alignSelf)
+        assertEquals(200f, cover.offsetX)
+        assertEquals(-8f, cover.offsetY)
+        assertEquals(LayoutCorners(16f, 16f, 0f, 0f), cover.corners)
+        val spacer = result.root.children[2]
+        assertNull(spacer.widthFraction)
+        assertNull(spacer.corners)
+        assertEquals(5, result.warnings.size)
+    }
+
+    @Test
+    fun `变体里的组件也计入区域是否用到`() {
+        val spec = (parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"layout":$minimalFull,"variants":[{"when":{"orientation":"portrait"},"layout":{"type":"column","children":[{"type":"lyricsCard"},{"type":"controls"}]}}]}"""
+        ) as PlayerLayoutParseResult.Success).spec
+        assertTrue(spec.contains(LayoutNodeType.LYRICS_CARD))
+        assertTrue(!spec.root.contains(LayoutNodeType.LYRICS_CARD))
+    }
+
     // 只提供布局的插件不运行脚本，运行时不会创建沙盒
     private object NoSandbox : ScriptSandboxFactory {
         override suspend fun create(name: String, host: ScriptHost, prelude: String): ScriptSandbox =

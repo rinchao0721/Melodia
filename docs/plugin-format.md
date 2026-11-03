@@ -51,7 +51,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.4` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.5` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -303,6 +303,32 @@ melodia.register.command('scrobble', async function(song) {
 }
 ```
 
+### 外框与变体
+
+API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来调整宿主保留的部分，或按尺寸换一套布局。直接写布局树的旧写法等于只写了 `layout`。
+
+```json
+"android.fullPlayer": {
+  "frame": { "header": "none", "cards": false },
+  "layout": { "type": "column", "children": [] },
+  "variants": [
+    { "when": { "orientation": "landscape" }, "layout": { "type": "row", "children": [] } }
+  ]
+}
+```
+
+- `frame`：区域外框，各区域支持的字段见下表，写了不支持的字段会被忽略并提示。
+- `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。
+- `styles` 以及节点上的 `animation`、`onTap`、`onDoubleTap`、`onLongPress` 留给后续版本，目前会被忽略并提示。
+
+| 区域 | `frame` 字段 |
+|---|---|
+| `android.fullPlayer` | `header`：`host`（默认，保留顶部的收起、播放来源与更多）或 `none`（去掉，由布局自己摆 `collapseButton` 等组件）；`cards`：`false` 时去掉下方的信息卡片，首屏就是整页 |
+| `android.fullPlayerWide` | `split`：左栏宽度占比，0.3–0.7，默认 0.4；左栏内容最宽 420 |
+| `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none` 或色板项；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
+
+`header` 为 `none` 而布局里没有 `collapseButton` 时，宿主会在左上角补一个收起按钮。下拉收起与返回键始终可用。
+
 ### 区域
 
 | key | 位置 | 必需 | 不可用的组件 |
@@ -310,12 +336,14 @@ melodia.register.command('scrobble', async function(song) {
 | `desktop.playerBar` | 桌面底部播放栏 | `controls` 的 `playPause`、`progress` | `miniLyric`、`lyricsCard` |
 | `desktop.nowPlaying` | 桌面「正在播放」面板的封面与标题区 | 无 | `miniLyric`、`lyricsCard`、`actions` |
 | `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
-| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard` |
-| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`miniLyric` |
+| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`miniLyric`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
+
+桌面区域暂不支持 `pager`、`collapseButton`、`moreButton`、`sourceLabel`。
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
-`android.fullPlayer` 占满一屏，顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡。`android.fullPlayerWide` 只替换左栏，右栏歌词与卡片不变。
+`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词。手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版。`android.fullPlayerWide` 只在平板侧栏铺开到全屏时出现，只替换左栏，右栏歌词与卡片不变。
 
 ### 通用属性
 
@@ -325,15 +353,20 @@ melodia.register.command('scrobble', async function(song) {
 | `spacing` | 容器内子节点间距，范围 0–64 |
 | `align` | `start`、`center`、`end` |
 | `weight` | 在 `row` / `column` 里按比例分配剩余空间，范围 0.1–10 |
-| `width` / `height` | 固定尺寸，范围 0–1000 |
+| `width` / `height` | 固定尺寸，范围 0–1000；也可以写 `"45%"`，按父容器剩余空间的比例（API 1.5） |
+| `minWidth` / `maxWidth` / `minHeight` / `maxHeight` | 尺寸上下限，范围 0–1000（API 1.5） |
+| `arrange` | `row` / `column` 主轴排列：`start`、`center`、`end`、`spaceBetween`、`spaceAround`、`spaceEvenly`；后三种不使用 `spacing`（API 1.5） |
+| `alignSelf` | 在 `box` 里的位置：`topStart`、`top`、`topEnd`、`start`、`center`、`end`、`bottomStart`、`bottom`、`bottomEnd`；在 `row` / `column` 里只取交叉轴方向（API 1.5） |
+| `offset` | `[x, y]`，范围 -200–200，只移动绘制位置，不影响布局（API 1.5） |
 | `background` | 色板项，如 `pane`、`cardSurface`；跟随当前皮肤 |
-| `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8 |
+| `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8；API 1.5 起可以写 `[左上, 右上, 右下, 左下]` |
 
 ### 节点
 
 | type | 说明 | 专属参数 |
 |---|---|---|
 | `column` / `row` / `box` | 容器，`box` 为叠放 | `children` |
+| `pager` | 分页容器，左右滑动翻页，每个子节点一页，最多 5 页，不能嵌套；分页器里的封面不再左右滑动切歌（API 1.5） | `children`、`indicator`（`none`、`dots`、`bar`）、`initialPage` |
 | `cover` | 封面，点击切换「正在播放」 | `maxSize`（24–1000）、`aspect`（0.25–4，仅 Android）、`size` |
 | `songTitle` / `artist` / `songInfo` | 标题、歌手、两者组合 | `lines`（1–4）、`size` |
 | `likeButton` | 收藏到歌单；播客为订阅电台 | |
@@ -344,12 +377,15 @@ melodia.register.command('scrobble', async function(song) {
 | `lyricsCard` | 歌词卡（Android） | |
 | `spacer` | 留白，配合 `weight` 或固定尺寸 | |
 | `text` | 固定文字，不超过 40 个字符 | `text`、`style`（`title`、`body`、`caption`）、`lines`、`size` |
+| `collapseButton` | 收起按钮；侧栏模式下带全屏切换（Android 全屏页，API 1.5） | |
+| `moreButton` | 更多（Android 全屏页，API 1.5） | |
+| `sourceLabel` | 播放来源，点击打开来源歌单（Android 全屏页，API 1.5） | |
 
 `size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮。
 
 ### 校验与回退
 
-- 树不超过 8 层、128 个节点；超限或缺少必需组件时，这个区域回到内置布局，其他区域不受影响。
+- 树不超过 8 层、128 个节点，`layout` 与每条变体分别计算；超限或缺少必需组件时，这个区域回到内置布局，其他区域不受影响。
 - 未知组件、不支持的按钮与无效参数只忽略这一项，并在导入时提示；数值超出范围时收到边界内。
 - 同一区域有多个插件提供布局时，默认使用最近启用的插件，也可以在插件设置里按区域选择，或改回内置布局。
 

@@ -96,7 +96,7 @@ fun NowPlayingPanel(
     HoverScrollbarBox(scrollState) {
         Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
             PanelHeader(track, controller, playerViewModel, hovered, onClose)
-            val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]
+            val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]?.root
             if (pluginLayout != null) {
                 PluginNowPlayingHeader(pluginLayout, track, controller, playerViewModel)
             } else {

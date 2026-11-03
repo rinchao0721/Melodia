@@ -179,7 +179,7 @@ fun PlayerBar(
         onToggleLyricsView = onToggleLyricsView,
         onEnterMiniPlayer = onEnterMiniPlayer
     )
-    val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]
+    val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]?.root
     if (pluginLayout != null) {
         PluginPlayerBar(pluginLayout, parts, modifier)
         return

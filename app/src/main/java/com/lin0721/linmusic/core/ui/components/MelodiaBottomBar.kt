@@ -5,6 +5,12 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.FrameBackground
+import com.lin0721.linmusic.core.plugin.PlayerLayoutFrame
+import com.lin0721.linmusic.core.plugin.toShape
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
+import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
+import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import androidx.compose.material.icons.rounded.SkipPrevious
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
@@ -201,21 +207,32 @@ fun MiniPlayerCard(
         displayedIsPlaying = isPlaying
     }
 
+    val pluginSpec = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
+    val pluginFrame = pluginSpec?.frame ?: PlayerLayoutFrame.Default
+    val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
     val miniPlayerCornerRadius = 8.dp
-    val miniPlayerShape = RoundedCornerShape(miniPlayerCornerRadius)
+    val miniPlayerShape = pluginFrame.corners?.toShape() ?: RoundedCornerShape(miniPlayerCornerRadius)
     val miniPlayerShadowAlpha = if (MelodiaColors.IsDark) 0.4f else 0.16f
     Box(
         modifier = modifier
             .fillMaxWidth()
-            // 弥散阴影让卡片从背景上浮起来，避免边缘跟背景生硬贴死；浅色底上阴影需要淡很多
-            .shadow(
-                elevation = 16.dp,
-                shape = miniPlayerShape,
-                ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = miniPlayerShadowAlpha),
-                spotColor = MelodiaColors.ShadowSpot.copy(alpha = miniPlayerShadowAlpha)
+            .then(
+                // 弥散阴影让卡片从背景上浮起来，避免边缘跟背景生硬贴死；浅色底上阴影需要淡很多
+                if (pluginFrame.shadow) {
+                    Modifier.shadow(
+                        elevation = 16.dp,
+                        shape = miniPlayerShape,
+                        ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = miniPlayerShadowAlpha),
+                        spotColor = MelodiaColors.ShadowSpot.copy(alpha = miniPlayerShadowAlpha)
+                    )
+                } else Modifier
             )
             .clip(miniPlayerShape)
-            .border(0.5.dp, MelodiaColors.OnPlayer.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
+            .then(
+                if (pluginFrame.border) {
+                    Modifier.border(0.5.dp, MelodiaColors.OnPlayer.copy(alpha = if (expanded) 0.14f else 0.08f), miniPlayerShape)
+                } else Modifier
+            )
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta ->
@@ -237,13 +254,17 @@ fun MiniPlayerCard(
             )
             .clickable(onClick = onClick)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
-        )
-        val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
-        if (pluginLayout != null) {
+        when (val background = pluginFrame.background) {
+            FrameBackground.Host -> Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
+            )
+            is FrameBackground.Token -> Box(Modifier.matchParentSize().background(background.token.read(LocalMelodiaPalette.current)))
+            FrameBackground.None -> Unit
+        }
+        if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
             val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
             PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth()) { node, nodeModifier ->
                 val scale = node.size.scale

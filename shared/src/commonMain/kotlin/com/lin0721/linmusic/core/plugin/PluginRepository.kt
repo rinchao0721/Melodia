@@ -173,7 +173,7 @@ class PluginRepository(
                 .mapNotNull { plugin ->
                     when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
                         is PlayerLayoutParseResult.Success ->
-                            Extension(ExtensionPoints.PLAYER_LAYOUT, plugin.id, plugin.name, area.key, PlayerLayoutExtension(area, plugin, result.root))
+                            Extension(ExtensionPoints.PLAYER_LAYOUT, plugin.id, plugin.name, area.key, PlayerLayoutExtension(area, plugin, result.spec))
                         is PlayerLayoutParseResult.Failure -> {
                             AppLogger.w(TAG, "插件 ${plugin.id} 的 ${area.key} 布局无效: ${result.reason}")
                             null
@@ -203,7 +203,7 @@ class PluginRepository(
                 null -> valid.maxByOrNull { it.plugin.state.enabledAt }
                 else -> valid.firstOrNull { it.plugin.id == choice } ?: valid.maxByOrNull { it.plugin.state.enabledAt }
             }
-            chosen?.let { active[area] = ActivePlayerLayout(it.plugin.id, it.plugin.name, it.root) }
+            chosen?.let { active[area] = ActivePlayerLayout(it.plugin.id, it.plugin.name, it.spec) }
         }
         return PlayerLayoutState(active, candidates, choices.mapNotNull { (k, v) -> PlayerLayoutArea.fromKey(k)?.let { it to v } }.toMap())
     }
@@ -315,7 +315,7 @@ data class ActivePluginPage(
     val error: String?
 )
 
-data class ActivePlayerLayout(val pluginId: String, val pluginName: String, val root: PlayerLayoutNode)
+data class ActivePlayerLayout(val pluginId: String, val pluginName: String, val spec: PlayerLayoutSpec)
 
 data class PlayerLayoutState(
     val active: Map<PlayerLayoutArea, ActivePlayerLayout> = emptyMap(),
@@ -323,5 +323,5 @@ data class PlayerLayoutState(
     val candidates: Map<PlayerLayoutArea, List<InstalledPlugin>> = emptyMap(),
     val choices: Map<PlayerLayoutArea, String> = emptyMap()
 ) {
-    val roots: Map<PlayerLayoutArea, PlayerLayoutNode> get() = active.mapValues { it.value.root }
+    val specs: Map<PlayerLayoutArea, PlayerLayoutSpec> get() = active.mapValues { it.value.spec }
 }

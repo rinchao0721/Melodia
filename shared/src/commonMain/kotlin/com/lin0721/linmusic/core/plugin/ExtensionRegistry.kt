@@ -24,7 +24,7 @@ object ExtensionPoints {
     val COMPOSE_PAGE = ExtensionPoint<ComposePageExtension>("composeSlot")
 }
 
-data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val root: PlayerLayoutNode)
+data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val spec: PlayerLayoutSpec)
 
 // 返回值的格式与脚本一致，由 PluginResults 宽松解析
 interface AudioSourceExtension {

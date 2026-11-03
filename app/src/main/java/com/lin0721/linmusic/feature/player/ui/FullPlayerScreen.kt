@@ -485,6 +485,8 @@ private fun FullPlayerScreenContent(
     val pluginLayouts = LocalPlayerLayouts.current
     val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
     val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
+    // 插件关掉卡片流时首屏就是整页
+    val showInfoCards = pluginFullLayout?.frame?.cards != false
     val coverFitInsetPx = rememberCoverFitInsetPx(
         listState = listState,
         // 插件布局的首屏高度固定为一屏，不存在需要缩封面的情况
@@ -651,7 +653,7 @@ private fun FullPlayerScreenContent(
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
-            onMiniLyricClick = scrollToLyricsCard,
+            onMiniLyricClick = if (showInfoCards) scrollToLyricsCard else ({ isLyricsFullScreen = true }),
             onSeek = viewModel::seekToTime,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,
@@ -663,7 +665,13 @@ private fun FullPlayerScreenContent(
             onQueueClick = { showQueueSheet = true },
             onShareClick = { shareCurrentSong() },
             onMoreClick = { showMoreOptionsSheet = true },
-            onOpenFullScreenLyrics = { isLyricsFullScreen = true }
+            onOpenFullScreenLyrics = { isLyricsFullScreen = true },
+            onClose = onClose,
+            onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+            isSidebarFullscreen = isSidebarFullscreen,
+            playContext = playContext,
+            podcastRadioName = podcast.radioName,
+            onPlaylistClick = openPlaylistSource
         )
     } else {
         null
@@ -744,11 +752,11 @@ private fun FullPlayerScreenContent(
                         start = startInset,
                         end = endInset,
                         top = melodiaStatusBarTopPadding(),
-                        bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
+                        bottom = (if (allCardsHidden || !showInfoCards) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )
                 ) {
                     if (pluginFullLayout != null && pluginParts != null) {
-                        fullPlayerPluginSection(pluginFullLayout, pluginParts) { barModifier ->
+                        fullPlayerPluginSection(pluginFullLayout, pluginParts, isLandscape) { barModifier ->
                             FullPlayerSourceBar(
                                 playContext = playContext,
                                 podcastRadioName = podcast.radioName,
@@ -812,7 +820,7 @@ private fun FullPlayerScreenContent(
                         fillTail = fillTail
                     )
 
-                    fullPlayerInfoSection(
+                    if (showInfoCards) fullPlayerInfoSection(
                         songState = songDetailState,
                         colors = colors,
                         commentsState = commentsState,
@@ -841,7 +849,7 @@ private fun FullPlayerScreenContent(
                     onClose = onClose,
                     title = title,
                     artist = artist,
-                    showTitle = scrollMetrics.showTitleInBar,
+                    showTitle = scrollMetrics.showTitleInBar && showInfoCards,
                     isPlaying = isPlaying,
                     onTogglePlay = onTogglePlay,
                     isLiked = if (podcast.isPodcast) podcast.subscribed else songDetailState.isLiked,
@@ -968,10 +976,13 @@ private fun FullPlayerScreenContent(
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onSeek = viewModel::seekToTime,
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
+                leftFraction = pluginWideLayout?.frame?.split,
                 pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
                     {
-                        PlayerLayoutView(pluginWideLayout, Modifier.fillMaxSize()) { node, nodeModifier ->
-                            pluginParts.Component(node, nodeModifier)
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            PlayerLayoutView(pluginWideLayout.select(maxWidth.value, isLandscape), Modifier.fillMaxSize()) { node, nodeModifier ->
+                                pluginParts.Component(node, nodeModifier)
+                            }
                         }
                     }
                 } else {
