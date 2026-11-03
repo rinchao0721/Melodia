@@ -55,7 +55,8 @@ fun FullPlayerLyricsOverlay(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
-    onControlsVisibilityChange: (Boolean) -> Unit = {}
+    onControlsVisibilityChange: (Boolean) -> Unit = {},
+    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
 
@@ -124,7 +125,8 @@ fun FullPlayerLyricsOverlay(
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
                 onMoreClick = onMoreClick,
-                onControlsVisibilityChange = onControlsVisibilityChange
+                onControlsVisibilityChange = onControlsVisibilityChange,
+                pluginContent = pluginContent
             )
         }
     }

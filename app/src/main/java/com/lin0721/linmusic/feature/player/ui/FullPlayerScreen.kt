@@ -480,6 +480,7 @@ private fun FullPlayerScreenContent(
     val pluginLayouts = LocalPlayerLayouts.current
     val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
     val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
+    val pluginLyricsLayout = pluginLayouts[PlayerLayoutArea.ANDROID_LYRICS]
     // 插件关掉卡片流时首屏就是整页
     val showInfoCards = pluginFullLayout?.frame?.cards != false
     val coverFitInsetPx = rememberCoverFitInsetPx(
@@ -622,7 +623,7 @@ private fun FullPlayerScreenContent(
         }
     }
 
-    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null) {
+    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null || pluginLyricsLayout != null) {
         FullPlayerLayoutParts(
             title = displayedTitle,
             artist = displayedArtist,
@@ -1041,7 +1042,12 @@ private fun FullPlayerScreenContent(
             onPlayPrevious = viewModel.playerManager::playPrevious,
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
-            onMoreClick = { showMoreOptionsSheet = true }
+            onMoreClick = { showMoreOptionsSheet = true },
+            pluginContent = if (pluginLyricsLayout != null && pluginParts != null) {
+                { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
+            } else {
+                null
+            }
         )
 
         if (showShareCard) {

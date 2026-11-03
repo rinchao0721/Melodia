@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 8
+const val PLUGIN_API_MINOR = 9
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
@@ -103,7 +103,9 @@ val PLAYER_LAYOUT_AREAS = listOf(
     "android.fullPlayerWide",
     "android.miniPlayer",
     "desktop.playerBar",
-    "desktop.nowPlaying"
+    "desktop.nowPlaying",
+    "android.lyrics",
+    "desktop.lyricsView"
 )
 
 // 界面描述可以是 ui/ 下的文件，也可以内联在清单里

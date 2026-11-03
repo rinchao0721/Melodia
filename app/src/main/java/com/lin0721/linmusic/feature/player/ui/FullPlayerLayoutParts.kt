@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -132,7 +133,8 @@ class FullPlayerLayoutParts(
             HostAction.OPEN_SLEEP_TIMER -> onSleepTimerClick()
             HostAction.OPEN_MORE -> onMoreClick()
             HostAction.COLLAPSE -> onClose()
-            HostAction.PAGER_NEXT, HostAction.PAGER_PREVIOUS, HostAction.TOGGLE_NOW_PLAYING, HostAction.TOGGLE_LYRICS_VIEW -> Unit
+            HostAction.PAGER_NEXT, HostAction.PAGER_PREVIOUS, HostAction.TOGGLE_NOW_PLAYING, HostAction.TOGGLE_LYRICS_VIEW,
+            HostAction.CLOSE_LYRICS, HostAction.OPEN_LYRICS_SETTINGS -> Unit
         }
     }
 
@@ -233,7 +235,8 @@ class FullPlayerLayoutParts(
                 onSleepTimerClick = onSleepTimerClick,
                 sleepTimerActive = sleepTimerActive,
                 onCommentsClick = onCommentsClick,
-                onLyricsClick = onOpenFullScreenLyrics
+                onLyricsClick = onOpenFullScreenLyrics,
+                onLyricsSettingsClick = LocalLyricsPageSlots.current?.onOpenSettings ?: {}
             )
             // 歌词卡在浅色页面里保持有色底白字
             LayoutNodeType.LYRICS_CARD -> ImmersiveTheme {
@@ -251,7 +254,7 @@ class FullPlayerLayoutParts(
                 }
             }
             LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, displayDuration, modifier)
-            LayoutNodeType.LYRICS_VIEW -> EmbeddedLyricsView(
+            LayoutNodeType.LYRICS_VIEW -> LocalLyricsPageSlots.current?.lyricsList?.invoke(modifier) ?: EmbeddedLyricsView(
                 lyrics = songState.lyrics,
                 currentIndex = currentLyricIndex,
                 activeIndices = activeLyricIndices,
@@ -262,7 +265,10 @@ class FullPlayerLayoutParts(
                 onSeek = onSeek,
                 modifier = modifier
             )
-            LayoutNodeType.COLLAPSE_BUTTON -> FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
+            // 歌词页里收起按钮关闭歌词页
+            LayoutNodeType.COLLAPSE_BUTTON -> LocalLyricsPageSlots.current?.let { slots ->
+                FullPlayerCollapseButtons(slots.onClose, null, false, modifier)
+            } ?: FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
             LayoutNodeType.MORE_BUTTON -> FullPlayerMoreButton(onMoreClick, modifier)
             LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, modifier)
             else -> Unit
@@ -302,6 +308,37 @@ fun LazyListScope.fullPlayerPluginSection(
                         modifier = Modifier.align(Alignment.TopStart).padding(horizontal = MelodiaSpacing.lg)
                     )
                 }
+            }
+        }
+    }
+}
+
+// 歌词页里渲染插件布局时提供，lyricsView、收起按钮与歌词设置按钮改用歌词页的实现
+val LocalLyricsPageSlots = staticCompositionLocalOf<LyricsPageSlots?> { null }
+
+// 全屏歌词页的插件布局；关闭与歌词设置动作交给歌词页，其余照常
+@Composable
+fun LyricsPagePluginContent(spec: PlayerLayoutSpec, parts: FullPlayerLayoutParts, isLandscape: Boolean, slots: LyricsPageSlots) {
+    val base = parts.environment(spec.pluginId)
+    val environment = base.copy(
+        controlsVisible = slots.controlsVisible,
+        onAction = { action ->
+            when (action) {
+                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> slots.onClose()
+                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> slots.onOpenSettings()
+                else -> base.onAction(action)
+            }
+        }
+    )
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val root = spec.select(maxWidth.value, isLandscape)
+        CompositionLocalProvider(
+            LocalLayoutCoverColors provides parts.coverColors,
+            LocalLayoutEnvironment provides environment,
+            LocalLyricsPageSlots provides slots
+        ) {
+            PlayerLayoutView(root, Modifier.fillMaxSize(), parts.binding::prepare) { node, modifier ->
+                parts.Component(node, modifier)
             }
         }
     }

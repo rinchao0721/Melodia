@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.core.plugin
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +46,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
@@ -88,7 +94,7 @@ private fun NodeContent(
     resolve: (PlayerLayoutNode) -> PlayerLayoutNode?,
     component: @Composable (node: PlayerLayoutNode, modifier: Modifier) -> Unit
 ) {
-    val nodeModifier = modifier.then(current.boxModifier())
+    val nodeModifier = modifier.then(current.boxModifier()).then(current.autoHideModifier())
     when (current.type) {
         LayoutNodeType.COLUMN -> Column(
             nodeModifier,
@@ -129,6 +135,32 @@ private fun NodeContent(
         else -> component(current, nodeModifier)
     }
 }
+
+// 宿主收起控件时淡出并拦下点击，不改变布局
+@Composable
+private fun PlayerLayoutNode.autoHideModifier(): Modifier {
+    if (!autoHide) return Modifier
+    val env = LocalLayoutEnvironment.current
+    val alpha by animateFloatAsState(
+        targetValue = if (env.controlsVisible) 1f else 0f,
+        animationSpec = if (env.motionEnabled) tween(AUTO_HIDE_FADE_MS) else snap(),
+        label = "autoHide"
+    )
+    val hidden = !env.controlsVisible
+    return Modifier.graphicsLayer { this.alpha = alpha }.then(
+        if (hidden) {
+            Modifier.pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                }
+            }
+        } else {
+            Modifier
+        }
+    )
+}
+
+private const val AUTO_HIDE_FADE_MS = 240
 
 // text 节点与 time 组件共用的文字样式
 @Composable

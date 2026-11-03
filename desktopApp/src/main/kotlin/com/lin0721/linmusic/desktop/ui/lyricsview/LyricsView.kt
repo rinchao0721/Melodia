@@ -80,6 +80,20 @@ import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.plugin.HostAction
+import com.lin0721.linmusic.core.plugin.LYRICS_SETTINGS
+import com.lin0721.linmusic.core.plugin.LayoutAction
+import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
+import com.lin0721.linmusic.core.plugin.PlayerLayoutView
+import com.lin0721.linmusic.desktop.ui.nowplaying.rememberLayoutCoverColors
+import com.lin0721.linmusic.desktop.ui.player.PlayerBarParts
+import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
+import androidx.compose.runtime.CompositionLocalProvider
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -159,7 +173,10 @@ fun LyricsViewOverlay(
         val album = ownDetail?.al?.takeIf { it.id > 0 && it.name.isNotBlank() }
         val artists = if (ownDetail != null) detail.artists.map { Artist(id = it.artistId, name = it.artistName) } else emptyList()
         val (settings, actions) = rememberLyricsViewSettings(settingsPreferences, desktopPreferences)
+        val pluginSpec = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_LYRICS_VIEW]
+        val plugin = pluginSpec?.let { LyricsPlugin(it, rememberPlaybackParts(controller, playerViewModel)) }
         LyricsViewContent(
+            plugin = plugin,
             track = track,
             lines = detail.lyrics,
             isLoading = detail.isLyricsLoading,
@@ -202,7 +219,8 @@ private fun LyricsViewContent(
     artists: List<Artist>,
     onSeek: (Long) -> Unit,
     onToggleFullscreen: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    plugin: LyricsPlugin? = null
 ) {
     // 深色与移动端全屏歌词同一配方；浅色下封面浅调铺底配深字
     val base = rememberCoverBase(track.artworkUri)
@@ -263,19 +281,37 @@ private fun LyricsViewContent(
                     }
                 }
         ) {
-            // 让位高度与自动隐藏开关无关，切换开关不会让歌词移位
-            Box(Modifier.fillMaxSize().padding(top = headerInset)) {
-                when (lyricsPlaceholder(lines, isLoading)) {
-                    LyricsPlaceholder.Loading -> CircularProgressIndicator(
-                        color = LocalImmersiveColors.current.content,
-                        modifier = Modifier.align(Alignment.Center).size(28.dp),
-                        strokeWidth = 2.dp
-                    )
-                    LyricsPlaceholder.Empty -> Placeholder("暂无歌词")
-                    LyricsPlaceholder.PureMusic -> Placeholder("纯音乐，请欣赏")
-                    null -> LyricsList(lines, primaryIndex, activeIndices, settings, isPlaying, clock, onSeek)
+            val lyricsArea: @Composable (Modifier) -> Unit = { areaModifier ->
+                Box(areaModifier) {
+                    when (lyricsPlaceholder(lines, isLoading)) {
+                        LyricsPlaceholder.Loading -> CircularProgressIndicator(
+                            color = LocalImmersiveColors.current.content,
+                            modifier = Modifier.align(Alignment.Center).size(28.dp),
+                            strokeWidth = 2.dp
+                        )
+                        LyricsPlaceholder.Empty -> Placeholder("暂无歌词")
+                        LyricsPlaceholder.PureMusic -> Placeholder("纯音乐，请欣赏")
+                        null -> LyricsList(lines, primaryIndex, activeIndices, settings, isPlaying, clock, onSeek)
+                    }
                 }
             }
+            if (plugin != null) {
+                PluginLyricsContent(
+                    plugin = plugin,
+                    track = track,
+                    lyricsArea = lyricsArea,
+                    controlsVisible = !controlsHidden,
+                    isFullscreen = isFullscreen,
+                    settingsOpen = settingsOpen,
+                    onSettingsOpenChange = { settingsOpen = it },
+                    settingsContent = { LyricsSettingsPanel(settings, actions, hasTranslation, hasRoma) },
+                    onToggleFullscreen = onToggleFullscreen,
+                    onClose = onClose
+                )
+                return@Box
+            }
+            // 让位高度与自动隐藏开关无关，切换开关不会让歌词移位
+            lyricsArea(Modifier.fillMaxSize().padding(top = headerInset))
             // 退出组合后不再拦截点击
             AnimatedVisibility(
                 visible = !controlsHidden,
@@ -603,6 +639,77 @@ private fun BackgroundVocal(
         }
         line.roma?.let {
             Text(it, color = tint, fontSize = secondarySize, textAlign = alignment.textAlign, modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+        }
+    }
+}
+
+// 歌词页的插件布局与渲染组件所需的播放部件
+internal class LyricsPlugin(val spec: PlayerLayoutSpec, val parts: PlayerBarParts)
+
+// 插件布局替换标题栏与歌词区；收起、全屏、歌词设置与分享沿用歌词页的实现
+@Composable
+private fun PluginLyricsContent(
+    plugin: LyricsPlugin,
+    track: NowPlaying,
+    lyricsArea: @Composable (Modifier) -> Unit,
+    controlsVisible: Boolean,
+    isFullscreen: Boolean,
+    settingsOpen: Boolean,
+    onSettingsOpenChange: (Boolean) -> Unit,
+    settingsContent: @Composable () -> Unit,
+    onToggleFullscreen: () -> Unit,
+    onClose: () -> Unit
+) {
+    val navigator = LocalDesktopNavigator.current
+    val parts = plugin.parts
+    val binding = parts.bindingState()
+    val base = parts.environment(plugin.spec.pluginId, binding)
+    val environment = base.copy(
+        controlsVisible = controlsVisible,
+        onAction = { action ->
+            when (action) {
+                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> onClose()
+                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> onSettingsOpenChange(true)
+                else -> base.onAction(action)
+            }
+        }
+    )
+    val coverColors = rememberLayoutCoverColors(track.artworkUri)
+    val density = LocalDensity.current
+    val popupOffset = IntOffset(0, with(density) { (HeaderButtonSize + 8.dp).roundToPx() })
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val root = plugin.spec.select(maxWidth.value, landscape = true)
+        CompositionLocalProvider(LocalLayoutCoverColors provides coverColors, LocalLayoutEnvironment provides environment) {
+            PlayerLayoutView(root, Modifier.fillMaxSize(), binding::prepare) { node, modifier ->
+                when (node.type) {
+                    LayoutNodeType.LYRICS_VIEW -> lyricsArea(modifier)
+                    LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
+                    LayoutNodeType.ACTIONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+                        node.buttons.forEach { button ->
+                            when (button) {
+                                LYRICS_SETTINGS -> Box {
+                                    HeaderButton(Icons.Rounded.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
+                                    if (settingsOpen) {
+                                        Popup(
+                                            alignment = Alignment.TopEnd,
+                                            offset = popupOffset,
+                                            onDismissRequest = { onSettingsOpenChange(false) },
+                                            properties = PopupProperties(focusable = true)
+                                        ) { settingsContent() }
+                                    }
+                                }
+                                "fullscreen" -> HeaderButton(
+                                    if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                    if (isFullscreen) "退出全屏" else "全屏",
+                                    onToggleFullscreen
+                                )
+                                "share" -> HeaderButton(Icons.Rounded.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
+                            }
+                        }
+                    }
+                    else -> parts.Component(node, modifier)
+                }
+            }
         }
     }
 }

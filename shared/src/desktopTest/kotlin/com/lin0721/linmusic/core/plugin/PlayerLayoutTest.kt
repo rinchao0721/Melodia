@@ -502,6 +502,41 @@ class PlayerLayoutTest {
     }
 
     @Test
+    fun `歌词页区域必须包含 lyricsView，支持自动隐藏与歌词设置`() {
+        assertTrue((parse(PlayerLayoutArea.ANDROID_LYRICS, """{"type":"column","children":[{"type":"controls"}]}""") as PlayerLayoutParseResult.Failure).reason.contains("lyricsView"))
+        val android = parse(
+            PlayerLayoutArea.ANDROID_LYRICS,
+            """{"type":"column","children":[
+                {"type":"row","autoHide":true,"onTap":"closeLyrics","children":[{"type":"collapseButton"},{"type":"songInfo","weight":1}]},
+                {"type":"lyricsView","weight":1,"autoHide":true},
+                {"type":"actions","autoHide":true,"buttons":["lyricsSettings","queue"],"onLongPress":"openLyricsSettings"},
+                {"type":"actions"},
+                {"type":"controls","onTap":"openLyrics"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val (header, lyrics, actions, defaults, controls) = android.root.children
+        assertTrue(header.autoHide)
+        assertEquals(LayoutAction.Host(HostAction.CLOSE_LYRICS), header.onTap)
+        assertTrue(!lyrics.autoHide)
+        assertEquals(listOf(LYRICS_SETTINGS, "queue"), actions.buttons)
+        assertEquals(LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS), actions.onLongPress)
+        assertTrue(LYRICS_SETTINGS !in defaults.buttons)
+        assertNull(controls.onTap)
+        assertEquals(2, android.warnings.size)
+
+        val desktop = parse(
+            PlayerLayoutArea.DESKTOP_LYRICS_VIEW,
+            """{"type":"box","children":[{"type":"lyricsView"},{"type":"actions"},{"type":"miniLyric"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(listOf("fullscreen", "share"), desktop.root.children[1].buttons)
+        assertEquals(1, desktop.warnings.size)
+        assertTrue("android.lyrics" in PLAYER_LAYOUT_AREAS && "desktop.lyricsView" in PLAYER_LAYOUT_AREAS)
+        val other = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"type":"column","children":[{"type":"controls","onTap":"closeLyrics","autoHide":true}]}""") as PlayerLayoutParseResult.Success
+        assertNull(other.root.children.single().onTap)
+        assertTrue(other.root.children.single().autoHide)
+    }
+
+    @Test
     fun `变体里的组件也计入区域是否用到`() {
         val spec = (parse(
             PlayerLayoutArea.ANDROID_FULL_PLAYER,

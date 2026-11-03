@@ -51,13 +51,13 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.8` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.9` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
 ### contributes
 
-- `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`、`desktop.playerBar`、`desktop.nowPlaying`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
+- `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`、`android.lyrics`、`desktop.playerBar`、`desktop.nowPlaying`、`desktop.lyricsView`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
 - `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）、`nowPlayingCard` 或 `settings`（API 1.4 起）。原生插件可以写 `"compose": true` 代替 `ui`，见「原生插件」一节，这种页面只能放在侧栏。
 - `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
@@ -341,6 +341,10 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
 | `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`lyricsView`、`collapseButton`、`moreButton`、`sourceLabel` |
 | `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`lyricsView`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.lyrics` | Android 全屏歌词页（API 1.9） | `lyricsView` | `lyricsCard`、`sourceLabel` |
+| `desktop.lyricsView` | 桌面歌词页，全屏时即沉浸播放页（API 1.9） | `lyricsView` | `miniLyric`、`lyricsCard`、`moreButton`、`sourceLabel` |
+
+两个歌词页区域替换整页内容，下拉收起、返回键、页面背景与留边不变。这里的 `lyricsView` 就是歌词页原有的歌词列表，`collapseButton` 关闭歌词页。`android.lyrics` 的 `actions` 另有 `lyricsSettings`（打开歌词设置，需写明）；`desktop.lyricsView` 的 `actions` 为 `lyricsSettings`、`fullscreen`、`share`，没写 `buttons` 时为后两个。
 
 桌面区域不支持 `collapseButton`、`moreButton`、`sourceLabel`、`lyricsView`；`time` 与 `playMode` 按钮 API 1.7 起可用；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
 
@@ -367,6 +371,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `elevation` | 0–24，按 `shape` 投影的阴影（API 1.7） |
 | `border` | `{ "width": 1, "color": "outline" }`，宽度 0–8（API 1.7） |
 | `textAlign` | `start`、`center`、`end`，用于 `text`、`time`、`miniLyric`（API 1.7） |
+| `autoHide` | `true` 时随歌词页的「自动隐藏控件」淡出并停止接收点击，不改变布局；`lyricsView` 不能写（API 1.9） |
 | `class` | 引用 `styles` 里的样式（API 1.7） |
 | `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8；API 1.5 起可以写 `[左上, 右上, 右下, 左下]` |
 
@@ -481,9 +486,10 @@ API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`，�
 |---|---|
 | `togglePlay`、`next`、`previous`、`seekForward`、`seekBack`（10 秒）、`toggleLike`、`cyclePlayMode` | 全部 |
 | `pagerNext`、`pagerPrevious` | 全部；让最近一层 `pager` 翻页，不在分页器里时无效 |
-| `openLyrics`、`openQueue`、`openComments`、`openSleepTimer`、`openMore` | Android 全屏页、宽屏页 |
+| `openLyrics`、`openQueue`、`openComments`、`openSleepTimer`、`openMore` | Android 全屏页、宽屏页；`android.lyrics` 可用除 `openLyrics` 外的四个 |
 | `collapse` | Android 全屏页 |
-| `toggleNowPlaying`、`toggleLyricsView` | 桌面 |
+| `toggleNowPlaying`、`toggleLyricsView` | 桌面播放栏、「正在播放」面板 |
+| `closeLyrics`、`openLyricsSettings` | 两个歌词页区域（API 1.9） |
 | `script:<名称>` | 全部；调用 `main.js` 里 `melodia.register.action` 注册的同名动作，参数为当前播放状态（字段同 `$player`），5 秒内没有返回按失败处理 |
 
 区域不支持的动作会被忽略并提示。沙盒插件用 `script:` 动作时，要在清单的 `contributes` 里写 `"layoutActions": true` 并带上 `main.js`，否则这些动作会被忽略；原生插件用 `context.extensions.action` 注册的动作同样可以调用，不需要声明 `layoutActions`。

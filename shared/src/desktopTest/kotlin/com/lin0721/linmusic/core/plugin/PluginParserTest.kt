@@ -160,7 +160,8 @@ class PluginParserTest {
     fun `apiVersion 按主版本和次版本校验`() {
         assertEquals("1.0", (parseV2(""","apiVersion":"1.0"""") as PluginParseResult.Success).manifest.apiVersion)
         assertTrue(reasonV2(""","apiVersion":"2.0"""").contains("2.0"))
-        assertTrue(reasonV2(""","apiVersion":"1.9"""").contains("1.9"))
+        val newer = "1.${PLUGIN_API_MINOR + 1}"
+        assertTrue(reasonV2(""","apiVersion":"$newer"""").contains(newer))
         assertTrue(reasonV2(""","apiVersion":"latest"""").contains("apiVersion"))
     }
 

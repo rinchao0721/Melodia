@@ -46,7 +46,8 @@ fun PlayerActionRow(
     onSleepTimerClick: () -> Unit = {},
     sleepTimerActive: Boolean = false,
     onCommentsClick: () -> Unit = {},
-    onLyricsClick: () -> Unit = {}
+    onLyricsClick: () -> Unit = {},
+    onLyricsSettingsClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier,
@@ -88,6 +89,9 @@ fun PlayerActionRow(
                 }
                 "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
                     Icon(Icons.Rounded.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                }
+                "lyricsSettings" -> MelodiaIconButton(onClick = onLyricsSettingsClick) {
+                    Icon(Icons.Rounded.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
             }
         }

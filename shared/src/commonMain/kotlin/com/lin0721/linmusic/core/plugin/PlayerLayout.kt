@@ -179,6 +179,7 @@ data class PlayerLayoutNode(
     val onTap: LayoutAction? = null,
     val onDoubleTap: LayoutAction? = null,
     val onLongPress: LayoutAction? = null,
+    val autoHide: Boolean = false,
     val shape: LayoutShape = LayoutShape.RECT,
     val cornerRadius: Float = DEFAULT_CORNER_RADIUS,
     // 分角圆角，写了时优先于 cornerRadius
@@ -290,6 +291,30 @@ enum class PlayerLayoutArea(
         ),
         controlButtons = ALL_CONTROLS,
         hostActions = HostAction.DESKTOP
+    ),
+    ANDROID_LYRICS(
+        "android.lyrics", "Android 全屏歌词页",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
+            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER,
+            LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
+        ),
+        ANDROID_ACTIONS + LYRICS_SETTINGS,
+        ALL_CONTROLS,
+        hostActions = HostAction.ANDROID_LYRICS
+    ),
+    DESKTOP_LYRICS_VIEW(
+        "desktop.lyricsView", "桌面歌词页",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.ACTIONS,
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON,
+            LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
+        ),
+        listOf(LYRICS_SETTINGS, "fullscreen", "share"),
+        ALL_CONTROLS,
+        hostActions = HostAction.DESKTOP_LYRICS
     );
 
     // 没写 buttons 时用的按钮；后来新增的按钮需要显式写出，避免改变已发布插件的样子
@@ -306,6 +331,8 @@ enum class PlayerLayoutArea(
         ANDROID_FULL_PLAYER, ANDROID_FULL_PLAYER_WIDE, ANDROID_MINI_PLAYER ->
             if (root.hasButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE)) null else "必须包含播放/暂停按钮"
         DESKTOP_NOW_PLAYING -> null
+        ANDROID_LYRICS, DESKTOP_LYRICS_VIEW ->
+            if (root.contains(LayoutNodeType.LYRICS_VIEW)) null else "歌词页必须包含 lyricsView"
     }
 
     companion object {
@@ -318,9 +345,10 @@ private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "mor
 
 const val CONTROL_PLAY_PAUSE = "playPause"
 const val CONTROL_PLAY_MODE = "playMode"
+const val LYRICS_SETTINGS = "lyricsSettings"
 val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
 private val ALL_CONTROLS = CONTROL_BUTTONS + CONTROL_PLAY_MODE
-private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments", "lyrics")
+private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments", "lyrics", LYRICS_SETTINGS)
 
 sealed interface PlayerLayoutParseResult {
     data class Success(
@@ -530,6 +558,8 @@ object PlayerLayoutParser {
                 onTap = gesture("onTap"),
                 onDoubleTap = gesture("onDoubleTap"),
                 onLongPress = gesture("onLongPress"),
+                autoHide = playerBindings && (obj["autoHide"] as? JsonPrimitive)?.booleanOrNull == true &&
+                    (type != LayoutNodeType.LYRICS_VIEW).also { ok -> if (!ok) warnings += "lyricsView 不能写 autoHide，已忽略" },
                 variant = if (type == LayoutNodeType.CONTROLS) {
                     enumValue(obj, "variant", ControlVariant::fromKey, warnings) ?: ControlVariant.DEFAULT
                 } else {

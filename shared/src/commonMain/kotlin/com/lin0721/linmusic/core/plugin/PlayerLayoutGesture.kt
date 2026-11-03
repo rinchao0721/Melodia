@@ -34,7 +34,9 @@ enum class HostAction(val key: String) {
     OPEN_MORE("openMore"),
     COLLAPSE("collapse"),
     TOGGLE_NOW_PLAYING("toggleNowPlaying"),
-    TOGGLE_LYRICS_VIEW("toggleLyricsView");
+    TOGGLE_LYRICS_VIEW("toggleLyricsView"),
+    CLOSE_LYRICS("closeLyrics"),
+    OPEN_LYRICS_SETTINGS("openLyricsSettings");
 
     companion object {
         fun fromKey(key: String): HostAction? = entries.firstOrNull { it.key == key }
@@ -43,6 +45,8 @@ enum class HostAction(val key: String) {
         val COMMON = setOf(TOGGLE_PLAY, NEXT, PREVIOUS, SEEK_FORWARD, SEEK_BACK, TOGGLE_LIKE, CYCLE_PLAY_MODE, PAGER_NEXT, PAGER_PREVIOUS)
         val ANDROID_PLAYER = COMMON + setOf(OPEN_LYRICS, OPEN_QUEUE, OPEN_COMMENTS, OPEN_SLEEP_TIMER, OPEN_MORE)
         val DESKTOP = COMMON + setOf(TOGGLE_NOW_PLAYING, TOGGLE_LYRICS_VIEW)
+        val ANDROID_LYRICS = COMMON + setOf(OPEN_QUEUE, OPEN_COMMENTS, OPEN_SLEEP_TIMER, OPEN_MORE, CLOSE_LYRICS, OPEN_LYRICS_SETTINGS)
+        val DESKTOP_LYRICS = COMMON + setOf(CLOSE_LYRICS, OPEN_LYRICS_SETTINGS)
     }
 }
 
@@ -57,6 +61,8 @@ data class LayoutEnvironment(
     val playing: Boolean = false,
     val songKey: Any? = null,
     val motionEnabled: Boolean = true,
+    // 宿主自动收起控件时为 false，autoHide 节点随之淡出
+    val controlsVisible: Boolean = true,
     val onAction: (LayoutAction) -> Unit = {}
 )
 
