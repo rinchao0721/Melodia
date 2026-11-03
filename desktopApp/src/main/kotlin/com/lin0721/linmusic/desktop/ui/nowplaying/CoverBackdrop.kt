@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.desktop.ui.components.uiTween
@@ -26,4 +27,15 @@ fun rememberCoverBase(url: String?): Color {
     val target = coverBase(CoverGroup.PLAYER, base) ?: base
     val animated by animateColorAsState(target, uiTween(BASE_TRANSITION_MS), label = "coverBase")
     return animated
+}
+
+// 插件布局用的封面色：底色同 rememberCoverBase，高亮色取同一次取色结果
+@Composable
+fun rememberLayoutCoverColors(url: String?): LayoutCoverColors {
+    val base = rememberCoverBase(url)
+    var accent by remember { mutableStateOf(FallbackCoverPalette.textHighlight) }
+    LaunchedEffect(url) {
+        accent = if (url.isNullOrBlank()) FallbackCoverPalette.textHighlight else extractCoverPaletteFromUrl(url).textHighlight
+    }
+    return LayoutCoverColors(base, accent)
 }

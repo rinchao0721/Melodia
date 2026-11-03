@@ -29,7 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -270,15 +270,4 @@ fun FullPlayerMoreButton(onMoreClick: () -> Unit, modifier: Modifier = Modifier)
             modifier = Modifier.size(24.dp)
         )
     }
-}
-
-// 播放来源的标题与名称；名称为空时只显示标题
-fun playSourceText(playContext: String?, podcastRadioName: String): Pair<String, String?> = when (playContext) {
-    null -> "NOW PLAYING" to null
-    "搜索" -> "播放自" to "搜索"
-    "每日推荐" -> "播放自" to "每日推荐"
-    "历史日推" -> "播放自" to "历史日推"
-    "intelligence" -> "播放自" to "心动模式"
-    PlaybackController.CONTEXT_PODCAST -> "播放自播客" to podcastRadioName.ifBlank { "播客" }
-    else -> "播放自歌单" to playContext
 }

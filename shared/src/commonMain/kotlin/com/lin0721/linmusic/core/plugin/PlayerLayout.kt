@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.core.plugin
 
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.lin0721.linmusic.core.ui.skin.PaletteToken
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -117,6 +116,14 @@ enum class LayoutPosition(val key: String, val horizontal: LayoutAlign, val vert
     }
 }
 
+enum class ControlVariant(val key: String) {
+    DEFAULT("default"), PLAIN("plain"), OUTLINED("outlined");
+
+    companion object {
+        fun fromKey(key: String): ControlVariant? = entries.firstOrNull { it.key == key }
+    }
+}
+
 enum class TimeFormat(val key: String) {
     POSITION("position"), DURATION("duration"), REMAINING("remaining"), BOTH("both");
 
@@ -160,7 +167,14 @@ data class PlayerLayoutNode(
     val alignSelf: LayoutPosition? = null,
     val offsetX: Float = 0f,
     val offsetY: Float = 0f,
-    val background: PaletteToken? = null,
+    val background: LayoutFill? = null,
+    // 子树文字与图标的颜色
+    val contentColor: LayoutColor? = null,
+    val opacity: Float? = null,
+    val elevation: Float = 0f,
+    val border: LayoutBorder? = null,
+    val textAlign: LayoutAlign? = null,
+    val variant: ControlVariant = ControlVariant.DEFAULT,
     val shape: LayoutShape = LayoutShape.RECT,
     val cornerRadius: Float = DEFAULT_CORNER_RADIUS,
     // 分角圆角，写了时优先于 cornerRadius
@@ -224,7 +238,7 @@ enum class PlayerLayoutArea(
             LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
         ),
         ANDROID_ACTIONS,
-        ANDROID_CONTROLS,
+        ALL_CONTROLS,
         frameFields = setOf("header", "cards")
     ),
     ANDROID_FULL_PLAYER_WIDE(
@@ -235,7 +249,7 @@ enum class PlayerLayoutArea(
             LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
         ),
         ANDROID_ACTIONS,
-        ANDROID_CONTROLS,
+        ALL_CONTROLS,
         frameFields = setOf("split")
     ),
     ANDROID_MINI_PLAYER(
@@ -253,9 +267,10 @@ enum class PlayerLayoutArea(
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.ACTIONS,
-            LayoutNodeType.SPACER, LayoutNodeType.TEXT
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME
         ),
         listOf("desktopLyric", "lyricsView", "queue", "device", "volume", "miniPlayer", "fullscreen"),
+        ALL_CONTROLS,
         frameFields = setOf("background")
     ),
     DESKTOP_NOW_PLAYING(
@@ -263,8 +278,9 @@ enum class PlayerLayoutArea(
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.SPACER,
-            LayoutNodeType.TEXT, LayoutNodeType.PAGER
-        )
+            LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
+        ),
+        controlButtons = ALL_CONTROLS
     );
 
     // 没写 buttons 时用的按钮；后来新增的按钮需要显式写出，避免改变已发布插件的样子
@@ -294,7 +310,7 @@ private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "mor
 const val CONTROL_PLAY_PAUSE = "playPause"
 const val CONTROL_PLAY_MODE = "playMode"
 val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
-private val ANDROID_CONTROLS = CONTROL_BUTTONS + CONTROL_PLAY_MODE
+private val ALL_CONTROLS = CONTROL_BUTTONS + CONTROL_PLAY_MODE
 private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments", "lyrics")
 
 sealed interface PlayerLayoutParseResult {
@@ -338,6 +354,8 @@ object PlayerLayoutParser {
     private const val MAX_VARIANTS = 4
     private const val MAX_OFFSET = 200f
     private val WRAPPER_KEYS = setOf("layout", "frame", "variants", "styles")
+    private const val MAX_ELEVATION = 24f
+    private const val MAX_BORDER = 8f
     // 后续版本的字段，提前识别以便提示
     private val FUTURE_NODE_KEYS = listOf("animation", "onTap", "onDoubleTap", "onLongPress")
 
@@ -345,21 +363,22 @@ object PlayerLayoutParser {
 
     // 值可以直接是布局树，也可以是带 layout 字段的外壳对象
     fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
-        if ("layout" !in root || "type" in root) return parseAreaTree(area, root)
+        if ("layout" !in root || "type" in root) return parseAreaTree(area, root, emptyMap())
         val layout = root["layout"] as? JsonObject ?: return PlayerLayoutParseResult.Failure("layout 不是有效的布局对象")
-        val main = parseAreaTree(area, layout)
+        val styleWarnings = mutableListOf<String>()
+        val styles = LayoutStyleParser.styles(root["styles"], styleWarnings)
+        val main = parseAreaTree(area, layout, styles)
         if (main !is PlayerLayoutParseResult.Success) return main
-        val warnings = main.warnings.toMutableList()
+        val warnings = (styleWarnings + main.warnings).toMutableList()
         root.keys.filter { it !in WRAPPER_KEYS }.forEach { warnings += "布局不支持字段 $it，已忽略" }
-        if ("styles" in root) warnings += "当前版本暂不支持 styles，已忽略"
         val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
-        return main.copy(warnings = warnings, frame = frame, variants = variants(area, root["variants"], warnings))
+        return main.copy(warnings = warnings, frame = frame, variants = variants(area, root["variants"], styles, warnings))
     }
 
-    private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
+    private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject, styles: Map<String, JsonObject>): PlayerLayoutParseResult {
         val node = parseTree(
             root, area.components, area.label, area.controlButtons, area.actionButtons,
-            area.defaultControlButtons, area.defaultActionButtons, playerBindings = true
+            area.defaultControlButtons, area.defaultActionButtons, playerBindings = true, styles = styles
         )
         if (node !is PlayerLayoutParseResult.Success) return node
         area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
@@ -367,7 +386,12 @@ object PlayerLayoutParser {
     }
 
     // 每条变体单独校验，无效的只跳过这一条
-    private fun variants(area: PlayerLayoutArea, value: JsonElement?, warnings: MutableList<String>): List<PlayerLayoutVariant> {
+    private fun variants(
+        area: PlayerLayoutArea,
+        value: JsonElement?,
+        styles: Map<String, JsonObject>,
+        warnings: MutableList<String>
+    ): List<PlayerLayoutVariant> {
         if (value == null) return emptyList()
         val array = value as? JsonArray ?: return emptyList<PlayerLayoutVariant>().also { warnings += "variants 不是数组，已忽略" }
         if (array.size > MAX_VARIANTS) warnings += "variants 最多 $MAX_VARIANTS 条，多出的已忽略"
@@ -377,7 +401,7 @@ object PlayerLayoutParser {
             val condition = PlayerLayoutFrameParser.parseCondition(obj["when"], warnings, label)
                 ?: return@mapIndexedNotNull null.also { warnings += "$label 没有有效的 when 条件，已忽略" }
             val layout = obj["layout"] as? JsonObject ?: return@mapIndexedNotNull null.also { warnings += "$label 缺少 layout，已忽略" }
-            when (val parsed = parseAreaTree(area, layout)) {
+            when (val parsed = parseAreaTree(area, layout, styles)) {
                 is PlayerLayoutParseResult.Failure -> null.also { warnings += "$label 无效（${parsed.reason}），已忽略" }
                 is PlayerLayoutParseResult.Success -> {
                     parsed.warnings.forEach { warnings += "$label：$it" }
@@ -400,7 +424,8 @@ object PlayerLayoutParser {
         defaultControls: List<String> = controlButtons,
         defaultActions: List<String> = actionButtons,
         // 播放器区域用 $player 绑定，页面用 $state / $item
-        playerBindings: Boolean = false
+        playerBindings: Boolean = false,
+        styles: Map<String, JsonObject> = emptyMap()
     ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
@@ -408,7 +433,11 @@ object PlayerLayoutParser {
             if (depth > MAX_DEPTH) throw TooLarge("布局层级超过 $MAX_DEPTH 层")
             count++
             if (count > MAX_NODES) throw TooLarge("布局节点超过 $MAX_NODES 个")
-            val obj = json as? JsonObject ?: return null.also { warnings += "布局里有无效节点，已忽略" }
+            val raw = json as? JsonObject ?: return null.also { warnings += "布局里有无效节点，已忽略" }
+            // 样式先合并进节点，节点自己写的属性优先
+            val obj = raw.string("class")?.let { name ->
+                styles[name]?.let { JsonObject(it + raw - "class") } ?: raw.also { warnings += "样式 $name 不存在，已忽略" }
+            } ?: raw
             val typeKey = obj.string("type")
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
@@ -468,8 +497,22 @@ object PlayerLayoutParser {
                 alignSelf = enumValue(obj, "alignSelf", LayoutPosition::fromKey, warnings),
                 offsetX = offset?.first ?: 0f,
                 offsetY = offset?.second ?: 0f,
-                background = obj.string("background")?.let { key ->
-                    PaletteToken.fromKey(key) ?: null.also { warnings += "背景 $key 不是色板项，已忽略" }
+                background = obj["background"]?.let { value ->
+                    LayoutStyleParser.fill(value) ?: null.also { warnings += "background 取值无效，已忽略" }
+                },
+                contentColor = obj["contentColor"]?.let { value ->
+                    LayoutStyleParser.color(value) ?: null.also { warnings += "contentColor 取值无效，已忽略" }
+                },
+                opacity = obj.float("opacity")?.coerceIn(0f, 1f),
+                elevation = obj.float("elevation")?.coerceIn(0f, MAX_ELEVATION) ?: 0f,
+                border = obj["border"]?.let { value ->
+                    LayoutStyleParser.border(value, MAX_BORDER) ?: null.also { warnings += "border 取值无效，已忽略" }
+                },
+                textAlign = enumValue(obj, "textAlign", LayoutAlign::fromKey, warnings),
+                variant = if (type == LayoutNodeType.CONTROLS) {
+                    enumValue(obj, "variant", ControlVariant::fromKey, warnings) ?: ControlVariant.DEFAULT
+                } else {
+                    ControlVariant.DEFAULT
                 },
                 shape = enumValue(obj, "shape", LayoutShape::fromKey, warnings) ?: LayoutShape.RECT,
                 cornerRadius = obj.float("radius")?.coerceIn(0f, MAX_RADIUS) ?: PlayerLayoutNode.DEFAULT_CORNER_RADIUS,

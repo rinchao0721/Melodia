@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.plugin
 
-import com.lin0721.linmusic.core.ui.skin.PaletteToken
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -20,7 +19,7 @@ sealed interface FrameBackground {
     // 宿主默认底色（封面取色）
     data object Host : FrameBackground
     data object None : FrameBackground
-    data class Token(val token: PaletteToken) : FrameBackground
+    data class Fill(val fill: LayoutFill) : FrameBackground
 }
 
 data class LayoutCorners(val topStart: Float, val topEnd: Float, val bottomEnd: Float, val bottomStart: Float) {
@@ -99,11 +98,10 @@ internal object PlayerLayoutFrameParser {
                 "header" -> item.text()?.let(LayoutHeader::fromKey)?.let { frame.copy(header = it) }
                 "cards" -> item.bool()?.let { frame.copy(cards = it) }
                 "split" -> item.number()?.let { frame.copy(split = it.coerceIn(MIN_SPLIT, MAX_SPLIT)) }
-                "background" -> when (val text = item.text()) {
-                    null -> null
+                "background" -> when (item.text()) {
                     "host" -> frame.copy(background = FrameBackground.Host)
                     "none" -> frame.copy(background = FrameBackground.None)
-                    else -> PaletteToken.fromKey(text)?.let { frame.copy(background = FrameBackground.Token(it)) }
+                    else -> LayoutStyleParser.fill(item)?.let { frame.copy(background = FrameBackground.Fill(it)) }
                 }
                 "radius" -> parseCorners(item, MAX_RADIUS)?.let { frame.copy(corners = it) }
                 "shadow" -> item.bool()?.let { frame.copy(shadow = it) }

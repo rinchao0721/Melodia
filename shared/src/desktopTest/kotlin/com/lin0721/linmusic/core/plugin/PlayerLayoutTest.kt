@@ -87,7 +87,7 @@ class PlayerLayoutTest {
         val root = result.root
         assertEquals(64f, root.spacing)
         assertEquals(LayoutPadding.Zero, root.padding)
-        assertEquals(PaletteToken.PANE, root.background)
+        assertEquals(LayoutFill.Solid(LayoutColor.Token(PaletteToken.PANE)), root.background)
         assertEquals(LayoutAlign.START, root.align)
         assertEquals(listOf(LayoutNodeType.CONTROLS, LayoutNodeType.PROGRESS, LayoutNodeType.TEXT), root.children.map { it.type })
         assertEquals(listOf("playPause"), root.children[0].buttons)
@@ -156,7 +156,7 @@ class PlayerLayoutTest {
             """{"frame":{"background":"cardSurface","radius":[12,12,0,0],"shadow":false,"border":"no"},
                 "layout":{"type":"row","children":[{"type":"controls"}]}}"""
         ) as PlayerLayoutParseResult.Success
-        assertEquals(FrameBackground.Token(PaletteToken.CARD_SURFACE), mini.frame.background)
+        assertEquals(FrameBackground.Fill(LayoutFill.Solid(LayoutColor.Token(PaletteToken.CARD_SURFACE))), mini.frame.background)
         assertEquals(LayoutCorners(12f, 12f, 0f, 0f), mini.frame.corners)
         assertEquals(false, mini.frame.shadow)
         assertTrue(mini.frame.border)
@@ -186,14 +186,13 @@ class PlayerLayoutTest {
     }
 
     @Test
-    fun `外壳缺少有效 layout 时区域无效，预留字段提示暂不支持`() {
+    fun `外壳缺少有效 layout 时区域无效，未知与预留字段提示`() {
         assertTrue(parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":"ui/a.json"}""") is PlayerLayoutParseResult.Failure)
         val result = parse(
             PlayerLayoutArea.ANDROID_FULL_PLAYER,
             """{"styles":{},"theme":1,"layout":{"type":"column","children":[{"type":"controls","animation":"spin","onTap":"next"}]}}"""
         ) as PlayerLayoutParseResult.Success
-        assertEquals(4, result.warnings.size)
-        assertTrue(result.warnings.any { it.contains("styles") })
+        assertEquals(3, result.warnings.size)
     }
 
     @Test
@@ -263,7 +262,7 @@ class PlayerLayoutTest {
         assertEquals(listOf(LayoutNodeType.TIME, LayoutNodeType.CONTROLS), wide.root.children.map { it.type })
         val mini = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[{"type":"miniLyric"},{"type":"time"},{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
         assertTrue(mini.warnings.isEmpty())
-        val bar = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","children":[{"type":"time"},{"type":"controls"},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
+        val bar = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","children":[{"type":"lyricsView"},{"type":"controls"},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
         assertEquals(1, bar.warnings.size)
     }
 
@@ -283,9 +282,9 @@ class PlayerLayoutTest {
         assertEquals(listOf("sleepTimer", "comments", "lyrics"), extra.buttons)
         assertTrue(result.warnings.isEmpty())
 
-        val desktop = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","children":[{"type":"controls","buttons":["playPause","playMode"]},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
-        assertEquals(listOf(CONTROL_PLAY_PAUSE), desktop.root.children[0].buttons)
-        assertEquals(1, desktop.warnings.size)
+        val mini = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[{"type":"controls","buttons":["playPause","playMode"]}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(listOf(CONTROL_PLAY_PAUSE), mini.root.children[0].buttons)
+        assertEquals(1, mini.warnings.size)
     }
 
     @Test
@@ -331,7 +330,7 @@ class PlayerLayoutTest {
             """{"frame":{"background":"pane"},"layout":{"type":"row","children":[{"type":"pager","children":[{"type":"cover"}]},{"type":"controls"},{"type":"progress"}]},
                 "variants":[{"when":{"maxWidth":900},"layout":$validBar}]}"""
         ) as PlayerLayoutParseResult.Success
-        assertEquals(FrameBackground.Token(PaletteToken.PANE), bar.frame.background)
+        assertEquals(FrameBackground.Fill(LayoutFill.Solid(LayoutColor.Token(PaletteToken.PANE))), bar.frame.background)
         assertEquals(1, bar.variants.size)
         assertEquals(1, bar.warnings.size)
         val nowPlaying = parse(
@@ -339,6 +338,72 @@ class PlayerLayoutTest {
             """{"type":"pager","indicator":"bar","children":[{"type":"cover"},{"type":"songInfo"}]}"""
         ) as PlayerLayoutParseResult.Success
         assertEquals(LayoutNodeType.PAGER, nowPlaying.root.type)
+        assertTrue(nowPlaying.warnings.isEmpty())
+    }
+
+    @Test
+    fun `样式表按 class 合并，节点属性优先，继承与禁用字段`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"styles":{
+                "base":{"padding":8,"contentColor":"textTertiary"},
+                "card":{"extends":"base","background":"cardSurface","shape":"rounded","type":"row","visible":"x"},
+                "a":{"extends":"b"},"b":{"extends":"a"},
+                "deep":{"extends":"d1"},"d1":{"extends":"d2"},"d2":{"extends":"d3"},"d3":{"extends":"d4"},"d4":{"extends":"base"}
+            },"layout":{"type":"column","class":"card","padding":2,"children":[
+                {"type":"controls","class":"a"},{"type":"spacer","class":"missing"},{"type":"spacer","class":"deep"}
+            ]}}"""
+        ) as PlayerLayoutParseResult.Success
+        val root = result.root
+        assertEquals(LayoutNodeType.COLUMN, root.type)
+        assertEquals(LayoutPadding(2f, 2f, 2f, 2f), root.padding)
+        assertEquals(LayoutColor.Token(PaletteToken.TEXT_TERTIARY), root.contentColor)
+        assertEquals(LayoutFill.Solid(LayoutColor.Token(PaletteToken.CARD_SURFACE)), root.background)
+        assertNull(root.visible)
+        assertEquals(LayoutPadding.Zero, root.children[0].padding)
+        // 样式 a、b 循环，deep 超过 4 层，card 写了禁用字段；引用的 a、missing、deep 都不可用
+        assertEquals(7, result.warnings.size)
+    }
+
+    @Test
+    fun `颜色、渐变、描边、阴影与对齐`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"text","text":"a","contentColor":"#4DAF7C","textAlign":"center","opacity":2,"elevation":40},
+                {"type":"text","text":"b","contentColor":{"light":"#FF000000","dark":"#FFFFFFFF"},"background":{"gradient":["cover.base","pane"],"angle":-90}},
+                {"type":"text","text":"c","contentColor":"#12","background":{"gradient":["pane"]},"border":{"width":20,"color":"cover.accent"}},
+                {"type":"controls","variant":"plain"},
+                {"type":"spacer","variant":"plain","border":{"width":1}}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val (a, b, c, controls, spacer) = result.root.children
+        val green = androidx.compose.ui.graphics.Color(0xFF4DAF7C)
+        assertEquals(LayoutColor.Fixed(green, green), a.contentColor)
+        assertEquals(LayoutAlign.CENTER, a.textAlign)
+        assertEquals(1f, a.opacity)
+        assertEquals(24f, a.elevation)
+        assertEquals(LayoutColor.Fixed(androidx.compose.ui.graphics.Color.Black, androidx.compose.ui.graphics.Color.White), b.contentColor)
+        assertEquals(LayoutFill.Gradient(listOf(LayoutColor.Cover(false), LayoutColor.Token(PaletteToken.PANE)), 270f), b.background)
+        assertNull(c.contentColor)
+        assertNull(c.background)
+        assertEquals(LayoutBorder(8f, LayoutColor.Cover(true)), c.border)
+        assertEquals(ControlVariant.PLAIN, controls.variant)
+        assertEquals(ControlVariant.DEFAULT, spacer.variant)
+        assertNull(spacer.border)
+        assertEquals(3, result.warnings.size)
+    }
+
+    @Test
+    fun `桌面开放时间与播放模式单键`() {
+        val result = parse(
+            PlayerLayoutArea.DESKTOP_PLAYER_BAR,
+            """{"type":"row","children":[{"type":"time","format":"remaining"},{"type":"controls","buttons":["playPause","playMode"],"variant":"outlined"},{"type":"progress"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertTrue(result.warnings.isEmpty())
+        assertEquals(listOf(CONTROL_PLAY_PAUSE, CONTROL_PLAY_MODE), result.root.children[1].buttons)
+        val nowPlaying = parse(PlayerLayoutArea.DESKTOP_NOW_PLAYING, """{"type":"column","children":[{"type":"time"},{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(CONTROL_BUTTONS, nowPlaying.root.children[1].buttons)
         assertTrue(nowPlaying.warnings.isEmpty())
     }
 

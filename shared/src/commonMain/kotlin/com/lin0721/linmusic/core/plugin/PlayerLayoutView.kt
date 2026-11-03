@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.plugin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,11 +34,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -45,6 +53,10 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 // 节点是否在分页器里；分页器里的封面要让出左右滑动手势
 val LocalInLayoutPager = staticCompositionLocalOf { false }
@@ -59,6 +71,20 @@ fun PlayerLayoutView(
     component: @Composable (node: PlayerLayoutNode, modifier: Modifier) -> Unit
 ) {
     val current = resolve(node) ?: return
+    val content = current.contentColor ?: return NodeContent(current, modifier, resolve, component)
+    val palette = LocalMelodiaPalette.current.withContentColor(content.resolve())
+    CompositionLocalProvider(LocalMelodiaPalette provides palette) {
+        NodeContent(current, modifier, resolve, component)
+    }
+}
+
+@Composable
+private fun NodeContent(
+    current: PlayerLayoutNode,
+    modifier: Modifier,
+    resolve: (PlayerLayoutNode) -> PlayerLayoutNode?,
+    component: @Composable (node: PlayerLayoutNode, modifier: Modifier) -> Unit
+) {
     val nodeModifier = modifier.then(current.boxModifier())
     when (current.type) {
         LayoutNodeType.COLUMN -> Column(
@@ -110,7 +136,13 @@ fun PlayerLayoutNode.layoutTextStyle(): TextStyle {
         LayoutTextStyle.BODY -> Triple(palette.textSecondary, 13, FontWeight.Normal)
         LayoutTextStyle.CAPTION -> Triple(palette.textTertiary, 11, FontWeight.Normal)
     }
-    return TextStyle(color = color, fontSize = (size * this.size.scale).sp, fontWeight = weight)
+    val align = when (textAlign) {
+        null -> TextAlign.Unspecified
+        LayoutAlign.START -> TextAlign.Start
+        LayoutAlign.CENTER -> TextAlign.Center
+        LayoutAlign.END -> TextAlign.End
+    }
+    return TextStyle(color = color, fontSize = (size * this.size.scale).sp, fontWeight = weight, textAlign = align)
 }
 
 // 播放时间文字，定时取进度，不随每帧重组；时长未知时显示 0:00
@@ -181,7 +213,7 @@ private fun PagerDots(node: PlayerLayoutNode, currentPage: Int) {
     }
 }
 
-// 位移、尺寸上下限、尺寸、裁切形状、背景与内边距，按这个顺序叠加
+// 位移、尺寸上下限、尺寸、不透明度、阴影、裁切形状、背景、描边与内边距，按这个顺序叠加
 @Composable
 private fun PlayerLayoutNode.boxModifier(): Modifier {
     var result: Modifier = Modifier
@@ -194,14 +226,37 @@ private fun PlayerLayoutNode.boxModifier(): Modifier {
     }
     width?.let { result = result.width(it.dp) } ?: widthFraction?.let { result = result.fillMaxWidth(it) }
     height?.let { result = result.height(it.dp) } ?: heightFraction?.let { result = result.fillMaxHeight(it) }
+    opacity?.let { result = result.alpha(it) }
     val shape = layoutShape()
-    background?.let { token ->
-        result = result.clip(shape).background(token.read(LocalMelodiaPalette.current))
-    }
+    if (elevation > 0f) result = result.shadow(elevation.dp, shape, clip = false)
+    if (background != null || border != null) result = result.clip(shape)
+    background?.let { result = result.layoutFill(it, shape) }
+    border?.let { result = result.border(it.width.dp, it.color.resolve(), shape) }
     if (padding != LayoutPadding.Zero) {
         result = result.padding(start = padding.start.dp, top = padding.top.dp, end = padding.end.dp, bottom = padding.bottom.dp)
     }
     return result
+}
+
+// 纯色或线性渐变；angle 为 0 时从左到右，90 时从上到下
+@Composable
+fun Modifier.layoutFill(fill: LayoutFill, shape: Shape = RectangleShape): Modifier = when (fill) {
+    is LayoutFill.Solid -> background(fill.color.resolve(), shape)
+    is LayoutFill.Gradient -> {
+        val colors = fill.colors.map { it.resolve() }
+        val radians = fill.angle * PI.toFloat() / 180f
+        drawBehind {
+            val dx = cos(radians)
+            val dy = sin(radians)
+            val half = (abs(size.width * dx) + abs(size.height * dy)) / 2f
+            val brush = Brush.linearGradient(
+                colors,
+                start = Offset(center.x - dx * half, center.y - dy * half),
+                end = Offset(center.x + dx * half, center.y + dy * half)
+            )
+            drawOutline(shape.createOutline(size, layoutDirection, this), brush)
+        }
+    }
 }
 
 fun PlayerLayoutNode.layoutShape(): Shape = when (shape) {

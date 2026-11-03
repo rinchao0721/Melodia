@@ -6,9 +6,12 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.FrameBackground
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.layoutFill
+import androidx.compose.runtime.CompositionLocalProvider
 import com.lin0721.linmusic.core.plugin.PlayerLayoutFrame
 import com.lin0721.linmusic.core.plugin.toShape
-import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -100,7 +103,7 @@ import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.feature.player.ui.MiniLyricLine
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
-import com.lin0721.linmusic.feature.player.ui.playSourceText
+import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.feature.player.ui.rememberPlaybackQualityLabel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
@@ -269,7 +272,9 @@ fun MiniPlayerCard(
                     .matchParentSize()
                     .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
             )
-            is FrameBackground.Token -> Box(Modifier.matchParentSize().background(background.token.read(LocalMelodiaPalette.current)))
+            is FrameBackground.Fill -> CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
+                Box(Modifier.matchParentSize().layoutFill(background.fill))
+            }
             FrameBackground.None -> Unit
         }
         if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -285,47 +290,50 @@ fun MiniPlayerCard(
                 isLiked = isLiked,
                 isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
             )
-            PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
-                val scale = node.size.scale
-                when (node.type) {
-                    LayoutNodeType.COVER -> AntiFlickerCoverImage(
-                        url = miniThumbUrl(displayedCleanCoverUrl),
-                        contentScale = ContentScale.Crop,
-                        modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
-                    )
-                    LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
-                    LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
-                    LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
-                        MiniTitleText(title, Modifier, node.maxLines, scale)
-                        MiniArtistText(artist, Modifier, scale)
-                    }
-                    LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
-                    LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
-                        node.buttons.forEach { button ->
-                            when (button) {
-                                "previous" -> MelodiaIconButton(onClick = onPrevious) {
-                                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
-                                }
-                                "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                                    PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
-                                }
-                                "next" -> MelodiaIconButton(onClick = onNext) {
-                                    Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+            CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
+                PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
+                    val scale = node.size.scale
+                    when (node.type) {
+                        LayoutNodeType.COVER -> AntiFlickerCoverImage(
+                            url = miniThumbUrl(displayedCleanCoverUrl),
+                            contentScale = ContentScale.Crop,
+                            modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                        )
+                        LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
+                        LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
+                        LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
+                            MiniTitleText(title, Modifier, node.maxLines, scale)
+                            MiniArtistText(artist, Modifier, scale)
+                        }
+                        LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
+                        LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
+                            node.buttons.forEach { button ->
+                                when (button) {
+                                    "previous" -> MelodiaIconButton(onClick = onPrevious) {
+                                        Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                    }
+                                    "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                                        PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                    }
+                                    "next" -> MelodiaIconButton(onClick = onNext) {
+                                        Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                    }
                                 }
                             }
                         }
+                        LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
+                        LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
+                        LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
+                            MiniLyricLine(
+                                lyrics = pluginState.lyrics,
+                                currentLyricIndex = pluginState.lyricIndex,
+                                isPlaying = displayedIsPlaying,
+                                horizontalPadding = 0.dp,
+                                textAlign = node.textAlign
+                            )
+                        }
+                        else -> Unit
                     }
-                    LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
-                    LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
-                    LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
-                        MiniLyricLine(
-                            lyrics = pluginState.lyrics,
-                            currentLyricIndex = pluginState.lyricIndex,
-                            isPlaying = displayedIsPlaying,
-                            horizontalPadding = 0.dp
-                        )
-                    }
-                    else -> Unit
                 }
             }
         } else Column {

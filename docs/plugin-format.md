@@ -51,7 +51,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.6` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.7` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -319,14 +319,15 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 - `frame`：区域外框，各区域支持的字段见下表，写了不支持的字段会被忽略并提示。
 - `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。桌面区域 API 1.6 起支持，宽度取窗口里该区域的宽度，`orientation` 恒为 `landscape`。
-- `styles` 以及节点上的 `animation`、`onTap`、`onDoubleTap`、`onLongPress` 留给后续版本，目前会被忽略并提示。
+- `styles`：具名样式，见下文「样式」（API 1.7）。
+- 节点上的 `animation`、`onTap`、`onDoubleTap`、`onLongPress` 留给后续版本，目前会被忽略并提示。
 
 | 区域 | `frame` 字段 |
 |---|---|
 | `android.fullPlayer` | `header`：`host`（默认，保留顶部的收起、播放来源与更多）或 `none`（去掉，由布局自己摆 `collapseButton` 等组件）；`cards`：`false` 时去掉下方的信息卡片，首屏就是整页 |
 | `android.fullPlayerWide` | `split`：左栏宽度占比，0.3–0.7，默认 0.4；左栏内容最宽 420 |
-| `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none` 或色板项；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
-| `desktop.playerBar` | `background`：色板项时给播放栏铺底；`host`（默认）与 `none` 都不铺底（API 1.6） |
+| `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none`，或颜色、渐变（见「颜色」）；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
+| `desktop.playerBar` | `background`：写颜色或渐变时给播放栏铺底；`host`（默认）与 `none` 都不铺底（API 1.6） |
 
 `header` 为 `none` 而布局里没有 `collapseButton` 时，宿主会在左上角补一个收起按钮。下拉收起与返回键始终可用。
 
@@ -340,7 +341,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`lyricsView`、`collapseButton`、`moreButton`、`sourceLabel` |
 | `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`lyricsView`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
 
-桌面区域暂不支持 `collapseButton`、`moreButton`、`sourceLabel`、`time`、`lyricsView` 与 `playMode` 按钮；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
+桌面区域不支持 `collapseButton`、`moreButton`、`sourceLabel`、`lyricsView`；`time` 与 `playMode` 按钮 API 1.7 起可用；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
@@ -359,7 +360,13 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `arrange` | `row` / `column` 主轴排列：`start`、`center`、`end`、`spaceBetween`、`spaceAround`、`spaceEvenly`；后三种不使用 `spacing`（API 1.5） |
 | `alignSelf` | 在 `box` 里的位置：`topStart`、`top`、`topEnd`、`start`、`center`、`end`、`bottomStart`、`bottom`、`bottomEnd`；在 `row` / `column` 里只取交叉轴方向（API 1.5） |
 | `offset` | `[x, y]`，范围 -200–200，只移动绘制位置，不影响布局（API 1.5） |
-| `background` | 色板项，如 `pane`、`cardSurface`；跟随当前皮肤 |
+| `background` | 颜色，如 `pane`、`cardSurface`；API 1.7 起也可以写其他颜色值或渐变，见「颜色」 |
+| `contentColor` | 节点里文字与图标的颜色，次级、三级文字按透明度递减；宿主组件都会跟着变（API 1.7） |
+| `opacity` | 0–1，整个节点的不透明度（API 1.7） |
+| `elevation` | 0–24，按 `shape` 投影的阴影（API 1.7） |
+| `border` | `{ "width": 1, "color": "outline" }`，宽度 0–8（API 1.7） |
+| `textAlign` | `start`、`center`、`end`，用于 `text`、`time`、`miniLyric`（API 1.7） |
+| `class` | 引用 `styles` 里的样式（API 1.7） |
 | `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8；API 1.5 起可以写 `[左上, 右上, 右下, 左下]` |
 
 ### 节点
@@ -373,8 +380,8 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `likeButton` | 收藏到歌单；播客为订阅电台 | |
 | `miniLyric` | 单行歌词（Android；迷你播放器 API 1.6 起可用） | |
 | `progress` | 进度条 | `showTime` |
-| `time` | 播放时间文字（Android，API 1.6） | `format`：`position`（默认）、`duration`、`remaining`、`both`（如 0:12 / 3:45）；`style`、`size` |
-| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`；Android 另有 `playMode`（API 1.6，单键按列表循环、单曲循环、随机切换）；`size` |
+| `time` | 播放时间文字（Android API 1.6，桌面 API 1.7） | `format`：`position`（默认）、`duration`、`remaining`、`both`（如 0:12 / 3:45）；`style`、`size` |
+| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`、`playMode`（单键按列表循环、单曲循环、随机切换；Android API 1.6，桌面 API 1.7）；`size`；`variant`：`default`、`plain`（播放键也是无底色图标）、`outlined`（圆形描边），API 1.7，迷你播放器不支持 |
 | `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more`，API 1.6 起另有 `sleepTimer`、`comments`、`lyrics`（打开全屏歌词） |
 | `lyricsCard` | 歌词卡（Android） | |
 | `lyricsView` | 整页滚动歌词，跟随用户的歌词设置，点某行跳到那里（Android 全屏页，API 1.6） | |
@@ -402,7 +409,38 @@ API 1.6 起，播放器区域里 `text` 的文字和任意节点的 `visible` �
 { "type": "text", "text": "$player.quality", "visible": "$player.quality" }
 ```
 
-写了不存在的字段，或在播放器区域用 `$state` / `$item` 时，这一项会被忽略并提示。进度不开放绑定，用 `time` 组件显示。
+写了不存在的字段，或在播放器区域用 `$state` / `$item` 时，这一项会被忽略并提示。进度不开放绑定，用 `time` 组件显示。桌面 API 1.7 起也可以绑定。
+
+### 颜色
+
+API 1.7 起，`background`、`contentColor`、`border` 的颜色和渐变色都可以写：
+
+| 写法 | 说明 |
+|---|---|
+| 色板项 | 如 `pane`、`textPrimary`、`accent`，跟随皮肤 |
+| `cover.base` / `cover.accent` | 封面取色的底色与高亮色 |
+| `"#RRGGBB"` / `"#AARRGGBB"` | 固定颜色，深浅色共用 |
+| `{ "light": "#…", "dark": "#…" }` | 按深浅色分别取色 |
+
+渐变写成 `{ "gradient": ["cover.base", "pane"], "angle": 90 }`，2–4 个颜色，线性；`angle` 为 0 时从左到右，90 时从上到下，默认 90。
+
+### 样式
+
+API 1.7 起，区域外壳可以写 `styles`，节点用 `class` 引用：
+
+```json
+{
+  "styles": {
+    "muted": { "contentColor": "textTertiary", "opacity": 0.8 },
+    "accent": { "extends": "muted", "contentColor": { "light": "#2E8B57", "dark": "#4DAF7C" } }
+  },
+  "layout": { "type": "time", "class": "accent" }
+}
+```
+
+- 样式就是一组节点属性，节点自己写的同名属性优先。不能写 `type`、`children`、`buttons`、`bind`、`action`、`visible`。
+- `extends` 继承另一个样式，最多 4 层；出现循环或继承的样式不存在时，这个样式无效。
+- 一个区域最多 32 个样式，`layout` 与各条变体共用；引用无效样式时忽略并提示。
 
 ### 校验与回退
 

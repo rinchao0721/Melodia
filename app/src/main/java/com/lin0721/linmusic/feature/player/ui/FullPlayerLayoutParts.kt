@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,9 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LayoutTimeText
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalInLayoutPager
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
@@ -102,6 +106,8 @@ class FullPlayerLayoutParts(
             playMode = playMode
         )
 
+    val coverColors: LayoutCoverColors get() = LayoutCoverColors(colors.base, colors.textHighlight)
+
     private val displayDuration: Long get() = if (duration > 0L) duration else (songState.songDetail?.dt ?: 0L)
 
     @Composable
@@ -143,7 +149,8 @@ class FullPlayerLayoutParts(
                     currentLyricIndex = currentLyricIndex,
                     isPlaying = isPlaying,
                     onClick = onMiniLyricClick,
-                    horizontalPadding = 0.dp
+                    horizontalPadding = 0.dp,
+                    textAlign = node.textAlign
                 )
             }
             LayoutNodeType.PROGRESS -> Box(modifier) {
@@ -167,7 +174,8 @@ class FullPlayerLayoutParts(
                 playMode = playMode,
                 showModeButtons = !podcast.isPodcast,
                 modifier = modifier,
-                scale = scale
+                scale = scale,
+                variant = node.variant
             )
             LayoutNodeType.ACTIONS -> PlayerActionRow(
                 buttons = node.buttons,
@@ -232,8 +240,10 @@ fun LazyListScope.fullPlayerPluginSection(
                 val hostHeader = spec.frame.header == LayoutHeader.HOST
                 Column(Modifier.fillMaxSize()) {
                     if (hostHeader) sourceBar(Modifier.fillMaxWidth())
-                    PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth(), parts.binding::prepare) { node, modifier ->
-                        parts.Component(node, modifier)
+                    CompositionLocalProvider(LocalLayoutCoverColors provides parts.coverColors) {
+                        PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth(), parts.binding::prepare) { node, modifier ->
+                            parts.Component(node, modifier)
+                        }
                     }
                 }
                 // 去掉来源栏而布局里没有收起按钮时由宿主补上，保证随时能收起

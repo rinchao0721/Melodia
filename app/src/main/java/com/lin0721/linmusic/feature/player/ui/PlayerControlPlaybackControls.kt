@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import com.lin0721.linmusic.core.plugin.ControlVariant
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -116,9 +117,8 @@ fun PlaybackControls(
 
 // 大播放键：按下变淡，松手或点击后恢复
 @Composable
-private fun PlayPauseFab(isPlaying: Boolean, onTogglePlay: () -> Unit, scale: Float = 1f) {
+private fun PlayPauseFab(isPlaying: Boolean, onTogglePlay: () -> Unit, scale: Float = 1f, outlined: Boolean = outlinedControls) {
     val motion = LocalUiMotion.current
-    val outlined = outlinedControls
     val playInteraction = remember { MutableInteractionSource() }
     val isPressed by playInteraction.collectIsPressedAsState()
     val buttonAlpha = remember { Animatable(1f) }
@@ -172,9 +172,10 @@ fun PlaybackControlRow(
     playMode: PlayMode,
     showModeButtons: Boolean,
     modifier: Modifier = Modifier,
-    scale: Float = 1f
+    scale: Float = 1f,
+    variant: ControlVariant = ControlVariant.DEFAULT
 ) {
-    val outlined = outlinedControls
+    val outlined = variant == ControlVariant.OUTLINED || (variant == ControlVariant.DEFAULT && outlinedControls)
     val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
     Row(
         modifier = modifier,
@@ -194,7 +195,14 @@ fun PlaybackControlRow(
                 "previous" -> MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
                     Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
                 }
-                "playPause" -> PlayPauseFab(isPlaying, onTogglePlay, scale)
+                // plain：播放键与切歌键同样是无底色图标
+                "playPause" -> if (variant == ControlVariant.PLAIN) {
+                    MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                        PlayPauseIcon(isPlaying, MelodiaColors.TextPrimary, size = 46.dp * scale)
+                    }
+                } else {
+                    PlayPauseFab(isPlaying, onTogglePlay, scale, outlined)
+                }
                 "next" -> MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
                     Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
                 }

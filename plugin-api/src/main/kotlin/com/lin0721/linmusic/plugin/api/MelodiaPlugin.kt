@@ -7,7 +7,7 @@ import java.io.File
 // 次版本只增不改，破坏性变更才提升主版本
 object PluginApiVersion {
     const val MAJOR = 1
-    const val MINOR = 6
+    const val MINOR = 7
 }
 
 // 原生插件入口，需要公开的无参构造函数；回调都不在主线程

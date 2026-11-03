@@ -5,7 +5,9 @@ import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import com.lin0721.linmusic.core.plugin.PluginCardView
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import androidx.compose.runtime.CompositionLocalProvider
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
@@ -186,8 +188,11 @@ private fun PluginNowPlayingHeader(
     playerViewModel: PlayerViewModel
 ) {
     val parts = rememberPlaybackParts(controller, playerViewModel)
+    val coverColors = rememberLayoutCoverColors(track.artworkUri)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        PluginNowPlayingTree(spec.select(maxWidth.value, landscape = true), track, parts, playerViewModel)
+        CompositionLocalProvider(LocalLayoutCoverColors provides coverColors) {
+            PluginNowPlayingTree(spec.select(maxWidth.value, landscape = true), track, parts, playerViewModel)
+        }
     }
 }
 
@@ -198,7 +203,8 @@ private fun PluginNowPlayingTree(
     parts: PlayerBarParts,
     playerViewModel: PlayerViewModel
 ) {
-    PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp)) { node, modifier ->
+    val binding = parts.bindingState()
+    PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp), binding::prepare) { node, modifier ->
         val scale = node.size.scale
         when (node.type) {
             LayoutNodeType.COVER -> BoxWithConstraints(modifier) {
