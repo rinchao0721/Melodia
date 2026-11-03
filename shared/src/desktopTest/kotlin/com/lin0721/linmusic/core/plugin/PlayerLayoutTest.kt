@@ -186,13 +186,14 @@ class PlayerLayoutTest {
     }
 
     @Test
-    fun `外壳缺少有效 layout 时区域无效，未知与预留字段提示`() {
+    fun `外壳缺少有效 layout 时区域无效，未知字段与无效动效提示`() {
         assertTrue(parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":"ui/a.json"}""") is PlayerLayoutParseResult.Failure)
         val result = parse(
             PlayerLayoutArea.ANDROID_FULL_PLAYER,
             """{"styles":{},"theme":1,"layout":{"type":"column","children":[{"type":"controls","animation":"spin","onTap":"next"}]}}"""
         ) as PlayerLayoutParseResult.Success
-        assertEquals(3, result.warnings.size)
+        assertEquals(LayoutAction.Host(HostAction.NEXT), result.root.children.single().onTap)
+        assertEquals(2, result.warnings.size)
     }
 
     @Test
@@ -405,6 +406,99 @@ class PlayerLayoutTest {
         val nowPlaying = parse(PlayerLayoutArea.DESKTOP_NOW_PLAYING, """{"type":"column","children":[{"type":"time"},{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
         assertEquals(CONTROL_BUTTONS, nowPlaying.root.children[1].buttons)
         assertTrue(nowPlaying.warnings.isEmpty())
+    }
+
+    @Test
+    fun `动效预设与关键帧解析，超出范围收到边界内`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"cover","animation":"rotateWhilePlaying"},
+                {"type":"cover","animation":{"preset":"pulse","period":99,"scale":2}},
+                {"type":"cover","animation":{"preset":"songChange","effect":"spin"}},
+                {"type":"cover","animation":"wobble"},
+                {"type":"spacer","animation":{"keyframes":[{"at":0,"rotate":-20,"x":500},{"at":0.5,"alpha":0.5},{"at":1,"rotate":0}],
+                    "duration":10,"easing":"easeOut","repeat":"reverse","trigger":"playing"}},
+                {"type":"spacer","animation":{"keyframes":[{"at":0.5},{"at":0.2}]}},
+                {"type":"spacer","animation":{"keyframes":[{"at":0}]}},
+                {"type":"controls"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val nodes = result.root.children
+        assertEquals(LayoutAnimation.Preset(MotionPreset.ROTATE_WHILE_PLAYING, 20f, 1f), nodes[0].animation)
+        assertEquals(LayoutAnimation.Preset(MotionPreset.PULSE, 10f, 1.2f), nodes[1].animation)
+        assertEquals(SongChangeEffect.FADE, (nodes[2].animation as LayoutAnimation.Preset).effect)
+        assertNull(nodes[3].animation)
+        val keyframes = nodes[4].animation as LayoutAnimation.Keyframes
+        assertEquals(listOf(MotionFrame(0f, rotate = -20f, x = 200f), MotionFrame(0.5f, rotate = -20f, alpha = 0.5f, x = 200f), MotionFrame(1f, rotate = 0f, alpha = 0.5f, x = 200f)), keyframes.frames)
+        assertEquals(100, keyframes.durationMs)
+        assertEquals(MotionEasing.EASE_OUT, keyframes.easing)
+        assertEquals(MotionRepeat.REVERSE, keyframes.repeat)
+        assertEquals(MotionTrigger.PLAYING, keyframes.trigger)
+        assertEquals(-10f, keyframes.frames.sample(0.75f).rotate)
+        assertNull(nodes[5].animation)
+        assertNull(nodes[6].animation)
+        assertEquals(4, result.warnings.size)
+    }
+
+    @Test
+    fun `带动效的节点超过上限时多出的忽略`() {
+        val many = (1..PlayerLayoutParser.MAX_ANIMATED + 2).joinToString(",") { """{"type":"spacer","animation":"pulse"}""" }
+        val result = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"type":"column","children":[$many,{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(PlayerLayoutParser.MAX_ANIMATED, result.root.children.count { it.animation != null })
+        assertEquals(2, result.warnings.size)
+    }
+
+    @Test
+    fun `手势动作按区域开放，页面不支持动效与手势`() {
+        val full = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"cover","onTap":"pagerNext","onDoubleTap":"toggleLike","onLongPress":"script:share-card"},
+                {"type":"cover","onTap":"collapse","onDoubleTap":"toggleNowPlaying","onLongPress":"script:bad name"},
+                {"type":"controls","onTap":"explode"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val (first, second, controls) = full.root.children
+        assertEquals(LayoutAction.Host(HostAction.PAGER_NEXT), first.onTap)
+        assertEquals(LayoutAction.Host(HostAction.TOGGLE_LIKE), first.onDoubleTap)
+        assertEquals(LayoutAction.Script("share-card"), first.onLongPress)
+        assertEquals(LayoutAction.Host(HostAction.COLLAPSE), second.onTap)
+        assertNull(second.onDoubleTap)
+        assertNull(second.onLongPress)
+        assertNull(controls.onTap)
+        assertEquals(3, full.warnings.size)
+
+        val wide = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"type":"column","children":[{"type":"controls","onTap":"collapse"}]}""") as PlayerLayoutParseResult.Success
+        assertNull(wide.root.children.single().onTap)
+        val bar = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","onDoubleTap":"toggleLyricsView","children":[{"type":"controls","onTap":"openLyrics"},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(LayoutAction.Host(HostAction.TOGGLE_LYRICS_VIEW), bar.root.onDoubleTap)
+        assertNull(bar.root.children[0].onTap)
+
+        val page = PlayerLayoutParser.parsePage(json("""{"type":"column","animation":"pulse","onTap":"next","children":[]}""")) as PlayerLayoutParseResult.Success
+        assertNull(page.root.animation)
+        assertNull(page.root.onTap)
+        assertEquals(2, page.warnings.size)
+    }
+
+    @Test
+    fun `沙盒插件没声明 layoutActions 时去掉脚本动作`() {
+        fun manifest(extra: String) = (PluginParser.parse(
+            """{"format":2,"id":"com.example.gesture","name":"手势","version":"1",
+                "contributes":{$extra"playerLayouts":{"android.miniPlayer":{"layout":{"type":"row","onTap":"script:hello","children":[{"type":"controls","onLongPress":"next"}]},
+                "variants":[{"when":{"minWidth":1},"layout":{"type":"row","onTap":"script:hello","children":[{"type":"controls"}]}}]}}}}""",
+            platform = PluginPlatform.ANDROID
+        ) as PluginParseResult.Success).manifest
+        val stripped = PlayerLayoutParser.load(manifest(""), PlayerLayoutArea.ANDROID_MINI_PLAYER) as PlayerLayoutParseResult.Success
+        assertTrue(!stripped.spec.usesScript)
+        assertEquals(LayoutAction.Host(HostAction.NEXT), stripped.root.children.single().onLongPress)
+        assertTrue(stripped.warnings.single().contains("layoutActions"))
+
+        val declared = manifest(""""layoutActions":true,""")
+        assertTrue(declared.contributes.needsScript)
+        val kept = PlayerLayoutParser.load(declared, PlayerLayoutArea.ANDROID_MINI_PLAYER) as PlayerLayoutParseResult.Success
+        assertEquals(LayoutAction.Script("hello"), kept.root.onTap)
+        assertEquals(LayoutAction.Script("hello"), kept.variants.single().root.onTap)
     }
 
     @Test

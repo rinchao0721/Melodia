@@ -27,7 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -178,11 +181,18 @@ private fun LayoutPager(
 ) {
     val pages = node.children
     val state = rememberPagerState(initialPage = node.initialPage.coerceIn(0, pages.lastIndex)) { pages.size }
+    val scope = rememberCoroutineScope()
+    val control = remember(state, scope) {
+        LayoutPagerControl(
+            next = { scope.launch { state.animateScrollToPage((state.currentPage + 1).coerceAtMost(pages.lastIndex)) } },
+            previous = { scope.launch { state.animateScrollToPage((state.currentPage - 1).coerceAtLeast(0)) } }
+        )
+    }
     BoxWithConstraints(modifier) {
         val bounded = constraints.hasBoundedHeight
         Column(if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             HorizontalPager(state = state, modifier = (if (bounded) Modifier.weight(1f) else Modifier).fillMaxWidth()) { page ->
-                CompositionLocalProvider(LocalInLayoutPager provides true) {
+                CompositionLocalProvider(LocalInLayoutPager provides true, LocalLayoutPagerControl provides control) {
                     PlayerLayoutView(pages[page], if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth(), resolve, component)
                 }
             }
@@ -213,9 +223,11 @@ private fun PagerDots(node: PlayerLayoutNode, currentPage: Int) {
     }
 }
 
-// 位移、尺寸上下限、尺寸、不透明度、阴影、裁切形状、背景、描边与内边距，按这个顺序叠加
+// 位移、尺寸上下限、尺寸、不透明度、动效、阴影、裁切形状、背景、描边、手势与内边距，按这个顺序叠加
 @Composable
 private fun PlayerLayoutNode.boxModifier(): Modifier {
+    val tapAnimated = (animation as? LayoutAnimation.Keyframes)?.trigger == MotionTrigger.TAP
+    var tapCount by remember { mutableIntStateOf(0) }
     var result: Modifier = Modifier
     if (offsetX != 0f || offsetY != 0f) result = result.offset(offsetX.dp, offsetY.dp)
     if (minWidth != null || maxWidth != null) {
@@ -225,13 +237,19 @@ private fun PlayerLayoutNode.boxModifier(): Modifier {
         result = result.heightIn(min = minHeight?.dp ?: Dp.Unspecified, max = maxHeight?.dp ?: Dp.Unspecified)
     }
     width?.let { result = result.width(it.dp) } ?: widthFraction?.let { result = result.fillMaxWidth(it) }
+    // row 按内容取宽时没有空间可分，写了排列方式又没写宽度时占满宽度
+    if (type == LayoutNodeType.ROW && width == null && widthFraction == null && arrange != null && arrange != LayoutArrange.START) {
+        result = result.fillMaxWidth()
+    }
     height?.let { result = result.height(it.dp) } ?: heightFraction?.let { result = result.fillMaxHeight(it) }
     opacity?.let { result = result.alpha(it) }
+    animation?.let { result = result.layoutAnimation(it, tapCount) }
     val shape = layoutShape()
     if (elevation > 0f) result = result.shadow(elevation.dp, shape, clip = false)
     if (background != null || border != null) result = result.clip(shape)
     background?.let { result = result.layoutFill(it, shape) }
     border?.let { result = result.border(it.width.dp, it.color.resolve(), shape) }
+    result = result.layoutGestures(this, if (tapAnimated) ({ tapCount++ }) else null)
     if (padding != LayoutPadding.Zero) {
         result = result.padding(start = padding.start.dp, top = padding.top.dp, end = padding.end.dp, bottom = padding.bottom.dp)
     }

@@ -259,7 +259,8 @@ object PluginParser {
         }
         val backdrops = parseEntries(root["backdrops"], "动态背景", warnings) { item, id -> parseBackdrop(item, id, kind, warnings) }
         return PluginContributions(
-            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources, backdrops
+            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources, backdrops,
+            layoutActions = (root["layoutActions"] as? JsonPrimitive)?.booleanOrNull == true
         )
     }
 

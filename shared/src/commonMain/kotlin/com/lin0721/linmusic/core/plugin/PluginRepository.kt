@@ -173,7 +173,7 @@ class PluginRepository(
                 .mapNotNull { plugin ->
                     when (val result = PlayerLayoutParser.load(plugin.manifest!!, area)) {
                         is PlayerLayoutParseResult.Success ->
-                            Extension(ExtensionPoints.PLAYER_LAYOUT, plugin.id, plugin.name, area.key, PlayerLayoutExtension(area, plugin, result.spec))
+                            Extension(ExtensionPoints.PLAYER_LAYOUT, plugin.id, plugin.name, area.key, PlayerLayoutExtension(area, plugin, result.spec.copy(pluginId = plugin.id)))
                         is PlayerLayoutParseResult.Failure -> {
                             AppLogger.w(TAG, "插件 ${plugin.id} 的 ${area.key} 布局无效: ${result.reason}")
                             null

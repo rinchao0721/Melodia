@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 7
+const val PLUGIN_API_MINOR = 8
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
@@ -165,11 +165,13 @@ data class PluginContributions(
     val menus: List<PluginMenuEntry> = emptyList(),
     val settings: List<PluginSettingField> = emptyList(),
     val contentSources: List<PluginContentEntry> = emptyList(),
-    val backdrops: List<PluginBackdropEntry> = emptyList()
+    val backdrops: List<PluginBackdropEntry> = emptyList(),
+    // 播放器布局里用到 script: 动作
+    val layoutActions: Boolean = false
 ) {
     val needsScript: Boolean
         get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
-            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty()
+            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty() || layoutActions
 
     val isEmpty: Boolean
         get() = playerLayouts.isEmpty() && backdrops.isEmpty() && !needsScript
@@ -199,6 +201,9 @@ data class PluginManifest(
     val main: String? = null
 ) {
     val scriptFile: File? get() = directory?.let { File(it, PluginPaths.SCRIPT) }?.takeIf { it.isFile }
+
+    // 原生插件的动作直接注册在宿主里；沙盒插件要声明 layoutActions 才会运行脚本
+    val runsLayoutScripts: Boolean get() = kind == PluginKind.NATIVE || contributes.layoutActions
 
     fun file(path: String): File? = directory?.takeIf { PluginPaths.isAllowed(path) }?.let { File(it, path) }?.takeIf { it.isFile }
 }

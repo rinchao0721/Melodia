@@ -80,7 +80,12 @@ import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_PAUSE
 import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_MODE
 import com.lin0721.linmusic.core.plugin.ControlVariant
 import com.lin0721.linmusic.core.plugin.FrameBackground
+import com.lin0721.linmusic.core.plugin.HostAction
+import com.lin0721.linmusic.core.plugin.LayoutAction
+import com.lin0721.linmusic.core.plugin.LayoutEnvironment
 import com.lin0721.linmusic.core.plugin.LayoutTimeText
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.layoutFill
@@ -222,6 +227,7 @@ fun PlayerBar(
 
 private val DesktopBarActions = PlayerLayoutArea.DESKTOP_PLAYER_BAR.actionButtons
 private const val MIN_PLUGIN_BAR_HEIGHT = 64f
+private const val SEEK_STEP_MS = 10_000L
 private const val MAX_PLUGIN_BAR_HEIGHT = 160f
 
 // 插件布局：按窗口宽度选变体，根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
@@ -233,7 +239,10 @@ private fun PluginPlayerBar(spec: PlayerLayoutSpec, parts: PlayerBarParts, modif
         // 播放栏本身没有底色，只有插件指定色板项时才铺底
         val coverColors = rememberLayoutCoverColors(parts.nowPlaying?.artworkUri)
         val binding = parts.bindingState()
-        CompositionLocalProvider(LocalLayoutCoverColors provides coverColors) {
+        CompositionLocalProvider(
+            LocalLayoutCoverColors provides coverColors,
+            LocalLayoutEnvironment provides parts.environment(spec.pluginId, binding)
+        ) {
             val fill = (spec.frame.background as? FrameBackground.Fill)?.fill
             val barModifier = Modifier.fillMaxWidth().height(height).then(fill?.let { Modifier.layoutFill(it) } ?: Modifier)
             PlayerLayoutView(root.copy(height = null), barModifier, binding::prepare) { node, nodeModifier ->
@@ -294,6 +303,38 @@ internal class PlayerBarParts(
             LayoutNodeType.TIME -> LayoutTimeText(node, { position }, duration, modifier)
             else -> Unit
         }
+    }
+
+    // 手势里的宿主动作；本区域不支持的动作在解析时已去掉
+    private fun handle(action: HostAction) {
+        when (action) {
+            HostAction.TOGGLE_PLAY -> controller.togglePlayPause()
+            HostAction.NEXT -> controller.playNext()
+            HostAction.PREVIOUS -> controller.skipToPrevious()
+            HostAction.SEEK_FORWARD -> controller.seekTo((position + SEEK_STEP_MS).coerceAtMost(duration.coerceAtLeast(0L)))
+            HostAction.SEEK_BACK -> controller.seekTo((position - SEEK_STEP_MS).coerceAtLeast(0L))
+            HostAction.TOGGLE_LIKE -> if (isPodcast) playerViewModel.toggleSubscribe() else playerViewModel.toggleLike()
+            HostAction.CYCLE_PLAY_MODE -> if (playMode == PlayMode.LIST_LOOP) controller.toggleRepeat() else controller.toggleShuffle()
+            HostAction.TOGGLE_NOW_PLAYING -> onToggleNowPlaying()
+            HostAction.TOGGLE_LYRICS_VIEW -> onToggleLyricsView()
+            else -> Unit
+        }
+    }
+
+    @Composable
+    fun environment(pluginId: String, binding: PlayerBindingState): LayoutEnvironment {
+        val runScript = rememberLayoutScriptRunner(pluginId, binding)
+        return LayoutEnvironment(
+            playing = isPlaying,
+            songKey = nowPlaying?.mediaId,
+            motionEnabled = LocalUiMotion.current.enabled,
+            onAction = { action ->
+                when (action) {
+                    is LayoutAction.Host -> handle(action.action)
+                    is LayoutAction.Script -> runScript(action.name)
+                }
+            }
+        )
     }
 
     // $player 绑定的取值

@@ -175,6 +175,10 @@ data class PlayerLayoutNode(
     val border: LayoutBorder? = null,
     val textAlign: LayoutAlign? = null,
     val variant: ControlVariant = ControlVariant.DEFAULT,
+    val animation: LayoutAnimation? = null,
+    val onTap: LayoutAction? = null,
+    val onDoubleTap: LayoutAction? = null,
+    val onLongPress: LayoutAction? = null,
     val shape: LayoutShape = LayoutShape.RECT,
     val cornerRadius: Float = DEFAULT_CORNER_RADIUS,
     // 分角圆角，写了时优先于 cornerRadius
@@ -226,7 +230,8 @@ enum class PlayerLayoutArea(
     val actionButtons: List<String> = emptyList(),
     val controlButtons: List<String> = CONTROL_BUTTONS,
     // frame 里本区域支持的字段
-    val frameFields: Set<String> = emptySet()
+    val frameFields: Set<String> = emptySet(),
+    val hostActions: Set<HostAction> = HostAction.COMMON
 ) {
     ANDROID_FULL_PLAYER(
         "android.fullPlayer", "Android 全屏播放页",
@@ -239,7 +244,8 @@ enum class PlayerLayoutArea(
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("header", "cards")
+        frameFields = setOf("header", "cards"),
+        hostActions = HostAction.ANDROID_PLAYER + HostAction.COLLAPSE
     ),
     ANDROID_FULL_PLAYER_WIDE(
         "android.fullPlayerWide", "Android 宽屏播放页",
@@ -250,7 +256,8 @@ enum class PlayerLayoutArea(
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("split")
+        frameFields = setOf("split"),
+        hostActions = HostAction.ANDROID_PLAYER
     ),
     ANDROID_MINI_PLAYER(
         "android.miniPlayer", "Android 迷你播放器",
@@ -271,7 +278,8 @@ enum class PlayerLayoutArea(
         ),
         listOf("desktopLyric", "lyricsView", "queue", "device", "volume", "miniPlayer", "fullscreen"),
         ALL_CONTROLS,
-        frameFields = setOf("background")
+        frameFields = setOf("background"),
+        hostActions = HostAction.DESKTOP
     ),
     DESKTOP_NOW_PLAYING(
         "desktop.nowPlaying", "桌面「正在播放」顶部",
@@ -280,7 +288,8 @@ enum class PlayerLayoutArea(
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.SPACER,
             LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
         ),
-        controlButtons = ALL_CONTROLS
+        controlButtons = ALL_CONTROLS,
+        hostActions = HostAction.DESKTOP
     );
 
     // 没写 buttons 时用的按钮；后来新增的按钮需要显式写出，避免改变已发布插件的样子
@@ -356,8 +365,8 @@ object PlayerLayoutParser {
     private val WRAPPER_KEYS = setOf("layout", "frame", "variants", "styles")
     private const val MAX_ELEVATION = 24f
     private const val MAX_BORDER = 8f
-    // 后续版本的字段，提前识别以便提示
-    private val FUTURE_NODE_KEYS = listOf("animation", "onTap", "onDoubleTap", "onLongPress")
+    private val MOTION_KEYS = listOf("animation", "onTap", "onDoubleTap", "onLongPress")
+    const val MAX_ANIMATED = 16
 
     private class TooLarge(message: String) : Exception(message)
 
@@ -378,7 +387,8 @@ object PlayerLayoutParser {
     private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject, styles: Map<String, JsonObject>): PlayerLayoutParseResult {
         val node = parseTree(
             root, area.components, area.label, area.controlButtons, area.actionButtons,
-            area.defaultControlButtons, area.defaultActionButtons, playerBindings = true, styles = styles
+            area.defaultControlButtons, area.defaultActionButtons, playerBindings = true, styles = styles,
+            hostActions = area.hostActions
         )
         if (node !is PlayerLayoutParseResult.Success) return node
         area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
@@ -425,10 +435,12 @@ object PlayerLayoutParser {
         defaultActions: List<String> = actionButtons,
         // 播放器区域用 $player 绑定，页面用 $state / $item
         playerBindings: Boolean = false,
-        styles: Map<String, JsonObject> = emptyMap()
+        styles: Map<String, JsonObject> = emptyMap(),
+        hostActions: Set<HostAction> = emptySet()
     ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
+        var animated = 0
         fun build(json: JsonElement, depth: Int, inPager: Boolean): PlayerLayoutNode? {
             if (depth > MAX_DEPTH) throw TooLarge("布局层级超过 $MAX_DEPTH 层")
             count++
@@ -442,7 +454,7 @@ object PlayerLayoutParser {
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
             if (type == LayoutNodeType.PAGER && inPager) return null.also { warnings += "pager 不能嵌套，已忽略" }
-            FUTURE_NODE_KEYS.filter { it in obj }.forEach { warnings += "当前版本暂不支持 $it，已忽略" }
+            if (!playerBindings) MOTION_KEYS.filter { it in obj }.forEach { warnings += "${label}不支持 $it，已忽略" }
             val childInPager = inPager || type == LayoutNodeType.PAGER
             var children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {
                 (obj["children"] as? JsonArray)?.mapNotNull { build(it, depth + 1, childInPager) }.orEmpty()
@@ -478,6 +490,11 @@ object PlayerLayoutParser {
             if (type == LayoutNodeType.SLIDER && min >= max) return null.also { warnings += "slider 的 min、max 无效，已忽略" }
             if (type == LayoutNodeType.TABS && children.isEmpty()) return null.also { warnings += "tabs 没有子节点，已忽略" }
             val offset = offset(obj, warnings)
+            val animation = obj["animation"]?.takeIf { playerBindings }?.let { LayoutMotionParser.parse(it, warnings) }?.let {
+                if (animated < MAX_ANIMATED) it.also { animated++ } else null.also { warnings += "带动效的节点超过 $MAX_ANIMATED 个，多出的已忽略" }
+            }
+            fun gesture(key: String) = obj.string(key)?.takeIf { playerBindings }
+                ?.let { LayoutGestureParser.parse(it, key, hostActions, allowScript = true, warnings) }
             return PlayerLayoutNode(
                 type = type,
                 children = children,
@@ -509,6 +526,10 @@ object PlayerLayoutParser {
                     LayoutStyleParser.border(value, MAX_BORDER) ?: null.also { warnings += "border 取值无效，已忽略" }
                 },
                 textAlign = enumValue(obj, "textAlign", LayoutAlign::fromKey, warnings),
+                animation = animation,
+                onTap = gesture("onTap"),
+                onDoubleTap = gesture("onDoubleTap"),
+                onLongPress = gesture("onLongPress"),
                 variant = if (type == LayoutNodeType.CONTROLS) {
                     enumValue(obj, "variant", ControlVariant::fromKey, warnings) ?: ControlVariant.DEFAULT
                 } else {
@@ -610,7 +631,14 @@ object PlayerLayoutParser {
             is PluginUiRef.Inline -> ref.tree
             is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
         }
-        return parse(area, json)
+        val parsed = parse(area, json)
+        if (parsed !is PlayerLayoutParseResult.Success || !parsed.spec.usesScript || manifest.runsLayoutScripts) return parsed
+        // 沙盒插件没声明 layoutActions 时脚本不会运行，去掉脚本动作
+        return parsed.copy(
+            root = parsed.root.withoutScripts(),
+            variants = parsed.variants.map { it.copy(root = it.root.withoutScripts()) },
+            warnings = parsed.warnings + "用到脚本动作需要在 contributes 里写 \"layoutActions\": true 并带上 main.js，已忽略这些动作"
+        )
     }
 
     // 未写 buttons 时返回 null 表示用全部按钮

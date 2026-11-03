@@ -6,6 +6,7 @@ import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
@@ -980,7 +981,10 @@ private fun FullPlayerScreenContent(
                 pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
                     {
                         BoxWithConstraints(Modifier.fillMaxSize()) {
-                            CompositionLocalProvider(LocalLayoutCoverColors provides pluginParts.coverColors) {
+                            CompositionLocalProvider(
+                                LocalLayoutCoverColors provides pluginParts.coverColors,
+                                LocalLayoutEnvironment provides pluginParts.environment(pluginWideLayout.pluginId)
+                            ) {
                                 PlayerLayoutView(pluginWideLayout.select(maxWidth.value, isLandscape), Modifier.fillMaxSize(), pluginParts.binding::prepare) { node, nodeModifier ->
                                     pluginParts.Component(node, nodeModifier)
                                 }

@@ -6,7 +6,13 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.FrameBackground
+import com.lin0721.linmusic.core.plugin.HostAction
+import com.lin0721.linmusic.core.plugin.LayoutAction
 import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LayoutEnvironment
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
+import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.layoutFill
 import androidx.compose.runtime.CompositionLocalProvider
@@ -290,7 +296,31 @@ fun MiniPlayerCard(
                 isLiked = isLiked,
                 isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
             )
-            CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
+            val runScript = rememberLayoutScriptRunner(pluginSpec.pluginId, pluginState.binding)
+            val environment = LayoutEnvironment(
+                playing = displayedIsPlaying,
+                songKey = displayedCurrentTrack.mediaId,
+                motionEnabled = motion.enabled,
+                onAction = { action ->
+                    when (action) {
+                        is LayoutAction.Script -> runScript(action.name)
+                        is LayoutAction.Host -> when (action.action) {
+                            HostAction.TOGGLE_PLAY -> onTogglePlay()
+                            HostAction.NEXT -> onNext()
+                            HostAction.PREVIOUS -> onPrevious()
+                            HostAction.SEEK_FORWARD -> pluginState.seekTo(currentPositionProvider() + MINI_SEEK_STEP_MS)
+                            HostAction.SEEK_BACK -> pluginState.seekTo((currentPositionProvider() - MINI_SEEK_STEP_MS).coerceAtLeast(0L))
+                            HostAction.TOGGLE_LIKE -> onLikeClick()
+                            HostAction.CYCLE_PLAY_MODE -> pluginState.cyclePlayMode()
+                            else -> Unit
+                        }
+                    }
+                }
+            )
+            CompositionLocalProvider(
+                LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight),
+                LocalLayoutEnvironment provides environment
+            ) {
                 PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
                     val scale = node.size.scale
                     when (node.type) {
@@ -394,6 +424,7 @@ fun MiniPlayerCard(
 }
 
 private const val MINI_COVER_SIZE = 44f
+private const val MINI_SEEK_STEP_MS = 10_000L
 private const val MIN_PLUGIN_MINI_HEIGHT = 48f
 private const val MAX_PLUGIN_MINI_HEIGHT = 140f
 
@@ -779,7 +810,19 @@ fun MelodiaNavigationBar(
 }
 
 // 插件迷你条用到的歌词与绑定状态；只在有插件布局时读取，和播放页共用同一个 PlayerViewModel
-private class MiniPluginState(val binding: PlayerBindingState, val lyrics: List<LyricLine>, val lyricIndex: Int)
+private class MiniPluginState(
+    val binding: PlayerBindingState,
+    val lyrics: List<LyricLine>,
+    val lyricIndex: Int,
+    private val viewModel: PlayerViewModel
+) {
+    fun seekTo(positionMs: Long) = viewModel.seekToTime(positionMs)
+
+    // 列表循环 → 单曲循环 → 随机 → 列表循环
+    fun cyclePlayMode() {
+        if (binding.playMode == PlayMode.LIST_LOOP) viewModel.playerManager.toggleRepeat() else viewModel.playerManager.toggleShuffle()
+    }
+}
 
 @Composable
 private fun rememberMiniPluginState(
@@ -812,6 +855,7 @@ private fun rememberMiniPluginState(
             playMode = playMode
         ),
         lyrics = lyrics,
-        lyricIndex = lyricIndex
+        lyricIndex = lyricIndex,
+        viewModel = playerViewModel
     )
 }

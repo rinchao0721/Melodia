@@ -51,7 +51,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.7` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.8` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -66,6 +66,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `settings`（format 2）：插件设置项，见「设置」一节。
 - `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
 - `backdrops`（format 2）：窗口动态背景，见「动态背景」一节。
+- `layoutActions`（format 2）：播放器布局的手势里用到 `script:` 动作时写 `true`，插件需要带 `main.js`，见「手势」。
 
 单项写错时只忽略这一项，并在导入时提示。
 
@@ -320,7 +321,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 - `frame`：区域外框，各区域支持的字段见下表，写了不支持的字段会被忽略并提示。
 - `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。桌面区域 API 1.6 起支持，宽度取窗口里该区域的宽度，`orientation` 恒为 `landscape`。
 - `styles`：具名样式，见下文「样式」（API 1.7）。
-- 节点上的 `animation`、`onTap`、`onDoubleTap`、`onLongPress` 留给后续版本，目前会被忽略并提示。
+- 节点上的 `animation` 与 `onTap`、`onDoubleTap`、`onLongPress` 见下文「动效」「手势」（API 1.8）。
 
 | 区域 | `frame` 字段 |
 |---|---|
@@ -357,7 +358,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `weight` | 在 `row` / `column` 里按比例分配剩余空间，范围 0.1–10 |
 | `width` / `height` | 固定尺寸，范围 0–1000；也可以写 `"45%"`，按父容器剩余空间的比例（API 1.5） |
 | `minWidth` / `maxWidth` / `minHeight` / `maxHeight` | 尺寸上下限，范围 0–1000（API 1.5） |
-| `arrange` | `row` / `column` 主轴排列：`start`、`center`、`end`、`spaceBetween`、`spaceAround`、`spaceEvenly`；后三种不使用 `spacing`（API 1.5） |
+| `arrange` | `row` / `column` 主轴排列：`start`、`center`、`end`、`spaceBetween`、`spaceAround`、`spaceEvenly`；后三种不使用 `spacing`（API 1.5）；`row` 写了 `start` 以外的排列又没写宽度时自动占满宽度（API 1.8） |
 | `alignSelf` | 在 `box` 里的位置：`topStart`、`top`、`topEnd`、`start`、`center`、`end`、`bottomStart`、`bottom`、`bottomEnd`；在 `row` / `column` 里只取交叉轴方向（API 1.5） |
 | `offset` | `[x, y]`，范围 -200–200，只移动绘制位置，不影响布局（API 1.5） |
 | `background` | 颜色，如 `pane`、`cardSurface`；API 1.7 起也可以写其他颜色值或渐变，见「颜色」 |
@@ -441,6 +442,51 @@ API 1.7 起，区域外壳可以写 `styles`，节点用 `class` 引用：
 - 样式就是一组节点属性，节点自己写的同名属性优先。不能写 `type`、`children`、`buttons`、`bind`、`action`、`visible`。
 - `extends` 继承另一个样式，最多 4 层；出现循环或继承的样式不存在时，这个样式无效。
 - 一个区域最多 32 个样式，`layout` 与各条变体共用；引用无效样式时忽略并提示。
+
+### 动效
+
+API 1.8 起，任意节点可以写 `animation`，只改变绘制，不影响布局；旋转、缩放后可能超出父容器，需要自己留出空间。`layout` 与每条变体各自最多 16 个节点带动效。用户关闭「界面动画」后，动效停在静止状态。
+
+预设写成 `"animation": "rotateWhilePlaying"` 或 `{ "preset": "rotateWhilePlaying", "period": 12 }`：
+
+| 预设 | 效果 | 参数 |
+|---|---|---|
+| `rotateWhilePlaying` | 播放时匀速旋转，暂停时停在当前角度 | `period`：转一圈的秒数，2–60，默认 20 |
+| `scaleOnPause` | 暂停时缩小，播放时弹回 | `scale`：暂停时的比例，0.5–1，默认 0.85 |
+| `pulse` | 播放时轻微呼吸缩放 | `period`：秒，0.5–10，默认 2；`scale`：最大比例，1–1.2，默认 1.04 |
+| `songChange` | 切歌时进入 | `effect`：`fade`（默认）、`slideUp`、`zoom` |
+
+关键帧：
+
+```json
+"animation": {
+  "keyframes": [{ "at": 0, "rotate": -25 }, { "at": 1, "rotate": 0 }],
+  "duration": 600, "easing": "easeOut", "repeat": "once", "trigger": "playing"
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `keyframes` | 2–8 帧，`at` 为 0–1 且递增；每帧可写 `scale`（0–3）、`rotate`（度）、`alpha`（0–1）、`x` / `y`（-200–200），没写的属性沿用上一帧 |
+| `duration` | 毫秒，100–60000，默认 1000 |
+| `easing` | `linear`、`ease`（默认）、`easeIn`、`easeOut` |
+| `repeat` | `once`（默认）、`loop`、`reverse`（往返） |
+| `trigger` | `always`（默认）；`playing`：开始播放时正放，暂停时倒放回第一帧；`songChange`：每次切歌播放一次；`tap`：点击这个节点时播放一次 |
+
+### 手势
+
+API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`，桌面上右键等同长按。自带点击的组件（按钮、歌名等）先处理自己的点击，这时节点上的手势不触发；分页器的左右滑动、下拉收起与返回键不受影响。
+
+| 动作 | 可用区域 |
+|---|---|
+| `togglePlay`、`next`、`previous`、`seekForward`、`seekBack`（10 秒）、`toggleLike`、`cyclePlayMode` | 全部 |
+| `pagerNext`、`pagerPrevious` | 全部；让最近一层 `pager` 翻页，不在分页器里时无效 |
+| `openLyrics`、`openQueue`、`openComments`、`openSleepTimer`、`openMore` | Android 全屏页、宽屏页 |
+| `collapse` | Android 全屏页 |
+| `toggleNowPlaying`、`toggleLyricsView` | 桌面 |
+| `script:<名称>` | 全部；调用 `main.js` 里 `melodia.register.action` 注册的同名动作，参数为当前播放状态（字段同 `$player`），5 秒内没有返回按失败处理 |
+
+区域不支持的动作会被忽略并提示。沙盒插件用 `script:` 动作时，要在清单的 `contributes` 里写 `"layoutActions": true` 并带上 `main.js`，否则这些动作会被忽略；原生插件用 `context.extensions.action` 注册的动作同样可以调用，不需要声明 `layoutActions`。
 
 ### 校验与回退
 

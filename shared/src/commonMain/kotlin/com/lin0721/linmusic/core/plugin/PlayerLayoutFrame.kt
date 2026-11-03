@@ -68,8 +68,12 @@ data class PlayerLayoutVariant(val condition: LayoutCondition, val root: PlayerL
 data class PlayerLayoutSpec(
     val root: PlayerLayoutNode,
     val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
-    val variants: List<PlayerLayoutVariant> = emptyList()
+    val variants: List<PlayerLayoutVariant> = emptyList(),
+    // 提供布局的插件，脚本动作发给它
+    val pluginId: String = ""
 ) {
+    val usesScript: Boolean get() = root.usesScript() || variants.any { it.root.usesScript() }
+
     // 第一条满足条件的变体生效，都不满足时用默认布局
     fun select(widthDp: Float, landscape: Boolean): PlayerLayoutNode =
         variants.firstOrNull { it.condition.matches(widthDp, landscape) }?.root ?: root

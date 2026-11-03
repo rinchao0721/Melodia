@@ -24,7 +24,13 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.HostAction
+import com.lin0721.linmusic.core.plugin.LayoutAction
 import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LayoutEnvironment
+import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.plugin.LayoutTimeText
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalInLayoutPager
@@ -38,6 +44,8 @@ import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
+
+private const val SEEK_STEP_MS = 10_000L
 
 // 全屏与宽屏播放页的插件布局：把布局节点映射到已有组件，状态与回调都来自 FullPlayerScreen
 class FullPlayerLayoutParts(
@@ -107,6 +115,42 @@ class FullPlayerLayoutParts(
         )
 
     val coverColors: LayoutCoverColors get() = LayoutCoverColors(colors.base, colors.textHighlight)
+
+    // 手势里的宿主动作；本区域不支持的动作在解析时已去掉
+    private fun handle(action: HostAction) {
+        when (action) {
+            HostAction.TOGGLE_PLAY -> onTogglePlay()
+            HostAction.NEXT -> onPlayNext()
+            HostAction.PREVIOUS -> onPlayPrevious()
+            HostAction.SEEK_FORWARD -> onSeek((currentPositionProvider() + SEEK_STEP_MS).coerceAtMost(displayDuration))
+            HostAction.SEEK_BACK -> onSeek((currentPositionProvider() - SEEK_STEP_MS).coerceAtLeast(0L))
+            HostAction.TOGGLE_LIKE -> if (podcast.isPodcast) onToggleSubscribe() else onToggleLike()
+            HostAction.CYCLE_PLAY_MODE -> if (playMode == PlayMode.LIST_LOOP) onToggleRepeat() else onToggleShuffle()
+            HostAction.OPEN_LYRICS -> onOpenFullScreenLyrics()
+            HostAction.OPEN_QUEUE -> onQueueClick()
+            HostAction.OPEN_COMMENTS -> onCommentsClick()
+            HostAction.OPEN_SLEEP_TIMER -> onSleepTimerClick()
+            HostAction.OPEN_MORE -> onMoreClick()
+            HostAction.COLLAPSE -> onClose()
+            HostAction.PAGER_NEXT, HostAction.PAGER_PREVIOUS, HostAction.TOGGLE_NOW_PLAYING, HostAction.TOGGLE_LYRICS_VIEW -> Unit
+        }
+    }
+
+    @Composable
+    fun environment(pluginId: String): LayoutEnvironment {
+        val runScript = rememberLayoutScriptRunner(pluginId, binding)
+        return LayoutEnvironment(
+            playing = playWhenReady,
+            songKey = currentKey,
+            motionEnabled = LocalUiMotion.current.enabled,
+            onAction = { action ->
+                when (action) {
+                    is LayoutAction.Host -> handle(action.action)
+                    is LayoutAction.Script -> runScript(action.name)
+                }
+            }
+        )
+    }
 
     private val displayDuration: Long get() = if (duration > 0L) duration else (songState.songDetail?.dt ?: 0L)
 
@@ -240,7 +284,10 @@ fun LazyListScope.fullPlayerPluginSection(
                 val hostHeader = spec.frame.header == LayoutHeader.HOST
                 Column(Modifier.fillMaxSize()) {
                     if (hostHeader) sourceBar(Modifier.fillMaxWidth())
-                    CompositionLocalProvider(LocalLayoutCoverColors provides parts.coverColors) {
+                    CompositionLocalProvider(
+                        LocalLayoutCoverColors provides parts.coverColors,
+                        LocalLayoutEnvironment provides parts.environment(spec.pluginId)
+                    ) {
                         PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth(), parts.binding::prepare) { node, modifier ->
                             parts.Component(node, modifier)
                         }
