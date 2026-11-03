@@ -40,6 +40,7 @@ class CommonSettingsViewModel(
     val crossfadeDurationMs = settingsPreferences.crossfadeDurationMs.asState(CrossfadePolicy.DEFAULT_DURATION_MS)
     val smartCrossfadeEnabled = settingsPreferences.smartCrossfadeEnabled.asState(false)
     val loudnessNormalizationEnabled = settingsPreferences.loudnessNormalizationEnabled.asState(false)
+    val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
     val uiScalePercent = settingsPreferences.uiScalePercent.asState(UiScale.DEFAULT_PERCENT)
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
     val themeSettings = settingsPreferences.themeSettings.asState(ThemeSettings())
@@ -76,6 +77,8 @@ class CommonSettingsViewModel(
     fun updateSmartCrossfadeEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSmartCrossfadeEnabled(enabled) }
 
     fun updateLoudnessNormalizationEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLoudnessNormalizationEnabled(enabled) }
+
+    fun updateExclusiveOutput(enabled: Boolean) = launchSave { settingsPreferences.saveExclusiveOutput(enabled) }
 
     fun updateUiScalePercent(percent: Int) = launchSave { settingsPreferences.saveUiScalePercent(percent) }
 

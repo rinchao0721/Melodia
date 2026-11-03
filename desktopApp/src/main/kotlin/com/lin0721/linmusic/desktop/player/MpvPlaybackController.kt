@@ -185,6 +185,9 @@ class MpvPlaybackController(
     // 每首歌只尝试预载一次，避免失败后每个 tick 重复取地址
     private var crossfadeAttemptedSongId: Long? = null
 
+    // 独占输出设置；独占失败后引擎本次运行改用共享，重新打开开关或下次启动再试
+    @Volatile private var exclusiveEnabled = false
+
     // 必须最后创建：mpv 事件线程一启动就可能回调，此前所有状态字段须已初始化
     private val engine = MpvEnginePair(this, scope, engineOptions, onRecordingFinished = ::commitRecording)
 
@@ -205,6 +208,13 @@ class MpvPlaybackController(
         }
         scope.launch { settingsPreferences.crossfadeDurationMs.collect { crossfadeSettingMs = it } }
         scope.launch { settingsPreferences.smartCrossfadeEnabled.collect { smartCrossfadeEnabled = it } }
+        scope.launch {
+            settingsPreferences.exclusiveOutput.collect { enabled ->
+                exclusiveEnabled = enabled
+                if (enabled) abortCrossfadePlan()
+                engine.setExclusive(enabled)
+            }
+        }
         scope.launch {
             settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
                 loudnessEnabled = enabled
@@ -606,6 +616,26 @@ class MpvPlaybackController(
         }
     }
 
+    // 独占失败先退回共享从原进度重来，共享也打不开说明设备被占用或已失效，停下等用户处理，不当作歌曲故障跳过
+    override fun onAudioOutputFailed() {
+        scope.launch {
+            val index = playbackQueue.currentIndex.value
+            val positionMs = _currentPosition.value
+            if (engine.exclusive) {
+                engine.setExclusive(false)
+                _messages.tryEmit("独占输出不可用，本次已改用共享模式")
+                if (playbackQueue.itemAt(index) != null) playIndex(index, positionMs, knownUrl = loadedUrl)
+                return@launch
+            }
+            _messages.tryEmit("输出设备被占用或不可用")
+            _playWhenReady.value = false
+            _isPlaying.value = false
+            pauseClock()
+            // 恢复播放时按当前进度重新载入
+            loadedSongId = null
+        }
+    }
+
     // 漫游续接与定期存档，只在实际发声时推进
     private suspend fun onTick() {
         if (!_isPlaying.value) return
@@ -705,7 +735,7 @@ class MpvPlaybackController(
     }
 
     private fun maybePrepareCrossfade(songId: Long) {
-        if (!crossfadeEnabled || !_playWhenReady.value || crossfadePlan != null) return
+        if (!crossfadeEnabled || exclusiveEnabled || !_playWhenReady.value || crossfadePlan != null) return
         if (crossfadePrepareJob?.isActive == true || engine.isFading || crossfadeAttemptedSongId == songId) return
         val duration = _duration.value
         val remaining = duration - _currentPosition.value

@@ -154,6 +154,7 @@ internal fun RecognitionDialog(
 
     val state by recognition.uiState.collectAsState()
     val mode by recognition.mode.collectAsState()
+    val loopbackBlocked by recognition.loopbackBlocked.collectAsState()
     val history by recognition.history.collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
     val currentSongId = nowPlaying?.songId
@@ -181,6 +182,7 @@ internal fun RecognitionDialog(
                 ModeSwitch(
                     mode = mode,
                     loopbackSupported = recognition.loopbackSupported,
+                    loopbackBlocked = loopbackBlocked,
                     onSelect = { selected ->
                         if (selected != mode || state !is RecognitionUiState.Listening) recognition.start(selected)
                     }
@@ -353,7 +355,12 @@ private fun Modifier.riseIn(order: Int): Modifier {
 
 // 选中底块在两段之间滑动
 @Composable
-private fun ModeSwitch(mode: RecognitionMode, loopbackSupported: Boolean, onSelect: (RecognitionMode) -> Unit) {
+private fun ModeSwitch(
+    mode: RecognitionMode,
+    loopbackSupported: Boolean,
+    loopbackBlocked: Boolean,
+    onSelect: (RecognitionMode) -> Unit
+) {
     val options = buildList {
         add(RecognitionMode.MICROPHONE to "麦克风")
         if (loopbackSupported) add(RecognitionMode.PLAYBACK to "系统声音")
@@ -371,19 +378,27 @@ private fun ModeSwitch(mode: RecognitionMode, loopbackSupported: Boolean, onSele
         )
         Row {
             options.forEachIndexed { index, (option, label) ->
+                val blocked = loopbackBlocked && option == RecognitionMode.PLAYBACK
                 val labelColor by animateColorAsState(
-                    if (index == selectedIndex) DesktopColors.Pane else DesktopColors.TextPrimary,
+                    when {
+                        index == selectedIndex -> DesktopColors.Pane
+                        blocked -> DesktopColors.TextDisabled
+                        else -> DesktopColors.TextPrimary
+                    },
                     uiTween(180),
                     label = "modeLabel"
                 )
-                Box(
-                    Modifier.width(SegmentWidth).height(SegmentHeight).clip(SegmentShape)
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .clickable { onSelect(option) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(label, color = labelColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                val segment = @Composable {
+                    Box(
+                        Modifier.width(SegmentWidth).height(SegmentHeight).clip(SegmentShape)
+                            .pointerHoverIcon(if (blocked) PointerIcon.Default else PointerIcon.Hand)
+                            .clickable(enabled = !blocked) { onSelect(option) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, color = labelColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
+                if (blocked) DesktopTooltip("独占输出开启时无法录制系统声音") { segment() } else segment()
             }
         }
     }

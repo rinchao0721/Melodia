@@ -391,6 +391,7 @@ internal fun settingsEntries(
     val crossfadeDurationMs by common.crossfadeDurationMs.collectAsState()
     val smartCrossfadeEnabled by common.smartCrossfadeEnabled.collectAsState()
     val loudnessNormalizationEnabled by common.loudnessNormalizationEnabled.collectAsState()
+    val exclusiveOutput by common.exclusiveOutput.collectAsState()
     val uiScalePercent by common.uiScalePercent.collectAsState()
     val uiAnimationsEnabled by common.uiAnimationsEnabled.collectAsState()
     val themeSettings by common.themeSettings.collectAsState()
@@ -476,6 +477,15 @@ internal fun settingsEntries(
                 }
             )
         }
+        add(
+            rowEntry(
+                "exclusiveOutput", SettingsCategory.Playback, "独占输出",
+                subtitle = "绕过系统混音直接输出到设备，播放期间其他应用没有声音；开启后会关闭歌曲淡入淡出，也无法识别系统声音",
+                keywords = listOf("独占", "wasapi", "usb", "dac", "bit-perfect", "位完美", "采样率")
+            ) {
+                SettingSwitch(exclusiveOutput, onChange = common::updateExclusiveOutput)
+            }
+        )
 
         add(
             rowEntry(

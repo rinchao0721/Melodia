@@ -228,7 +228,11 @@ val desktopPlatformModule = module {
     single { GraalAfpFingerprintEngine() }
     single {
         val engine = get<GraalAfpFingerprintEngine>()
-        DesktopRecognition(get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), warmUp = engine::warmUp)
+        DesktopRecognition(
+            get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main),
+            warmUp = engine::warmUp,
+            exclusiveOutput = get<SettingsPreferences>().exclusiveOutput
+        )
     }
     single {
         val amllLyricsClient = get<AmllLyricsClient>()

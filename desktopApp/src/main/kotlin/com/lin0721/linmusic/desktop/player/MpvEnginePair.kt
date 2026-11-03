@@ -98,6 +98,12 @@ internal class MpvEnginePair(
             }
             if (isActive) listener.onEnded(isError)
         }
+
+        override fun onAudioOutputFailed() {
+            ended = true
+            discardRecord()
+            if (isActive) listener.onAudioOutputFailed()
+        }
     }
 
     // 初始化期间事件线程可能先于赋值回调，视为非主引擎丢弃
@@ -109,6 +115,10 @@ internal class MpvEnginePair(
     private var gainJob: Job? = null
     private var userVolume = 100.0
     private var deviceName: String? = null
+
+    // 独占时设备只能被一个实例打开，不创建备用引擎
+    var exclusive = false
+        private set
 
     private val activeSlot: Slot get() = checkNotNull(active)
 
@@ -205,9 +215,23 @@ internal class MpvEnginePair(
         return ok
     }
 
+    // 开启时收尾淡化并释放备用引擎，暂停或预载中的备用引擎同样占着设备
+    fun setExclusive(enabled: Boolean) {
+        exclusive = enabled
+        if (enabled) {
+            reset()
+            spare?.let { slot ->
+                spare = null
+                slot.discardRecord()
+                scope.launch(Dispatchers.IO) { slot.engine.release() }
+            }
+        }
+        activeSlot.engine.setExclusive(enabled)
+    }
+
     // 静音预载并停在 startMs，失败返回 false；从中途起播的录制必然不完整，不应传 record
     fun prepareSpare(url: String, record: RecordRequest? = null, startMs: Long = 0L, gainDb: Double = 0.0): Boolean {
-        if (spareUnavailable || rampJob != null) return false
+        if (exclusive || spareUnavailable || rampJob != null) return false
         val slot = spare ?: try {
             newSlot().also { created ->
                 spare = created
