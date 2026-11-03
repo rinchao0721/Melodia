@@ -9,12 +9,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -32,13 +34,17 @@ class PluginNotices {
     }
 }
 
-// 用户确认过的网页链接，各端用系统浏览器打开
+// 用户确认过的网页链接，各端用系统浏览器打开；界面重建期间没人收集时先存着，收集方回来再打开
 class PluginLinks {
-    private val _opens = MutableSharedFlow<String>(extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val opens: SharedFlow<String> = _opens.asSharedFlow()
+    private val _opens = Channel<String>(LINK_BUFFER, BufferOverflow.DROP_OLDEST)
+    val opens: Flow<String> = _opens.receiveAsFlow()
 
     fun open(url: String) {
-        _opens.tryEmit(url)
+        _opens.trySend(url)
+    }
+
+    private companion object {
+        const val LINK_BUFFER = 4
     }
 }
 

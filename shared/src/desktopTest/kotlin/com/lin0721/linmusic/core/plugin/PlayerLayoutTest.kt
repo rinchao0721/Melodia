@@ -298,11 +298,12 @@ class PlayerLayoutTest {
                 {"type":"text","text":"${'$'}state.title"},
                 {"type":"text","text":"${'$'}9.99"},
                 {"type":"lyricsView","visible":"${'$'}state.show"},
-                {"type":"controls","visible":"${'$'}player.isPodcast"}
+                {"type":"controls","visible":"${'$'}player.isPodcast"},
+                {"type":"controls","buttons":["playPause"]}
             ]}"""
         ) as PlayerLayoutParseResult.Success
         val children = result.root.children
-        assertEquals(listOf("\$player.quality", "\$9.99", "", ""), children.map { it.text })
+        assertEquals(listOf("\$player.quality", "\$9.99", "", "", ""), children.map { it.text })
         assertEquals("\$player.quality", children[0].visible)
         assertNull(children[2].visible)
         assertEquals(3, result.warnings.size)
@@ -567,6 +568,59 @@ class PlayerLayoutTest {
     @After
     fun tearDown() {
         root.deleteRecursively()
+    }
+
+    @Test
+    fun `被隐藏的播放暂停键不算必需组件`() {
+        fun mini(controls: String) = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[$controls]}""")
+        val hidden = listOf(
+            """{"type":"controls","buttons":["playPause"],"opacity":0.1}""",
+            """{"type":"controls","buttons":["playPause"],"visible":"${'$'}player.isPodcast"}""",
+            """{"type":"controls","buttons":["playPause"],"width":4}""",
+            """{"type":"controls","buttons":["playPause"],"animation":{"keyframes":[{"at":0},{"at":1,"alpha":0}]}}""",
+            """{"type":"box","contentColor":"#10FFFFFF","children":[{"type":"controls","buttons":["playPause"]}]}"""
+        )
+        hidden.forEach { controls ->
+            val result = mini(controls)
+            assertTrue("应无效：$controls", result is PlayerLayoutParseResult.Failure && result.reason.contains("pager"))
+        }
+        // 切歌淡入停在最后一帧，自动隐藏由宿主控制，都照常算
+        assertTrue(mini("""{"type":"controls","buttons":["playPause"],"animation":{"keyframes":[{"at":0,"alpha":0},{"at":1,"alpha":1}],"trigger":"songChange"}}""") is PlayerLayoutParseResult.Success)
+        val inPager = """{"type":"column","children":[{"type":"pager","children":[{"type":"spacer"},{"type":"controls","buttons":["playPause"]}]}]}"""
+        assertTrue(parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, inPager) is PlayerLayoutParseResult.Failure)
+    }
+
+    @Test
+    fun `一定看得见的收起按钮才不需要宿主补`() {
+        fun root(collapse: String) =
+            (parse(PlayerLayoutArea.ANDROID_LYRICS, """{"type":"column","children":[$collapse,{"type":"lyricsView"}]}""") as PlayerLayoutParseResult.Success).root
+        val shows: (PlayerLayoutNode) -> Boolean = { it.type == LayoutNodeType.COLLAPSE_BUTTON }
+        assertTrue(root("""{"type":"row","autoHide":true,"children":[{"type":"collapseButton"}]}""").reliablyShows(shows))
+        assertTrue(!root("""{"type":"collapseButton","visible":"${'$'}player.isPodcast"}""").reliablyShows(shows))
+        assertTrue(!root("""{"type":"collapseButton","opacity":0}""").reliablyShows(shows))
+        assertTrue(!root("""{"type":"pager","children":[{"type":"collapseButton"}]}""").reliablyShows(shows))
+    }
+
+    @Test
+    fun `同一棵布局树里只保留第一个 lyricsView`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[{"type":"pager","children":[{"type":"lyricsView"},{"type":"lyricsView"}]},{"type":"controls","buttons":["playPause"]}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(1, result.root.children[0].children.size)
+        assertTrue(result.warnings.any { it.contains("lyricsView 只能有一个") })
+    }
+
+    @Test
+    fun `关键帧静止时停留的帧`() {
+        fun keyframes(repeat: String, trigger: String) = LayoutMotionParser.parse(
+            json("""{"keyframes":[{"at":0,"alpha":0},{"at":1,"alpha":1}],"repeat":"$repeat","trigger":"$trigger"}"""),
+            mutableListOf()
+        ) as LayoutAnimation.Keyframes
+        assertEquals(1f, keyframes("loop", "songChange").restProgress)
+        assertEquals(1f, keyframes("once", "always").restProgress)
+        assertEquals(0f, keyframes("loop", "always").restProgress)
+        assertEquals(listOf(0f, 1f), keyframes("once", "playing").restFrames.map { it.alpha })
     }
 
     private fun layoutPackage(id: String, layout: String): ByteArray {

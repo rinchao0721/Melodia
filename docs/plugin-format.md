@@ -229,7 +229,7 @@ await melodia.ui.openUrl('https://www.last.fm/api/auth/?api_key=...&token=...');
 ```
 
 - 需要 `ui.openUrl` 权限与 API 1.4，只接受 `https`，网址不超过 4096 个字符；不要求在 `network.hosts` 内。
-- 每次调用都会弹窗，显示插件名和网址的域名（不显示路径与参数），用户同意后才打开；拒绝或 60 秒未响应时 Promise 被拒绝。
+- 每次调用都会弹窗，显示插件名和网址的域名（不显示路径与参数），用户同意后才打开；拒绝或 60 秒未响应时 Promise 被拒绝，之后 30 秒内的调用直接失败。
 - 用户拒绝后 30 秒内，同一插件的新请求直接失败，不再弹窗；同一插件已有请求在等待确认时，新请求也直接失败。
 - 打开成功只代表交给了系统浏览器，插件拿不到网页里的任何内容；需要结果时自己轮询接口。
 - 原生插件对应 `context.ui.openUrl(url)`，拒绝时抛 `PluginApiException`。
@@ -330,7 +330,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none`，或颜色、渐变（见「颜色」）；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
 | `desktop.playerBar` | `background`：写颜色或渐变时给播放栏铺底；`host`（默认）与 `none` 都不铺底（API 1.6） |
 
-`header` 为 `none` 而布局里没有 `collapseButton` 时，宿主会在左上角补一个收起按钮。下拉收起与返回键始终可用。
+`header` 为 `none` 而布局里没有一定看得见的 `collapseButton` 时，宿主会在左上角补一个收起按钮。放在 `pager` 里、写了 `visible` 条件、不透明度低于 0.5、宽高小于 16 或静止时被动效淡出、缩小的都不算看得见；`autoHide` 由宿主控制，照常算。必需组件按同样的规则判断，被这样隐藏的播放/暂停按钮或进度条不算数，整个布局无效。下拉收起与返回键始终可用。
 
 ### 区域
 
@@ -344,7 +344,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.lyrics` | Android 全屏歌词页（API 1.9） | `lyricsView` | `lyricsCard`、`sourceLabel` |
 | `desktop.lyricsView` | 桌面歌词页，全屏时即沉浸播放页（API 1.9） | `lyricsView` | `miniLyric`、`lyricsCard`、`moreButton`、`sourceLabel` |
 
-两个歌词页区域替换整页内容，下拉收起、返回键、页面背景与留边不变。这里的 `lyricsView` 就是歌词页原有的歌词列表，`collapseButton` 关闭歌词页。`android.lyrics` 的 `actions` 另有 `lyricsSettings`（打开歌词设置，需写明）；`desktop.lyricsView` 的 `actions` 为 `lyricsSettings`、`fullscreen`、`share`，没写 `buttons` 时为后两个。
+两个歌词页区域替换整页内容，下拉收起、返回键、页面背景与留边不变；布局里没有一定看得见的 `collapseButton` 时，宿主同样在左上角补一个。这里的 `lyricsView` 就是歌词页原有的歌词列表，`collapseButton` 关闭歌词页。`android.lyrics` 的 `actions` 另有 `lyricsSettings`（打开歌词设置，需写明）；`desktop.lyricsView` 的 `actions` 为 `lyricsSettings`、`fullscreen`、`share`，没写 `buttons` 时为后两个。
 
 桌面区域不支持 `collapseButton`、`moreButton`、`sourceLabel`、`lyricsView`；`time` 与 `playMode` 按钮 API 1.7 起可用；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
 
@@ -390,7 +390,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`、`playMode`（单键按列表循环、单曲循环、随机切换；Android API 1.6，桌面 API 1.7）；`size`；`variant`：`default`、`plain`（播放键也是无底色图标）、`outlined`（圆形描边），API 1.7，迷你播放器不支持 |
 | `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more`，API 1.6 起另有 `sleepTimer`、`comments`、`lyrics`（打开全屏歌词） |
 | `lyricsCard` | 歌词卡（Android） | |
-| `lyricsView` | 整页滚动歌词，跟随用户的歌词设置，点某行跳到那里（Android 全屏页，API 1.6） | |
+| `lyricsView` | 整页滚动歌词，跟随用户的歌词设置，点某行跳到那里；每个布局（含每条变体）只能有一个（Android 全屏页，API 1.6） | |
 | `spacer` | 留白，配合 `weight` 或固定尺寸 | |
 | `text` | 固定文字，不超过 40 个字符 | `text`、`style`（`title`、`body`、`caption`）、`lines`、`size` |
 | `collapseButton` | 收起按钮；侧栏模式下带全屏切换（Android 全屏页，API 1.5） | |
@@ -478,9 +478,11 @@ API 1.8 起，任意节点可以写 `animation`，只改变绘制，不影响布
 | `repeat` | `once`（默认）、`loop`、`reverse`（往返） |
 | `trigger` | `always`（默认）；`playing`：开始播放时正放，暂停时倒放回第一帧；`songChange`：每次切歌播放一次；`tap`：点击这个节点时播放一次 |
 
+`songChange` 与 `tap` 在触发前停在最后一帧。关闭界面动画时，只播一次的动效停在最后一帧，循环的停在第一帧，`playing` 按播放状态停在首帧或末帧。
+
 ### 手势
 
-API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`，桌面上右键等同长按。自带点击的组件（按钮、歌名等）先处理自己的点击，这时节点上的手势不触发；分页器的左右滑动、下拉收起与返回键不受影响。
+API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`，桌面上右键等同长按，右键不会触发 `onTap`。自带点击的组件（按钮、歌名等）先处理自己的点击，这时节点上的手势不触发；分页器的左右滑动、下拉收起与返回键不受影响。
 
 | 动作 | 可用区域 |
 |---|---|

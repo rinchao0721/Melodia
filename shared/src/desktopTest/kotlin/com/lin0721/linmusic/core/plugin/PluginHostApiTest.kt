@@ -225,4 +225,28 @@ class PluginHostApiTest {
         assertEquals(listOf("https://www.last.fm"), opened)
         collector.cancel()
     }
+
+    @Test
+    fun `确认被超时取消也进入冷却`() = runBlocking {
+        val opener = manifest("\"playback.read\",\"ui.openUrl\"")
+        val first = async(Dispatchers.Default) { api.handle(opener, "ui.openUrl", url("https://www.last.fm")) }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        first.cancel()
+        first.join()
+        assertEquals(null, confirmations.pending.value)
+
+        expectError("请稍后再试") { call(opener, "ui.openUrl", url("https://www.last.fm")) }
+        assertEquals(null, confirmations.pending.value)
+    }
+
+    @Test
+    fun `没有收集方时链接先存着`() = runBlocking {
+        val opener = manifest("\"playback.read\",\"ui.openUrl\"")
+        val result = async(Dispatchers.Default) { api.handle(opener, "ui.openUrl", url("https://www.last.fm")) }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        confirmations.respond(true)
+        result.await()
+
+        assertEquals("https://www.last.fm", withTimeout(2_000) { links.opens.first() })
+    }
 }

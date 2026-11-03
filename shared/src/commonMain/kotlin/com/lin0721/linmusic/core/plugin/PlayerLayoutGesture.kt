@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -131,11 +132,13 @@ internal fun Modifier.layoutGestures(node: PlayerLayoutNode, onTapAnimation: (()
             onLongPress = longPress?.let { action -> { _ -> run(action) } }
         )
     }
-    if (longPress != null) {
-        result = result.pointerInput(longPress) {
-            awaitEachGesture {
-                val event = awaitPointerEvent()
-                if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) run(longPress)
+    // 右键不算点击：在 Initial 阶段消费掉，外层的点击检测就收不到；有长按动作时执行长按
+    result = result.pointerInput(longPress) {
+        awaitEachGesture {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
+                event.changes.forEach { it.consume() }
+                run(longPress)
             }
         }
     }

@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -297,25 +298,33 @@ fun MiniPlayerCard(
                 isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
             )
             val runScript = rememberLayoutScriptRunner(pluginSpec.pluginId, pluginState.binding)
+            val hostAction: (HostAction) -> Unit = { action ->
+                when (action) {
+                    HostAction.TOGGLE_PLAY -> onTogglePlay()
+                    HostAction.NEXT -> onNext()
+                    HostAction.PREVIOUS -> onPrevious()
+                    HostAction.SEEK_FORWARD -> pluginState.seekTo(currentPositionProvider() + MINI_SEEK_STEP_MS)
+                    HostAction.SEEK_BACK -> pluginState.seekTo((currentPositionProvider() - MINI_SEEK_STEP_MS).coerceAtLeast(0L))
+                    HostAction.TOGGLE_LIKE -> onLikeClick()
+                    HostAction.CYCLE_PLAY_MODE -> pluginState.cyclePlayMode()
+                    else -> Unit
+                }
+            }
+            // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
+            val latestHostAction by rememberUpdatedState(hostAction)
+            val onAction = remember(runScript) {
+                { action: LayoutAction ->
+                    when (action) {
+                        is LayoutAction.Script -> runScript(action.name)
+                        is LayoutAction.Host -> latestHostAction(action.action)
+                    }
+                }
+            }
             val environment = LayoutEnvironment(
                 playing = displayedIsPlaying,
                 songKey = displayedCurrentTrack.mediaId,
                 motionEnabled = motion.enabled,
-                onAction = { action ->
-                    when (action) {
-                        is LayoutAction.Script -> runScript(action.name)
-                        is LayoutAction.Host -> when (action.action) {
-                            HostAction.TOGGLE_PLAY -> onTogglePlay()
-                            HostAction.NEXT -> onNext()
-                            HostAction.PREVIOUS -> onPrevious()
-                            HostAction.SEEK_FORWARD -> pluginState.seekTo(currentPositionProvider() + MINI_SEEK_STEP_MS)
-                            HostAction.SEEK_BACK -> pluginState.seekTo((currentPositionProvider() - MINI_SEEK_STEP_MS).coerceAtLeast(0L))
-                            HostAction.TOGGLE_LIKE -> onLikeClick()
-                            HostAction.CYCLE_PLAY_MODE -> pluginState.cyclePlayMode()
-                            else -> Unit
-                        }
-                    }
-                }
+                onAction = onAction
             )
             CompositionLocalProvider(
                 LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight),

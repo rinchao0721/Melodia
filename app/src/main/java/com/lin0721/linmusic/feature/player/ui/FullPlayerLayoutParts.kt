@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,9 +103,9 @@ class FullPlayerLayoutParts(
     val onSleepTimerClick: () -> Unit,
     val onCommentsClick: () -> Unit
 ) {
-    // $player 绑定的取值，每次重组按当前状态生成
-    val binding: PlayerBindingState
-        get() = PlayerBindingState(
+    // $player 绑定的取值；本对象每次重组都重建，算一次即可
+    val binding: PlayerBindingState by lazy {
+        PlayerBindingState(
             title = title,
             artist = artist,
             album = songState.songDetail?.al?.name.orEmpty(),
@@ -114,6 +117,7 @@ class FullPlayerLayoutParts(
             hasLyrics = songState.lyrics.isNotEmpty() && !(songState.lyrics.size == 1 && songState.lyrics[0].text == "纯音乐"),
             playMode = playMode
         )
+    }
 
     val coverColors: LayoutCoverColors get() = LayoutCoverColors(colors.base, colors.textHighlight)
 
@@ -138,19 +142,24 @@ class FullPlayerLayoutParts(
         }
     }
 
+    // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
     @Composable
     fun environment(pluginId: String): LayoutEnvironment {
         val runScript = rememberLayoutScriptRunner(pluginId, binding)
+        val latest by rememberUpdatedState(this)
+        val onAction = remember(runScript) {
+            { action: LayoutAction ->
+                when (action) {
+                    is LayoutAction.Host -> latest.handle(action.action)
+                    is LayoutAction.Script -> runScript(action.name)
+                }
+            }
+        }
         return LayoutEnvironment(
             playing = playWhenReady,
             songKey = currentKey,
             motionEnabled = LocalUiMotion.current.enabled,
-            onAction = { action ->
-                when (action) {
-                    is LayoutAction.Host -> handle(action.action)
-                    is LayoutAction.Script -> runScript(action.name)
-                }
-            }
+            onAction = onAction
         )
     }
 
@@ -299,8 +308,8 @@ fun LazyListScope.fullPlayerPluginSection(
                         }
                     }
                 }
-                // 去掉来源栏而布局里没有收起按钮时由宿主补上，保证随时能收起
-                if (!hostHeader && !root.contains(LayoutNodeType.COLLAPSE_BUTTON)) {
+                // 去掉来源栏而布局里没有一定看得见的收起按钮时由宿主补上，保证随时能收起
+                if (!hostHeader && !root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
                     FullPlayerCollapseButtons(
                         onClose = parts.onClose,
                         onToggleSidebarFullscreen = parts.onToggleSidebarFullscreen,
@@ -320,16 +329,17 @@ val LocalLyricsPageSlots = staticCompositionLocalOf<LyricsPageSlots?> { null }
 @Composable
 fun LyricsPagePluginContent(spec: PlayerLayoutSpec, parts: FullPlayerLayoutParts, isLandscape: Boolean, slots: LyricsPageSlots) {
     val base = parts.environment(spec.pluginId)
-    val environment = base.copy(
-        controlsVisible = slots.controlsVisible,
-        onAction = { action ->
+    val latestSlots by rememberUpdatedState(slots)
+    val onAction = remember(base.onAction) {
+        { action: LayoutAction ->
             when (action) {
-                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> slots.onClose()
-                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> slots.onOpenSettings()
+                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> latestSlots.onClose()
+                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> latestSlots.onOpenSettings()
                 else -> base.onAction(action)
             }
         }
-    )
+    }
+    val environment = base.copy(controlsVisible = slots.controlsVisible, onAction = onAction)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val root = spec.select(maxWidth.value, isLandscape)
         CompositionLocalProvider(
@@ -340,6 +350,15 @@ fun LyricsPagePluginContent(spec: PlayerLayoutSpec, parts: FullPlayerLayoutParts
             PlayerLayoutView(root, Modifier.fillMaxSize(), parts.binding::prepare) { node, modifier ->
                 parts.Component(node, modifier)
             }
+        }
+        // 布局里没有一定看得见的收起按钮时由宿主补上，保证随时能关闭歌词页
+        if (!root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
+            FullPlayerCollapseButtons(
+                onClose = slots.onClose,
+                onToggleSidebarFullscreen = null,
+                isSidebarFullscreen = false,
+                modifier = Modifier.align(Alignment.TopStart).padding(horizontal = MelodiaSpacing.lg)
+            )
         }
     }
 }

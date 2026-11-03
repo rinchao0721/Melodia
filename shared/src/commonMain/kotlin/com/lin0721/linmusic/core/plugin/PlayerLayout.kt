@@ -218,8 +218,29 @@ data class PlayerLayoutNode(
     fun hasButton(type: LayoutNodeType, button: String): Boolean =
         (this.type == type && button in buttons) || children.any { it.hasButton(type, button) }
 
+    // 宿主保底用：组件一定看得见才算，pager 里、visible 条件下、近乎透明或尺寸太小的都不算；autoHide 由宿主控制，照常算
+    fun reliablyShows(match: (PlayerLayoutNode) -> Boolean): Boolean {
+        if (hiddenByPlugin) return false
+        if (match(this)) return true
+        return type != LayoutNodeType.PAGER && children.any { it.reliablyShows(match) }
+    }
+
+    fun showsButton(type: LayoutNodeType, button: String): Boolean = reliablyShows { it.type == type && button in it.buttons }
+
+    private val hiddenByPlugin: Boolean
+        get() = visible != null ||
+            (opacity ?: 1f) < MIN_VISIBLE_ALPHA ||
+            listOf(width, height, maxWidth, maxHeight).any { it != null && it < MIN_VISIBLE_SIZE } ||
+            listOf(widthFraction, heightFraction).any { it != null && it < MIN_VISIBLE_FRACTION } ||
+            (contentColor as? LayoutColor.Fixed)?.let { minOf(it.light.alpha, it.dark.alpha) < MIN_VISIBLE_ALPHA } == true ||
+            (animation as? LayoutAnimation.Keyframes)?.restFrames?.any { it.alpha < MIN_VISIBLE_ALPHA || it.scale < MIN_VISIBLE_SCALE } == true
+
     companion object {
         const val DEFAULT_CORNER_RADIUS = 8f
+        private const val MIN_VISIBLE_ALPHA = 0.5f
+        private const val MIN_VISIBLE_SCALE = 0.5f
+        private const val MIN_VISIBLE_SIZE = 16f
+        private const val MIN_VISIBLE_FRACTION = 0.05f
     }
 }
 
@@ -324,12 +345,12 @@ enum class PlayerLayoutArea(
     // 缺少必需组件时返回原因
     fun missingRequired(root: PlayerLayoutNode): String? = when (this) {
         DESKTOP_PLAYER_BAR -> when {
-            !root.hasButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE) -> "播放栏必须包含播放/暂停按钮"
-            !root.contains(LayoutNodeType.PROGRESS) -> "播放栏必须包含进度条"
+            !root.showsButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE) -> "播放栏必须包含播放/暂停按钮$HIDDEN_HINT"
+            !root.reliablyShows { it.type == LayoutNodeType.PROGRESS } -> "播放栏必须包含进度条$HIDDEN_HINT"
             else -> null
         }
         ANDROID_FULL_PLAYER, ANDROID_FULL_PLAYER_WIDE, ANDROID_MINI_PLAYER ->
-            if (root.hasButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE)) null else "必须包含播放/暂停按钮"
+            if (root.showsButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE)) null else "必须包含播放/暂停按钮$HIDDEN_HINT"
         DESKTOP_NOW_PLAYING -> null
         ANDROID_LYRICS, DESKTOP_LYRICS_VIEW ->
             if (root.contains(LayoutNodeType.LYRICS_VIEW)) null else "歌词页必须包含 lyricsView"
@@ -342,6 +363,8 @@ enum class PlayerLayoutArea(
 
 private val CONTAINERS = setOf(LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX)
 private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more", "sleepTimer", "comments", "lyrics")
+
+private const val HIDDEN_HINT = "，且不能放在 pager 里、不能用 visible 条件、透明度、过小尺寸或动效隐藏"
 
 const val CONTROL_PLAY_PAUSE = "playPause"
 const val CONTROL_PLAY_MODE = "playMode"
@@ -469,6 +492,7 @@ object PlayerLayoutParser {
         val warnings = mutableListOf<String>()
         var count = 0
         var animated = 0
+        var lyricsViews = 0
         fun build(json: JsonElement, depth: Int, inPager: Boolean): PlayerLayoutNode? {
             if (depth > MAX_DEPTH) throw TooLarge("布局层级超过 $MAX_DEPTH 层")
             count++
@@ -482,6 +506,8 @@ object PlayerLayoutParser {
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
             if (type == LayoutNodeType.PAGER && inPager) return null.also { warnings += "pager 不能嵌套，已忽略" }
+            // 歌词列表共用宿主的滚动状态，同一棵树里只能有一个
+            if (type == LayoutNodeType.LYRICS_VIEW && lyricsViews++ > 0) return null.also { warnings += "lyricsView 只能有一个，多出的已忽略" }
             if (!playerBindings) MOTION_KEYS.filter { it in obj }.forEach { warnings += "${label}不支持 $it，已忽略" }
             val childInPager = inPager || type == LayoutNodeType.PAGER
             var children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {

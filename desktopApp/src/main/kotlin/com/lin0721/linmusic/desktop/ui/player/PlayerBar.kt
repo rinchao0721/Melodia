@@ -52,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -321,19 +322,24 @@ internal class PlayerBarParts(
         }
     }
 
+    // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
     @Composable
     fun environment(pluginId: String, binding: PlayerBindingState): LayoutEnvironment {
         val runScript = rememberLayoutScriptRunner(pluginId, binding)
+        val latest by rememberUpdatedState(this)
+        val onAction = remember(runScript) {
+            { action: LayoutAction ->
+                when (action) {
+                    is LayoutAction.Host -> latest.handle(action.action)
+                    is LayoutAction.Script -> runScript(action.name)
+                }
+            }
+        }
         return LayoutEnvironment(
             playing = isPlaying,
             songKey = nowPlaying?.mediaId,
             motionEnabled = LocalUiMotion.current.enabled,
-            onAction = { action ->
-                when (action) {
-                    is LayoutAction.Host -> handle(action.action)
-                    is LayoutAction.Script -> runScript(action.name)
-                }
-            }
+            onAction = onAction
         )
     }
 

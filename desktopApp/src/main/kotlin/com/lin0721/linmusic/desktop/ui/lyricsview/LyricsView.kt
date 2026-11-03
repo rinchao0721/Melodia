@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -664,16 +665,18 @@ private fun PluginLyricsContent(
     val parts = plugin.parts
     val binding = parts.bindingState()
     val base = parts.environment(plugin.spec.pluginId, binding)
-    val environment = base.copy(
-        controlsVisible = controlsVisible,
-        onAction = { action ->
+    val latestClose by rememberUpdatedState(onClose)
+    val latestSettings by rememberUpdatedState(onSettingsOpenChange)
+    val onAction = remember(base.onAction) {
+        { action: LayoutAction ->
             when (action) {
-                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> onClose()
-                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> onSettingsOpenChange(true)
+                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> latestClose()
+                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> latestSettings(true)
                 else -> base.onAction(action)
             }
         }
-    )
+    }
+    val environment = base.copy(controlsVisible = controlsVisible, onAction = onAction)
     val coverColors = rememberLayoutCoverColors(track.artworkUri)
     val density = LocalDensity.current
     val popupOffset = IntOffset(0, with(density) { (HeaderButtonSize + 8.dp).roundToPx() })
@@ -710,6 +713,10 @@ private fun PluginLyricsContent(
                     else -> parts.Component(node, modifier)
                 }
             }
+        }
+        // 布局里没有一定看得见的收起按钮时由宿主补上，保证随时能关闭歌词页
+        if (!root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
+            Box(Modifier.align(Alignment.TopStart).padding(8.dp)) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
         }
     }
 }

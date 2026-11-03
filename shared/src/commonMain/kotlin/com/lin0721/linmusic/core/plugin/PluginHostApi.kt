@@ -69,7 +69,7 @@ class PluginHostApi(
         "player.enqueue" -> enqueue(manifest, args.asObject(method))
         "ui.setState" -> setUiState(manifest, args.asObject(method))
         "ui.toast" -> toast(manifest, args.asObject(method))
-        "ui.openUrl" -> openUrl(manifest, args.asObject(method))
+        METHOD_OPEN_URL -> openUrl(manifest, args.asObject(method))
         "settings.get" -> settingValue(manifest, args.asObject(method).requireString("key"))
         "settings.all" -> settings(manifest)
         METHOD_NETEASE -> neteaseCall(manifest, args.asObject(method))
@@ -140,15 +140,15 @@ class PluginHostApi(
         if (denied != null && now() - denied < LINK_DENIAL_COOLDOWN_MS) throw PluginCallException("用户刚拒绝了打开网页，请稍后再试")
         // 同一插件同时只排一个确认，避免连发请求在拒绝后继续逐个弹窗
         if (!pendingLinks.add(manifest.id)) throw PluginCallException("已有打开网页的请求在等待确认")
-        val accepted = try {
-            confirmations.ask("打开网页？", "「${manifest.name}」请求在浏览器打开 $host 的网页。")
+        var accepted = false
+        try {
+            accepted = confirmations.ask("打开网页？", "「${manifest.name}」请求在浏览器打开 $host 的网页。")
         } finally {
             pendingLinks.remove(manifest.id)
+            // 超时或调用被取消也按拒绝冷却，否则插件能靠超时反复弹窗
+            if (!accepted) linkDenials[manifest.id] = now()
         }
-        if (!accepted) {
-            linkDenials[manifest.id] = now()
-            throw PluginCallException("用户拒绝了打开网页")
-        }
+        if (!accepted) throw PluginCallException("用户拒绝了打开网页")
         links.open(uri.toASCIIString())
         return JsonNull
     }
@@ -371,6 +371,7 @@ class PluginHostApi(
 
     companion object {
         const val METHOD_NETEASE = "netease.call"
+        const val METHOD_OPEN_URL = "ui.openUrl"
         private const val STORAGE_FILE = "storage.json"
         private const val SETTINGS_FILE = "settings.json"
         private const val MAX_TOAST_LENGTH = 120

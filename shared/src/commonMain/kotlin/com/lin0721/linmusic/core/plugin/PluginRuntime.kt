@@ -103,8 +103,8 @@ class PluginRuntime(
                     target.sandbox.call(PluginPrelude.INVOKE, JsonPrimitive(callId), JsonPrimitive(kind), JsonPrimitive(name), args)
                     deferred.await()
                 }
-                    // 脚本在等网易调用时可能正等用户确认，不按超时处理
-                    ?: target.pendingNetease.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
+                    // 脚本在等网易调用或打开网页时可能正等用户确认，不按超时处理
+                    ?: target.pendingConfirmCalls.get().takeIf { it > 0 }?.let { withTimeoutOrNull(NETEASE_TIMEOUT_MS) { deferred.await() } }
                     ?: Result.failure(PluginCallException("$kind:$name 超过 ${timeoutMs / 1000} 秒没有返回"))
             } catch (e: CancellationException) {
                 throw e
@@ -288,7 +288,7 @@ class PluginRuntime(
         private val stalledEvents = AtomicInteger(0)
         private val callsInFlight = AtomicInteger(0)
         private val disabling = AtomicBoolean(false)
-        val pendingNetease = AtomicInteger(0)
+        val pendingConfirmCalls = AtomicInteger(0)
 
         // 事件按发生顺序逐个投递；脚本处理不过来时丢掉最旧的
         private val events = Channel<Pair<PluginEvent, JsonElement>>(EVENT_QUEUE_SIZE, BufferOverflow.DROP_OLDEST)
@@ -340,11 +340,11 @@ class PluginRuntime(
                 disable("同时发起的调用超过 $MAX_CALLS_IN_FLIGHT 个，已自动停用")
                 return
             }
-            val isNetease = method == PluginHostApi.METHOD_NETEASE
-            if (isNetease) pendingNetease.incrementAndGet()
+            val waitsForUser = method == PluginHostApi.METHOD_NETEASE || method == PluginHostApi.METHOD_OPEN_URL
+            if (waitsForUser) pendingConfirmCalls.incrementAndGet()
             scope.launch {
                 val (error, result) = try {
-                    val timeout = if (isNetease) NETEASE_TIMEOUT_MS else CALL_TIMEOUT_MS
+                    val timeout = if (waitsForUser) NETEASE_TIMEOUT_MS else CALL_TIMEOUT_MS
                     null to withTimeout(timeout) { api.handle(manifest, method, args) }
                 } catch (e: PluginCallException) {
                     e.message to JsonNull
@@ -357,7 +357,7 @@ class PluginRuntime(
                     "$method 执行失败" to JsonNull
                 } finally {
                     callsInFlight.decrementAndGet()
-                    if (isNetease) pendingNetease.decrementAndGet()
+                    if (waitsForUser) pendingConfirmCalls.decrementAndGet()
                 }
                 if (closed) return@launch
                 try {
@@ -438,7 +438,7 @@ class PluginRuntime(
     companion object {
         const val LOAD_TIMEOUT_MS = 8_000L
         const val CALL_TIMEOUT_MS = 30_000L
-        // 要留够用户确认的时间
+        // 网易调用与打开网页要留够用户确认的时间
         const val NETEASE_TIMEOUT_MS = 90_000L
         const val MAX_CONSECUTIVE_ERRORS = 5
         const val MAX_CALLS_IN_FLIGHT = 512

@@ -165,6 +165,21 @@ internal object LayoutMotionParser {
     private fun JsonObject.number(key: String): Float? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
 }
 
+private val LayoutAnimation.Keyframes.triggeredOnce: Boolean
+    get() = trigger == MotionTrigger.SONG_CHANGE || trigger == MotionTrigger.TAP
+
+// 静止时停留的进度：一次性的停在最后一帧，循环的停在第一帧
+internal val LayoutAnimation.Keyframes.restProgress: Float
+    get() = if (triggeredOnce || repeat == MotionRepeat.ONCE) 1f else 0f
+
+// 节点静止时可能停留的帧；跟随播放状态的在播放与暂停时各停一帧
+internal val LayoutAnimation.Keyframes.restFrames: List<MotionFrame>
+    get() = when {
+        trigger == MotionTrigger.PLAYING -> listOf(frames.first(), frames.last())
+        restProgress == 1f -> listOf(frames.last())
+        else -> listOf(frames.first())
+    }
+
 // 关键帧之间线性插值，t 为 0–1
 internal fun List<MotionFrame>.sample(t: Float): MotionFrame {
     if (t <= first().at) return first()
@@ -249,7 +264,9 @@ internal fun Modifier.layoutAnimation(animation: LayoutAnimation, tapCount: Int)
             }
         }
         is LayoutAnimation.Keyframes -> {
-            val progress = remember { Animatable(0f) }
+            val restAt = animation.restProgress
+            // 切歌、点击触发的在触发前就停在静止帧，节点照常显示
+            val progress = remember { Animatable(if (animation.triggeredOnce) restAt else 0f) }
             val duration = animation.durationMs
             val easing = animation.easing.easing
             suspend fun run(from: Float, to: Float) {
@@ -268,7 +285,7 @@ internal fun Modifier.layoutAnimation(animation: LayoutAnimation, tapCount: Int)
             }
             when (animation.trigger) {
                 MotionTrigger.ALWAYS -> LaunchedEffect(env.motionEnabled) {
-                    if (env.motionEnabled) playAll() else progress.snapTo(0f)
+                    if (env.motionEnabled) playAll() else progress.snapTo(restAt)
                 }
                 MotionTrigger.PLAYING -> LaunchedEffect(env.playing, env.motionEnabled) {
                     val target = if (env.playing) 1f else 0f
