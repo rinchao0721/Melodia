@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -17,6 +18,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.player.usb.ExclusiveVolumeControl
 
 private const val TAG = "CrossfadePlayer"
 private const val FADE_STEP_MS = 16L
@@ -29,12 +31,18 @@ private const val FADE_STEP_MS = 16L
 class CrossfadePlayer(
     private val primary: ExoPlayer,
     private val secondary: ExoPlayer,
-    private val audioAttributes: AudioAttributes
+    private val audioAttributes: AudioAttributes,
+    // USB 独占期间对外报告为远程播放，系统音量键改调独占音量
+    private val exclusiveVolume: ExclusiveVolumeControl? = null
 ) : ForwardingSimpleBasePlayer(primary) {
 
     private val handler = Handler(primary.applicationLooper)
 
     private var handleAudioFocus = true
+
+    // 静音前的独占音量，取消静音时恢复
+    private var levelBeforeMute = 0
+    private val exclusiveVolumeListener: () -> Unit = { handler.post { invalidateState() } }
     private var metadataTransformer: ((MediaMetadata) -> MediaMetadata)? = null
 
     private var pendingIncoming: ExoPlayer? = null
@@ -91,6 +99,7 @@ class CrossfadePlayer(
         val internalListener = InternalListener()
         primary.addListener(internalListener)
         secondary.addListener(internalListener)
+        exclusiveVolume?.addVolumeListener(exclusiveVolumeListener)
     }
 
     fun setHandleAudioFocus(handle: Boolean) {
@@ -122,8 +131,19 @@ class CrossfadePlayer(
             .add(Player.COMMAND_SEEK_TO_PREVIOUS)
             .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             .build()
+        val exclusive = exclusiveVolume?.takeIf { it.isActive }
+        val finalCommands = if (exclusive == null) commands else commands.buildUpon()
+            .add(Player.COMMAND_GET_DEVICE_VOLUME)
+            .add(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)
+            .add(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)
+            .build()
         // 淡化期间音量每帧变化，对外固定为 1，避免向所有控制器高频广播
-        val builder = base.buildUpon().setAvailableCommands(commands).setVolume(1f)
+        val builder = base.buildUpon().setAvailableCommands(finalCommands).setVolume(1f)
+        if (exclusive != null) {
+            builder.setDeviceInfo(DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(exclusive.maxLevel).build())
+                .setDeviceVolume(exclusive.level)
+                .setIsDeviceMuted(exclusive.level == 0)
+        }
         val transformer = metadataTransformer
         if (transformer != null && !base.timeline.isEmpty) {
             val activeIndex = active.currentMediaItemIndex
@@ -207,6 +227,35 @@ class CrossfadePlayer(
         return Futures.immediateVoidFuture()
     }
 
+    override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): ListenableFuture<*> {
+        val exclusive = exclusiveVolume?.takeIf { it.isActive } ?: return super.handleSetDeviceVolume(deviceVolume, flags)
+        exclusive.setLevel(deviceVolume)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleIncreaseDeviceVolume(flags: Int): ListenableFuture<*> {
+        val exclusive = exclusiveVolume?.takeIf { it.isActive } ?: return super.handleIncreaseDeviceVolume(flags)
+        exclusive.setLevel(exclusive.level + 1)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleDecreaseDeviceVolume(flags: Int): ListenableFuture<*> {
+        val exclusive = exclusiveVolume?.takeIf { it.isActive } ?: return super.handleDecreaseDeviceVolume(flags)
+        exclusive.setLevel(exclusive.level - 1)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleSetDeviceMuted(muted: Boolean, flags: Int): ListenableFuture<*> {
+        val exclusive = exclusiveVolume?.takeIf { it.isActive } ?: return super.handleSetDeviceMuted(muted, flags)
+        if (muted) {
+            if (exclusive.level > 0) levelBeforeMute = exclusive.level
+            exclusive.setLevel(0)
+        } else if (exclusive.level == 0) {
+            exclusive.setLevel(levelBeforeMute.coerceAtLeast(1))
+        }
+        return Futures.immediateVoidFuture()
+    }
+
     override fun handleStop(): ListenableFuture<*> {
         completePendingImmediately()
         releaseOutgoing()
@@ -219,6 +268,7 @@ class CrossfadePlayer(
     }
 
     override fun handleRelease(): ListenableFuture<*> {
+        exclusiveVolume?.removeVolumeListener(exclusiveVolumeListener)
         handler.removeCallbacksAndMessages(null)
         pendingFuture?.set(Unit)
         pendingFuture = null

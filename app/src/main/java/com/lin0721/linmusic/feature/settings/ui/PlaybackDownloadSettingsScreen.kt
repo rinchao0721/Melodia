@@ -75,6 +75,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
     val audioOffload by viewModel.audioOffload.collectAsStateWithLifecycle()
+    val exclusiveOutput by viewModel.exclusiveOutput.collectAsStateWithLifecycle()
     val resumeAfterExternalInterruption by viewModel.resumeAfterExternalInterruption.collectAsStateWithLifecycle()
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
@@ -127,6 +128,13 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "交给音频芯片解码，后台播放更省电；与切歌淡入淡出不能同时开启",
                     checked = audioOffload,
                     onCheckedChange = { viewModel.updateAudioOffload(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "USB 独占输出",
+                    subtitle = "接 USB 解码器时绕过系统混音直接输出；期间系统和其他应用的声音改从手机扬声器播放，与切歌淡入淡出、硬件音频解码不能同时开启",
+                    checked = exclusiveOutput,
+                    onCheckedChange = { viewModel.updateExclusiveOutput(it) }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(

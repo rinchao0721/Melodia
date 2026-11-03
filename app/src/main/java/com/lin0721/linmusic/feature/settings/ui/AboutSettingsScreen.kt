@@ -228,7 +228,8 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                             "• Retrofit & OkHttp\n" +
                             "• Koin\n" +
                             "• Coil\n" +
-                            "• Haze",
+                            "• Haze\n" +
+                            "• libusb（LGPL-2.1，以动态库形式使用，源码与许可证见仓库 app/src/main/cpp/libusb）",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Start,

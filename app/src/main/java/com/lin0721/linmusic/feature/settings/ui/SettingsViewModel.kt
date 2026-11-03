@@ -104,6 +104,8 @@ class SettingsViewModel(
 
     val audioOffload = settingsPreferences.audioOffload.asState(false)
 
+    val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
+
     val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
@@ -362,6 +364,8 @@ class SettingsViewModel(
     fun updatePlayWithOtherApps(enabled: Boolean) = launchSave { settingsPreferences.savePlayWithOtherApps(enabled) }
 
     fun updateAudioOffload(enabled: Boolean) = launchSave { settingsPreferences.saveAudioOffload(enabled) }
+
+    fun updateExclusiveOutput(enabled: Boolean) = launchSave { settingsPreferences.saveExclusiveOutput(enabled) }
 
     fun updateResumeAfterExternalInterruption(enabled: Boolean) = launchSave { settingsPreferences.saveResumeAfterExternalInterruption(enabled) }
 
