@@ -307,6 +307,10 @@ internal class NativePluginContext(
             call("ui.toast", buildJsonObject { put("text", text) })
         }
 
+        override suspend fun openUrl(url: String) {
+            call("ui.openUrl", buildJsonObject { put("url", url) })
+        }
+
         override suspend fun setState(pageId: String, patch: Map<String, Any?>) {
             call("ui.setState", buildJsonObject {
                 put("page", pageId)

@@ -103,7 +103,8 @@ object PluginPrelude {
                 },
                 ui: {
                     setState: function(page, patch) { return call('ui.setState', { page: page, patch: patch }); },
-                    toast: function(text) { return call('ui.toast', { text: text }); }
+                    toast: function(text) { return call('ui.toast', { text: text }); },
+                    openUrl: function(url) { return call('ui.openUrl', { url: url }); }
                 },
                 netease: {
                     call: function(method, params) { return call('netease.call', { method: method, params: params === undefined ? {} : params }); }

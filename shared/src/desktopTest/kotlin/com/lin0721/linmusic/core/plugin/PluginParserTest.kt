@@ -198,6 +198,15 @@ class PluginParserTest {
     }
 
     @Test
+    fun `页面可以放在设置里`() {
+        val result = success(
+            ""","contributes":{"pages":[{"id":"account","title":"账号","ui":{"type":"column"},"placement":"settings"}]}"""
+        )
+        assertEquals(PluginPagePlacement.SETTINGS, result.manifest.contributes.pages.single().placement)
+        assertTrue(result.warnings.isEmpty())
+    }
+
+    @Test
     fun `结构错误直接失败`() {
         assertTrue(PluginParser.parse("not json") is PluginParseResult.Failure)
         assertTrue(PluginParser.parse("""{"format":3,"id":"com.example.demo","name":"a","version":"1"}""") is PluginParseResult.Failure)

@@ -125,7 +125,9 @@ data class PlayerLayoutNode(
     val max: Float = 1f,
     val step: Float = 0f,
     // list 每行的列数
-    val columns: Int = 1
+    val columns: Int = 1,
+    // input 遮挡显示
+    val secret: Boolean = false
 ) {
     fun contains(type: LayoutNodeType): Boolean = this.type == type || children.any { it.contains(type) }
 
@@ -326,7 +328,8 @@ object PlayerLayoutParser {
                 min = min,
                 max = max,
                 step = obj.float("step")?.takeIf { it > 0f } ?: 0f,
-                columns = obj.int("columns")?.coerceIn(1, MAX_COLUMNS) ?: 1
+                columns = obj.int("columns")?.coerceIn(1, MAX_COLUMNS) ?: 1,
+                secret = type == LayoutNodeType.INPUT && (obj["secret"] as? JsonPrimitive)?.booleanOrNull == true
             )
         }
         val node = try {

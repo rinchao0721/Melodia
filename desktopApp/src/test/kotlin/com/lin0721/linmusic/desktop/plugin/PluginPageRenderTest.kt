@@ -71,6 +71,7 @@ class PluginPageRenderTest {
         var toggle: ((Boolean) -> Unit)? = null
         var toggleChecked = false
         var input: Pair<String, (String) -> Unit>? = null
+        var inputSecret = false
         var commit: (() -> Unit)? = null
 
         fun reset() {
@@ -88,8 +89,9 @@ class PluginPageRenderTest {
             toggle = onChange
             toggleChecked = checked
         }
-        @Composable override fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+        @Composable override fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
             input = value to onChange
+            inputSecret = secret
             commit = onCommit
         }
         @Composable override fun Loading(modifier: Modifier) = Unit
@@ -106,7 +108,7 @@ class PluginPageRenderTest {
             {"type":"text","text":"${'$'}state.count"},
             {"type":"button","text":"加一","action":"increment"},
             {"type":"toggle","text":"显示列表","bind":"${'$'}state.showList"},
-            {"type":"input","text":"新条目","bind":"${'$'}state.draft","action":"add"},
+            {"type":"input","text":"新条目","bind":"${'$'}state.draft","action":"add","secret":true},
             {"type":"column","visible":"${'$'}state.showList","spacing":6,"children":[
                 {"type":"list","bind":"${'$'}state.items","spacing":6,"children":[
                     {"type":"row","spacing":8,"children":[
@@ -123,7 +125,11 @@ class PluginPageRenderTest {
         var clicks = 0;
         function sync() { return melodia.ui.setState('main', state); }
         melodia.register.action('open:main', function() { state.title = '已打开'; return sync(); });
-        melodia.register.action('increment', function() { clicks++; state.count = '点击次数：' + clicks; return sync(); });
+        melodia.register.action('increment', function(args) {
+            clicks++;
+            state.count = '点击次数：' + clicks + (args && args.draft ? ' ' + args.draft : '');
+            return sync();
+        });
         melodia.register.action('add', function(args) { state.items = state.items.concat([{ name: args.value }]); return sync(); });
         melodia.register.action('remove', function(item) {
             state.items = state.items.filter(function(i) { return i.name !== item.name; });
@@ -228,6 +234,21 @@ class PluginPageRenderTest {
             assertEquals("第三条", probe.input!!.first)
             probe.commit!!()
             waitFor { stateText("items").contains("第三条") }
+        }
+    }
+
+    @Test
+    fun `列表外的按钮带上页面数据，输入框未提交的内容也能拿到`() = runBlocking<Unit> {
+        val probe = Probe()
+        withScene({ PluginPageView(active, host, probe, Modifier.fillMaxSize().padding(24.dp)) }) { scene ->
+            scene.render()
+            waitFor { stateText("title") == "已打开" }
+            scene.render()
+            assertTrue(probe.inputSecret)
+            probe.input!!.second("草稿")
+            scene.render()
+            probe.buttons.getValue("加一")()
+            waitFor { stateText("count") == "点击次数：1 草稿" }
         }
     }
 

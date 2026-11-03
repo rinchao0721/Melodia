@@ -32,6 +32,16 @@ class PluginNotices {
     }
 }
 
+// 用户确认过的网页链接，各端用系统浏览器打开
+class PluginLinks {
+    private val _opens = MutableSharedFlow<String>(extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val opens: SharedFlow<String> = _opens.asSharedFlow()
+
+    fun open(url: String) {
+        _opens.tryEmit(url)
+    }
+}
+
 data class PluginCommandItem(val pluginId: String, val pluginName: String, val commandId: String, val title: String)
 
 // 菜单与按钮的入口：只显示脚本已注册的命令，执行不跟随调用方的生命周期
@@ -40,7 +50,8 @@ class PluginCommands(
     val notices: PluginNotices,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     val confirmations: PluginConfirmations = PluginConfirmations(),
-    val content: PluginContent = PluginContent(registry)
+    val content: PluginContent = PluginContent(registry),
+    val links: PluginLinks = PluginLinks()
 ) {
 
     fun items(location: PluginMenuLocation): Flow<List<PluginCommandItem>> =

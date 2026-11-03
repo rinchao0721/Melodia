@@ -18,6 +18,7 @@ import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalUriHandler
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
@@ -143,6 +144,12 @@ class MainActivity : ComponentActivity() {
             val pluginLayouts by pluginRepository.layouts.collectAsState()
             val pluginCards = remember { PluginCardContext(playerCardSource, pluginPageHost, AndroidPluginPageUi) }
             LaunchedEffect(Unit) { pluginCommands.notices.messages.collect(ToastManager::showToast) }
+            val uriHandler = LocalUriHandler.current
+            LaunchedEffect(Unit) {
+                pluginCommands.links.opens.collect { url ->
+                    runCatching { uriHandler.openUri(url) }.onFailure { ToastManager.showToast("无法打开浏览器") }
+                }
+            }
             CompositionLocalProvider(
                 LocalUiMotion provides uiMotion,
                 LocalPlayerLayouts provides pluginLayouts.roots,

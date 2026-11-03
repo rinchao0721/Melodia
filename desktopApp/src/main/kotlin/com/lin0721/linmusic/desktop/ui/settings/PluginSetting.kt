@@ -45,7 +45,9 @@ import com.lin0721.linmusic.core.plugin.PluginKind
 import com.lin0721.linmusic.core.plugin.PluginManifest
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntimeStatus
+import com.lin0721.linmusic.core.plugin.PluginPageView
 import com.lin0721.linmusic.core.plugin.PluginSettingsView
+import com.lin0721.linmusic.core.plugin.settingsPage
 import com.lin0721.linmusic.core.plugin.backdropOptions
 import com.lin0721.linmusic.core.plugin.currentBackdropOption
 import com.lin0721.linmusic.core.plugin.currentPlayerLayoutOption
@@ -82,6 +84,7 @@ internal fun PluginSetting(repository: PluginRepository) {
     val installed by controller.installed.collectAsState()
     val status by controller.status.collectAsState()
     val layouts by controller.layouts.collectAsState()
+    val pages by controller.pages.collectAsState()
     val nativeAllowed by controller.nativeAllowed.collectAsState()
     val navigator = LocalDesktopNavigator.current
     var confirmNative by remember { mutableStateOf(false) }
@@ -127,6 +130,7 @@ internal fun PluginSetting(repository: PluginRepository) {
                     },
                     onDelete = { deleteTarget = plugin },
                     onSettings = { settingsTarget = plugin.manifest },
+                    hasSettings = plugin.manifest?.contributes?.settings?.isNotEmpty() == true || pages.settingsPage(plugin.id) != null,
                     updateVersion = updates[plugin.id]?.version,
                     onRollback = { rollbackTarget = plugin }
                 )
@@ -224,12 +228,13 @@ internal fun PluginSetting(repository: PluginRepository) {
             onDismiss = { settingsTarget = null },
             actions = { DialogButton("完成", onClick = { settingsTarget = null }, primary = true) }
         ) {
-            PluginSettingsView(
-                settingsManifest,
-                pageHost,
-                DesktopPluginPageUi,
-                Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())
-            )
+            val settingsPage = pages.settingsPage(settingsManifest.id)
+            Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+                settingsPage?.let { PluginPageView(it, pageHost, DesktopPluginPageUi, Modifier.fillMaxWidth()) }
+                if (settingsManifest.contributes.settings.isNotEmpty()) {
+                    PluginSettingsView(settingsManifest, pageHost, DesktopPluginPageUi, Modifier.fillMaxWidth())
+                }
+            }
         }
     }
 
@@ -278,6 +283,7 @@ private fun PluginRow(
     onExport: () -> Unit,
     onDelete: () -> Unit,
     onSettings: () -> Unit,
+    hasSettings: Boolean,
     updateVersion: String?,
     onRollback: () -> Unit
 ) {
@@ -331,7 +337,7 @@ private fun PluginRow(
         HoverReveal(hovered) {
             Row {
                 plugin.previousVersion?.let { RowIconButton(Icons.Rounded.Restore, "回退到 v$it", hoverSource, onRollback) }
-                if (manifest?.contributes?.settings?.isNotEmpty() == true) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
+                if (hasSettings) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
                 if (manifest != null) RowIconButton(Icons.Rounded.FileUpload, "导出", hoverSource, onExport)
                 RowIconButton(Icons.Rounded.Delete, "删除", hoverSource, onDelete)
             }

@@ -46,6 +46,22 @@ class PluginPageTest {
     }
 
     @Test
+    fun `secret 只对输入框生效`() {
+        val root = (PlayerLayoutParser.parsePage(
+            json(
+                """{"type":"column","children":[
+                    {"type":"input","text":"密钥","bind":"${'$'}state.key","secret":true},
+                    {"type":"input","text":"昵称","bind":"${'$'}state.nick"},
+                    {"type":"text","text":"说明","secret":true}
+                ]}"""
+            )
+        ) as PlayerLayoutParseResult.Success).root
+        assertTrue(root.children[0].secret)
+        assertFalse(root.children[1].secret)
+        assertFalse(root.children[2].secret)
+    }
+
+    @Test
     fun `缺少绑定或动作的节点被忽略，播放器组件不能用于页面`() {
         val result = PlayerLayoutParser.parsePage(
             json(

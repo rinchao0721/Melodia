@@ -40,6 +40,10 @@ class PlayerCardSource(
 
 val ActivePluginPage.isCard: Boolean get() = page.placement == PluginPagePlacement.NOW_PLAYING_CARD
 
+// 每个插件只取第一个放在设置里的页面
+fun List<ActivePluginPage>.settingsPage(pluginId: String): ActivePluginPage? =
+    firstOrNull { it.manifest.id == pluginId && it.page.placement == PluginPagePlacement.SETTINGS }
+
 val ActivePluginPage.cardKey: String get() = PlayerCardEntries.pluginKey(manifest.id, page.id)
 
 // 插件卡片渲染需要的依赖，由各端在根部提供

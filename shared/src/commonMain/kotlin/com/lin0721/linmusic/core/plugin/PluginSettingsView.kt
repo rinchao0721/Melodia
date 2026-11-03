@@ -66,6 +66,7 @@ fun PluginSettingsView(manifest: PluginManifest, host: PluginPageHost, ui: Plugi
                 PluginSettingType.TEXT -> ui.Input(
                     field.title,
                     (value as? JsonPrimitive)?.content.orEmpty(),
+                    false,
                     { save(field, JsonPrimitive(it)) },
                     {},
                     rowModifier

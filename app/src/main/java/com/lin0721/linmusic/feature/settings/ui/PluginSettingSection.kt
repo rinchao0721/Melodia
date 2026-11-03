@@ -1,7 +1,8 @@
 package com.lin0721.linmusic.feature.settings.ui
 
 import org.koin.compose.koinInject
-import com.lin0721.linmusic.core.plugin.isCard
+import com.lin0721.linmusic.core.plugin.PluginPagePlacement
+import com.lin0721.linmusic.core.plugin.settingsPage
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.ActivePluginPage
 import com.lin0721.linmusic.core.plugin.playerLayoutSummary
@@ -143,12 +144,13 @@ fun PluginSettingSection(repository: PluginRepository) {
                     },
                     onDelete = { deleteTarget = plugin },
                     onSettings = { settingsTarget = plugin.manifest },
+                    hasSettings = plugin.manifest?.contributes?.settings?.isNotEmpty() == true || pages.settingsPage(plugin.id) != null,
                     updateVersion = updates[plugin.id]?.version,
                     onRollback = { rollbackTarget = plugin }
                 )
             }
         }
-        val entryPages = pages.filter { !it.isCard }
+        val entryPages = pages.filter { it.page.placement == PluginPagePlacement.SIDEBAR }
         if (entryPages.isNotEmpty()) {
             Text("插件页面", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
             entryPages.forEach { active ->
@@ -210,7 +212,9 @@ fun PluginSettingSection(repository: PluginRepository) {
 
     openPage?.let { active -> PluginPageDialog(active, pageHost, onDismiss = { openPage = null }) }
 
-    settingsTarget?.let { manifest -> PluginSettingsDialog(manifest, pageHost, onDismiss = { settingsTarget = null }) }
+    settingsTarget?.let { manifest ->
+        PluginSettingsDialog(manifest, pages.settingsPage(manifest.id), pageHost, onDismiss = { settingsTarget = null })
+    }
 
     layoutPickerArea?.let { area ->
         val options = playerLayoutOptions(area, layouts)
@@ -275,6 +279,7 @@ private fun PluginRow(
     onExport: () -> Unit,
     onDelete: () -> Unit,
     onSettings: () -> Unit,
+    hasSettings: Boolean,
     updateVersion: String?,
     onRollback: () -> Unit
 ) {
@@ -316,7 +321,7 @@ private fun PluginRow(
                     Icon(Icons.Rounded.Restore, contentDescription = "回退到上一版本", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
-            if (manifest?.contributes?.settings?.isNotEmpty() == true) {
+            if (hasSettings) {
                 IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Rounded.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }

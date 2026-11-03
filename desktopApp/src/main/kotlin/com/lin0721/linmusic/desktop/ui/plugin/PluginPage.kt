@@ -32,6 +32,8 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -146,8 +148,15 @@ internal object DesktopPluginPageUi : PluginPageUi {
     }
 
     @Composable
-    override fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
-        DialogTextField(value, onChange, modifier, placeholder = label, onEnter = onCommit)
+    override fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+        DialogTextField(
+            value,
+            onChange,
+            modifier,
+            placeholder = label,
+            onEnter = onCommit,
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None
+        )
     }
 
     @Composable

@@ -51,14 +51,14 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.3` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.4` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
 ### contributes
 
 - `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`、`desktop.playerBar`、`desktop.nowPlaying`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
-- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）或 `nowPlayingCard`。原生插件可以写 `"compose": true` 代替 `ui`，见「原生插件」一节，这种页面只能放在侧栏。
+- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）、`nowPlayingCard` 或 `settings`（API 1.4 起）。原生插件可以写 `"compose": true` 代替 `ui`，见「原生插件」一节，这种页面只能放在侧栏。
 - `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
 - `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
@@ -80,6 +80,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `audioSource` | 作为音源提供播放链接 | `audioSources` 必需 |
 | `lyricsSource` | 作为歌词源提供歌词 | `lyricsSources` 必需 |
 | `ui.notify` | 显示应用内提示，提示前会带上插件名称 | |
+| `ui.openUrl` | 用系统浏览器打开网页，每次打开前询问用户 | |
 | `library.read` | 读取当前用户的歌单与红心列表 | |
 | `contentSource` | 提供歌曲、歌单与搜索结果 | `contentSources` 必需 |
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
@@ -102,6 +103,7 @@ await melodia.player.play() / pause() / next() / previous()
 await melodia.player.enqueue({ songId, title, artist, cover })
 await melodia.ui.setState(pageId, patch)                     // 浅合并到页面数据
 await melodia.ui.toast(text)                                 // 不超过 120 个字符
+await melodia.ui.openUrl(url)                                // 只接受 https，需要 API 1.4
 await melodia.settings.get(key)
 await melodia.settings.all()
 await melodia.netease.call(method, params)
@@ -218,6 +220,18 @@ await melodia.content.open('main', 'playlist-1', '我的歌单');
 - 每次调用的上限是 8 秒，超时和出错都计入连续出错。
 - 详情页没有评论、收藏和分享入口；重启应用后之前打开的插件歌单需要重新进入。
 - 插件停用后，已在队列里的歌曲无法继续解析。
+
+## 打开网页
+
+```js
+await melodia.ui.openUrl('https://www.last.fm/api/auth/?api_key=...&token=...');
+```
+
+- 需要 `ui.openUrl` 权限与 API 1.4，只接受 `https`，网址不超过 4096 个字符；不要求在 `network.hosts` 内。
+- 每次调用都会弹窗，显示插件名和网址的域名（不显示路径与参数），用户同意后才打开；拒绝或 60 秒未响应时 Promise 被拒绝。
+- 用户拒绝后 30 秒内，同一插件的新请求直接失败，不再弹窗；同一插件已有请求在等待确认时，新请求也直接失败。
+- 打开成功只代表交给了系统浏览器，插件拿不到网页里的任何内容；需要结果时自己轮询接口。
+- 原生插件对应 `context.ui.openUrl(url)`，拒绝时抛 `PluginApiException`。
 
 ## 命令
 
@@ -366,9 +380,9 @@ melodia.register.command('scrobble', async function(song) {
 | `image` | 图片，`bind` 可写绑定或地址；只允许 `assets/` 下的文件与 `network.hosts` 里的域名 | `bind` |
 | `list` | 绑定数组，每一项按 `children` 渲染，最多 200 项；`columns`（1–8）大于 1 时按网格排列 | `bind` |
 | `trackList` | 绑定 `{ songId, title, artist, cover }` 数组，点击从这首开始播放整个列表；需要 `playback.control` | `bind` |
-| `button` | 触发 `action`；在列表里时，当前项作为参数传给脚本 | `text`、`action` |
+| `button` | 触发 `action`；在列表里时，当前项作为参数传给脚本，否则传点击时的页面数据（含输入框里还没提交的内容，API 1.4 起） | `text`、`action` |
 | `toggle` | 开关，写回 `$state` 的第一层字段（`input`、`select`、`slider` 相同）；有 `action` 时以 `{ value }` 调用 | `text`、`bind` |
-| `input` | 输入框，写回 `$state` 字段；有 `action` 时在回车后以 `{ value }` 调用 | `text`（提示文字）、`bind` |
+| `input` | 输入框，写回 `$state` 字段；有 `action` 时在回车后以 `{ value }` 调用；`secret` 为 `true` 时遮挡显示（API 1.4 起） | `text`（提示文字）、`bind` |
 | `loading` / `empty` | 加载中与空态 | |
 | `select` | 单选，写回 `$state` 字段；有 `action` 时以 `{ value }` 调用 | `text`（标题）、`bind`、`options` |
 | `slider` | 滑块，写回 `$state` 字段；松手后调用 `action` | `text`（标题）、`bind`；`min`、`max` 默认 0、1，`step` 可选 |
@@ -381,7 +395,7 @@ melodia.register.command('scrobble', async function(song) {
 - **数据**：脚本用 `melodia.ui.setState(pageId, patch)` 更新页面数据，渲染时不会调用脚本。
 - **动作**：用 `melodia.register.action(name, handler)` 注册，名称只能用字母、数字、`_`、`:`、`-`，5 秒内没有返回按失败处理。
 - **打开页面**：如果注册了 `open:<页面 id>`，每次打开页面都会调用一次，可以用来刷新数据。
-- **入口**：`placement` 为 `sidebar` 时，桌面端在音乐库侧栏底部的「插件」分组，Android 在「设置 → 扩展 → 插件」；为 `nowPlayingCard` 时，页面作为卡片显示在桌面「正在播放」面板与 Android 全屏播放页，可以在卡片编辑器里排序和隐藏。宽屏播放页的插件卡片排在内置卡片之后。
+- **入口**：`placement` 为 `sidebar` 时，桌面端在音乐库侧栏底部的「插件」分组，Android 在「设置 → 扩展 → 插件」；为 `nowPlayingCard` 时，页面作为卡片显示在桌面「正在播放」面板与 Android 全屏播放页，可以在卡片编辑器里排序和隐藏。宽屏播放页的插件卡片排在内置卡片之后。为 `settings` 时，页面不进侧栏，插件列表里这个插件会出现设置按钮，点开后在设置弹窗里显示页面；同时声明了 `settings` 设置项时，设置项排在页面下方。每个插件只取第一个 `settings` 页面。
 
 ## 动态背景
 

@@ -1,8 +1,13 @@
 package com.lin0721.linmusic.core.plugin
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -26,6 +31,10 @@ class PluginHostApiTest {
     private lateinit var store: PluginStore
     private val requests = mutableListOf<PluginHttpRequest>()
     private val responses = ArrayDeque<PluginHttpResponse>()
+    private val confirmations = PluginConfirmations()
+    private val links = PluginLinks()
+    private val opened = mutableListOf<String>()
+    private var clock = 1_000_000L
 
     @Before
     fun setUp() {
@@ -45,7 +54,10 @@ class PluginHostApiTest {
                 requests += request
                 responses.removeFirstOrNull() ?: PluginHttpResponse(200, emptyMap(), "ok")
             },
-            mainDispatcher = Dispatchers.Unconfined
+            mainDispatcher = Dispatchers.Unconfined,
+            confirmations = confirmations,
+            links = links,
+            now = { clock }
         )
     }
 
@@ -157,5 +169,60 @@ class PluginHostApiTest {
         val player = manifest("\"playback.read\",\"playback.control\"")
         expectError("播放器") { call(player, "player.current") }
         expectError("songId") { call(player, "player.enqueue", buildJsonObject { put("songId", -1) }) }
+    }
+
+    private fun url(value: String) = buildJsonObject { put("url", value) }
+
+    // 收集被放行的链接，替代各端的浏览器
+    private fun CoroutineScope.collectLinks() = launch(Dispatchers.Unconfined) {
+        links.opens.collect { opened += it }
+    }
+
+    @Test
+    fun `打开网页需要权限且只接受 https`() {
+        expectError("ui.openUrl") { call(manifest("\"playback.read\",\"ui.notify\""), "ui.openUrl", url("https://www.last.fm")) }
+        val opener = manifest("\"playback.read\",\"ui.openUrl\"")
+        expectError("https") { call(opener, "ui.openUrl", url("http://www.last.fm")) }
+        expectError("https") { call(opener, "ui.openUrl", url("file:///C:/a.txt")) }
+        expectError("网址无效") { call(opener, "ui.openUrl", url("https:///nohost")) }
+        expectError("网址过长") { call(opener, "ui.openUrl", url("https://a.com/" + "x".repeat(5000))) }
+        assertEquals(null, confirmations.pending.value)
+    }
+
+    @Test
+    fun `确认后打开且弹窗只显示域名`() = runBlocking {
+        val collector = collectLinks()
+        val opener = manifest("\"playback.read\",\"ui.openUrl\"")
+        val target = "https://www.last.fm/api/auth/?api_key=k&token=secret-token"
+        val result = async(Dispatchers.Default) { api.handle(opener, "ui.openUrl", url(target)) }
+        val request = withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        expectError("等待确认") { call(opener, "ui.openUrl", url("https://www.last.fm/other")) }
+        assertTrue(request.message.contains("www.last.fm"))
+        assertTrue(!request.message.contains("secret-token"))
+        confirmations.respond(true)
+        result.await()
+        assertEquals(listOf(target), opened)
+        collector.cancel()
+    }
+
+    @Test
+    fun `拒绝后不打开且冷却期内不再弹窗`() = runBlocking {
+        val collector = collectLinks()
+        val opener = manifest("\"playback.read\",\"ui.openUrl\"")
+        val first = async(Dispatchers.Default) { runCatching { api.handle(opener, "ui.openUrl", url("https://www.last.fm")) } }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        confirmations.respond(false)
+        assertEquals("用户拒绝了打开网页", first.await().exceptionOrNull()?.message)
+
+        expectError("请稍后再试") { call(opener, "ui.openUrl", url("https://www.last.fm")) }
+        assertEquals(null, confirmations.pending.value)
+
+        clock += 30_001
+        val retry = async(Dispatchers.Default) { runCatching { api.handle(opener, "ui.openUrl", url("https://www.last.fm")) } }
+        withTimeout(2_000) { confirmations.pending.filterNotNull().first() }
+        confirmations.respond(true)
+        assertTrue(retry.await().isSuccess)
+        assertEquals(listOf("https://www.last.fm"), opened)
+        collector.cancel()
     }
 }

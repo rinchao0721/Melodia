@@ -41,9 +41,14 @@ class PluginHostApi(
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val notices: PluginNotices = PluginNotices(),
     private val netease: PluginNeteaseApi? = null,
-    private val content: PluginContent? = null
+    private val content: PluginContent? = null,
+    private val confirmations: PluginConfirmations = PluginConfirmations(),
+    private val links: PluginLinks = PluginLinks(),
+    private val now: () -> Long = System::currentTimeMillis
 ) {
     private val storageLocks = ConcurrentHashMap<String, Mutex>()
+    private val linkDenials = ConcurrentHashMap<String, Long>()
+    private val pendingLinks = ConcurrentHashMap.newKeySet<String>()
     private val json = Json { prettyPrint = false }
 
     // 插件页面的绑定数据，key 为 插件 id/页面 id
@@ -64,6 +69,7 @@ class PluginHostApi(
         "player.enqueue" -> enqueue(manifest, args.asObject(method))
         "ui.setState" -> setUiState(manifest, args.asObject(method))
         "ui.toast" -> toast(manifest, args.asObject(method))
+        "ui.openUrl" -> openUrl(manifest, args.asObject(method))
         "settings.get" -> settingValue(manifest, args.asObject(method).requireString("key"))
         "settings.all" -> settings(manifest)
         METHOD_NETEASE -> neteaseCall(manifest, args.asObject(method))
@@ -114,6 +120,36 @@ class PluginHostApi(
         require(manifest, PluginPermission.UI_NOTIFY)
         // 带上插件名，避免提示被当成应用自己发的
         notices.post("${manifest.name}：${args.requireString("text").take(MAX_TOAST_LENGTH)}")
+        return JsonNull
+    }
+
+    // 每次都要用户确认，弹窗只显示域名，避免把链接里的令牌展示出来
+    private suspend fun openUrl(manifest: PluginManifest, args: JsonObject): JsonElement {
+        require(manifest, PluginPermission.UI_OPEN_URL)
+        val url = args.requireString("url").trim()
+        if (url.length > MAX_URL_LENGTH) throw PluginCallException("网址过长")
+        val uri = try {
+            URI(url)
+        } catch (e: URISyntaxException) {
+            throw PluginCallException("网址无效")
+        }
+        if (uri.scheme?.lowercase() != "https") throw PluginCallException("只能打开 https 网址")
+        val host = uri.host?.lowercase()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: throw PluginCallException("网址无效")
+        // 拒绝后冷却一段时间，插件不能靠重试反复弹窗
+        val denied = linkDenials[manifest.id]
+        if (denied != null && now() - denied < LINK_DENIAL_COOLDOWN_MS) throw PluginCallException("用户刚拒绝了打开网页，请稍后再试")
+        // 同一插件同时只排一个确认，避免连发请求在拒绝后继续逐个弹窗
+        if (!pendingLinks.add(manifest.id)) throw PluginCallException("已有打开网页的请求在等待确认")
+        val accepted = try {
+            confirmations.ask("打开网页？", "「${manifest.name}」请求在浏览器打开 $host 的网页。")
+        } finally {
+            pendingLinks.remove(manifest.id)
+        }
+        if (!accepted) {
+            linkDenials[manifest.id] = now()
+            throw PluginCallException("用户拒绝了打开网页")
+        }
+        links.open(uri.toASCIIString())
         return JsonNull
     }
 
@@ -342,6 +378,8 @@ class PluginHostApi(
         private const val MAX_UI_STATE_CHARS = 256 * 1024
         private const val MAX_TEXT_LENGTH = 500
         private const val MAX_REDIRECTS = 5
+        private const val MAX_URL_LENGTH = 4096
+        private const val LINK_DENIAL_COOLDOWN_MS = 30_000L
         private val HTTP_METHODS = setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD")
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 

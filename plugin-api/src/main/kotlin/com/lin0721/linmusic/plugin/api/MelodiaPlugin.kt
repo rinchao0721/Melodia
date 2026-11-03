@@ -7,7 +7,7 @@ import java.io.File
 // 次版本只增不改，破坏性变更才提升主版本
 object PluginApiVersion {
     const val MAJOR = 1
-    const val MINOR = 3
+    const val MINOR = 4
 }
 
 // 原生插件入口，需要公开的无参构造函数；回调都不在主线程
@@ -72,6 +72,9 @@ interface PluginUi {
 
     // 打开内容源里的歌单
     suspend fun openContent(sourceId: String, contentId: String, title: String = "")
+
+    // 用系统浏览器打开 https 网址，每次先经用户确认，拒绝时抛 PluginApiException；需要 API 1.4
+    suspend fun openUrl(url: String)
 }
 
 interface PlayerApi {

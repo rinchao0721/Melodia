@@ -93,7 +93,7 @@ interface PluginPageUi {
     @Composable fun Tracks(tracks: List<PluginTrack>, onPlay: (Int) -> Unit, modifier: Modifier)
     @Composable fun Button(text: String, busy: Boolean, onClick: () -> Unit, modifier: Modifier)
     @Composable fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier)
-    @Composable fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier)
+    @Composable fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier)
     @Composable fun Loading(modifier: Modifier)
     @Composable fun Select(label: String, options: List<PluginOption>, selected: String, onSelect: (String) -> Unit, modifier: Modifier)
     @Composable fun Slider(label: String, value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, onCommit: () -> Unit, modifier: Modifier)
@@ -246,14 +246,15 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
         LayoutNodeType.BUTTON -> {
             var busy by remember { mutableStateOf(false) }
             val action = node.action ?: return
-            // 列表项里的按钮把当前项作为参数传给脚本
-            val args = scope.item ?: JsonNull
+            // 列表项里的按钮传当前项，其他按钮传点击时的页面数据，脚本由此拿到输入框里未提交的内容
+            val item = scope.item
             scope.ui.Button(
                 scope.text(node.text),
                 busy,
                 {
                     if (!busy) {
                         busy = true
+                        val args = item ?: scope.host.state(pluginId, pageId)
                         coroutine.launch {
                             try {
                                 scope.host.action(pluginId, action, args)
@@ -286,6 +287,7 @@ private fun PageComponent(node: PlayerLayoutNode, modifier: Modifier, scope: Pag
             scope.ui.Input(
                 scope.text(node.text),
                 value,
+                node.secret,
                 { scope.host.setField(pluginId, pageId, field, JsonPrimitive(it)) },
                 {
                     node.action?.let { name ->

@@ -40,6 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -121,7 +124,7 @@ fun PluginConfirmDialog(confirmations: PluginConfirmations) {
 
 // 插件设置全屏打开，字段由清单决定
 @Composable
-fun PluginSettingsDialog(manifest: PluginManifest, host: PluginPageHost, onDismiss: () -> Unit) {
+fun PluginSettingsDialog(manifest: PluginManifest, page: ActivePluginPage?, host: PluginPageHost, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -134,15 +137,17 @@ fun PluginSettingsDialog(manifest: PluginManifest, host: PluginPageHost, onDismi
                     }
                     Text("${manifest.name} 设置", color = MelodiaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
-                PluginSettingsView(
-                    manifest,
-                    host,
-                    AndroidPluginPageUi,
-                    Modifier
+                Column(
+                    modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm)
-                )
+                ) {
+                    page?.let { PluginPageView(it, host, AndroidPluginPageUi, Modifier.fillMaxWidth()) }
+                    if (manifest.contributes.settings.isNotEmpty()) {
+                        PluginSettingsView(manifest, host, AndroidPluginPageUi, Modifier.fillMaxWidth())
+                    }
+                }
             }
         }
     }
@@ -192,13 +197,17 @@ object AndroidPluginPageUi : PluginPageUi {
     }
 
     @Composable
-    override fun Input(label: String, value: String, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
+    override fun Input(label: String, value: String, secret: Boolean, onChange: (String) -> Unit, onCommit: () -> Unit, modifier: Modifier) {
         OutlinedTextField(
             value = value,
             onValueChange = onChange,
             label = { Text(label) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (secret) KeyboardType.Password else KeyboardType.Text,
+                imeAction = ImeAction.Done
+            ),
             keyboardActions = KeyboardActions(onDone = { onCommit() }),
             modifier = modifier.fillMaxWidth()
         )

@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 3
+const val PLUGIN_API_MINOR = 4
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
@@ -32,6 +32,7 @@ enum class PluginPermission(val key: String, val label: String) {
     AUDIO_SOURCE("audioSource", "作为音源提供播放链接"),
     LYRICS_SOURCE("lyricsSource", "作为歌词源提供歌词"),
     UI_NOTIFY("ui.notify", "显示应用内提示"),
+    UI_OPEN_URL("ui.openUrl", "在浏览器打开网页，每次打开前询问"),
     LIBRARY_READ("library.read", "读取你的歌单与红心列表"),
     CONTENT_SOURCE("contentSource", "提供歌曲、歌单与搜索结果"),
     NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
@@ -55,7 +56,9 @@ enum class PluginKind(val key: String) {
 // 页面入口位置
 enum class PluginPagePlacement(val key: String) {
     SIDEBAR("sidebar"),
-    NOW_PLAYING_CARD("nowPlayingCard");
+    NOW_PLAYING_CARD("nowPlayingCard"),
+    // 从插件列表的设置按钮打开
+    SETTINGS("settings");
 
     companion object {
         fun fromKey(key: String): PluginPagePlacement? = entries.firstOrNull { it.key == key }
