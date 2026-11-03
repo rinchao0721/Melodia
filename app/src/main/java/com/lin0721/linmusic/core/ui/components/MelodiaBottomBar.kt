@@ -94,7 +94,16 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.plugin.LayoutTimeText
+import com.lin0721.linmusic.core.plugin.PlayerBindingState
+import com.lin0721.linmusic.feature.player.ui.MiniLyricLine
+import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
+import com.lin0721.linmusic.feature.player.ui.playSourceText
+import com.lin0721.linmusic.feature.player.ui.rememberPlaybackQualityLabel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
@@ -266,10 +275,18 @@ fun MiniPlayerCard(
         if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
             val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
             val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
-            PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth()) { node, nodeModifier ->
+            val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
+            val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+            val pluginState = rememberMiniPluginState(
+                title = title,
+                artist = artist,
+                mediaId = displayedCurrentTrack.mediaId,
+                isPlaying = displayedIsPlaying,
+                isLiked = isLiked,
+                isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
+            )
+            PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
                 val scale = node.size.scale
-                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
-                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
                 when (node.type) {
                     LayoutNodeType.COVER -> AntiFlickerCoverImage(
                         url = miniThumbUrl(displayedCleanCoverUrl),
@@ -299,6 +316,15 @@ fun MiniPlayerCard(
                         }
                     }
                     LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
+                    LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
+                    LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
+                        MiniLyricLine(
+                            lyrics = pluginState.lyrics,
+                            currentLyricIndex = pluginState.lyricIndex,
+                            isPlaying = displayedIsPlaying,
+                            horizontalPadding = 0.dp
+                        )
+                    }
                     else -> Unit
                 }
             }
@@ -742,4 +768,42 @@ fun MelodiaNavigationBar(
             }
         }
     }
+}
+
+// 插件迷你条用到的歌词与绑定状态；只在有插件布局时读取，和播放页共用同一个 PlayerViewModel
+private class MiniPluginState(val binding: PlayerBindingState, val lyrics: List<LyricLine>, val lyricIndex: Int)
+
+@Composable
+private fun rememberMiniPluginState(
+    title: String,
+    artist: String,
+    mediaId: String,
+    isPlaying: Boolean,
+    isLiked: Boolean,
+    isPodcast: Boolean
+): MiniPluginState {
+    val playerViewModel: PlayerViewModel = koinViewModel()
+    val songState by playerViewModel.songDetailState.collectAsStateWithLifecycle()
+    val lyricIndex by playerViewModel.currentLyricIndex.collectAsStateWithLifecycle()
+    val playMode by playerViewModel.playerManager.playMode.collectAsStateWithLifecycle()
+    val playContext by playerViewModel.playerManager.playContext.collectAsStateWithLifecycle()
+    val podcast by playerViewModel.podcastState.collectAsStateWithLifecycle()
+    val qualityLabel = rememberPlaybackQualityLabel(playerViewModel, mediaId, isPodcast)
+    val lyrics = songState.lyrics
+    return MiniPluginState(
+        binding = PlayerBindingState(
+            title = title,
+            artist = artist,
+            album = songState.songDetail?.al?.name.orEmpty(),
+            source = playSourceText(playContext, podcast.radioName).second.orEmpty(),
+            quality = qualityLabel.orEmpty(),
+            playing = isPlaying,
+            liked = isLiked,
+            isPodcast = isPodcast,
+            hasLyrics = lyrics.isNotEmpty() && !(lyrics.size == 1 && lyrics[0].text == "纯音乐"),
+            playMode = playMode
+        ),
+        lyrics = lyrics,
+        lyricIndex = lyricIndex
+    )
 }

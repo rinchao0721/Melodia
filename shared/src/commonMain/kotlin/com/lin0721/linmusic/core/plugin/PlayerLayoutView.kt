@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.plugin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
+import kotlinx.coroutines.delay
 
 // 节点是否在分页器里；分页器里的封面要让出左右滑动手势
 val LocalInLayoutPager = staticCompositionLocalOf { false }
@@ -81,26 +90,53 @@ fun PlayerLayoutView(
         }
         LayoutNodeType.PAGER -> LayoutPager(current, nodeModifier, resolve, component)
         LayoutNodeType.SPACER -> Spacer(nodeModifier)
-        LayoutNodeType.TEXT -> {
-            val palette = LocalMelodiaPalette.current
-            val (color, size, weight) = when (current.textStyle) {
-                LayoutTextStyle.TITLE -> Triple(palette.textPrimary, 16, FontWeight.Bold)
-                LayoutTextStyle.BODY -> Triple(palette.textSecondary, 13, FontWeight.Normal)
-                LayoutTextStyle.CAPTION -> Triple(palette.textTertiary, 11, FontWeight.Normal)
-            }
-            BasicText(
-                current.text,
-                modifier = nodeModifier,
-                style = TextStyle(color = color, fontSize = (size * current.size.scale).sp, fontWeight = weight),
-                maxLines = current.maxLines,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        LayoutNodeType.TEXT -> BasicText(
+            current.text,
+            modifier = nodeModifier,
+            style = current.layoutTextStyle(),
+            maxLines = current.maxLines,
+            overflow = TextOverflow.Ellipsis
+        )
         else -> component(current, nodeModifier)
     }
 }
 
-// 每个子节点一页，页面撑满分页器；高度不受限时按页面内容取高
+// text 节点与 time 组件共用的文字样式
+@Composable
+fun PlayerLayoutNode.layoutTextStyle(): TextStyle {
+    val palette = LocalMelodiaPalette.current
+    val (color, size, weight) = when (textStyle) {
+        LayoutTextStyle.TITLE -> Triple(palette.textPrimary, 16, FontWeight.Bold)
+        LayoutTextStyle.BODY -> Triple(palette.textSecondary, 13, FontWeight.Normal)
+        LayoutTextStyle.CAPTION -> Triple(palette.textTertiary, 11, FontWeight.Normal)
+    }
+    return TextStyle(color = color, fontSize = (size * this.size.scale).sp, fontWeight = weight)
+}
+
+// 播放时间文字，定时取进度，不随每帧重组；时长未知时显示 0:00
+@Composable
+fun LayoutTimeText(node: PlayerLayoutNode, positionProvider: () -> Long, durationMs: Long, modifier: Modifier = Modifier) {
+    val currentProvider by rememberUpdatedState(positionProvider)
+    var position by remember { mutableLongStateOf(currentProvider()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            position = currentProvider()
+            delay(TIME_REFRESH_MS)
+        }
+    }
+    val duration = durationMs.coerceAtLeast(0L)
+    val text = when (node.timeFormat) {
+        TimeFormat.POSITION -> formatDuration(position)
+        TimeFormat.DURATION -> formatDuration(duration)
+        TimeFormat.REMAINING -> "-" + formatDuration(duration - position)
+        TimeFormat.BOTH -> formatDuration(position) + " / " + formatDuration(duration)
+    }
+    BasicText(text, modifier = modifier, style = node.layoutTextStyle(), maxLines = 1)
+}
+
+private const val TIME_REFRESH_MS = 250L
+
+// 每个子节点一页；高度受限时页面撑满分页器，不受限（如放在滚动列表里）时按页面内容取高
 @Composable
 private fun LayoutPager(
     node: PlayerLayoutNode,
@@ -110,29 +146,37 @@ private fun LayoutPager(
 ) {
     val pages = node.children
     val state = rememberPagerState(initialPage = node.initialPage.coerceIn(0, pages.lastIndex)) { pages.size }
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        HorizontalPager(state = state, modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) { page ->
-            CompositionLocalProvider(LocalInLayoutPager provides true) {
-                PlayerLayoutView(pages[page], Modifier.fillMaxSize(), resolve, component)
-            }
-        }
-        if (node.indicator != PagerIndicator.NONE && pages.size > 1) {
-            val palette = LocalMelodiaPalette.current
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(pages.size) { index ->
-                    val selected = index == state.currentPage
-                    val color = if (selected) palette.textPrimary else palette.textPrimary.copy(alpha = 0.3f)
-                    val dotModifier = when (node.indicator) {
-                        PagerIndicator.BAR -> Modifier.size(width = if (selected) 16.dp else 8.dp, height = 3.dp).clip(RoundedCornerShape(2.dp))
-                        else -> Modifier.size(6.dp).clip(CircleShape)
-                    }
-                    Box(dotModifier.background(color))
+    BoxWithConstraints(modifier) {
+        val bounded = constraints.hasBoundedHeight
+        Column(if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            HorizontalPager(state = state, modifier = (if (bounded) Modifier.weight(1f) else Modifier).fillMaxWidth()) { page ->
+                CompositionLocalProvider(LocalInLayoutPager provides true) {
+                    PlayerLayoutView(pages[page], if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth(), resolve, component)
                 }
             }
+            PagerDots(node, state.currentPage)
+        }
+    }
+}
+
+@Composable
+private fun PagerDots(node: PlayerLayoutNode, currentPage: Int) {
+    val pages = node.children
+    if (node.indicator == PagerIndicator.NONE || pages.size <= 1) return
+    val palette = LocalMelodiaPalette.current
+    Row(
+        modifier = Modifier.padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(pages.size) { index ->
+            val selected = index == currentPage
+            val color = if (selected) palette.textPrimary else palette.textPrimary.copy(alpha = 0.3f)
+            val dotModifier = when (node.indicator) {
+                PagerIndicator.BAR -> Modifier.size(width = if (selected) 16.dp else 8.dp, height = 3.dp).clip(RoundedCornerShape(2.dp))
+                else -> Modifier.size(6.dp).clip(CircleShape)
+            }
+            Box(dotModifier.background(color))
         }
     }
 }

@@ -61,9 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -75,7 +73,6 @@ import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 private val LeftColumnMaxWidth = 420.dp
 private val LeftColumnStartPadding = 48.dp
@@ -84,7 +81,7 @@ private val RightColumnEndPadding = 24.dp
 private val NoLyricsHeight = 56.dp
 
 // 手动滚动歌词松手后停留多久再回到当前行，与全屏歌词页一致
-private const val LYRICS_RESUME_DELAY_MS = 3000L
+internal const val LYRICS_RESUME_DELAY_MS = 3000L
 private const val DEFAULT_LEFT_FRACTION = 0.4f
 
 private const val WIDE_LYRICS_KEY = "wide_lyrics"
@@ -196,15 +193,7 @@ private fun WideRightColumn(
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
-    val settingsPreferences: SettingsPreferences = koinInject()
-    val lyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
-    val effectiveLyricTextSize = lyricTextSize.coerceIn(20, 40)
-    val lyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
-    val lyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
-    val karaokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val karaokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
-    val lyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
-    val lyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
+    val lyricsSettings = rememberLyricsDisplaySettings()
 
     val scope = rememberCoroutineScope()
     val columnState = rememberLazyListState()
@@ -305,13 +294,13 @@ private fun WideRightColumn(
                             viewportHeightPx = lyricsViewportPx,
                             onViewportHeightChange = { lyricsViewportPx = it },
                             gestureModifier = Modifier,
-                            fontSize = effectiveLyricTextSize,
-                            alignment = lyricAlignment,
-                            secondaryMode = lyricSecondaryMode,
-                            lineSpacing = lyricLineSpacing,
-                            secondarySpacing = lyricSecondarySpacing,
-                            advancedKaraokeEffect = karaokeAdvancedEffect,
-                            karaokeGlowEffect = karaokeGlowEffect,
+                            fontSize = lyricsSettings.fontSize,
+                            alignment = lyricsSettings.alignment,
+                            secondaryMode = lyricsSettings.secondaryMode,
+                            lineSpacing = lyricsSettings.lineSpacing,
+                            secondarySpacing = lyricsSettings.secondarySpacing,
+                            advancedKaraokeEffect = lyricsSettings.karaokeAdvanced,
+                            karaokeGlowEffect = lyricsSettings.karaokeGlow,
                             isPlaying = isPlaying,
                             showSeekGuide = true,
                             userScrollEnabled = false,

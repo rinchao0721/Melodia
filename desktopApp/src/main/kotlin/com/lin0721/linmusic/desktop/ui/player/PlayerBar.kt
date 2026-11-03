@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,15 +77,18 @@ import androidx.compose.ui.unit.TextUnit
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.plugin.CONTROL_BUTTONS
 import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_PAUSE
+import com.lin0721.linmusic.core.plugin.FrameBackground
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.outlinedControls
 import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 import com.lin0721.linmusic.desktop.player.AudioDevice
@@ -179,7 +183,7 @@ fun PlayerBar(
         onToggleLyricsView = onToggleLyricsView,
         onEnterMiniPlayer = onEnterMiniPlayer
     )
-    val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]?.root
+    val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]
     if (pluginLayout != null) {
         PluginPlayerBar(pluginLayout, parts, modifier)
         return
@@ -211,12 +215,18 @@ private val DesktopBarActions = PlayerLayoutArea.DESKTOP_PLAYER_BAR.actionButton
 private const val MIN_PLUGIN_BAR_HEIGHT = 64f
 private const val MAX_PLUGIN_BAR_HEIGHT = 160f
 
-// 插件布局：根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
+// 插件布局：按窗口宽度选变体，根节点高度即播放栏高度，限制在合理范围内；没有歌曲时封面、标题等组件留空
 @Composable
-private fun PluginPlayerBar(root: PlayerLayoutNode, parts: PlayerBarParts, modifier: Modifier) {
-    val height = (root.height ?: DesktopDimens.PlayerBarHeight.value).coerceIn(MIN_PLUGIN_BAR_HEIGHT, MAX_PLUGIN_BAR_HEIGHT).dp
-    PlayerLayoutView(root.copy(height = null), modifier.fillMaxWidth().height(height)) { node, nodeModifier ->
-        parts.Component(node, nodeModifier)
+private fun PluginPlayerBar(spec: PlayerLayoutSpec, parts: PlayerBarParts, modifier: Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val root = spec.select(maxWidth.value, landscape = true)
+        val height = (root.height ?: DesktopDimens.PlayerBarHeight.value).coerceIn(MIN_PLUGIN_BAR_HEIGHT, MAX_PLUGIN_BAR_HEIGHT).dp
+        // 播放栏本身没有底色，只有插件指定色板项时才铺底
+        val background = (spec.frame.background as? FrameBackground.Token)?.token?.read(LocalMelodiaPalette.current)
+        val barModifier = Modifier.fillMaxWidth().height(height).then(background?.let { Modifier.background(it) } ?: Modifier)
+        PlayerLayoutView(root.copy(height = null), barModifier) { node, nodeModifier ->
+            parts.Component(node, nodeModifier)
+        }
     }
 }
 

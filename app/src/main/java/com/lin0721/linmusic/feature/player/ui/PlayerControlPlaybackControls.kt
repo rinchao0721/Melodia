@@ -206,6 +206,25 @@ fun PlaybackControlRow(
                         modifier = Modifier.size(28.dp * scale)
                     )
                 }
+                // 列表循环 → 单曲循环 → 随机 → 列表循环
+                "playMode" -> if (showModeButtons) MelodiaIconButton(
+                    onClick = if (playMode == PlayMode.LIST_LOOP) onToggleRepeat else onToggleShuffle
+                ) {
+                    Icon(
+                        when (playMode) {
+                            PlayMode.LIST_LOOP -> Icons.Default.Repeat
+                            PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne
+                            PlayMode.SHUFFLE -> Icons.Default.Shuffle
+                        },
+                        contentDescription = when (playMode) {
+                            PlayMode.LIST_LOOP -> "列表循环"
+                            PlayMode.SINGLE_LOOP -> "单曲循环"
+                            PlayMode.SHUFFLE -> "随机播放"
+                        },
+                        tint = MelodiaColors.TextPrimary,
+                        modifier = Modifier.size(28.dp * scale)
+                    )
+                }
             }
         }
     }

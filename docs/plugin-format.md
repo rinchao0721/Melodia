@@ -51,7 +51,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.5` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.6` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -318,7 +318,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 ```
 
 - `frame`：区域外框，各区域支持的字段见下表，写了不支持的字段会被忽略并提示。
-- `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。
+- `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。桌面区域 API 1.6 起支持，宽度取窗口里该区域的宽度，`orientation` 恒为 `landscape`。
 - `styles` 以及节点上的 `animation`、`onTap`、`onDoubleTap`、`onLongPress` 留给后续版本，目前会被忽略并提示。
 
 | 区域 | `frame` 字段 |
@@ -326,6 +326,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.fullPlayer` | `header`：`host`（默认，保留顶部的收起、播放来源与更多）或 `none`（去掉，由布局自己摆 `collapseButton` 等组件）；`cards`：`false` 时去掉下方的信息卡片，首屏就是整页 |
 | `android.fullPlayerWide` | `split`：左栏宽度占比，0.3–0.7，默认 0.4；左栏内容最宽 420 |
 | `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none` 或色板项；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
+| `desktop.playerBar` | `background`：色板项时给播放栏铺底；`host`（默认）与 `none` 都不铺底（API 1.6） |
 
 `header` 为 `none` 而布局里没有 `collapseButton` 时，宿主会在左上角补一个收起按钮。下拉收起与返回键始终可用。
 
@@ -333,13 +334,13 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 | key | 位置 | 必需 | 不可用的组件 |
 |---|---|---|---|
-| `desktop.playerBar` | 桌面底部播放栏 | `controls` 的 `playPause`、`progress` | `miniLyric`、`lyricsCard` |
+| `desktop.playerBar` | 桌面底部播放栏 | `controls` 的 `playPause`、`progress` | `miniLyric`、`lyricsCard`、`pager` |
 | `desktop.nowPlaying` | 桌面「正在播放」面板的封面与标题区 | 无 | `miniLyric`、`lyricsCard`、`actions` |
 | `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
-| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`collapseButton`、`moreButton`、`sourceLabel` |
-| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`miniLyric`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`lyricsView`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`lyricsView`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
 
-桌面区域暂不支持 `pager`、`collapseButton`、`moreButton`、`sourceLabel`。
+桌面区域暂不支持 `collapseButton`、`moreButton`、`sourceLabel`、`time`、`lyricsView` 与 `playMode` 按钮；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
@@ -370,18 +371,38 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `cover` | 封面，点击切换「正在播放」 | `maxSize`（24–1000）、`aspect`（0.25–4，仅 Android）、`size` |
 | `songTitle` / `artist` / `songInfo` | 标题、歌手、两者组合 | `lines`（1–4）、`size` |
 | `likeButton` | 收藏到歌单；播客为订阅电台 | |
-| `miniLyric` | 单行歌词（Android） | |
+| `miniLyric` | 单行歌词（Android；迷你播放器 API 1.6 起可用） | |
 | `progress` | 进度条 | `showTime` |
-| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`；`size` |
-| `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more` |
+| `time` | 播放时间文字（Android，API 1.6） | `format`：`position`（默认）、`duration`、`remaining`、`both`（如 0:12 / 3:45）；`style`、`size` |
+| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`；Android 另有 `playMode`（API 1.6，单键按列表循环、单曲循环、随机切换）；`size` |
+| `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more`，API 1.6 起另有 `sleepTimer`、`comments`、`lyrics`（打开全屏歌词） |
 | `lyricsCard` | 歌词卡（Android） | |
+| `lyricsView` | 整页滚动歌词，跟随用户的歌词设置，点某行跳到那里（Android 全屏页，API 1.6） | |
 | `spacer` | 留白，配合 `weight` 或固定尺寸 | |
 | `text` | 固定文字，不超过 40 个字符 | `text`、`style`（`title`、`body`、`caption`）、`lines`、`size` |
 | `collapseButton` | 收起按钮；侧栏模式下带全屏切换（Android 全屏页，API 1.5） | |
 | `moreButton` | 更多（Android 全屏页，API 1.5） | |
 | `sourceLabel` | 播放来源，点击打开来源歌单（Android 全屏页，API 1.5） | |
 
-`size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮。
+`size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮，但 API 1.6 新增的 `playMode`、`sleepTimer`、`comments`、`lyrics` 需要写明才会出现。
+
+### 播放状态绑定
+
+API 1.6 起，播放器区域里 `text` 的文字和任意节点的 `visible` 可以写成 `$player.xxx`：
+
+| 字段 | 值 |
+|---|---|
+| `title` / `artist` / `album` | 字符串 |
+| `source` | 播放来源名称，如「每日推荐」、歌单名 |
+| `quality` | 音质标签，如「无损」；用户关掉音质显示或播客时为空 |
+| `playing` / `liked` / `isPodcast` / `hasLyrics` | 布尔值 |
+| `playMode` | `listLoop`、`singleLoop`、`shuffle` |
+
+```json
+{ "type": "text", "text": "$player.quality", "visible": "$player.quality" }
+```
+
+写了不存在的字段，或在播放器区域用 `$state` / `$item` 时，这一项会被忽略并提示。进度不开放绑定，用 `time` 组件显示。
 
 ### 校验与回退
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
@@ -35,7 +36,8 @@ fun MiniLyricLine(
     lyrics: List<LyricLine>,
     currentLyricIndex: Int,
     isPlaying: Boolean,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    horizontalPadding: Dp = MelodiaSpacing.lg
 ) {
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
     val currentText = when {
@@ -47,7 +49,7 @@ fun MiniLyricLine(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg)
+            .padding(horizontal = horizontalPadding)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.CenterStart

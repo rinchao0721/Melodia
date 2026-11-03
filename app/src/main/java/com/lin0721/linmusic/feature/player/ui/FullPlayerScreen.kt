@@ -415,14 +415,7 @@ private fun FullPlayerScreenContent(
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
-    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
-    // 档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
-    val qualityLabel = if (showPlaybackQuality && !podcast.isPodcast) {
-        playbackLevel
-            ?.takeIf { it.songId.toString() == currentTrack.mediaId }
-            ?.let { getQualityBadgeLabel(it.level) }
-    } else null
+    val qualityLabel = rememberPlaybackQualityLabel(viewModel, currentTrack.mediaId, podcast.isPodcast)
     val rawCoverUrl = normalizeFullPlayerCoverUrl(
         currentTrack.mediaMetadata.artworkUri?.toString().orEmpty()
     )
@@ -671,7 +664,13 @@ private fun FullPlayerScreenContent(
             isSidebarFullscreen = isSidebarFullscreen,
             playContext = playContext,
             podcastRadioName = podcast.radioName,
-            onPlaylistClick = openPlaylistSource
+            onPlaylistClick = openPlaylistSource,
+            activeLyricIndices = activeLyricIndices,
+            lyricPositionProvider = lyricPositionProvider,
+            lyricsHighlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
+            sleepTimerActive = sleepTimerRemaining > 0L,
+            onSleepTimerClick = { showTimerSheet = true },
+            onCommentsClick = { showCommentsSheet = true }
         )
     } else {
         null
@@ -980,7 +979,7 @@ private fun FullPlayerScreenContent(
                 pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
                     {
                         BoxWithConstraints(Modifier.fillMaxSize()) {
-                            PlayerLayoutView(pluginWideLayout.select(maxWidth.value, isLandscape), Modifier.fillMaxSize()) { node, nodeModifier ->
+                            PlayerLayoutView(pluginWideLayout.select(maxWidth.value, isLandscape), Modifier.fillMaxSize(), pluginParts.binding::prepare) { node, nodeModifier ->
                                 pluginParts.Component(node, nodeModifier)
                             }
                         }
@@ -1273,4 +1272,13 @@ private fun FullPlayerScreenContent(
             )
         }
     }
+}
+
+// 当前歌曲的实际音质短标签；档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
+@Composable
+fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? {
+    val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
+    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
+    if (!showPlaybackQuality || isPodcast) return null
+    return playbackLevel?.takeIf { it.songId.toString() == mediaId }?.let { getQualityBadgeLabel(it.level) }
 }

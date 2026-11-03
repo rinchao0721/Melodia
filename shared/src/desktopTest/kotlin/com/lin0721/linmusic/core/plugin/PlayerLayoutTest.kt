@@ -111,7 +111,7 @@ class PlayerLayoutTest {
     fun `迷你播放器只支持切歌与播放暂停`() {
         val result = parse(
             PlayerLayoutArea.ANDROID_MINI_PLAYER,
-            """{"type":"row","children":[{"type":"controls","buttons":["shuffle","playPause","next"]},{"type":"miniLyric"}]}"""
+            """{"type":"row","children":[{"type":"controls","buttons":["shuffle","playPause","next"]},{"type":"lyricsCard"}]}"""
         ) as PlayerLayoutParseResult.Success
         assertEquals(listOf("playPause", "next"), result.root.children.single().buttons)
         assertEquals(2, result.warnings.size)
@@ -245,6 +245,101 @@ class PlayerLayoutTest {
         assertNull(spacer.widthFraction)
         assertNull(spacer.corners)
         assertEquals(5, result.warnings.size)
+    }
+
+    @Test
+    fun `时间、歌词视图与迷你条歌词按区域开放`() {
+        val full = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[{"type":"time","format":"both","style":"caption"},{"type":"time","format":"elapsed"},{"type":"lyricsView"},{"type":"controls"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(TimeFormat.BOTH, full.root.children[0].timeFormat)
+        assertEquals(LayoutTextStyle.CAPTION, full.root.children[0].textStyle)
+        assertEquals(TimeFormat.POSITION, full.root.children[1].timeFormat)
+        assertEquals(LayoutNodeType.LYRICS_VIEW, full.root.children[2].type)
+        assertEquals(1, full.warnings.size)
+
+        val wide = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"type":"column","children":[{"type":"lyricsView"},{"type":"time"},{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(listOf(LayoutNodeType.TIME, LayoutNodeType.CONTROLS), wide.root.children.map { it.type })
+        val mini = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"row","children":[{"type":"miniLyric"},{"type":"time"},{"type":"controls"}]}""") as PlayerLayoutParseResult.Success
+        assertTrue(mini.warnings.isEmpty())
+        val bar = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","children":[{"type":"time"},{"type":"controls"},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(1, bar.warnings.size)
+    }
+
+    @Test
+    fun `新增按钮需要显式写出，没写 buttons 时保持原来的按钮`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"controls"},{"type":"controls","buttons":["playMode"]},
+                {"type":"actions"},{"type":"actions","buttons":["sleepTimer","comments","lyrics"]}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val (defaults, playMode, actions, extra) = result.root.children
+        assertEquals(CONTROL_BUTTONS, defaults.buttons)
+        assertEquals(listOf(CONTROL_PLAY_MODE), playMode.buttons)
+        assertEquals(listOf("device", "queue", "share", "quality", "more"), actions.buttons)
+        assertEquals(listOf("sleepTimer", "comments", "lyrics"), extra.buttons)
+        assertTrue(result.warnings.isEmpty())
+
+        val desktop = parse(PlayerLayoutArea.DESKTOP_PLAYER_BAR, """{"type":"row","children":[{"type":"controls","buttons":["playPause","playMode"]},{"type":"progress"}]}""") as PlayerLayoutParseResult.Success
+        assertEquals(listOf(CONTROL_PLAY_PAUSE), desktop.root.children[0].buttons)
+        assertEquals(1, desktop.warnings.size)
+    }
+
+    @Test
+    fun `播放器区域只认 player 绑定，页面不认`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[
+                {"type":"text","text":"${'$'}player.quality","visible":"${'$'}player.quality"},
+                {"type":"text","text":"${'$'}player.mood"},
+                {"type":"text","text":"${'$'}state.title"},
+                {"type":"text","text":"${'$'}9.99"},
+                {"type":"lyricsView","visible":"${'$'}state.show"},
+                {"type":"controls","visible":"${'$'}player.isPodcast"}
+            ]}"""
+        ) as PlayerLayoutParseResult.Success
+        val children = result.root.children
+        assertEquals(listOf("\$player.quality", "\$9.99", "", ""), children.map { it.text })
+        assertEquals("\$player.quality", children[0].visible)
+        assertNull(children[2].visible)
+        assertEquals(3, result.warnings.size)
+
+        val page = PlayerLayoutParser.parsePage(json("""{"type":"column","children":[{"type":"text","text":"a","visible":"${'$'}player.playing"}]}""")) as PlayerLayoutParseResult.Success
+        assertNull(page.root.children.single().visible)
+        assertEquals(1, page.warnings.size)
+    }
+
+    @Test
+    fun `绑定状态替换文字并按 visible 隐藏节点`() {
+        val state = PlayerBindingState(title = "歌", quality = "无损", playing = true, playMode = com.lin0721.linmusic.core.player.PlayMode.SINGLE_LOOP)
+        val text = PlayerLayoutNode(LayoutNodeType.TEXT, text = "\$player.quality")
+        assertEquals("无损", state.prepare(text)?.text)
+        assertEquals("singleLoop", state.prepare(text.copy(text = "\$player.playMode"))?.text)
+        assertEquals("固定", state.prepare(text.copy(text = "固定"))?.text)
+        assertNull(state.prepare(PlayerLayoutNode(LayoutNodeType.LYRICS_VIEW, visible = "\$player.hasLyrics")))
+        assertEquals(LayoutNodeType.COVER, state.prepare(PlayerLayoutNode(LayoutNodeType.COVER, visible = "\$player.playing"))?.type)
+        assertNull(state.prepare(PlayerLayoutNode(LayoutNodeType.COVER, visible = "\$player.album")))
+    }
+
+    @Test
+    fun `桌面播放栏可设背景，正在播放面板可用分页`() {
+        val bar = parse(
+            PlayerLayoutArea.DESKTOP_PLAYER_BAR,
+            """{"frame":{"background":"pane"},"layout":{"type":"row","children":[{"type":"pager","children":[{"type":"cover"}]},{"type":"controls"},{"type":"progress"}]},
+                "variants":[{"when":{"maxWidth":900},"layout":$validBar}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(FrameBackground.Token(PaletteToken.PANE), bar.frame.background)
+        assertEquals(1, bar.variants.size)
+        assertEquals(1, bar.warnings.size)
+        val nowPlaying = parse(
+            PlayerLayoutArea.DESKTOP_NOW_PLAYING,
+            """{"type":"pager","indicator":"bar","children":[{"type":"cover"},{"type":"songInfo"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(LayoutNodeType.PAGER, nowPlaying.root.type)
+        assertTrue(nowPlaying.warnings.isEmpty())
     }
 
     @Test

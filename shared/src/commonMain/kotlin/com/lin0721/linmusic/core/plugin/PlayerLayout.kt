@@ -34,6 +34,8 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     COLLAPSE_BUTTON("collapseButton"),
     MORE_BUTTON("moreButton"),
     SOURCE_LABEL("sourceLabel"),
+    TIME("time"),
+    LYRICS_VIEW("lyricsView"),
 
     // 以下只用于插件页面
     HEADING("heading"),
@@ -115,6 +117,14 @@ enum class LayoutPosition(val key: String, val horizontal: LayoutAlign, val vert
     }
 }
 
+enum class TimeFormat(val key: String) {
+    POSITION("position"), DURATION("duration"), REMAINING("remaining"), BOTH("both");
+
+    companion object {
+        fun fromKey(key: String): TimeFormat? = entries.firstOrNull { it.key == key }
+    }
+}
+
 enum class PagerIndicator(val key: String) {
     NONE("none"), DOTS("dots"), BAR("bar");
 
@@ -157,6 +167,7 @@ data class PlayerLayoutNode(
     val corners: LayoutCorners? = null,
     val indicator: PagerIndicator = PagerIndicator.NONE,
     val initialPage: Int = 0,
+    val timeFormat: TimeFormat = TimeFormat.POSITION,
     // controls / actions 的按钮及顺序
     val buttons: List<String> = emptyList(),
     val size: LayoutSize = LayoutSize.MEDIUM,
@@ -209,9 +220,11 @@ enum class PlayerLayoutArea(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
             LayoutNodeType.ACTIONS, LayoutNodeType.LYRICS_CARD, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
-            LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL
+            LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL,
+            LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
         ),
         ANDROID_ACTIONS,
+        ANDROID_CONTROLS,
         frameFields = setOf("header", "cards")
     ),
     ANDROID_FULL_PLAYER_WIDE(
@@ -219,9 +232,10 @@ enum class PlayerLayoutArea(
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER
+            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
         ),
         ANDROID_ACTIONS,
+        ANDROID_CONTROLS,
         frameFields = setOf("split")
     ),
     ANDROID_MINI_PLAYER(
@@ -229,7 +243,7 @@ enum class PlayerLayoutArea(
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.SPACER, LayoutNodeType.TEXT
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME, LayoutNodeType.MINI_LYRIC
         ),
         controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next"),
         frameFields = setOf("background", "radius", "shadow", "border")
@@ -241,16 +255,21 @@ enum class PlayerLayoutArea(
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.ACTIONS,
             LayoutNodeType.SPACER, LayoutNodeType.TEXT
         ),
-        listOf("desktopLyric", "lyricsView", "queue", "device", "volume", "miniPlayer", "fullscreen")
+        listOf("desktopLyric", "lyricsView", "queue", "device", "volume", "miniPlayer", "fullscreen"),
+        frameFields = setOf("background")
     ),
     DESKTOP_NOW_PLAYING(
         "desktop.nowPlaying", "桌面「正在播放」顶部",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.SPACER,
-            LayoutNodeType.TEXT
+            LayoutNodeType.TEXT, LayoutNodeType.PAGER
         )
     );
+
+    // 没写 buttons 时用的按钮；后来新增的按钮需要显式写出，避免改变已发布插件的样子
+    val defaultControlButtons: List<String> get() = controlButtons - OPT_IN_BUTTONS
+    val defaultActionButtons: List<String> get() = actionButtons - OPT_IN_BUTTONS
 
     // 缺少必需组件时返回原因
     fun missingRequired(root: PlayerLayoutNode): String? = when (this) {
@@ -270,10 +289,13 @@ enum class PlayerLayoutArea(
 }
 
 private val CONTAINERS = setOf(LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX)
-private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more")
+private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more", "sleepTimer", "comments", "lyrics")
 
 const val CONTROL_PLAY_PAUSE = "playPause"
+const val CONTROL_PLAY_MODE = "playMode"
 val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
+private val ANDROID_CONTROLS = CONTROL_BUTTONS + CONTROL_PLAY_MODE
+private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments", "lyrics")
 
 sealed interface PlayerLayoutParseResult {
     data class Success(
@@ -335,7 +357,10 @@ object PlayerLayoutParser {
     }
 
     private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
-        val node = parseTree(root, area.components, area.label, area.controlButtons, area.actionButtons)
+        val node = parseTree(
+            root, area.components, area.label, area.controlButtons, area.actionButtons,
+            area.defaultControlButtons, area.defaultActionButtons, playerBindings = true
+        )
         if (node !is PlayerLayoutParseResult.Success) return node
         area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
         return node
@@ -371,7 +396,11 @@ object PlayerLayoutParser {
         components: Set<LayoutNodeType>,
         label: String,
         controlButtons: List<String>,
-        actionButtons: List<String>
+        actionButtons: List<String>,
+        defaultControls: List<String> = controlButtons,
+        defaultActions: List<String> = actionButtons,
+        // 播放器区域用 $player 绑定，页面用 $state / $item
+        playerBindings: Boolean = false
     ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
@@ -399,12 +428,16 @@ object PlayerLayoutParser {
                 }
             }
             val buttons = when (type) {
-                LayoutNodeType.CONTROLS -> buttons(obj, controlButtons, "播放控制", warnings) ?: controlButtons
-                LayoutNodeType.ACTIONS -> buttons(obj, actionButtons, "操作按钮", warnings) ?: actionButtons
+                LayoutNodeType.CONTROLS -> buttons(obj, controlButtons, "播放控制", warnings) ?: defaultControls
+                LayoutNodeType.ACTIONS -> buttons(obj, actionButtons, "操作按钮", warnings) ?: defaultActions
                 else -> emptyList()
             }
             if (type == LayoutNodeType.CONTROLS || type == LayoutNodeType.ACTIONS) {
                 if (buttons.isEmpty()) return null.also { warnings += "${type.key} 没有可用的按钮，已忽略" }
+            }
+            val text = obj.string("text")?.take(MAX_TEXT).orEmpty()
+            if (playerBindings && type == LayoutNodeType.TEXT && PlayerBinding.looksLikeBinding(text) && !PlayerBinding.isBinding(text)) {
+                return null.also { warnings += "text 绑定 $text 无效，已忽略" }
             }
             val bind = obj.string("bind")?.trim().orEmpty()
             val action = obj.string("action")?.trim()?.takeIf { it.isNotEmpty() }
@@ -449,9 +482,14 @@ object PlayerLayoutParser {
                     PagerIndicator.NONE
                 },
                 initialPage = obj.int("initialPage")?.coerceIn(0, (children.size - 1).coerceAtLeast(0)) ?: 0,
+                timeFormat = if (type == LayoutNodeType.TIME) {
+                    enumValue(obj, "format", TimeFormat::fromKey, warnings) ?: TimeFormat.POSITION
+                } else {
+                    TimeFormat.POSITION
+                },
                 buttons = buttons,
                 size = enumValue(obj, "size", LayoutSize::fromKey, warnings) ?: LayoutSize.MEDIUM,
-                text = obj.string("text")?.take(MAX_TEXT).orEmpty(),
+                text = text,
                 textStyle = enumValue(obj, "style", LayoutTextStyle::fromKey, warnings) ?: LayoutTextStyle.BODY,
                 maxLines = obj.int("lines")?.coerceIn(1, MAX_LINES) ?: 1,
                 showTime = (obj["showTime"] as? JsonPrimitive)?.booleanOrNull ?: true,
@@ -460,7 +498,8 @@ object PlayerLayoutParser {
                 bind = bind,
                 action = action,
                 visible = obj.string("visible")?.trim()?.takeIf { value ->
-                    PluginBinding.isBinding(value).also { ok -> if (!ok) warnings += "visible 取值 $value 不是绑定，已忽略" }
+                    val ok = if (playerBindings) PlayerBinding.isBinding(value) else PluginBinding.isBinding(value)
+                    ok.also { if (!it) warnings += "visible 取值 $value 不是有效的绑定，已忽略" }
                 },
                 options = options,
                 min = min,

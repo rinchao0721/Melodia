@@ -5,7 +5,10 @@ import android.media.AudioDeviceInfo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SpeakerGroup
 import androidx.compose.material3.Icon
@@ -39,7 +42,11 @@ fun PlayerActionRow(
     onMoreClick: () -> Unit,
     connectedDevice: AudioDeviceInfo?,
     qualityLabel: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSleepTimerClick: () -> Unit = {},
+    sleepTimerActive: Boolean = false,
+    onCommentsClick: () -> Unit = {},
+    onLyricsClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier,
@@ -67,6 +74,20 @@ fun PlayerActionRow(
                 }
                 "more" -> MelodiaIconButton(onClick = onMoreClick) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                }
+                "sleepTimer" -> MelodiaIconButton(onClick = onSleepTimerClick) {
+                    Icon(
+                        Icons.Rounded.Bedtime,
+                        contentDescription = "定时停止",
+                        tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                "comments" -> MelodiaIconButton(onClick = onCommentsClick) {
+                    Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                }
+                "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
+                    Icon(Icons.Rounded.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
             }
         }

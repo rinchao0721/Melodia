@@ -8,8 +8,10 @@ import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
+import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.desktop.ui.player.PlayerBarParts
 import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -96,7 +98,7 @@ fun NowPlayingPanel(
     HoverScrollbarBox(scrollState) {
         Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
             PanelHeader(track, controller, playerViewModel, hovered, onClose)
-            val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]?.root
+            val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]
             if (pluginLayout != null) {
                 PluginNowPlayingHeader(pluginLayout, track, controller, playerViewModel)
             } else {
@@ -178,12 +180,24 @@ fun NowPlayingPanel(
 // 插件布局替换封面与标题区；封面默认占满面板宽度，maxSize 限制最大边长
 @Composable
 private fun PluginNowPlayingHeader(
-    root: PlayerLayoutNode,
+    spec: PlayerLayoutSpec,
     track: NowPlaying,
     controller: PlaybackController,
     playerViewModel: PlayerViewModel
 ) {
     val parts = rememberPlaybackParts(controller, playerViewModel)
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        PluginNowPlayingTree(spec.select(maxWidth.value, landscape = true), track, parts, playerViewModel)
+    }
+}
+
+@Composable
+private fun PluginNowPlayingTree(
+    root: PlayerLayoutNode,
+    track: NowPlaying,
+    parts: PlayerBarParts,
+    playerViewModel: PlayerViewModel
+) {
     PlayerLayoutView(root, Modifier.fillMaxWidth().padding(top = 8.dp)) { node, modifier ->
         val scale = node.size.scale
         when (node.type) {

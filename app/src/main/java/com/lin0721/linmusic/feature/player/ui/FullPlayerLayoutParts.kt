@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,7 +22,9 @@ import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
+import com.lin0721.linmusic.core.plugin.LayoutTimeText
 import com.lin0721.linmusic.core.plugin.LocalInLayoutPager
+import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
@@ -76,8 +79,31 @@ class FullPlayerLayoutParts(
     val isSidebarFullscreen: Boolean,
     val playContext: String?,
     val podcastRadioName: String,
-    val onPlaylistClick: (() -> Unit)?
+    val onPlaylistClick: (() -> Unit)?,
+    val activeLyricIndices: Set<Int>,
+    val lyricPositionProvider: () -> Long,
+    val lyricsHighlightColor: Color,
+    val sleepTimerActive: Boolean,
+    val onSleepTimerClick: () -> Unit,
+    val onCommentsClick: () -> Unit
 ) {
+    // $player 绑定的取值，每次重组按当前状态生成
+    val binding: PlayerBindingState
+        get() = PlayerBindingState(
+            title = title,
+            artist = artist,
+            album = songState.songDetail?.al?.name.orEmpty(),
+            source = playSourceText(playContext, podcastRadioName).second.orEmpty(),
+            quality = qualityLabel.orEmpty(),
+            playing = playWhenReady,
+            liked = if (podcast.isPodcast) podcast.subscribed else songState.isLiked,
+            isPodcast = podcast.isPodcast,
+            hasLyrics = songState.lyrics.isNotEmpty() && !(songState.lyrics.size == 1 && songState.lyrics[0].text == "纯音乐"),
+            playMode = playMode
+        )
+
+    private val displayDuration: Long get() = if (duration > 0L) duration else (songState.songDetail?.dt ?: 0L)
+
     @Composable
     fun Component(node: PlayerLayoutNode, modifier: Modifier) {
         val scale = node.size.scale
@@ -116,13 +142,14 @@ class FullPlayerLayoutParts(
                     lyrics = songState.lyrics,
                     currentLyricIndex = currentLyricIndex,
                     isPlaying = isPlaying,
-                    onClick = onMiniLyricClick
+                    onClick = onMiniLyricClick,
+                    horizontalPadding = 0.dp
                 )
             }
             LayoutNodeType.PROGRESS -> Box(modifier) {
                 ProgressSection(
                     currentPositionProvider = currentPositionProvider,
-                    duration = if (duration > 0L) duration else (songState.songDetail?.dt ?: 0L),
+                    duration = displayDuration,
                     onSeek = onSeek,
                     chorusStartMs = songState.chorusStartMs,
                     showTime = node.showTime,
@@ -150,7 +177,11 @@ class FullPlayerLayoutParts(
                 onMoreClick = onMoreClick,
                 connectedDevice = connectedDevice,
                 qualityLabel = qualityLabel,
-                modifier = modifier
+                modifier = modifier,
+                onSleepTimerClick = onSleepTimerClick,
+                sleepTimerActive = sleepTimerActive,
+                onCommentsClick = onCommentsClick,
+                onLyricsClick = onOpenFullScreenLyrics
             )
             // 歌词卡在浅色页面里保持有色底白字
             LayoutNodeType.LYRICS_CARD -> ImmersiveTheme {
@@ -167,6 +198,18 @@ class FullPlayerLayoutParts(
                     )
                 }
             }
+            LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, displayDuration, modifier)
+            LayoutNodeType.LYRICS_VIEW -> EmbeddedLyricsView(
+                lyrics = songState.lyrics,
+                currentIndex = currentLyricIndex,
+                activeIndices = activeLyricIndices,
+                isLoading = songState.isLyricsLoading,
+                highlightColor = lyricsHighlightColor,
+                currentPositionProvider = lyricPositionProvider,
+                isPlaying = isPlaying,
+                onSeek = onSeek,
+                modifier = modifier
+            )
             LayoutNodeType.COLLAPSE_BUTTON -> FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
             LayoutNodeType.MORE_BUTTON -> FullPlayerMoreButton(onMoreClick, modifier)
             LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, modifier)
@@ -189,7 +232,7 @@ fun LazyListScope.fullPlayerPluginSection(
                 val hostHeader = spec.frame.header == LayoutHeader.HOST
                 Column(Modifier.fillMaxSize()) {
                     if (hostHeader) sourceBar(Modifier.fillMaxWidth())
-                    PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth()) { node, modifier ->
+                    PlayerLayoutView(root, Modifier.weight(1f).fillMaxWidth(), parts.binding::prepare) { node, modifier ->
                         parts.Component(node, modifier)
                     }
                 }
