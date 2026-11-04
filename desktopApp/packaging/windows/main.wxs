@@ -105,6 +105,7 @@
         <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\Melodia">
           <RegistryValue Type="string" Name="DisplayName" Value="Melodia" KeyPath="yes" />
           <RegistryValue Type="string" Name="DisplayVersion" Value="$(var.JpAppVersion)" />
+          <RegistryValue Type="string" Name="MelodiaVersion" Value="@MELODIA_DISPLAY_VERSION@" />
           <RegistryValue Type="string" Name="Publisher" Value="$(var.JpAppVendor)" />
           <RegistryValue Type="string" Name="DisplayIcon" Value="[INSTALLDIR]Melodia.exe,0" />
           <RegistryValue Type="string" Name="InstallLocation" Value="[INSTALLDIR]" />

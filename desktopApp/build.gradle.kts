@@ -338,6 +338,7 @@ tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageT
             val content = customWxs.asFile.readText()
                 .replace("@MELODIA_UNINSTALL_EXE@", uninstallerExe.asFile.absolutePath)
                 .replace("@MELODIA_UNINSTALL_ICO@", uninstallerIco.asFile.absolutePath)
+                .replace("@MELODIA_DISPLAY_VERSION@", desktopVersion)
             File(dir, "main.wxs").writeText(content)
             englishStrings.asFile.copyTo(File(dir, englishStrings.asFile.name), overwrite = true)
             targetDir

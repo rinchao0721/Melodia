@@ -37,16 +37,15 @@ std::optional<std::wstring> QueryProductInfo(const std::wstring& code, MSIINSTAL
     return value;
 }
 
-std::wstring ReadRegistryLocation(bool perMachine) {
+std::wstring ReadUninstallValue(bool perMachine, const wchar_t* name) {
     HKEY root = perMachine ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
     DWORD size = 0;
-    if (RegGetValueW(root, kUninstallRegKey, L"InstallLocation", RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS ||
-        size == 0) {
+    if (RegGetValueW(root, kUninstallRegKey, name, RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS || size == 0) {
         return {};
     }
     std::wstring value(size / sizeof(wchar_t) + 1, L'\0');
     DWORD bytes = static_cast<DWORD>(value.size() * sizeof(wchar_t));
-    if (RegGetValueW(root, kUninstallRegKey, L"InstallLocation", RRF_RT_REG_SZ, nullptr, value.data(), &bytes) != ERROR_SUCCESS) {
+    if (RegGetValueW(root, kUninstallRegKey, name, RRF_RT_REG_SZ, nullptr, value.data(), &bytes) != ERROR_SUCCESS) {
         return {};
     }
     value.resize(wcsnlen(value.c_str(), value.size()));
@@ -183,13 +182,16 @@ void NeutralizeLegacyFolderRemoval() {
     DeleteRemoveFolderValues(HKEY_LOCAL_MACHINE);
 }
 
-Result RunWithUi(const fs::path& log, const ProgressFn& onProgress, const std::function<UINT()>& action) {
+Result RunWithUi(const fs::path& log, const ProgressFn& onProgress, const std::function<UINT()>& action, bool appendLog = false) {
     NeutralizeLegacyFolderRemoval();
     UiContext ctx;
     ctx.onProgress = &onProgress;
     MsiSetInternalUI(INSTALLUILEVEL_NONE, nullptr);
     MsiSetExternalUIRecord(RecordHandler, kUiFilter, &ctx, nullptr);
-    if (!log.empty()) MsiEnableLogW(kVerboseLogMode, log.c_str(), INSTALLLOGATTRIBUTES_FLUSHEACHLINE);
+    if (!log.empty()) {
+        DWORD attributes = appendLog ? (INSTALLLOGATTRIBUTES_FLUSHEACHLINE | INSTALLLOGATTRIBUTES_APPEND) : INSTALLLOGATTRIBUTES_FLUSHEACHLINE;
+        MsiEnableLogW(kVerboseLogMode, log.c_str(), attributes);
+    }
 
     Result result;
     result.code = action();
@@ -240,8 +242,10 @@ std::vector<InstalledProduct> FindInstalledProducts() {
             product.version = *version;
             auto location = QueryProductInfo(productCode, ctx, INSTALLPROPERTY_INSTALLLOCATION);
             std::wstring loc = location ? *location : std::wstring();
-            if (loc.empty()) loc = ReadRegistryLocation(product.PerMachine());
+            if (loc.empty()) loc = ReadUninstallValue(product.PerMachine(), L"InstallLocation");
             if (!loc.empty()) product.location = sys::StripTrailingSeparators(fs::path(loc));
+            product.fullVersion = ReadUninstallValue(product.PerMachine(), L"MelodiaVersion");
+            if (!product.fullVersion.empty()) product.release = ver::Parse(product.fullVersion);
             products.push_back(std::move(product));
             break;
         }
@@ -256,10 +260,22 @@ std::optional<InstalledProduct> FindByLocation(const std::vector<InstalledProduc
     return std::nullopt;
 }
 
+namespace {
+
+// 数字版本相同时按完整版本比较，缺少完整版本的视为更旧
+bool IsNewer(const InstalledProduct& a, const InstalledProduct& b) {
+    int numeric = sys::CompareVersions(a.version, b.version);
+    if (numeric != 0) return numeric > 0;
+    if (a.release && b.release) return ver::Compare(*a.release, *b.release) > 0;
+    return a.release.has_value() && !b.release.has_value();
+}
+
+}  // namespace
+
 std::optional<InstalledProduct> Newest(const std::vector<InstalledProduct>& products) {
     std::optional<InstalledProduct> best;
     for (const InstalledProduct& p : products) {
-        if (!best || sys::CompareVersions(p.version, best->version) > 0) best = p;
+        if (!best || IsNewer(p, *best)) best = p;
     }
     return best;
 }
@@ -289,6 +305,22 @@ Result Uninstall(const std::wstring& productCode, const fs::path& log, const Pro
     return RunWithUi(log, onProgress, [&]() {
         return MsiConfigureProductExW(productCode.c_str(), INSTALLLEVEL_DEFAULT, INSTALLSTATE_ABSENT, L"REBOOT=ReallySuppress");
     });
+}
+
+Result Replace(const std::wstring& oldProductCode, const fs::path& package, const std::wstring& properties, const fs::path& log,
+               const ProgressFn& onProgress) {
+    // 卸载占前 30%，安装占其余
+    constexpr int kUninstallShare = 30;
+    Result removed = RunWithUi(log, [&](int pct) {
+        if (onProgress) onProgress(pct * kUninstallShare / 100);
+    }, [&]() {
+        return MsiConfigureProductExW(oldProductCode.c_str(), INSTALLLEVEL_DEFAULT, INSTALLSTATE_ABSENT, L"REBOOT=ReallySuppress");
+    });
+    if (!removed.Ok()) return removed;
+
+    return RunWithUi(log, [&](int pct) {
+        if (onProgress) onProgress(kUninstallShare + pct * (100 - kUninstallShare) / 100);
+    }, [&]() { return MsiInstallProductW(package.c_str(), properties.c_str()); }, true);
 }
 
 }  // namespace msi
