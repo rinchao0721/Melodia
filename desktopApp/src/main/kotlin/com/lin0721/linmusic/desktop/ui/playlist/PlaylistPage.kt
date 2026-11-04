@@ -773,7 +773,7 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (owner.isNotBlank() || !avatarUrl.isNullOrBlank()) {
                 Row(
                     Modifier.clip(RoundedCornerShape(4.dp)).then(
                         if (creatorId != null) {
@@ -788,12 +788,26 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
                         Cover(avatarUrl, 24.dp, shape = CircleShape, modifier = Modifier.padding(end = 8.dp))
                     }
                     if (owner.isNotBlank()) {
-                        Text(owner, color = DesktopColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            owner,
+                            color = DesktopColors.TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
                     }
                 }
-                if (owner.isNotBlank()) Text(" · ", color = DesktopColors.TextGray, fontSize = 14.sp)
-                Text(summary, color = DesktopColors.TextGray, fontSize = 14.sp)
             }
+            Text(
+                summary,
+                color = DesktopColors.TextGray,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
         }
     }
 }
