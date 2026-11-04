@@ -912,7 +912,7 @@ internal fun settingsEntries(
                 val update = availableUpdate
                 SettingRow(
                     title = "当前版本",
-                    subtitle = update?.let { "发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
+                    subtitle = update?.let { "${appVersionLabel()} → 发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
                         ?: appVersionLabel(),
                     subtitleColor = if (update != null) DesktopColors.Accent else DesktopColors.TextGray
                 ) {
