@@ -77,7 +77,6 @@ internal fun SearchTopBar(
     onFieldFocused: () -> Unit,
     onCancel: () -> Unit,
     onOpenSidebar: () -> Unit,
-    onAvatarClickLoggedOut: () -> Unit,
     onOpenRecognition: () -> Unit
 ) {
     val isDiscovery = mode == SearchMode.Discovery
@@ -112,7 +111,7 @@ internal fun SearchTopBar(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .size(36.dp)
-                            .pressable(MelodiaPress.Icon) { onAvatarClickLoggedOut() }
+                            .pressable(MelodiaPress.Icon) { onOpenSidebar() }
                     )
                 }
                 Spacer(modifier = Modifier.width(10.dp))

@@ -37,7 +37,8 @@ import com.lin0721.linmusic.core.ui.theme.PillRadiusLarge
  // 侧边栏
 @Composable
 fun ProfileSidebar(
-    userProfile: UserProfile,
+    userProfile: UserProfile?,
+    onLogin: () -> Unit,
     onLogout: () -> Unit,
     onDismiss: () -> Unit,
     onNavigateToProfile: (uid: Long) -> Unit,
@@ -55,32 +56,54 @@ fun ProfileSidebar(
             .background(MelodiaColors.ShellFill)
             .statusBarsPadding() // 避开状态栏
     ) {
-        // 1. 头部：用户资料区
+        // 1. 头部：用户资料区，未登录时点击去登录
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .pressable(MelodiaPress.Row) {
-                    onNavigateToProfile(userProfile.uid)
+                    if (userProfile != null) {
+                        onNavigateToProfile(userProfile.uid)
+                    } else {
+                        onDismiss()
+                        onLogin()
+                    }
                 }
                 .padding(horizontal = 20.dp, vertical = MelodiaSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 头像
-            AsyncImage(
-                model = "${userProfile.avatarUrl}?param=200y200",
-                contentDescription = null,
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
+            if (userProfile != null) {
+                AsyncImage(
+                    model = "${userProfile.avatarUrl}?param=200y200",
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MelodiaColors.Overlay.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 
             // 昵称与查看资料
             Column {
                 Text(
-                    text = userProfile.nickname,
+                    text = userProfile?.nickname ?: "未登录",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MelodiaColors.TextPrimary,
@@ -88,7 +111,7 @@ fun ProfileSidebar(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "查看个人资料",
+                    text = if (userProfile != null) "查看个人资料" else "点击登录",
                     fontSize = 13.sp,
                     color = MelodiaColors.TextSecondary
                 )
@@ -104,6 +127,11 @@ fun ProfileSidebar(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // 需要账号的入口，未登录时改为弹登录
+        val withLogin: (() -> Unit) -> () -> Unit = { navigate ->
+            { onDismiss(); if (userProfile != null) navigate() else onLogin() }
+        }
+
         // 2. 菜单区。每项跳二级页，进入前先收起抽屉
         Column(
             modifier = Modifier
@@ -113,27 +141,27 @@ fun ProfileSidebar(
             SidebarMenuItem(
                 icon = Icons.Outlined.History,
                 title = "最近播放",
-                onClick = { onDismiss(); onNavigateToRecentPlay() }
+                onClick = withLogin(onNavigateToRecentPlay)
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.Insights,
                 title = "听歌数据",
-                onClick = { onDismiss(); onNavigateToListenData() }
+                onClick = withLogin(onNavigateToListenData)
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.CloudQueue,
                 title = "我的云盘",
-                onClick = { onDismiss(); onNavigateToCloud() }
+                onClick = withLogin(onNavigateToCloud)
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.FileDownload,
                 title = "下载管理",
-                onClick = { onDismiss(); onNavigateToDownloads() }
+                onClick = withLogin(onNavigateToDownloads)
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.Notifications,
                 title = "消息",
-                onClick = { onDismiss(); onNavigateToMessage() }
+                onClick = withLogin(onNavigateToMessage)
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.Settings,
@@ -143,43 +171,45 @@ fun ProfileSidebar(
         }
 
         // 3. 底部
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            // Surface 自带 onClick，插不进 clickable，缩放走 pressScale 并共用 interactionSource
-            val interactionSource = remember { MutableInteractionSource() }
-
-            Surface(
-                onClick = onLogout,
+        if (userProfile != null) {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .pressScale(MelodiaPress.Action, interactionSource),
-                shape = RoundedCornerShape(PillRadiusLarge),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, MelodiaColors.Accent.copy(alpha = 0.6f)),
-                interactionSource = interactionSource
+                    .padding(20.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                // Surface 自带 onClick，插不进 clickable，缩放走 pressScale 并共用 interactionSource
+                val interactionSource = remember { MutableInteractionSource() }
+
+                Surface(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .pressScale(MelodiaPress.Action, interactionSource),
+                    shape = RoundedCornerShape(PillRadiusLarge),
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, MelodiaColors.Accent.copy(alpha = 0.6f)),
+                    interactionSource = interactionSource
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
-                        tint = MelodiaColors.Accent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "退出登录",
-                        color = MelodiaColors.AccentText,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = null,
+                            tint = MelodiaColors.Accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "退出登录",
+                            color = MelodiaColors.AccentText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

@@ -64,7 +64,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
+import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
+import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -229,6 +231,9 @@ fun MelodiaApp() {
     }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
+    // 侧边栏未登录入口触发的登录，侧栏可从任意页面拉出，登录界面挂在全局层
+    var showSidebarLoginSheet by remember { mutableStateOf(false) }
+    var showSidebarWebLogin by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     val miniPlayerSuppressor = remember { MiniPlayerSuppressor() }
@@ -374,8 +379,7 @@ fun MelodiaApp() {
 
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
     val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
-    val isDrawerDraggable = userProfile != null &&
-        (sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked))
+    val isDrawerDraggable = sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
 
     CompositionLocalProvider(
         LocalMelodiaWindowSizeClass provides windowSizeClass,
@@ -409,35 +413,34 @@ fun MelodiaApp() {
             .skinBackdropRoot(MelodiaColors.Background)
     ) {
         // 1. 侧边栏层 (位于最底层或同步移动)
-        userProfile?.let { profile ->
-            Box(
-                modifier = Modifier
-                    .width(SidebarWidth)
-                    .fillMaxHeight()
-                    .graphicsLayer {
-                        translationX = sidebar.offsetX - sidebar.widthPx
-                        alpha = 0.5f + (0.5f * sidebar.progress)
-                    }
-            ) {
-                ProfileSidebar(
-                    userProfile = profile,
-                    onLogout = {
-                        viewModel.logout()
-                        sidebar.close()
-                    },
-                    onDismiss = { sidebar.close() },
-                    onNavigateToProfile = { uid ->
-                        sidebar.close()
-                        navigation.openProfile(uid)
-                    },
-                    onNavigateToRecentPlay = { navigation.openRecentPlay() },
-                    onNavigateToListenData = { navigation.openListenData() },
-                    onNavigateToCloud = { navigation.openCloud() },
-                    onNavigateToDownloads = { navigation.openDownloads() },
-                    onNavigateToMessage = { navigation.openMessage() },
-                    onNavigateToSettings = { navigation.navigateTo(Screen.Settings) }
-                )
-            }
+        Box(
+            modifier = Modifier
+                .width(SidebarWidth)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    translationX = sidebar.offsetX - sidebar.widthPx
+                    alpha = 0.5f + (0.5f * sidebar.progress)
+                }
+        ) {
+            ProfileSidebar(
+                userProfile = userProfile,
+                onLogin = { showSidebarLoginSheet = true },
+                onLogout = {
+                    viewModel.logout()
+                    sidebar.close()
+                },
+                onDismiss = { sidebar.close() },
+                onNavigateToProfile = { uid ->
+                    sidebar.close()
+                    navigation.openProfile(uid)
+                },
+                onNavigateToRecentPlay = { navigation.openRecentPlay() },
+                onNavigateToListenData = { navigation.openListenData() },
+                onNavigateToCloud = { navigation.openCloud() },
+                onNavigateToDownloads = { navigation.openDownloads() },
+                onNavigateToMessage = { navigation.openMessage() },
+                onNavigateToSettings = { navigation.navigateTo(Screen.Settings) }
+            )
         }
 
         // 2. 主页面内容层
@@ -532,7 +535,7 @@ fun MelodiaApp() {
                             modifier = Modifier.align(Alignment.BottomCenter),
                             currentScreen = navigation.currentScreen,
                             showCreateSheet = showCreateSheet,
-                            isLoginScreenVisible = isLoginScreenVisible,
+                            isLoginScreenVisible = isLoginScreenVisible || showSidebarWebLogin,
                             isMiniPlayerHidden = miniPlayerSuppressor.requestCount > 0,
                             isPanelDocked = isPanelDocked,
                             currentTrack = currentTrack,
@@ -782,6 +785,34 @@ fun MelodiaApp() {
                         likeMode = miniPlayerLikeMode,
                         modifier = modifier
                     )
+                }
+            )
+        }
+
+        if (showSidebarLoginSheet) {
+            LoginBottomSheet(
+                onDismiss = { showSidebarLoginSheet = false },
+                onWebLogin = {
+                    showSidebarLoginSheet = false
+                    showSidebarWebLogin = true
+                },
+                onLoginSuccess = { cookies ->
+                    showSidebarLoginSheet = false
+                    viewModel.handleLoginSuccess(cookies)
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showSidebarWebLogin,
+            enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
+            exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
+        ) {
+            WebViewLoginScreen(
+                onClose = { showSidebarWebLogin = false },
+                onLoginSuccess = { cookies ->
+                    showSidebarWebLogin = false
+                    viewModel.handleLoginSuccess(cookies)
                 }
             )
         }

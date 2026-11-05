@@ -105,13 +105,8 @@ fun HomeScreen(
         if (showNewWorksFeed) newWorksViewModel.loadIfNeeded()
     }
 
-    val onAvatarClick: () -> Unit = {
-        if (userProfile != null) {
-            onOpenSidebar()
-        } else {
-            showLoginSheet = true
-        }
-    }
+    // 未登录也打开侧栏，侧栏里提供登录与设置入口
+    val onAvatarClick: () -> Unit = onOpenSidebar
 
     Box(
         modifier = Modifier

@@ -141,7 +141,6 @@ fun SearchScreen(
             onFieldFocused = viewModel::editQuery,
             onCancel = viewModel::cancelSearch,
             onOpenSidebar = onOpenSidebar,
-            onAvatarClickLoggedOut = { ToastManager.showToast("请先在主页登录以显示侧边栏哦！") },
             onOpenRecognition = onOpenRecognition
         )
 
