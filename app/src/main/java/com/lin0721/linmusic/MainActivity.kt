@@ -12,6 +12,7 @@ import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import android.Manifest
+import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -19,6 +20,7 @@ import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
+import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
@@ -55,7 +57,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaTheme
 import com.lin0721.linmusic.core.ui.theme.UiMotion
 import com.lin0721.linmusic.core.ui.theme.scaledBy
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
@@ -123,6 +127,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // 应用内深浅模式同步给系统，冷启动时系统启动页据此取 values / values-night
+        lifecycleScope.launch {
+            settingsPreferences.themeSettings.map { it.mode }.distinctUntilChanged().collect(::syncSystemNightMode)
+        }
+
         // 首帧即按已存主题渲染，避免先以深色绘制再跳变
         val initialThemeSettings = runCatching {
             runBlocking { settingsPreferences.themeSettings.first() }
@@ -158,7 +167,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 MelodiaTheme(themeSettings, activeSkin.skin, activeSkin.backdrop) {
                     val palette = LocalMelodiaPalette.current
-                    // 系统栏图标与窗口底色随主题深浅切换；启动页底色仍固定深色
+                    // 系统栏图标与窗口底色随主题深浅切换
                     LaunchedEffect(palette.isDark, palette.pane) {
                         applySystemBarStyle(palette.isDark)
                         window.setBackgroundDrawable(ColorDrawable(palette.pane.toArgb()))
@@ -199,6 +208,18 @@ class MainActivity : ComponentActivity() {
                 startService(Intent(this@MainActivity, FloatingLyricService::class.java))
             }
         }
+    }
+
+    // 应用级夜间模式 API 31 起才有，更低版本启动页只能跟随系统
+    private fun syncSystemNightMode(mode: ThemeMode) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val uiModeManager = getSystemService(UiModeManager::class.java) ?: return
+        val nightMode = when (mode) {
+            ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+            ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+            ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+        }
+        runCatching { uiModeManager.setApplicationNightMode(nightMode) }
     }
 
     // Android 13+ 需要运行时授权才能显示系统通知

@@ -7,6 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <!-- 启动页底色，与深色主题大背景同色 -->
-    <color name="window_background">#FF121212</color>
+    <!-- 启动页底色，与浅色主题大背景同色；深色见 values-night -->
+    <color name="window_background">#FFFFFFFF</color>
 </resources>
