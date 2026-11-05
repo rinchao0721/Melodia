@@ -85,5 +85,13 @@ data class UserPlaylist(
     val userId: Long = 0,
     val creator: PlaylistCreator? = null,
     val updateTime: Long = 0,
-    val top: Boolean = false
-)
+    val top: Boolean = false,
+    // 5 为「我喜欢的音乐」，不随用户调整歌单顺序而变
+    val specialType: Int = 0
+) {
+    val isLikedPlaylist: Boolean get() = specialType == SPECIAL_TYPE_LIKED
+
+    companion object {
+        const val SPECIAL_TYPE_LIKED = 5
+    }
+}

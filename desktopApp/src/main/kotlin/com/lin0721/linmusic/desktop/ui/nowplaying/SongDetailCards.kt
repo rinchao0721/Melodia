@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +50,7 @@ import com.lin0721.linmusic.feature.player.presentation.DetailRow
 import com.lin0721.linmusic.feature.player.presentation.songDetailRows
 
 private val LabelWidth = 70.dp
-private val LabelColor = DesktopColors.TextGray.copy(alpha = 0.6f)
+private val LabelColor: Color @Composable @ReadOnlyComposable get() = DesktopColors.TextTertiary
 
 // 歌曲详情：曲风、专辑、语种、发行时间、制作人员等；专辑可跳转，制作人员可展开按角色查看
 @Composable
@@ -86,7 +87,7 @@ private fun DetailRowView(row: DetailRow, onClick: (() -> Unit)?) {
                     Modifier
                 }
             )
-            .background(if (onClick != null && hovered) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (onClick != null && hovered) DesktopColors.Hover else Color.Transparent)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -142,12 +143,13 @@ private fun CreatorsDialog(roles: List<SongWikiCreatorRole>, onDismiss: () -> Un
 // 回忆坐标：首次听到的时间与累计播放次数
 @Composable
 fun MusicMemoryCard(memory: SongMusicMemory, modifier: Modifier = Modifier) {
-    val emphasis = remember { SpanStyle(color = Color.White, fontWeight = FontWeight.Medium) }
-    val text = remember(memory) { buildMusicMemoryText(memory, emphasis) }
+    val emphasisColor = DesktopColors.TextPrimary
+    val emphasis = remember(emphasisColor) { SpanStyle(color = emphasisColor, fontWeight = FontWeight.Medium) }
+    val text = remember(memory, emphasis) { buildMusicMemoryText(memory, emphasis) }
     InfoCard("回忆坐标", modifier) {
         Text(
             text,
-            color = Color.White.copy(alpha = 0.8f),
+            color = DesktopColors.TextPrimary.copy(alpha = 0.8f),
             fontSize = 14.sp,
             lineHeight = 24.sp,
             modifier = Modifier.padding(top = 12.dp)

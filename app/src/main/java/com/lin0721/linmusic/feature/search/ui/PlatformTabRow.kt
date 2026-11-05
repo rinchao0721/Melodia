@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.flow.StateFlow
 
 // 搜索结果页的平台切换 Tab，品牌色圆点加已加载条数，未切换过的平台不会发起请求
@@ -38,7 +39,7 @@ internal fun PlatformTabRow(
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         edgePadding = 20.dp,
-        divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.08f)) }
+        divider = { HorizontalDivider(color = MelodiaColors.Divider) }
     ) {
         platforms.forEach { platform ->
             val state = externalResults[platform]?.collectAsStateWithLifecycle()?.value
@@ -47,7 +48,7 @@ internal fun PlatformTabRow(
                 selected = platform == selected,
                 onClick = { onSelect(platform) },
                 selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = Color.LightGray,
+                unselectedContentColor = MelodiaColors.PillContent,
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Spacer(
@@ -69,7 +70,7 @@ internal fun PlatformTabRow(
                                 color = if (state is ExternalSearchUiState.Error) {
                                     MaterialTheme.colorScheme.error
                                 } else {
-                                    Color.Gray
+                                    MelodiaColors.HintText
                                 }
                             )
                         }

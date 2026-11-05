@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -31,6 +32,7 @@ import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
@@ -86,6 +88,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +102,8 @@ fun PlaylistScreen(
     onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
+    val settingsPreferences = koinInject<com.lin0721.linmusic.core.preferences.SettingsPreferences>()
+    val showTrackIndex by settingsPreferences.playlistTrackIndexEnabled.collectAsStateWithLifecycle(false)
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
@@ -106,6 +111,8 @@ fun PlaylistScreen(
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val unplayableIds by viewModel.unplayableIds.collectAsStateWithLifecycle()
+    val externalTracks by viewModel.externalTracks.collectAsStateWithLifecycle()
+    val externalPlatforms = remember(externalTracks) { externalTracks.mapValues { it.value.platform } }
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile  by viewModel.userProfile.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
@@ -192,7 +199,7 @@ fun PlaylistScreen(
     // reorderedTracks 是引用不变的 SnapshotStateList，remember(keys) 感知不到其内容变化，必须用 derivedStateOf 才能正确响应拖拽
     val isOrderChanged by remember {
         derivedStateOf {
-            val current = (uiState as? PlaylistUiState.Success)?.playlist?.tracks.orEmpty()
+            val current = (uiState as? PlaylistUiState.Success)?.playlist?.tracks.orEmpty().filter { it.id > 0L }
             reorderedTracks.isNotEmpty() && reorderedTracks != current
         }
     }
@@ -232,7 +239,7 @@ fun PlaylistScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             is PlaylistUiState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -427,7 +434,7 @@ fun PlaylistScreen(
                         }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
                         PlaylistReorderTopBar(
                             overlayHeight = overlayHeight,
                             statusBarHeight = statusBarHeight,
@@ -552,7 +559,8 @@ fun PlaylistScreen(
                             // 排序保存是全量覆盖，必须先补全未加载的曲目，否则会把服务端剩余部分删掉
                             viewModel.ensureAllTracksLoaded { allTracks ->
                                 reorderedTracks.clear()
-                                reorderedTracks.addAll(allTracks)
+                                // 外部歌曲的位置跟随加入时间，不参与手动排序
+                                reorderedTracks.addAll(allTracks.filter { it.id > 0L })
                                 isReorderMode = true
                             }
                         },
@@ -565,6 +573,8 @@ fun PlaylistScreen(
                     isPlaying      = isPlaying,
                     likedSongIds   = likedSongIds,
                     unplayableIds  = unplayableIds,
+                    externalPlatforms = externalPlatforms,
+                    showTrackIndex = showTrackIndex,
                     collectState   = collectState,
                     isLoggedIn     = userProfile != null,
                     recommendedSongs = state.recommendedSongs,
@@ -939,7 +949,7 @@ fun PlaylistScreen(
                     }
 
                     HorizontalDivider(
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = MelodiaColors.Divider,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
                     )
 
@@ -1004,24 +1014,26 @@ fun PlaylistScreen(
                                 }
                             }
                         )
-                        add(
-                            PlaylistMenuItem(
-                                icon = Icons.Default.Share,
-                                title = "分享$resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                sharePlaylistOrAlbum(playlist.name, playlist.id)
-                            }
-                        )
-                        add(
-                            PlaylistMenuItem(
-                                icon = Icons.Default.Download,
-                                title = "下载$resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                showDownloadQualitySheet = true
-                            }
-                        )
+                        if (!isPluginCollectionId(playlist.id)) {
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Share,
+                                    title = "分享$resourceLabel"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    sharePlaylistOrAlbum(playlist.name, playlist.id)
+                                }
+                            )
+                            add(
+                                PlaylistMenuItem(
+                                    icon = Icons.Default.Download,
+                                    title = "下载$resourceLabel"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    showDownloadQualitySheet = true
+                                }
+                            )
+                        }
                         if (isManageable) {
                             add(
                                 PlaylistMenuItem(

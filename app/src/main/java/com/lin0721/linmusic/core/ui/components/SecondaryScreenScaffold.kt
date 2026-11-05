@@ -15,10 +15,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
 // 侧边栏二级页通用脚手架。
 // wideLayout 为真时平板上不再限宽，供网格这类需要铺满内容区的页面使用
@@ -39,7 +38,7 @@ fun SecondaryScreenScaffold(
                         text = title,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MelodiaColors.TextPrimary
                     )
                 },
                 navigationIcon = {
@@ -47,15 +46,15 @@ fun SecondaryScreenScaffold(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
-                            tint = Color.White
+                            tint = MelodiaColors.TextPrimary
                         )
                     }
                 },
                 actions = actions,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MelodiaColors.PageFill)
             )
         },
-        containerColor = BackgroundDark
+        containerColor = MelodiaColors.PageFill
     ) { innerPadding ->
         if (wideLayout) {
             Column(

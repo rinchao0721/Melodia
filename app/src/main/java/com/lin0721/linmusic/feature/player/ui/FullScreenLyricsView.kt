@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -99,7 +100,9 @@ fun FullScreenLyricsView(
     onMoreClick: () -> Unit,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     coverage: LyricsOverlayCoverage? = null,
-    isFullyEntered: () -> Boolean = { true }
+    isFullyEntered: () -> Boolean = { true },
+    // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
+    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
 ) {
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -312,6 +315,71 @@ fun FullScreenLyricsView(
                     .hazeChild(state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f))
                     .windowInsetsPadding(topSafeInsets)
             ) {
+                val lyricsList: @Composable (Modifier) -> Unit = { listModifier ->
+                    FullScreenLyricsList(
+                        centerFirstLine = fullScreenLyricCenterFirstLine,
+                        modifier = listModifier,
+                        lyrics = lyrics,
+                        currentIndex = currentIndex,
+                        activeIndices = activeIndices,
+                        isLoading = isLoading,
+                        isUserScrolling = isUserScrolling,
+                        highlightColor = highlightColor,
+                        currentPositionProvider = lyricPositionProvider,
+                        lazyListState = lazyListState,
+                        viewportHeightPx = dragState.viewportHeightPx,
+                        onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
+                        gestureModifier = gestureModifier,
+                        fontSize = effectiveLyricTextSize,
+                        alignment = fullScreenLyricAlignment,
+                        secondaryMode = fullScreenLyricSecondaryMode,
+                        lineSpacing = fullScreenLyricLineSpacing,
+                        secondarySpacing = fullScreenLyricSecondarySpacing,
+                        advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                        karaokeGlowEffect = fullScreenKaraokeGlowEffect,
+                        isPlaying = isPlaying,
+                        onSeek = handleSeek,
+                        onLyricClick = { line ->
+                            if (fullScreenLyricAutoHideControls && areControlsVisible) {
+                                // 当控制栏显示时，轻触屏幕任意区域（包括歌词行）均立即隐藏控制栏，且不误触跳转进度
+                                autoHideJob?.cancel()
+                                areControlsVisible = false
+                            } else {
+                                // 控制栏处于隐藏状态（或未开启自动隐藏）时，点击歌词行正常跳转播放进度
+                                timerJob?.cancel()
+                                handleSeek(line.timeMs)
+                            }
+                        }
+                    )
+                }
+
+                if (pluginContent != null) {
+                    // 操作插件布局里的控件时推迟自动隐藏
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .pointerInput(fullScreenLyricAutoHideControls) {
+                                if (fullScreenLyricAutoHideControls) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            awaitPointerEvent(PointerEventPass.Initial)
+                                            if (areControlsVisible) scheduleAutoHide()
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        pluginContent(
+                            LyricsPageSlots(
+                                lyricsList = lyricsList,
+                                controlsVisible = areControlsVisible,
+                                onClose = onClose,
+                                onOpenSettings = { showSettingsSheet = true }
+                            )
+                        )
+                    }
+                } else {
                 AnimatedVisibility(
                     visible = areControlsVisible,
                     enter = fadeIn(uiTween(260)) + slideInVertically(uiTween(260)) { -it / 3 },
@@ -338,43 +406,7 @@ fun FullScreenLyricsView(
                     )
                 }
 
-                FullScreenLyricsList(
-                    centerFirstLine = fullScreenLyricCenterFirstLine,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    lyrics = lyrics,
-                    currentIndex = currentIndex,
-                    activeIndices = activeIndices,
-                    isLoading = isLoading,
-                    isUserScrolling = isUserScrolling,
-                    highlightColor = highlightColor,
-                    currentPositionProvider = lyricPositionProvider,
-                    lazyListState = lazyListState,
-                    viewportHeightPx = dragState.viewportHeightPx,
-                    onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
-                    gestureModifier = gestureModifier,
-                    fontSize = effectiveLyricTextSize,
-                    alignment = fullScreenLyricAlignment,
-                    secondaryMode = fullScreenLyricSecondaryMode,
-                    lineSpacing = fullScreenLyricLineSpacing,
-                    secondarySpacing = fullScreenLyricSecondarySpacing,
-                    advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
-                    karaokeGlowEffect = fullScreenKaraokeGlowEffect,
-                    isPlaying = isPlaying,
-                    onSeek = handleSeek,
-                    onLyricClick = { line ->
-                        if (fullScreenLyricAutoHideControls && areControlsVisible) {
-                            // 当控制栏显示时，轻触屏幕任意区域（包括歌词行）均立即隐藏控制栏，且不误触跳转进度
-                            autoHideJob?.cancel()
-                            areControlsVisible = false
-                        } else {
-                            // 控制栏处于隐藏状态（或未开启自动隐藏）时，点击歌词行正常跳转播放进度
-                            timerJob?.cancel()
-                            handleSeek(line.timeMs)
-                        }
-                    }
-                )
+                lyricsList(Modifier.fillMaxWidth().weight(1f))
 
                 AnimatedVisibility(
                     visible = areControlsVisible,
@@ -409,6 +441,7 @@ fun FullScreenLyricsView(
                         onShareLyrics = handleShareLyrics,
                         onLyricsSettingsClick = { showSettingsSheet = true }
                     )
+                }
                 }
             }
 
@@ -482,3 +515,11 @@ fun FullScreenLyricsView(
         }
     }
 }
+
+// 交给插件布局的页面能力：歌词列表、控件是否显示、关闭与歌词设置
+class LyricsPageSlots(
+    val lyricsList: @Composable (Modifier) -> Unit,
+    val controlsVisible: Boolean,
+    val onClose: () -> Unit,
+    val onOpenSettings: () -> Unit
+)

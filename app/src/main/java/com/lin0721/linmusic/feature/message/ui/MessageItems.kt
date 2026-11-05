@@ -18,15 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.cloud.domain.formatUploadedAt
 import com.lin0721.linmusic.feature.message.domain.CommentMessage
 import com.lin0721.linmusic.feature.message.domain.ForwardMessage
@@ -55,7 +54,7 @@ private fun MessageRowFrame(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
+                .background(MelodiaColors.Fill)
                 .then(if (userClick != null) Modifier.clickable(onClick = userClick) else Modifier),
             contentScale = ContentScale.Crop
         )
@@ -65,7 +64,7 @@ private fun MessageRowFrame(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = user?.nickname?.takeIf { it.isNotBlank() } ?: "网易云用户",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -74,7 +73,7 @@ private fun MessageRowFrame(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = listOf(action, formatUploadedAt(time)).filter { it.isNotBlank() }.joinToString(" · "),
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -90,7 +89,7 @@ private fun MessageContentText(text: String) {
     Spacer(modifier = Modifier.height(6.dp))
     Text(
         text = text.trim(),
-        color = Color.White,
+        color = MelodiaColors.TextPrimary,
         fontSize = 14.sp,
         maxLines = 5,
         overflow = TextOverflow.Ellipsis
@@ -102,7 +101,7 @@ private fun MessageSubText(text: String) {
     Spacer(modifier = Modifier.height(6.dp))
     Text(
         text = text,
-        color = TextGray,
+        color = MelodiaColors.TextSecondary,
         fontSize = 12.sp,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
@@ -114,14 +113,14 @@ private fun MessageQuote(text: String) {
     Spacer(modifier = Modifier.height(6.dp))
     Text(
         text = text,
-        color = TextGray,
+        color = MelodiaColors.TextSecondary,
         fontSize = 12.sp,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.White.copy(alpha = 0.06f))
+            .background(MelodiaColors.Overlay.copy(alpha = 0.06f))
             .padding(horizontal = 10.dp, vertical = 6.dp)
     )
 }
@@ -209,7 +208,7 @@ fun NoticeRow(
 private fun UnsupportedNoticeRow(time: Long) {
     Text(
         text = listOf("暂不支持的消息类型", formatUploadedAt(time)).filter { it.isNotBlank() }.joinToString(" · "),
-        color = TextGray,
+        color = MelodiaColors.TextSecondary,
         fontSize = 13.sp,
         modifier = Modifier
             .fillMaxWidth()

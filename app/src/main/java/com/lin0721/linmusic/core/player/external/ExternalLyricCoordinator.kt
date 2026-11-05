@@ -108,7 +108,12 @@ class ExternalLyricCoordinator(
                         title = originalTitle,
                         artist = originalArtist,
                         durationMs = originalDurationMs,
-                        lines = currentLines
+                        lines = currentLines,
+                        showTranslation = isShowTranslation
+                    )
+                    lyriconAdapter.updatePlaybackState(
+                        playerManager.isPlaying.value,
+                        playerManager.currentPosition.value
                     )
                 }
             }
@@ -131,6 +136,7 @@ class ExternalLyricCoordinator(
                 onMetadataChanged?.invoke()
                 dispatchSuperLyricCurrentLine()
                 refreshFluidCloudLyric()
+                lyriconAdapter.setDisplayTranslation(show)
             }
         }
     }
@@ -185,6 +191,18 @@ class ExternalLyricCoordinator(
             currentLyricInfoJson = ""
             lyricFetchJob?.cancel()
 
+            // 先推无歌词占位，避免新歌加载期间或加载失败时残留上一首歌词
+            if (isLyriconEnabled && songId != -1L) {
+                lyriconAdapter.updateSong(
+                    songId = songId.toString(),
+                    title = originalTitle,
+                    artist = originalArtist,
+                    durationMs = originalDurationMs,
+                    lines = emptyList(),
+                    showTranslation = isShowTranslation
+                )
+            }
+
             if (songId != -1L) {
                 lyricFetchJob = scope.launch {
                     lyricsResolver.lyricsFor(songId).collect { result ->
@@ -200,7 +218,8 @@ class ExternalLyricCoordinator(
                                     title = originalTitle,
                                     artist = originalArtist,
                                     durationMs = originalDurationMs,
-                                    lines = currentLines
+                                    lines = currentLines,
+                                    showTranslation = isShowTranslation
                                 )
                             }
                             dispatchSuperLyricCurrentLine()

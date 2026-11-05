@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,8 +42,8 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
@@ -134,7 +133,7 @@ private fun MusicPortraitSummary(portrait: StylePortrait) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (expanded) portrait.content else portrait.content.lineSequence().first(),
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.5.sp,
                 lineHeight = 20.sp,
                 maxLines = if (expanded) Int.MAX_VALUE else 1,
@@ -143,7 +142,7 @@ private fun MusicPortraitSummary(portrait: StylePortrait) {
             if (expanded && portrait.dataTip.isNotBlank()) {
                 Text(
                     text = portrait.dataTip,
-                    color = TextGray.copy(alpha = 0.6f),
+                    color = MelodiaColors.TextTertiary,
                     fontSize = 10.5.sp,
                     modifier = Modifier.padding(top = 6.dp)
                 )
@@ -152,7 +151,7 @@ private fun MusicPortraitSummary(portrait: StylePortrait) {
         Icon(
             imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
             contentDescription = if (expanded) "收起画像" else "展开画像",
-            tint = TextGray,
+            tint = MelodiaColors.TextSecondary,
             modifier = Modifier.padding(start = 6.dp).size(18.dp)
         )
     }
@@ -208,7 +207,7 @@ private fun TileLabel(title: String, subtitle: String, modifier: Modifier = Modi
     Column(modifier = modifier.padding(12.dp)) {
         Text(
             text = title,
-            color = Color.White,
+            color = MelodiaColors.TextPrimary,
             fontSize = 17.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
@@ -217,7 +216,7 @@ private fun TileLabel(title: String, subtitle: String, modifier: Modifier = Modi
         if (subtitle.isNotBlank()) {
             Text(
                 text = subtitle,
-                color = Color.White.copy(alpha = 0.7f),
+                color = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,

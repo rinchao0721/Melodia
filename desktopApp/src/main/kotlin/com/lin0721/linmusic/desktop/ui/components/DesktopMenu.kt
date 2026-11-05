@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -59,6 +58,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import kotlin.math.roundToInt
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
@@ -113,6 +114,7 @@ fun DesktopMenu(
     content: @Composable MenuScope.() -> Unit
 ) {
     if (!expanded) return
+    DesktopOverlays.Track()
     val scope = remember { MenuScope() }
     val density = LocalDensity.current
     val positionProvider = remember(offset, width, density) { MenuPositionProvider(offset, width, density, scope) }
@@ -143,7 +145,7 @@ fun DesktopMenu(
                                 layout(placeable.width, y + placeable.height) { placeable.place(0, y) }
                             }
                         ) {
-                            Column(Modifier.menuPanel(slot.width)) { slot.content.value() }
+                            Column(Modifier.menuPanel(slot.width, DesktopColors.PopupSurface)) { slot.content.value() }
                         }
                     }
                 }
@@ -162,15 +164,16 @@ fun DesktopMenu(
             Column(
                 Modifier.onSizeChanged { scope.mainHeightPx = it.height }
                     .onGloballyPositioned { scope.mainTopPx = it.positionInWindow().y }
-                    .menuPanel(width)
+                    .menuPanel(width, DesktopColors.PopupSurface)
             ) { scope.content() }
             if (!scope.subOnLeft) subPanel()
         }
     }
 }
 
-private fun Modifier.menuPanel(width: Dp): Modifier =
-    this.width(width).shadow(PanelElevation, MenuShape).background(DesktopColors.PopupSurface, MenuShape)
+@Composable
+private fun Modifier.menuPanel(width: Dp, background: Color): Modifier =
+    this.width(width).themedShadow(PanelElevation, MenuShape).background(background, MenuShape).floatingOutline(MenuShape)
         .padding(horizontal = 4.dp, vertical = PanelVerticalPadding)
 
 // 面板左上角落在 锚点左边缘 + offset.x、锚点下边缘 + offset.y，放不下时翻转；

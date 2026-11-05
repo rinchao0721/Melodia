@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.player
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
@@ -102,9 +103,9 @@ class MpvPlaybackControllerCacheTest {
             arrayOf(PlaybackRepository::class.java)
         ) { _, method, _ ->
             when {
-                method.name == "getSongUrl" -> {
+                method.name == "getSongPlaybackInfo" -> {
                     urlRequests.incrementAndGet()
-                    flowOf(if (urlFails) Result.failure<String>(IllegalStateException("离线")) else Result.success(url))
+                    flowOf(if (urlFails) Result.failure<SongPlaybackInfo>(IllegalStateException("离线")) else Result.success(SongPlaybackInfo(url)))
                 }
                 Flow::class.java.isAssignableFrom(method.returnType) -> emptyFlow<Any>()
                 else -> throw UnsupportedOperationException(method.name)

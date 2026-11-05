@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -33,17 +32,18 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.TextGray
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.window.Dialog
 import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -76,7 +76,8 @@ fun SongMoreOptionsSheet(
     onCollectClick: () -> Unit,
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    songId: Long? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -85,7 +86,7 @@ fun SongMoreOptionsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -131,7 +132,7 @@ fun SongMoreOptionsSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -140,7 +141,7 @@ fun SongMoreOptionsSheet(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = artist,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -149,14 +150,14 @@ fun SongMoreOptionsSheet(
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
             if (isLocalOnly) {
                 Text(
                     text = "本地歌曲未匹配到云端信息，仅支持部分操作",
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                 )
@@ -295,13 +296,13 @@ fun SongMoreOptionsSheet(
                         Icon(
                             imageVector = Icons.Rounded.Tune,
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
+                            tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
                             text = "音质: ${getQualityDisplayName(currentQuality)}",
-                            color = Color.White,
+                            color = MelodiaColors.TextPrimary,
                             fontSize = 15.sp,
                             modifier = Modifier.weight(1f)
                         )
@@ -309,12 +310,12 @@ fun SongMoreOptionsSheet(
                         if (currentQuality == "lossless" || currentQuality == "hires" || currentQuality == "jymaster") {
                             Box(
                                 modifier = Modifier
-                                    .border(1.dp, NeteaseRed, RoundedCornerShape(4.dp))
+                                    .border(1.dp, MelodiaColors.Accent, RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "VIP",
-                                    color = NeteaseRed,
+                                    color = MelodiaColors.AccentText,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -334,7 +335,7 @@ fun SongMoreOptionsSheet(
                         ModalBottomSheet(
                             onDismissRequest = { showQualityDialog = false },
                             sheetState = qualitySheetState,
-                            containerColor = BackgroundDark,
+                            containerColor = MelodiaColors.Background,
                             shape = BottomSheetShape,
                             dragHandle = { MelodiaDragHandle() }
                         ) {
@@ -346,7 +347,7 @@ fun SongMoreOptionsSheet(
                             ) {
                                 Text(
                                     text = "选择播放音质",
-                                    color = Color.White,
+                                    color = MelodiaColors.TextPrimary,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     modifier = Modifier.padding(bottom = MelodiaSpacing.md)
@@ -371,7 +372,7 @@ fun SongMoreOptionsSheet(
                                     ) {
                                         Text(
                                             text = label,
-                                            color = if (isSelected) NeteaseRed else Color.White,
+                                            color = if (isSelected) MelodiaColors.AccentText else MelodiaColors.TextPrimary,
                                             fontSize = 15.sp,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -379,7 +380,7 @@ fun SongMoreOptionsSheet(
                                             Icon(
                                                 imageVector = Icons.Rounded.Check,
                                                 contentDescription = null,
-                                                tint = NeteaseRed,
+                                                tint = MelodiaColors.Accent,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -390,6 +391,24 @@ fun SongMoreOptionsSheet(
                     }
                 }
             }
+
+                // 插件命令，播客节目不是歌曲
+                if (!isPodcast) {
+                    val pluginCommands = LocalPluginCommands.current
+                    rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
+                        OptionRow(
+                            icon = Icons.Rounded.Extension,
+                            text = item.title,
+                            onClick = {
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                    pluginCommands?.run(item, pluginSongArgs(songId, title, artist, albumName, coverUrl))
+                                }
+                            }
+                        )
+                    }
+                }
 
                 // 9. 定时关闭
                 val timerText = if (sleepTimerRemaining > 0L) {
@@ -420,13 +439,13 @@ fun SongMoreOptionsSheet(
                     Icon(
                         imageVector = Icons.Rounded.Subtitles,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.7f),
+                        tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
                         text = "播放页小歌词",
-                        color = Color.White,
+                        color = MelodiaColors.TextPrimary,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -458,13 +477,13 @@ private fun OptionRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.7f),
+            tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = text,
-            color = Color.White,
+            color = MelodiaColors.TextPrimary,
             fontSize = 15.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

@@ -198,7 +198,7 @@ private fun CandidateRow(track: Track, selected: Boolean, onClick: () -> Unit) {
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(
                 track.name,
-                color = if (selected) DesktopColors.Accent else DesktopColors.TextPrimary,
+                color = if (selected) DesktopColors.AccentText else DesktopColors.TextPrimary,
                 fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -29,21 +29,18 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import com.lin0721.linmusic.feature.cloud.upload.UploadTask
 
-private val StatusGreen = Color(0xFF639922)
 
 // 上传进度弹窗：只读展示 CloudUploadManager 的队列状态，不持有状态。
 // 关闭弹窗只是隐藏 UI，Service 和系统通知不受影响，继续跑
@@ -63,7 +60,7 @@ fun CloudUploadProgressSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -76,7 +73,7 @@ fun CloudUploadProgressSheet(
         ) {
             Text(
                 text = "正在上传",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(bottom = 2.dp)
             )
@@ -92,12 +89,12 @@ fun CloudUploadProgressSheet(
                 LinearProgressIndicator(
                     progress = { overallProgress.coerceIn(0f, 1f) },
                     modifier = Modifier.weight(1f).height(6.dp),
-                    color = NeteaseRed,
-                    trackColor = Color.White.copy(alpha = 0.1f)
+                    color = MelodiaColors.AccentText,
+                    trackColor = MelodiaColors.Overlay.copy(alpha = 0.1f)
                 )
                 Text(
                     text = "${(overallProgress * 100).toInt()}%",
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(start = MelodiaSpacing.sm)
                 )
@@ -127,14 +124,14 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
             UploadStatus.SUCCESS -> Icon(
                 Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = StatusGreen,
+                tint = MelodiaColors.Success,
                 modifier = Modifier.size(18.dp)
             )
 
             UploadStatus.FAILED -> Icon(
                 Icons.Rounded.ErrorOutline,
                 contentDescription = null,
-                tint = NeteaseRed,
+                tint = MelodiaColors.Accent,
                 modifier = Modifier.size(18.dp)
             )
 
@@ -146,7 +143,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
             )
 
             else -> CircularProgressIndicator(
-                color = NeteaseRed,
+                color = MelodiaColors.AccentText,
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(18.dp)
             )
@@ -155,7 +152,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
         Column(modifier = Modifier.weight(1f).padding(start = MelodiaSpacing.sm)) {
             Text(
                 text = task.fileName,
-                color = if (task.status == UploadStatus.FAILED) NeteaseRed else Color.White,
+                color = if (task.status == UploadStatus.FAILED) MelodiaColors.AccentText else MelodiaColors.TextPrimary,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -164,7 +161,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
             if (task.status == UploadStatus.FAILED && errorMessage != null) {
                 Text(
                     text = errorMessage,
-                    color = NeteaseRed.copy(alpha = 0.8f),
+                    color = MelodiaColors.AccentText.copy(alpha = 0.8f),
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -189,7 +186,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
                 Icon(
                     Icons.Rounded.Refresh,
                     contentDescription = "重试",
-                    tint = Color.White,
+                    tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(18.dp)
                 )
             }

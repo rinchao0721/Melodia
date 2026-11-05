@@ -30,7 +30,6 @@ import javax.imageio.ImageIO
 private const val TAG = "TaskbarThumbnail"
 
 private const val THBN_CLICKED = 0x1800
-private const val IMMERSIVE_COLOR_SET = "ImmersiveColorSet"
 private const val DEFAULT_ICON_SIZE_PX = 16
 private const val SHUTDOWN_WAIT_SECONDS = 1L
 
@@ -133,7 +132,7 @@ internal class WindowsTaskbarThumbnail(private val effects: WindowsWindowEffects
             }
             User32.WM_COMMAND -> onCommand(wParam)
             User32.WM_SETTINGCHANGE -> {
-                if (wParam == 0L && lParam != 0L && Pointer(lParam).getWideString(0) == IMMERSIVE_COLOR_SET) {
+                if (isImmersiveColorSetChange(wParam, lParam)) {
                     post { syncThemeAndButtons() }
                 }
                 null

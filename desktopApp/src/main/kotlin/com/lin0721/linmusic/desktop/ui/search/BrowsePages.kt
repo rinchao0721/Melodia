@@ -121,7 +121,7 @@ private fun HotSearchColumns(items: List<HotSearch>, onClick: (String) -> Unit) 
                     ) {
                         Text(
                             "$rank",
-                            color = if (rank <= 3) DesktopColors.Accent else DesktopColors.TextGray,
+                            color = if (rank <= 3) DesktopColors.AccentText else DesktopColors.TextGray,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.width(28.dp)
                         )

@@ -30,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,12 +45,12 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LayoutReflowDurationMs
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
@@ -195,7 +194,7 @@ private fun HomeShelfCard(
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.OnAccent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -204,7 +203,7 @@ private fun HomeShelfCard(
 
         Text(
             text = rank?.let { "${card.typeLabel()} · $it" } ?: card.typeLabel(),
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 11.sp,
             maxLines = 1,
             modifier = Modifier.padding(top = 7.dp)
@@ -223,7 +222,7 @@ private fun HomeShelfCard(
         if (card.caption.isNotBlank()) {
             Text(
                 text = card.caption,
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 11.5.sp,
                 lineHeight = 15.sp,
                 maxLines = 2,

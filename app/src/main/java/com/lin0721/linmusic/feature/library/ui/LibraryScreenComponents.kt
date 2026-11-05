@@ -17,10 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -33,8 +31,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -51,13 +47,12 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.LibraryVioletGradient
-import com.lin0721.linmusic.core.ui.theme.LibraryBlueGreenGradient
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
@@ -115,14 +110,14 @@ fun LibraryFilterPillsRow(
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
                         .pressable(MelodiaPress.Pill) { onClear() }
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
+                        .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
                         .size(36.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "清除筛选",
-                        tint = Color.LightGray,
+                        tint = MelodiaColors.PillContent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -131,12 +126,12 @@ fun LibraryFilterPillsRow(
         items(visibleFilters, key = { it.first }) { (filter, label) ->
             val isSelected = filter == selectedFilter
             val bgColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MelodiaColors.Overlay.copy(alpha = 0.1f),
                 animationSpec = uiTween(220),
                 label = "pill_bg"
             )
             val contentColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.LightGray,
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MelodiaColors.PillContent,
                 animationSpec = uiTween(220),
                 label = "pill_content"
             )
@@ -163,12 +158,12 @@ fun LibraryFilterPillsRow(
             items(ownerFilters, key = { "owner_${it.first}" }) { (ownerFilter, label) ->
                 val isSelected = ownerFilter == selectedPlaylistOwnerFilter
                 val bgColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MelodiaColors.Overlay.copy(alpha = 0.1f),
                     animationSpec = uiTween(220),
                     label = "owner_pill_bg"
                 )
                 val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.LightGray,
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MelodiaColors.PillContent,
                     animationSpec = uiTween(220),
                     label = "owner_pill_content"
                 )
@@ -199,13 +194,13 @@ fun LibraryFilterPillsRow(
                         .height(36.dp)
                         .pressable(MelodiaPress.Pill) { onLocalMusicClick() }
                         .clip(RoundedCornerShape(PillRadius))
-                        .background(Color.White.copy(alpha = 0.1f))
+                        .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
                         .padding(horizontal = 18.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "本地音乐",
-                        color = Color.LightGray,
+                        color = MelodiaColors.PillContent,
                         fontSize = 14.sp
                     )
                 }
@@ -300,43 +295,9 @@ fun LibraryItemRow(
     ) {
         // 左侧封面图（针对歌手做圆图，歌单/专辑方图，已点赞歌曲做定制心形渐变图）
         if (item.isLikedSongs) {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryVioletGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Liked, Modifier.size(60.dp))
         } else if (item.id == "-2") {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryBlueGreenGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.TrendingUp,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Rank, Modifier.size(60.dp))
         } else {
             val shape = if (item.type == LibraryItemType.ARTIST) CircleShape else RoundedCornerShape(RadiusCompact)
 
@@ -373,7 +334,7 @@ fun LibraryItemRow(
                     Icon(
                         imageVector = Icons.Default.PushPin,
                         contentDescription = "已置顶",
-                        tint = DownloadedGreen,
+                        tint = MelodiaColors.Success,
                         modifier = Modifier
                             .size(13.dp)
                             .padding(end = MelodiaSpacing.xs)
@@ -420,45 +381,9 @@ fun LibraryGridItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (item.isLikedSongs) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryVioletGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Liked, Modifier.fillMaxWidth().aspectRatio(1f))
         } else if (item.id == "-2") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryBlueGreenGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.TrendingUp,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Rank, Modifier.fillMaxWidth().aspectRatio(1f))
         } else {
             SubcomposeAsyncImage(
                 model = "${item.coverUrl}?param=300y300",
@@ -490,7 +415,7 @@ fun LibraryGridItem(
                 Icon(
                     imageVector = Icons.Default.PushPin,
                     contentDescription = "已置顶",
-                    tint = DownloadedGreen,
+                    tint = MelodiaColors.Success,
                     modifier = Modifier
                         .size(11.dp)
                         .padding(end = MelodiaSpacing.xxs)
@@ -526,7 +451,7 @@ fun DraggablePlaylistRow(
     )
     val isLifted = isDragging || dragOffsetY != 0f
     val bgColor by animateColorAsState(
-        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MelodiaColors.PageFill,
         animationSpec = uiSpring(),
         label = "playlist_row_bg"
     )
@@ -542,7 +467,7 @@ fun DraggablePlaylistRow(
                 if (isLifted) Modifier
                     .zIndex(1f)
                     .graphicsLayer { translationY = dragOffsetY }
-                    .shadow(elevation, RoundedCornerShape(8.dp))
+                    .themedShadow(elevation, RoundedCornerShape(8.dp))
                 else Modifier
             )
             .background(bgColor)
@@ -579,7 +504,7 @@ fun DraggablePlaylistRow(
                     Icon(
                         imageVector = Icons.Default.PushPin,
                         contentDescription = "已置顶",
-                        tint = DownloadedGreen,
+                        tint = MelodiaColors.Success,
                         modifier = Modifier
                             .size(13.dp)
                             .padding(end = MelodiaSpacing.xs)

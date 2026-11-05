@@ -12,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
 // SwipeToDismissBox 左滑删除的统一底层：红底 + 右侧垃圾桶
 @Composable
@@ -20,7 +20,7 @@ fun SwipeDeleteBackground() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NeteaseRed)
+            .background(MelodiaColors.Accent)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.CenterEnd
     ) {

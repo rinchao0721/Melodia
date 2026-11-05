@@ -33,6 +33,9 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         // 社区源优先偏好
         private val KEY_COMMUNITY_SOURCE_PRIORITY = booleanPreferencesKey("source_community_source_priority")
 
+        // 插件优先于官方音源偏好
+        private val KEY_PLUGIN_BEFORE_OFFICIAL = booleanPreferencesKey("source_plugin_before_official")
+
         // 多平台聚合搜索偏好
         private val KEY_SEARCH_AGGREGATION_ENABLED = booleanPreferencesKey("source_search_aggregation_enabled")
     }
@@ -101,6 +104,15 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveCommunityPriority(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_COMMUNITY_SOURCE_PRIORITY] = enabled }
+    }
+
+    // 插件优先于官方音源开关
+    val pluginBeforeOfficial: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLUGIN_BEFORE_OFFICIAL] ?: false
+    }
+
+    suspend fun savePluginBeforeOfficial(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_PLUGIN_BEFORE_OFFICIAL] = enabled }
     }
 
     // ─── LX 插件相关偏好 ───

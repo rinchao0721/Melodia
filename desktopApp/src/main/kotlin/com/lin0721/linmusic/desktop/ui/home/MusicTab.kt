@@ -166,7 +166,7 @@ private fun PortraitSummary(portrait: StylePortrait) {
             if (expanded && portrait.dataTip.isNotBlank()) {
                 Text(
                     portrait.dataTip,
-                    color = DesktopColors.TextGray.copy(alpha = 0.6f),
+                    color = DesktopColors.TextTertiary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp)
                 )

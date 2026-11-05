@@ -29,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -62,7 +63,7 @@ import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import com.lin0721.linmusic.feature.podcast.ui.PodcastFilter
 
 internal val PodcastEdgePadding = 24.dp
-private val ProgressTrack = Color.White.copy(alpha = 0.16f)
+private val ProgressTrack: Color @Composable @ReadOnlyComposable get() = DesktopColors.Overlay.copy(alpha = 0.16f)
 
 // 区块标题；带 actionText 与 onAction 时右侧显示「全部 ›」入口
 @Composable
@@ -256,7 +257,7 @@ internal fun PodcastProgramRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
-            .background(if (hovered) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (hovered) DesktopColors.Hover else Color.Transparent)
             .hoverable(interaction)
             .onDoubleClick(onPlay)
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -326,12 +327,12 @@ private fun ProgramProgress(program: PodcastProgram, progress: PodcastProgressEn
         }
         progress.isFinished -> Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(14.dp))
-            Text("已听完", color = DesktopColors.Accent, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp))
+            Text("已听完", color = DesktopColors.AccentText, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp))
         }
         progress.fraction > 0f -> LinearProgressIndicator(
             progress = { progress.fraction },
             modifier = Modifier.padding(top = 6.dp).width(72.dp).height(2.dp),
-            color = DesktopColors.Accent,
+            color = DesktopColors.AccentText,
             trackColor = ProgressTrack
         )
     }

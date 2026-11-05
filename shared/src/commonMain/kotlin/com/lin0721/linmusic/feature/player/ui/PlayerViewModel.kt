@@ -19,6 +19,8 @@ import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricProgressTracker
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepository
+import com.lin0721.linmusic.core.comment.data.qqSongThreadId
+import com.lin0721.linmusic.core.source.QQSongIdResolver
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -87,7 +89,9 @@ data class PlayerSongDetailState(
     val artists: List<ArtistCardItem> = emptyList(),
     val selectedArtistIndex: Int = 0,
     // 未匹配网易云的本地歌曲，没有评论/百科等在线数据
-    val isLocalOnly: Boolean = false
+    val isLocalOnly: Boolean = false,
+    // 外部平台歌曲同样没有网易云在线数据，但评论取自 QQ 音乐
+    val isExternal: Boolean = false
 ) {
     val currentArtistItem: ArtistCardItem?
         get() = artists.getOrNull(selectedArtistIndex) ?: artists.firstOrNull()
@@ -117,7 +121,8 @@ class PlayerViewModel(
     private val resourceProvider: ResourceProvider,
     private val songDownloadManager: SongDownloader,
     private val lyricsResolver: LyricsResolver,
-    private val podcastPlayer: PodcastPlayerController
+    private val podcastPlayer: PodcastPlayerController,
+    private val qqSongIdResolver: QQSongIdResolver
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -175,12 +180,6 @@ class PlayerViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = FullPlayerCardLayout.DEFAULT
     )
-
-    fun saveFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) {
-        viewModelScope.launch {
-            settingsPreferences.saveFullPlayerCardLayout(layout)
-        }
-    }
 
     // 播放页小歌词显隐
     val showMiniLyric: StateFlow<Boolean> = settingsPreferences.showMiniLyric.stateIn(
@@ -271,7 +270,7 @@ class PlayerViewModel(
                 playerManager.nowPlaying.map { it?.songId ?: -1L },
                 songLikeRepository.likedSongIds
             ) { songId, likedIds ->
-                songId > 0L && songId in likedIds
+                (songId > 0L || isExternalSong(songId)) && songId in likedIds
             }.distinctUntilChanged()
                 .collect { isLiked ->
                     _songDetailState.update { it.copy(isLiked = isLiked) }
@@ -289,9 +288,13 @@ class PlayerViewModel(
         }
     }
 
+    // 负数 id 里只有外部平台歌曲能喜欢，本地文件的占位 id 不行
+    private fun isExternalSong(songId: Long): Boolean =
+        songId < 0L && playerManager.queue.value.any { it.songId == songId && it.external != null }
+
     fun toggleLike() {
         val songId = currentSongId
-        if (songId <= 0L) return
+        if (songId <= 0L && !isExternalSong(songId)) return
 
         val newLiked = !_songDetailState.value.isLiked
         viewModelScope.launch {
@@ -338,9 +341,10 @@ class PlayerViewModel(
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
-                        val isLiked = songId > 0L && songId in songLikeRepository.likedSongIds.value
+                        val isLiked = (songId > 0L || isExternalSong(songId)) && songId in songLikeRepository.likedSongIds.value
                         val isLocalOnly = songId <= 0L
-                        clearState(isLiked, isLocalOnly)
+                        val external = playerManager.queue.value.firstOrNull { it.songId == songId }?.external
+                        clearState(isLiked, isLocalOnly, isExternal = external != null)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
@@ -352,14 +356,17 @@ class PlayerViewModel(
                                 launch { loadChorus(songId) }
                                 launch { commentsController.load("R_SO_4_$songId") }
                             }
+                            if (external != null) {
+                                launch { commentsController.load(qqSongThreadId(qqSongIdResolver.resolve(external) ?: 0L)) }
+                            }
                         }
                     }
                 }
         }
     }
 
-    private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false) {
-        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly)
+    private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false, isExternal: Boolean = false) {
+        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly, isExternal = isExternal)
         resetLyricPlayback()
     }
 

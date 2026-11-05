@@ -26,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,9 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
@@ -67,12 +64,12 @@ fun PodcastToplistScreen(
                     onClick = { viewModel.selectTab(tab) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = PodcastToplistTab.entries.size),
                     colors = SegmentedButtonDefaults.colors(
-                        activeContainerColor = Color.White,
-                        activeContentColor = BackgroundDark,
-                        activeBorderColor = SurfaceDark,
-                        inactiveContainerColor = SurfaceDark,
-                        inactiveContentColor = TextGray,
-                        inactiveBorderColor = SurfaceDark
+                        activeContainerColor = MelodiaColors.TextPrimary,
+                        activeContentColor = MelodiaColors.Background,
+                        activeBorderColor = MelodiaColors.Surface,
+                        inactiveContainerColor = MelodiaColors.Surface,
+                        inactiveContentColor = MelodiaColors.TextSecondary,
+                        inactiveBorderColor = MelodiaColors.Surface
                     )
                 ) {
                     Text(text = tab.label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -163,7 +160,7 @@ private fun ProgramToplist(
 private fun RankNumber(rank: Int) {
     Text(
         text = "$rank",
-        color = if (rank <= 3) MaterialTheme.colorScheme.primary else TextGray,
+        color = if (rank <= 3) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
         fontSize = 15.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
@@ -204,7 +201,7 @@ private fun RankedRadioRow(rank: Int, radio: PodcastRadio, onClick: () -> Unit) 
             if (meta.isNotBlank()) {
                 Text(
                     text = meta,
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

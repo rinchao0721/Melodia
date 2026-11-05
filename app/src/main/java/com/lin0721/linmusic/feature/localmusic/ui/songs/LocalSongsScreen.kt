@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -68,7 +70,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.LocalTrackActionsHost
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
 
-private val DividerColor = Color.White.copy(alpha = 0.08f)
+private val DividerColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Divider
 
 @Composable
 fun LocalSongsScreen(
@@ -96,14 +98,14 @@ fun LocalSongsScreen(
                     MelodiaIconButton(onClick = {
                         viewModel.openPlaylistPicker(success.filteredTracks.filter { it.uri.toString() in success.selectedUris })
                     }) {
-                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
                     }
                 }
                 MelodiaIconButton(onClick = {
                     if (success.selectedUris.isEmpty()) viewModel.toggleSelectionMode() else confirmDeleteSelected = true
                 }) {
                     if (success.selectedUris.isEmpty()) {
-                        Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = Color.White)
+                        Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
                     } else {
                         Icon(Icons.Rounded.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
                     }
@@ -113,11 +115,11 @@ fun LocalSongsScreen(
                     Icon(
                         if (success.isSearchActive) Icons.Rounded.Close else Icons.Rounded.Search,
                         contentDescription = if (success.isSearchActive) "关闭搜索" else "搜索",
-                        tint = Color.White
+                        tint = MelodiaColors.TextPrimary
                     )
                 }
                 MelodiaIconButton(onClick = { viewModel.toggleSelectionMode() }) {
-                    Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = Color.White)
+                    Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
                 }
             }
         }
@@ -244,7 +246,7 @@ private fun PlayAllRow(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(MelodiaSpacing.sm))
             Text("播放全部", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)

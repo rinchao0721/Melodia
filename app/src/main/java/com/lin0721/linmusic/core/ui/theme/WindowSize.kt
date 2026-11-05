@@ -74,6 +74,9 @@ fun rememberMelodiaGridColumns(
 private val PlayerPanelWidthPortrait = 380.dp
 private val PlayerPanelWidthLandscape = 440.dp
 
+// 平板播放面板与迷你条是否停靠在左侧；面板内部的铺开锚点、侧栏图标随之镜像
+val LocalMelodiaPlayerPanelAtStart = compositionLocalOf { false }
+
 @Composable
 fun rememberMelodiaPlayerPanelWidth(): Dp {
     return if (rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape) {

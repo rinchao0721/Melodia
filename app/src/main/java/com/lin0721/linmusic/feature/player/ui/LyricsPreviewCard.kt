@@ -19,18 +19,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
-import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.lighten
-import com.lin0721.linmusic.core.ui.theme.saturateIfChromatic
+import com.lin0721.linmusic.core.ui.theme.rememberImmersiveColors
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 
@@ -65,13 +63,11 @@ fun LyricsCard(
 ) {
     val meshPhaseMs = rememberMeshPhaseMs(animateMesh)
 
-    val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
-    val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
-    val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
-    // 未唱到的歌词颜色跟全屏歌词页的 textHighlight 用同一套配方，背景用的 vividBase 幅度较小，
-    // 文字这里单独再提一档饱和度+明度，不然混完白会发灰
-    val textVividBase = remember(base) { base.saturateIfChromatic(0.8f).lighten(1.0f) }
-    val inactiveLyricColor = remember(textVividBase) { lerp(textVividBase, Color.White, 0.5f) }
+    // 铺底与未唱到的歌词颜色跟全屏歌词页同一套配方，随主题深浅变化
+    val immersive = rememberImmersiveColors(base)
+    val fillColor = immersive.fill
+    val darkBlob = immersive.blob
+    val inactiveLyricColor = immersive.inactive
 
     // 当前行实际换行数，由 LyricsPreview 里当前行 Text 的 onTextLayout 回报，用来动态撑高预览区
     var currentLineWrapLines by remember { mutableIntStateOf(1) }
@@ -259,7 +255,7 @@ fun LyricsPreview(
                     text       = line.text,
                     fontSize   = mainFontSize,
                     lineHeight = (mainFontSize.value * 1.35f).sp,
-                    color      = if (isCurrent) Color.White else inactiveColor,
+                    color      = if (isCurrent) MelodiaColors.TextPrimary else inactiveColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign  = TextAlign.Start,
                     onTextLayout = { if (isCurrent) onCurrentLineLayout(it.lineCount) },
@@ -272,7 +268,7 @@ fun LyricsPreview(
                         text      = translation,
                         fontSize  = transFontSize,
                         lineHeight = (transFontSize.value * 1.35f).sp,
-                        color     = (if (isCurrent) Color.White else inactiveColor).copy(alpha = animatedTransAlpha),
+                        color     = (if (isCurrent) MelodiaColors.TextPrimary else inactiveColor).copy(alpha = animatedTransAlpha),
                         textAlign = TextAlign.Start,
                         modifier  = Modifier.fillMaxWidth()
                     )

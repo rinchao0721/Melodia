@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.lyrics
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,6 +29,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeState
 import com.lin0721.linmusic.desktop.data.DesktopLyricBounds
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.WindowEffects
+import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.lyricsview.rememberLyricClock
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.CancellationException
@@ -146,16 +148,18 @@ fun DesktopLyricWindow(
             )
         }
 
-        DesktopLyricContent(
-            frame = frame,
-            style = style,
-            locked = locked,
-            isPlaying = isPlaying,
-            positionProvider = clock,
-            actions = actions,
-            resize = resize,
-            onHeightMeasured = { height -> resizeHeight(windowState.size, height)?.let { windowState.size = it } }
-        )
+        CompositionLocalProvider(LocalWindowEffects provides windowEffects) {
+            DesktopLyricContent(
+                frame = frame,
+                style = style,
+                locked = locked,
+                isPlaying = isPlaying,
+                positionProvider = clock,
+                actions = actions,
+                resize = resize,
+                onHeightMeasured = { height -> resizeHeight(windowState.size, height)?.let { windowState.size = it } }
+            )
+        }
     }
 }
 

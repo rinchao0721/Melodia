@@ -26,10 +26,7 @@ import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.ui.components.MiniStatusBanner
-import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -74,7 +71,7 @@ fun DownloadProgressBanner(modifier: Modifier = Modifier) {
         }
     }
 
-    val content = sessionTasks.takeIf { it.isNotEmpty() }?.let { buildBannerContent(it, counts) }
+    val content = sessionTasks.takeIf { it.isNotEmpty() }?.let { buildBannerContent(it, counts, MelodiaColors.Accent, MelodiaColors.TextSecondary, MelodiaColors.Success, MelodiaColors.Error) }
     var lastContent by remember { mutableStateOf<DownloadBannerContent?>(null) }
     if (content != null) lastContent = content
 
@@ -112,11 +109,18 @@ fun DownloadProgressBanner(modifier: Modifier = Modifier) {
     }
 }
 
-private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts): DownloadBannerContent {
+private fun buildBannerContent(
+    tasks: List<DownloadTask>,
+    counts: DownloadCounts,
+    accent: Color,
+    secondary: Color,
+    success: Color,
+    error: Color
+): DownloadBannerContent {
     if (counts.active == 0 && counts.paused > 0) {
         return DownloadBannerContent(
             icon = Icons.Rounded.PauseCircleOutline,
-            iconTint = TextGray,
+            iconTint = secondary,
             title = "下载已暂停",
             subtitle = buildString {
                 append("剩余 ${counts.paused} 首")
@@ -133,7 +137,7 @@ private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts
         val hasFailure = counts.failed > 0
         return DownloadBannerContent(
             icon = if (hasFailure) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle,
-            iconTint = if (hasFailure) DownloadFailedRed else DownloadedGreen,
+            iconTint = if (hasFailure) error else success,
             title = if (hasFailure) "下载结束" else "下载完成",
             subtitle = when {
                 hasFailure -> "成功 ${counts.succeeded} 首，失败 ${counts.failed} 首，点击查看"
@@ -152,7 +156,7 @@ private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts
         val task = tasks.first()
         return DownloadBannerContent(
             icon = Icons.Rounded.Download,
-            iconTint = NeteaseRed,
+            iconTint = accent,
             title = if (running == null) "等待下载 ${task.meta.songName}" else "正在下载 ${task.meta.songName}",
             subtitle = task.meta.artistName.ifBlank { null },
             counts = counts,
@@ -169,7 +173,7 @@ private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts
     }
     return DownloadBannerContent(
         icon = Icons.Rounded.Download,
-        iconTint = NeteaseRed,
+        iconTint = accent,
         title = running?.let { "正在下载 ${it.meta.songName}" } ?: "等待下载 ${counts.active} 首歌曲",
         subtitle = subtitle,
         counts = counts,

@@ -333,7 +333,7 @@ private fun LyricPicker(
         DialogLabel("选择歌词 · 已选 ${pick.lineCount}/${LyricShareSelection.MAX_LINES}，原文与翻译可分别点选")
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().clip(RowShape).background(Color.White.copy(alpha = 0.04f)),
+            modifier = Modifier.fillMaxSize().clip(RowShape).background(DesktopColors.Overlay.copy(alpha = 0.04f)),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             items(rows, key = { lyricLineKey(it.index, it.value) }) { (index, line) ->

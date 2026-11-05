@@ -24,7 +24,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,7 +43,9 @@ import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 
 // 底部导航栏自定义弹层：支持拖拽排序、显隐切换、数量限制拦截及仅图标模式
@@ -160,7 +161,7 @@ fun BottomBarCustomizationSheet(
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(vertical = MelodiaSpacing.xs)
             )
 
@@ -238,7 +239,7 @@ private fun BottomBarItemEditorRow(
         label = "bottom_bar_editor_elev"
     )
     val bgColor by animateColorAsState(
-        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+        targetValue = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0f),
         animationSpec = uiSpring(),
         label = "bottom_bar_editor_bg"
     )
@@ -255,7 +256,7 @@ private fun BottomBarItemEditorRow(
                 if (isDragging) Modifier
                     .zIndex(1f)
                     .graphicsLayer { translationY = dragOffsetY }
-                    .shadow(elevation, rowShape)
+                    .themedShadow(elevation, rowShape)
                 else Modifier
             )
             .clip(rowShape)

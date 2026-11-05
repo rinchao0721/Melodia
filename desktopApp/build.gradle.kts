@@ -25,6 +25,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":plugin-api"))
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
@@ -38,6 +39,11 @@ dependencies {
     runtimeOnly(libs.graal.wasm.community)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+tasks.test {
+    dependsOn(":plugin-sample:packagePlugin")
+    systemProperty("melodia.samplePlugin", rootProject.file("plugin-sample/build/plugin/sample-native.melodiaplugin").absolutePath)
 }
 
 // 听歌识曲的 afp 指纹库与 Android assets 共用一份
@@ -332,6 +338,7 @@ tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageT
             val content = customWxs.asFile.readText()
                 .replace("@MELODIA_UNINSTALL_EXE@", uninstallerExe.asFile.absolutePath)
                 .replace("@MELODIA_UNINSTALL_ICO@", uninstallerIco.asFile.absolutePath)
+                .replace("@MELODIA_DISPLAY_VERSION@", desktopVersion)
             File(dir, "main.wxs").writeText(content)
             englishStrings.asFile.copyTo(File(dir, englishStrings.asFile.name), overwrite = true)
             targetDir

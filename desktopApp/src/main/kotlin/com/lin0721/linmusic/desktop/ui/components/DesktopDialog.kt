@@ -41,11 +41,14 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.styledButtonShape
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
 
@@ -63,9 +66,10 @@ fun DesktopDialog(
     actions: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    DesktopOverlays.Track()
     // 平台默认宽度上限约 560dp，宽弹窗需关掉才能按 width 生效
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(modifier.width(width).clip(DialogShape).background(DesktopColors.PopupSurface).padding(20.dp)) {
+        Column(modifier.width(width).clip(DialogShape).background(DesktopColors.PopupSurface).floatingOutline(DialogShape).padding(20.dp)) {
             Text(title, color = DesktopColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(14.dp))
             content()
@@ -80,7 +84,7 @@ fun DesktopDialog(
     }
 }
 
-// primary 为白底黑字的主按钮，其余为灰色文字按钮；danger 用红色文字
+// primary 为主文字色底、反色字的主按钮，其余为灰色文字按钮；danger 用红色文字
 @Composable
 fun DialogButton(
     text: String,
@@ -92,7 +96,7 @@ fun DialogButton(
 ) {
     val active = enabled && !loading
     Box(
-        Modifier.clip(ButtonShape)
+        Modifier.clip(styledButtonShape(ButtonShape))
             .background(if (primary) DesktopColors.TextPrimary.copy(alpha = if (active) 1f else 0.4f) else Color.Transparent)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(enabled = active, onClick = onClick)
@@ -102,12 +106,12 @@ fun DialogButton(
         if (loading) {
             CircularProgressIndicator(
                 Modifier.size(16.dp),
-                color = if (primary) Color.Black else DesktopColors.TextPrimary,
+                color = if (primary) DesktopColors.InverseText else DesktopColors.TextPrimary,
                 strokeWidth = 2.dp
             )
         } else {
             val color = when {
-                primary -> Color.Black
+                primary -> DesktopColors.InverseText
                 danger -> DangerColor
                 else -> if (enabled) DesktopColors.TextGray else DesktopColors.TextGray.copy(alpha = 0.5f)
             }
@@ -133,7 +137,8 @@ fun DialogTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     enabled: Boolean = true,
     focusRequester: FocusRequester? = null,
-    onEnter: (() -> Unit)? = null
+    onEnter: (() -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     var focused by remember { mutableStateOf(false) }
     BasicTextField(
@@ -141,6 +146,7 @@ fun DialogTextField(
         onValueChange = onValueChange,
         enabled = enabled,
         singleLine = singleLine,
+        visualTransformation = visualTransformation,
         minLines = minLines,
         maxLines = maxLines,
         textStyle = TextStyle(color = DesktopColors.TextPrimary, fontSize = 14.sp),

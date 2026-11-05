@@ -22,13 +22,17 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.skin.Skin
+import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.desktop.app.WindowBounds
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerPosition
 import com.lin0721.linmusic.desktop.data.MiniPlayerSize
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
+import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
+import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.UiMotion
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
@@ -62,7 +66,10 @@ data class MiniPlayerInit(
 fun MiniPlayerWindow(
     init: MiniPlayerInit,
     uiScale: Float,
+    palette: MelodiaPalette,
+    skin: Skin?,
     uiMotion: UiMotion,
+    windowEffects: WindowEffects,
     icon: Painter,
     isLoggedIn: Boolean,
     playerViewModel: PlayerViewModel,
@@ -195,8 +202,8 @@ fun MiniPlayerWindow(
         }
         val baseDensity = LocalDensity.current
         val resizeDensity = remember(baseDensity, uiScale) { Density(baseDensity.density * uiScale, baseDensity.fontScale) }
-        CompositionLocalProvider(LocalUiMotion provides uiMotion) {
-            MelodiaDesktopTheme(uiScale = uiScale * layoutSize.scale) {
+        CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
+            MelodiaDesktopTheme(uiScale = uiScale * layoutSize.scale, palette = palette, skin = skin) {
                 MiniPlayerContent(style, lyricSettings, controller, playerViewModel, actions, resize, resizeDensity)
             }
         }

@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -29,13 +28,9 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.PillRadius
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -62,7 +57,7 @@ fun CreatePopupMenu(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(PillRadius))
-            .background(SurfaceDark)
+            .background(MelodiaColors.Surface)
             .padding(vertical = MelodiaSpacing.sm)
     ) {
         CreateMenuItem(
@@ -131,13 +126,13 @@ private fun CreateMenuItem(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(SurfaceLight),
+                .background(MelodiaColors.SurfaceLight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White,
+                tint = MelodiaColors.TextPrimary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -145,14 +140,14 @@ private fun CreateMenuItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp
             )
         }
@@ -173,7 +168,7 @@ private fun CreatePlaylistDialog(
     ModalBottomSheet(
         onDismissRequest = { if (!isCreating) onDismiss() },
         sheetState = sheetState,
-        containerColor = SurfaceDark,
+        containerColor = MelodiaColors.Surface,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -187,7 +182,7 @@ private fun CreatePlaylistDialog(
         ) {
             Text(
                 text = "新建歌单",
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
@@ -198,18 +193,18 @@ private fun CreatePlaylistDialog(
                     .fillMaxWidth()
                     .height(48.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(BackgroundDark)
+                    .background(MelodiaColors.Background)
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (name.isEmpty()) {
-                    Text("我的新歌单", color = TextGray, fontSize = 15.sp)
+                    Text("我的新歌单", color = MelodiaColors.TextSecondary, fontSize = 15.sp)
                 }
                 BasicTextField(
                     value = name,
                     onValueChange = { name = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
-                    cursorBrush = SolidColor(NeteaseRed),
+                    textStyle = TextStyle(color = MelodiaColors.TextPrimary, fontSize = 15.sp),
+                    cursorBrush = SolidColor(MelodiaColors.Accent),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -223,8 +218,8 @@ private fun CreatePlaylistDialog(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("设为隐私歌单", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    Text("仅自己可见", color = TextGray, fontSize = 12.sp)
+                    Text("设为隐私歌单", color = MelodiaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("仅自己可见", color = MelodiaColors.TextSecondary, fontSize = 12.sp)
                 }
                 MelodiaSwitch(
                     checked = isPrivate,
@@ -243,23 +238,23 @@ private fun CreatePlaylistDialog(
                     onClick = onDismiss,
                     enabled = !isCreating
                 ) {
-                    Text("取消", color = Color.White)
+                    Text("取消", color = MelodiaColors.TextPrimary)
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 MelodiaButton(
                     onClick = { onConfirm(name, isPrivate) },
                     enabled = !isCreating && name.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     if (isCreating) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color.White,
+                            color = MelodiaColors.OnAccent,
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("创建", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("创建", color = MelodiaColors.OnAccent, fontWeight = FontWeight.Bold)
                     }
                 }
             }

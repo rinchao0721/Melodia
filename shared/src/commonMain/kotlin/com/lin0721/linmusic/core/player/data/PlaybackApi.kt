@@ -76,6 +76,9 @@ data class SongUrlItem(
     val freeTrialInfo: FreeTrialInfo? = null,
     val freeTrialPrivilege: FreeTrialPrivilege? = null,
     val time: Long = 0,
+    // 曲目增益 (dB) 与峰值，换算见 LoudnessPolicy.neteaseGainDb
+    val gain: Double? = null,
+    val peak: Double? = null,
 )
 
 // 判断音频是否属于试听片段或口播提示音

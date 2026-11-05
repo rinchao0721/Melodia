@@ -63,6 +63,8 @@ internal fun RecognitionWaveform(
         from until from + RecognitionSession.WINDOW_SECONDS * LEVELS_PER_SECOND
     }
 
+    val accent = DesktopColors.Accent
+    val pendingColor = DesktopColors.SurfaceLight
     Canvas(modifier) {
         val slotWidth = size.width / slots
         val barWidth = slotWidth * 0.58f
@@ -73,13 +75,13 @@ internal fun RecognitionWaveform(
             val width = RecognitionSession.WINDOW_SECONDS * LEVELS_PER_SECOND * slotWidth
             val corner = CornerRadius(8.dp.toPx(), 8.dp.toPx())
             drawRoundRect(
-                color = DesktopColors.Accent.copy(alpha = 0.16f * frameAlpha),
+                color = accent.copy(alpha = 0.16f * frameAlpha),
                 topLeft = Offset(left, 0f),
                 size = Size(width, size.height),
                 cornerRadius = corner
             )
             drawRoundRect(
-                color = DesktopColors.Accent.copy(alpha = 0.75f * frameAlpha),
+                color = accent.copy(alpha = 0.75f * frameAlpha),
                 topLeft = Offset(left, 0f),
                 size = Size(width, size.height),
                 cornerRadius = corner,
@@ -93,8 +95,8 @@ internal fun RecognitionWaveform(
             val recorded = index < levels.size
             val height = maxOf(pendingHeight, maxBarHeight * heights[index].value)
             val color = when {
-                !recorded -> DesktopColors.SurfaceLight
-                highlight == WaveformHighlight.Bars && highlightRange != null && index in highlightRange -> DesktopColors.Accent
+                !recorded -> pendingColor
+                highlight == WaveformHighlight.Bars && highlightRange != null && index in highlightRange -> accent
                 else -> barColor
             }
             drawRoundRect(

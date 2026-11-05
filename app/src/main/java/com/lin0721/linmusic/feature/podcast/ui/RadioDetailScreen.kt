@@ -52,12 +52,11 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
@@ -100,7 +99,7 @@ fun RadioDetailScreen(
             .collect { if (it) viewModel.loadMore() }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
         when (val state = uiState) {
             is RadioDetailUiState.Loading -> Box(
                 modifier = Modifier.fillMaxSize(),
@@ -230,7 +229,7 @@ private fun RadioDetailHeader(
                             listOf(
                                 Color.Black.copy(alpha = 0.35f),
                                 Color.Black.copy(alpha = 0.55f),
-                                BackgroundDark
+                                MelodiaColors.PageFill
                             )
                         )
                     )
@@ -288,7 +287,7 @@ private fun RadioDetailHeader(
                 if (stats.isNotBlank()) {
                     Text(
                         text = stats,
-                        color = TextGray,
+                        color = MelodiaColors.TextSecondary,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 5.dp)
                     )
@@ -366,7 +365,7 @@ private fun RadioDetailHeader(
         if (detail.desc.isNotBlank()) {
             Text(
                 text = detail.desc,
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 20.sp,
                 maxLines = if (descExpanded) Int.MAX_VALUE else 2,
@@ -407,7 +406,7 @@ private fun RadioProgramRow(program: PodcastProgram, progress: PodcastProgressEn
     ) {
         Text(
             text = program.serialNum.takeIf { it > 0 }?.toString().orEmpty(),
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -439,7 +438,7 @@ private fun RadioProgramRow(program: PodcastProgram, progress: PodcastProgressEn
             if (meta.isNotBlank()) {
                 Text(
                     text = meta,
-                    color = TextGray.copy(alpha = 0.75f),
+                    color = MelodiaColors.TextSecondary.copy(alpha = 0.75f),
                     fontSize = 10.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -458,7 +457,7 @@ private fun RadioProgramRow(program: PodcastProgram, progress: PodcastProgressEn
                     progress = { progress.fraction },
                     modifier = Modifier.padding(top = 6.dp).fillMaxWidth().height(2.dp),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = Color.White.copy(alpha = 0.16f)
+                    trackColor = MelodiaColors.Overlay.copy(alpha = 0.16f)
                 )
             }
         }

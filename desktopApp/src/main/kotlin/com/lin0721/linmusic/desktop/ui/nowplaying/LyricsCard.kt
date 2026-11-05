@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
+import com.lin0721.linmusic.desktop.ui.palette.ImmersiveColors
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -50,7 +51,6 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -64,9 +64,9 @@ import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.icons.LyricCardIcons
-import com.lin0721.linmusic.desktop.ui.palette.darken
-import com.lin0721.linmusic.desktop.ui.palette.lighten
-import com.lin0721.linmusic.desktop.ui.palette.saturateIfChromatic
+import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.ImmersiveTheme
 import kotlinx.coroutines.delay
 
 private val MeshBlurRadius = 32.dp
@@ -92,6 +92,25 @@ fun LyricsCard(
     modifier: Modifier = Modifier,
     sourceLabel: String? = null
 ) {
+    // 与全屏歌词同配方；配色在切换到沉浸主题之前按外层主题深浅算好
+    val immersive = rememberImmersiveColors(base)
+    ImmersiveTheme {
+        LyricsCardContent(lines, currentIndex, immersive, isPlaying, onSeek, onOpenFullscreen, onOpenLyricsView, modifier, sourceLabel)
+    }
+}
+
+@Composable
+private fun LyricsCardContent(
+    lines: List<LyricLine>,
+    currentIndex: Int,
+    immersive: ImmersiveColors,
+    isPlaying: Boolean,
+    onSeek: (Long) -> Unit,
+    onOpenFullscreen: () -> Unit,
+    onOpenLyricsView: () -> Unit,
+    modifier: Modifier,
+    sourceLabel: String?
+) {
     // 漂移进度只在播放时推进，暂停即停在原处；仅在绘制阶段读取，不触发重组
     var meshPhaseNanos by remember { mutableLongStateOf(0L) }
     LaunchedEffect(isPlaying) {
@@ -104,11 +123,10 @@ fun LyricsCard(
             last = now
         }
     }
-    val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
-    val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
-    val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
-    // 与全屏歌词同配方：文字单独再提一档饱和度与明度，不然混完白会发灰
-    val inactiveColor = remember(base) { lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), Color.White, 0.5f) }
+    val fillColor = immersive.fill
+    val darkBlob = immersive.blob
+    val inactiveColor = immersive.inactive
+    val contentColor = immersive.content
 
     var expanded by remember { mutableStateOf(false) }
     // 当前行实际折行数，由当前行文字回报，用来撑高视口
@@ -159,6 +177,7 @@ fun LyricsCard(
                 lines = lines,
                 currentIndex = currentIndex,
                 inactiveColor = inactiveColor,
+                contentColor = contentColor,
                 expanded = expanded,
                 viewportHeight = viewportHeight,
                 onSeek = onSeek,
@@ -169,7 +188,7 @@ fun LyricsCard(
                 Button(
                     onClick = { expanded = !expanded },
                     enabled = hovered,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.TextPrimary, contentColor = DesktopColors.InverseText),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
@@ -185,7 +204,7 @@ private fun HeaderIconButton(icon: ImageVector, description: String, revealed: B
     HoverReveal(revealed = revealed) {
         DesktopTooltip(description) {
             IconButton(onClick = onClick, enabled = revealed, modifier = Modifier.size(HeaderButtonSize)) {
-                Icon(icon, description, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(HeaderIconSize))
+                Icon(icon, description, tint = DesktopColors.TextPrimary.copy(alpha = 0.8f), modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
@@ -234,6 +253,7 @@ private fun LyricList(
     lines: List<LyricLine>,
     currentIndex: Int,
     inactiveColor: Color,
+    contentColor: Color,
     expanded: Boolean,
     viewportHeight: Dp,
     onSeek: (Long) -> Unit,
@@ -263,6 +283,7 @@ private fun LyricList(
                 isCurrent = index == currentIndex,
                 look = lyricLineLook(index, currentIndex),
                 inactiveColor = inactiveColor,
+                contentColor = contentColor,
                 onClick = { onSeek(line.timeMs) },
                 onCurrentLineLayout = onCurrentLineLayout
             )
@@ -270,13 +291,14 @@ private fun LyricList(
     }
 }
 
-// 悬停时变白并加下划线，点击跳转；当前行与远近缩放、透明度沿用移动端
+// 悬停时变为当前行色并加下划线，点击跳转；当前行与远近缩放、透明度沿用移动端
 @Composable
 private fun LyricRow(
     line: LyricLine,
     isCurrent: Boolean,
     look: LyricLineLook,
     inactiveColor: Color,
+    contentColor: Color,
     onClick: () -> Unit,
     onCurrentLineLayout: (Int) -> Unit
 ) {
@@ -289,7 +311,7 @@ private fun LyricRow(
         tween(300, easing = FastOutSlowInEasing),
         label = "lyricTranslationAlpha"
     )
-    val textColor = if (isCurrent || hovered) Color.White else inactiveColor
+    val textColor = if (isCurrent || hovered) contentColor else inactiveColor
     val mainSize = if (isCurrent) 20.sp else 18.sp
     val translationSize = if (isCurrent) 15.sp else 14.sp
 

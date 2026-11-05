@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -104,7 +106,9 @@ fun LyricShareSheet(
         cover = loadCoverPainter(context, coverUrl)
         palette = extractShareColorsFromUrl(context, coverUrl)
     }
-    val logo = painterResource(R.drawable.ic_app_logo)
+    val iconBackground = painterResource(R.drawable.ic_launcher_background)
+    val iconForeground = painterResource(R.drawable.ic_launcher_foreground)
+    val logo = remember(iconBackground, iconForeground) { LayeredPainter(listOf(iconBackground, iconForeground)) }
     val art = remember(cover, palette, logo) { ShareCardArt(cover, logo, palette) }
 
     val styles = ShareCardStyle.of(kind)
@@ -247,4 +251,13 @@ private suspend fun loadCoverPainter(context: android.content.Context, url: Stri
 } catch (e: Exception) {
     AppLogger.w(TAG, "加载分享封面失败", e)
     null
+}
+
+// 自适应图标的背景层与前景层叠成一个 Painter，与关于页的图标画法一致
+private class LayeredPainter(private val layers: List<Painter>) : Painter() {
+    override val intrinsicSize: Size = Size.Unspecified
+
+    override fun DrawScope.onDraw() {
+        layers.forEach { with(it) { draw(size) } }
+    }
 }

@@ -27,6 +27,12 @@ internal interface User32 : Library {
     fun RegisterWindowMessageW(lpString: String): Int
     fun CreateIconIndirect(piconinfo: Pointer): Pointer?
     fun DestroyIcon(hIcon: Pointer): Boolean
+    fun PostMessageW(hWnd: Pointer, msg: Int, wParam: Long, lParam: Long): Boolean
+    fun DefWindowProcW(hWnd: Pointer, msg: Int, wParam: Long, lParam: Long): Long
+    fun ReleaseCapture(): Boolean
+    fun GetCursorPos(point: WinPoint): Boolean
+    fun GetAsyncKeyState(vKey: Int): Short
+    fun GetSystemMetrics(nIndex: Int): Int
 
     companion object {
         val INSTANCE: User32 by lazy { Native.load("user32", User32::class.java, W32APIOptions.DEFAULT_OPTIONS) }
@@ -44,8 +50,10 @@ internal interface User32 : Library {
         const val GWL_EXSTYLE = -20
         const val GWLP_WNDPROC = -4
 
+        const val WM_NCDESTROY = 0x0082
         const val WM_NCCALCSIZE = 0x0083
         const val WM_COMMAND = 0x0111
+        const val WM_SYSCOMMAND = 0x0112
         const val WM_SETTINGCHANGE = 0x001A
         const val WM_DWMSENDICONICTHUMBNAIL = 0x0323
         const val WM_DWMSENDICONICLIVEPREVIEWBITMAP = 0x0326
@@ -68,6 +76,23 @@ internal interface User32 : Library {
         const val SM_CYFRAME = 33
         const val SM_CXPADDEDBORDER = 92
         const val SM_CXSMICON = 49
+        const val SM_SWAPBUTTON = 23
+
+        // 低 4 位为鼠标拖动方式：移动取 HTCAPTION，缩放取 WMSZ_* 边
+        const val SC_SIZE = 0xF000
+        const val SC_MOVE = 0xF010
+        const val HTCAPTION = 2
+        const val WMSZ_LEFT = 1
+        const val WMSZ_RIGHT = 2
+        const val WMSZ_TOP = 3
+        const val WMSZ_TOPLEFT = 4
+        const val WMSZ_TOPRIGHT = 5
+        const val WMSZ_BOTTOM = 6
+        const val WMSZ_BOTTOMLEFT = 7
+        const val WMSZ_BOTTOMRIGHT = 8
+
+        const val VK_LBUTTON = 0x01
+        const val VK_RBUTTON = 0x02
     }
 }
 
@@ -125,4 +150,10 @@ internal class Msg : Structure() {
     @JvmField var ptX: Int = 0
     @JvmField var ptY: Int = 0
     @JvmField var lPrivate: Int = 0
+}
+
+@Structure.FieldOrder("x", "y")
+internal class WinPoint : Structure() {
+    @JvmField var x: Int = 0
+    @JvmField var y: Int = 0
 }

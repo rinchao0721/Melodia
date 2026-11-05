@@ -65,8 +65,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -122,12 +122,12 @@ fun LocalMusicHomeScreen(
                     viewModel.openSearch()
                     navigation.openSongs()
                 }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "搜索", tint = Color.White)
+                    Icon(Icons.Rounded.Search, contentDescription = "搜索", tint = MelodiaColors.TextPrimary)
                 }
             }
             Box {
                 MelodiaIconButton(onClick = { showOverflowMenu = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = Color.White)
+                    Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
                 }
                 DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
                     DropdownMenuItem(text = { Text("导入歌曲") }, onClick = {
@@ -338,12 +338,12 @@ private fun StatsCard(library: LocalLibraryIndex, onPlay: () -> Unit, onShuffle:
                 fontSize = 12.sp
             )
         }
-        MelodiaIconButton(onClick = onShuffle, containerColor = Color.White.copy(alpha = 0.12f), modifier = Modifier.size(44.dp)) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = "随机播放", tint = Color.White, modifier = Modifier.size(22.dp))
+        MelodiaIconButton(onClick = onShuffle, containerColor = MelodiaColors.Overlay.copy(alpha = 0.12f), modifier = Modifier.size(44.dp)) {
+            Icon(Icons.Rounded.Shuffle, contentDescription = "随机播放", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(MelodiaSpacing.sm))
         MelodiaIconButton(onClick = onPlay, containerColor = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp)) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = "播放全部", tint = Color.White, modifier = Modifier.size(26.dp))
+            Icon(Icons.Rounded.PlayArrow, contentDescription = "播放全部", tint = MelodiaColors.OnAccent, modifier = Modifier.size(26.dp))
         }
     }
 }
@@ -403,7 +403,7 @@ private fun ImportSheet(onDismiss: () -> Unit, onPickFiles: () -> Unit, onPickFo
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -457,7 +457,7 @@ private fun ImportingOverlay() {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .background(BackgroundDark)
+                .background(MelodiaColors.Background)
                 .padding(horizontal = 28.dp, vertical = 22.dp)
         ) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp), strokeWidth = 3.dp)

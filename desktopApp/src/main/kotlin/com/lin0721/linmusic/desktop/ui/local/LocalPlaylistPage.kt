@@ -59,9 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +94,7 @@ import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.playlist.ActionIcon
 import com.lin0721.linmusic.desktop.ui.playlist.PlayCircleButton
 import com.lin0721.linmusic.desktop.ui.playlist.PlaylistPill
@@ -221,7 +220,7 @@ fun LocalPlaylistPage(
         summary.coverUri?.let { heroBase = extractCoverPaletteFromUrl(it).base }
     }
     val heroColor by animateColorAsState(
-        lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), uiSpring(), label = "localPlaylistHero"
+        headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "localPlaylistHero"
     )
 
     val listState = rememberLazyListState()
@@ -243,7 +242,7 @@ fun LocalPlaylistPage(
             item(key = "header") {
                 Column(
                     Modifier.fillMaxWidth().onSizeChanged { headerHeightPx = it.height }
-                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         LocalPlaylistHero(summary, tracks, folders)

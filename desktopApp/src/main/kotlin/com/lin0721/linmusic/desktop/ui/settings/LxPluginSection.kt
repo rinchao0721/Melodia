@@ -335,7 +335,7 @@ private fun PluginRow(
     ) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${index + 1}", color = DesktopColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("${index + 1}", color = DesktopColors.AccentText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
                 Text("${plugin.name}（v${plugin.version}）", color = primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }

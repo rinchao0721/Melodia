@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,15 +45,11 @@ import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
-import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 
-internal val TrackGray = Color(0xFF333333)
-internal val MutedText = Color(0xFF8A8A8A)
+internal val TrackGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.SurfaceLight
+internal val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
 
 // 单条任务的操作集合，普通行、长按菜单与编辑栏共用
 internal class TaskActions(
@@ -89,16 +86,16 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                             DownloadTaskStatus.PAUSED -> "已暂停"
                             else -> queuePosition?.let { "排队第 $it" } ?: "排队中"
                         },
-                        color = if (task.status == DownloadTaskStatus.RUNNING) Color.White else MutedText,
+                        color = if (task.status == DownloadTaskStatus.RUNNING) MelodiaColors.TextPrimary else MutedText,
                         fontSize = 12.sp
                     )
                     if (task.status == DownloadTaskStatus.PAUSED) {
                         IconButton(onClick = { actions.onResume(listOf(task)) }) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     } else {
                         IconButton(onClick = { actions.onPause(listOf(task)) }) {
-                            Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                     IconButton(onClick = { actions.onCancel(listOf(task)) }, modifier = Modifier.size(36.dp)) {
@@ -110,19 +107,19 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                         modifier = Modifier
                             .height(32.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+                            .border(1.dp, MelodiaColors.Overlay.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
                             .clickable { actions.onRetry(listOf(task)) }
                             .padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "重试", color = Color.White, fontSize = 12.sp)
+                        Text(text = "重试", color = MelodiaColors.TextPrimary, fontSize = 12.sp)
                     }
                 }
                 DownloadTaskStatus.SUCCEEDED -> {
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
                         contentDescription = "已完成",
-                        tint = DownloadedGreen,
+                        tint = MelodiaColors.Success,
                         modifier = Modifier.padding(end = 8.dp).size(20.dp)
                     )
                 }
@@ -131,9 +128,9 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
         DropdownMenu(
             expanded = menuOpen,
             onDismissRequest = { menuOpen = false },
-            containerColor = SurfaceDark
+            containerColor = MelodiaColors.Surface
         ) {
-            menuItemsFor(task, actions).forEach { item ->
+            menuItemsFor(task, actions, MelodiaColors.TextPrimary, MelodiaColors.Error).forEach { item ->
                 DropdownMenuItem(
                     text = { Text(item.label, color = item.color) },
                     leadingIcon = { Icon(item.icon, contentDescription = null, tint = item.color) },
@@ -149,25 +146,25 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
 
 private class MenuItem(val label: String, val icon: ImageVector, val color: Color, val onClick: () -> Unit)
 
-private fun menuItemsFor(task: DownloadTask, actions: TaskActions): List<MenuItem> {
+private fun menuItemsFor(task: DownloadTask, actions: TaskActions, normal: Color, danger: Color): List<MenuItem> {
     val single = listOf(task)
     return when (task.status) {
         DownloadTaskStatus.RUNNING, DownloadTaskStatus.WAITING, DownloadTaskStatus.PAUSED -> listOfNotNull(
-            MenuItem("优先下载", Icons.Rounded.VerticalAlignTop, Color.White) { actions.onPrioritize(single) }
+            MenuItem("优先下载", Icons.Rounded.VerticalAlignTop, normal) { actions.onPrioritize(single) }
                 .takeIf { task.status != DownloadTaskStatus.RUNNING },
             if (task.status == DownloadTaskStatus.PAUSED) {
-                MenuItem("继续", Icons.Rounded.PlayArrow, Color.White) { actions.onResume(single) }
+                MenuItem("继续", Icons.Rounded.PlayArrow, normal) { actions.onResume(single) }
             } else {
-                MenuItem("暂停", Icons.Rounded.Pause, Color.White) { actions.onPause(single) }
+                MenuItem("暂停", Icons.Rounded.Pause, normal) { actions.onPause(single) }
             },
-            MenuItem("取消下载", Icons.Rounded.Close, DownloadFailedRed) { actions.onCancel(single) }
+            MenuItem("取消下载", Icons.Rounded.Close, danger) { actions.onCancel(single) }
         )
         DownloadTaskStatus.FAILED -> listOf(
-            MenuItem("重试", Icons.Rounded.Refresh, Color.White) { actions.onRetry(single) },
-            MenuItem("移除记录", Icons.Outlined.DeleteOutline, DownloadFailedRed) { actions.onRemove(single) }
+            MenuItem("重试", Icons.Rounded.Refresh, normal) { actions.onRetry(single) },
+            MenuItem("移除记录", Icons.Outlined.DeleteOutline, danger) { actions.onRemove(single) }
         )
         DownloadTaskStatus.SUCCEEDED -> listOf(
-            MenuItem("移除记录", Icons.Outlined.DeleteOutline, DownloadFailedRed) { actions.onRemove(single) }
+            MenuItem("移除记录", Icons.Outlined.DeleteOutline, danger) { actions.onRemove(single) }
         )
     }
 }
@@ -185,7 +182,7 @@ internal fun EditableTaskRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) NeteaseRed.copy(alpha = 0.12f) else Color.Transparent)
+            .background(if (selected) MelodiaColors.Accent.copy(alpha = 0.12f) else Color.Transparent)
             .clickable(onClick = onToggle)
             .padding(start = MelodiaSpacing.sm, end = MelodiaSpacing.xs, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -193,7 +190,7 @@ internal fun EditableTaskRow(
         Icon(
             imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
             contentDescription = if (selected) "取消选择" else "选择",
-            tint = if (selected) NeteaseRed else MutedText,
+            tint = if (selected) MelodiaColors.Accent else MutedText,
             modifier = Modifier.size(22.dp)
         )
         Spacer(Modifier.width(10.dp))
@@ -232,7 +229,7 @@ internal fun EditActionBar(tab: DownloadManagerTab, selectedTasks: List<Download
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceDark.copy(alpha = 0.5f))
+            .background(MelodiaColors.Surface.copy(alpha = 0.5f))
             .padding(horizontal = MelodiaSpacing.xs, vertical = MelodiaSpacing.xs),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
@@ -241,14 +238,14 @@ internal fun EditActionBar(tab: DownloadManagerTab, selectedTasks: List<Download
                 EditAction("优先下载", Icons.Rounded.VerticalAlignTop, enabled) { actions.onPrioritize(selectedTasks) }
                 EditAction("暂停", Icons.Rounded.Pause, enabled) { actions.onPause(selectedTasks) }
                 EditAction("继续", Icons.Rounded.PlayArrow, enabled) { actions.onResume(selectedTasks) }
-                EditAction("取消下载", Icons.Rounded.Close, enabled, DownloadFailedRed) { actions.onCancel(selectedTasks) }
+                EditAction("取消下载", Icons.Rounded.Close, enabled, MelodiaColors.Error) { actions.onCancel(selectedTasks) }
             }
             DownloadManagerTab.FAILED -> {
                 EditAction("重试", Icons.Rounded.Refresh, enabled) { actions.onRetry(selectedTasks) }
-                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, DownloadFailedRed) { actions.onRemove(selectedTasks) }
+                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
             }
             DownloadManagerTab.SUCCEEDED -> {
-                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, DownloadFailedRed) { actions.onRemove(selectedTasks) }
+                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
             }
         }
     }
@@ -259,7 +256,7 @@ private fun RowScope.EditAction(
     label: String,
     icon: ImageVector,
     enabled: Boolean,
-    color: Color = Color.White,
+    color: Color = MelodiaColors.TextPrimary,
     onClick: () -> Unit
 ) {
     val tint = if (enabled) color else MutedText.copy(alpha = 0.5f)
@@ -299,7 +296,7 @@ private fun TaskInfo(task: DownloadTask, modifier: Modifier = Modifier, showProg
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = meta.songName,
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -312,7 +309,7 @@ private fun TaskInfo(task: DownloadTask, modifier: Modifier = Modifier, showProg
                     .border(1.dp, MutedText, RoundedCornerShape(4.dp))
                     .padding(horizontal = 4.dp)
             ) {
-                Text(text = getQualityDisplayName(meta.level), color = TextGray, fontSize = 10.sp, maxLines = 1)
+                Text(text = getQualityDisplayName(meta.level), color = MelodiaColors.TextSecondary, fontSize = 10.sp, maxLines = 1)
             }
         }
         Spacer(Modifier.height(2.dp))
@@ -323,7 +320,7 @@ private fun TaskInfo(task: DownloadTask, modifier: Modifier = Modifier, showProg
         }
         Text(
             text = secondary,
-            color = if (task.status == DownloadTaskStatus.FAILED) DownloadFailedRed else MutedText,
+            color = if (task.status == DownloadTaskStatus.FAILED) MelodiaColors.Error else MutedText,
             fontSize = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -333,7 +330,7 @@ private fun TaskInfo(task: DownloadTask, modifier: Modifier = Modifier, showProg
             LinearProgressIndicator(
                 progress = { task.progress.coerceIn(0, 100) / 100f },
                 modifier = Modifier.fillMaxWidth().height(3.dp),
-                color = Color.White,
+                color = MelodiaColors.TextPrimary,
                 trackColor = TrackGray,
                 drawStopIndicator = {}
             )

@@ -43,19 +43,20 @@ internal class LyricRenderClock {
             return position!!.toLong()
         }
         pendingSeek = null
-        // 切歌返回、界面隐藏后重新绘制或暂停后恢复，必须从真实位置重新建立时钟。
-        // 不能把没有绘制的整段时间外推进去，再以每帧 10% 的速度追回数百毫秒误差。
-        if (isPlaying && (!wasPlaying || nowMs - lastFrameMs > 500L)) {
-            reset(rawPositionMs, nowMs, isPlaying)
-            return rawPositionMs
-        }
-        val elapsed = if (isPlaying && wasPlaying) (nowMs - lastFrameMs).coerceAtLeast(0L) else 0L
-        lastFrameMs = nowMs
-        // 兜底识别循环播放和外部跳转；UI 小幅 seek 由 reset 显式处理。
+        // 先识别真实跳转；恢复绘制时也必须允许循环或外部 seek 立即重置。
         if (rawPositionMs < lastRaw - 250L || rawPositionMs - lastRaw > max(2000L, nowMs - lastSampleMs + 2000L)) {
             reset(rawPositionMs, nowMs, isPlaying)
             return rawPositionMs
         }
+        // 恢复播放/绘制只更新时间基准，不累计隐藏或暂停期间的帧间隔。
+        // 平滑进度可能略领先原始采样，不能把已经亮起的下一句拉回再重播。
+        if (isPlaying && (!wasPlaying || nowMs - lastFrameMs > 500L)) {
+            reset(rawPositionMs, nowMs, isPlaying)
+            position = max(previous, rawPositionMs.toDouble())
+            return position!!.toLong()
+        }
+        val elapsed = if (isPlaying && wasPlaying) (nowMs - lastFrameMs).coerceAtLeast(0L) else 0L
+        lastFrameMs = nowMs
         var next = previous + elapsed
         if (rawPositionMs != lastRaw) {
             lastRaw = rawPositionMs

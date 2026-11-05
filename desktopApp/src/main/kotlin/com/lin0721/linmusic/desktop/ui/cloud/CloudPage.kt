@@ -53,9 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -81,6 +79,7 @@ import com.lin0721.linmusic.desktop.ui.library.CLOUD_TITLE
 import com.lin0721.linmusic.desktop.ui.local.SongMatchDialog
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.playlist.ActionIcon
 import com.lin0721.linmusic.desktop.ui.playlist.PlayCircleButton
 import com.lin0721.linmusic.desktop.ui.playlist.PlaylistPill
@@ -281,7 +280,7 @@ private fun CloudSongList(
     LaunchedEffect(heroCover) {
         heroCover?.let { heroBase = extractCoverPaletteFromUrl(it).base }
     }
-    val heroColor by animateColorAsState(lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), uiSpring(), label = "cloudHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "cloudHero")
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -302,7 +301,7 @@ private fun CloudSongList(
             item(key = "header") {
                 Column(
                     Modifier.fillMaxWidth().onSizeChanged { headerHeightPx = it.height }
-                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         CloudHero(state, heroCover)
@@ -465,7 +464,7 @@ private fun CloudHero(state: CloudLibraryState, cover: String?) {
                 LinearProgressIndicator(
                     progress = { quota.usedRatio },
                     modifier = Modifier.padding(top = 8.dp).widthIn(max = QuotaBarWidth).fillMaxWidth().height(4.dp),
-                    color = DesktopColors.Accent,
+                    color = DesktopColors.AccentText,
                     trackColor = DesktopColors.SurfaceLight
                 )
             }

@@ -59,8 +59,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
@@ -254,7 +254,7 @@ fun LocalTagEditorScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "${state.original.formatLabel} · ${formatFileSize(state.track.sizeBytes)} · ${formatTime(state.track.durationMs)}",
-                                    color = TextGray,
+                                    color = MelodiaColors.TextSecondary,
                                     fontSize = 12.sp
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -323,10 +323,10 @@ private fun TagField(
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.md, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = label, color = TextGray, fontSize = 12.sp)
+            Text(text = label, color = MelodiaColors.TextSecondary, fontSize = 12.sp)
             if (hint != null) {
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = hint, color = TextGray.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(text = hint, color = MelodiaColors.TextSecondary.copy(alpha = 0.5f), fontSize = 12.sp)
             }
         }
         Spacer(modifier = Modifier.height(4.dp))

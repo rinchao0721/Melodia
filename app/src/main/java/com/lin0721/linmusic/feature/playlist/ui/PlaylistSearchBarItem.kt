@@ -22,9 +22,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
 private val SearchBarHeight = 40.dp
@@ -49,7 +50,7 @@ fun SearchBarItem(
         animationSpec = uiTween(800),
         label = "search_bar_color"
     )
-    val fillColor = remember(animatedBackground) { animatedBackground.darken(0.35f) }
+    val fillColor = headerCoverBase(animatedBackground, 0.35f) ?: MelodiaColors.PageFill
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(requestFocus) {
@@ -70,24 +71,24 @@ fun SearchBarItem(
                     .fillMaxWidth()
                     .height(SearchBarHeight)
                     .clip(RoundedCornerShape(RadiusCompact))
-                    .background(Color.White.copy(alpha = 0.12f)),
+                    .background(MelodiaColors.Selected),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.width(14.dp))
-                Icon(Icons.Default.Search, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Search, null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(MelodiaSpacing.sm))
                 androidx.compose.foundation.text.BasicTextField(
                     value         = query,
                     onValueChange = onQueryChange,
                     singleLine    = true,
                     textStyle     = androidx.compose.ui.text.TextStyle(
-                        color    = Color.White,
+                        color    = MelodiaColors.TextPrimary,
                         fontSize = 14.sp
                     ),
-                    cursorBrush = SolidColor(Color.White),
+                    cursorBrush = SolidColor(MelodiaColors.TextPrimary),
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (query.isEmpty()) Text(placeholder, color = Color.White, fontSize = 14.sp)
+                            if (query.isEmpty()) Text(placeholder, color = MelodiaColors.TextPrimary, fontSize = 14.sp)
                             inner()
                         }
                     },

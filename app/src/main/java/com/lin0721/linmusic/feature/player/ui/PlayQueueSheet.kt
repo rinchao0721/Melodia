@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -49,14 +48,10 @@ import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.components.SwipeDeleteBackground
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.isActive
@@ -241,25 +236,25 @@ fun PlayQueueSheet(
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text("清空播放队列", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("确定要清空播放队列吗？", color = TextGray, fontSize = 14.sp) },
+            title = { Text("清空播放队列", color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("确定要清空播放队列吗？", color = MelodiaColors.TextSecondary, fontSize = 14.sp) },
             confirmButton = {
                 MelodiaTextButton(
                     onClick = {
                         onClearQueue()
                         showClearConfirmDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = NeteaseRed)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MelodiaColors.Accent)
                 ) {
                     Text("是的", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 MelodiaTextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("取消", color = Color.White)
+                    Text("取消", color = MelodiaColors.TextPrimary)
                 }
             },
-            containerColor = SurfaceDark,
+            containerColor = MelodiaColors.Surface,
             shape = RoundedCornerShape(10.dp)
         )
     }
@@ -270,7 +265,7 @@ fun PlayQueueSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -296,7 +291,7 @@ fun PlayQueueSheet(
             )
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = MelodiaSpacing.md)
             )
 
@@ -547,7 +542,7 @@ private fun QueueHeader(
     ) {
         Text(
             "队列",
-            color = Color.White,
+            color = MelodiaColors.TextPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
@@ -560,7 +555,7 @@ private fun QueueHeader(
                 Icon(
                     imageVector = Icons.Rounded.DeleteOutline,
                     contentDescription = "清空队列",
-                    tint = TextGray,
+                    tint = MelodiaColors.TextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -568,12 +563,12 @@ private fun QueueHeader(
         }
         Text(
             "共 $queueSize 首",
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 13.sp,
             modifier = Modifier.padding(end = MelodiaSpacing.sm)
         )
         MelodiaIconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Rounded.Close, contentDescription = null, tint = TextGray, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -605,7 +600,7 @@ private fun PlayModeInfoRow(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
-                .background(SurfaceDark)
+                .background(MelodiaColors.Surface)
                 .clickable {
                     when {
                         isRoaming -> onDisableRoaming()
@@ -616,15 +611,15 @@ private fun PlayModeInfoRow(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = NeteaseRed, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = MelodiaColors.Accent, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = Color.White, fontSize = 12.sp)
+            Text(label, color = MelodiaColors.TextPrimary, fontSize = 12.sp)
         }
         if (!playContext.isNullOrBlank() && !isRoaming && !isIntelligence) {
             Spacer(Modifier.width(12.dp))
             Text(
                 "来自：$playContext",
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -638,7 +633,7 @@ private fun PlayModeInfoRow(
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        color = TextGray,
+        color = MelodiaColors.TextSecondary,
         fontSize = 12.sp,
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
     )
@@ -662,6 +657,8 @@ private fun BottomActionRow(
     ) {
         val isRoaming = playContext == "similar_roaming"
         val isIntelligence = playContext == "intelligence"
+        val shuffleActive = isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE
+        val shuffleContent = if (shuffleActive) MelodiaColors.OnAccent else MelodiaColors.TextPrimary
         MelodiaButton(
             onClick = {
                 when {
@@ -671,7 +668,7 @@ private fun BottomActionRow(
                 }
             },
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE) NeteaseRed else SurfaceDark
+                containerColor = if (shuffleActive) MelodiaColors.Accent else MelodiaColors.Surface
             ),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
@@ -685,7 +682,7 @@ private fun BottomActionRow(
                     else -> Icons.Default.Shuffle
                 },
                 contentDescription = null,
-                tint = Color.White,
+                tint = shuffleContent,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(Modifier.width(8.dp))
@@ -695,7 +692,7 @@ private fun BottomActionRow(
                     isIntelligence -> "关闭心动模式"
                     else -> "随机播放"
                 },
-                color = Color.White,
+                color = shuffleContent,
                 fontSize = 13.sp
             )
         }
@@ -706,15 +703,15 @@ private fun BottomActionRow(
         }
         MelodiaButton(
             onClick = onShowTimerClick,
-            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+            colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Surface),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp)
         ) {
-            Icon(Icons.Outlined.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Icon(Icons.Outlined.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(timerText, color = Color.White, fontSize = 13.sp)
+            Text(timerText, color = MelodiaColors.TextPrimary, fontSize = 13.sp)
         }
     }
 }

@@ -101,6 +101,12 @@ class LocalLibraryRepositoryTest {
             found
         }
 
+    private suspend fun awaitCondition(condition: () -> Boolean) {
+        withTimeout(10_000) {
+            while (!condition()) delay(50)
+        }
+    }
+
     @Test
     fun folderPlaylistScansAndAutoMatches() = runBlocking {
         val music = File(dir, "music")
@@ -110,6 +116,8 @@ class LocalLibraryRepositoryTest {
 
         val id = repo.createPlaylist("", music)
         val matched = awaitTrack(repo) { it.matchState == LocalMatchState.AUTO }
+        // 歌单摘要与 songId 索引由 data 异步派生，CI 上可能晚于 data 更新
+        awaitCondition { repo.pathForSongId(186016L) != null && repo.summaries.value.any { it.id == id } }
         assertEquals(186016L, matched.songId)
         assertEquals("music", repo.summaries.value.single { it.id == id }.name)
         assertEquals(1, repo.tracksOf(id).first().size)

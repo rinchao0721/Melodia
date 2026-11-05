@@ -22,6 +22,7 @@ object PreferencesStores {
     const val PODCAST = "podcast_prefs"
     const val RECOGNITION = "recognition_prefs"
     const val RECOGNITION_HISTORY = "recognition_history_prefs"
+    const val PLAYLIST_EXTERNAL = "playlist_external_prefs"
 
     private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
 

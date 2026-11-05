@@ -15,7 +15,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,13 +31,17 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
+import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import org.koin.androidx.compose.koinViewModel
@@ -76,6 +81,7 @@ fun SearchScreen(
     val resultListStates = remember { SearchType.entries.associateWith { LazyListState() } }
 
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
+    var externalOptionsTrack by remember { mutableStateOf<ExternalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
@@ -108,7 +114,7 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
             .statusBarsPadding()
             .pointerInput(Unit) {
                 awaitPointerEventScope {
@@ -135,7 +141,6 @@ fun SearchScreen(
             onFieldFocused = viewModel::editQuery,
             onCancel = viewModel::cancelSearch,
             onOpenSidebar = onOpenSidebar,
-            onAvatarClickLoggedOut = { ToastManager.showToast("请先在主页登录以显示侧边栏哦！") },
             onOpenRecognition = onOpenRecognition
         )
 
@@ -188,6 +193,7 @@ fun SearchScreen(
                         onRadioClick = onRadioClick,
                         onProgramClick = viewModel::playProgram,
                         onExternalSongClick = viewModel::playExternalTrack,
+                        onOpenExternalOptions = { externalOptionsTrack = it },
                         onLoadMore = viewModel::loadMore,
                         onLoadMoreExternal = viewModel::loadMoreExternal,
                         onRetry = viewModel::retrySearch,
@@ -219,6 +225,37 @@ fun SearchScreen(
                 onArtistClick = onArtistClick,
                 onAlbumClick = { id -> onPlaylistClick(id, true) },
                 onRequireLogin = { showLoginSheet = true }
+            )
+        }
+
+        externalOptionsTrack?.let { external ->
+            PlaylistSongOptionsSheet(
+                track = external.toPlaylistTrack(),
+                isLiked = false,
+                isLoggedIn = userProfile != null,
+                onDismiss = { externalOptionsTrack = null },
+                onAddToPlayNext = { viewModel.addExternalToPlayNext(external) },
+                onToggleLike = { _, _ -> },
+                onCollectClick = { songId ->
+                    collectSongId = songId
+                    viewModel.prepareCollectDialog(songId)
+                },
+                onArtistClick = {},
+                onAlbumClick = {},
+                onRequireLogin = { showLoginSheet = true },
+                showLikeOption = false,
+                showArtistOption = false,
+                showAlbumOption = false,
+                extraOptions = {
+                    OptionRow(
+                        icon = Icons.Default.Search,
+                        text = "在网易云中搜索",
+                        onClick = {
+                            externalOptionsTrack = null
+                            viewModel.searchOnNetease(external)
+                        }
+                    )
+                }
             )
         }
 

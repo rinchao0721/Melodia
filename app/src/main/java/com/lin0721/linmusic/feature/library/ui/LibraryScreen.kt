@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +54,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -149,18 +149,13 @@ fun LibraryScreen(
 
     val scope = rememberCoroutineScope()
 
-    val onAvatarClick: () -> Unit = {
-        if (userProfile != null) {
-            onOpenSidebar()
-        } else {
-            showLoginSheet = true
-        }
-    }
+    // 未登录也打开侧栏，侧栏里提供登录与设置入口
+    val onAvatarClick: () -> Unit = onOpenSidebar
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
     ) {
         AnimatedContent(
             targetState = isReorderMode,
@@ -465,7 +460,8 @@ fun LibraryScreen(
                         }
                     }
 
-                    // 吸顶边缘纯黑弥散阴影
+                    // 吸顶边缘弥散阴影，浅色底上需要淡很多
+                    val shadowStrength = if (MelodiaColors.IsDark) 1f else 0.18f
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -474,9 +470,9 @@ fun LibraryScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        Color.Black.copy(alpha = 0.85f),
-                                        Color.Black.copy(alpha = 0.35f),
-                                        Color.Transparent
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0.85f * shadowStrength),
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0.35f * shadowStrength),
+                                        MelodiaColors.ShadowSpot.copy(alpha = 0f)
                                     )
                                 )
                             )
@@ -729,7 +725,7 @@ private fun LibraryReorderView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MelodiaColors.PageFill)
             .statusBarsPadding()
     ) {
         Row(

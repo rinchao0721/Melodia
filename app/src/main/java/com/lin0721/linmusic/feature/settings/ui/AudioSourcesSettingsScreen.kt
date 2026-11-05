@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +36,7 @@ import com.lin0721.linmusic.core.source.UnmApiClient
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +54,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val unmRemoteFallbackEnabled by viewModel.unmRemoteFallbackEnabled.collectAsStateWithLifecycle()
     val unmAutoMatch by viewModel.unmAutoMatch.collectAsStateWithLifecycle()
     val communityPriority by viewModel.communityPriority.collectAsStateWithLifecycle()
+    val pluginBeforeOfficial by viewModel.pluginBeforeOfficial.collectAsStateWithLifecycle()
     val lxPluginEnabled by viewModel.lxPluginEnabled.collectAsStateWithLifecycle()
     val lxPlugins by viewModel.lxPlugins.collectAsStateWithLifecycle()
 
@@ -98,20 +99,17 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
         }
     }
 
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-        contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-    ) {
+    SettingsPageColumn {
         // 分组 1：换源基础设置
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[0]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[2]) {
                 SettingsSwitchRow(
                     title = "多平台聚合搜索",
                     subtitle = "在搜索结果页提供酷狗、酷我、QQ 音乐的平台标签，切换后才会发起搜索；播放通过换源插件解析",
                     checked = searchAggregationEnabled,
                     onCheckedChange = { viewModel.updateSearchAggregationEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "无版权/VIP 自动换源",
                     subtitle = "官方网易云音源不可用或仅为试听时，自动从可用音源解析完整播放直链",
@@ -119,12 +117,19 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     onCheckedChange = { viewModel.updateFallbackEnabled(it) }
                 )
                 if (fallbackEnabled) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "社区源优先",
                         subtitle = "开启后优先尝试通过 LX 插件脚本解析，失败后 fallback 到远程 UNM 服务；关闭则先尝试远程 UNM",
                         checked = communityPriority,
                         onCheckedChange = { viewModel.updateCommunityPriority(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "插件优先于官方音源",
+                        subtitle = "开启后每首歌先由社区源插件解析，未命中再用官方链接。插件音质可能低于官方，没有响度均衡，可能匹配到其他版本，起播也会变慢",
+                        checked = pluginBeforeOfficial,
+                        onCheckedChange = { viewModel.updatePluginBeforeOfficial(it) }
                     )
                 }
             }
@@ -132,7 +137,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
 
         // 分组 2：社区扩展源
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[1]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[3]) {
                 val hasPlugins = lxPlugins.isNotEmpty()
 
                 SettingsSwitchRow(
@@ -313,7 +318,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
 
         // 分组 3：远程 UNM 服务
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[2]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[4]) {
                 SettingsSwitchRow(
                     title = "启用远程 UNM 服务",
                     subtitle = "向远程自建或第三方的 UNM（UnblockNeteaseMusic）服务器请求音频直链",
@@ -322,7 +327,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (unmRemoteFallbackEnabled) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
 
                     SettingsRow(
                         title = "远程服务接口 (Base URL)",
@@ -330,7 +335,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         onClick = { showServerUrlDialog = true }
                     )
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
 
                     SettingsSwitchRow(
                         title = "服务端自动选择模式",
@@ -457,7 +462,8 @@ private fun ServerUrlEditDialog(
                 OutlinedTextField(
                     value = textValue,
                     onValueChange = {
-                        textValue = it
+                        // 复制来的地址常带换行，单行输入框只显示首行会像是空的
+                        textValue = it.filterNot(Char::isWhitespace)
                         testResult = null
                     },
                     placeholder = { Text("例如 https://your-unm-server.com", fontSize = 13.sp) },

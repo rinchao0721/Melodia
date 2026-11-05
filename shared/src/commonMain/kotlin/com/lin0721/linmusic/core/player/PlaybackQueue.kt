@@ -38,6 +38,9 @@ class PlaybackQueue {
 
     val size: Int get() = playItems.size
 
+    // 当前曲目之后还有多少首没播（漫游判断"队尾够不够"用）
+    val upcomingCount: Int get() = (playItems.size - _currentIndex.value - 1).coerceAtLeast(0)
+
     val isEmpty: Boolean get() = playItems.isEmpty()
 
     val original: List<QueueItem> get() = originalItems
@@ -168,6 +171,17 @@ class PlaybackQueue {
         _items.value = playItems
     }
 
+    // 先播后补的大歌单接上后台补全的曲目：已在队列里的跳过，随机模式下打乱后再接，返回是否有新增
+    fun extend(items: List<QueueItem>): Boolean {
+        val queuedIds = originalItems.mapTo(HashSet()) { it.songId }
+        val fresh = items.filter { it.songId !in queuedIds }
+        if (fresh.isEmpty()) return false
+        playItems = playItems + if (_playMode.value == PlayMode.SHUFFLE) fresh.shuffled() else fresh
+        originalItems = originalItems + fresh
+        _items.value = playItems
+        return true
+    }
+
     // 移除指定项，返回需要重新起播的下标，无需重播时返回 -1
     fun removeAt(index: Int): Int {
         if (index < 0 || index >= playItems.size || playItems.size <= 1) return -1
@@ -250,15 +264,6 @@ class PlaybackQueue {
             _items.value = emptyList()
         }
         return currentTrackItem
-    }
-
-    // 截断到指定下标后追加新曲目，用于漫游续播
-    fun appendAfter(index: Int, items: List<QueueItem>) {
-        if (items.isEmpty()) return
-        val newQueue = originalItems.take(index + 1) + items
-        originalItems = newQueue
-        playItems = newQueue
-        _items.value = playItems
     }
 
     // 备份当前队列与播放上下文，供退出漫游/心动模式时还原

@@ -19,7 +19,9 @@ sealed interface CommentsState {
         override val sortType: CommentSortType = CommentSortType.RECOMMEND,
         val cursor: String = "0",
         val hasMore: Boolean = false,
-        val isLoadingMore: Boolean = false
+        val isLoadingMore: Boolean = false,
+        // QQ 音乐评论只能浏览，界面据此隐藏输入栏、点赞与回复
+        val readOnly: Boolean = false
     ) : CommentsState {
         override val totalCount: Int get() = total
     }

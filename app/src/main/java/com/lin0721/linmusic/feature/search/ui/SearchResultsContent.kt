@@ -86,6 +86,7 @@ internal fun SearchResultsContent(
     onRadioClick: (Long) -> Unit,
     onProgramClick: (PodcastProgram) -> Unit,
     onExternalSongClick: (ExternalTrack) -> Unit,
+    onOpenExternalOptions: (ExternalTrack) -> Unit,
     onLoadMore: () -> Unit,
     onLoadMoreExternal: (MusicPlatform) -> Unit,
     onRetry: () -> Unit,
@@ -160,6 +161,7 @@ internal fun SearchResultsContent(
                     currentTrackId = currentTrackId,
                     isPlaying = isPlaying,
                     onSongClick = onExternalSongClick,
+                    onOpenOptions = onOpenExternalOptions,
                     onLoadMore = { onLoadMoreExternal(platform) },
                     onRetry = { onRetryExternal(platform) }
                 )
@@ -176,6 +178,7 @@ private fun ExternalSearchResultsList(
     currentTrackId: String?,
     isPlaying: Boolean,
     onSongClick: (ExternalTrack) -> Unit,
+    onOpenOptions: (ExternalTrack) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -237,7 +240,20 @@ private fun ExternalSearchResultsList(
                         isActive = isActive,
                         isPlaying = isPlaying,
                         copyable = true,
-                        onClick = { onSongClick(track) }
+                        onClick = { onSongClick(track) },
+                        trailingSlot = {
+                            MelodiaIconButton(
+                                onClick = { onOpenOptions(track) },
+                                modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "更多操作",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     )
                 }
 

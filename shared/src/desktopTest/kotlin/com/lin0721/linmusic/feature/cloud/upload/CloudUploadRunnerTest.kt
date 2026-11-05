@@ -11,6 +11,7 @@ import com.lin0721.linmusic.feature.cloud.data.NosTokenRequest
 import com.lin0721.linmusic.feature.cloud.data.NosTokenResponse
 import com.lin0721.linmusic.feature.cloud.data.NosTokenResult
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -81,7 +82,8 @@ class CloudUploadRunnerTest {
     }
 
     private suspend fun runBatch(block: () -> Unit): UploadBatchResult = withTimeout(5_000) {
-        val result = async { runner.batchFinished.first() }
+        // SharedFlow 不重放完成事件；入队前先订阅，避免快速任务先完成而漏收结果。
+        val result = async(start = CoroutineStart.UNDISPATCHED) { runner.batchFinished.first() }
         block()
         result.await()
     }

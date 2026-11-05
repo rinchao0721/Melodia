@@ -47,8 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -63,9 +61,11 @@ import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressScale
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import org.koin.androidx.compose.koinViewModel
@@ -121,7 +121,7 @@ fun CloudScreen(
                         Icon(
                             if (isSearching) Icons.Rounded.Close else Icons.Rounded.Search,
                             contentDescription = if (isSearching) "关闭搜索" else "搜索",
-                            tint = Color.White
+                            tint = MelodiaColors.TextPrimary
                         )
                     }
                 }
@@ -256,7 +256,7 @@ fun CloudScreen(
                     )
                     .pressScale(MelodiaPress.Transport, fabInteraction)
                     .size(56.dp)
-                    .shadow(8.dp, CircleShape)
+                    .themedShadow(8.dp, CircleShape)
             ) {
                 if (hasActiveUploads) {
                     CircularProgressIndicator(

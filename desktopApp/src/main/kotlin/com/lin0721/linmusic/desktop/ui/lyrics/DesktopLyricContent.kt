@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
@@ -70,12 +69,14 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeHandle
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
+import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
+import com.lin0721.linmusic.desktop.ui.components.PointerTravel
 import com.lin0721.linmusic.desktop.ui.components.onDoubleClick
 import com.lin0721.linmusic.desktop.ui.lyricsview.KaraokeText
+import com.lin0721.linmusic.desktop.ui.shell.WindowDragArea
 import kotlinx.coroutines.delay
 import java.awt.Cursor
-import java.awt.MouseInfo
 
 private const val TAG = "DesktopLyricContent"
 
@@ -157,7 +158,7 @@ fun WindowScope.DesktopLyricContent(
         }
         Spacer(Modifier.height(4.dp))
         Box(Modifier.fillMaxWidth().clip(PillShape).background(Color.Black.copy(alpha = backgroundAlpha))) {
-            WindowDraggableArea(Modifier.fillMaxWidth().onDoubleClick(actions.onToggleLock)) {
+            WindowDragArea(Modifier.fillMaxWidth().onDoubleClick(actions.onToggleLock)) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                     val primary = frame.primary
                     if (primary != null && primary.words.isNotEmpty()) {
@@ -251,17 +252,18 @@ private fun CornerHandle(resize: DesktopLyricResizeCallbacks, modifier: Modifier
 @Composable
 private fun Modifier.resizeDrag(handle: LyricResizeHandle, cursor: Int, resize: DesktopLyricResizeCallbacks): Modifier {
     val callbacks by rememberUpdatedState(resize)
-    return pointerHoverIcon(PointerIcon(Cursor(cursor))).pointerInput(handle) {
+    val effects = LocalWindowEffects.current
+    return pointerHoverIcon(PointerIcon(Cursor(cursor))).pointerInput(handle, effects) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false).consume()
-            val origin = MouseInfo.getPointerInfo()?.location ?: return@awaitEachGesture
+            val travel = PointerTravel.start(effects) ?: return@awaitEachGesture
             callbacks.onStart(handle)
             while (true) {
                 val event = awaitPointerEvent()
                 event.changes.forEach { it.consume() }
                 if (event.changes.none { it.pressed }) break
-                val now = MouseInfo.getPointerInfo()?.location ?: continue
-                callbacks.onDrag(handle, (now.x - origin.x).dp)
+                val delta = travel.delta() ?: continue
+                callbacks.onDrag(handle, delta.x.dp)
             }
             callbacks.onEnd(handle)
         }

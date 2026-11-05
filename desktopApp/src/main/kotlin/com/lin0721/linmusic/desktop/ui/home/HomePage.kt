@@ -5,7 +5,11 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -83,6 +87,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.styledCardRadius
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
@@ -94,7 +99,9 @@ import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.nowplaying.ScrollArrow
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
+import com.lin0721.linmusic.desktop.ui.palette.cardCoverBackground
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
@@ -199,9 +206,9 @@ fun HomePage(
     }
     val gradientColor by animateColorAsState(
         targetValue = if (activeCoverUrl.isNotBlank()) {
-            lerp(heroBase, Color.Black, HOME_GRADIENT_DARKEN_FRACTION)
+            headerCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
         } else {
-            DesktopColors.Pane
+            DesktopColors.PageFill
         },
         animationSpec = uiTween(HOME_GRADIENT_ANIM_MS),
         label = "homeTopGradient"
@@ -254,7 +261,7 @@ fun HomePage(
                     .fillMaxWidth()
                     .height(HomeGradientHeight)
                     .graphicsLayer { translationY = -currentScrollOffset }
-                    .background(Brush.verticalGradient(listOf(gradientColor, DesktopColors.Pane)))
+                    .background(Brush.verticalGradient(listOf(gradientColor, DesktopColors.PageFill)))
             )
                 when {
                     selectedTab == HOME_TAB_MUSIC && newWorksSelected -> NewWorksTab(
@@ -579,7 +586,7 @@ private fun RecentTile(
     var tileHeightPx by remember { mutableIntStateOf(0) }
     var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
     val background by animateColorAsState(
-        if (hovered || contextMenuOffset != null) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f),
+        if (hovered || contextMenuOffset != null) DesktopColors.Overlay.copy(alpha = 0.18f) else DesktopColors.Overlay.copy(alpha = 0.08f),
         uiTween(HOVER_FADE_MS),
         label = "recentTileBg"
     )
@@ -663,14 +670,15 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
         if (coverUrl.isNotBlank()) baseColor = extractCoverPaletteFromUrl(coverUrl).base
     }
     val containerColor by animateColorAsState(
-        lerp(baseColor, Color.Black, SPOTLIGHT_DARKEN_FRACTION),
+        cardCoverBackground(baseColor, SPOTLIGHT_DARKEN_FRACTION),
         uiSpring(),
         label = "dailySpotlightColor"
     )
     val today = remember { LocalDate.now() }
-    val trackLine = remember(songs) {
+    val countColor = DesktopColors.TextPrimary
+    val trackLine = remember(songs, countColor) {
         buildAnnotatedString {
-            withStyle(SpanStyle(color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold)) {
+            withStyle(SpanStyle(color = countColor, fontWeight = FontWeight.Bold)) {
                 append("${songs.size} 首")
             }
             songs.take(SPOTLIGHT_TRACK_PREVIEW_COUNT).forEach { song ->
@@ -683,7 +691,7 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
     Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("今日为你推荐", horizontalPadding = 0)
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(containerColor)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(styledCardRadius(8.dp))).background(containerColor)
                 .clickable(onClick = onOpen).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -710,7 +718,7 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
                 size = 48.dp,
                 description = "播放每日推荐",
                 containerColor = DesktopColors.TextPrimary,
-                iconTint = Color.Black,
+                iconTint = DesktopColors.InverseText,
                 onClick = onPlay
             )
         }
@@ -867,6 +875,10 @@ internal fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composabl
     val density = LocalDensity.current
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    // 桌面端 LazyRow 不响应鼠标拖动，外层补一个拖动；触摸拖动已被列表自身消费，不会重复滚动。
+    // 拖动消费的位移会让卡片的点击自动取消
+    val flingBehavior = ScrollableDefaults.flingBehavior()
+    val dragState = rememberDraggableState { delta -> listState.dispatchRawDelta(-delta) }
     val pageScroll: (Int) -> Unit = { direction ->
         val page = listState.layoutInfo.viewportSize.width - with(density) { (ShelfContentPadding * 2).toPx() }
         scope.launch { listState.animateScrollBy(direction * page.coerceAtLeast(0f)) }
@@ -893,6 +905,13 @@ internal fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composabl
         }
         LazyRow(
             state = listState,
+            modifier = Modifier.draggable(
+                state = dragState,
+                orientation = Orientation.Horizontal,
+                onDragStopped = { velocity ->
+                    listState.scroll { with(flingBehavior) { performFling(-velocity) } }
+                }
+            ),
             contentPadding = PaddingValues(horizontal = ShelfContentPadding),
             horizontalArrangement = Arrangement.spacedBy(ShelfCardGap)
         ) {
@@ -918,8 +937,9 @@ internal fun CardTile(
     val density = LocalDensity.current
     var tileHeightPx by remember { mutableIntStateOf(0) }
     var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
+    // 从同色全透明起步：Color.Transparent 是透明黑，浅色下插值会先变暗再变亮，看起来像闪烁
     val background by animateColorAsState(
-        if (hovered || contextMenuOffset != null) DesktopColors.CardSurface else Color.Transparent,
+        if (hovered || contextMenuOffset != null) DesktopColors.CardSurface else DesktopColors.CardSurface.copy(alpha = 0f),
         uiTween(HOVER_FADE_MS),
         label = "cardTileBg"
     )

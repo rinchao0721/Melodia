@@ -56,10 +56,15 @@ internal object MpvConst {
     const val END_FILE_REASON_EOF = 0
     const val END_FILE_REASON_ERROR = 4
 
+    const val ERROR_AO_INIT_FAILED = -14
+
     // mpv_event：event_id(int) error(int) reply_userdata(uint64) data(void*)
     const val EVENT_OFFSET_ID = 0L
     const val EVENT_OFFSET_USERDATA = 8L
     const val EVENT_OFFSET_DATA = 16L
+
+    // mpv_event_end_file：reason(int) error(int) ...
+    const val END_FILE_OFFSET_ERROR = 4L
 
     // mpv_event_property：name(char*) format(int, 按指针对齐) data(void*)
     const val PROPERTY_OFFSET_FORMAT = 8L

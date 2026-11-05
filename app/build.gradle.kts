@@ -48,6 +48,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // USB 独占输出的原生层：libusb 与等时输出流
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
@@ -164,6 +172,7 @@ dependencies {
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)
     implementation(libs.bouncycastle)
+    implementation(libs.lyricon.provider)
     implementation(libs.androidx.profileinstaller)
     baselineProfile(project(":baselineprofile"))
 

@@ -12,9 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicUiState
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
@@ -30,7 +30,7 @@ fun RowScope.LocalSelectionActions(
 ) {
     if (!state.isSelectionMode) {
         MelodiaIconButton(onClick = { viewModel.toggleSelectionMode() }) {
-            Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = Color.White)
+            Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
         }
         return
     }
@@ -38,14 +38,14 @@ fun RowScope.LocalSelectionActions(
         MelodiaIconButton(onClick = {
             viewModel.openPlaylistPicker(tracks.filter { it.uri.toString() in state.selectedUris })
         }) {
-            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = Color.White)
+            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
         }
     }
     MelodiaIconButton(onClick = {
         if (state.selectedUris.isEmpty()) viewModel.exitSelectionMode() else onRequestDelete()
     }) {
         if (state.selectedUris.isEmpty()) {
-            Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = Color.White)
+            Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
         } else {
             Icon(Icons.Rounded.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
         }

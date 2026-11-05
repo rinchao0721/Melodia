@@ -88,6 +88,8 @@
     static ** CREATOR;
 }
 -keep class com.hchen.superlyricapi.** { *; }
+# 词幕 ProviderInfo 跨进程按类名反序列化
+-keep class io.github.proify.lyricon.** { *; }
 
 
 # 压缩包解析（zip/7z）：未使用的可选压缩算法依赖不在运行时

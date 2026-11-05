@@ -62,7 +62,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -79,6 +78,7 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -86,6 +86,7 @@ import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
@@ -201,7 +202,7 @@ private fun ArtistContent(
     LaunchedEffect(backdropUrl) {
         if (backdropUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(backdropUrl).base
     }
-    val heroColor by animateColorAsState(lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), uiSpring(), label = "artistHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "artistHero")
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -261,7 +262,7 @@ private fun ArtistContent(
                                     translationY = (barHeightPx - naturalY).coerceIn(0, barHeightPx).toFloat()
                                 }
                             }
-                            .background(DesktopColors.Pane)
+                            .paneBackdrop(DesktopColors.Pane)
                             .padding(horizontal = ContentPadding, vertical = 8.dp)
                     ) {
                         TabBar(ArtistTab.entries, tab, { it.label }, { tab = it })
@@ -514,7 +515,7 @@ private fun ArtistHeader(
             }
             Box(
                 Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.Pane.copy(alpha = 0.6f), DesktopColors.Pane))
+                    Brush.verticalGradient(listOf(Color.Transparent, DesktopColors.PageFill.let { it.copy(alpha = it.alpha * 0.6f) }, DesktopColors.PageFill))
                 )
             )
             Column(Modifier.align(Alignment.BottomStart).padding(ContentPadding)) {

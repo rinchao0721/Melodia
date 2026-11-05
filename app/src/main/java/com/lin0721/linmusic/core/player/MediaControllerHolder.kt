@@ -87,6 +87,11 @@ class MediaControllerHolder(private val context: Context) {
         controller?.play()
     }
 
+    // 音量平衡的曲目增益，服务侧平滑过渡
+    fun setVolume(volume: Float) {
+        controller?.volume = volume
+    }
+
     fun pause() {
         controller?.pause()
     }

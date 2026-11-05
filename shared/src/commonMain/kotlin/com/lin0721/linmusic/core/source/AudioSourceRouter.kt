@@ -7,14 +7,19 @@ import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "AudioSourceRouter"
+
+// 插件优先时每首歌起播都要等这一步，LX 按脚本和平台轮询，本身没有总上限
+private const val PLUGIN_FIRST_BUDGET_MS = 10_000L
 
 // PlaybackRepository 装饰器，在官方接口失败或仅为试听片段时自动通过 UNM 服务换源
 class AudioSourceRouter(
@@ -28,6 +33,17 @@ class AudioSourceRouter(
 
     override fun getSongPlaybackInfo(songId: Long): Flow<Result<SongPlaybackInfo>> = flow {
         val fallbackEnabled = sourcePreferences.fallbackEnabled.first()
+
+        // 插件优先：命中后不再请求官方接口，所以没有音质档位和网易增益
+        val pluginFirst = fallbackEnabled && sourcePreferences.pluginBeforeOfficial.first()
+        if (pluginFirst) {
+            val preferred = withTimeoutOrNull(PLUGIN_FIRST_BUDGET_MS) { resolveCommunity(songId) }
+            if (preferred != null) {
+                AppLogger.i(TAG, "插件优先命中: songId=$songId 来源=${preferred.second}")
+                emit(Result.success(SongPlaybackInfo(url = preferred.first)))
+                return@flow
+            }
+        }
 
         // 1. 先尝试官方接口获取直链
         val officialInfoResult = delegate.getSongPlaybackInfo(songId).first()
@@ -58,34 +74,8 @@ class AudioSourceRouter(
         var matchedUrl: String? = null
         var matchedSource: String? = null
 
-        // 辅助函数：解析社区扩展源插件
-        suspend fun tryResolveCommunity(): Pair<String, String>? {
-            if (providers.isEmpty()) return null
-            val track = delegate.getSongDetail(songId).first().getOrNull() ?: return null
-            val quality = if (networkStateProvider.isWifiConnected()) {
-                settingsPreferences.wifiQuality.first()
-            } else {
-                settingsPreferences.mobileQuality.first()
-            }
-            for (p in providers) {
-                try {
-                    val r = p.resolveUrl(
-                        songId = songId.toString(),
-                        songName = track.name,
-                        artists = track.ar.joinToString("/") { it.name },
-                        albumName = track.al.name,
-                        durationMs = track.dt,
-                        quality = quality
-                    )
-                    if (r != null && r.url.isNotBlank() && !r.isTrial && !isTrialPlayUrl(r.url)) {
-                        return Pair(r.url, "社区源 (${p.platform.displayName})")
-                    }
-                } catch (e: Exception) {
-                    AppLogger.w(TAG, "${p.platform.displayName} 解析失败: ${e.message}")
-                }
-            }
-            return null
-        }
+        // 辅助函数：解析社区扩展源插件，插件优先时已经问过，不再重复等待
+        suspend fun tryResolveCommunity(): Pair<String, String>? = if (pluginFirst) null else resolveCommunity(songId)
 
         // 辅助函数：解析远程 UNM 兜底服务
         suspend fun tryResolveRemoteUnm(): Pair<String, String>? {
@@ -145,6 +135,36 @@ class AudioSourceRouter(
     }.catch { e ->
         AppLogger.e(TAG, "换源流程异常 songId=$songId", e)
         emit(Result.failure(e))
+    }
+
+    private suspend fun resolveCommunity(songId: Long): Pair<String, String>? {
+        if (providers.isEmpty()) return null
+        val track = delegate.getSongDetail(songId).first().getOrNull() ?: return null
+        val quality = if (networkStateProvider.isWifiConnected()) {
+            settingsPreferences.wifiQuality.first()
+        } else {
+            settingsPreferences.mobileQuality.first()
+        }
+        for (p in providers) {
+            try {
+                val r = p.resolveUrl(
+                    songId = songId.toString(),
+                    songName = track.name,
+                    artists = track.ar.joinToString("/") { it.name },
+                    albumName = track.al.name,
+                    durationMs = track.dt,
+                    quality = quality
+                )
+                if (r != null && r.url.isNotBlank() && !r.isTrial && !isTrialPlayUrl(r.url)) {
+                    return Pair(r.url, "社区源 (${p.platform.displayName})")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "${p.platform.displayName} 解析失败: ${e.message}")
+            }
+        }
+        return null
     }
 
     override fun getSongUrl(songId: Long): Flow<Result<String>> =

@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.localmusic.domain.AuthorizedFolder
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
@@ -52,7 +54,7 @@ import kotlin.math.roundToInt
 private const val MAX_MIN_DURATION_SEC = 180
 private const val MIN_DURATION_STEP_SEC = 10
 
-private val DividerColor = Color.White.copy(alpha = 0.08f)
+private val DividerColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Divider
 
 @Composable
 fun LocalMusicSettingsScreen(

@@ -43,9 +43,7 @@ import com.lin0721.linmusic.core.auth.QrLoginState
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import org.koin.androidx.compose.koinViewModel
@@ -82,7 +80,7 @@ fun LoginBottomSheet(
             onDismiss()
         },
         sheetState = sheetState,
-        containerColor = SurfaceDark,
+        containerColor = MelodiaColors.Surface,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -108,7 +106,7 @@ fun LoginBottomSheet(
                         viewModel.resetQrState()
                         mode = LoginMode.CHOICE
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
                     }
                 }
             }
@@ -172,13 +170,13 @@ private fun LoginChoiceContent(
         text = "登录",
         fontSize = 28.sp,
         fontWeight = FontWeight.ExtraBold,
-        color = Color.White,
+        color = MelodiaColors.TextPrimary,
         modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
     )
     Text(
         text = "登录后享受完整体验",
         fontSize = 13.sp,
-        color = Color.Gray,
+        color = MelodiaColors.HintText,
         modifier = Modifier.padding(bottom = MelodiaSpacing.xl)
     )
 
@@ -203,7 +201,7 @@ private fun QrLoginContent(
         text = "二维码登录",
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.White,
+        color = MelodiaColors.TextPrimary,
         modifier = Modifier.padding(bottom = MelodiaSpacing.lg)
     )
 
@@ -235,9 +233,9 @@ private fun QrLoginContent(
                         .padding(12.dp)
                         .alpha(0.3f)
                 )
-                CircularProgressIndicator(color = NeteaseRed)
+                CircularProgressIndicator(color = MelodiaColors.Accent)
             }
-            else -> CircularProgressIndicator(color = NeteaseRed)
+            else -> CircularProgressIndicator(color = MelodiaColors.Accent)
         }
     }
 
@@ -250,12 +248,12 @@ private fun QrLoginContent(
         QrLoginState.Expired -> "二维码已过期"
         is QrLoginState.Error -> s.message
     }
-    Text(text = statusText, fontSize = 14.sp, color = Color.LightGray)
+    Text(text = statusText, fontSize = 14.sp, color = MelodiaColors.PillContent)
 
     if (state is QrLoginState.Expired || state is QrLoginState.Error) {
         Spacer(modifier = Modifier.height(MelodiaSpacing.md))
         MelodiaTextButton(onClick = { viewModel.startQrLogin(onLoginSuccess) }) {
-            Text("点击刷新", color = NeteaseRed, fontWeight = FontWeight.Bold)
+            Text("点击刷新", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -273,13 +271,13 @@ private fun CookieLoginContent(onSubmit: (String) -> Boolean) {
         text = "Cookie 登录",
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.White,
+        color = MelodiaColors.TextPrimary,
         modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
     )
     Text(
         text = "粘贴Cookie 字符串",
         fontSize = 13.sp,
-        color = Color.Gray,
+        color = MelodiaColors.HintText,
         modifier = Modifier.padding(bottom = MelodiaSpacing.md)
     )
     PlaceholderTextField(
@@ -297,7 +295,7 @@ private fun CookieLoginContent(onSubmit: (String) -> Boolean) {
         Text(
             text = errorText.orEmpty(),
             fontSize = 12.sp,
-            color = NeteaseRed,
+            color = MelodiaColors.AccentText,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -312,10 +310,10 @@ private fun CookieLoginContent(onSubmit: (String) -> Boolean) {
             .fillMaxWidth()
             .height(56.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed),
+        colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 2.dp)
     ) {
-        Text("确认登录", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("确认登录", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MelodiaColors.OnAccent)
     }
 }
 
@@ -337,7 +335,7 @@ private fun LoginOptionButton(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = NeteaseRed
+                containerColor = MelodiaColors.Accent
             ),
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = 4.dp,
@@ -348,14 +346,14 @@ private fun LoginOptionButton(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
-                tint = Color.White
+                tint = MelodiaColors.OnAccent
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = text,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MelodiaColors.OnAccent
             )
         }
     } else {
@@ -366,25 +364,25 @@ private fun LoginOptionButton(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             border = ButtonDefaults.outlinedButtonBorder(true).copy(
-                brush = androidx.compose.ui.graphics.SolidColor(SurfaceLight)
+                brush = androidx.compose.ui.graphics.SolidColor(MelodiaColors.SurfaceLight)
             ),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = Color.Transparent,
-                contentColor = Color.White
+                contentColor = MelodiaColors.TextPrimary
             )
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
-                tint = Color.LightGray
+                tint = MelodiaColors.PillContent
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = text,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White
+                color = MelodiaColors.TextPrimary
             )
         }
     }

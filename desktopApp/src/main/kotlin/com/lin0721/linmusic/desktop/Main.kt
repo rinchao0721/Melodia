@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.desktop
 
+import com.lin0721.linmusic.desktop.di.DesktopLaunchOptions
+import com.lin0721.linmusic.desktop.ui.theme.PluginBackdropAnimator
+import com.lin0721.linmusic.desktop.ui.theme.withPluginBackdrop
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,16 +34,27 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.lin0721.linmusic.core.ui.skin.ActiveSkin
+import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.skin.withBackdrop
+import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
+import com.lin0721.linmusic.core.ui.theme.SkinBackdropHost
+import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.preferences.ThemeMode
+import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.desktop.app.AppInfo
 import com.lin0721.linmusic.desktop.app.DesktopCacheMigration
 import com.lin0721.linmusic.desktop.app.DesktopCacheRoot
 import com.lin0721.linmusic.desktop.app.DesktopLogging
 import com.lin0721.linmusic.desktop.app.DesktopPaths
+import com.lin0721.linmusic.core.plugin.PluginHostInfo
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.desktop.app.HeapTrim
 import com.lin0721.linmusic.desktop.app.RenderBackend
 import com.lin0721.linmusic.desktop.app.RenderSessionGuard
@@ -68,6 +82,7 @@ import com.lin0721.linmusic.desktop.platform.TaskbarThumbnailService
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
+import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.TextInputFocus
 import com.lin0721.linmusic.desktop.ui.components.UiMotion
 import com.lin0721.linmusic.desktop.ui.lyrics.DesktopLyricWindow
@@ -82,10 +97,13 @@ import com.lin0721.linmusic.desktop.ui.shell.WindowChromeEffect
 import com.lin0721.linmusic.desktop.ui.shell.rememberDesktopShellSession
 import com.lin0721.linmusic.desktop.ui.shell.rememberFullscreenState
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
+import com.lin0721.linmusic.desktop.ui.theme.SystemDarkTheme
+import com.lin0721.linmusic.desktop.ui.theme.rememberDesktopPalette
 import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
 import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
 import com.lin0721.linmusic.di.networkModule
+import com.lin0721.linmusic.di.pluginModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.di.sourceModule
 import com.lin0721.linmusic.di.updateModule
@@ -111,6 +129,7 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.KeyboardFocusManager
 import kotlin.system.exitProcess
+import java.io.File
 
 private const val VOLUME_STEP = 5
 private const val SEEK_STEP_MS = 5_000L
@@ -135,7 +154,9 @@ private data class WindowSnapshot(
 )
 
 @OptIn(FlowPreview::class)
-fun main() {
+fun main(args: Array<String>) {
+    DesktopLaunchOptions.safeMode = "--safe-mode" in args
+    PluginHostInfo.appVersion = AppInfo.version.takeIf { AppInfo.isRelease }
     DesktopLogging.install()
     DesktopImageLoader.install()
     // 已有实例则唤起它并退出
@@ -156,7 +177,7 @@ fun main() {
         modules(
             platformModuleFor(System.getProperty("os.name").orEmpty()),
             desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule,
-            updateModule(AppInfo.versionCode)
+            updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") }
         )
     }.koin
     val controller = koin.get<DesktopPlaybackController>()
@@ -166,6 +187,10 @@ fun main() {
     CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
         delay(3000)
         koin.get<UpdateChecker>().checkForUpdate(manual = false, showDialogOnAutoFound = true)
+    }
+    // 拉起已启用的插件
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        koin.get<PluginRepository>().warmUp()
     }
     val settingsPreferences = koin.get<SettingsPreferences>()
     // 切换缓存目录后清掉旧目录；旧缓存超出当前上限时补一次淘汰
@@ -202,6 +227,17 @@ fun main() {
     val initialUiAnimationsEnabled = runCatching {
         runBlocking { settingsPreferences.uiAnimationsEnabled.first() }
     }.getOrDefault(true)
+    // 首帧即按已存主题渲染；跟随系统时先同步读一次系统深浅色
+    val initialThemeSettings = runCatching {
+        runBlocking { settingsPreferences.themeSettings.first() }
+    }.getOrDefault(ThemeSettings())
+    if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
+    val skinRepository = koin.get<SkinRepository>()
+    val pluginRepository = koin.get<PluginRepository>()
+    val skinImageCodec = koin.get<SkinImageCodec>()
+    val initialDark = initialThemeSettings.mode.isDark(SystemDarkTheme.isDark.value)
+    skinRepository.updateSystemDark(SystemDarkTheme.isDark.value)
+    val initialSkin = runCatching { runBlocking { skinRepository.load(initialThemeSettings.skinId(initialDark), initialDark) } }.getOrNull()
     val restoredBounds = savedWindow.bounds
     val restoredPosition = restoredBounds?.takeIf { it.isReachableOn(currentScreenBounds()) }
     // 附属窗口每次打开都取最新保存的状态；显示器布局变化后够不着的位置交给默认值
@@ -247,6 +283,25 @@ fun main() {
         val uiScaleFactor = UiScale.toFactor(uiScalePercent)
         val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = initialUiAnimationsEnabled)
         val uiMotion = remember { UiMotion(initialUiAnimationsEnabled) }
+        val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
+        val systemDark by SystemDarkTheme.isDark.collectAsState()
+        LaunchedEffect(systemDark) { skinRepository.updateSystemDark(systemDark) }
+        val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
+        val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
+        val skin = activeSkin.skin
+        val basePalette = rememberDesktopPalette(themeSettings, skin, windowEffects)
+        val pluginBackdrops by pluginRepository.backdrops.collectAsState()
+        val pluginBackdrop = pluginBackdrops.active
+        val backdropHost = remember(activeSkin, pluginBackdrop != null) {
+            if (activeSkin.backdrop != null || pluginBackdrop != null) SkinBackdropHost(activeSkin.backdrop) else null
+        }
+        val palette = remember(basePalette, backdropHost, skin, pluginBackdrop) {
+            when {
+                backdropHost == null -> basePalette
+                pluginBackdrop != null -> basePalette.withPluginBackdrop(pluginBackdrop.entry)
+                else -> basePalette.withBackdrop(skin?.background)
+            }
+        }
         LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
         val isPlaying by controller.playWhenReady.collectAsState()
@@ -474,24 +529,41 @@ fun main() {
                 }
             }
             // 全屏与最大化一样不要圆角和边框线
-            WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating)
-            CanvasClearColorEffect()
+            WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating, palette = palette)
+            CanvasClearColorEffect(palette.windowBackground)
             TaskbarThumbnailEffect(taskbarThumbnail, controller)
-            CompositionLocalProvider(LocalUiMotion provides uiMotion) {
-                MelodiaDesktopTheme(uiScale = uiScaleFactor) {
-                    shellSession.Provide {
-                        MelodiaDesktopApp(
-                            deps = appDependencies,
-                            session = shellSession,
-                            windowState = windowState,
-                            fullscreen = fullscreen,
-                            lyricsView = lyricsView,
-                            searchFocusRequests = searchFocusRequests.receiveAsFlow(),
-                            settingsRequests = settingsRequests.receiveAsFlow(),
-                            loginRequests = loginRequests.receiveAsFlow(),
-                            onEnterMiniPlayer = enterMiniPlayer,
-                            onClose = closeMainWindow
-                        )
+            if (backdropHost != null && pluginBackdrop != null) {
+                PluginBackdropAnimator(
+                    host = backdropHost,
+                    backdrop = pluginBackdrop,
+                    codec = skinImageCodec,
+                    running = isMainVisible && !windowState.isMinimized,
+                    moving = uiAnimationsEnabled
+                )
+            }
+            CompositionLocalProvider(LocalUiMotion provides uiMotion, LocalWindowEffects provides windowEffects) {
+                MelodiaDesktopTheme(
+                    uiScale = uiScaleFactor,
+                    palette = palette,
+                    style = skin?.style ?: MelodiaStyle.Default,
+                    backdrop = backdropHost,
+                    skin = skin
+                ) {
+                    ThemeRevealHost(themeKey = palette to backdropHost, enabled = uiMotion.enabled) {
+                        shellSession.Provide {
+                            MelodiaDesktopApp(
+                                deps = appDependencies,
+                                session = shellSession,
+                                windowState = windowState,
+                                fullscreen = fullscreen,
+                                lyricsView = lyricsView,
+                                searchFocusRequests = searchFocusRequests.receiveAsFlow(),
+                                settingsRequests = settingsRequests.receiveAsFlow(),
+                                loginRequests = loginRequests.receiveAsFlow(),
+                                onEnterMiniPlayer = enterMiniPlayer,
+                                onClose = closeMainWindow
+                            )
+                        }
                     }
                 }
             }
@@ -521,7 +593,10 @@ fun main() {
             MiniPlayerWindow(
                 init = remember { loadMiniPlayerInit() },
                 uiScale = uiScaleFactor,
+                palette = basePalette,
+                skin = skin,
                 uiMotion = uiMotion,
+                windowEffects = windowEffects,
                 icon = appIcon,
                 isLoggedIn = userProfile != null,
                 playerViewModel = playerViewModel,

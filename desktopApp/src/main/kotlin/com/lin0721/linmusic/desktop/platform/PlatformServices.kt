@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.platform
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.flow.StateFlow
+import java.awt.Point
 import java.awt.Window
 import java.io.File
 
@@ -67,7 +68,9 @@ interface AutoStartService {
     fun setEnabled(enabled: Boolean): Boolean
 }
 
-// 无边框主窗口的系统外观，以及桌面歌词窗口的鼠标穿透
+enum class WindowEdge { Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight }
+
+// 无边框主窗口的系统外观，桌面歌词窗口的鼠标穿透，以及无边框窗口的拖动与缩放
 interface WindowEffects {
 
     // 让无边框窗口也有系统的最小化、还原动画
@@ -81,9 +84,23 @@ interface WindowEffects {
     // 系统开启“窗口边框显示强调色”时返回 0xRRGGBB，否则为 null；阻塞调用
     fun systemBorderAccent(): Int?
 
+    // 系统应用是否使用浅色主题，读取失败按深色；阻塞调用
+    fun systemAppsUseLightTheme(): Boolean
+
+    // 系统切换深浅色时回调，可能在任意线程；返回注销函数
+    fun observeSystemTheme(onChanged: () -> Unit): () -> Unit
+
     val supportsClickThrough: Boolean
 
     fun setClickThrough(window: Window, enabled: Boolean)
+
+    // 交给系统的移动/缩放循环，跨缩放比例不同的显示器时由系统换算坐标；须在左键按住时调用，未接管返回 false
+    fun beginSystemMove(window: Window): Boolean
+
+    fun beginSystemResize(window: Window, edge: WindowEdge): Boolean
+
+    // 光标的物理像素坐标，跨屏连续；不支持时为 null
+    fun cursorPhysicalPosition(): Point?
 }
 
 // 网页登录需要一个支持远程调试协议的 Chromium 内核浏览器

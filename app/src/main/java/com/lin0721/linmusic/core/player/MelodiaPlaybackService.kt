@@ -25,7 +25,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaNotification
@@ -45,6 +49,8 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.external.EXTRA_LYRIC_INFO
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
+import com.lin0721.linmusic.core.player.usb.UsbAudioDeviceManager
+import com.lin0721.linmusic.core.player.usb.UsbAudioOutputProvider
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import kotlinx.coroutines.CoroutineScope
@@ -110,6 +116,7 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
+    private var usbAudio: UsbAudioDeviceManager? = null
     private var mediaSession: MediaSession? = null
     private var sessionActivityPendingIntent: PendingIntent? = null
     private var currentCoverBitmap: Bitmap? = null
@@ -226,18 +233,25 @@ class MelodiaPlaybackService : MediaSessionService() {
             .build()
         // 耳机拔出 / 蓝牙耳机断开（如收回耳机盒）时系统发出 AUDIO_BECOMING_NOISY，需自动暂停，避免外放；
         // 两台都开启：交叉淡化期间淡出方和缓冲中的新歌也要一起停
-        val primaryPlayer = ExoPlayer.Builder(this)
+        val usbAudio = UsbAudioDeviceManager(this).also { manager ->
+            manager.start()
+            // 与系统拔耳机自动暂停一致，避免拔出 DAC 后改从扬声器外放
+            manager.onDeviceDetached = { crossfadePlayer?.pause() }
+            this.usbAudio = manager
+        }
+        val primaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
             .setHandleAudioBecomingNoisy(true)
             .build()
-        val secondaryPlayer = ExoPlayer.Builder(this)
+        val secondaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
             .setHandleAudioBecomingNoisy(true)
             .build()
         val sessionPlayer = CrossfadePlayer(
             primary = primaryPlayer,
             secondary = secondaryPlayer,
-            audioAttributes = audioAttributes
+            audioAttributes = audioAttributes,
+            exclusiveVolume = usbAudio
         )
         sessionPlayer.setMetadataTransformer { base ->
             externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
@@ -249,6 +263,9 @@ class MelodiaPlaybackService : MediaSessionService() {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
                 sessionPlayer.setHandleAudioFocus(!playWithOtherApps)
             }
+        }
+        serviceScope.launch {
+            settingsPreferences.exclusiveOutput.collect { usbAudio.setEnabled(it) }
         }
         // 设置页已保证两者互斥，这里再兜底一次，避免淡化时两台播放器争用卸载通道
         serviceScope.launch {
@@ -413,6 +430,8 @@ class MelodiaPlaybackService : MediaSessionService() {
         crossfadePlayer?.release()
         crossfadePlayer = null
         player = null
+        usbAudio?.stop()
+        usbAudio = null
         super.onDestroy()
     }
 
@@ -713,6 +732,21 @@ class MelodiaPlaybackService : MediaSessionService() {
         override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo =
             MediaNotification.Provider.NotificationChannelInfo(PLAYBACK_CHANNEL_ID, PLAYBACK_CHANNEL_NAME)
     }
+}
+
+// 输出层先交给 USB 独占判断，不能直出时走系统 AudioTrack；开启浮点输出让高精度源以浮点进入输出层
+@OptIn(UnstableApi::class)
+private class MelodiaRenderersFactory(
+    context: Context,
+    private val usbAudio: UsbAudioDeviceManager
+) : DefaultRenderersFactory(context) {
+
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink =
+        DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(true)
+            .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+            .setAudioOutputProvider(UsbAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build(), usbAudio))
+            .build()
 }
 
 // 音频卸载交给 DSP 解码；格式或设备不支持时 ExoPlayer 自动回退软件解码，播放中切换会重配音频输出

@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.feature.localmusic.data.metadata.readWavPicture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -37,7 +38,7 @@ class LocalCoverArtCache(private val context: Context) {
 
     private fun extractEmbeddedPicture(uri: Uri): ByteArray? {
         val retriever = MediaMetadataRetriever()
-        return try {
+        val systemPicture = try {
             retriever.setDataSource(context, uri)
             retriever.embeddedPicture
         } catch (e: Exception) {
@@ -46,6 +47,7 @@ class LocalCoverArtCache(private val context: Context) {
         } finally {
             runCatching { retriever.release() }
         }
+        return systemPicture ?: readWavPicture(context, uri)
     }
 
     private fun fileProviderUri(file: File): Uri =

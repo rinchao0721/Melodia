@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.WindowScope
+import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.desktop.platform.WindowEffects
 import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 import kotlinx.coroutines.awaitCancellation
@@ -20,7 +21,7 @@ private const val DISPLAYABLE_POLL_MS = 50L
 
 // 主窗口的系统圆角与边框线；窗口未获焦点时强调色退为中性线
 @Composable
-fun WindowScope.WindowChromeEffect(effects: WindowEffects, maximized: Boolean) {
+fun WindowScope.WindowChromeEffect(effects: WindowEffects, maximized: Boolean, palette: MelodiaPalette) {
     var focused by remember(window) { mutableStateOf(window.isFocused) }
     val accent by WindowBorder.accentRgb.collectAsState()
 
@@ -48,8 +49,8 @@ fun WindowScope.WindowChromeEffect(effects: WindowEffects, maximized: Boolean) {
             effects.uninstall(window)
         }
     }
-    LaunchedEffect(window, maximized, focused, accent) {
+    LaunchedEffect(window, maximized, focused, accent, palette) {
         while (!window.isDisplayable) delay(DISPLAYABLE_POLL_MS)
-        effects.applyFrame(window, maximized, WindowBorder.opaqueRgb(accent.takeIf { focused }, focused))
+        effects.applyFrame(window, maximized, WindowBorder.opaqueRgb(accent.takeIf { focused }, focused, palette))
     }
 }

@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -42,12 +41,11 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.CreatePlaylistDialog
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
 import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
@@ -60,7 +58,7 @@ fun LocalPlaylistCover(tracks: List<LocalTrack>, size: Dp, modifier: Modifier = 
     val shape = RoundedCornerShape(if (size >= 80.dp) 8.dp else RadiusCompact)
     when {
         tracks.isEmpty() -> Box(
-            modifier = modifier.size(size).clip(shape).background(SurfaceLight),
+            modifier = modifier.size(size).clip(shape).background(MelodiaColors.SurfaceLight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -90,7 +88,7 @@ fun NewPlaylistTile(size: Dp, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+            .border(1.dp, MelodiaColors.Overlay.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -120,7 +118,7 @@ fun LocalPlaylistPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = BackgroundDark,
+        containerColor = MelodiaColors.Background,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {

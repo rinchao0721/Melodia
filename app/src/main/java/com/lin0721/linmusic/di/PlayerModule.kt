@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.offline.CachedAudioIndex
 import com.lin0721.linmusic.core.player.AndroidCachedAudioIndex
@@ -13,6 +14,7 @@ import com.lin0721.linmusic.core.player.data.QqLyricsClient
 import com.lin0721.linmusic.core.player.data.QqLyricsSource
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.NeteaseSongLookup
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +27,7 @@ import org.koin.dsl.module
 val playerModule = module {
     single { ExternalInterruptionResumeController(androidContext(), get()) }
     single {
-        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
+        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
             // 随播放器一同创建，进程内常驻记录播客收听进度
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
@@ -44,6 +46,8 @@ val playerModule = module {
         val amllLyricsClient = get<AmllLyricsClient>()
         val settingsPreferences = get<SettingsPreferences>()
         val qqLyricsSource = get<QqLyricsSource>()
+        val neteaseLookup = get<NeteaseSongLookup>()
+        val pluginLyrics = get<PluginLyricsSource>()
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
@@ -52,7 +56,12 @@ val playerModule = module {
             isAmllEnabled = { settingsPreferences.amllLyricsEnabled.first() },
             isQqEnabled = { settingsPreferences.qqLyricsEnabled.first() },
             isNeteaseEnabled = { settingsPreferences.neteaseLyricsEnabled.first() },
-            readQqLyrics = qqLyricsSource::fetch
+            readQqLyrics = qqLyricsSource::fetch,
+            externalOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.external },
+            matchNeteaseId = neteaseLookup::find,
+            readExternalQqLyrics = qqLyricsSource::fetch,
+            hasPluginLyrics = pluginLyrics::hasSources,
+            readPluginLyrics = pluginLyrics::fetch
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

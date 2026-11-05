@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.plugin.ExtensionRegistry
+import com.lin0721.linmusic.core.plugin.PluginContent
+import com.lin0721.linmusic.core.plugin.PluginAwarePlaylistRepository
 import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
@@ -31,6 +34,10 @@ import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.songlike.SongLikeRepositoryImpl
+import com.lin0721.linmusic.core.comment.data.QQAwareCommentRepository
+import com.lin0721.linmusic.core.source.QQCommentApi
+import com.lin0721.linmusic.core.playlistexternal.ExternalSongLikes
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.core.userartist.UserArtistRepositoryImpl
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
@@ -63,6 +70,8 @@ import com.lin0721.linmusic.feature.cloud.upload.CloudUploadRunner
 import com.lin0721.linmusic.feature.cloud.upload.NosUploadClient
 import com.lin0721.linmusic.feature.search.data.SearchRepository
 import com.lin0721.linmusic.feature.search.data.SearchRepositoryImpl
+import com.lin0721.linmusic.feature.search.data.SearchNeteaseSongLookup
+import com.lin0721.linmusic.core.source.NeteaseSongLookup
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -91,6 +100,8 @@ val repositoryModule = module {
 
     // 搜索数据仓储（feature/search）
     singleOf(::SearchRepositoryImpl) { bind<SearchRepository>() }
+    // 外部平台歌曲走远程 UNM 前先在网易云匹配同一首
+    single<NeteaseSongLookup> { SearchNeteaseSongLookup(get()) }
 
     // 音乐库数据仓储（feature/library）
     singleOf(::LibraryRepositoryImpl) { bind<LibraryRepository>() }
@@ -120,11 +131,18 @@ val repositoryModule = module {
     // 歌手数据仓储（feature/artist）
     singleOf(::ArtistRepositoryImpl) { bind<ArtistRepository>() }
 
-    // 评论数据仓储（core/comment 共享能力）
-    singleOf(::CommentRepositoryImpl) { bind<CommentRepository>() }
+    // 评论数据仓储（core/comment 共享能力），外部平台歌曲的评论线程分流到 QQ 音乐
+    single { CommentRepositoryImpl(get()) }
+    single<CommentRepository> { QQAwareCommentRepository(get<CommentRepositoryImpl>(), QQCommentApi()) }
 
     // 歌曲红心数据仓储（core/songlike 共享能力）
-    singleOf(::SongLikeRepositoryImpl) { bind<SongLikeRepository>() }
+    single { SongLikeRepositoryImpl(get(), getOrNull()) }
+    single<SongLikeRepository> { get<SongLikeRepositoryImpl>() }
+
+    // 外部平台歌曲的本机红心，队列查找延迟取播放器，避免与播放器互相依赖
+    single {
+        ExternalSongLikes(get(), get()) { getOrNull<PlaybackController>()?.queue?.value.orEmpty() }
+    }
 
     // 当前用户歌单列表仓储（core/userplaylist 共享能力）
     singleOf(::UserPlaylistRepositoryImpl) { bind<UserPlaylistRepository>() }
@@ -133,7 +151,10 @@ val repositoryModule = module {
     singleOf(::UserArtistRepositoryImpl) { bind<UserArtistRepository>() }
 
     // 歌单/专辑数据仓储（feature/playlist）
-    singleOf(::PlaylistRepositoryImpl) { bind<PlaylistRepository>() }
+    singleOf(::PlaylistRepositoryImpl)
+    single { ExtensionRegistry() }
+    single { PluginContent(get()) }
+    single<PlaylistRepository> { PluginAwarePlaylistRepository(get<PlaylistRepositoryImpl>(), get()) }
 
     // PlaybackRepositoryImpl 单例（供 SourceModule 中的 AudioSourceRouter 装饰器注入）
     singleOf(::PlaybackRepositoryImpl)

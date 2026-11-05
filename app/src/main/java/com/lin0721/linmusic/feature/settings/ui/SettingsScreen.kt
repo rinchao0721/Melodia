@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,12 +34,14 @@ import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
+import com.lin0721.linmusic.core.ui.components.PlaceholderTextField
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.*
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.flow.collectLatest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
@@ -48,14 +51,13 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
-    PLAYBACK_DOWNLOAD("播放与下载", listOf("播放参数", "下载与缓存"), Icons.Outlined.PlayCircleOutline),
-    AUDIO_QUALITY("音质", listOf("默认音质", "播放页显示"), Icons.Outlined.HighQuality),
-    AUDIO_SOURCES("音源设置", listOf("换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.AutoMirrored.Outlined.QueueMusic),
-    PRIVACY("隐私设置", emptyList(), Icons.Outlined.PrivacyTip),
-    STORAGE("储存空间", listOf("存储管理"), Icons.Outlined.Storage),
+    PLAYBACK("播放", listOf("播放参数"), Icons.Outlined.PlayCircleOutline),
+    QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.Outlined.HighQuality),
+    DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), Icons.Outlined.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
-    EXTENSIONS("扩展", listOf("悬浮与桌面", "设备与集成", "底部导航栏", "平板布局", "显示"), Icons.Outlined.Extension),
     LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词"), Icons.Outlined.Subtitles),
+    APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局"), Icons.Outlined.Palette),
+    SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), Icons.Outlined.Extension),
     ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
 
     val subtitle: String get() = sectionTitles.take(2).joinToString("、")
@@ -117,11 +119,11 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MelodiaColors.PageFill
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MelodiaColors.PageFill
     ) { innerPadding ->
         AdaptiveContentWidth(
             modifier = Modifier.padding(innerPadding)
@@ -172,6 +174,10 @@ private fun MainSettingsMenu(
     onBack: () -> Unit,
     viewModel: SettingsViewModel
 ) {
+    val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
+    val results = remember(query) { SettingsSearchIndex.search(query) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -179,6 +185,38 @@ private fun MainSettingsMenu(
         verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
         contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + 16.dp, top = 8.dp)
     ) {
+        item {
+            PlaceholderTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "搜索设置",
+                modifier = Modifier.padding(horizontal = 0.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            )
+        }
+
+        if (query.isNotBlank()) {
+            if (results.isEmpty()) {
+                item {
+                    Text(
+                        text = "没有找到相关设置",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(MelodiaSpacing.xs)
+                    )
+                }
+            } else {
+                items(results) { entry ->
+                    SettingsRow(
+                        title = entry.title,
+                        subtitle = "${entry.subMenu.title} · ${entry.section}",
+                        onClick = { onNavigate(entry.subMenu) }
+                    )
+                }
+            }
+            return@LazyColumn
+        }
+
         // 多级设置菜单入口组
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -200,8 +238,8 @@ private fun MainSettingsMenu(
             }
         }
 
-        // 底部账户操作按钮组
-        item {
+        // 底部账户操作按钮组，仅登录态显示
+        if (isLoggedIn) item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -259,13 +297,18 @@ private fun SubMenuContent(
             .padding(horizontal = MelodiaSpacing.md)
     ) {
         when (subMenu) {
-            SettingsSubMenu.PLAYBACK_DOWNLOAD -> PlaybackDownloadSettingsView(viewModel)
-            SettingsSubMenu.AUDIO_QUALITY -> AudioQualitySettingsView(viewModel)
-            SettingsSubMenu.AUDIO_SOURCES -> AudioSourcesSettingsView(viewModel)
-            SettingsSubMenu.PRIVACY -> PrivacySettingsView(viewModel)
-            SettingsSubMenu.STORAGE -> StorageSettingsView(viewModel, context)
+            SettingsSubMenu.PLAYBACK -> PlaybackSettingsView(viewModel)
+            SettingsSubMenu.QUALITY_SOURCES -> SettingsMergedPage {
+                AudioQualitySettingsView(viewModel)
+                AudioSourcesSettingsView(viewModel)
+            }
+            SettingsSubMenu.DOWNLOAD_STORAGE -> SettingsMergedPage {
+                DownloadSettingsView(viewModel)
+                StorageSettingsView(viewModel, context)
+            }
             SettingsSubMenu.NETWORK -> NetworkSettingsView(viewModel)
-            SettingsSubMenu.EXTENSIONS -> ExtensionsSettingsView(viewModel)
+            SettingsSubMenu.APPEARANCE -> AppearanceSettingsView(viewModel)
+            SettingsSubMenu.SYSTEM -> SystemSettingsView(viewModel)
             SettingsSubMenu.LYRICS -> LyricsSettingsView(viewModel)
             SettingsSubMenu.ABOUT -> AboutSettingsView(viewModel)
         }

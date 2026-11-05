@@ -16,13 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.feature.cloud.domain.CloudQuota
 import com.lin0721.linmusic.feature.cloud.domain.formatWholeGigabytes
 
@@ -46,12 +44,12 @@ fun CloudStorageHeroBlock(quota: CloudQuota, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .weight(redWeight)
                 .fillMaxHeight()
-                .background(NeteaseRed),
+                .background(MelodiaColors.Accent),
             contentAlignment = Alignment.BottomStart
         ) {
             Text(
                 text = "${formatWholeGigabytes(quota.usedBytes)}",
-                color = Color.White,
+                color = MelodiaColors.OnAccent,
                 fontSize = 44.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 44.sp,
@@ -62,7 +60,7 @@ fun CloudStorageHeroBlock(quota: CloudQuota, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .weight(darkWeight)
                 .fillMaxHeight()
-                .background(SurfaceDark)
+                .background(MelodiaColors.Surface)
                 .padding(horizontal = MelodiaSpacing.md),
             verticalArrangement = Arrangement.Center
         ) {

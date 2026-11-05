@@ -36,6 +36,7 @@ bouncycastle = "1.85.2"
 workManager = "2.10.1"
 documentfile = "1.0.1"
 taglib = "1.0.5"
+lyriconProvider = "0.1.70"
 orgJson = "20230227"
 room = "2.8.5"
 ksp = "2.3.12"
@@ -51,6 +52,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutinesSwing" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutinesSwing" }
 # 桌面端调用 libmpv
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jaudiotagger" }
@@ -128,6 +130,9 @@ android-image-cropper = { group = "com.vanniktech", name = "android-image-croppe
 
 # 二维码生成（登录二维码）
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+
+# 词幕 Provider
+lyricon-provider = { group = "io.github.proify.lyricon", name = "provider", version.ref = "lyriconProvider" }
 
 # Baseline Profile
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }

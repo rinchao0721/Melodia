@@ -19,10 +19,12 @@ import com.lin0721.linmusic.feature.recognition.ui.RecognitionUiState
 import com.lin0721.linmusic.feature.recognition.ui.runRecognition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -38,10 +40,16 @@ class DesktopRecognition(
     private val scope: CoroutineScope,
     // 打开弹窗时提前加载指纹引擎
     private val warmUp: suspend () -> Unit = {},
-    private val captureFactory: (RecognitionMode) -> AudioCapture = ::defaultCapture
+    private val captureFactory: (RecognitionMode) -> AudioCapture = ::defaultCapture,
+    exclusiveOutput: Flow<Boolean> = flowOf(false)
 ) {
 
     val loopbackSupported: Boolean = WasapiLoopbackCapture.isSupported
+
+    // 独占输出期间播放器即使暂停也占着设备，内录打不开
+    val loopbackBlocked: StateFlow<Boolean> = exclusiveOutput.stateIn(scope, SharingStarted.Eagerly, false)
+
+    private val loopbackAvailable: Boolean get() = loopbackSupported && !loopbackBlocked.value
 
     private val _uiState = MutableStateFlow<RecognitionUiState>(RecognitionUiState.Idle)
     val uiState: StateFlow<RecognitionUiState> = _uiState.asStateFlow()
@@ -65,12 +73,12 @@ class DesktopRecognition(
         openJob?.cancel()
         openJob = scope.launch {
             val last = preferences.lastMode()
-            start(if (last == RecognitionMode.PLAYBACK && !loopbackSupported) RecognitionMode.MICROPHONE else last ?: RecognitionMode.MICROPHONE)
+            start(if (last == RecognitionMode.PLAYBACK && !loopbackAvailable) RecognitionMode.MICROPHONE else last ?: RecognitionMode.MICROPHONE)
         }
     }
 
     fun start(mode: RecognitionMode = _mode.value) {
-        val target = if (mode == RecognitionMode.PLAYBACK && !loopbackSupported) RecognitionMode.MICROPHONE else mode
+        val target = if (mode == RecognitionMode.PLAYBACK && !loopbackAvailable) RecognitionMode.MICROPHONE else mode
         sessionJob?.cancel()
         _mode.value = target
         // 外放与内录都会录进自身播放的声音

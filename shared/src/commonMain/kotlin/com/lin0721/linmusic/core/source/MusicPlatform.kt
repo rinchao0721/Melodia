@@ -31,6 +31,10 @@ enum class MusicPlatform(val key: String, val displayName: String) {
             LX -> 0xFF9E9E9E
         }
 
+    // 歌曲行来源徽标上的简称，比搜索 Tab 更短，避免挤占歌名
+    val badgeName: String
+        get() = if (this == QQ) "QQ" else shortName
+
     // 搜索 Tab 上的简称
     val shortName: String
         get() = when (this) {

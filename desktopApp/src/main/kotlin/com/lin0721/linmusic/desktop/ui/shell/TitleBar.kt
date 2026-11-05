@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import androidx.compose.material.icons.rounded.Extension
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.plugin.PluginCommandItem
+import com.lin0721.linmusic.core.plugin.PluginMenuLocation
+import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -25,7 +30,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
@@ -93,6 +97,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.download.DownloadTask
 import com.lin0721.linmusic.desktop.data.download.DownloadTaskStatus
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
@@ -174,7 +179,7 @@ fun WindowScope.TitleBar(
         if (isMaximized) {
             Box(doubleClickToggle)
         } else {
-            WindowDraggableArea(doubleClickToggle) {
+            WindowDragArea(doubleClickToggle) {
                 Box(Modifier.fillMaxSize())
             }
         }
@@ -218,6 +223,7 @@ fun WindowScope.TitleBar(
                 }
             }
             Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+                rememberPluginCommands(PluginMenuLocation.TOOLBAR).forEach { item -> PluginToolbarButton(item) }
                 CloudUploadsButton(cloudMusic)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
                 AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
@@ -233,6 +239,16 @@ fun WindowScope.TitleBar(
     }
 }
 
+@Composable
+private fun PluginToolbarButton(item: PluginCommandItem) {
+    val commands = LocalPluginCommands.current
+    DesktopTooltip(item.title, side = TooltipSide.Bottom, modifier = Modifier.padding(end = 8.dp)) {
+        IconButton(onClick = { commands?.run(item) }, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Rounded.Extension, item.title, tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
 // 首页圆形按钮，尺寸与搜索栏 48.dp 统一，具备悬停提亮与缩放动效
 // 与左侧首页按钮对称的圆形按钮，弹窗打开期间保持高亮底色
 @Composable
@@ -240,7 +256,7 @@ private fun RecognitionButton(active: Boolean, onClick: () -> Unit) {
     val hoverSource = remember { MutableInteractionSource() }
     val isHovered by hoverSource.collectIsHoveredAsState()
     val scale by animateFloatAsState(if (isHovered) 1.06f else 1f, uiTween(150))
-    val bgColor by animateColorAsState(if (isHovered || active) Color(0xFF2A2A2A) else Color(0xFF1F1F1F), uiTween(150))
+    val bgColor by animateColorAsState(if (isHovered || active) DesktopColors.FieldOnCanvasHover else DesktopColors.FieldOnCanvas, uiTween(150))
     DesktopTooltip("听歌识曲", side = TooltipSide.Bottom) {
         Box(
             Modifier
@@ -251,6 +267,7 @@ private fun RecognitionButton(active: Boolean, onClick: () -> Unit) {
                 .size(48.dp)
                 .hoverable(hoverSource)
                 .clip(CircleShape)
+                .floatingOutline(CircleShape)
                 .background(bgColor)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
@@ -269,7 +286,7 @@ private fun HomeButton(
     val isHovered by hoverSource.collectIsHoveredAsState()
 
     val scale by animateFloatAsState(if (isHovered) 1.06f else 1f, uiTween(150))
-    val bgColor by animateColorAsState(if (isHovered) Color(0xFF2A2A2A) else Color(0xFF1F1F1F), uiTween(150))
+    val bgColor by animateColorAsState(if (isHovered) DesktopColors.FieldOnCanvasHover else DesktopColors.FieldOnCanvas, uiTween(150))
 
     Box(
         Modifier
@@ -280,6 +297,7 @@ private fun HomeButton(
             .size(48.dp)
             .hoverable(hoverSource)
             .clip(CircleShape)
+            .floatingOutline(CircleShape)
             .background(bgColor)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -474,15 +492,16 @@ private fun SearchBox(
     }
 
     val targetBg = when {
-        isFocused || isHovered -> Color(0xFF2A2A2A)
-        else -> Color(0xFF1F1F1F)
+        isFocused || isHovered -> DesktopColors.FieldOnCanvasHover
+        else -> DesktopColors.FieldOnCanvas
     }
     val animatedBg by animateColorAsState(targetBg, uiTween(180))
 
     val borderColor = when {
-        isFocused -> Color.White
-        isHovered -> Color.White.copy(alpha = 0.55f)
-        else -> Color.Transparent
+        isFocused -> DesktopColors.TextPrimary
+        isHovered -> DesktopColors.TextPrimary.copy(alpha = 0.55f)
+        DesktopColors.IsDark -> Color.Transparent
+        else -> DesktopColors.Outline
     }
     val animatedBorderColor by animateColorAsState(borderColor, uiTween(180))
 
@@ -589,8 +608,8 @@ private fun SearchShortcutKey(label: String) {
     Box(
         Modifier
             .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(4.dp))
-            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, DesktopColors.Overlay.copy(alpha = 0.22f), RoundedCornerShape(4.dp))
+            .background(DesktopColors.Overlay.copy(alpha = 0.05f))
             .padding(horizontal = 4.dp, vertical = 1.dp)
     ) {
         Text(
@@ -699,7 +718,7 @@ private fun NavArrow(icon: ImageVector, description: String, enabled: Boolean, o
 private fun WindowButton(
     icon: ImageVector,
     description: String,
-    hoverColor: Color = DesktopColors.PaneHover,
+    hoverColor: Color = DesktopColors.Hover,
     onClick: () -> Unit
 ) {
     var hovered by remember { mutableStateOf(false) }

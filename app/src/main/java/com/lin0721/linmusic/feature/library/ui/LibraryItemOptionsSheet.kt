@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.library.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,8 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -32,8 +29,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
-import com.lin0721.linmusic.core.ui.theme.LibraryVioletGradient
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 
@@ -82,20 +78,7 @@ fun LibraryItemOptionsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (item.isLikedSongs) {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(RoundedCornerShape(RadiusCompact))
-                            .background(Brush.linearGradient(LibraryVioletGradient)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Favorite,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    LibrarySpecialCover(SpecialCoverKind.Liked, Modifier.size(54.dp))
                 } else {
                     val shape = if (item.type == LibraryItemType.ARTIST) CircleShape else RoundedCornerShape(RadiusCompact)
                     SubcomposeAsyncImage(
@@ -127,7 +110,7 @@ fun LibraryItemOptionsSheet(
                             Icon(
                                 imageVector = Icons.Default.PushPin,
                                 contentDescription = "已置顶",
-                                tint = DownloadedGreen,
+                                tint = MelodiaColors.Success,
                                 modifier = Modifier
                                     .size(12.dp)
                                     .padding(end = MelodiaSpacing.xs)
@@ -145,7 +128,7 @@ fun LibraryItemOptionsSheet(
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.08f),
+                color = MelodiaColors.Divider,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 

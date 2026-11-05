@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -282,9 +283,10 @@ private fun CenterTargetLine(visible: Boolean, modifier: Modifier = Modifier) {
         exit = fadeOut(uiTween(180)),
         modifier = modifier
     ) {
+        val lineColor = MelodiaColors.Overlay.copy(alpha = 0.2f)
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawLine(
-                color = Color.White.copy(alpha = 0.2f),
+                color = lineColor,
                 start = Offset(0f, 0f),
                 end = Offset(size.width, 0f),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f),
@@ -322,7 +324,7 @@ private fun PlayCapsule(
                 modifier = Modifier
                     .pressable(MelodiaPress.Pill) { onSeek(targetLine.timeMs) }
                     .clip(RoundedCornerShape(PillRadius))
-                    .background(Color.White.copy(alpha = 0.2f))
+                    .background(MelodiaColors.Overlay.copy(alpha = 0.2f))
                     .padding(horizontal = 14.dp, vertical = MelodiaSpacing.sm)
             ) {
                 Icon(

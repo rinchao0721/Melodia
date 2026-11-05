@@ -10,7 +10,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -18,9 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.update.domain.UpdateInfo
 
 private const val TAG = "UpdateDialog"
@@ -39,12 +36,12 @@ fun UpdateDialog(
         onDismissRequest = onHide,
         title = {
             val channelSuffix = if (info.isPrerelease) "（测试版）" else ""
-            Text("发现新版本 ${info.versionName}$channelSuffix", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("发现新版本 ${info.versionName}$channelSuffix", color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Bold)
         },
         text = {
             Text(
                 text = info.changelog.ifBlank { "暂无更新说明" },
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
                 modifier = Modifier
@@ -63,20 +60,20 @@ fun UpdateDialog(
                         }
                 }
             ) {
-                Text("前往下载", color = NeteaseRed, fontWeight = FontWeight.Bold)
+                Text("前往下载", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row {
                 MelodiaTextButton(onClick = onIgnore) {
-                    Text("忽略此版本", color = TextGray)
+                    Text("忽略此版本", color = MelodiaColors.TextSecondary)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 MelodiaTextButton(onClick = onDismiss) {
-                    Text("稍后", color = Color.White)
+                    Text("稍后", color = MelodiaColors.TextPrimary)
                 }
             }
         },
-        containerColor = SurfaceDark
+        containerColor = MelodiaColors.Surface
     )
 }

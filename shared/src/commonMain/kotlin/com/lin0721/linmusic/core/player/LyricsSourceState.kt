@@ -3,21 +3,28 @@ package com.lin0721.linmusic.core.player
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricTimeline
 
-// 三源择优的状态与判定，只含同步逻辑，协程收发由 LyricsResolver 负责。
-internal class LyricsSourceState(amllEnabled: Boolean, private val qqEnabled: Boolean, neteaseEnabled: Boolean = true) {
+// 多源择优的状态与判定，只含同步逻辑，协程收发由 LyricsResolver 负责；插件歌词优先级最低。
+internal class LyricsSourceState(
+    amllEnabled: Boolean,
+    private val qqEnabled: Boolean,
+    neteaseEnabled: Boolean = true,
+    pluginEnabled: Boolean = false
+) {
     private var netease: Result<List<LyricLine>>? = null
     private var amll = emptyList<LyricLine>()
     private var qq = emptyList<LyricLine>()
+    private var plugin = emptyList<LyricLine>()
     private var neteasePending = neteaseEnabled
     private var amllPending = amllEnabled
     private var qqPending = qqEnabled
+    private var pluginPending = pluginEnabled
     private var amllCancelled = false
 
     // 自上次发布后是否有新结果
     var dirty = false
         private set
 
-    val isFinished: Boolean get() = !neteasePending && !amllPending && !qqPending
+    val isFinished: Boolean get() = !neteasePending && !amllPending && !qqPending && !pluginPending
 
     fun onNetease(result: Result<List<LyricLine>>) {
         netease = result
@@ -39,6 +46,13 @@ internal class LyricsSourceState(amllEnabled: Boolean, private val qqEnabled: Bo
         dirty = true
     }
 
+    fun onPlugin(lines: List<LyricLine>) {
+        if (!pluginPending) return
+        plugin = lines
+        pluginPending = false
+        dirty = true
+    }
+
     // 网易成功但无歌词、且已启用的 QQ 也无歌词时，不再等待 AMLL；网易失败或关闭不触发，AMLL 与网易相互独立。
     fun shouldCancelAmll(): Boolean {
         if (!amllPending || !qqEnabled || qqPending) return false
@@ -55,7 +69,7 @@ internal class LyricsSourceState(amllEnabled: Boolean, private val qqEnabled: Bo
     // 协调器主动取消的 AMLL 查询会回报取消事件，这类事件应忽略
     fun isOwnAmllCancellation(source: LyricsSource): Boolean = source == LyricsSource.AMLL && amllCancelled
 
-    fun candidate(): Result<ResolvedLyrics> = chooseLyrics(amll, netease ?: Result.success(emptyList()), qq)
+    fun candidate(): Result<ResolvedLyrics> = chooseLyrics(amll, netease ?: Result.success(emptyList()), qq, plugin)
 
     fun markPublished() {
         dirty = false
@@ -65,18 +79,22 @@ internal class LyricsSourceState(amllEnabled: Boolean, private val qqEnabled: Bo
 internal fun chooseLyrics(
     amll: List<LyricLine>,
     netease: Result<List<LyricLine>>,
-    qq: List<LyricLine> = emptyList()
+    qq: List<LyricLine> = emptyList(),
+    plugin: List<LyricLine> = emptyList()
 ): Result<ResolvedLyrics> {
     val a = cleanLines(amll)
     val n = cleanLines(netease.getOrNull().orEmpty())
     val q = cleanLines(qq)
+    val p = cleanLines(plugin)
     val (lines, source) = when {
         a.any { it.words.isNotEmpty() } -> a to LyricsSource.AMLL
         n.any { it.words.isNotEmpty() } -> n to LyricsSource.NETEASE
         q.any { it.words.isNotEmpty() } -> q to LyricsSource.QQ
+        p.any { it.words.isNotEmpty() } -> p to LyricsSource.PLUGIN
         a.isNotEmpty() -> a to LyricsSource.AMLL
         n.isNotEmpty() -> n to LyricsSource.NETEASE
         q.isNotEmpty() -> q to LyricsSource.QQ
+        p.isNotEmpty() -> p to LyricsSource.PLUGIN
         // 都没内容：保留网易原结果，是失败就继续向上抛
         else -> return netease.map { ResolvedLyrics(it, LyricsSource.NETEASE) }
     }

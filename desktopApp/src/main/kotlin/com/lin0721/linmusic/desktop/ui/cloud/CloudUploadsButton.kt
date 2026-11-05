@@ -84,7 +84,7 @@ internal fun CloudUploadsButton(cloud: CloudMusicActions) {
                             CircularProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier.size(26.dp),
-                                color = DesktopColors.Accent,
+                                color = DesktopColors.AccentText,
                                 trackColor = DesktopColors.SurfaceLight,
                                 strokeWidth = 2.dp
                             )
@@ -157,13 +157,13 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
                 LinearProgressIndicator(
                     progress = { task.progress },
                     modifier = Modifier.fillMaxWidth().height(3.dp),
-                    color = DesktopColors.Accent,
+                    color = DesktopColors.AccentText,
                     trackColor = DesktopColors.SurfaceLight
                 )
             } else {
                 Text(
                     uploadStatusText(task),
-                    color = if (task.status == UploadStatus.FAILED) DesktopColors.Accent else DesktopColors.TextGray,
+                    color = if (task.status == UploadStatus.FAILED) DesktopColors.AccentText else DesktopColors.TextGray,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

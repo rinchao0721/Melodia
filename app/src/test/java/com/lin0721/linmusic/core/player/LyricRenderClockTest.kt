@@ -90,5 +90,44 @@ class LyricRenderClockTest {
         assertTrue(clock.sample(43_363, 48, true, "exile") in 43_361L..43_365L)
     }
 
+    @Test fun pausedLyricsReopenedBeforeResumeDoNotRewindAcrossNextLine() {
+        val clock = LyricRenderClock()
+        clock.sample(39_950, 0, true, "song")
+        val beforePause = clock.sample(39_950, 80, true, "song")
+        assertTrue(beforePause >= 40_000)
+        val paused = clock.sample(39_980, 80, false, "song")
+        // 退出全屏后没有绘制，返回时先显示暂停的进度，再点击继续播放。
+        assertEquals(paused, clock.sample(39_980, 5000, false, "song"))
+        assertEquals(paused, clock.sample(39_980, 5100, false, "song"))
+        val resumed = clock.sample(39_980, 5100, true, "song")
+        assertEquals("resume must not erase an already highlighted word", paused, resumed)
+        assertTrue(clock.sample(39_996, 5116, true, "song") >= resumed)
+    }
+
+    @Test fun returningToPlayingLyricsDoesNotRewindAnExtrapolatedWord() {
+        val clock = LyricRenderClock()
+        clock.sample(39_950, 0, true, "song")
+        val beforeHide = clock.sample(39_950, 80, true, "song")
+        val returned = clock.sample(39_980, 5000, true, "song")
+        assertEquals(beforeHide, returned)
+        assertTrue(clock.sample(39_996, 5016, true, "song") >= returned)
+    }
+
+    @Test fun explicitSeekWhileLyricsAreClosedStillOverridesFrozenProgress() {
+        val clock = LyricRenderClock()
+        clock.sample(40_050, 0, true, "song")
+        clock.sample(40_050, 16, false, "song")
+        clock.reset(39_980, 5000, false, awaitSeek = true)
+        assertEquals(39_980, clock.sample(39_980, 5000, false, "song"))
+        assertEquals(39_980, clock.sample(39_980, 5100, true, "song"))
+    }
+
+    @Test fun externalBackwardSeekWhilePausedStillReanchorsOnResume() {
+        val clock = LyricRenderClock()
+        clock.sample(40_050, 0, true, "song")
+        clock.sample(40_050, 16, false, "song")
+        assertEquals(10_000, clock.sample(10_000, 5000, true, "song"))
+    }
+
     private fun absDifference(a: Long, b: Long) = kotlin.math.abs(a - b)
 }

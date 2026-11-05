@@ -129,6 +129,15 @@ class SilentPlaybackController : DesktopPlaybackController {
         refreshNeighbours()
     }
 
+    override fun extendQueue(source: PlaySource, items: List<QueueItem>) {
+        if (_playSource.value != source) return
+        val queuedIds = _queue.value.mapTo(HashSet()) { it.songId }
+        val fresh = items.filter { it.songId !in queuedIds }
+        if (fresh.isEmpty()) return
+        _queue.value = _queue.value + fresh
+        refreshNeighbours()
+    }
+
     override fun playNext() = step(1)
 
     override fun playPrevious() = step(-1)

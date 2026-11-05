@@ -14,9 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.recognition.engine.RecognitionSession
 import kotlin.math.sqrt
 
@@ -40,8 +38,10 @@ internal fun RecognitionWaveform(
     highlightStartSecond: Int? = null,
     highlight: WaveformHighlight = WaveformHighlight.Frame,
     showPendingSlots: Boolean = true,
-    barColor: Color = Color.White
+    barColor: Color = MelodiaColors.TextPrimary
 ) {
+    val accent = MelodiaColors.Accent
+    val pendingColor = MelodiaColors.SurfaceLight
     Canvas(modifier = modifier) {
         val slots = RecognitionSession.LEVEL_COUNT
         val slotWidth = size.width / slots
@@ -58,13 +58,13 @@ internal fun RecognitionWaveform(
             val width = (highlightRange.last + 1 - highlightRange.first) * slotWidth
             val corner = CornerRadius(12.dp.toPx(), 12.dp.toPx())
             drawRoundRect(
-                color = NeteaseRed.copy(alpha = 0.16f),
+                color = accent.copy(alpha = 0.16f),
                 topLeft = Offset(left, 0f),
                 size = Size(width, size.height),
                 cornerRadius = corner
             )
             drawRoundRect(
-                color = NeteaseRed.copy(alpha = 0.75f),
+                color = accent.copy(alpha = 0.75f),
                 topLeft = Offset(left, 0f),
                 size = Size(width, size.height),
                 cornerRadius = corner,
@@ -79,8 +79,8 @@ internal fun RecognitionWaveform(
             val recorded = index < levels.size
             val height = if (recorded) maxBarHeight * levelToFraction(levels[index]) else pendingHeight
             val color = when {
-                !recorded -> SurfaceLight
-                highlight == WaveformHighlight.Bars && highlightRange != null && index in highlightRange -> NeteaseRed
+                !recorded -> pendingColor
+                highlight == WaveformHighlight.Bars && highlightRange != null && index in highlightRange -> accent
                 else -> barColor
             }
             drawRoundRect(
@@ -101,7 +101,7 @@ internal fun RecognitionTimeAxis(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         for (second in 0..RecognitionSession.MAX_SECONDS) {
-            Text(text = "${second}s", color = TextGray, fontSize = 11.sp)
+            Text(text = "${second}s", color = MelodiaColors.TextSecondary, fontSize = 11.sp)
         }
     }
 }

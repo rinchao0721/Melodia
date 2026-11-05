@@ -11,6 +11,7 @@ add_library(installer_common STATIC
     common/MsiEngine.cpp
     common/Sys.cpp
     common/Ui.cpp
+    common/Version.cpp
 )
 target_include_directories(installer_common PUBLIC common)
 target_compile_definitions(installer_common PUBLIC

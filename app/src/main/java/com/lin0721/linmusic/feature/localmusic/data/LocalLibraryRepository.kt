@@ -28,6 +28,7 @@ import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.folderPath
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -93,8 +94,18 @@ class LocalLibraryRepository(
     suspend fun sync() = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             migrateLegacyImports()
-            if (!hasPermission()) return@withLock
-            val rawScanned = scanner.scan() ?: return@withLock
+            val snapshot = dao.getAll()
+            val refreshedImports = snapshot.mapNotNull {
+                ensureActive()
+                importer.refreshWavTags(it)
+            }
+            // SAF 的授权不依赖全库权限；全库扫描失败也不能丢失已成功读取的导入标签。
+            val rawScanned = if (hasPermission()) scanner.scan() else null
+            if (rawScanned == null) {
+                val updates = stableImportUpdates(snapshot, dao.getAll(), refreshedImports)
+                if (updates.isNotEmpty()) dao.upsert(updates)
+                return@withLock
+            }
 
             val downloadRecords = downloadPreferences.records.first()
                 .filter { isDefaultDownloadDirectoryUri(it.mediaStoreUri) }
@@ -110,12 +121,16 @@ class LocalLibraryRepository(
                 )
             }
 
+            val existing = dao.getAll()
             val diff = computeLocalLibrarySyncDiff(
-                existing = dao.getAll(),
+                existing = existing,
                 scanned = scanned,
                 isImportedAlive = { isReadable(Uri.parse(it.uri)) }
             )
-            dao.applySync(diff.upserts, diff.deleteUris)
+            val scannedUris = scanned.mapTo(HashSet()) { it.uri }
+            val importedUpdates = stableImportUpdates(snapshot, existing, refreshedImports)
+                .filter { it.uri !in scannedUris && it.uri !in diff.deleteUris }
+            dao.applySync(diff.upserts + importedUpdates, diff.deleteUris)
         }
     }
 

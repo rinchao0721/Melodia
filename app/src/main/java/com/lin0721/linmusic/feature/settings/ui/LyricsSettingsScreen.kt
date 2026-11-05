@@ -29,6 +29,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
@@ -104,13 +105,13 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                             valueRange = fontSizeRange
                         )
                     }
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsRow(
                         title = "歌词对齐方式",
                         subtitle = alignmentLabel,
                         onClick = { showAlignmentSheet = true }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "逐字歌词流光动效",
                         subtitle = "开启柔和渐变推进边缘",
@@ -129,7 +130,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         onCheckedChange = { viewModel.updateShowDesktopLrc(it) }
                     )
                     if (showDesktopLrc) {
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        HorizontalDivider(color = MelodiaColors.Divider)
                         SettingsSwitchRow(
                             title = "锁定悬浮歌词",
                             subtitle = "锁定后不可拖动与点击，可在播放通知中解锁",
@@ -137,14 +138,14 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                             onCheckedChange = { viewModel.updateFloatingLyricLocked(it) }
                         )
                         FloatingSheet.entries.filterNot { it.shadowDetail }.forEach { sheet ->
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                            HorizontalDivider(color = MelodiaColors.Divider)
                             SettingsRow(
                                 title = sheet.title,
                                 subtitle = sheet.currentLabel(floatingStyle),
                                 onClick = { floatingSheet = sheet }
                             )
                         }
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        HorizontalDivider(color = MelodiaColors.Divider)
                         SettingsSwitchRow(
                             title = "文字阴影",
                             subtitle = "浅色壁纸上也能看清歌词",
@@ -153,7 +154,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         )
                         if (floatingStyle.shadow) {
                             FloatingSheet.entries.filter { it.shadowDetail }.forEach { sheet ->
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                                HorizontalDivider(color = MelodiaColors.Divider)
                                 SettingsRow(
                                     title = sheet.title,
                                     subtitle = sheet.currentLabel(floatingStyle),
@@ -161,7 +162,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                                 )
                             }
                         }
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        HorizontalDivider(color = MelodiaColors.Divider)
                         SettingsSwitchRow(
                             title = "粗体",
                             subtitle = "关闭后使用常规字重",
@@ -180,28 +181,28 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         checked = superLyricEnabled,
                         onCheckedChange = { viewModel.updateSuperLyricEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "LyricInfo 系统歌词（测试）",
                         subtitle = "向系统媒体会话元数据注入整轨歌词 JSON，供锁屏岛等插件读取",
                         checked = lyricInfoEnabled,
                         onCheckedChange = { viewModel.updateLyricInfoEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "车载蓝牙歌词（测试）",
                         subtitle = "播放时将当前行歌词实时同步至蓝牙设备标题栏，暂停时恢复原曲名",
                         checked = bluetoothLyricEnabled,
                         onCheckedChange = { viewModel.updateBluetoothLyricEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "Lyricon 词幕投屏（测试）",
                         subtitle = "向 Lyricon 独立词幕服务同步当前播放曲目与歌词进度",
                         checked = lyriconEnabled,
                         onCheckedChange = { viewModel.updateLyriconEnabled(it) }
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "状态栏歌词胶囊（测试）",
                         subtitle = "Android 16+ 实时更新通知，支持 ColorOS 流体云、三星 Now Bar、Pixel 状态栏等",
@@ -406,7 +407,7 @@ private fun FloatingOptionSheet(
                                     .padding(end = 12.dp)
                                     .size(18.dp)
                                     .clip(CircleShape)
-                                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                                    .border(1.dp, MelodiaColors.Overlay.copy(alpha = 0.3f), CircleShape)
                                     .background(Color((FloatingLyricPalette.parseArgb(key) ?: 0xFFFFFFFFL).toInt()))
                             )
                         }

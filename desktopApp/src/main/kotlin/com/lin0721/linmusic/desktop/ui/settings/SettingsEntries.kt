@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.settings
 
+import kotlinx.coroutines.flow.flowOf
+import com.lin0721.linmusic.core.preferences.PlayerCardEntry
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -51,7 +54,6 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
-import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.update.data.UpdateRepository
@@ -77,9 +79,12 @@ import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import com.lin0721.linmusic.core.plugin.PluginRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.awt.Desktop
@@ -93,6 +98,7 @@ internal enum class SettingsCategory(val label: String) {
     Interface("界面与歌词"),
     System("系统与窗口"),
     Hotkeys("快捷键"),
+    Plugins("插件"),
     About("关于")
 }
 
@@ -345,12 +351,12 @@ private fun LyricColorDropdown(options: List<FloatingLyricColorOption>, current:
     )
 }
 
-// 深色菜单上纯黑色块看不清，统一描一圈浅色边
+// 纯黑或纯白色块与菜单底色相近时看不清，统一描一圈边
 @Composable
 private fun ColorSwatch(hex: String) {
     Box(
         Modifier.size(14.dp).clip(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+            .border(1.dp, DesktopColors.Overlay.copy(alpha = 0.3f), CircleShape)
             .background(Color((FloatingLyricPalette.parseArgb(hex) ?: 0xFFFFFFFFL).toInt()))
     )
 }
@@ -360,6 +366,7 @@ internal fun settingsEntries(
     common: CommonSettingsViewModel,
     desktop: DesktopSettingsViewModel,
     lxPlugins: LxPluginSettingsViewModel,
+    plugins: PluginRepository,
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository
 ): List<SettingsEntry> {
@@ -370,6 +377,7 @@ internal fun settingsEntries(
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
+    val pluginBeforeOfficial by common.pluginBeforeOfficial.collectAsState()
     val unmServerUrl by common.unmServerUrl.collectAsState()
     val unmRemoteFallbackEnabled by common.unmRemoteFallbackEnabled.collectAsState()
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
@@ -383,8 +391,12 @@ internal fun settingsEntries(
     var confirmClearCache by remember { mutableStateOf(false) }
     val crossfadeEnabled by common.crossfadeEnabled.collectAsState()
     val crossfadeDurationMs by common.crossfadeDurationMs.collectAsState()
+    val smartCrossfadeEnabled by common.smartCrossfadeEnabled.collectAsState()
+    val loudnessNormalizationEnabled by common.loudnessNormalizationEnabled.collectAsState()
+    val exclusiveOutput by common.exclusiveOutput.collectAsState()
     val uiScalePercent by common.uiScalePercent.collectAsState()
     val uiAnimationsEnabled by common.uiAnimationsEnabled.collectAsState()
+    val themeSettings by common.themeSettings.collectAsState()
     val downloadFolder by common.downloadFolderUri.collectAsState()
     val downloadLyrics by common.downloadLyricsEnabled.collectAsState()
     val localData by localLibrary.data.collectAsState()
@@ -430,6 +442,15 @@ internal fun settingsEntries(
         )
         add(
             rowEntry(
+                "loudnessNormalization", SettingsCategory.Playback, "音量平衡（实验性）",
+                subtitle = "按每首歌的响度统一音量",
+                keywords = listOf("音量", "响度", "均衡", "replaygain")
+            ) {
+                SettingSwitch(loudnessNormalizationEnabled, onChange = common::updateLoudnessNormalizationEnabled)
+            }
+        )
+        add(
+            rowEntry(
                 "crossfade", SettingsCategory.Playback, "歌曲淡入淡出",
                 subtitle = "自动切歌时前后两首交叉淡化，手动切歌不受影响",
                 keywords = listOf("交叉淡化", "切歌", "过渡")
@@ -448,7 +469,25 @@ internal fun settingsEntries(
                     )
                 }
             )
+            add(
+                rowEntry(
+                    "smartCrossfade", SettingsCategory.Playback, "智能过渡（实验性）",
+                    subtitle = "跳过歌曲首尾的静音段",
+                    keywords = listOf("淡入淡出", "静音")
+                ) {
+                    SettingSwitch(smartCrossfadeEnabled, onChange = common::updateSmartCrossfadeEnabled)
+                }
+            )
         }
+        add(
+            rowEntry(
+                "exclusiveOutput", SettingsCategory.Playback, "独占输出",
+                subtitle = "绕过系统混音直接输出到设备，播放期间其他应用没有声音；开启后会关闭歌曲淡入淡出，也无法识别系统声音",
+                keywords = listOf("独占", "wasapi", "usb", "dac", "bit-perfect", "位完美", "采样率")
+            ) {
+                SettingSwitch(exclusiveOutput, onChange = common::updateExclusiveOutput)
+            }
+        )
 
         add(
             rowEntry(
@@ -476,6 +515,15 @@ internal fun settingsEntries(
                     keywords = listOf("lx", "unm", "插件", "换源")
                 ) {
                     SettingSwitch(communityPriority, onChange = common::updateCommunityPriority)
+                }
+            )
+            add(
+                rowEntry(
+                    "pluginBeforeOfficial", SettingsCategory.Source, "插件优先于官方音源",
+                    subtitle = "开启后每首歌先由社区源插件解析，未命中再用官方链接。插件音质可能低于官方，没有响度均衡，可能匹配到其他版本，起播也会变慢",
+                    keywords = listOf("lx", "插件", "官方", "优先", "换源", "vip")
+                ) {
+                    SettingSwitch(pluginBeforeOfficial, onChange = common::updatePluginBeforeOfficial)
                 }
             )
         }
@@ -575,7 +623,7 @@ internal fun settingsEntries(
                         LinearProgressIndicator(
                             progress = { progress.fraction },
                             modifier = Modifier.fillMaxWidth().height(3.dp),
-                            color = DesktopColors.Accent,
+                            color = DesktopColors.AccentText,
                             trackColor = DesktopColors.SurfaceLight
                         )
                     }
@@ -650,6 +698,44 @@ internal fun settingsEntries(
         addAll(localMusicEntries(localLibrary, localData.filter, localScan, scope))
 
         add(
+            SettingsEntry(
+                key = "theme",
+                category = SettingsCategory.Interface,
+                title = "主题（实验性）",
+                subtitle = "切换深浅模式与主色，立即生效",
+                keywords = listOf("主题", "外观", "深色", "浅色", "暗色", "亮色", "夜间", "跟随系统", "颜色", "主色", "强调色", "配色")
+            ) {
+                ThemeSetting(
+                    settings = themeSettings,
+                    onModeChange = common::updateThemeMode,
+                    onAccentChange = common::updateThemeAccent,
+                    onCustomColorChange = common::updateThemeCustomColor,
+                )
+            }
+        )
+        add(
+            SettingsEntry(
+                key = "skin",
+                category = SettingsCategory.Interface,
+                title = "皮肤（实验性）",
+                subtitle = "导入皮肤包，更换配色、背景图与样式",
+                keywords = listOf("皮肤", "主题", "外观", "背景", "背景图", "壁纸", "导入", "导出", "配色")
+            ) {
+                SkinSetting(settings = themeSettings, repository = common.skins)
+            }
+        )
+        add(
+            SettingsEntry(
+                key = "plugins",
+                category = SettingsCategory.Plugins,
+                title = "插件（实验性）",
+                subtitle = "导入插件包，扩展播放器布局、页面、音源与歌词源",
+                keywords = listOf("插件", "扩展", "脚本", "导入", "导出", "布局", "音源", "歌词源")
+            ) {
+                PluginSetting(plugins)
+            }
+        )
+        add(
             rowEntry(
                 "desktopLyric", SettingsCategory.Interface, "显示桌面歌词",
                 keywords = listOf("歌词", "桌面", "悬浮"),
@@ -692,7 +778,9 @@ internal fun settingsEntries(
                 subtitle = cardLayoutSubtitle,
                 keywords = SupportedInfoCards.map { it.title } + listOf("面板", "排序", "显示", "隐藏", "卡片")
             ) {
-                CardLayoutSetting(cardLayout, cardLayoutSubtitle, common::updateFullPlayerCardLayout)
+                val cardSource = LocalPluginCards.current?.source
+                val entries by (cardSource?.entries ?: remember { flowOf(emptyList()) }).collectAsState(emptyList())
+                CardLayoutSetting(entries, cardLayoutSubtitle) { updated -> scope.launch { cardSource?.save(updated) } }
             }
         )
         add(
@@ -826,7 +914,7 @@ internal fun settingsEntries(
                 val update = availableUpdate
                 SettingRow(
                     title = "当前版本",
-                    subtitle = update?.let { "发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
+                    subtitle = update?.let { "${appVersionLabel()} → 发现新版本 ${it.versionName}${if (it.isPrerelease) "（测试版）" else ""}" }
                         ?: appVersionLabel(),
                     subtitleColor = if (update != null) DesktopColors.Accent else DesktopColors.TextGray
                 ) {
@@ -866,9 +954,23 @@ internal fun settingsEntries(
                 })
             }
         )
+        add(
+            rowEntry(
+                "qqGroup", SettingsCategory.About, "QQ 交流群",
+                subtitle = QQ_GROUP,
+                keywords = listOf("qq", "群号", "反馈", "加群")
+            ) {
+                val clipboard = LocalClipboardManager.current
+                SettingsActionButton("复制", onClick = {
+                    clipboard.setText(AnnotatedString(QQ_GROUP))
+                    navigator.showMessage("已复制群号")
+                })
+            }
+        )
     }
 }
 
+private const val QQ_GROUP = "331832966"
 private const val LOCAL_MUSIC_GROUP = "本地音乐"
 private val LocalMinDurationOptions = listOf(0, 30, 60, 90, 120)
 
@@ -972,12 +1074,12 @@ private fun UiScaleSetting(percent: Int, onCommit: (Int) -> Unit) {
 // 卡片列表较长，默认收起只留标题行
 @Composable
 private fun CardLayoutSetting(
-    layout: List<FullPlayerCardSetting>,
+    layout: List<PlayerCardEntry>,
     expandedSubtitle: String,
-    onChange: (List<FullPlayerCardSetting>) -> Unit
+    onChange: (List<PlayerCardEntry>) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val supported = layout.filter { it.card in SupportedInfoCards }
+    val supported = layout.filter(::isEditableCard)
     val subtitle = if (expanded) {
         expandedSubtitle
     } else {
@@ -1131,7 +1233,8 @@ private fun DesktopServerUrlInput(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            DialogTextField(value = text, onValueChange = { text = it }, placeholder = "例如 https://your-unm-server.com")
+            // 复制来的地址常带换行，单行输入框只显示首行会像是空的
+            DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 https://your-unm-server.com")
         }
     }
 }

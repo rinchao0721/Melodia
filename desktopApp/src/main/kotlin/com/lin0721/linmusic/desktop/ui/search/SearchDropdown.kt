@@ -45,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -63,6 +62,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
@@ -259,9 +260,10 @@ internal fun SearchDropdownPanel(
             .focusProperties { canFocus = false }
             .onPointerEvent(PointerEventType.Enter) { onPointerInPanelChange(true) }
             .onPointerEvent(PointerEventType.Exit) { onPointerInPanelChange(false) }
-            .shadow(12.dp, RoundedCornerShape(10.dp))
+            .themedShadow(12.dp, RoundedCornerShape(10.dp))
             .clip(RoundedCornerShape(10.dp))
             .background(DesktopColors.PopupSurface)
+            .floatingOutline(RoundedCornerShape(10.dp))
     ) {
         LazyColumn(state = listState, contentPadding = PaddingValues(8.dp)) {
             itemsIndexed(rows) { _, row ->
@@ -303,8 +305,8 @@ private fun EntryRow(
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
     val background = when {
-        selected -> Color.White.copy(alpha = SELECTED_ALPHA)
-        hovered -> Color.White.copy(alpha = HOVER_ALPHA)
+        selected -> DesktopColors.Overlay.copy(alpha = SELECTED_ALPHA)
+        hovered -> DesktopColors.Overlay.copy(alpha = HOVER_ALPHA)
         else -> Color.Transparent
     }
     Row(

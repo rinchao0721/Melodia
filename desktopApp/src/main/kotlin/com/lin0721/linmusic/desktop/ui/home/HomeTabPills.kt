@@ -123,7 +123,7 @@ private fun HomePill(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val containerColor by animateColorAsState(
-        if (hovered) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+        if (hovered) DesktopColors.Overlay.copy(alpha = 0.2f) else DesktopColors.Overlay.copy(alpha = 0.1f),
         uiTween(150),
         label = "homePillBg"
     )

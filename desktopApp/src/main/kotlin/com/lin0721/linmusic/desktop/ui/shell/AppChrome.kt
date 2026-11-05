@@ -14,6 +14,7 @@ import com.lin0721.linmusic.desktop.ui.cloud.uploadBatchMessage
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 import com.lin0721.linmusic.desktop.ui.nowplaying.DockOverlay
 import com.lin0721.linmusic.desktop.ui.player.PlayerBar
+import com.lin0721.linmusic.desktop.ui.player.collectSelectedAudioDevice
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.feature.search.ui.DiscoveryUiState
 import kotlinx.coroutines.flow.Flow
@@ -125,6 +126,7 @@ internal fun AppPlayerBar(
         devicesOpen = state.isOverlayOpen(DockOverlay.Devices),
         // 占位播放器没有输出设备能力时不显示按钮
         onToggleDevices = audioOutput?.let { { state.toggleOverlay(DockOverlay.Devices) } },
+        outputDevice = audioOutput?.let { collectSelectedAudioDevice(it) },
         isFullscreen = fullscreen.isFullscreen,
         onToggleFullscreen = fullscreen::toggle,
         lyricVisible = showDesktopLyric,

@@ -28,3 +28,5 @@ include(":shared")
 include(":baselineprofile")
  
 include(":desktopApp")
+include(":plugin-api")
+include(":plugin-sample")

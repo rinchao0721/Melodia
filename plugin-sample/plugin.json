@@ -1,0 +1,23 @@
+{
+  "format": 2,
+  "kind": "native",
+  "id": "com.melodia.sample.hello",
+  "name": "原生插件示例",
+  "version": "1.0.0",
+  "author": "Melodia",
+  "description": "演示原生插件的命令、播放事件与数据存储",
+  "apiVersion": "1.3",
+  "platforms": ["desktop"],
+  "main": "com.melodia.sample.hello.HelloPlugin",
+  "permissions": ["ui.notify", "playback.read", "storage"],
+  "contributes": {
+    "pages": [
+      { "id": "counter", "title": "计数器", "compose": true },
+      { "id": "spectrum", "title": "频谱", "compose": true }
+    ],
+    "commands": [{ "id": "hello", "title": "原生插件问好" }],
+    "menus": [{ "command": "hello", "location": "toolbar" }],
+    "events": ["songChanged"],
+    "backdrops": [{ "id": "aurora", "name": "极光", "fps": 20, "dim": 0.35, "paneOpacity": 0.55 }]
+  }
+}

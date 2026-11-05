@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -34,9 +35,10 @@ import com.lin0721.linmusic.core.ui.components.rememberSelectionBottomPadding
 import com.lin0721.linmusic.core.ui.components.SelectionAction
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
-import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
@@ -60,6 +62,8 @@ fun PlaylistContent(
     isPlaying: Boolean,
     likedSongIds: Set<Long>,
     unplayableIds: Set<Long> = emptySet(),
+    externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
+    showTrackIndex: Boolean = false,
     collectState: PlaylistCollectState,
     isLoggedIn: Boolean,
     recommendedSongs: List<Track>,
@@ -363,7 +367,9 @@ fun PlaylistContent(
                     onMoreClick        = { activeSongMoreOptions = it },
                     trackPlayCounts    = trackPlayCounts,
                     unplayableIds      = unplayableIds,
-                    selectionUi        = selectionUi
+                    selectionUi        = selectionUi,
+                    externalPlatforms  = externalPlatforms,
+                    showIndex          = showTrackIndex
                 )
 
                 if (isLoadingMoreTracks) {
@@ -386,7 +392,8 @@ fun PlaylistContent(
                     isPlaying                = isPlaying,
                     onRefreshRecommendations = onRefreshRecommendations,
                     onPlaySong               = onPlayRecommendedSong,
-                    onAddRecommendSong       = onAddRecommendSong
+                    onAddRecommendSong       = onAddRecommendSong,
+                    showIndex                = showTrackIndex
                 )
             }
         }
@@ -425,7 +432,7 @@ fun PlaylistContent(
         )
 
         val visibleTrackIds = remember(filteredTracks) { filteredTracks.map { it.id } }
-        val selectionHeaderColor = remember(dominantColor) { dominantColor.darken(0.35f) }
+        val selectionHeaderColor = headerCoverBase(dominantColor, 0.35f) ?: MelodiaColors.Background
         TrackSelectionOverlay(
             selectionUi = selectionUi,
             actions = selectionActions,
@@ -498,6 +505,8 @@ fun PlaylistContent(
 
     if (activeSongMoreOptions != null) {
         val track = activeSongMoreOptions!!
+        // 外部平台歌曲没有网易云歌手、专辑与下载
+        val isExternal = track.id in externalPlatforms
         PlaylistSongOptionsSheet(
             track = track,
             isLiked = track.id in likedSongIds,
@@ -514,7 +523,9 @@ fun PlaylistContent(
             onRequireLogin = onRequireLogin,
             canRemoveFromPlaylist = canRemoveFromPlaylist,
             onRemoveFromPlaylist = onRemoveFromPlaylist,
-            onDownloadClick = onDownloadSongClick,
+            onDownloadClick = onDownloadSongClick.takeIf { !isExternal },
+            showArtistOption = !isExternal,
+            showAlbumOption = !isExternal,
             onReduceRecommend = if (playlist.id == -1L && selectedHistoryDate == "今天" && isLoggedIn) {
                 { onReduceRecommend(it.id) }
             } else {

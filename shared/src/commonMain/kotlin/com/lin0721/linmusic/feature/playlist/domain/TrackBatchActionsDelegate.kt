@@ -10,13 +10,17 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
+import com.lin0721.linmusic.core.playlistexternal.toQueueItem
+import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import kotlinx.coroutines.flow.first
 
-// 歌曲多选后的批量操作：歌单页与歌手页共用，结果文案经 onToast 回给调用方
+// 歌曲多选后的批量操作：歌单页与歌手页共用，结果文案经 onToast 回给调用方。
+// externals 为所选歌曲里的外部平台歌曲（按 Track.id 索引），它们只写本机存储，不调网易云接口
 class TrackBatchActionsDelegate(
     private val playlistRepository: PlaylistRepository,
     private val playerManager: PlaybackController,
@@ -25,10 +29,12 @@ class TrackBatchActionsDelegate(
     private val createPlaylistAndAddSongUseCase: CreatePlaylistAndAddSongUseCase,
     private val userPlaylistRepository: UserPlaylistRepository,
     private val userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val externalStore: PlaylistExternalTrackStore
 ) {
 
-    private fun Track.toQueueItem() = QueueItem(id, name, ar.joinToString("/") { it.name }, al.picUrl)
+    private fun Track.toQueueItem(externals: Map<Long, ExternalTrack>) =
+        externals[id]?.toQueueItem() ?: QueueItem(id, name, ar.joinToString("/") { it.name }, al.picUrl)
 
     private fun Track.toDownloadInfo() = DownloadTrackInfo(
         id, name, ar.joinToString("/") { it.name },
@@ -37,13 +43,18 @@ class TrackBatchActionsDelegate(
     )
 
     // 不可播放的歌曲不入队；全部不可播放时不做任何操作
-    suspend fun playNext(tracks: List<Track>, unplayableIds: Set<Long>, onToast: suspend (String) -> Unit): Boolean {
+    suspend fun playNext(
+        tracks: List<Track>,
+        unplayableIds: Set<Long>,
+        externals: Map<Long, ExternalTrack> = emptyMap(),
+        onToast: suspend (String) -> Unit
+    ): Boolean {
         val playable = tracks.filter { it.id !in unplayableIds }
         if (playable.isEmpty()) {
             onToast("所选歌曲暂无可播放的版本")
             return false
         }
-        playerManager.addToPlayNext(playable.map { it.toQueueItem() })
+        playerManager.addToPlayNext(playable.map { it.toQueueItem(externals) })
         val skipped = tracks.size - playable.size
         onToast(
             if (skipped > 0) "已添加 ${playable.size} 首歌曲至下一首播放，跳过 $skipped 首不可播放"
@@ -52,29 +63,38 @@ class TrackBatchActionsDelegate(
         return true
     }
 
-    suspend fun addToPlaylist(targetPlaylistId: Long, tracks: List<Track>, onToast: suspend (String) -> Unit): Boolean {
+    suspend fun addToPlaylist(
+        targetPlaylistId: Long,
+        tracks: List<Track>,
+        externals: Map<Long, ExternalTrack> = emptyMap(),
+        onToast: suspend (String) -> Unit
+    ): Boolean {
         if (tracks.isEmpty()) return false
-        return playlistRepository.manipulatePlaylistTracks("add", targetPlaylistId, tracks.map { it.id }).first().fold(
-            onSuccess = {
-                onToast("已添加 ${tracks.size} 首歌曲到歌单")
-                true
-            },
-            onFailure = {
+        val (externalTracks, neteaseTracks) = tracks.partition { it.id in externals }
+        if (neteaseTracks.isNotEmpty()) {
+            val result = playlistRepository.manipulatePlaylistTracks("add", targetPlaylistId, neteaseTracks.map { it.id }).first()
+            result.exceptionOrNull()?.let {
                 onToast(it.toUserMessage(resourceProvider))
-                false
+                return false
             }
-        )
+        }
+        externalStore.add(targetPlaylistId, externalTracks.mapNotNull { externals[it.id] })
+        onToast("已添加 ${tracks.size} 首歌曲到歌单")
+        return true
     }
 
     suspend fun createPlaylistAndAdd(
         name: String,
         privacy: Int,
         tracks: List<Track>,
+        externals: Map<Long, ExternalTrack> = emptyMap(),
         onToast: suspend (String) -> Unit
     ): Boolean {
         if (tracks.isEmpty()) return false
-        return createPlaylistAndAddSongUseCase(name, tracks.map { it.id }, privacy).first().fold(
-            onSuccess = {
+        val (externalTracks, neteaseTracks) = tracks.partition { it.id in externals }
+        return createPlaylistAndAddSongUseCase(name, neteaseTracks.map { it.id }, privacy).first().fold(
+            onSuccess = { playlist ->
+                externalStore.add(playlist.id, externalTracks.mapNotNull { externals[it.id] })
                 onToast("已创建歌单并添加 ${tracks.size} 首歌曲")
                 true
             },
@@ -93,7 +113,13 @@ class TrackBatchActionsDelegate(
         onToast: suspend (String) -> Unit
     ): Boolean {
         if (tracks.isEmpty()) return false
-        val result = songDownloadManager.enqueueBatch(tracks.map { it.toDownloadInfo() }, level, batchTag, batchLabel)
+        // 外部平台歌曲没有网易云 id，下载管线不支持
+        val downloadable = tracks.filter { it.id > 0L }
+        if (downloadable.isEmpty()) {
+            onToast("外部平台歌曲暂不支持下载")
+            return false
+        }
+        val result = songDownloadManager.enqueueBatch(downloadable.map { it.toDownloadInfo() }, level, batchTag, batchLabel)
         onToast(result.toToastMessage())
         return true
     }
@@ -123,18 +149,25 @@ class TrackBatchActionsDelegate(
         return succeeded
     }
 
-    suspend fun removeFromPlaylist(playlistId: Long, tracks: List<Track>, onToast: suspend (String) -> Unit): Boolean {
+    // externalKey 为该歌单外部歌曲在本机存储里的 key，「我喜欢的音乐」与歌单 id 不同
+    suspend fun removeFromPlaylist(
+        playlistId: Long,
+        tracks: List<Track>,
+        externalKey: Long = playlistId,
+        onToast: suspend (String) -> Unit
+    ): Boolean {
         if (tracks.isEmpty()) return false
-        return playlistRepository.manipulatePlaylistTracks("del", playlistId, tracks.map { it.id }).first().fold(
-            onSuccess = {
-                onToast("已从歌单中删除 ${tracks.size} 首歌曲")
-                true
-            },
-            onFailure = {
+        val (externalTracks, neteaseTracks) = tracks.partition { it.id < 0L }
+        if (neteaseTracks.isNotEmpty()) {
+            val result = playlistRepository.manipulatePlaylistTracks("del", playlistId, neteaseTracks.map { it.id }).first()
+            result.exceptionOrNull()?.let {
                 onToast(it.toUserMessage(resourceProvider))
-                false
+                return false
             }
-        )
+        }
+        externalStore.remove(externalKey, externalTracks.mapTo(HashSet()) { it.id })
+        onToast("已从歌单中删除 ${tracks.size} 首歌曲")
+        return true
     }
 
     // 当前用户自建、可作为添加目标的歌单；排除指定歌单与"我喜欢的音乐"。未登录或失败时返回 null

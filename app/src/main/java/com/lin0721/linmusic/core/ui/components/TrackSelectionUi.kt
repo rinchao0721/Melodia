@@ -44,9 +44,9 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.SuppressMiniPlayer
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
@@ -129,12 +129,12 @@ fun SelectionActionBar(
             .shadow(
                 elevation = 16.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.4f),
-                spotColor = Color.Black.copy(alpha = 0.4f)
+                ambientColor = MelodiaColors.ShadowAmbient.copy(alpha = 0.4f),
+                spotColor = MelodiaColors.ShadowSpot.copy(alpha = 0.4f)
             )
             .clip(shape)
-            .background(SurfaceDark)
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), shape)
+            .background(MelodiaColors.Surface)
+            .border(0.5.dp, MelodiaColors.Divider, shape)
     ) {
         actions.forEach { action ->
             Column(

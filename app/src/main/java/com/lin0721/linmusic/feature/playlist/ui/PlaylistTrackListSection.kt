@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Favorite
@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
@@ -50,18 +51,26 @@ fun LazyListScope.playlistTrackItems(
     onMoreClick: (Track) -> Unit,
     trackPlayCounts: Map<Long, Int> = emptyMap(),
     unplayableIds: Set<Long> = emptySet(),
-    selectionUi: TrackSelectionUi = TrackSelectionUi()
+    selectionUi: TrackSelectionUi = TrackSelectionUi(),
+    // 混排进歌单的外部平台歌曲，歌名后显示来源角标
+    externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
+    showIndex: Boolean = false
 ) {
     val activeTrackId = currentTrackId?.toLongOrNull()
-    items(tracks, key = { it.id }, contentType = { "track" }) { track ->
+    val indexDigits = tracks.size.toString().length
+    // 序号与歌手页保持一致：显示的是歌曲在当前列表里的位置（搜索过滤后同样生效）
+    itemsIndexed(tracks, key = { _, track -> track.id }, contentType = { _, _ -> "track" }) { index, track ->
         val selecting = selectionUi.active
-        val rowData = remember(track) {
+        val platform = externalPlatforms[track.id]
+        val rowData = remember(track, platform) {
             SongRowData(
                 id = track.id,
                 title = track.name,
                 artist = track.ar.joinToString(" • ") { it.name },
                 coverUrl = track.al.picUrl,
-                isVip = track.fee == 1
+                isVip = track.fee == 1,
+                platformTag = platform?.badgeName,
+                platformTagColorArgb = platform?.brandColorArgb
             )
         }
         // SongRow 本身不接受外部 modifier，外层套 Box 挂 animateItem：
@@ -71,6 +80,8 @@ fun LazyListScope.playlistTrackItems(
                 data = rowData,
                 isActive = activeTrackId == track.id,
                 isPlaying = isPlaying,
+                index = if (showIndex) index + 1 else null,
+                indexDigits = indexDigits,
                 // 多选态下不可播放的歌曲也能勾选
                 enabled = selecting || track.id !in unplayableIds,
                 copyable = !selecting,

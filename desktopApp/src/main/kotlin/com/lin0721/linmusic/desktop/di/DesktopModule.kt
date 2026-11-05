@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.di
 
+import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -24,10 +25,18 @@ import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.AudioSourceProvider
+import com.lin0721.linmusic.core.source.ExternalTrackResolver
+import com.lin0721.linmusic.core.source.NeteaseSongLookup
 import com.lin0721.linmusic.core.source.LxAudioSourceProvider
+import com.lin0721.linmusic.core.plugin.NativePluginHost
 import com.lin0721.linmusic.core.source.LxPluginRuntime
+import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.skin.SkinRepository
+import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -44,14 +53,18 @@ import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryStore
 import com.lin0721.linmusic.desktop.data.local.LocalMatcher
 import com.lin0721.linmusic.desktop.data.local.LocalScanner
+import com.lin0721.linmusic.desktop.plugin.DesktopNativePluginHost
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
+import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
+import com.lin0721.linmusic.desktop.player.spectrum.SpectrumHub
 import com.lin0721.linmusic.desktop.ui.cloud.CloudMusicActions
 import com.lin0721.linmusic.desktop.ui.local.LocalMusicActions
 import com.lin0721.linmusic.desktop.ui.settings.DesktopSettingsViewModel
+import com.lin0721.linmusic.desktop.ui.theme.DesktopSkinImageCodec
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
@@ -100,14 +113,17 @@ private fun createPlaybackController(
     desktopPreferences: DesktopPreferences,
     downloadPreferences: DesktopDownloadPreferences,
     audioCache: AudioCache,
-    cacheManager: DesktopCacheManager
+    cacheManager: DesktopCacheManager,
+    externalResolver: ExternalTrackResolver
 ): DesktopPlaybackController = try {
     MpvPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
         localAudioOf = { songId -> downloadPreferences.findVerifiedRecord(songId)?.mediaStoreUri },
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
         audioCache = audioCache,
-        cacheManager = cacheManager
+        cacheManager = cacheManager,
+        externalResolver = externalResolver,
+        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_gain.json")
     )
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
@@ -119,11 +135,26 @@ private fun createPlaybackController(
 
 private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferencesFile(name))
 
+// 启动参数，须先于依赖注入设置
+object DesktopLaunchOptions {
+    @Volatile
+    var safeMode: Boolean = false
+}
+
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+    single<SkinImageCodec> { DesktopSkinImageCodec() }
+    single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }
+    single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
-    single { GraalLxPluginRuntime() } bind LxPluginRuntime::class
+    single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
+    single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
+    single { SpectrumHub() }
+    single<NativePluginHost> {
+        DesktopNativePluginHost(get(), get(), get(), get(), safeMode = DesktopLaunchOptions.safeMode, spectrumFrames = get<SpectrumHub>().frames)
+    }
+    single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
     single { SessionMonitor(get(), get()) }
     single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
@@ -172,7 +203,7 @@ val desktopPlatformModule = module {
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
-    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get()) }
+    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get()) }
     single<PlaybackController> { get<DesktopPlaybackController>() }
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }
@@ -197,13 +228,21 @@ val desktopPlatformModule = module {
     single { GraalAfpFingerprintEngine() }
     single {
         val engine = get<GraalAfpFingerprintEngine>()
-        DesktopRecognition(get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), warmUp = engine::warmUp)
+        DesktopRecognition(
+            get(), get(), get(), engine, get(), CoroutineScope(SupervisorJob() + Dispatchers.Main),
+            warmUp = engine::warmUp,
+            exclusiveOutput = get<SettingsPreferences>().exclusiveOutput
+        )
     }
     single {
         val amllLyricsClient = get<AmllLyricsClient>()
         val settingsPreferences = get<SettingsPreferences>()
         val qqLyricsSource = get<QqLyricsSource>()
         val localLibrary = get<LocalLibraryRepository>()
+        val neteaseLookup = get<NeteaseSongLookup>()
+        val pluginLyrics = get<PluginLyricsSource>()
+        // 播放器创建时不依赖歌词，延迟到查询时再取，避免组装顺序问题
+        val queueOf = { get<PlaybackController>().queue.value }
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = { path -> withContext(Dispatchers.IO) { localLibrary.readLyrics(path) } },
@@ -212,7 +251,12 @@ val desktopPlatformModule = module {
             isAmllEnabled = { settingsPreferences.amllLyricsEnabled.first() },
             isQqEnabled = { settingsPreferences.qqLyricsEnabled.first() },
             isNeteaseEnabled = { settingsPreferences.neteaseLyricsEnabled.first() },
-            readQqLyrics = qqLyricsSource::fetch
+            readQqLyrics = qqLyricsSource::fetch,
+            externalOf = { songId -> queueOf().firstOrNull { it.songId == songId }?.external },
+            matchNeteaseId = neteaseLookup::find,
+            readExternalQqLyrics = qqLyricsSource::fetch,
+            hasPluginLyrics = pluginLyrics::hasSources,
+            readPluginLyrics = pluginLyrics::fetch
         )
     }
 }
@@ -244,7 +288,7 @@ val desktopViewModelModule = module {
             loadLikedSongIdsUseCase = get(),
             songLikeRepository = get(),
             syncProfileAfterLoginUseCase = get(),
-            sourceProviders = getAll<AudioSourceProvider>(),
+            externalResolver = get(),
             searchProviders = getAll<PlatformSearchProvider>(),
             settingsPreferences = getOrNull(),
             sourcePreferences = getOrNull(),

@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -40,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.awt.GraphicsEnvironment
 import java.awt.Image
@@ -163,9 +164,10 @@ private fun TrayMenuWindow(
         Box(Modifier.padding(8.dp)) {
             Column(
                 Modifier.width(MenuWidth)
-                    .shadow(8.dp, MenuShape)
+                    .themedShadow(8.dp, MenuShape)
                     .clip(MenuShape)
                     .background(DesktopColors.PopupSurface)
+                    .floatingOutline(MenuShape)
                     .padding(vertical = 4.dp)
             ) {
                 if (header != null) {
@@ -205,7 +207,7 @@ private fun MenuRow(label: String, checked: Boolean?, onClick: () -> Unit) {
         Modifier.fillMaxWidth()
             .padding(horizontal = 4.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(if (hovered) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (hovered) DesktopColors.Hover else Color.Transparent)
             .onPointerEvent(PointerEventType.Enter) { hovered = true }
             .onPointerEvent(PointerEventType.Exit) { hovered = false }
             .clickable(onClick = onClick)

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
 private const val TAG = "KaraokeLyricRow"
 
@@ -195,6 +196,8 @@ fun KaraokeLyricRow(
     // 没有它的话，重绘只能被 50ms 一次的播放器进度轮询触发，逐字扫色会掉到 20Hz。
     var frameTick by remember(line) { mutableLongStateOf(0L) }
 
+    // 加色光晕只在深色底上可见，浅色底上会把文字冲淡
+    val glowVisible = glowEffect && MelodiaColors.IsDark
     LaunchedEffect(isPlaying, line, isActive, advancedEffect, glowEffect) {
         if (isPlaying && isActive) {
             // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
@@ -364,7 +367,7 @@ fun KaraokeLyricRow(
                                     }
                                 }
                             }
-                            if (glowEffect) {
+                            if (glowVisible) {
                                 // 绘制原版演唱字词的呼吸光晕微光脉冲
                                 info.wordLayouts.forEach { word ->
                                     if (relativeProgress in word.startMs..word.endMs) {
@@ -383,8 +386,6 @@ fun KaraokeLyricRow(
                                 }
                             }
                         }
-                    } else {
-                        drawContent()
                     }
                 }
         )

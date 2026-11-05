@@ -61,7 +61,8 @@ class QQSearchProvider : PlatformSearchProvider {
                             albumName = album,
                             durationMs = intervalSec * 1000L,
                             coverUrl = coverUrl,
-                            platform = platform
+                            platform = platform,
+                            qqSongId = obj["songid"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
                         )
                     }
                 }
@@ -95,7 +96,8 @@ class QQSearchProvider : PlatformSearchProvider {
                     albumName = "",
                     durationMs = 0L,
                     coverUrl = "",
-                    platform = platform
+                    platform = platform,
+                    qqSongId = obj["id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
                 )
             }
         } catch (e: Exception) {

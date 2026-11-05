@@ -103,6 +103,7 @@ class FakePlaybackController : PlaybackController {
     override fun appendToQueue(items: List<QueueItem>) {
         appendCalls += items
     }
+    override fun extendQueue(source: PlaySource, items: List<QueueItem>) = Unit
     override fun playNext() = Unit
     override fun playPrevious() = Unit
     override fun skipToPrevious() = Unit

@@ -324,7 +324,7 @@ private fun ActionRow(favourite: Track?, canPlay: Boolean, onPlayAll: () -> Unit
 @Composable
 private fun FavouriteChip(track: Track, onPlay: () -> Unit) {
     Row(
-        Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.08f))
+        Modifier.clip(RoundedCornerShape(8.dp)).background(DesktopColors.Fill)
             .onDoubleClick(onPlay).padding(8.dp).padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -334,7 +334,7 @@ private fun FavouriteChip(track: Track, onPlay: () -> Unit) {
                 Icon(Icons.Rounded.Favorite, null, tint = DesktopColors.Accent, modifier = Modifier.size(12.dp))
                 Text(
                     "你在此曲风最爱",
-                    color = DesktopColors.Accent,
+                    color = DesktopColors.AccentText,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 4.dp)

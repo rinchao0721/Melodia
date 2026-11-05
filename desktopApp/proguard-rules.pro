@@ -23,6 +23,7 @@
 # JNA：Library 接口方法按名称绑定 C 函数，Structure 字段按声明顺序映射内存
 -keep class com.sun.jna.** { *; }
 -keep interface * extends com.sun.jna.Library { *; }
+-keep interface * extends com.sun.jna.Callback { *; }
 -keep class * extends com.sun.jna.Structure { *; }
 
 # 协程主线程调度器通过 ServiceLoader 加载
@@ -60,6 +61,23 @@
 # 压缩包解析（zip/7z）：编解码器与压缩方法按名称查找，不能裁剪
 -keep class org.apache.commons.compress.** { *; }
 -keep class org.tukaani.xz.** { *; }
+
+# 原生插件编译时依赖 Kotlin 标准库与协程，运行时由宿主提供
+-keep class kotlin.** { *; }
+-keep class kotlinx.coroutines.** { *; }
+
+# 原生插件的 Compose 页面要用到这些公开 API；图标库除外，由插件自带
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+-keep class androidx.compose.foundation.** { *; }
+-keep class androidx.compose.animation.** { *; }
+-keep class androidx.compose.material3.** { *; }
+-keep class androidx.compose.material.ripple.** { *; }
+-keep class androidx.collection.** { *; }
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.savedstate.** { *; }
+-keep class org.jetbrains.skia.** { *; }
+-keep class org.jetbrains.skiko.** { *; }
 
 # 音频标签读写：枚举 values() 与帧类型按反射访问，裁剪后静态初始化会失败
 -keep class org.jaudiotagger.** { *; }

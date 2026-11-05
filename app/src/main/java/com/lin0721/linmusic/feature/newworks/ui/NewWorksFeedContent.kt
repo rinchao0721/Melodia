@@ -60,10 +60,14 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.shimmerBackground
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
@@ -262,7 +266,13 @@ private fun ReleaseFeedCard(
     val baseColor by produceState(initialValue = FallbackBase, release.coverUrl) {
         value = extractBaseColorFromUrl(context, release.coverUrl)
     }
-    val cardColor by animateColorAsState(lerp(baseColor, Color.Black, CARD_COLOR_DARKEN), animationSpec = uiSpring(), label = "releaseCardColor")
+    val isDark = MelodiaColors.IsDark
+    val cardColor by animateColorAsState(
+        coverBase(CoverGroup.CARDS, baseColor)?.let { if (isDark) lerp(it, Color.Black, CARD_COLOR_DARKEN) else immersiveMidFill(it) }
+            ?: MelodiaColors.ShellFill,
+        animationSpec = uiSpring(),
+        label = "releaseCardColor"
+    )
     val timeText = remember(release.publishTime) { formatRelativeTime(release.publishTime, System.currentTimeMillis()) }
 
     Column(
@@ -286,7 +296,7 @@ private fun ReleaseFeedCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = release.artistName,
-                    color = Color.White,
+                    color = MelodiaColors.OnCoverCard,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -295,21 +305,21 @@ private fun ReleaseFeedCard(
                 Spacer(Modifier.height(MelodiaSpacing.xs))
                 Text(
                     text = listOf(release.title, timeText).filter { it.isNotBlank() }.joinToString(" • "),
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MelodiaColors.OnCoverCard.copy(alpha = 0.7f),
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             MelodiaIconButton(onClick = onMore) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = Color.White)
+                Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.OnCoverCard)
             }
         }
 
         Spacer(Modifier.height(MelodiaSpacing.md))
         Text(
             text = release.trackSummary(),
-            color = Color.White.copy(alpha = 0.85f),
+            color = MelodiaColors.OnCoverCard.copy(alpha = 0.85f),
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -325,7 +335,7 @@ private fun ReleaseFeedCard(
                 Icon(
                     imageVector = Icons.Rounded.AddCircleOutline,
                     contentDescription = "添加到歌单",
-                    tint = Color.White,
+                    tint = MelodiaColors.OnCoverCard,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -333,12 +343,12 @@ private fun ReleaseFeedCard(
             MelodiaIconButton(
                 onClick = onPlay,
                 style = MelodiaPress.Transport,
-                containerColor = Color.White,
+                containerColor = MelodiaColors.OnCoverCard,
                 modifier = Modifier.size(PlayButtonSize).clip(CircleShape)
             ) {
                 PlayPauseIcon(
                     isPlaying = playing,
-                    tint = Color.Black,
+                    tint = MelodiaColors.OnCoverCardInverse,
                     size = 30.dp,
                     contentDescription = if (playing) "暂停" else "播放"
                 )

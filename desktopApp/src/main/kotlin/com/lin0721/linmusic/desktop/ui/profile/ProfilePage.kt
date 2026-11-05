@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -53,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatCompactCount
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
@@ -60,6 +60,7 @@ import com.lin0721.linmusic.desktop.ui.components.onDoubleClick
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
@@ -119,7 +120,7 @@ private fun ProfileContent(
     LaunchedEffect(info.avatarUrl) {
         if (info.avatarUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(info.avatarUrl).base
     }
-    val heroColor by animateColorAsState(lerp(heroBase, Color.Black, HERO_DARKEN_FRACTION), uiSpring(), label = "profileHero")
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "profileHero")
 
     val playRank: (Int) -> Unit = { index ->
         val items = state.rankItems.map { QueueItem(it.songId, it.songName, it.artistName, it.albumCoverUrl) }
@@ -135,7 +136,7 @@ private fun ProfileContent(
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 item(key = "header") {
-                    Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(heroColor, DesktopColors.Pane)))) {
+                    Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))) {
                         ProfileHero(
                             state = state,
                             onFollowsClick = { navigator.openFollowList(info.uid, FollowListMode.FOLLOWS) },
@@ -161,7 +162,7 @@ private fun ProfileContent(
                         selected = state.selectedTab,
                         label = { if (it == TAB_PLAYLISTS) "歌单" else "听歌排行" },
                         onSelect = viewModel::selectTab,
-                        modifier = Modifier.fillMaxWidth().background(DesktopColors.Pane)
+                        modifier = Modifier.fillMaxWidth().paneBackdrop(DesktopColors.Pane)
                             .padding(horizontal = ContentPadding, vertical = 12.dp)
                     )
                 }
@@ -314,7 +315,7 @@ private fun RankRow(index: Int, item: ProfileListenRankItem, isCurrent: Boolean,
     var hovered by remember { mutableStateOf(false) }
     Row(
         modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
-            .background(if (hovered) DesktopColors.PaneHover else Color.Transparent)
+            .background(if (hovered) DesktopColors.Hover else Color.Transparent)
             .onPointerEvent(PointerEventType.Enter) { hovered = true }
             .onPointerEvent(PointerEventType.Exit) { hovered = false }
             .onDoubleClick(onPlay)
@@ -332,7 +333,7 @@ private fun RankRow(index: Int, item: ProfileListenRankItem, isCurrent: Boolean,
             } else {
                 Text(
                     "${index + 1}",
-                    color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextGray,
+                    color = if (isCurrent) DesktopColors.AccentText else DesktopColors.TextGray,
                     fontSize = 14.sp,
                     textAlign = TextAlign.End
                 )
@@ -342,7 +343,7 @@ private fun RankRow(index: Int, item: ProfileListenRankItem, isCurrent: Boolean,
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(
                 item.songName,
-                color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextPrimary,
+                color = if (isCurrent) DesktopColors.AccentText else DesktopColors.TextPrimary,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

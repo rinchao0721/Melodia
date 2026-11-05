@@ -74,6 +74,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
@@ -107,7 +108,7 @@ fun FullScreenLyricsToolbar(
         val badgeTint = when {
             !hasAnySecondary -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
             secondaryMode == "none" -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-            else -> Color.White
+            else -> MelodiaColors.TextPrimary
         }
         Box(
             modifier = Modifier
@@ -196,7 +197,7 @@ fun LyricCapsuleSlider(
             .height(38.dp)
             .onSizeChanged { componentWidthPx = it.width.toFloat() }
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(MelodiaColors.Selected)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -262,13 +263,13 @@ fun LyricCapsuleSlider(
                 text = startLabel,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.85f)
+                color = MelodiaColors.OnAccent.copy(alpha = 0.85f)
             )
             Text(
                 text = endLabel,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.85f)
+                color = MelodiaColors.OnAccent.copy(alpha = 0.85f)
             )
         }
     }
@@ -416,13 +417,13 @@ fun FullScreenLyricsSettingsSheet(
             activeContainerColor = MaterialTheme.colorScheme.primary,
             activeContentColor = MaterialTheme.colorScheme.onPrimary,
             activeBorderColor = Color.Transparent,
-            inactiveContainerColor = Color.White.copy(alpha = 0.08f),
+            inactiveContainerColor = MelodiaColors.Overlay.copy(alpha = 0.08f),
             inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             inactiveBorderColor = Color.Transparent,
             disabledActiveContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
             disabledActiveContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f),
             disabledActiveBorderColor = Color.Transparent,
-            disabledInactiveContainerColor = Color.White.copy(alpha = 0.04f),
+            disabledInactiveContainerColor = MelodiaColors.Overlay.copy(alpha = 0.04f),
             disabledInactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
             disabledInactiveBorderColor = Color.Transparent
         )
@@ -767,7 +768,7 @@ fun FullScreenControls(
                     .fillMaxWidth()
                     .height(3.dp)
                     .clip(RoundedCornerShape(1.5.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
+                    .background(MelodiaColors.Overlay.copy(alpha = 0.2f))
             )
             // 播放高亮条
             Box(
@@ -775,7 +776,7 @@ fun FullScreenControls(
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .height(3.dp)
                     .clip(RoundedCornerShape(1.5.dp))
-                    .background(Color.White)
+                    .background(MelodiaColors.TextPrimary)
             )
             // 进度滑块 Thumb
             val thumbSize = if (isSeeking) 14.dp else 8.dp
@@ -787,7 +788,7 @@ fun FullScreenControls(
                 modifier = Modifier
                     .offset(x = thumbOffsetDp)
                     .size(thumbSize)
-                    .background(Color.White, CircleShape)
+                    .background(MelodiaColors.TextPrimary, CircleShape)
             )
         }
 
@@ -867,7 +868,7 @@ fun FullScreenControls(
                         .graphicsLayer {
                             alpha = buttonAlpha.value
                         }
-                        .background(Color.White, CircleShape)
+                        .background(MelodiaColors.TextPrimary, CircleShape)
                         .clip(CircleShape)
                         .clickable(
                             interactionSource = playInteraction,
@@ -879,7 +880,7 @@ fun FullScreenControls(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    PlayPauseIcon(isPlaying, Color.Black, size = 42.dp)
+                    PlayPauseIcon(isPlaying, MelodiaColors.InverseText, size = 42.dp)
                 }
 
                 MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport) {

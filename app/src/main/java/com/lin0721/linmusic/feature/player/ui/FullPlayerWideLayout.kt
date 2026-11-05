@@ -61,11 +61,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -74,7 +73,6 @@ import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 private val LeftColumnMaxWidth = 420.dp
 private val LeftColumnStartPadding = 48.dp
@@ -83,7 +81,8 @@ private val RightColumnEndPadding = 24.dp
 private val NoLyricsHeight = 56.dp
 
 // 手动滚动歌词松手后停留多久再回到当前行，与全屏歌词页一致
-private const val LYRICS_RESUME_DELAY_MS = 3000L
+internal const val LYRICS_RESUME_DELAY_MS = 3000L
+private const val DEFAULT_LEFT_FRACTION = 0.4f
 
 private const val WIDE_LYRICS_KEY = "wide_lyrics"
 private const val WIDE_BOTTOM_SPACER_KEY = "wide_bottom_spacer"
@@ -106,8 +105,12 @@ fun FullPlayerWideLayout(
     onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 插件布局：替换左栏的封面与播放控件，leftFraction 为左栏宽度占比
+    pluginLeftColumn: (@Composable () -> Unit)? = null,
+    leftFraction: Float? = null
 ) {
+    val left = leftFraction ?: DEFAULT_LEFT_FRACTION
     Column(modifier = modifier.fillMaxSize()) {
         sourceBar(
             Modifier
@@ -122,28 +125,34 @@ fun FullPlayerWideLayout(
         ) {
             Box(
                 modifier = Modifier
-                    .weight(0.4f)
+                    .weight(left)
                     .fillMaxHeight()
                     .padding(start = LeftColumnStartPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = LeftColumnMaxWidth)
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
-                    Box(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                if (pluginLeftColumn != null) {
+                    Box(modifier = Modifier.widthIn(max = LeftColumnMaxWidth).fillMaxSize()) {
+                        pluginLeftColumn()
                     }
-                    Spacer(modifier = Modifier.height(MelodiaSpacing.md))
-                    playbackControls()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = LeftColumnMaxWidth)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // 封面取栏宽与扣掉控件后剩余高度中较小者，控件区始终完整可见
+                        Box(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                        }
+                        Spacer(modifier = Modifier.height(MelodiaSpacing.md))
+                        playbackControls()
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(ColumnGap))
@@ -160,7 +169,7 @@ fun FullPlayerWideLayout(
                 onLyricsVisibleChange = onLyricsVisibleChange,
                 infoCards = infoCards,
                 modifier = Modifier
-                    .weight(0.6f)
+                    .weight(1f - left)
                     .fillMaxHeight()
                     .padding(end = RightColumnEndPadding)
             )
@@ -184,15 +193,7 @@ private fun WideRightColumn(
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
-    val settingsPreferences: SettingsPreferences = koinInject()
-    val lyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
-    val effectiveLyricTextSize = lyricTextSize.coerceIn(20, 40)
-    val lyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
-    val lyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
-    val karaokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val karaokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
-    val lyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
-    val lyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
+    val lyricsSettings = rememberLyricsDisplaySettings()
 
     val scope = rememberCoroutineScope()
     val columnState = rememberLazyListState()
@@ -293,13 +294,13 @@ private fun WideRightColumn(
                             viewportHeightPx = lyricsViewportPx,
                             onViewportHeightChange = { lyricsViewportPx = it },
                             gestureModifier = Modifier,
-                            fontSize = effectiveLyricTextSize,
-                            alignment = lyricAlignment,
-                            secondaryMode = lyricSecondaryMode,
-                            lineSpacing = lyricLineSpacing,
-                            secondarySpacing = lyricSecondarySpacing,
-                            advancedKaraokeEffect = karaokeAdvancedEffect,
-                            karaokeGlowEffect = karaokeGlowEffect,
+                            fontSize = lyricsSettings.fontSize,
+                            alignment = lyricsSettings.alignment,
+                            secondaryMode = lyricsSettings.secondaryMode,
+                            lineSpacing = lyricsSettings.lineSpacing,
+                            secondarySpacing = lyricsSettings.secondarySpacing,
+                            advancedKaraokeEffect = lyricsSettings.karaokeAdvanced,
+                            karaokeGlowEffect = lyricsSettings.karaokeGlow,
                             isPlaying = isPlaying,
                             showSeekGuide = true,
                             userScrollEnabled = false,
@@ -347,7 +348,7 @@ private fun WideRightColumn(
                 .padding(top = MelodiaSpacing.sm)
         ) {
             Surface(
-                color = Color.White.copy(alpha = 0.16f),
+                color = MelodiaColors.Overlay.copy(alpha = 0.16f),
                 shape = RoundedCornerShape(PillRadius),
                 modifier = Modifier.pressable(MelodiaPress.Pill) {
                     scope.launch { motion.scrollToItem(columnState, 0) }
@@ -360,11 +361,11 @@ private fun WideRightColumn(
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowUp,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(MelodiaSpacing.xs))
-                    Text(text = "回到歌词", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(text = "回到歌词", color = MelodiaColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }

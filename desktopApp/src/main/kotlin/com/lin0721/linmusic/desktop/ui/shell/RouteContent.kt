@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.desktop.ui.plugin.PluginPageScreen
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.desktop.ui.artist.ArtistPage
@@ -122,10 +123,12 @@ internal fun RouteContent(
             mode = route.mode,
             viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent }
         )
+        is DesktopRoute.PluginPage -> PluginPageScreen(route.pluginId, route.pageId, deps.plugins, deps.pluginPages)
         DesktopRoute.Settings -> SettingsPage(
             common = deps.commonSettingsViewModel,
             desktop = deps.desktopSettingsViewModel,
             lxPlugins = deps.lxPluginSettingsViewModel,
+            plugins = deps.plugins,
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
             focusCategory = state.settingsFocus,

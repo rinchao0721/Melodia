@@ -17,24 +17,27 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.v2.ScrollbarAdapter
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 private const val FADE_MS = 150
 
-private val HoverScrollbarStyle = ScrollbarStyle(
-    minimalHeight = 32.dp,
-    thickness = 8.dp,
-    shape = RoundedCornerShape(4.dp),
-    hoverDurationMillis = FADE_MS,
-    unhoverColor = Color.White.copy(alpha = 0.3f),
-    hoverColor = Color.White.copy(alpha = 0.5f)
-)
+private val HoverScrollbarStyle: ScrollbarStyle
+    @Composable @ReadOnlyComposable get() = ScrollbarStyle(
+        minimalHeight = 32.dp,
+        thickness = 8.dp,
+        shape = RoundedCornerShape(4.dp),
+        hoverDurationMillis = FADE_MS,
+        // 黑色滑块在白底上更显眼，浅色下压低一档
+        unhoverColor = DesktopColors.Overlay.copy(alpha = if (DesktopColors.IsDark) 0.3f else 0.24f),
+        hoverColor = DesktopColors.Overlay.copy(alpha = if (DesktopColors.IsDark) 0.5f else 0.4f)
+    )
 
 // 竖向滚动区域的悬停滚动条：浮在右侧边缘、不占布局宽度，鼠标进入区域才淡入；内容未溢出时不显示
 @Composable

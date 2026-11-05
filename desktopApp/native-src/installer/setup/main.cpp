@@ -38,6 +38,7 @@ constexpr int kExitBadArgs = 1;
 constexpr int kExitNeedsAdmin = 2;
 constexpr int kExitAlreadyInstalled = 3;
 constexpr int kExitFailed = 4;
+constexpr int kExitDowngrade = 5;
 
 constexpr int kIdCancel = 1;
 constexpr int kIdBack = 2;
@@ -65,6 +66,8 @@ struct Options {
     bool desktop = true;
     bool autostart = false;
     bool launch = true;
+    // 非空表示数字版本相同的覆盖安装，需先卸载该产品
+    std::wstring replaceCode;
 };
 
 struct InstallRun {
@@ -85,6 +88,7 @@ struct Args {
     HWND parent = nullptr;
     fs::path dir;
     fs::path log;
+    std::wstring replaceCode;
     bool valid = true;
 };
 
@@ -128,6 +132,8 @@ Args ParseArgs() {
             if (const wchar_t* v = next(i)) args.dir = v;
         } else if (wcscmp(a, L"--log") == 0) {
             if (const wchar_t* v = next(i)) args.log = v;
+        } else if (wcscmp(a, L"--replace") == 0) {
+            if (const wchar_t* v = next(i)) args.replaceCode = v;
         } else {
             args.valid = false;
         }
@@ -246,7 +252,9 @@ msi::Result InstallMsi(const Options& o, const fs::path& log, const msi::Progres
         r.message = L"无法将安装文件解压到临时目录，请检查磁盘空间";
         return r;
     }
-    return msi::Install(package.Path(), msi::InstallProperties(o.dir, o.perMachine, o.desktop), log, onProgress);
+    std::wstring properties = msi::InstallProperties(o.dir, o.perMachine, o.desktop);
+    if (!o.replaceCode.empty()) return msi::Replace(o.replaceCode, package.Path(), properties, log, onProgress);
+    return msi::Install(package.Path(), properties, log, onProgress);
 }
 
 InstallRun RunInstall(const Options& o, bool fresh, const fs::path& log, const Reporter& report, const ElevatedRunner& runElevated) {
@@ -357,13 +365,44 @@ enum class Mode {
     Fresh,
     Upgrade,
     UpToDate,
+    Downgrade,
 };
 
 struct InstallState {
     Mode mode = Mode::Fresh;
+    // 数字版本相同的覆盖安装：MSI 无法原地升级，需先卸载旧版
+    bool replace = false;
     std::optional<msi::InstalledProduct> installed;
     Options options;
 };
+
+// 已安装版本的展示文案；早期安装包没有完整版本，只能显示三位数字版本
+std::wstring InstalledLabel(const InstallState& state) {
+    if (!state.installed) return {};
+    const msi::InstalledProduct& p = *state.installed;
+    if (!p.fullVersion.empty()) return p.fullVersion;
+    return state.replace ? p.version + L"（早期构建）" : p.version;
+}
+
+// 数字版本不同由 MSI 原生判断；相同时比较完整版本，缺少完整版本的已安装包视为更旧
+Mode ClassifyInstalled(const msi::InstalledProduct& installed, bool& replace) {
+    replace = false;
+    int numeric = sys::CompareVersions(installed.version, MELODIA_VERSION);
+    if (numeric < 0) return Mode::Upgrade;
+    if (numeric > 0) return Mode::Downgrade;
+
+    std::optional<ver::Release> target = ver::Parse(MELODIA_DISPLAY_VERSION);
+    if (!target) return Mode::UpToDate;
+    if (!installed.release) {
+        replace = true;
+        return Mode::Upgrade;
+    }
+    int full = ver::Compare(*installed.release, *target);
+    if (full == 0) return Mode::UpToDate;
+    if (full > 0) return Mode::Downgrade;
+    replace = true;
+    return Mode::Upgrade;
+}
 
 InstallState DetectInstallState() {
     InstallState state;
@@ -371,11 +410,8 @@ InstallState DetectInstallState() {
     std::optional<msi::InstalledProduct> newest = msi::Newest(msi::FindInstalledProducts());
     if (!newest) return state;
     state.installed = newest;
-    if (sys::CompareVersions(newest->version, MELODIA_VERSION) >= 0) {
-        state.mode = Mode::UpToDate;
-    } else {
-        state.mode = Mode::Upgrade;
-    }
+    state.mode = ClassifyInstalled(*newest, state.replace);
+    if (state.replace) state.options.replaceCode = newest->code;
     state.options.perMachine = newest->PerMachine();
     state.options.dir = newest->location.empty() ? msi::DefaultInstallDir(state.options.perMachine) : newest->location;
     state.options.desktop = sys::DesktopShortcutExists(state.options.perMachine);
@@ -389,7 +425,9 @@ public:
 
     void Start() {
         if (state_.mode == Mode::UpToDate) {
-            ShowUpToDate();
+            ShowNoInstall(Page::UpToDate);
+        } else if (state_.mode == Mode::Downgrade) {
+            ShowNoInstall(Page::Downgrade);
         } else {
             ShowWelcome();
         }
@@ -411,13 +449,15 @@ protected:
                            Gdiplus::RectF(mui::theme::kMargin, mui::kBodyTop + 8.0f, bodyW, 120.0f), mui::theme::kBodySize, false,
                            mui::theme::kTextGray);
                 } else {
-                    mui::PaintHeader(p, HeaderIcon(), L"升级 Melodia",
-                                     L"版本 " + state_.installed->version + L" → " + MELODIA_DISPLAY_VERSION, w);
-                    std::wstring body = L"检测到此电脑已安装 Melodia " + state_.installed->version + L"，将原地升级到 " +
-                                        MELODIA_DISPLAY_VERSION + L"。\n\n安装位置：" + state_.options.dir.wstring() +
-                                        L"\n安装范围：" + (state_.options.perMachine ? L"所有用户" : L"仅为我") +
-                                        L"\n\n个人配置与数据会保留，升级时会自动关闭正在运行的 Melodia。";
-                    p.Text(body, Gdiplus::RectF(mui::theme::kMargin, mui::kBodyTop + 8.0f, bodyW, 180.0f), mui::theme::kBodySize, false,
+                    std::wstring installed = InstalledLabel(state_);
+                    mui::PaintHeader(p, HeaderIcon(), L"升级 Melodia", L"版本 " + installed + L" → " + MELODIA_DISPLAY_VERSION, w);
+                    std::wstring body = L"检测到此电脑已安装 Melodia " + installed +
+                                        (state_.replace ? L"，将升级到 " : L"，将原地升级到 ") + MELODIA_DISPLAY_VERSION + L"。";
+                    if (state_.replace) body += L"\n两者的数字版本号相同，会先卸载旧版再安装。";
+                    body += L"\n\n安装位置：" + state_.options.dir.wstring() + L"\n安装范围：" +
+                            (state_.options.perMachine ? L"所有用户" : L"仅为我") +
+                            L"\n\n个人配置与数据会保留，升级时会自动关闭正在运行的 Melodia。";
+                    p.Text(body, Gdiplus::RectF(mui::theme::kMargin, mui::kBodyTop + 8.0f, bodyW, 200.0f), mui::theme::kBodySize, false,
                            mui::theme::kTextGray);
                 }
                 PaintNote(p, 300.0f);
@@ -471,10 +511,16 @@ protected:
                        mui::theme::kBodySize, false, mui::theme::kTextGray);
                 break;
             case Page::UpToDate:
-                mui::PaintHeader(p, HeaderIcon(), L"Melodia 已是最新版本", L"版本 " + state_.installed->version, w);
-                p.Text(L"此电脑已安装 Melodia " + state_.installed->version + L"，不低于本安装程序的版本 " + MELODIA_DISPLAY_VERSION +
-                           L"，无需安装。",
+                mui::PaintHeader(p, HeaderIcon(), L"Melodia 已是最新版本", L"版本 " + InstalledLabel(state_), w);
+                p.Text(L"此电脑已安装 Melodia " + InstalledLabel(state_) + L"，与本安装程序的版本一致，无需安装。",
                        Gdiplus::RectF(mui::theme::kMargin, mui::kBodyTop + 8.0f, bodyW, 80.0f), mui::theme::kBodySize, false,
+                       mui::theme::kTextGray);
+                break;
+            case Page::Downgrade:
+                mui::PaintHeader(p, HeaderIcon(), L"无法安装较旧的版本", L"已安装版本 " + InstalledLabel(state_), w);
+                p.Text(L"此电脑已安装 Melodia " + InstalledLabel(state_) + L"，高于本安装程序的版本 " + MELODIA_DISPLAY_VERSION +
+                           L"。\n\n如需安装较旧的版本，请先卸载当前版本。",
+                       Gdiplus::RectF(mui::theme::kMargin, mui::kBodyTop + 8.0f, bodyW, 100.0f), mui::theme::kBodySize, false,
                        mui::theme::kTextGray);
                 break;
         }
@@ -594,6 +640,7 @@ private:
         Done,
         Failed,
         UpToDate,
+        Downgrade,
     };
 
     static mui::Control Button(int id, mui::Kind kind, const Gdiplus::RectF& rect, const wchar_t* text) {
@@ -728,8 +775,9 @@ private:
         FocusControl(kIdFinish);
     }
 
-    void ShowUpToDate() {
-        BeginPage(Page::UpToDate, true);
+    // 无需安装的终态页：已是最新版本或已安装更高版本
+    void ShowNoInstall(Page page) {
+        BeginPage(page, true);
         float w = Width();
         float h = Height();
         bool canOpen = state_.installed && sys::IsMelodiaAppDir(state_.installed->location);
@@ -846,6 +894,7 @@ private:
                             sys::QuoteArg(options.dir.wstring());
         if (!options.desktop) args += L" --nodesktop";
         if (!log_.empty()) args += L" --log " + sys::QuoteArg(log_.wstring());
+        if (!options.replaceCode.empty()) args += L" --replace " + sys::QuoteArg(options.replaceCode);
         DWORD exitCode = 0;
         elevate::LaunchResult launch = elevate::RunElevatedAndWait(hwnd, selfPath_, args, exitCode);
         InstallRun run;
@@ -911,6 +960,16 @@ int RunElevatedChild(const Args& args) {
     options.desktop = !args.noDesktop;
     if (!ValidateDir(options.dir, true).empty()) return kExitBadArgs;
 
+    // 只允许卸载本机范围内、属于 Melodia 升级代码的产品
+    if (!args.replaceCode.empty()) {
+        bool known = false;
+        for (const msi::InstalledProduct& p : msi::FindInstalledProducts()) {
+            if (p.PerMachine() && _wcsicmp(p.code.c_str(), args.replaceCode.c_str()) == 0) known = true;
+        }
+        if (!known) return kExitBadArgs;
+        options.replaceCode = args.replaceCode;
+    }
+
     msi::Result r = InstallMsi(options, args.log, [&](int pct) {
         elevate::SendPacket(args.parent, elevate::PacketKind::Progress, pct, L"");
     });
@@ -922,6 +981,7 @@ int RunSilent(const Args& args) {
     if (!args.valid) return kExitBadArgs;
     InstallState state = DetectInstallState();
     if (state.mode == Mode::UpToDate) return kExitAlreadyInstalled;
+    if (state.mode == Mode::Downgrade) return kExitDowngrade;
 
     Options& o = state.options;
     bool fresh = state.mode == Mode::Fresh;

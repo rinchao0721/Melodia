@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import kotlinx.coroutines.delay
 import kotlin.math.max
 
@@ -114,7 +114,7 @@ private fun TooltipPopup(tooltipContent: @Composable () -> Unit, side: TooltipSi
                 }
             }
         ) {
-            Box(Modifier.shadow(4.dp, RoundedCornerShape(6.dp))) { tooltipContent() }
+            Box(Modifier.themedShadow(4.dp, RoundedCornerShape(6.dp))) { tooltipContent() }
         }
     }
 }

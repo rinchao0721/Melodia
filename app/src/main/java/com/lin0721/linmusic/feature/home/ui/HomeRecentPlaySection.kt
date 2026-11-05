@@ -18,7 +18,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +29,7 @@ import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
@@ -107,7 +107,7 @@ private fun RecentPlayRow(
             .height(rowHeight)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(RadiusCompact))
-            .background(Color.White.copy(alpha = 0.1f)),
+            .background(MelodiaColors.Overlay.copy(alpha = 0.1f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SubcomposeAsyncImage(

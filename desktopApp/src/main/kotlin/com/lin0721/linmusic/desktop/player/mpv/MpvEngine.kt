@@ -25,6 +25,9 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
 
         // 自然播完或解码失败；主动 stop/替换文件不回调
         fun onEnded(isError: Boolean)
+
+        // 打不开输出设备（独占被占用、设备不支持等），文件随之结束
+        fun onAudioOutputFailed() = onEnded(isError = true)
     }
 
     private val mpv: LibMpv = LibMpv.load()
@@ -63,6 +66,17 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         command("loadfile", url, "replace")
     }
 
+    // 分析用：start 按 mpv 语法给出，如 "+12.5" 或 "25%"
+    fun loadSegment(url: String, start: String) {
+        setProperty("stream-record", "")
+        setProperty("start", start)
+        setProperty("pause", "no")
+        command("loadfile", url, "replace")
+    }
+
+    // 已载入文件的标签值，mpv 按键名不区分大小写匹配
+    fun metadataValue(key: String): String? = getProperty("metadata/by-key/$key")
+
     fun setPaused(paused: Boolean) = setProperty("pause", if (paused) "yes" else "no")
 
     fun seekTo(positionMs: Long) = command("seek", (positionMs.coerceAtLeast(0) / 1000.0).toString(), "absolute")
@@ -74,6 +88,9 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
 
     // 仅测试用
     internal fun volume(): Double? = getProperty("volume")?.toDoubleOrNull()
+
+    // 播放中切换会由 mpv 自动重开输出，进度不中断
+    fun setExclusive(enabled: Boolean) = setProperty("audio-exclusive", if (enabled) "yes" else "no")
 
     // node 类型属性按字符串读取得到 JSON；读不到返回 null
     fun audioDevices(): List<AudioDevice> = getProperty("audio-device-list")?.let(::parseAudioDevices).orEmpty()
@@ -116,7 +133,15 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         val data = event.getPointer(MpvConst.EVENT_OFFSET_DATA) ?: return
         when (data.getInt(0)) {
             MpvConst.END_FILE_REASON_EOF -> listener.onEnded(isError = false)
-            MpvConst.END_FILE_REASON_ERROR -> listener.onEnded(isError = true)
+            MpvConst.END_FILE_REASON_ERROR -> {
+                val error = data.getInt(MpvConst.END_FILE_OFFSET_ERROR)
+                if (error == MpvConst.ERROR_AO_INIT_FAILED) {
+                    AppLogger.w(TAG, "音频输出初始化失败 exclusive=${getProperty("audio-exclusive")}")
+                    listener.onAudioOutputFailed()
+                } else {
+                    listener.onEnded(isError = true)
+                }
+            }
         }
     }
 

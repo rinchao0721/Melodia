@@ -68,7 +68,7 @@ internal fun PlatformTabs(
                             Text(
                                 text = badge,
                                 fontSize = 11.sp,
-                                color = if (state is ExternalSearchUiState.Error) DesktopColors.Accent else DesktopColors.TextGray
+                                color = if (state is ExternalSearchUiState.Error) DesktopColors.AccentText else DesktopColors.TextGray
                             )
                         }
                     }

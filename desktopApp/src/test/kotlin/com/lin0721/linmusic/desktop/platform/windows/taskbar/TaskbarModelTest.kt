@@ -64,6 +64,14 @@ class TaskbarModelTest {
         assertEquals(false, parseSystemUsesLightTheme(personalize("0x0")))
     }
 
+    // 应用主题与任务栏主题是两个独立的值
+    @Test
+    fun parsesAppsThemeIndependently() {
+        assertEquals(true, parseAppsUseLightTheme(personalize("0x0")))
+        assertEquals(false, parseAppsUseLightTheme(personalize("0x1").replace("AppsUseLightTheme    REG_DWORD    0x1", "AppsUseLightTheme    REG_DWORD    0x0")))
+        assertNull(parseAppsUseLightTheme(""))
+    }
+
     @Test
     fun returnsNullWhenThemeValueMissing() {
         assertNull(parseSystemUsesLightTheme(personalize(null)))

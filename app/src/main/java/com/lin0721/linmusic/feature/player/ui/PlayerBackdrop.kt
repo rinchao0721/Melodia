@@ -30,9 +30,13 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.ui.theme.saturateIfChromatic
+import com.lin0721.linmusic.core.ui.theme.playerBackdrop
+import com.lin0721.linmusic.core.ui.theme.rememberImmersiveColors
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
+import com.lin0721.linmusic.core.ui.theme.themedCoverBase
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -136,17 +140,23 @@ fun PlayerBackdrop(
     translationYProvider: () -> Float = { 0f },
     content: @Composable BoxScope.() -> Unit = {}
 ) {
+    // 透出皮肤背景图时由外层整页画背景，这里只在歌词全屏层补画一次
+    if (isCoverBackdrop(CoverGroup.PLAYER)) {
+        Box(modifier.then(if (mode == BackdropMode.Immersive) Modifier.playerBackdrop(Color.Transparent) else Modifier), content = content)
+        return
+    }
     when (mode) {
         BackdropMode.Collapsed -> {
             val density = LocalDensity.current
             val gradientEndY = with(density) { COLLAPSED_GRADIENT_END_DP.dp.toPx() }
 
-            // base 本身已偏深且明度有上限，直接铺底不再压暗
-            val fillColor = base
-            val gradientBrush = remember(fillColor, gradientEndY) {
+            // base 本身已偏深且明度有上限，深色下直接铺底；浅色下取同色相浅调，两者都渐隐到页面底
+            val fillColor = themedCoverBase(base)
+            val endColor = Color.Transparent
+            val gradientBrush = remember(fillColor, endColor, gradientEndY) {
                 Brush.smoothVerticalGradient(
                     from = fillColor,
-                    to = Color.Transparent,
+                    to = endColor,
                     startY = 0f,
                     endY = gradientEndY,
                     fadeEndFraction = COLLAPSED_FADE_END_FRACTION,
@@ -196,9 +206,9 @@ fun PlayerBackdrop(
 
         BackdropMode.Immersive -> {
             val meshPhaseMs = rememberMeshPhaseMs(animateMesh)
-            val vividBase = remember(base) { base.saturateIfChromatic(0.6f) }
-            val fillColor = remember(vividBase) { vividBase.darken(0.35f) }
-            val darkBlob = remember(vividBase) { vividBase.darken(0.15f) }
+            val immersive = rememberImmersiveColors(base)
+            val fillColor = immersive.fill
+            val darkBlob = immersive.blob
 
             Box(modifier = modifier) {
                 Box(

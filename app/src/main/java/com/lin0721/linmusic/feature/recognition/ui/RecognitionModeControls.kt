@@ -30,7 +30,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -38,15 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.SurfaceLight
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 
@@ -77,12 +72,12 @@ internal fun RecognitionModeSwitch(
                 onClick = { if (option.mode != selected) onSelect(option.mode) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = ModeOptions.size),
                 colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = Color.White,
-                    activeContentColor = BackgroundDark,
-                    activeBorderColor = SurfaceDark,
-                    inactiveContainerColor = SurfaceDark,
-                    inactiveContentColor = TextGray,
-                    inactiveBorderColor = SurfaceDark
+                    activeContainerColor = MelodiaColors.TextPrimary,
+                    activeContentColor = MelodiaColors.Background,
+                    activeBorderColor = MelodiaColors.Surface,
+                    inactiveContainerColor = MelodiaColors.Surface,
+                    inactiveContentColor = MelodiaColors.TextSecondary,
+                    inactiveBorderColor = MelodiaColors.Surface
                 ),
                 icon = { Icon(option.icon, contentDescription = null, modifier = Modifier.size(18.dp)) }
             ) {
@@ -103,7 +98,7 @@ internal fun RecognitionModeChooserSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = SurfaceDark,
+        containerColor = MelodiaColors.Surface,
         shape = BottomSheetShape,
         dragHandle = { MelodiaDragHandle() }
     ) {
@@ -114,15 +109,15 @@ internal fun RecognitionModeChooserSheet(
                 .padding(start = MelodiaSpacing.md, end = MelodiaSpacing.md, bottom = MelodiaSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(text = "选择识别方式", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(text = "点选后立即开始，识别中也可以在顶部切换", color = TextGray, fontSize = 13.sp)
+            Text(text = "选择识别方式", color = MelodiaColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(text = "点选后立即开始，识别中也可以在顶部切换", color = MelodiaColors.TextSecondary, fontSize = 13.sp)
             Spacer(Modifier.height(MelodiaSpacing.xs))
             ModeOptions.forEach { option ->
                 ModeOptionCard(option = option, isLastUsed = option.mode == lastMode, onClick = { onChoose(option.mode) })
             }
             Text(
                 text = "内录需要授权屏幕录制；部分 App 禁止被内录，会录到静音",
-                color = TextGray,
+                color = MelodiaColors.TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 18.sp
             )
@@ -138,23 +133,23 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
             .fillMaxWidth()
             .height(84.dp)
             .pressable(style = MelodiaPress.Card, shape = shape, role = Role.Button, onClick = onClick)
-            .background(SurfaceLight, shape)
+            .background(MelodiaColors.SurfaceLight, shape)
             .padding(horizontal = MelodiaSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(48.dp).background(NeteaseRed, CircleShape),
+            modifier = Modifier.size(48.dp).background(MelodiaColors.Accent, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(option.icon, contentDescription = null, tint = Color.White)
+            Icon(option.icon, contentDescription = null, tint = MelodiaColors.OnAccent)
         }
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = option.label, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(text = option.label, color = MelodiaColors.OnAccent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (isLastUsed) {
                     Spacer(Modifier.width(MelodiaSpacing.sm))
-                    Surface(shape = RoundedCornerShape(10.dp), color = NeteaseRed.copy(alpha = 0.2f)) {
+                    Surface(shape = RoundedCornerShape(10.dp), color = MelodiaColors.AccentText.copy(alpha = 0.2f)) {
                         Text(
                             text = "上次使用",
                             color = TimerWarningRed,
@@ -164,8 +159,8 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
                     }
                 }
             }
-            Text(text = option.description, color = TextGray, fontSize = 13.sp)
+            Text(text = option.description, color = MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = TextGray)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = MelodiaColors.TextSecondary)
     }
 }

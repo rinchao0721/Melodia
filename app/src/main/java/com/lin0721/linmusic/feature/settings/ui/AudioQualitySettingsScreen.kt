@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +19,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,18 +32,15 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
     var qualityDialogTarget by remember { mutableStateOf<String?>(null) }
 
     // 渲染音质的子设置项
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-        contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-    ) {
+    SettingsPageColumn {
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_QUALITY.sectionTitles[0]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[0]) {
                 SettingsRow(
                     title = "Wi-Fi 环境播放音质",
                     subtitle = getQualityDisplayName(wifiQuality),
                     onClick = { qualityDialogTarget = "wifi" }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "移动网络环境播放音质",
                     subtitle = getQualityDisplayName(mobileQuality),
@@ -53,7 +50,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
         }
 
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_QUALITY.sectionTitles[1]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[1]) {
                 SettingsSwitchRow(
                     title = "显示实际音质",
                     subtitle = "在全屏播放页底部显示当前歌曲接口实际下发的音质",

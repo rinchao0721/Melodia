@@ -33,6 +33,7 @@ class LxPluginManager(
     suspend fun remove(id: String) {
         sourcePreferences.removeLxPlugin(id)
         runtime.deactivatePlugin(id)
+        runtime.clearData(id)
     }
 
     suspend fun clearAll() {

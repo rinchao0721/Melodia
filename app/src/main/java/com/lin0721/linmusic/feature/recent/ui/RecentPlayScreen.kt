@@ -18,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +33,7 @@ import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentSong
 import com.lin0721.linmusic.feature.recent.domain.groupByPlayDay
@@ -193,12 +192,12 @@ private fun RecentPlayList(
 private fun DayHeader(label: String) {
     Text(
         text = label,
-        color = Color.White,
+        color = MelodiaColors.TextPrimary,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()
-            .background(BackgroundDark)
+            .background(MelodiaColors.PageFill)
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
     )
 }

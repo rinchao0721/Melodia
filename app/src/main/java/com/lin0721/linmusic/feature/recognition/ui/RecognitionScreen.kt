@@ -49,7 +49,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,11 +62,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -201,7 +199,7 @@ fun RecognitionScreen(
     val showMiniPlayer = nowPlaying != null && uiState !is RecognitionUiState.Listening
 
     // Surface 吃掉触摸，避免点击穿透到下层页面
-    Surface(modifier = Modifier.fillMaxSize(), color = BackgroundDark) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MelodiaColors.PageFill) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 底部导航栏留白由最外层统一处理，内部（含历史页 Scaffold）不再重复计算
             Box(
@@ -321,17 +319,17 @@ private fun RecognitionTopBar(
             .padding(horizontal = 4.dp)
     ) {
         MelodiaIconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).size(48.dp)) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(28.dp))
         }
         Text(
             text = title,
-            color = TextGray,
+            color = MelodiaColors.TextSecondary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.Center)
         )
         MelodiaIconButton(onClick = onOpenHistory, modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)) {
-            Icon(Icons.Rounded.History, contentDescription = "识别历史", tint = Color.White)
+            Icon(Icons.Rounded.History, contentDescription = "识别历史", tint = MelodiaColors.TextPrimary)
         }
     }
 }

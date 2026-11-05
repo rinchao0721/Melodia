@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.library.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -89,7 +90,8 @@ class LibraryViewModel(
     private val recentRepository: RecentRepository,
     private val playbackRepository: PlaybackRepository,
     private val onlineState: OnlineStateProvider,
-    private val updatePlaylistCoverUseCase: UpdatePlaylistCoverUseCase
+    private val updatePlaylistCoverUseCase: UpdatePlaylistCoverUseCase,
+    private val externalStore: PlaylistExternalTrackStore
 ) : ViewModel() {
 
     private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
@@ -630,6 +632,7 @@ class LibraryViewModel(
         viewModelScope.launch {
             playlistRepository.deletePlaylist(playlistId).collect { result ->
                 result.onSuccess {
+                    externalStore.clearPlaylist(playlistId)
                     _toastEvent.emit("歌单已删除")
                     playlistMutationBus.emit(PlaylistMutationEvent.Deleted(playlistId))
                     loadLibraryData()

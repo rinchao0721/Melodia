@@ -16,6 +16,7 @@ import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -69,6 +70,7 @@ class SharedModulesResolveTest {
             single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
             single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
+            single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
             single { ContentFilter(get()) }
             single { ResourceProvider() }
             single<NetworkStateProvider> { NetworkStateProvider { true } }

@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
@@ -48,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -70,7 +70,6 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -98,24 +97,32 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
+import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
+import com.lin0721.linmusic.desktop.ui.components.PointerTravel
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.lyricsview.KaraokeText
 import com.lin0721.linmusic.desktop.ui.lyricsview.rememberLyricClock
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
+import com.lin0721.linmusic.desktop.ui.palette.ImmersiveSurface
+import com.lin0721.linmusic.desktop.ui.palette.LocalImmersiveColors
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
+import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.palette.themedCoverBackground
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
+import com.lin0721.linmusic.desktop.ui.shell.WindowDragArea
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.awt.Cursor
-import java.awt.MouseInfo
 import kotlin.math.roundToInt
 
 // mpv 每秒上报几十次播放位置，迷你窗无需这么密
@@ -149,13 +156,14 @@ private val PortraitPadding = 14.dp
 private val LargeCoverRequest = 320.dp
 private val WindowShape = RoundedCornerShape(14.dp)
 private val ChromeShape = RoundedCornerShape(8.dp)
-private val ChromeBackground = Color(0x59000000)
-private val CardScrim = Color(0xA0000000)
-private val WindowBorder = Color.White.copy(alpha = 0.08f)
-private val SubtleText = Color.White.copy(alpha = 0.62f)
-private val SecondaryLyricText = Color.White.copy(alpha = 0.6f)
-private val IdleIcon = Color.White.copy(alpha = 0.8f)
-private val DisabledIcon = Color.White.copy(alpha = 0.3f)
+private val ChromeBackground: Color @Composable @ReadOnlyComposable get() = LocalImmersiveColors.current.scrim.copy(alpha = 0.35f)
+private val CardScrim: Color @Composable @ReadOnlyComposable get() = LocalImmersiveColors.current.scrim.copy(alpha = 0.63f)
+private val WindowBorder: Color @Composable @ReadOnlyComposable get() = DesktopColors.Divider
+private val ContentColor: Color @Composable @ReadOnlyComposable get() = LocalImmersiveColors.current.content
+private val SubtleText: Color @Composable @ReadOnlyComposable get() = ContentColor.copy(alpha = 0.62f)
+private val SecondaryLyricText: Color @Composable @ReadOnlyComposable get() = ContentColor.copy(alpha = 0.6f)
+private val IdleIcon: Color @Composable @ReadOnlyComposable get() = ContentColor.copy(alpha = 0.8f)
+private val DisabledIcon: Color @Composable @ReadOnlyComposable get() = ContentColor.copy(alpha = 0.3f)
 
 class MiniResizeCallbacks(
     val onStart: (MiniResizeHandle) -> Unit,
@@ -222,51 +230,55 @@ fun WindowScope.MiniPlayerContent(
     LaunchedEffect(artwork) {
         coverBase = if (artwork.isNullOrBlank()) FallbackCoverPalette.base else extractCoverPaletteFromUrl(artwork).base
     }
+    val tintBase = coverBase(CoverGroup.PLAYER, coverBase) ?: coverBase
+    val immersive = rememberImmersiveColors(tintBase)
     val background by animateColorAsState(
-        lerp(coverBase, Color.Black, BACKGROUND_DARKEN_FRACTION),
+        if (DesktopColors.IsDark) themedCoverBackground(tintBase, BACKGROUND_DARKEN_FRACTION) else immersive.fill,
         uiTween(BACKGROUND_ANIM_MS),
         label = "miniPlayerBackground"
     )
 
-    Box(
-        Modifier.fillMaxSize()
-            .clip(WindowShape)
-            .background(background)
-            .border(0.5.dp, WindowBorder, WindowShape)
-            .onPointerEvent(PointerEventType.Enter) { hovered = true }
-            .onPointerEvent(PointerEventType.Exit) { hovered = false }
-    ) {
-        WindowDraggableArea(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().restoreOnDoubleClick(actions.onRestore)) {
-                when (style) {
-                    MiniPlayerStyle.BAR -> BarLayout(info, hovered, actions)
-                    MiniPlayerStyle.CARD -> CardLayout(info, hovered, actions)
-                    MiniPlayerStyle.LYRIC -> {
-                        val lyricIndex by playerViewModel.currentLyricIndex.collectAsState()
-                        val fallback = when {
-                            !info.hasTrack -> "未在播放"
-                            podcast.isPodcast -> podcast.radioName.ifBlank { "播客" }
-                            detail.isLyricsLoading -> "歌词加载中"
-                            else -> "暂无歌词"
-                        }
-                        LyricLayout(info, hovered, actions) {
-                            LyricLines(
-                                lyrics = if (podcast.isPodcast) emptyList() else detail.lyrics,
-                                index = lyricIndex,
-                                fallback = fallback,
-                                settings = lyricSettings,
-                                isPlaying = isPlaying,
-                                positionProvider = rememberLyricClock(controller),
-                                modifier = Modifier.weight(1f).fillMaxWidth()
-                            )
+    ImmersiveSurface(immersive) {
+        Box(
+            Modifier.fillMaxSize()
+                .clip(WindowShape)
+                .background(background)
+                .border(0.5.dp, WindowBorder, WindowShape)
+                .onPointerEvent(PointerEventType.Enter) { hovered = true }
+                .onPointerEvent(PointerEventType.Exit) { hovered = false }
+        ) {
+            WindowDragArea(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().restoreOnDoubleClick(actions.onRestore)) {
+                    when (style) {
+                        MiniPlayerStyle.BAR -> BarLayout(info, hovered, actions)
+                        MiniPlayerStyle.CARD -> CardLayout(info, hovered, actions)
+                        MiniPlayerStyle.LYRIC -> {
+                            val lyricIndex by playerViewModel.currentLyricIndex.collectAsState()
+                            val fallback = when {
+                                !info.hasTrack -> "未在播放"
+                                podcast.isPodcast -> podcast.radioName.ifBlank { "播客" }
+                                detail.isLyricsLoading -> "歌词加载中"
+                                else -> "暂无歌词"
+                            }
+                            LyricLayout(info, hovered, actions) {
+                                LyricLines(
+                                    lyrics = if (podcast.isPodcast) emptyList() else detail.lyrics,
+                                    index = lyricIndex,
+                                    fallback = fallback,
+                                    settings = lyricSettings,
+                                    isPlaying = isPlaying,
+                                    positionProvider = rememberLyricClock(controller),
+                                    modifier = Modifier.weight(1f).fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
-        // 等比缩放会改内容密度，而密度一变 pointerInput 就会重置、拖动当场中断；感应区固定用不随缩放变的密度
-        CompositionLocalProvider(LocalDensity provides resizeDensity) {
-            Box(Modifier.matchParentSize()) { ResizeZones(style, resize) }
+            // 等比缩放会改内容密度，而密度一变 pointerInput 就会重置、拖动当场中断；感应区固定用不随缩放变的密度
+            CompositionLocalProvider(LocalDensity provides resizeDensity) {
+                Box(Modifier.matchParentSize()) { ResizeZones(style, resize) }
+            }
         }
     }
 }
@@ -293,18 +305,19 @@ private fun BoxScope.ResizeZones(style: MiniPlayerStyle, resize: MiniResizeCallb
 @Composable
 private fun Modifier.resizeDrag(handle: MiniResizeHandle, cursor: Int, resize: MiniResizeCallbacks): Modifier {
     val callbacks by rememberUpdatedState(resize)
-    return pointerHoverIcon(PointerIcon(Cursor(cursor))).pointerInput(handle) {
+    val effects = LocalWindowEffects.current
+    return pointerHoverIcon(PointerIcon(Cursor(cursor))).pointerInput(handle, effects) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false).consume()
-            val origin = MouseInfo.getPointerInfo()?.location ?: return@awaitEachGesture
+            val travel = PointerTravel.start(effects) ?: return@awaitEachGesture
             callbacks.onStart(handle)
             try {
                 while (true) {
                     val event = awaitPointerEvent()
                     event.changes.forEach { it.consume() }
                     if (event.changes.none { it.pressed }) break
-                    val now = MouseInfo.getPointerInfo()?.location ?: continue
-                    callbacks.onDrag(handle, (now.x - origin.x).toFloat(), (now.y - origin.y).toFloat())
+                    val delta = travel.delta() ?: continue
+                    callbacks.onDrag(handle, delta.x, delta.y)
                 }
             } finally {
                 callbacks.onEnd(handle)
@@ -366,9 +379,9 @@ private fun CardLayout(info: MiniTrackInfo, hovered: Boolean, actions: MiniPlaye
         Box(
             Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp)
                 .graphicsLayer { alpha = 1f - overlayAlpha }
-                .background(Color.Black.copy(alpha = 0.25f))
+                .background(LocalImmersiveColors.current.scrim.copy(alpha = 0.25f))
         ) {
-            Box(Modifier.fillMaxWidth(info.fraction).fillMaxHeight().background(Color.White))
+            Box(Modifier.fillMaxWidth(info.fraction).fillMaxHeight().background(ContentColor))
         }
         Column(
             Modifier.fillMaxSize()
@@ -548,8 +561,8 @@ private fun LyricLines(
                             KaraokeText(
                                 line = line,
                                 positionProvider = positionProvider,
-                                inactiveColor = Color.White.copy(alpha = KARAOKE_UNSUNG_ALPHA),
-                                activeColor = Color.White,
+                                inactiveColor = ContentColor.copy(alpha = KARAOKE_UNSUNG_ALPHA),
+                                activeColor = ContentColor,
                                 fontSize = fontSp.sp,
                                 lineHeight = (fontSp * LYRIC_LINE_HEIGHT_SCALE).sp,
                                 textAlign = textAlign,
@@ -559,7 +572,7 @@ private fun LyricLines(
                         } else {
                             Text(
                                 line.text,
-                                color = Color.White,
+                                color = ContentColor,
                                 fontSize = fontSp.sp,
                                 lineHeight = (fontSp * LYRIC_LINE_HEIGHT_SCALE).sp,
                                 fontWeight = FontWeight.Bold,
@@ -628,7 +641,7 @@ private fun Modifier.fadeVerticalEdges(): Modifier =
 private fun TrackTitle(info: MiniTrackInfo, fontSize: TextUnit) {
     Text(
         info.track?.title ?: "未在播放",
-        color = Color.White,
+        color = ContentColor,
         fontSize = fontSize,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
@@ -674,7 +687,7 @@ private fun PlayButton(info: MiniTrackInfo, size: Dp, onClick: () -> Unit) {
     Box(
         Modifier.size(size)
             .clip(CircleShape)
-            .background(if (info.hasTrack) Color.White else DisabledIcon)
+            .background(if (info.hasTrack) ContentColor else DisabledIcon)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(enabled = info.hasTrack, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -746,7 +759,7 @@ private fun MiniIconButton(
             tint = when {
                 !enabled -> DisabledIcon
                 tint != null -> tint
-                hovered -> Color.White
+                hovered -> ContentColor
                 else -> IdleIcon
             }
         )

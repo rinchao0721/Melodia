@@ -53,11 +53,15 @@ import com.lin0721.linmusic.core.ui.components.DiscoverySectionSkeleton
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.skin.CoverGroup
+import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.coverCardFill
+import com.lin0721.linmusic.core.ui.theme.coverCardGradient
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.search.domain.HotSearch
@@ -180,14 +184,14 @@ private fun FeaturedHotCard(
         baseColor = if (coverUrl != null) extractBaseColorFromUrl(context, coverUrl) else FallbackBase
     }
     val animatedBase by animateColorAsState(baseColor, uiTween(500), label = "featured_hot_base")
-    val secondaryText = Color.White.copy(alpha = 0.72f)
+    val secondaryText = MelodiaColors.OnCoverCard.copy(alpha = 0.72f)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .pressable(MelodiaPress.Card, onClick = onClick)
             .clip(MaterialTheme.shapes.medium)
-            .background(Brush.horizontalGradient(listOf(animatedBase, animatedBase.darken(0.45f))))
+            .background(Brush.horizontalGradient(coverCardGradient(animatedBase, 0.45f)))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -208,13 +212,13 @@ private fun FeaturedHotCard(
                 )
             } else {
                 Box(
-                    modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.12f)),
+                    modifier = Modifier.fillMaxSize().background(MelodiaColors.OnCoverCard.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Rounded.Whatshot,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MelodiaColors.OnCoverCard,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -229,7 +233,7 @@ private fun FeaturedHotCard(
             )
             Text(
                 text = hot.keyword,
-                color = Color.White,
+                color = MelodiaColors.OnCoverCard,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -250,13 +254,13 @@ private fun FeaturedHotCard(
             Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
             MelodiaIconButton(
                 onClick = onPlay,
-                containerColor = Color.White,
+                containerColor = MelodiaColors.OnCoverCard,
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.Rounded.PlayArrow,
                     contentDescription = "播放 ${track.name}",
-                    tint = animatedBase.darken(0.3f),
+                    tint = if (isCoverBackdrop(CoverGroup.CARDS)) MelodiaColors.OnCoverCardInverse else coverCardFill(animatedBase, 0.3f),
                     modifier = Modifier.size(24.dp)
                 )
             }

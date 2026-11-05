@@ -55,17 +55,14 @@ import com.lin0721.linmusic.core.ui.components.PlayingEqualizerBars
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.components.SongRow
 import com.lin0721.linmusic.core.ui.components.SongRowData
-import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.FallbackBase
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.PillRadius
-import com.lin0721.linmusic.core.ui.theme.SurfaceDark
-import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
-import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.coverCardGradient
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.player.ui.formatTime
@@ -83,9 +80,9 @@ private val PillShape = RoundedCornerShape(PillRadius)
 @Composable
 private fun Headline(title: String, subtitle: String?) {
     Column(verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)) {
-        Text(text = title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(text = title, color = MelodiaColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         if (subtitle != null) {
-            Text(text = subtitle, color = TextGray, fontSize = 15.sp)
+            Text(text = subtitle, color = MelodiaColors.TextSecondary, fontSize = 15.sp)
         }
     }
 }
@@ -123,10 +120,10 @@ internal fun RecognitionListeningContent(
         Headline(title = "正在聆听", subtitle = subtitle)
         if (isPlayback) {
             Spacer(Modifier.height(MelodiaSpacing.md))
-            Surface(shape = RoundedCornerShape(12.dp), color = SurfaceDark.copy(alpha = 0.6f)) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MelodiaColors.Surface.copy(alpha = 0.6f)) {
                 Text(
                     text = "可以切回正在播放的 App，识别在后台继续，结果会以通知提醒",
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 13.sp,
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -155,12 +152,12 @@ internal fun RecognitionListeningContent(
         ) {
             MelodiaIconButton(
                 onClick = onCancel,
-                containerColor = SurfaceDark,
+                containerColor = MelodiaColors.Surface,
                 modifier = Modifier.size(64.dp)
             ) {
-                Icon(Icons.Rounded.Close, contentDescription = "取消识别", tint = Color.White, modifier = Modifier.size(26.dp))
+                Icon(Icons.Rounded.Close, contentDescription = "取消识别", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(26.dp))
             }
-            Text(text = "取消", color = TextGray, fontSize = 13.sp)
+            Text(text = "取消", color = MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
     }
 }
@@ -169,7 +166,7 @@ internal fun RecognitionListeningContent(
 @Composable
 private fun AttemptChips(attempts: List<MatchAttempt>) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(text = "匹配进度", color = TextGray, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(text = "匹配进度", color = MelodiaColors.TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
             verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
@@ -191,8 +188,8 @@ private fun AttemptChip(attempt: MatchAttempt) {
     }
     Surface(
         shape = PillShape,
-        color = if (active) NeteaseRed.copy(alpha = 0.16f) else SurfaceDark,
-        modifier = if (active) Modifier.border(1.dp, NeteaseRed.copy(alpha = 0.75f), PillShape) else Modifier
+        color = if (active) MelodiaColors.AccentText.copy(alpha = 0.16f) else MelodiaColors.Surface,
+        modifier = if (active) Modifier.border(1.dp, MelodiaColors.Accent.copy(alpha = 0.75f), PillShape) else Modifier
     ) {
         Row(
             modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
@@ -202,9 +199,9 @@ private fun AttemptChip(attempt: MatchAttempt) {
             if (active) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(TimerWarningRed))
             } else {
-                Icon(Icons.Rounded.Close, contentDescription = null, tint = TextGray, modifier = Modifier.size(14.dp))
+                Icon(Icons.Rounded.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(14.dp))
             }
-            Text(text = label, color = if (active) Color.White else TextGray, fontSize = 13.sp)
+            Text(text = label, color = if (active) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
     }
 }
@@ -237,13 +234,13 @@ internal fun RecognitionFoundContent(
                     highlightStartSecond = state.windowStartSecond,
                     highlight = WaveformHighlight.Bars,
                     showPendingSlots = false,
-                    barColor = Color.White.copy(alpha = 0.35f),
+                    barColor = MelodiaColors.TextPrimary.copy(alpha = 0.35f),
                     modifier = Modifier.fillMaxWidth().height(40.dp)
                 )
                 Spacer(Modifier.height(MelodiaSpacing.sm))
                 Text(
                     text = "第 $hitSecond 秒命中 · 匹配片段 ${state.windowStartSecond}–$hitSecond 秒",
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 12.sp
                 )
                 Spacer(Modifier.height(20.dp))
@@ -258,7 +255,7 @@ internal fun RecognitionFoundContent(
                 Spacer(Modifier.height(MelodiaSpacing.lg))
                 Text(
                     text = "其他可能",
-                    color = TextGray,
+                    color = MelodiaColors.TextSecondary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.xs)
@@ -280,13 +277,13 @@ internal fun RecognitionFoundContent(
                         // 正在播放时由行内音柱与红色歌名表示，不再显示播放按钮
                         if (!isCurrent) MelodiaIconButton(
                             onClick = { onOpen(candidate) },
-                            containerColor = SurfaceDark,
+                            containerColor = MelodiaColors.Surface,
                             modifier = Modifier.padding(start = MelodiaSpacing.sm).size(44.dp)
                         ) {
                             Icon(
                                 Icons.Rounded.PlayArrow,
                                 contentDescription = "从 ${formatTime(candidate.startTimeMs)} 播放 ${candidate.title}",
-                                tint = Color.White
+                                tint = MelodiaColors.TextPrimary
                             )
                         }
                     }
@@ -295,7 +292,7 @@ internal fun RecognitionFoundContent(
         }
         MelodiaButton(
             onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark, contentColor = Color.White),
+            colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Surface, contentColor = MelodiaColors.TextPrimary),
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -330,7 +327,7 @@ private fun BestMatchCard(
             .fillMaxWidth()
             .pressable(style = MelodiaPress.Card, shape = cardShape, role = Role.Button, onClick = onOpen)
             .clip(cardShape)
-            .background(Brush.linearGradient(listOf(animatedBase, animatedBase.darken(0.4f))))
+            .background(Brush.linearGradient(coverCardGradient(animatedBase, 0.4f)))
             .padding(MelodiaSpacing.md),
         verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md)
     ) {
@@ -347,16 +344,16 @@ private fun BestMatchCard(
                         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        PlayingEqualizerBars(color = Color.White, animate = nowPlaying.isPlaying)
+                        PlayingEqualizerBars(color = MelodiaColors.OnCoverCard, animate = nowPlaying.isPlaying)
                     }
                 }
             }
             Spacer(Modifier.width(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)) {
-                Text(text = "最可能是", color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp)
+                Text(text = "最可能是", color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f), fontSize = 12.sp)
                 Text(
                     text = candidate.title,
-                    color = Color.White,
+                    color = MelodiaColors.OnCoverCard,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -364,7 +361,7 @@ private fun BestMatchCard(
                 )
                 Text(
                     text = candidate.artists,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f),
                     fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -380,21 +377,21 @@ private fun BestMatchCard(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
                         text = if (nowPlaying != null) formatTime(displayMs) else "命中位置 $positionText",
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f),
                         fontSize = 12.sp
                     )
-                    Text(text = formatTime(candidate.durationMs), color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp)
+                    Text(text = formatTime(candidate.durationMs), color = MelodiaColors.OnCoverCard.copy(alpha = 0.72f), fontSize = 12.sp)
                 }
             }
         }
         MelodiaButton(
             onClick = onOpen,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = BackgroundDark),
+            colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.TextPrimary, contentColor = MelodiaColors.Background),
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {
             if (nowPlaying != null) {
-                PlayingEqualizerBars(color = BackgroundDark, animate = nowPlaying.isPlaying)
+                PlayingEqualizerBars(color = MelodiaColors.Background, animate = nowPlaying.isPlaying)
                 Spacer(Modifier.width(MelodiaSpacing.sm))
                 Text(
                     text = if (nowPlaying.isPlaying) "正在播放" else "已暂停",
@@ -418,14 +415,14 @@ private fun HitPositionBar(fraction: Float) {
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = 0.25f))
+                .background(MelodiaColors.OnCoverCard.copy(alpha = 0.25f))
         )
         Box(
             Modifier
                 .fillMaxWidth(fraction)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color.White)
+                .background(MelodiaColors.OnCoverCard)
         )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             Box(
@@ -433,7 +430,7 @@ private fun HitPositionBar(fraction: Float) {
                     .offset(x = (maxWidth - 12.dp) * fraction)
                     .size(12.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(MelodiaColors.OnCoverCard)
             )
         }
     }
@@ -458,7 +455,7 @@ internal fun RecognitionFailedContent(
             Spacer(Modifier.height(72.dp))
             RecognitionWaveform(
                 levels = progress.levels,
-                barColor = Color.White.copy(alpha = 0.28f),
+                barColor = MelodiaColors.TextPrimary.copy(alpha = 0.28f),
                 modifier = Modifier.fillMaxWidth().height(WaveformHeight)
             )
             Spacer(Modifier.height(14.dp))
@@ -470,7 +467,7 @@ internal fun RecognitionFailedContent(
         }
         if (reason == RecognitionFailedReason.NOT_FOUND || reason == RecognitionFailedReason.SILENT) {
             Spacer(Modifier.height(MelodiaSpacing.md))
-            Text(text = "可以试试：靠近音源、调大音量，或等到副歌再识别", color = TextGray, fontSize = 14.sp)
+            Text(text = "可以试试：靠近音源、调大音量，或等到副歌再识别", color = MelodiaColors.TextSecondary, fontSize = 14.sp)
         }
         Spacer(Modifier.weight(1f))
         Row(
@@ -479,7 +476,7 @@ internal fun RecognitionFailedContent(
         ) {
             MelodiaButton(
                 onClick = onOpenHistory,
-                colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Surface, contentColor = MelodiaColors.TextPrimary),
                 shape = RoundedCornerShape(26.dp),
                 modifier = Modifier.weight(1f).height(52.dp)
             ) {
@@ -487,7 +484,7 @@ internal fun RecognitionFailedContent(
             }
             MelodiaButton(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent, contentColor = MelodiaColors.OnAccent),
                 shape = RoundedCornerShape(26.dp),
                 modifier = Modifier.weight(1f).height(52.dp)
             ) {
@@ -548,7 +545,7 @@ internal fun RecognitionPermissionContent(
         Spacer(Modifier.weight(1f))
         MelodiaButton(
             onClick = if (permanentlyDenied) onOpenSettings else onRequestPermission,
-            colors = ButtonDefaults.buttonColors(containerColor = NeteaseRed, contentColor = Color.White),
+            colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent, contentColor = MelodiaColors.OnAccent),
             shape = RoundedCornerShape(26.dp),
             modifier = Modifier.fillMaxWidth().padding(bottom = MelodiaSpacing.lg).height(52.dp)
         ) {

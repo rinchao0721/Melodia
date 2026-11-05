@@ -73,20 +73,7 @@ fun Color.saturateIfChromatic(amount: Float): Color {
     return saturate(amount * weight)
 }
 
-val BackgroundDark = Color(0xFF121212)
-val SurfaceDark = Color(0xFF282828)
-val SurfaceLight = Color(0xFF3E3E3E)
-val TextGray = Color(0xFFB3B3B3)
-
-val NeteaseRed = Color(0xFFC20C0C)
 val GradientStart = Color(0xFF3a1515)
-val BackgroundBlack = Color(0xFF0a0a0a)
-
-// 底栏选中项的药丸指示器底色
-val NavPillSelected = Color(0xFF383A4A)
-
-// 筛选药丸未选中态底色。取白 10% 叠在顶栏渐变上的等效不透明色
-val FilterPillInactive = Color(0xFF332B2B)
 
 // 全局 Toast 底色
 val ToastBackground = Color(0xFF2E2E2E)
@@ -97,33 +84,35 @@ val WebLoginBackground = Color(0xFFF5F5F7)
 // 封面取色未命中缓存时的兜底背景色，迷你播放器与全屏播放器共用以保证配色一致
 val FallbackBase = Color(0xFF333333)
 
-// 歌单/歌手页在取色完成前的初始底色
-val CoverPlaceholderDark = Color(0xFF2C2C2C)
-
 // 定时关闭中的剩余时间告警色
 val TimerWarningRed = Color(0xFFFF5252)
 
-// 音乐库卡片的装饰渐变：紫罗兰 → 紫 → 粉
-val LibraryVioletGradient = listOf(
-    Color(0xFF6366F1),
-    Color(0xFFA855F7),
-    Color(0xFFEC4899)
+// 音乐库「听歌排行」几何封面：底色、由左到右三根柱子、右上角圆
+data class RankCoverColors(val background: Color, val bars: List<Color>, val circle: Color)
+
+// 音乐库「我喜欢的音乐」几何封面：底色、左上大圆、右下小圆，心形固定白色
+data class LikedCoverColors(val background: Color, val topCircle: Color, val bottomCircle: Color)
+
+val LibraryRankCoverLight = RankCoverColors(
+    background = Color(0xFF2457B0),
+    bars = listOf(Color(0xFF7FD3F0), Color(0xFFFFFFFF), Color(0xFF4FB3DE)),
+    circle = Color(0xFF1E96BC)
 )
-
-// 音乐库卡片的装饰渐变：蓝 → 翠绿
-val LibraryBlueGreenGradient = listOf(
-    Color(0xFF3B82F6),
-    Color(0xFF10B981)
+val LibraryRankCoverDark = RankCoverColors(
+    background = Color(0xFF1B3F80),
+    bars = listOf(Color(0xFF4FA9CF), Color(0xFFDDF3FB), Color(0xFF2E86B3)),
+    circle = Color(0xFF1A7FA3)
 )
-
-// 已下载标识翠绿色
-val DownloadedGreen = Color(0xFF10B981)
-
-// 下载失败标识红色，比品牌红更亮，深色背景上作文字仍可读
-val DownloadFailedRed = Color(0xFFFF6B6B)
-
-// SVIP 标识金色
-val SvipGold = Color(0xFFD4A017)
+val LibraryLikedCoverLight = LikedCoverColors(
+    background = Color(0xFFC2264C),
+    topCircle = Color(0xFFF0605A),
+    bottomCircle = Color(0xFFFFB3A8)
+)
+val LibraryLikedCoverDark = LikedCoverColors(
+    background = Color(0xFF821A38),
+    topCircle = Color(0xFFD63A3F),
+    bottomCircle = Color(0xFFB85A64)
+)
 
 // 首页功能入口的策展渐变。心动模式、音乐漫游这类功能本就没有对应封面，
 // 用固定色块表达

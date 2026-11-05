@@ -1,12 +1,17 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
+import com.lin0721.linmusic.core.plugin.PluginCardContext
+import com.lin0721.linmusic.core.plugin.LocalPluginCards
+import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.desktop.ui.plugin.PluginConfirmDialog
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
@@ -51,6 +57,7 @@ import com.lin0721.linmusic.desktop.ui.share.ShareCardDialog
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
+import com.lin0721.linmusic.desktop.ui.update.openInBrowser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
@@ -133,9 +140,24 @@ fun WindowScope.MelodiaDesktopApp(
     val isMaximized = windowState.placement == WindowPlacement.Maximized
     val isFullscreen = fullscreen.isFullscreen
 
-    CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
+    val pluginLayouts by deps.plugins.layouts.collectAsState()
+    val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
+    CompositionLocalProvider(
+        LocalDesktopNavigator provides navigator,
+        LocalPlayerLayouts provides pluginLayouts.specs,
+        LocalPluginCards provides pluginCards,
+        LocalPluginCommands provides deps.pluginCommands
+    ) {
+        LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
+        LaunchedEffect(deps) {
+            deps.pluginCommands.content.opens.collect { state.navigate(DesktopRoute.Playlist(it.id, it.title)) }
+        }
+        LaunchedEffect(deps) {
+            deps.pluginCommands.links.opens.collect { if (!openInBrowser(it)) navigator.showMessage("无法打开浏览器") }
+        }
+        PluginConfirmDialog(deps.pluginCommands.confirmations)
         Box(
-            Modifier.fillMaxSize().background(DesktopColors.WindowBackground)
+            Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }
                 .onPointerEvent(PointerEventType.Exit) { lyricsView.pointerInWindow = false }
                 // 点到搜索下拉之外就收起它；鼠标侧键与浏览器一致：后退键返回，前进键前进；不消费事件，子组件照常响应

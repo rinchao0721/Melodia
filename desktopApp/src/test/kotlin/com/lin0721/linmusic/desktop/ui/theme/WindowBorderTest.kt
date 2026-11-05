@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.theme
 
+import androidx.compose.ui.graphics.toArgb
+import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -28,5 +30,13 @@ class WindowBorderTest {
 
         assertNotEquals(focused, unfocused)
         channels(focused).zip(channels(unfocused)).forEach { (f, u) -> assertTrue(u >= f) }
+    }
+
+    // 浅色主题下中性线比窗口底色更深
+    @Test
+    fun lightNeutralLineIsDarkerThanWindow() {
+        val rgb = WindowBorder.opaqueRgb(null, focused = true, palette = MelodiaPalettes.light)
+        val window = MelodiaPalettes.light.windowBackground.toArgb() and 0xFFFFFF
+        channels(rgb).zip(channels(window)).forEach { (line, bg) -> assertTrue(line < bg) }
     }
 }

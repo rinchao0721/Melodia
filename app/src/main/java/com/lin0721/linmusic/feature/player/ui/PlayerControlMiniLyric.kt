@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,9 +22,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import com.lin0721.linmusic.core.plugin.LayoutAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -34,7 +38,11 @@ fun MiniLyricLine(
     lyrics: List<LyricLine>,
     currentLyricIndex: Int,
     isPlaying: Boolean,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    horizontalPadding: Dp = MelodiaSpacing.lg,
+    textAlign: LayoutAlign? = null,
+    // 放不下时横向滚动，否则截断加省略号
+    marquee: Boolean = false
 ) {
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
     val currentText = when {
@@ -46,10 +54,14 @@ fun MiniLyricLine(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg)
+            .padding(horizontal = horizontalPadding)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 6.dp),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = when (textAlign) {
+            LayoutAlign.CENTER -> Alignment.Center
+            LayoutAlign.END -> Alignment.CenterEnd
+            else -> Alignment.CenterStart
+        }
     ) {
         AnimatedContent(
             targetState = currentText,
@@ -58,17 +70,18 @@ fun MiniLyricLine(
         ) { text ->
             if (text.isEmpty()) {
                 LoadingDotsAnimation(
-                    color = Color.White.copy(alpha = 0.35f),
+                    color = MelodiaColors.TextPrimary.copy(alpha = 0.35f),
                     isPlaying = isPlaying
                 )
             } else {
                 Text(
                     text = text,
-                    color = Color.White,
+                    color = MelodiaColors.TextPrimary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = if (marquee) Modifier.basicMarquee() else Modifier
                 )
             }
         }

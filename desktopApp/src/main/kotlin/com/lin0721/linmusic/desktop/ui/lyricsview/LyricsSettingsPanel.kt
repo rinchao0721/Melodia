@@ -20,10 +20,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
+import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.artist.TabBar
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
@@ -54,9 +55,10 @@ fun LyricsSettingsPanel(
     val options = remember(hasTranslation, hasRoma) { secondaryOptions(hasTranslation, hasRoma) }
     Column(
         modifier.width(PanelWidth).heightIn(max = PanelMaxHeight)
-            .shadow(16.dp, RoundedCornerShape(12.dp))
+            .themedShadow(16.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(DesktopColors.PopupSurface)
+            .floatingOutline(RoundedCornerShape(12.dp))
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)

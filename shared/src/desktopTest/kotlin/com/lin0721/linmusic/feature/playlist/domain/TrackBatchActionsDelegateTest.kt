@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.feature.podcast.ui.FakePlaybackController
@@ -43,7 +44,8 @@ class TrackBatchActionsDelegateTest {
         ),
         userPlaylistRepository = FakeUserPlaylistRepository(userPlaylists),
         userPreferences = userPreferences,
-        resourceProvider = testResourceProvider
+        resourceProvider = testResourceProvider,
+        externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
     )
 
     private val toasts = mutableListOf<String>()
@@ -72,7 +74,7 @@ class TrackBatchActionsDelegateTest {
 
     @Test
     fun addToPlaylistSendsAllIdsInOneRequest() = runBlocking {
-        val ok = delegate.addToPlaylist(10, tracks, onToast)
+        val ok = delegate.addToPlaylist(10, tracks, onToast = onToast)
 
         assertTrue(ok)
         assertEquals(listOf(FakePlaylistRepository.ManipulateCall("add", 10, listOf(1, 2, 3))), playlistRepository.manipulateCalls)
@@ -83,7 +85,7 @@ class TrackBatchActionsDelegateTest {
     fun addToPlaylistReportsFailureAndKeepsSelectionRetryable() = runBlocking {
         playlistRepository.manipulateResult = Result.failure(IllegalStateException("网络错误"))
 
-        val ok = delegate.addToPlaylist(10, tracks, onToast)
+        val ok = delegate.addToPlaylist(10, tracks, onToast = onToast)
 
         assertFalse(ok)
         assertEquals(1, toasts.size)
@@ -91,8 +93,8 @@ class TrackBatchActionsDelegateTest {
 
     @Test
     fun emptySelectionIsNoOp() = runBlocking {
-        assertFalse(delegate.addToPlaylist(10, emptyList(), onToast))
-        assertFalse(delegate.removeFromPlaylist(10, emptyList(), onToast))
+        assertFalse(delegate.addToPlaylist(10, emptyList(), onToast = onToast))
+        assertFalse(delegate.removeFromPlaylist(10, emptyList(), onToast = onToast))
         assertFalse(delegate.download(emptyList(), "exhigh", "tag", "label", onToast))
         assertTrue(playlistRepository.manipulateCalls.isEmpty())
         assertTrue(downloader.batchCalls.isEmpty())
@@ -152,7 +154,7 @@ class TrackBatchActionsDelegateTest {
 
     @Test
     fun removeFromPlaylistSendsDelWithAllIds() = runBlocking {
-        val ok = delegate.removeFromPlaylist(10, tracks.take(2), onToast)
+        val ok = delegate.removeFromPlaylist(10, tracks.take(2), onToast = onToast)
 
         assertTrue(ok)
         assertEquals(FakePlaylistRepository.ManipulateCall("del", 10, listOf(1, 2)), playlistRepository.manipulateCalls.single())

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,70 +70,63 @@ private fun resolveInitialFolderUri(uriString: String?): Uri {
 }
 
 @Composable
-fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
-    val context = LocalContext.current
+fun PlaybackSettingsView(viewModel: SettingsViewModel) {
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
     val audioOffload by viewModel.audioOffload.collectAsStateWithLifecycle()
+    val exclusiveOutput by viewModel.exclusiveOutput.collectAsStateWithLifecycle()
     val resumeAfterExternalInterruption by viewModel.resumeAfterExternalInterruption.collectAsStateWithLifecycle()
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
-    val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
-    val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
-    val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
+    val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
+    val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
 
-    val folderPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-        // 保留旧目录持久权限，避免已有下载文件丢失读取授权
-        viewModel.updateDownloadFolderUri(uri.toString())
-        ToastManager.showToast("下载目录已更新")
-    }
-
-    val downloadFolderSubtitle = remember(downloadFolderUri) {
-        resolveDisplayPath(context, downloadFolderUri)
-    }
-
-    // 渲染播放与下载的子设置项
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-        contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-    ) {
+    // 渲染播放的子设置项
+    SettingsPageColumn {
         item {
-            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[0]) {
+            SettingsGroupCard(SettingsSubMenu.PLAYBACK.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "自动播放推荐新歌",
                     subtitle = "当前曲目播放完毕后自动接入相似推荐",
                     checked = autoPlayNext,
                     onCheckedChange = { viewModel.updateAutoPlayNext(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "与其他应用同时播放",
                     subtitle = "开启后不被其他应用打断播放",
                     checked = playWithOtherApps,
                     onCheckedChange = { viewModel.updatePlayWithOtherApps(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "硬件音频解码",
                     subtitle = "交给音频芯片解码，后台播放更省电；与切歌淡入淡出不能同时开启",
                     checked = audioOffload,
                     onCheckedChange = { viewModel.updateAudioOffload(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "USB 独占输出",
+                    subtitle = "接 USB 解码器时绕过系统混音直接输出；期间系统和其他应用的声音改从手机扬声器播放，与切歌淡入淡出、硬件音频解码不能同时开启",
+                    checked = exclusiveOutput,
+                    onCheckedChange = { viewModel.updateExclusiveOutput(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "外部音视频停止后自动恢复",
                     subtitle = "被其他音视频打断暂停后，在对方停止播放时尝试自动继续",
                     checked = resumeAfterExternalInterruption,
                     onCheckedChange = { viewModel.updateResumeAfterExternalInterruption(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "音量平衡（实验性）",
+                    subtitle = "按每首歌的响度统一音量；在线歌曲仅 Wi-Fi 下分析",
+                    checked = loudnessNormalizationEnabled,
+                    onCheckedChange = { viewModel.updateLoudnessNormalizationEnabled(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "切歌淡入淡出",
                     subtitle = "歌曲临近结束时与下一首交叠过渡，手动切歌不触发",
@@ -168,18 +161,52 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                             endLabel = "长"
                         )
                     }
+                    SettingsSwitchRow(
+                        title = "智能过渡（实验性）",
+                        subtitle = "跳过歌曲首尾的静音段；仅 Wi-Fi 或本地歌曲生效",
+                        checked = smartCrossfadeEnabled,
+                        onCheckedChange = { viewModel.updateSmartCrossfadeEnabled(it) }
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DownloadSettingsView(viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
+    val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
+    val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+        // 保留旧目录持久权限，避免已有下载文件丢失读取授权
+        viewModel.updateDownloadFolderUri(uri.toString())
+        ToastManager.showToast("下载目录已更新")
+    }
+
+    val downloadFolderSubtitle = remember(downloadFolderUri) {
+        resolveDisplayPath(context, downloadFolderUri)
+    }
+
+    SettingsPageColumn {
         item {
-            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[1]) {
+            SettingsGroupCard(SettingsSubMenu.DOWNLOAD_STORAGE.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "边听边存",
                     subtitle = "在线播放时自动以当前音质保存歌曲到「边听边存」目录",
                     checked = streamCacheEnabled,
                     onCheckedChange = { viewModel.updateStreamCacheEnabled(it) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsRow(
                     title = "下载目录",
                     subtitle = downloadFolderSubtitle,
@@ -188,7 +215,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                         folderPickerLauncher.launch(initialUri)
                     }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "内嵌歌词",
                     subtitle = "下载歌曲与边听边存时将逐字歌词内嵌写入音频文件",
@@ -196,7 +223,7 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                     onCheckedChange = { viewModel.updateDownloadLyricsEnabled(it) }
                 )
                 if (!downloadFolderUri.isNullOrBlank()) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsRow(
                         title = "恢复默认下载目录",
                         subtitle = "改回 Music/Melodia",

@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
+import com.lin0721.linmusic.desktop.ui.plugin.PluginPageEntries
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -22,8 +24,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.ui.components.DesktopOverlays
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.home.LocalPaneResizing
 import com.lin0721.linmusic.desktop.ui.library.LibraryPane
@@ -70,7 +74,10 @@ internal fun Workspace(
         val hasTrack = hasNowPlaying || dockOverlay == DockOverlay.Downloads || dockOverlay == DockOverlay.PlaylistComments
         val measure = pane.measure(available, hasTrack, dockOpen)
         val dockState = rememberNowPlayingDockState(hasTrack, dockOpen, measure.dockOpenWidth, pane.resizing)
-        val workspace = rememberWorkspaceLayout(pane.libraryMode, available, dockState, measure.libraryDefaultWidth, pane.resizing)
+        val workspace = rememberWorkspaceLayout(
+            pane.libraryMode, available, dockState, measure.libraryDefaultWidth,
+            pane.libraryStretch, pane.librarySpring, pane.resizing, pane::settleLibrarySpring
+        )
         CompositionLocalProvider(
             LocalPaneWidthExtra provides { workspace.centerWidthExtra },
             LocalPaneResizing provides pane.resizing
@@ -97,9 +104,14 @@ internal fun Workspace(
                         onToggle = state::toggleLibraryExtra,
                         onOpenLocal = state::openLocalPlaylist,
                         onOpenCloud = state::openCloud
-                    )
+                    ),
+                    footer = {
+                        PluginPageEntries(deps.plugins) { active ->
+                            state.navigate(DesktopRoute.PluginPage(active.manifest.id, active.page.id))
+                        }
+                    }
                 )
-                // 缝隙即拖动条：拖窄过阈值吸附成窄条，拖宽只停在上限，不会变成展开态
+                // 缝隙即拖动条：窄条往外拉先阻尼拉伸再吸附展开，拖窄过阈值吸附成窄条，越过上下限带阻尼、松手回弹
                 PaneResizeHandle(
                     width = workspace.centerGap,
                     enabled = pane.libraryMode != LibraryMode.EXPANDED,
@@ -122,6 +134,7 @@ internal fun Workspace(
                         }
                     }
                 }
+                if (lyricsView.isOpen) DesktopOverlays.Track()
                 NowPlayingDock(
                     state = dockState,
                     hasTrack = hasTrack,
@@ -178,7 +191,8 @@ internal fun Workspace(
 @Composable
 private fun Pane(modifier: Modifier, content: @Composable () -> Unit) {
     Box(
-        modifier.fillMaxHeight().clip(RoundedCornerShape(DesktopDimens.PaneRadius)).background(DesktopColors.Pane)
+        modifier.fillMaxHeight().clip(RoundedCornerShape(DesktopDimens.PaneRadius)).background(DesktopColors.ShellFill)
+            .floatingOutline(RoundedCornerShape(DesktopDimens.PaneRadius))
     ) {
         content()
     }

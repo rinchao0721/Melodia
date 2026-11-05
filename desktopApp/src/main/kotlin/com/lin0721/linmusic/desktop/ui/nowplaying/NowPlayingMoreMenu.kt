@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Person
@@ -149,6 +150,33 @@ internal fun NowPlayingMoreMenu(
                     navigator.showMessage("请先登录账号")
                 })
             }
+            MenuDivider()
+        }
+
+        // 外部平台歌曲没有网易云数据，收藏与红心只存本机
+        if (!podcast.isPodcast && detailState.isExternal && songId != null) {
+            if (navigator.isLoggedIn) {
+                SubMenuItem(
+                    "收藏到歌单",
+                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    onOpen = { playerViewModel.prepareCollectDialog(songId) }
+                ) {
+                    CollectSubmenuContent(Track(id = songId, name = track.title), collectActions, onDismiss)
+                }
+            } else {
+                MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                    onDismiss()
+                    navigator.showMessage("请先登录账号")
+                })
+            }
+            MenuItem(
+                if (detailState.isLiked) "取消喜欢" else "喜欢",
+                icon = if (detailState.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                onClick = {
+                    onDismiss()
+                    if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
+                }
+            )
             MenuDivider()
         }
 
