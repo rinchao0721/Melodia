@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +40,9 @@ fun MiniLyricLine(
     isPlaying: Boolean,
     onClick: (() -> Unit)? = null,
     horizontalPadding: Dp = MelodiaSpacing.lg,
-    textAlign: LayoutAlign? = null
+    textAlign: LayoutAlign? = null,
+    // 放不下时横向滚动，否则截断加省略号
+    marquee: Boolean = false
 ) {
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
     val currentText = when {
@@ -77,7 +80,8 @@ fun MiniLyricLine(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = if (marquee) Modifier.basicMarquee() else Modifier
                 )
             }
         }

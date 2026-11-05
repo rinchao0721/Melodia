@@ -372,7 +372,8 @@ fun MiniPlayerCard(
                                     currentLyricIndex = pluginState.lyricIndex,
                                     isPlaying = displayedIsPlaying,
                                     horizontalPadding = 0.dp,
-                                    textAlign = node.textAlign
+                                    textAlign = node.textAlign,
+                                    marquee = node.marquee
                                 )
                             }
                             else -> Unit

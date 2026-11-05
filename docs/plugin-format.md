@@ -371,6 +371,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `elevation` | 0–24，按 `shape` 投影的阴影（API 1.7） |
 | `border` | `{ "width": 1, "color": "outline" }`，宽度 0–8（API 1.7） |
 | `textAlign` | `start`、`center`、`end`，用于 `text`、`time`、`miniLyric`（API 1.7） |
+| `marquee` | `true` 时单行放不下的文字横向滚动，用于 `text`、`miniLyric`（API 1.9） |
 | `autoHide` | `true` 时随歌词页的「自动隐藏控件」淡出并停止接收点击，不改变布局；`lyricsView` 不能写（API 1.9） |
 | `class` | 引用 `styles` 里的样式（API 1.7） |
 | `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8；API 1.5 起可以写 `[左上, 右上, 右下, 左下]` |

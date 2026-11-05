@@ -180,6 +180,8 @@ data class PlayerLayoutNode(
     val onDoubleTap: LayoutAction? = null,
     val onLongPress: LayoutAction? = null,
     val autoHide: Boolean = false,
+    // 单行文字放不下时横向滚动
+    val marquee: Boolean = false,
     val shape: LayoutShape = LayoutShape.RECT,
     val cornerRadius: Float = DEFAULT_CORNER_RADIUS,
     // 分角圆角，写了时优先于 cornerRadius
@@ -584,6 +586,8 @@ object PlayerLayoutParser {
                 onTap = gesture("onTap"),
                 onDoubleTap = gesture("onDoubleTap"),
                 onLongPress = gesture("onLongPress"),
+                marquee = (type == LayoutNodeType.TEXT || type == LayoutNodeType.MINI_LYRIC) &&
+                    (obj["marquee"] as? JsonPrimitive)?.booleanOrNull == true,
                 autoHide = playerBindings && (obj["autoHide"] as? JsonPrimitive)?.booleanOrNull == true &&
                     (type != LayoutNodeType.LYRICS_VIEW).also { ok -> if (!ok) warnings += "lyricsView 不能写 autoHide，已忽略" },
                 variant = if (type == LayoutNodeType.CONTROLS) {

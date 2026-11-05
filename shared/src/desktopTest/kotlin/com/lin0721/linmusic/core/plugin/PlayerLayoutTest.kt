@@ -687,6 +687,15 @@ class PlayerLayoutTest {
     }
 
     @Test
+    fun `marquee 只对文字与单行歌词生效`() {
+        val result = parse(
+            PlayerLayoutArea.ANDROID_MINI_PLAYER,
+            """{"type":"row","children":[{"type":"miniLyric","marquee":true},{"type":"text","text":"a","marquee":true},{"type":"songTitle","marquee":true},{"type":"controls"}]}"""
+        ) as PlayerLayoutParseResult.Success
+        assertEquals(listOf(true, true, false, false), result.root.children.map { it.marquee })
+    }
+
+    @Test
     fun `内联布局与文件布局都能读取`() {
         val manifest = (PluginParser.parse(
             """{"format":1,"id":"com.example.inline","name":"内联","version":"1",

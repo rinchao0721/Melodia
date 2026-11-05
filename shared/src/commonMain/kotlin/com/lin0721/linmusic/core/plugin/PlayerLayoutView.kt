@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -125,13 +126,17 @@ private fun NodeContent(
         }
         LayoutNodeType.PAGER -> LayoutPager(current, nodeModifier, resolve, component)
         LayoutNodeType.SPACER -> Spacer(nodeModifier)
-        LayoutNodeType.TEXT -> BasicText(
-            current.text,
-            modifier = nodeModifier,
-            style = current.layoutTextStyle(),
-            maxLines = current.maxLines,
-            overflow = TextOverflow.Ellipsis
-        )
+        LayoutNodeType.TEXT -> if (current.marquee) {
+            BasicText(current.text, modifier = nodeModifier.basicMarquee(), style = current.layoutTextStyle(), maxLines = 1)
+        } else {
+            BasicText(
+                current.text,
+                modifier = nodeModifier,
+                style = current.layoutTextStyle(),
+                maxLines = current.maxLines,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         else -> component(current, nodeModifier)
     }
 }

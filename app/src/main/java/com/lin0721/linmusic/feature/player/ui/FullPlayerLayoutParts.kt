@@ -205,7 +205,8 @@ class FullPlayerLayoutParts(
                     isPlaying = isPlaying,
                     onClick = onMiniLyricClick,
                     horizontalPadding = 0.dp,
-                    textAlign = node.textAlign
+                    textAlign = node.textAlign,
+                    marquee = node.marquee
                 )
             }
             LayoutNodeType.PROGRESS -> Box(modifier) {
