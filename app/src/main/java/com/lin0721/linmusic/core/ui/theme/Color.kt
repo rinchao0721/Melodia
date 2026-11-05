@@ -87,17 +87,31 @@ val FallbackBase = Color(0xFF333333)
 // 定时关闭中的剩余时间告警色
 val TimerWarningRed = Color(0xFFFF5252)
 
-// 音乐库卡片的装饰渐变：紫罗兰 → 紫 → 粉
-val LibraryVioletGradient = listOf(
-    Color(0xFF6366F1),
-    Color(0xFFA855F7),
-    Color(0xFFEC4899)
-)
+// 音乐库「听歌排行」几何封面：底色、由左到右三根柱子、右上角圆
+data class RankCoverColors(val background: Color, val bars: List<Color>, val circle: Color)
 
-// 音乐库卡片的装饰渐变：蓝 → 翠绿
-val LibraryBlueGreenGradient = listOf(
-    Color(0xFF3B82F6),
-    Color(0xFF10B981)
+// 音乐库「我喜欢的音乐」几何封面：底色、左上大圆、右下小圆，心形固定白色
+data class LikedCoverColors(val background: Color, val topCircle: Color, val bottomCircle: Color)
+
+val LibraryRankCoverLight = RankCoverColors(
+    background = Color(0xFF2457B0),
+    bars = listOf(Color(0xFF7FD3F0), Color(0xFFFFFFFF), Color(0xFF4FB3DE)),
+    circle = Color(0xFF1E96BC)
+)
+val LibraryRankCoverDark = RankCoverColors(
+    background = Color(0xFF1B3F80),
+    bars = listOf(Color(0xFF4FA9CF), Color(0xFFDDF3FB), Color(0xFF2E86B3)),
+    circle = Color(0xFF1A7FA3)
+)
+val LibraryLikedCoverLight = LikedCoverColors(
+    background = Color(0xFFC2264C),
+    topCircle = Color(0xFFF0605A),
+    bottomCircle = Color(0xFFFFB3A8)
+)
+val LibraryLikedCoverDark = LikedCoverColors(
+    background = Color(0xFF821A38),
+    topCircle = Color(0xFFD63A3F),
+    bottomCircle = Color(0xFFB85A64)
 )
 
 // 首页功能入口的策展渐变。心动模式、音乐漫游这类功能本就没有对应封面，

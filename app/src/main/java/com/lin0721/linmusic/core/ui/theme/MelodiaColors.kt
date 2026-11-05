@@ -54,6 +54,11 @@ object MelodiaColors {
 
     // 播放区（封面色或沉浸深色底）上的文字与图标，跟随皮肤的深色配色
     val OnPlayer: Color @Composable @ReadOnlyComposable get() = LocalImmersiveBasePalette.current.textPrimary
+
+    // 有色铺底上的强调色与次要文字；铺底外退回主色与 OnPlayer 75%
+    val OnCoverAccent: Color @Composable @ReadOnlyComposable get() = LocalOnCoverColors.current?.accent ?: Accent
+    val OnCoverSecondary: Color
+        @Composable @ReadOnlyComposable get() = LocalOnCoverColors.current?.contentSecondary ?: OnPlayer.copy(alpha = 0.75f)
     val Success: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.success
     val Vip: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.vip
     val Error: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.error

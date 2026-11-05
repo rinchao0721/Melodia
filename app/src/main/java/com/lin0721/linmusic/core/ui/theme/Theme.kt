@@ -73,25 +73,47 @@ fun MelodiaTheme(
     }
 }
 
-// 沉浸区（播放页等封面色铺底、白字）内部一律按皮肤的深色配色取色，保留当前主色；浅色主题下由此切换，深色主题下原样透传；
-// 播放区透出背景图时带上背景图参数，内部的 playerBackdrop 才能画出背景
+// 沉浸区内按皮肤深色配色取色；base 为封面原色，透出背景图时传 null
 @Composable
-fun ImmersiveTheme(content: @Composable () -> Unit) {
-    val current = LocalMelodiaPalette.current
-    if (current.isDark) {
-        content()
-        return
+fun ImmersiveTheme(base: Color?, content: @Composable () -> Unit) {
+    val midTone = LocalImmersiveMidTone.current || !LocalMelodiaPalette.current.isDark
+    val text = LocalImmersiveBasePalette.current.textPrimary
+    // 不计光斑，否则强调色会被推成纯白
+    val backgrounds = remember(base, midTone, text) {
+        base?.let { listOf(immersiveColors(it, midTone, text).fill) }.orEmpty()
     }
-    val base = LocalImmersiveBasePalette.current
+    ImmersiveTheme(backgrounds, content)
+}
+
+// backgrounds 为实际铺底色，主色与次要、辅助文字按其调到对比度达标；
+// 带上背景图参数，内部 playerBackdrop 才能画出背景
+@Composable
+fun ImmersiveTheme(backgrounds: List<Color>, content: @Composable () -> Unit) {
+    val current = LocalMelodiaPalette.current
+    val immersiveBase = LocalImmersiveBasePalette.current
     val playerBackdrop = LocalCoverPolicy.current.isBackdrop(CoverGroup.PLAYER)
-    val palette = remember(base, current.accent, current.backdrop, playerBackdrop) {
-        base.withAccent(current.accent).copy(backdrop = if (playerBackdrop) current.backdrop else null)
+    val midTone = LocalImmersiveMidTone.current || !current.isDark
+    val source = remember(current, immersiveBase, playerBackdrop) {
+        if (current.isDark) current else immersiveBase.copy(backdrop = if (playerBackdrop) current.backdrop else null)
+    }
+    val onCover = rememberOnCoverColors(backgrounds, source, current.accent)
+    val palette = remember(current, source, onCover) {
+        // 深色且无需调整时原样沿用，保留皮肤写的主色衍生项
+        if (current.isDark && onCover.accent == current.accent &&
+            onCover.textSecondary == current.textSecondary && onCover.textTertiary == current.textTertiary
+        ) {
+            current
+        } else {
+            val accented = if (current.isDark && onCover.accent == current.accent) source else source.withAccent(onCover.accent)
+            accented.copy(textSecondary = onCover.textSecondary, textTertiary = onCover.textTertiary)
+        }
     }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
     MaterialTheme(colorScheme = colorScheme, typography = MaterialTheme.typography, shapes = MelodiaShapes) {
         CompositionLocalProvider(
             LocalMelodiaPalette provides palette,
-            LocalImmersiveMidTone provides true,
+            LocalImmersiveMidTone provides midTone,
+            LocalOnCoverColors provides onCover,
             content = content
         )
     }

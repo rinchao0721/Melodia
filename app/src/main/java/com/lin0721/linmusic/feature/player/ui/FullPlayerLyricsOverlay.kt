@@ -90,7 +90,7 @@ fun FullPlayerLyricsOverlay(
     ) {
         val visibilityTransition = transition
         // 全屏歌词是沉浸场景，浅色主题下仍按深色取色、中调铺底
-        ImmersiveTheme {
+        ImmersiveTheme(colors.base) {
             FullScreenLyricsView(
                 coverage = coverage,
                 isFullyEntered = {

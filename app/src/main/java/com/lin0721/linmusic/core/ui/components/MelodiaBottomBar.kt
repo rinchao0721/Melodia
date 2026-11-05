@@ -82,6 +82,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.coverBase
 import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
+import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -181,6 +182,8 @@ fun MiniPlayerCard(
     val fillColor = remember(animatedBase, expanded, isDark) {
         if (isDark) animatedBase.darken(if (expanded) 0.20f else 0.45f) else immersiveMidFill(animatedBase)
     }
+    // 卡片内容按沉浸区取色，阴影与描边仍取外层主题
+    val onCoverBackgrounds = remember(fillColor) { listOf(fillColor) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -273,161 +276,163 @@ fun MiniPlayerCard(
             )
             .clickable(onClick = onClick)
     ) {
-        when (val background = pluginFrame.background) {
-            FrameBackground.Host -> Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
-            )
-            is FrameBackground.Fill -> CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
-                Box(Modifier.matchParentSize().layoutFill(background.fill))
-            }
-            FrameBackground.None -> Unit
-        }
-        if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
-            val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
-            val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
-            val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
-            val pluginState = rememberMiniPluginState(
-                title = title,
-                artist = artist,
-                mediaId = displayedCurrentTrack.mediaId,
-                isPlaying = displayedIsPlaying,
-                isLiked = isLiked,
-                isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
-            )
-            val runScript = rememberLayoutScriptRunner(pluginSpec.pluginId, pluginState.binding)
-            val hostAction: (HostAction) -> Unit = { action ->
-                when (action) {
-                    HostAction.TOGGLE_PLAY -> onTogglePlay()
-                    HostAction.NEXT -> onNext()
-                    HostAction.PREVIOUS -> onPrevious()
-                    HostAction.SEEK_FORWARD -> pluginState.seekTo(currentPositionProvider() + MINI_SEEK_STEP_MS)
-                    HostAction.SEEK_BACK -> pluginState.seekTo((currentPositionProvider() - MINI_SEEK_STEP_MS).coerceAtLeast(0L))
-                    HostAction.TOGGLE_LIKE -> onLikeClick()
-                    HostAction.CYCLE_PLAY_MODE -> pluginState.cyclePlayMode()
-                    else -> Unit
+        ImmersiveTheme(onCoverBackgrounds) {
+            when (val background = pluginFrame.background) {
+                FrameBackground.Host -> Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
+                )
+                is FrameBackground.Fill -> CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
+                    Box(Modifier.matchParentSize().layoutFill(background.fill))
                 }
+                FrameBackground.None -> Unit
             }
-            // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
-            val latestHostAction by rememberUpdatedState(hostAction)
-            val onAction = remember(runScript) {
-                { action: LayoutAction ->
+            if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
+                val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
+                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
+                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+                val pluginState = rememberMiniPluginState(
+                    title = title,
+                    artist = artist,
+                    mediaId = displayedCurrentTrack.mediaId,
+                    isPlaying = displayedIsPlaying,
+                    isLiked = isLiked,
+                    isPodcast = likeMode == MiniPlayerLikeMode.Subscribe
+                )
+                val runScript = rememberLayoutScriptRunner(pluginSpec.pluginId, pluginState.binding)
+                val hostAction: (HostAction) -> Unit = { action ->
                     when (action) {
-                        is LayoutAction.Script -> runScript(action.name)
-                        is LayoutAction.Host -> latestHostAction(action.action)
-                    }
-                }
-            }
-            val environment = LayoutEnvironment(
-                playing = displayedIsPlaying,
-                songKey = displayedCurrentTrack.mediaId,
-                motionEnabled = motion.enabled,
-                onAction = onAction
-            )
-            CompositionLocalProvider(
-                LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight),
-                LocalLayoutEnvironment provides environment
-            ) {
-                PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
-                    val scale = node.size.scale
-                    when (node.type) {
-                        LayoutNodeType.COVER -> AntiFlickerCoverImage(
-                            url = miniThumbUrl(displayedCleanCoverUrl),
-                            contentScale = ContentScale.Crop,
-                            modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
-                        )
-                        LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
-                        LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
-                        LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
-                            MiniTitleText(title, Modifier, node.maxLines, scale)
-                            MiniArtistText(artist, Modifier, scale)
-                        }
-                        LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
-                        LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
-                            node.buttons.forEach { button ->
-                                when (button) {
-                                    "previous" -> MelodiaIconButton(onClick = onPrevious) {
-                                        Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
-                                    }
-                                    "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                                        PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
-                                    }
-                                    "next" -> MelodiaIconButton(onClick = onNext) {
-                                        Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
-                                    }
-                                }
-                            }
-                        }
-                        LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
-                        LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
-                        LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
-                            MiniLyricLine(
-                                lyrics = pluginState.lyrics,
-                                currentLyricIndex = pluginState.lyricIndex,
-                                isPlaying = displayedIsPlaying,
-                                horizontalPadding = 0.dp,
-                                textAlign = node.textAlign
-                            )
-                        }
+                        HostAction.TOGGLE_PLAY -> onTogglePlay()
+                        HostAction.NEXT -> onNext()
+                        HostAction.PREVIOUS -> onPrevious()
+                        HostAction.SEEK_FORWARD -> pluginState.seekTo(currentPositionProvider() + MINI_SEEK_STEP_MS)
+                        HostAction.SEEK_BACK -> pluginState.seekTo((currentPositionProvider() - MINI_SEEK_STEP_MS).coerceAtLeast(0L))
+                        HostAction.TOGGLE_LIKE -> onLikeClick()
+                        HostAction.CYCLE_PLAY_MODE -> pluginState.cyclePlayMode()
                         else -> Unit
                     }
                 }
-            }
-        } else Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = 12.dp,
-                        end = 6.dp,
-                        top = if (expanded) 10.dp else 6.dp,
-                        bottom = if (expanded) 10.dp else 6.dp
-                    )
-            ) {
-                // 封面+歌名歌手整体跟手平移，播放/下一首按钮不参与滑动
-                val connectedDevice = rememberCurrentOutputDevice()
-                MiniPlayerSlidingContent(
-                    state = swipeState,
-                    currentKey = displayedCurrentTrack.mediaId,
-                    currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
-                    currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
-                    currentCoverUrl = displayedCleanCoverUrl,
-                    previousQueueItem = displayedPreviousQueueItem,
-                    nextQueueItem = displayedNextQueueItem,
-                    connectedDevice = connectedDevice,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(if (expanded) 52.dp else 44.dp)
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
-                    // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
-                    MiniLikeButton(likeMode, isLiked, onLikeClick)
-                    // 播放/暂停按钮
-                    MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                        PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
-                    }
-                    // 下一首按钮
-                    MelodiaIconButton(onClick = onNext) {
-                        Icon(
-                            imageVector = Icons.Rounded.SkipNext,
-                            contentDescription = "下一首",
-                            tint = MelodiaColors.OnPlayer,
-                            modifier = Modifier.size(28.dp)
-                        )
+                // 回调读最新状态但自身不变，环境的其他值没变时不让整棵布局树跟着重组
+                val latestHostAction by rememberUpdatedState(hostAction)
+                val onAction = remember(runScript) {
+                    { action: LayoutAction ->
+                        when (action) {
+                            is LayoutAction.Script -> runScript(action.name)
+                            is LayoutAction.Host -> latestHostAction(action.action)
+                        }
                     }
                 }
+                val environment = LayoutEnvironment(
+                    playing = displayedIsPlaying,
+                    songKey = displayedCurrentTrack.mediaId,
+                    motionEnabled = motion.enabled,
+                    onAction = onAction
+                )
+                CompositionLocalProvider(
+                    LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight),
+                    LocalLayoutEnvironment provides environment
+                ) {
+                    PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
+                        val scale = node.size.scale
+                        when (node.type) {
+                            LayoutNodeType.COVER -> AntiFlickerCoverImage(
+                                url = miniThumbUrl(displayedCleanCoverUrl),
+                                contentScale = ContentScale.Crop,
+                                modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                            )
+                            LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
+                            LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
+                            LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
+                                MiniTitleText(title, Modifier, node.maxLines, scale)
+                                MiniArtistText(artist, Modifier, scale)
+                            }
+                            LayoutNodeType.LIKE_BUTTON -> MiniLikeButton(likeMode, isLiked, onLikeClick, nodeModifier)
+                            LayoutNodeType.CONTROLS -> Row(nodeModifier, verticalAlignment = Alignment.CenterVertically) {
+                                node.buttons.forEach { button ->
+                                    when (button) {
+                                        "previous" -> MelodiaIconButton(onClick = onPrevious) {
+                                            Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                        }
+                                        "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                        }
+                                        "next" -> MelodiaIconButton(onClick = onNext) {
+                                            Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                        }
+                                    }
+                                }
+                            }
+                            LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
+                            LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
+                            LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
+                                MiniLyricLine(
+                                    lyrics = pluginState.lyrics,
+                                    currentLyricIndex = pluginState.lyricIndex,
+                                    isPlaying = displayedIsPlaying,
+                                    horizontalPadding = 0.dp,
+                                    textAlign = node.textAlign
+                                )
+                            }
+                            else -> Unit
+                        }
+                    }
+                }
+            } else Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 12.dp,
+                            end = 6.dp,
+                            top = if (expanded) 10.dp else 6.dp,
+                            bottom = if (expanded) 10.dp else 6.dp
+                        )
+                ) {
+                    // 封面+歌名歌手整体跟手平移，播放/下一首按钮不参与滑动
+                    val connectedDevice = rememberCurrentOutputDevice()
+                    MiniPlayerSlidingContent(
+                        state = swipeState,
+                        currentKey = displayedCurrentTrack.mediaId,
+                        currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
+                        currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                        currentCoverUrl = displayedCleanCoverUrl,
+                        previousQueueItem = displayedPreviousQueueItem,
+                        nextQueueItem = displayedNextQueueItem,
+                        connectedDevice = connectedDevice,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(if (expanded) 52.dp else 44.dp)
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
+                        // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
+                        MiniLikeButton(likeMode, isLiked, onLikeClick)
+                        // 播放/暂停按钮
+                        MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
+                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                        }
+                        // 下一首按钮
+                        MelodiaIconButton(onClick = onNext) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipNext,
+                                contentDescription = "下一首",
+                                tint = MelodiaColors.OnPlayer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                }
+        
+                // 底部进度条：自圆角曲线与平直直线交点开始和结束
+                MiniPlayerProgress(
+                    currentPositionProvider = currentPositionProvider,
+                    duration = duration,
+                    modifier = Modifier.padding(horizontal = miniPlayerCornerRadius)
+                )
             }
-            
-            // 底部进度条：自圆角曲线与平直直线交点开始和结束
-            MiniPlayerProgress(
-                currentPositionProvider = currentPositionProvider,
-                duration = duration,
-                modifier = Modifier.padding(horizontal = miniPlayerCornerRadius)
-            )
         }
     }
 }
@@ -461,7 +466,7 @@ private fun MiniLikeButton(
                 else -> Icons.Rounded.AddCircleOutline
             },
             contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-            tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.OnPlayer,
+            tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -484,7 +489,7 @@ private fun MiniTitleText(title: String, modifier: Modifier, lines: Int, scale: 
 private fun MiniArtistText(artist: String, modifier: Modifier, scale: Float) {
     Text(
         text = artist,
-        color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
+        color = MelodiaColors.OnCoverSecondary,
         fontSize = (12 * scale).sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -627,13 +632,13 @@ private fun MiniPlayerContentRow(
                     Icon(
                         imageVector = deviceIcon(connectedDevice.type),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MelodiaColors.OnCoverAccent,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = deviceLabel(connectedDevice),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MelodiaColors.OnCoverAccent,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -647,7 +652,7 @@ private fun MiniPlayerContentRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = MelodiaColors.OnPlayer.copy(alpha = 0.75f),
+                    color = MelodiaColors.OnCoverSecondary,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

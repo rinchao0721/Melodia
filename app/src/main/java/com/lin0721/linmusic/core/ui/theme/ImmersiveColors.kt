@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -14,6 +15,22 @@ import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 
 // 由 ImmersiveTheme 提供：外层是浅色主题，沉浸区铺底取中调而非压暗
 val LocalImmersiveMidTone = staticCompositionLocalOf { false }
+
+// 有色铺底内的前景色；铺底逐帧变化，用动态 local 只让读取处重组
+val LocalOnCoverColors = compositionLocalOf<OnCoverColors?> { null }
+
+// 透出背景图时实际底色未知，取导入门槛（白字 4.5）下最亮的底色
+private val BackdropReferenceBackground = Color(0xFF777777)
+
+// source 为铺底内色板，accent 为外层主色
+@Composable
+fun rememberOnCoverColors(backgrounds: List<Color>, source: MelodiaPalette, accent: Color): OnCoverColors {
+    val content = MelodiaColors.OnPlayer
+    val effective = if (isCoverBackdrop(CoverGroup.PLAYER)) listOf(BackdropReferenceBackground) else backgrounds
+    return remember(effective, content, accent, source.textSecondary, source.textTertiary) {
+        onCoverColors(effective, content, accent, source.textSecondary, source.textTertiary)
+    }
+}
 
 // 封面取色铺底的沉浸页（全屏播放器、歌词预览卡）配色：fill 铺底，blob 是流动光斑，inactive 是未唱到的歌词
 @Immutable

@@ -17,10 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -33,7 +31,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -53,8 +50,6 @@ import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.LibraryVioletGradient
-import com.lin0721.linmusic.core.ui.theme.LibraryBlueGreenGradient
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -300,43 +295,9 @@ fun LibraryItemRow(
     ) {
         // 左侧封面图（针对歌手做圆图，歌单/专辑方图，已点赞歌曲做定制心形渐变图）
         if (item.isLikedSongs) {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryVioletGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Liked, Modifier.size(60.dp))
         } else if (item.id == "-2") {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryBlueGreenGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.TrendingUp,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Rank, Modifier.size(60.dp))
         } else {
             val shape = if (item.type == LibraryItemType.ARTIST) CircleShape else RoundedCornerShape(RadiusCompact)
 
@@ -420,45 +381,9 @@ fun LibraryGridItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (item.isLikedSongs) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryVioletGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Liked, Modifier.fillMaxWidth().aspectRatio(1f))
         } else if (item.id == "-2") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(RadiusCompact))
-                    .background(
-                        Brush.linearGradient(
-                            colors = LibraryBlueGreenGradient
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.TrendingUp,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+            LibrarySpecialCover(SpecialCoverKind.Rank, Modifier.fillMaxWidth().aspectRatio(1f))
         } else {
             SubcomposeAsyncImage(
                 model = "${item.coverUrl}?param=300y300",

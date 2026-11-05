@@ -234,7 +234,7 @@ private fun FullPlayerInfoCard(
 ) {
     when (card) {
         // 歌词卡在浅色页面里保持有色底白字
-        FullPlayerCard.LYRICS -> ImmersiveTheme {
+        FullPlayerCard.LYRICS -> ImmersiveTheme(colors.base) {
             LyricsCard(
                 lyrics = songState.lyrics,
                 currentIndex = currentLyricIndex,

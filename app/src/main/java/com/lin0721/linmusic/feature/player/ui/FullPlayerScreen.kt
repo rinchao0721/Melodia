@@ -162,7 +162,7 @@ fun FullPlayerScreen(
 
 @Composable
 private fun PlayerTintScope(immersive: Boolean, content: @Composable () -> Unit) {
-    if (immersive) ImmersiveTheme(content) else content()
+    if (immersive) ImmersiveTheme(base = null, content = content) else content()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

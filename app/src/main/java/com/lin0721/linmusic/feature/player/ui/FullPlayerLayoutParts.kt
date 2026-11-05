@@ -248,7 +248,7 @@ class FullPlayerLayoutParts(
                 onLyricsSettingsClick = LocalLyricsPageSlots.current?.onOpenSettings ?: {}
             )
             // 歌词卡在浅色页面里保持有色底白字
-            LayoutNodeType.LYRICS_CARD -> ImmersiveTheme {
+            LayoutNodeType.LYRICS_CARD -> ImmersiveTheme(colors.base) {
                 Box(modifier) {
                     LyricsCard(
                         lyrics = songState.lyrics,

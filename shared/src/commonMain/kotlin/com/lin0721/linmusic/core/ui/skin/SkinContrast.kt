@@ -79,11 +79,13 @@ object SkinContrast {
         return result
     }
 
-    // 保持色相与饱和度，沿背景的反方向调亮度到达标；调到尽头仍不够时退回黑白
-    fun ensureContrast(foreground: Color, backgrounds: List<Color>, min: Float): Color {
+    // 保持色相与饱和度，沿背景的反方向调亮度到达标；调到尽头仍不够时退回黑白。
+    // direction 为 null 时自动定方向；中间亮度底色上需调用方固定，否则会调反
+    fun ensureContrast(foreground: Color, backgrounds: List<Color>, min: Float, direction: Boolean? = null): Color {
         val opaqueForeground = foreground.copy(alpha = 1f)
         if (backgrounds.all { contrastRatio(opaqueForeground, it) >= min }) return opaqueForeground
-        val brighten = backgrounds.minOf { contrastRatio(Color.White, it) } >= backgrounds.minOf { contrastRatio(Color.Black, it) }
+        val brighten = direction
+            ?: (backgrounds.minOf { contrastRatio(Color.White, it) } >= backgrounds.minOf { contrastRatio(Color.Black, it) })
         val hsl = opaqueForeground.toHsl()
         fun passes(lightness: Float) = backgrounds.all { contrastRatio(Hsl(hsl.hue, hsl.saturation, lightness).toColor(), it) >= min }
         val extreme = if (brighten) 1f else 0f
