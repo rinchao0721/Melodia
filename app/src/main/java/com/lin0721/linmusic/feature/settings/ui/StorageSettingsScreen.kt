@@ -72,12 +72,9 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-            contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-        ) {
+        SettingsPageColumn {
             item {
-                SettingsGroupCard(SettingsSubMenu.STORAGE.sectionTitles[0]) {
+                SettingsGroupCard(SettingsSubMenu.DOWNLOAD_STORAGE.sectionTitles[1]) {
                     CacheUsageBar(
                         totalSize = totalCacheSize,
                         audioCacheSize = audioCacheSize,

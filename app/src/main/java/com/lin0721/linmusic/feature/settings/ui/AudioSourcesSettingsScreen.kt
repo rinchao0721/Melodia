@@ -99,13 +99,10 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
         }
     }
 
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-        contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-    ) {
+    SettingsPageColumn {
         // 分组 1：换源基础设置
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[0]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[2]) {
                 SettingsSwitchRow(
                     title = "多平台聚合搜索",
                     subtitle = "在搜索结果页提供酷狗、酷我、QQ 音乐的平台标签，切换后才会发起搜索；播放通过换源插件解析",
@@ -140,7 +137,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
 
         // 分组 2：社区扩展源
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[1]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[3]) {
                 val hasPlugins = lxPlugins.isNotEmpty()
 
                 SettingsSwitchRow(
@@ -321,7 +318,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
 
         // 分组 3：远程 UNM 服务
         item {
-            SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[2]) {
+            SettingsGroupCard(SettingsSubMenu.QUALITY_SOURCES.sectionTitles[4]) {
                 SettingsSwitchRow(
                     title = "启用远程 UNM 服务",
                     subtitle = "向远程自建或第三方的 UNM（UnblockNeteaseMusic）服务器请求音频直链",

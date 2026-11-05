@@ -45,22 +45,17 @@ private val SidePlayerPositions = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
-    val showLockscreen by viewModel.showLockscreen.collectAsStateWithLifecycle()
-    val carMode by viewModel.carMode.collectAsStateWithLifecycle()
+fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val bottomBarLayout by viewModel.bottomBarLayout.collectAsStateWithLifecycle()
     val bottomBarIconOnly by viewModel.bottomBarIconOnly.collectAsStateWithLifecycle()
     val startInLibrary by viewModel.startInLibrary.collectAsStateWithLifecycle()
     val playerPageMode by viewModel.playerPageMode.collectAsStateWithLifecycle()
     val sidePlayerPinned by viewModel.sidePlayerPinned.collectAsStateWithLifecycle()
     val sidePlayerPosition by viewModel.sidePlayerPosition.collectAsStateWithLifecycle()
-    val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
-    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
-    val pluginRepository = koinInject<PluginRepository>()
 
     var showBottomBarSheet by remember { mutableStateOf(false) }
     var showPlayerModeSheet by remember { mutableStateOf(false) }
@@ -73,89 +68,9 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
         else -> "自动：竖屏全屏式，横屏侧边小窗式"
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-            contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-        ) {
+    SettingsPageColumn {
             item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[0]) {
-                    SettingsSwitchRow(
-                        title = "启用系统锁屏显示",
-                        subtitle = "在锁屏界面展示播放控制器与歌词面板",
-                        checked = showLockscreen,
-                        onCheckedChange = { viewModel.updateShowLockscreen(it) }
-                    )
-                }
-            }
-
-            item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[1]) {
-                    SettingsSwitchRow(
-                        title = "车载模式蓝牙自动启动",
-                        subtitle = "连接车载蓝牙设备时自动恢复媒体播放",
-                        checked = carMode,
-                        onCheckedChange = { viewModel.updateCarMode(it) }
-                    )
-                }
-            }
-
-            item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[2]) {
-                    val enabledItemsSummary = remember(bottomBarLayout) {
-                        bottomBarLayout.filter { it.visible }.joinToString("、") { it.item.title }
-                    }
-                    SettingsRow(
-                        title = "底栏自定义",
-                        subtitle = "当前启用：$enabledItemsSummary",
-                        onClick = { showBottomBarSheet = true }
-                    )
-                    HorizontalDivider(color = MelodiaColors.Divider)
-                    SettingsSwitchRow(
-                        title = "启动默认打开音乐库",
-                        subtitle = "冷启动时直接进入音乐库页面",
-                        checked = startInLibrary,
-                        onCheckedChange = { viewModel.updateStartInLibrary(it) }
-                    )
-                }
-            }
-
-            item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[3]) {
-                    SettingsRow(
-                        title = "播放页模式：$playerModeLabel",
-                        subtitle = playerModeSubtitle,
-                        onClick = { showPlayerModeSheet = true }
-                    )
-                    if (playerPageMode != SettingsPreferences.PLAYER_PAGE_MODE_FULLSCREEN) {
-                        HorizontalDivider(color = MelodiaColors.Divider)
-                        SettingsRow(
-                            title = "侧边播放页位置：$sidePositionLabel",
-                            subtitle = "侧边播放页与迷你播放条停靠在屏幕${sidePositionLabel}",
-                            onClick = { showSidePositionSheet = true }
-                        )
-                        HorizontalDivider(color = MelodiaColors.Divider)
-                        SettingsSwitchRow(
-                            title = "侧边播放页钉住",
-                            subtitle = "关闭后按返回键直接收起侧边播放页",
-                            checked = sidePlayerPinned,
-                            onCheckedChange = { viewModel.updateSidePlayerPinned(it) }
-                        )
-                    }
-                    if (isExpanded) {
-                        HorizontalDivider(color = MelodiaColors.Divider)
-                        SettingsSwitchRow(
-                            title = "全局沉浸",
-                            subtitle = "隐藏系统状态栏与导航栏，边缘滑动呼出",
-                            checked = tabletImmersiveMode,
-                            onCheckedChange = { viewModel.updateTabletImmersiveMode(it) }
-                        )
-                    }
-                }
-            }
-
-            item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[4]) {
+                SettingsGroupCard(SettingsSubMenu.APPEARANCE.sectionTitles[0]) {
                     ThemeSettingSection(
                         settings = themeSettings,
                         onModeChange = viewModel::updateThemeMode,
@@ -222,11 +137,50 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
             }
 
             item {
-                SettingsGroupCard(SettingsSubMenu.EXTENSIONS.sectionTitles[5]) {
-                    PluginSettingSection(repository = pluginRepository)
+                SettingsGroupCard(SettingsSubMenu.APPEARANCE.sectionTitles[1]) {
+                    val enabledItemsSummary = remember(bottomBarLayout) {
+                        bottomBarLayout.filter { it.visible }.joinToString("、") { it.item.title }
+                    }
+                    SettingsRow(
+                        title = "底栏自定义",
+                        subtitle = "当前启用：$enabledItemsSummary",
+                        onClick = { showBottomBarSheet = true }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "启动默认打开音乐库",
+                        subtitle = "冷启动时直接进入音乐库页面",
+                        checked = startInLibrary,
+                        onCheckedChange = { viewModel.updateStartInLibrary(it) }
+                    )
                 }
             }
-        }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.APPEARANCE.sectionTitles[2]) {
+                    SettingsRow(
+                        title = "播放页模式：$playerModeLabel",
+                        subtitle = playerModeSubtitle,
+                        onClick = { showPlayerModeSheet = true }
+                    )
+                    if (playerPageMode != SettingsPreferences.PLAYER_PAGE_MODE_FULLSCREEN) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsRow(
+                            title = "侧边播放页位置：$sidePositionLabel",
+                            subtitle = "侧边播放页与迷你播放条停靠在屏幕${sidePositionLabel}",
+                            onClick = { showSidePositionSheet = true }
+                        )
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "侧边播放页钉住",
+                            subtitle = "关闭后按返回键直接收起侧边播放页",
+                            checked = sidePlayerPinned,
+                            onCheckedChange = { viewModel.updateSidePlayerPinned(it) }
+                        )
+                    }
+                }
+            }
+    }
 
         if (showPlayerModeSheet) {
             OptionPickerSheet(
@@ -257,6 +211,57 @@ fun ExtensionsSettingsView(viewModel: SettingsViewModel) {
                 onDismiss = { showBottomBarSheet = false }
             )
         }
+}
+
+@Composable
+fun SystemSettingsView(viewModel: SettingsViewModel) {
+    val showLockscreen by viewModel.showLockscreen.collectAsStateWithLifecycle()
+    val carMode by viewModel.carMode.collectAsStateWithLifecycle()
+    val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
+    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val pluginRepository = koinInject<PluginRepository>()
+
+    SettingsPageColumn {
+            item {
+                SettingsGroupCard(SettingsSubMenu.SYSTEM.sectionTitles[0]) {
+                    SettingsSwitchRow(
+                        title = "启用系统锁屏显示",
+                        subtitle = "在锁屏界面展示播放控制器与歌词面板",
+                        checked = showLockscreen,
+                        onCheckedChange = { viewModel.updateShowLockscreen(it) }
+                    )
+                }
+            }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.SYSTEM.sectionTitles[1]) {
+                    SettingsSwitchRow(
+                        title = "车载模式蓝牙自动启动",
+                        subtitle = "连接车载蓝牙设备时自动恢复媒体播放",
+                        checked = carMode,
+                        onCheckedChange = { viewModel.updateCarMode(it) }
+                    )
+                }
+            }
+
+            if (isExpanded) {
+                item {
+                    SettingsGroupCard(SettingsSubMenu.SYSTEM.sectionTitles[2]) {
+                        SettingsSwitchRow(
+                            title = "全局沉浸",
+                            subtitle = "隐藏系统状态栏与导航栏，边缘滑动呼出",
+                            checked = tabletImmersiveMode,
+                            onCheckedChange = { viewModel.updateTabletImmersiveMode(it) }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.SYSTEM.sectionTitles[3]) {
+                    PluginSettingSection(repository = pluginRepository)
+                }
+            }
     }
 }
 

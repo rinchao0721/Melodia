@@ -20,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,10 +38,14 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.update.UpdateChecker
 import org.koin.compose.koinInject
 
+private const val PROJECT_URL = "https://github.com/rinchao0721/Melodia"
+private const val QQ_GROUP = "331832966"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
 
     // 渲染"关于"子设置项
     LazyColumn(
@@ -108,6 +115,25 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                     textAlign = TextAlign.Start,
                     lineHeight = 20.sp,
                     modifier = Modifier.padding(vertical = 12.dp)
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsRow(
+                    title = "项目地址",
+                    subtitle = PROJECT_URL,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
+                        }.onFailure { ToastManager.showToast("无法打开浏览器") }
+                    }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsRow(
+                    title = "QQ 交流群",
+                    subtitle = "$QQ_GROUP · 点击复制群号",
+                    onClick = {
+                        clipboard.setText(AnnotatedString(QQ_GROUP))
+                        ToastManager.showToast("已复制群号")
+                    }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
@@ -229,7 +255,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                             "• Koin\n" +
                             "• Coil\n" +
                             "• Haze\n" +
-                            "• libusb（LGPL-2.1，以动态库形式使用，源码与许可证见仓库 app/src/main/cpp/libusb）",
+                            "• libusb",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Start,

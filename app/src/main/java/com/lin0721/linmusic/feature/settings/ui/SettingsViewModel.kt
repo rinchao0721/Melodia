@@ -124,6 +124,8 @@ class SettingsViewModel(
 
     val showDesktopLrc = settingsPreferences.showDesktopLrc.asState(false)
 
+    val isLoggedIn = userPreferences.userProfile.map { it != null }.asState(false)
+
     val showLockscreen = settingsPreferences.showLockscreen.asState(true)
 
     val carMode = settingsPreferences.carMode.asState(false)

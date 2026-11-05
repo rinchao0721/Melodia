@@ -70,8 +70,7 @@ private fun resolveInitialFolderUri(uriString: String?): Uri {
 }
 
 @Composable
-fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
-    val context = LocalContext.current
+fun PlaybackSettingsView(viewModel: SettingsViewModel) {
     val autoPlayNext by viewModel.autoPlayNext.collectAsStateWithLifecycle()
     val playWithOtherApps by viewModel.playWithOtherApps.collectAsStateWithLifecycle()
     val audioOffload by viewModel.audioOffload.collectAsStateWithLifecycle()
@@ -81,34 +80,11 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
     val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
     val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
-    val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
-    val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
-    val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
 
-    val folderPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-        // 保留旧目录持久权限，避免已有下载文件丢失读取授权
-        viewModel.updateDownloadFolderUri(uri.toString())
-        ToastManager.showToast("下载目录已更新")
-    }
-
-    val downloadFolderSubtitle = remember(downloadFolderUri) {
-        resolveDisplayPath(context, downloadFolderUri)
-    }
-
-    // 渲染播放与下载的子设置项
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md),
-        contentPadding = PaddingValues(top = 8.dp, bottom = LocalBottomOverlayInset.current + 16.dp)
-    ) {
+    // 渲染播放的子设置项
+    SettingsPageColumn {
         item {
-            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[0]) {
+            SettingsGroupCard(SettingsSubMenu.PLAYBACK.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "自动播放推荐新歌",
                     subtitle = "当前曲目播放完毕后自动接入相似推荐",
@@ -194,8 +170,36 @@ fun PlaybackDownloadSettingsView(viewModel: SettingsViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DownloadSettingsView(viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
+    val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
+    val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+        // 保留旧目录持久权限，避免已有下载文件丢失读取授权
+        viewModel.updateDownloadFolderUri(uri.toString())
+        ToastManager.showToast("下载目录已更新")
+    }
+
+    val downloadFolderSubtitle = remember(downloadFolderUri) {
+        resolveDisplayPath(context, downloadFolderUri)
+    }
+
+    SettingsPageColumn {
         item {
-            SettingsGroupCard(SettingsSubMenu.PLAYBACK_DOWNLOAD.sectionTitles[1]) {
+            SettingsGroupCard(SettingsSubMenu.DOWNLOAD_STORAGE.sectionTitles[0]) {
                 SettingsSwitchRow(
                     title = "边听边存",
                     subtitle = "在线播放时自动以当前音质保存歌曲到「边听边存」目录",

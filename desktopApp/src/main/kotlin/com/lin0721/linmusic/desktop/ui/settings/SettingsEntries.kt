@@ -79,6 +79,8 @@ import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
@@ -952,9 +954,23 @@ internal fun settingsEntries(
                 })
             }
         )
+        add(
+            rowEntry(
+                "qqGroup", SettingsCategory.About, "QQ 交流群",
+                subtitle = QQ_GROUP,
+                keywords = listOf("qq", "群号", "反馈", "加群")
+            ) {
+                val clipboard = LocalClipboardManager.current
+                SettingsActionButton("复制", onClick = {
+                    clipboard.setText(AnnotatedString(QQ_GROUP))
+                    navigator.showMessage("已复制群号")
+                })
+            }
+        )
     }
 }
 
+private const val QQ_GROUP = "331832966"
 private const val LOCAL_MUSIC_GROUP = "本地音乐"
 private val LocalMinDurationOptions = listOf(0, 30, 60, 90, 120)
 
