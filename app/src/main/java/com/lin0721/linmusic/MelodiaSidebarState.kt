@@ -14,6 +14,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -31,6 +36,7 @@ enum class AppSidebarState {
 class MelodiaSidebarState(
     private val scope: CoroutineScope,
     val widthPx: Float,
+    private val velocityThresholdPx: Float,
     val draggableState: AnchoredDraggableState<AppSidebarState>
 ) {
 
@@ -53,10 +59,53 @@ class MelodiaSidebarState(
     // 侧边栏已打开时允许在任意位置向左滑动关闭；关闭时仅允许在左边缘向右拉出
     fun onPointerDown(positionX: Float, edgeWidthPx: Float) {
         isTouchStartingAtEdge = isOpen || positionX < edgeWidthPx
+        isHandoffRequested = false
+        isHandoffActive = false
     }
 
     fun onPointerUp() {
         isTouchStartingAtEdge = false
+        if (isHandoffActive) settle(handoffVelocity.calculateVelocity().x)
+        isHandoffRequested = false
+        isHandoffActive = false
+    }
+
+    // 主页横向列表滚到最左仍在右滑时，由根布局接管手势拉出侧栏。
+    // 列表位于随侧栏平移的内容层里，不能直接把它的滚动量转给侧栏，否则手指与内容同步移动，局部位移趋近于零
+    var isHomeHandoffEnabled = false
+    private var isHandoffRequested = false
+    private var isHandoffActive = false
+    private val handoffVelocity = VelocityTracker()
+
+    val homeHandoffConnection = object : NestedScrollConnection {
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (isHomeHandoffEnabled && source == NestedScrollSource.UserInput && available.x > 0f && !isOpen) {
+                isHandoffRequested = true
+            }
+            return Offset.Zero
+        }
+    }
+
+    // 根布局 Initial 阶段逐事件调用，坐标系不随内容层平移；接管后消费事件，子列表随之放弃拖动
+    fun onRootPointerChange(change: PointerInputChange) {
+        if (!isHandoffRequested) return
+        if (!isHandoffActive) {
+            isHandoffActive = true
+            handoffVelocity.resetTracking()
+        }
+        handoffVelocity.addPosition(change.uptimeMillis, change.position)
+        draggableState.dispatchRawDelta(change.position.x - change.previousPosition.x)
+        change.consume()
+    }
+
+    private fun settle(velocityX: Float) {
+        val target = when {
+            velocityX > velocityThresholdPx -> AppSidebarState.Open
+            velocityX < -velocityThresholdPx -> AppSidebarState.Closed
+            progress >= 0.5f -> AppSidebarState.Open
+            else -> AppSidebarState.Closed
+        }
+        scope.launch { draggableState.animateTo(target) }
     }
 
     fun open() {
@@ -96,12 +145,13 @@ fun rememberMelodiaSidebarState(width: androidx.compose.ui.unit.Dp = 310.dp): Me
     val scope = rememberCoroutineScope()
     val density: Density = LocalDensity.current
     val widthPx = with(density) { width.toPx() }
+    val velocityThresholdPx = with(density) { 100.dp.toPx() }
 
     val draggableState = remember {
         AnchoredDraggableState(
             initialValue = AppSidebarState.Closed,
             positionalThreshold = { distance: Float -> distance * 0.5f },
-            velocityThreshold = { with(density) { 100.dp.toPx() } },
+            velocityThreshold = { velocityThresholdPx },
             snapAnimationSpec = motion.spring(stiffness = Spring.StiffnessMediumLow),
             decayAnimationSpec = exponentialDecay()
         )
@@ -116,7 +166,7 @@ fun rememberMelodiaSidebarState(width: androidx.compose.ui.unit.Dp = 310.dp): Me
         )
     }
 
-    return remember(scope, widthPx, draggableState) {
-        MelodiaSidebarState(scope, widthPx, draggableState)
+    return remember(scope, widthPx, velocityThresholdPx, draggableState) {
+        MelodiaSidebarState(scope, widthPx, velocityThresholdPx, draggableState)
     }
 }

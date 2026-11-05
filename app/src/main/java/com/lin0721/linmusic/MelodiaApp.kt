@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -381,7 +383,13 @@ fun MelodiaApp() {
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
     val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
     val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
-    val isDrawerDraggable = sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
+    // 主页任意位置右滑拉出侧栏；横向列表滚到最左后的继续右滑由 homeHandoffConnection 接管
+    val isHomeSwipeEnabled = navigation.currentScreen == Screen.Home &&
+        !playerSheet.isOpen && !showCreateSheet && !showRecognition &&
+        !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown)
+    SideEffect { sidebar.isHomeHandoffEnabled = isHomeSwipeEnabled }
+    val isDrawerDraggable = sidebar.isOpen || isHomeSwipeEnabled ||
+        (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
 
     CompositionLocalProvider(
         LocalMelodiaWindowSizeClass provides windowSizeClass,
@@ -400,6 +408,8 @@ fun MelodiaApp() {
                         val down = event.changes.firstOrNull { it.changedToDown() }
                         if (down != null) {
                             sidebar.onPointerDown(down.position.x, edgeWidthPx)
+                        } else {
+                            event.changes.firstOrNull()?.let { sidebar.onRootPointerChange(it) }
                         }
                         if (event.changes.all { !it.pressed }) {
                             sidebar.onPointerUp()
@@ -407,6 +417,7 @@ fun MelodiaApp() {
                     }
                 }
             }
+            .nestedScroll(sidebar.homeHandoffConnection)
             .anchoredDraggable(
                 state = sidebar.draggableState,
                 orientation = Orientation.Horizontal,
