@@ -5,7 +5,11 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -871,6 +875,10 @@ internal fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composabl
     val density = LocalDensity.current
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    // 桌面端 LazyRow 不响应鼠标拖动，外层补一个拖动；触摸拖动已被列表自身消费，不会重复滚动。
+    // 拖动消费的位移会让卡片的点击自动取消
+    val flingBehavior = ScrollableDefaults.flingBehavior()
+    val dragState = rememberDraggableState { delta -> listState.dispatchRawDelta(-delta) }
     val pageScroll: (Int) -> Unit = { direction ->
         val page = listState.layoutInfo.viewportSize.width - with(density) { (ShelfContentPadding * 2).toPx() }
         scope.launch { listState.animateScrollBy(direction * page.coerceAtLeast(0f)) }
@@ -897,6 +905,13 @@ internal fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composabl
         }
         LazyRow(
             state = listState,
+            modifier = Modifier.draggable(
+                state = dragState,
+                orientation = Orientation.Horizontal,
+                onDragStopped = { velocity ->
+                    listState.scroll { with(flingBehavior) { performFling(-velocity) } }
+                }
+            ),
             contentPadding = PaddingValues(horizontal = ShelfContentPadding),
             horizontalArrangement = Arrangement.spacedBy(ShelfCardGap)
         ) {
