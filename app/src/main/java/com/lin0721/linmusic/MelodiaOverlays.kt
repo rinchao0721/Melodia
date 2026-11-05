@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -53,7 +54,7 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
-val LocalBottomOverlayInset = staticCompositionLocalOf { 0.dp }
+val LocalBottomOverlayInset = compositionLocalOf { 0.dp }
 
 // Expanded 下底栏与迷你条共用的固定高度，取迷你条自然高度（上下内边距 10dp×2 + 内容 52dp + 进度条 2dp），
 // 也是播放面板向上生长的起始高度。不用 IntrinsicSize：迷你条隐藏后导航栏会回落到自身较矮的高度
@@ -65,7 +66,7 @@ private val ExpandedNavigationBarMaxWidth = 560.dp
 // 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
 // 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
 // 导致返回键没有先关掉全局浮层，而是直接改动了浮层底下页面的内部状态
-val LocalGlobalOverlayOpen = staticCompositionLocalOf { false }
+val LocalGlobalOverlayOpen = compositionLocalOf { false }
 
 // 页面进入多选等需要独占底部的操作态时，请求收起迷你播放器；按请求计数，多个页面同时请求不会互相覆盖
 class MiniPlayerSuppressor {

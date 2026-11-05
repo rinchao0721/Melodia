@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -379,6 +380,7 @@ fun MelodiaApp() {
 
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
     val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
+    val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
     val isDrawerDraggable = sidebar.isOpen || (sidebar.isTouchStartingAtEdge && !isEdgeSwipeBlocked)
 
     CompositionLocalProvider(
@@ -430,16 +432,14 @@ fun MelodiaApp() {
                     sidebar.close()
                 },
                 onDismiss = { sidebar.close() },
-                onNavigateToProfile = { uid ->
-                    sidebar.close()
-                    navigation.openProfile(uid)
-                },
-                onNavigateToRecentPlay = { navigation.openRecentPlay() },
-                onNavigateToListenData = { navigation.openListenData() },
-                onNavigateToCloud = { navigation.openCloud() },
-                onNavigateToDownloads = { navigation.openDownloads() },
-                onNavigateToMessage = { navigation.openMessage() },
-                onNavigateToSettings = { navigation.navigateTo(Screen.Settings) }
+                // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
+                onNavigateToProfile = { uid -> sidebar.closeThen { navigation.openProfile(uid) } },
+                onNavigateToRecentPlay = { sidebar.closeThen { navigation.openRecentPlay() } },
+                onNavigateToListenData = { sidebar.closeThen { navigation.openListenData() } },
+                onNavigateToCloud = { sidebar.closeThen { navigation.openCloud() } },
+                onNavigateToDownloads = { sidebar.closeThen { navigation.openDownloads() } },
+                onNavigateToMessage = { sidebar.closeThen { navigation.openMessage() } },
+                onNavigateToSettings = { sidebar.closeThen { navigation.navigateTo(Screen.Settings) } }
             )
         }
 
@@ -580,12 +580,13 @@ fun MelodiaApp() {
                             onOverlayHeightChanged = { bottomOverlayHeight = it }
                         )
 
-                        // 侧边栏打开时的遮罩与点击收起事件
-                        if (sidebar.progress > 0f) {
+                        // 侧边栏打开时的遮罩与点击收起事件；进度只在绘制阶段读取，动画期间不触发重组
+                        if (isSidebarScrimVisible) {
+                            val scrimColor = MelodiaColors.Scrim
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f * sidebar.progress))
+                                    .drawBehind { drawRect(scrimColor.copy(alpha = 0.4f * sidebar.progress)) }
                                     .pressable(
                                         style = MelodiaPress.None,
                                         enabled = sidebar.isOpen,

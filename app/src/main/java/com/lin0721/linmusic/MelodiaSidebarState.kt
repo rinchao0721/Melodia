@@ -13,11 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class AppSidebarState {
@@ -63,6 +65,27 @@ class MelodiaSidebarState(
 
     fun close() {
         scope.launch { draggableState.animateTo(AppSidebarState.Closed) }
+    }
+
+    // 收起后再执行，避免与页面切换动画叠在一起；弹簧尾段较长，接近收起即执行。被手势打断时不执行
+    fun closeThen(action: () -> Unit) {
+        scope.launch {
+            var done = false
+            val watcher = launch {
+                snapshotFlow { progress }.first { it <= ActionProgressThreshold }
+                done = true
+                action()
+            }
+            draggableState.animateTo(AppSidebarState.Closed)
+            if (!done) {
+                watcher.cancel()
+                action()
+            }
+        }
+    }
+
+    private companion object {
+        const val ActionProgressThreshold = 0.1f
     }
 }
 

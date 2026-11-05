@@ -129,10 +129,17 @@ fun ProfileSidebar(
 
         // 需要账号的入口，未登录时改为弹登录
         val withLogin: (() -> Unit) -> () -> Unit = { navigate ->
-            { onDismiss(); if (userProfile != null) navigate() else onLogin() }
+            {
+                if (userProfile != null) {
+                    navigate()
+                } else {
+                    onDismiss()
+                    onLogin()
+                }
+            }
         }
 
-        // 2. 菜单区。每项跳二级页，进入前先收起抽屉
+        // 菜单区。每项跳二级页，收起抽屉由调用方负责
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -166,7 +173,7 @@ fun ProfileSidebar(
             SidebarMenuItem(
                 icon = Icons.Outlined.Settings,
                 title = "设置和隐私",
-                onClick = { onDismiss(); onNavigateToSettings() }
+                onClick = onNavigateToSettings
             )
         }
 
