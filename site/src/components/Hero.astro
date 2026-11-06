@@ -1,0 +1,50 @@
+---
+import { RELEASES } from "../lib/site.js";
+
+const lines = [
+  { song: 0, text: "参考 Spotify 打造", sub: "A NetEase Cloud Music client, inspired by Spotify" },
+  { song: 0, text: "轻巧的网易云音乐客户端", sub: "Lightweight, third-party, open source" },
+  { song: 1, text: "歌词一字一字亮起", sub: "Word-by-word lyrics, with translation" },
+  { song: 1, text: "背景跟着封面变色", sub: "Every cover paints the room" },
+  { song: 2, text: "手机、平板、Windows", sub: "One library on every screen" },
+  { song: 2, text: "插件和皮肤随你改", sub: "Make it yours with plugins and skins" },
+];
+---
+<section class="hero wrap" id="top">
+  <div class="hero-grid">
+    <div>
+      <p class="label now"><i></i><span id="now-text">正在播放 · 夜航</span></p>
+      <div class="lyrics" id="lyrics">
+        <div class="lyrics-track">
+          {lines.map((l) => (
+            <button class="line" data-song={l.song} type="button"><strong>{l.text}</strong><small>{l.sub}</small></button>
+          ))}
+        </div>
+      </div>
+      <div class="player">
+        <div class="controls">
+          <button class="ctl" id="prev" type="button" aria-label="上一句"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg></button>
+          <button class="ctl play" id="play" type="button" aria-label="暂停"><svg viewBox="0 0 24 24" id="play-icon" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg></button>
+          <button class="ctl" id="next" type="button" aria-label="下一句"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg></button>
+        </div>
+        <label class="seek"><span id="t-now">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="播放进度" /><span id="t-all">0:20</span></label>
+      </div>
+      <div class="btn-row">
+        <a class="btn btn-primary" href={RELEASES}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11.2l4.6-4.6 1.4 1.4-7 7-7-7 1.4-1.4 4.6 4.6V3h2zM5 19h14v2H5z" /></svg>下载 Android 版</a>
+        <a class="btn btn-ghost" href={RELEASES}>下载 Windows 版</a>
+      </div>
+      <div class="meta"><span>Android 8.0+</span><span>Windows</span><span>MIT 开源</span><span>点歌词可以跳转</span></div>
+    </div>
+    <div class="cover-wrap">
+      <div class="cover" id="cover">
+        <div class="cover-art on"></div><div class="cover-art"></div><div class="cover-art"></div>
+      </div>
+      <div class="song">
+        <b id="song-title">夜航</b>
+        <span id="song-artist">示例曲目 · 原创封面</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 10.6 19.7C5.4 15 2 11.9 2 8.1 2 5 4.4 2.6 7.5 2.6c1.7 0 3.4.8 4.5 2.1 1.1-1.3 2.8-2.1 4.5-2.1C19.6 2.6 22 5 22 8.1c0 3.8-3.4 6.9-8.6 11.6z" /></svg>
+      </div>
+    </div>
+  </div>
+  <p class="hint"><span></span>往下滑，看它在不同设备上的样子</p>
+</section>

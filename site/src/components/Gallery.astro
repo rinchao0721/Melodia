@@ -1,0 +1,33 @@
+---
+import { withBase } from "../lib/site.js";
+
+// 宽高是压缩后截图的实际像素，用来占位避免加载时跳动
+const items = [
+  { file: "phone-home", cls: "ph", w: 900, h: 2004, title: "首页", device: "手机" },
+  { file: "phone-player", cls: "ph", w: 900, h: 2004, title: "播放页", device: "手机" },
+  { file: "phone-lyrics", cls: "ph", w: 900, h: 2004, title: "歌词", device: "手机" },
+  { file: "phone-library", cls: "ph", w: 900, h: 2004, title: "音乐库", device: "手机" },
+  { file: "tablet-portrait-home", cls: "tb", w: 1000, h: 1600, title: "竖屏首页", device: "平板" },
+  { file: "tablet-fullscreen-lyrics", cls: "tb wide", w: 1600, h: 1000, title: "全屏歌词", device: "平板" },
+  { file: "desktop-lyrics", cls: "flat wide", w: 1600, h: 867, title: "歌词", device: "Windows" },
+  { file: "desktop-artist", cls: "flat wide", w: 1600, h: 867, title: "歌手页", device: "Windows" },
+];
+---
+<section class="gallery" id="gallery">
+  <div class="wrap gallery-head">
+    <div><p class="label">截图</p><h2>看看真实界面</h2></div>
+    <div class="rail-nav">
+      <button type="button" id="rail-prev" aria-label="上一张"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 5.4 14 4l-8 8 8 8 1.4-1.4L8.8 12z" /></svg></button>
+      <button type="button" id="rail-next" aria-label="下一张"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.6 5.4 1.4-1.4 8 8-8 8-1.4-1.4 6.6-6.6z" /></svg></button>
+    </div>
+  </div>
+  <div class="rail" id="rail">
+    {items.map((it) => (
+      <figure>
+        <img class={`${it.cls} v-dark`} src={withBase(`screens/${it.file}-dark.jpg`)} alt={`${it.device}${it.title}`} width={it.w} height={it.h} loading="lazy" decoding="async" />
+        <img class={`${it.cls} v-light`} src={withBase(`screens/${it.file}-light.jpg`)} alt={`${it.device}${it.title}（浅色）`} width={it.w} height={it.h} loading="lazy" decoding="async" />
+        <figcaption><b>{it.title}</b>{it.device}</figcaption>
+      </figure>
+    ))}
+  </div>
+</section>

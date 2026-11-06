@@ -1,0 +1,78 @@
+---
+import "../styles/global.css";
+import { REPO, RELEASES, withBase } from "../lib/site.js";
+
+interface Props {
+  title: string;
+  description: string;
+  page: "home" | "docs";
+}
+
+const { title, description, page } = Astro.props;
+const ogImage = new URL(withBase("screens/desktop-home-dark.jpg"), Astro.site).href;
+const home = (hash = "") => withBase(hash ? `#${hash}` : "");
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <link rel="icon" type="image/png" href={withBase("app_icon.png")} />
+    <!-- 渲染前先定下主题，避免刷新时闪一下错误的配色 -->
+    <script is:inline>
+      (function () {
+        var c = "system";
+        try { c = localStorage.getItem("melodia-theme") || "system"; } catch (e) { c = "system"; }
+        var r = document.documentElement;
+        var fixed = c === "light" || c === "dark";
+        if (fixed) r.setAttribute("data-theme", c);
+        r.setAttribute("data-mode", fixed ? c : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+      })();
+    </script>
+  </head>
+  <body>
+    <slot name="backdrop" />
+    <header class:list={["topbar", { solid: page === "docs" }]} data-sticky-solid={page === "docs" ? "" : undefined}>
+      <div class="wrap">
+        <a class="brand" href={home()}><img src={withBase("app_icon.png")} alt="" width="30" height="30" />Melodia</a>
+        <nav class="nav-links" aria-label="网站导航">
+          <a href={home("devices")}>设备</a>
+          <a href={home("features")}>特性</a>
+          <a href={home("gallery")}>截图</a>
+          <a href={home("themes")}>深浅色</a>
+          <a href={home("extend")}>插件与皮肤</a>
+          <a href={withBase("docs/plugin-format/")} aria-current={page === "docs" ? "page" : undefined}>文档</a>
+        </nav>
+        <div class="theme-switch" role="group" aria-label="主题">
+          <button type="button" data-theme-choice="system" aria-pressed="true" aria-label="跟随系统" title="跟随系统"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-6v2h3v2H7v-2h3v-2H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2v8h14V7z" /></svg></button>
+          <button type="button" data-theme-choice="light" aria-pressed="false" aria-label="浅色" title="浅色"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.2 2.8l2.1 2.1-1.4 1.4-2.1-2.1zm14.9 14.9 2.1 2.1-1.4 1.4-2.1-2.1zM2.8 19.8l2.1-2.1 1.4 1.4-2.1 2.1zM17.7 4.9l2.1-2.1 1.4 1.4-2.1 2.1z" /></svg></button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false" aria-label="深色" title="深色"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.3 2a8 8 0 0 0 9.7 9.7A10 10 0 1 1 12.3 2z" /></svg></button>
+        </div>
+        <a class="btn btn-primary" href={RELEASES}>下载</a>
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>Melodia 是第三方客户端，与网易云音乐官方无关 · MIT License</span>
+        <nav aria-label="外部链接">
+          <a href={REPO}>GitHub</a>
+          <a href={RELEASES}>Releases</a>
+          <a href={`${REPO}/issues`}>反馈问题</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script>
+      import "../scripts/theme.js";
+    </script>
+  </body>
+</html>
