@@ -3,7 +3,6 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
-const ease = (t) => t * t * (3 - 2 * t);
 
 // 首屏三首示例曲目，封面用 Canvas 原创绘制
 const songs = [
@@ -278,7 +277,7 @@ const morph = (() => {
   const sizesPx = [[1344, 2992], [2560, 1600], [1920, 1040]];
   const aspects = sizesPx.map(([w, h]) => w / h);
   const tags = sizesPx.map(([w, h]) => `${w} × ${h}`);
-  const spans = [[0, .3], [.3, .7], [.7, 1]];
+  const spans = [[0, 1 / 3], [1 / 3, 2 / 3], [2 / 3, 1]];
   const sizes = () => {
     const sw = stage.clientWidth, sh = stage.clientHeight;
     const narrow = innerWidth <= 900;
@@ -292,11 +291,17 @@ const morph = (() => {
       { w: dw, h: dw / aspects[2], r: 12, b: 3 },
     ];
   };
-  const layout = () => {
-    const r = sec.getBoundingClientRect();
-    const p = clamp(-r.top / (r.height - innerHeight));
-    const seg = (a, b) => ease(clamp((p - a) / (b - a)));
-    const s = p < .4 ? seg(.16, .4) : 1 + seg(.58, .82);
+  // 滚动只决定停在哪台设备，切换动画按时间播完，滚轮停在中途也不会卡在两张图叠着的半截
+  const easeInOut = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  let s = 0, from = 0, to = 0, startAt = 0, duration = 0;
+  const retarget = (target, now) => {
+    if (target === to) return;
+    from = s;
+    to = target;
+    startAt = now;
+    duration = reduce ? 0 : 650 + 250 * (Math.abs(to - from) - 1);
+  };
+  const render = () => {
     const z = sizes();
     const i = Math.min(1, Math.floor(s)), t = s - i;
     const A = z[i], B = z[i + 1];
@@ -310,18 +315,31 @@ const morph = (() => {
       sh.style.height = `${cw / a}px`;
       sh.style.opacity = String(clamp(1 - (Math.abs(s - n) - .28) / .4));
     });
-    const cur = Math.round(s);
+    tag.textContent = tags[Math.round(s)];
+  };
+  const layout = (now = performance.now()) => {
+    const r = sec.getBoundingClientRect();
+    const p = clamp(-r.top / (r.height - innerHeight));
+    const cur = p < 1 / 3 ? 0 : p < 2 / 3 ? 1 : 2;
+    retarget(cur, now);
     caps.forEach((c, n) => {
       c.classList.toggle("on", n === cur);
       if (n === cur) c.style.setProperty("--k", clamp(((p - spans[n][0]) / (spans[n][1] - spans[n][0])) * 1.4).toFixed(3));
     });
-    tag.textContent = tags[cur];
     // 唱完首屏后由设备区接管光晕颜色
     aurora.setTarget(r.top < innerHeight * .5 ? shotPal[cur] : hero.palette());
     const end = sec.offsetTop + sec.offsetHeight - innerHeight;
     aurora.setOpacity(1 - .78 * clamp((scrollY - end) / innerHeight));
+    tick(now);
   };
-  return { layout };
+  const tick = (now, force = false) => {
+    const t = duration > 0 ? clamp((now - startAt) / duration) : 1;
+    const next = lerp(from, to, easeInOut(t));
+    if (!force && next === s && t >= 1 && frame.style.width) return;
+    s = next;
+    render();
+  };
+  return { layout, tick };
 })();
 
 /* ---------- 特性高亮 ---------- */
@@ -410,13 +428,14 @@ const frameLoop = (t) => {
   const dt = Math.min(.1, (t - last) / 1000);
   last = t;
   hero.tick(dt);
+  morph.tick(t);
   aurora.draw(t, dt);
   requestAnimationFrame(frameLoop);
 };
 const redrawStatic = () => aurora.draw(performance.now(), 1);
 
 addEventListener("scroll", () => { onScroll(); if (reduce) redrawStatic(); }, { passive: true });
-addEventListener("resize", () => { hero.place(); onScroll(); });
+addEventListener("resize", () => { hero.place(); morph.layout(); morph.tick(performance.now(), true); });
 addEventListener("melodia:themechange", () => { if (reduce) redrawStatic(); });
 if (document.fonts?.ready) document.fonts.ready.then(() => { hero.place(); onScroll(); });
 onScroll();
