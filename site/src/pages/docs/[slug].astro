@@ -1,0 +1,41 @@
+---
+import { getCollection, render } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { DOCS, REPO, withBase } from "../../lib/site.js";
+import "../../styles/docs.css";
+
+export async function getStaticPaths() {
+  const entries = await getCollection("docs");
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const meta = DOCS.find((d) => d.slug === entry.id);
+const title = headings.find((h) => h.depth === 1)?.text ?? meta?.title ?? entry.id;
+const toc = headings.filter((h) => h.depth === 2);
+---
+<Base title={`${title} · Melodia 文档`} description={meta?.desc ?? title} page="docs">
+  <main class="doc-layout wrap">
+    <aside class="doc-side">
+      <p class="label">文档</p>
+      <nav aria-label="文档列表">
+        {DOCS.map((d) => (
+          <a href={withBase(`docs/${d.slug}/`)} aria-current={d.slug === entry.id ? "page" : undefined}>{d.title}</a>
+        ))}
+      </nav>
+    </aside>
+    <article class="prose">
+      <Content />
+      <p class="edit-link"><a href={`${REPO}/edit/main/docs/${entry.id}.md`}>在 GitHub 上编辑此页</a></p>
+    </article>
+    {toc.length > 0 && (
+      <aside class="doc-toc">
+        <p class="label">本页内容</p>
+        <nav aria-label="本页目录">
+          {toc.map((h) => <a href={`#${h.slug}`}>{h.text}</a>)}
+        </nav>
+      </aside>
+    )}
+  </main>
+</Base>

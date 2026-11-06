@@ -1,0 +1,33 @@
+---
+import { withBase } from "../lib/site.js";
+
+// 只选深浅两张画面完全对齐的截图
+const panels = [
+  { file: "desktop-home", label: "桌面首页", alt: "桌面端首页", w: 1600, h: 867 },
+  { file: "tablet-fullscreen-lyrics", label: "平板歌词", alt: "平板全屏歌词", w: 1600, h: 1000 },
+];
+---
+<section class="compare wrap" id="themes">
+  <div class="compare-head">
+    <div>
+      <p class="label">深浅色</p>
+      <h2>白天浅色，夜里深色</h2>
+      <p>应用和这个网站都可以跟随系统，也可以固定一种。拖动中间的分割线对比两种主题。</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="对比画面">
+      {panels.map((p, i) => (
+        <button type="button" role="tab" aria-selected={String(i === 0)} data-cmp={String(i)}>{p.label}</button>
+      ))}
+    </div>
+  </div>
+  {panels.map((p, i) => (
+    <div class="slider" data-cmp-panel={String(i)} hidden={i !== 0}>
+      <img src={withBase(`screens/${p.file}-dark.jpg`)} alt={`${p.alt}，深色`} width={p.w} height={p.h} loading="lazy" decoding="async" />
+      <div class="top"><img src={withBase(`screens/${p.file}-light.jpg`)} alt={`${p.alt}，浅色`} width={p.w} height={p.h} loading="lazy" decoding="async" /></div>
+      <span class="tag l">DARK</span><span class="tag r">LIGHT</span>
+      <input type="range" min="0" max="100" value="50" aria-label="深浅色分割位置" />
+      <span class="bar"></span>
+      <span class="knob"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6V6zm6 0v12l6-6-6-6z" /></svg></span>
+    </div>
+  ))}
+</section>

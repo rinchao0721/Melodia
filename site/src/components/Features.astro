@@ -1,0 +1,20 @@
+---
+const feats = [
+  { title: "逐字歌词，原文翻译同屏", desc: "卡拉 OK 式逐字高亮，桌面端还能全屏看双语歌词。", tag: "全平台" },
+  { title: "每首歌都有自己的颜色", desc: "播放页和歌词页的背景从当前封面里取色，切歌时平滑过渡。", tag: "全平台" },
+  { title: "平板横竖屏常驻侧栏", desc: "播放队列、歌词和歌曲信息放在侧栏，不用来回切页。", tag: "平板" },
+  { title: "Windows 原生桌面端", desc: "任务栏缩略图控制、本地音乐、独占输出。", tag: "Windows" },
+  { title: "插件和皮肤", desc: "沙盒插件扩展功能，皮肤包换掉整套配色与样式。", tag: "全平台" },
+];
+---
+<section class="feats wrap" id="features">
+  <div class="feats-head">
+    <p class="label">特性</p>
+    <h2>每一处都照着听歌的习惯做</h2>
+  </div>
+  <ol class="feat-list">
+    {feats.map((f) => (
+      <li class="feat"><strong>{f.title}</strong><p>{f.desc}</p><em>{f.tag}</em></li>
+    ))}
+  </ol>
+</section>

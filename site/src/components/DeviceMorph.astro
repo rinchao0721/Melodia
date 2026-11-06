@@ -1,0 +1,38 @@
+---
+import { withBase } from "../lib/site.js";
+
+const caps = [
+  { tag: "ANDROID · 手机", title: "装进口袋", desc: "播放页、逐字歌词、迷你播放条，一只手就能操作。" },
+  { tag: "ANDROID · 平板", title: "铺满平板", desc: "横竖屏都有常驻侧栏，边浏览边看正在播放。" },
+  { tag: "WINDOWS · 桌面", title: "住进桌面", desc: "原生桌面端，三栏布局、全屏歌词、任务栏控制。" },
+];
+const shots = [
+  { file: "phone-player", alt: "手机播放页" },
+  { file: "tablet-landscape-panel", alt: "平板横屏首页与播放侧栏" },
+  { file: "desktop-home", alt: "Windows 桌面端首页" },
+];
+---
+<section class="morph" id="devices" aria-label="多设备展示">
+  <div class="morph-pin">
+    <div class="wrap morph-grid">
+      <div class="morph-caps">
+        {caps.map((c, i) => (
+          <div class:list={["cap", { on: i === 0 }]}><b>{c.tag}</b><strong>{c.title}</strong><span>{c.desc}</span></div>
+        ))}
+      </div>
+      <div class="stage" id="stage">
+        <div class="frame" id="frame">
+          <div class="screen" id="screen">
+            {shots.map((s) => (
+              <div class="shot">
+                <img class="v-dark" src={withBase(`screens/${s.file}-dark.jpg`)} alt={s.alt} decoding="async" />
+                <img class="v-light" src={withBase(`screens/${s.file}-light.jpg`)} alt={`${s.alt}（浅色）`} decoding="async" />
+              </div>
+            ))}
+          </div>
+          <span class="frame-tag" id="frame-tag">1344 × 2992</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
