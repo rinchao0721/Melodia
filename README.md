@@ -56,6 +56,7 @@
 - **蓝奏云**：https://wware.lanzn.com/b01gic8ioj 密码:cem2
 - **缺陷与建议**：[GitHub Issues](https://github.com/rinchao0721/Melodia/issues)
 - **交流 QQ 群也可以下载**：`331832966`
+- **或者tg**：https://t.me/+OZRD58lnMy85NjE0
 
 ---
 
