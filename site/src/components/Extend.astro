@@ -1,0 +1,46 @@
+---
+const skins = [
+  { name: "默认", id: "melodia", pane: "#121212", accent: "", swatch: "#C20C0C", on: "", sample: false },
+  { name: "夜纸", id: "night-paper", pane: "#141A22", accent: "#5AA9E6", swatch: "#5AA9E6", on: "#06121F", sample: false },
+  { name: "青瓷", id: "celadon", pane: "#0F2624", accent: "#3FB8A0", swatch: "#3FB8A0", on: "#04201B", sample: true },
+  { name: "樱夜", id: "sakura-night", pane: "#24141C", accent: "#F27BA0", swatch: "#F27BA0", on: "#2A0A16", sample: true },
+];
+---
+<section class="extend wrap" id="extend">
+  <p class="label">插件与皮肤</p>
+  <div class="extend-grid">
+    <div class="panel">
+      <h3>插件</h3>
+      <p>插件是一个 <code>.melodiaplugin</code> 包。导入时先列出它要的权限，你确认后才会安装。桌面端还支持原生插件。</p>
+      <pre class="code"><span class="n">// plugin.json</span>
+{"{"}
+  <span class="k">"id"</span>: <span class="s">"com.example.lastfm"</span>,
+  <span class="k">"name"</span>: <span class="s">"Last.fm 记录"</span>,
+  <span class="k">"permissions"</span>: [<span class="s">"network"</span>, <span class="s">"playback.read"</span>],
+  <span class="k">"network"</span>: {"{"} <span class="k">"hosts"</span>: [<span class="s">"ws.audioscrobbler.com"</span>] {"}"},
+  <span class="k">"contributes"</span>: {"{"}
+    <span class="k">"events"</span>: [<span class="s">"songChanged"</span>, <span class="s">"playStateChanged"</span>]
+  {"}"}
+{"}"}</pre>
+      <div class="perm"><span>播放器布局</span><span>侧栏页面</span><span>音源</span><span>歌词源</span><span>播放事件</span></div>
+    </div>
+    <div class="panel">
+      <h3>皮肤</h3>
+      <p>点一下，整页的强调色跟着换。皮肤包还能换背景图、圆角和字体。</p>
+      <div class="skins" id="skins">
+        {skins.map((s, i) => (
+          <button class="skin" type="button" aria-pressed={String(i === 0)} data-name={s.name} data-id={s.id} data-pane={s.pane} data-accent={s.accent} data-on={s.on} style={`--a:${s.swatch};--p:${s.pane}`}>
+            <i></i>{s.name}{s.sample && <small>示例</small>}
+          </button>
+        ))}
+      </div>
+      <div class="mini" id="mini">
+        <div class="mini-art" id="mini-art"></div>
+        <div><b>夜航</b><span>示例曲目</span></div>
+        <div class="mini-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg></div>
+        <div class="mini-bar"><i></i></div>
+      </div>
+      <pre class="code" id="skin-json"></pre>
+    </div>
+  </div>
+</section>

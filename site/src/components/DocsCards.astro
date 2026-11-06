@@ -1,0 +1,11 @@
+---
+import { DOCS, withBase } from "../lib/site.js";
+---
+<section class="docs wrap" id="docs">
+  <p class="label">文档</p>
+  <div class="doc-grid">
+    {DOCS.map((d) => (
+      <a class="doc" href={withBase(`docs/${d.slug}/`)}><code>{d.code}</code><b>{d.title}</b><span>{d.desc}</span><i>阅读 →</i></a>
+    ))}
+  </div>
+</section>

@@ -8,6 +8,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Windows-green?style=flat-square)](https://github.com/rinchao0721/Melodia/releases)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+[官网](https://rinchao0721.github.io/Melodia/) · [插件格式](https://rinchao0721.github.io/Melodia/docs/plugin-format/) · [皮肤格式](https://rinchao0721.github.io/Melodia/docs/skin-format/)
 </div>
 
 ---

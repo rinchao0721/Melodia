@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import DeviceMorph from "../components/DeviceMorph.astro";
+import Features from "../components/Features.astro";
+import Gallery from "../components/Gallery.astro";
+import Compare from "../components/Compare.astro";
+import Extend from "../components/Extend.astro";
+import DocsCards from "../components/DocsCards.astro";
+import Download from "../components/Download.astro";
+import "../styles/home.css";
+---
+<Base
+  title="Melodia · 第三方网易云音乐客户端"
+  description="参考 Spotify 打造的轻量网易云音乐客户端，支持 Android 手机、平板与 Windows 桌面，逐字歌词、封面取色、插件与皮肤。"
+  page="home"
+>
+  <Fragment slot="backdrop">
+    <canvas class="aurora" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+  </Fragment>
+  <main class="home-main">
+    <Hero />
+    <DeviceMorph />
+    <Features />
+    <Gallery />
+    <Compare />
+    <Extend />
+    <DocsCards />
+    <Download />
+  </main>
+</Base>
+
+<script>
+  import "../scripts/home.js";
+</script>
