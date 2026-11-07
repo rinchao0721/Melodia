@@ -41,6 +41,7 @@ import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.feature.playlist.ui.SearchBarItem
 import com.lin0721.linmusic.feature.playlist.ui.rememberSearchBarRevealState
+import com.lin0721.linmusic.feature.playlist.ui.searchRevealBottomSpacer
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistInfo
@@ -264,6 +265,8 @@ fun ArtistContent(
                         onArtistClick = onArtistClick
                     )
                 }
+
+                searchRevealBottomSpacer(searchBarRevealState)
             }
         }
 
