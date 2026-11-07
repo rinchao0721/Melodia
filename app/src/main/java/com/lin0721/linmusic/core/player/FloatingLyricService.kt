@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.player
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +29,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.floatinglyric.ACTION_OPEN_LYRIC_SETTINGS
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricBounds
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricActions
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricFrames
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricOverlay
@@ -72,6 +74,7 @@ class FloatingLyricService : Service() {
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
     private var params: WindowManager.LayoutParams? = null
+    private var screenSize: Pair<Int, Int>? = null
     private val viewOwner = OverlayViewOwner()
     private val previewFontSize = mutableStateOf<Int?>(null)
     private var resize: ActiveResize? = null
@@ -111,13 +114,19 @@ class FloatingLyricService : Service() {
         }
     }
 
-    private fun addOverlay(saved: Triple<Int, Int, Int>?) {
+    private fun addOverlay(saved: FloatingLyricBounds?) {
         val wm = windowManager ?: return
         val metrics = resources.displayMetrics
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
         val minWidth = (MIN_WIDTH_DP * metrics.density).roundToInt()
-        val width = (saved?.third ?: (screenWidth * DEFAULT_WIDTH_RATIO).roundToInt()).coerceIn(minWidth, screenWidth)
+        // 尚未测量出窗口高度，按最小宽度的一半估算
+        val bounds = (saved ?: FloatingLyricBounds(
+            x = ((screenWidth - (screenWidth * DEFAULT_WIDTH_RATIO).roundToInt()) / 2),
+            y = (DEFAULT_TOP_DP * metrics.density).roundToInt(),
+            width = (screenWidth * DEFAULT_WIDTH_RATIO).roundToInt()
+        )).fitTo(screenWidth, screenHeight, minWidth, minWidth / 2)
+        screenSize = screenWidth to screenHeight
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -125,16 +134,15 @@ class FloatingLyricService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
         val layoutParams = WindowManager.LayoutParams(
-            width,
+            bounds.width,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // 旋转或换屏后旧坐标可能越界，拉回屏幕内
-            x = (saved?.first ?: ((screenWidth - width) / 2)).coerceIn(0, (screenWidth - width).coerceAtLeast(0))
-            y = (saved?.second ?: (DEFAULT_TOP_DP * metrics.density).roundToInt()).coerceIn(0, (screenHeight - minWidth / 2).coerceAtLeast(0))
+            x = bounds.x
+            y = bounds.y
         }
         params = layoutParams
 
@@ -267,8 +275,28 @@ class FloatingLyricService : Service() {
 
     private fun saveBounds() {
         val lp = params ?: return
-        val (x, y, width) = Triple(lp.x, lp.y, lp.width)
-        serviceScope.launch { settingsPreferences.saveFloatingLyricBounds(x, y, width) }
+        val (screenWidth, screenHeight) = screenSize ?: return
+        val bounds = FloatingLyricBounds(lp.x, lp.y, lp.width, screenWidth, screenHeight)
+        serviceScope.launch { settingsPreferences.saveFloatingLyricBounds(bounds) }
+    }
+
+    // 折叠屏换屏或旋转后按比例换算位置
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val lp = params ?: return
+        val view = composeView ?: return
+        val (oldWidth, oldHeight) = screenSize ?: return
+        val metrics = resources.displayMetrics
+        if (metrics.widthPixels == oldWidth && metrics.heightPixels == oldHeight) return
+        resize = null
+        val fitted = FloatingLyricBounds(lp.x, lp.y, lp.width, oldWidth, oldHeight)
+            .fitTo(metrics.widthPixels, metrics.heightPixels, (MIN_WIDTH_DP * metrics.density).roundToInt(), view.height)
+        screenSize = metrics.widthPixels to metrics.heightPixels
+        lp.x = fitted.x
+        lp.y = fitted.y
+        lp.width = fitted.width
+        updateLayout(view, lp)
+        saveBounds()
     }
 
     private fun saveLocked(locked: Boolean) {

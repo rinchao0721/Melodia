@@ -396,6 +396,8 @@ fun PlaylistContent(
                     showIndex                = showTrackIndex
                 )
             }
+
+            searchRevealBottomSpacer(searchBarRevealState)
         }
 
         // ── 2. 搜索栏浮层：隐藏时整体位移到屏幕外上方，随 revealPx 跟手展开 ─────

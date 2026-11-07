@@ -27,7 +27,9 @@ internal class UsbAudioOutputProvider(
     }
 
     override fun getFormatSupport(formatConfig: AudioOutputProvider.FormatConfig): AudioOutputProvider.FormatSupport {
-        if (!usbCapable(formatConfig.format, report = false)) return fallback.getFormatSupport(formatConfig)
+        if (!usbCapable(formatConfig.format, report = false)) {
+            return withoutDirectFloat(formatConfig.format, fallback.getFormatSupport(formatConfig))
+        }
         return AudioOutputProvider.FormatSupport.Builder()
             .setFormatSupportLevel(AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY)
             .build()
@@ -105,4 +107,19 @@ internal class UsbAudioOutputProvider(
 
     // DefaultAudioSink 交给输出层的只有 16 位整数与浮点（高精度源开启浮点输出后转成浮点），两者取值与原生层一致
     private fun isPcm(encoding: Int): Boolean = encoding == C.ENCODING_PCM_16BIT || encoding == C.ENCODING_PCM_FLOAT
+}
+
+// 输出层声明可直接播浮点时，MediaCodecAudioRenderer 会向解码器请求浮点输出；三星 c2.sec.flac.decoder
+// 部分文件标称浮点但帧数只有一半，导致倍速与杂音（#163）。走系统输出时降为需转码，高精度源仍由
+// DefaultAudioSink 自行转成浮点，USB 直出保留浮点请求以免 24 位 FLAC 被解码器截成 16 位
+@OptIn(UnstableApi::class)
+internal fun withoutDirectFloat(format: Format, support: AudioOutputProvider.FormatSupport): AudioOutputProvider.FormatSupport {
+    val isFloatPcm = format.sampleMimeType == MimeTypes.AUDIO_RAW && format.pcmEncoding == C.ENCODING_PCM_FLOAT
+    if (!isFloatPcm || support.supportLevel != AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY) return support
+    return AudioOutputProvider.FormatSupport.Builder()
+        .setFormatSupportLevel(AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING)
+        .setIsFormatSupportedForOffload(support.isFormatSupportedForOffload)
+        .setIsGaplessSupportedForOffload(support.isGaplessSupportedForOffload)
+        .setIsSpeedChangeSupportedForOffload(support.isSpeedChangeSupportedForOffload)
+        .build()
 }

@@ -2,17 +2,22 @@ package com.lin0721.linmusic.feature.playlist.ui
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -21,6 +26,7 @@ import com.lin0721.linmusic.core.ui.theme.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 // ────────────────────────────────────────────────────────────────────────────
 // 搜索栏下拉展开：橡皮筋阻尼位移 + fling 速度带入弹簧收尾。
@@ -41,6 +47,9 @@ class SearchBarRevealState internal constructor(
     // 0f 完全隐藏，searchBarHeightPx 完全展开
     var revealPx by mutableFloatStateOf(0f)
         private set
+
+    // 拖动中不逐帧重组
+    val isRevealed by derivedStateOf { revealPx > 0f }
 
     // 搜索态的离散意图：松手那一刻就确定，不随回弹动画途中的 revealPx 数值抖动
     var isOpen by mutableStateOf(false)
@@ -202,6 +211,20 @@ fun rememberSearchBarRevealState(
             scope = scope,
             motion = motion,
             flingVelocityThresholdPx = flingVelocityThresholdPx
+        )
+    }
+}
+
+// 列表以 graphicsLayer 下移，底部同样被推出视口，末尾补等高留白
+fun LazyListScope.searchRevealBottomSpacer(state: SearchBarRevealState) {
+    if (!state.isRevealed) return
+    item(key = "search_reveal_bottom_spacer") {
+        Spacer(
+            Modifier.layout { measurable, constraints ->
+                val height = state.revealPx.roundToInt().coerceAtLeast(0)
+                val placeable = measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
+                layout(placeable.width, height) { placeable.place(0, 0) }
+            }
         )
     }
 }
