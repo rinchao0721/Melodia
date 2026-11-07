@@ -784,7 +784,8 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 }
 
-// 输出层先交给 USB 独占判断，不能直出时走系统 AudioTrack；开启浮点输出让高精度源以浮点进入输出层
+// 输出层先交给 USB 独占判断，不能直出时走系统 AudioTrack；开启浮点输出让高精度源以浮点进入输出层，
+// 是否向解码器请求浮点由 UsbAudioOutputProvider 的格式支持声明决定
 @OptIn(UnstableApi::class)
 private class MelodiaRenderersFactory(
     context: Context,
