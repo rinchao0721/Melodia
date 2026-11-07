@@ -53,6 +53,10 @@ import com.lin0721.linmusic.core.player.usb.UsbAudioDeviceManager
 import com.lin0721.linmusic.core.player.usb.UsbAudioOutputProvider
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -359,6 +363,29 @@ class MelodiaPlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    // 系统「继续播放」卡片只取元数据，不需要播放地址
+    @OptIn(UnstableApi::class)
+    private fun lastTrackForResumptionCard(): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+        serviceScope.launch {
+            val last = try {
+                playerManager.loadLastTrack()
+            } catch (e: CancellationException) {
+                future.cancel(false)
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "读取上次播放歌曲失败", e)
+                null
+            }
+            if (last == null) {
+                future.setException(IllegalStateException("没有可恢复的歌曲"))
+            } else {
+                future.set(MediaSession.MediaItemsWithStartPosition(listOf(last.toRestoredMediaItem()), 0, last.lastPositionMs))
+            }
+        }
+        return future
+    }
+
     private fun promoteToForegroundForPendingPlay(pendingTitle: String?, pendingArtist: String?) {
         ensureNotificationChannel()
         val title = pendingTitle?.takeIf { it.isNotBlank() }
@@ -544,6 +571,29 @@ class MelodiaPlaybackService : MediaSessionService() {
         override fun onPostConnect(session: MediaSession, controller: MediaSession.ControllerInfo) {
             super.onPostConnect(session, controller)
             updateMediaSessionButtons()
+        }
+
+        // 播放交给 PlayerManager 走平时的拉链流程，返回取消让 Media3 不再自行装载媒体项
+        @OptIn(UnstableApi::class)
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            isForPlayback: Boolean
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            if (!isForPlayback) return lastTrackForResumptionCard()
+            promoteToForegroundForPendingPlay(null, null)
+            serviceScope.launch {
+                val resumed = try {
+                    playerManager.resumeLastSession()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "恢复上次播放失败", e)
+                    false
+                }
+                if (!resumed) stopPendingForeground(this@MelodiaPlaybackService)
+            }
+            return Futures.immediateCancelledFuture()
         }
 
         override fun onPlayerCommandRequest(

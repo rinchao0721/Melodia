@@ -324,6 +324,17 @@ class PlayerManager(
         }
     }
 
+    suspend fun loadLastTrack(): PlaybackState? = stateStore.loadLastTrack()
+
+    // 耳机键等外部入口拉起进程时恢复上次播放；没有可恢复的歌曲返回 false
+    suspend fun resumeLastSession(): Boolean {
+        awaitQueueRestored()
+        initController()
+        if (_currentTrack.value == null) return false
+        if (!_isPlaying.value) togglePlayPause()
+        return true
+    }
+
     // 设置队列并从指定位置开始播放
     override fun playQueue(
         items: List<QueueItem>,

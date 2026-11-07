@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
+import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricBounds
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
@@ -669,16 +670,18 @@ class SettingsPreferences(
         dataStore.edit { it[KEY_FLOATING_LYRIC_LOCKED] = locked }
     }
 
-    // 格式 "x,y,width"，解析失败视为未保存
-    suspend fun loadFloatingLyricBounds(): Triple<Int, Int, Int>? {
+    // 格式 "x,y,width,screenWidth,screenHeight"，旧版只有前三段；解析失败视为未保存
+    suspend fun loadFloatingLyricBounds(): FloatingLyricBounds? {
         val raw = dataStore.data.first()[KEY_FLOATING_LYRIC_BOUNDS] ?: return null
         val parts = raw.split(',').map { it.trim().toIntOrNull() ?: return null }
-        if (parts.size != 3 || parts[2] <= 0) return null
-        return Triple(parts[0], parts[1], parts[2])
+        if ((parts.size != 3 && parts.size != 5) || parts[2] <= 0) return null
+        return FloatingLyricBounds(parts[0], parts[1], parts[2], parts.getOrElse(3) { 0 }, parts.getOrElse(4) { 0 })
     }
 
-    suspend fun saveFloatingLyricBounds(x: Int, y: Int, width: Int) {
-        dataStore.edit { it[KEY_FLOATING_LYRIC_BOUNDS] = "$x,$y,$width" }
+    suspend fun saveFloatingLyricBounds(bounds: FloatingLyricBounds) {
+        dataStore.edit {
+            it[KEY_FLOATING_LYRIC_BOUNDS] = with(bounds) { "$x,$y,$width,$screenWidth,$screenHeight" }
+        }
     }
 
     // 日志级别 Flow，取值为 AppLogger.LogLevel 的 name（DEBUG/INFO/WARN/ERROR）
