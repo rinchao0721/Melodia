@@ -60,6 +60,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 有效屏幕高度低于该值（dp）视为低高度屏幕
 private const val SHORT_SCREEN_HEIGHT_DP = 480
+private const val FULL_HEIGHT_SCREEN_DP = 720
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,8 +260,11 @@ fun PlayQueueSheet(
         )
     }
 
-    // 车机横屏等低高度屏幕：占满可用高度并收紧头部，给列表留出空间
-    val isShortScreen = LocalConfiguration.current.screenHeightDp < SHORT_SCREEN_HEIGHT_DP
+    // 车机等低高度屏幕收紧头部
+    val configuration = LocalConfiguration.current
+    val isShortScreen = configuration.screenHeightDp < SHORT_SCREEN_HEIGHT_DP
+    val fillsHeight = configuration.screenHeightDp < FULL_HEIGHT_SCREEN_DP ||
+        configuration.screenWidthDp > configuration.screenHeightDp
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -272,7 +276,7 @@ fun PlayQueueSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(if (isShortScreen) 1f else 0.7f)
+                .fillMaxHeight(if (fillsHeight) 1f else 0.7f)
         ) {
             QueueHeader(
                 queueSize = queue.size,
