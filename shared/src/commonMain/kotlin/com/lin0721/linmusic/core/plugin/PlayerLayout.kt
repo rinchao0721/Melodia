@@ -268,7 +268,7 @@ enum class PlayerLayoutArea(
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("header", "cards"),
+        frameFields = setOf("header", "cards", "canvas", "canvasColors"),
         hostActions = HostAction.ANDROID_PLAYER + HostAction.COLLAPSE
     ),
     ANDROID_FULL_PLAYER_WIDE(
@@ -280,7 +280,7 @@ enum class PlayerLayoutArea(
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("split"),
+        frameFields = setOf("split", "header", "cards", "canvas", "canvasColors"),
         hostActions = HostAction.ANDROID_PLAYER
     ),
     ANDROID_MINI_PLAYER(
@@ -291,7 +291,7 @@ enum class PlayerLayoutArea(
             LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME, LayoutNodeType.MINI_LYRIC
         ),
         controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next"),
-        frameFields = setOf("background", "radius", "shadow", "border")
+        frameFields = setOf("background", "radius", "shadow", "border", "contentColor")
     ),
     DESKTOP_PLAYER_BAR(
         "desktop.playerBar", "桌面播放栏",
@@ -325,6 +325,10 @@ enum class PlayerLayoutArea(
         ),
         ANDROID_ACTIONS + LYRICS_SETTINGS,
         ALL_CONTROLS,
+        frameFields = setOf(
+            "canvas", "canvasColors", "sungColor", "unsungColor", "harmonySungColor", "harmonyUnsungColor",
+            "translationColor", "romanizationColor"
+        ),
         hostActions = HostAction.ANDROID_LYRICS
     ),
     DESKTOP_LYRICS_VIEW(
@@ -380,9 +384,11 @@ sealed interface PlayerLayoutParseResult {
         val root: PlayerLayoutNode,
         val warnings: List<String>,
         val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
-        val variants: List<PlayerLayoutVariant> = emptyList()
+        val variants: List<PlayerLayoutVariant> = emptyList(),
+        val hostContent: Boolean = false,
+        val canvasScript: String? = null
     ) : PlayerLayoutParseResult {
-        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(root, frame, variants)
+        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(root, frame, variants, hostContent = hostContent, canvasScript = canvasScript)
     }
     data class Failure(val reason: String) : PlayerLayoutParseResult
 }
@@ -426,6 +432,13 @@ object PlayerLayoutParser {
     // 值可以直接是布局树，也可以是带 layout 字段的外壳对象
     fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
         if ("layout" !in root || "type" in root) return parseAreaTree(area, root, emptyMap())
+        if ((root["layout"] as? JsonPrimitive)?.content == "host") {
+            if (area !in setOf(PlayerLayoutArea.ANDROID_MINI_PLAYER, PlayerLayoutArea.ANDROID_LYRICS, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE)) return PlayerLayoutParseResult.Failure("layout: host 仅支持 Android 迷你播放器、全屏歌词页和宽屏播放页")
+            if (root.keys.any { it !in setOf("layout", "frame") }) return PlayerLayoutParseResult.Failure("宿主内容模式只支持 layout 和 frame")
+            val warnings = mutableListOf<String>()
+            val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
+            return PlayerLayoutParseResult.Success(PlayerLayoutNode(LayoutNodeType.BOX), warnings, frame, hostContent = true)
+        }
         val layout = root["layout"] as? JsonObject ?: return PlayerLayoutParseResult.Failure("layout 不是有效的布局对象")
         val styleWarnings = mutableListOf<String>()
         val styles = LayoutStyleParser.styles(root["styles"], styleWarnings)
@@ -691,7 +704,15 @@ object PlayerLayoutParser {
             is PluginUiRef.Inline -> ref.tree
             is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
         }
-        val parsed = parse(area, json)
+        var parsed = parse(area, json)
+        if (parsed is PlayerLayoutParseResult.Success) {
+            val path = parsed.frame.canvas
+            if (path != null) {
+                val file = manifest.file(path)
+                if (file == null || file.length() > 2 * 1024 * 1024) return PlayerLayoutParseResult.Failure("背景脚本缺失或超过 2MB: $path")
+                parsed = parsed.copy(canvasScript = file.readText())
+            }
+        }
         if (parsed !is PlayerLayoutParseResult.Success || !parsed.spec.usesScript || manifest.runsLayoutScripts) return parsed
         // 沙盒插件没声明 layoutActions 时脚本不会运行，去掉脚本动作
         return parsed.copy(
@@ -758,3 +779,8 @@ object PlayerLayoutParser {
 
 // 当前生效的播放器布局，key 为区域；没有插件布局的区域不在表里
 val LocalPlayerLayouts = staticCompositionLocalOf<Map<PlayerLayoutArea, PlayerLayoutSpec>> { emptyMap() }
+
+// Portrait and landscape are independent selections. Missing landscape means
+// built-in, including when the user explicitly selected the built-in option.
+fun Map<PlayerLayoutArea, PlayerLayoutSpec>.androidPlayerLayout(isLandscape: Boolean): PlayerLayoutSpec? =
+    get(if (isLandscape) PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE else PlayerLayoutArea.ANDROID_FULL_PLAYER)

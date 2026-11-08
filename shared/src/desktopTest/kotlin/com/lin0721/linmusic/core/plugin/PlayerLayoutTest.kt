@@ -23,6 +23,197 @@ class PlayerLayoutTest {
 
     private fun parse(area: PlayerLayoutArea, text: String) = PlayerLayoutParser.parse(area, json(text))
 
+    @Test
+    fun `portrait and landscape page and canvas selections are independent`() {
+        val portrait = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"frame":{"canvas":"background/portrait.js"},"layout":{"type":"controls"}}""") as PlayerLayoutParseResult.Success).spec
+        val wide = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
+            """{"frame":{"canvas":"background/wide.js","canvasColors":{"glow":"#FF0000"},"cards":false},"layout":{"type":"controls"}}""") as PlayerLayoutParseResult.Success).spec
+        val layouts = mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER to portrait, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE to wide)
+        assertEquals("background/portrait.js", layouts.androidPlayerLayout(false)?.frame?.canvas)
+        assertEquals("background/wide.js", layouts.androidPlayerLayout(true)?.frame?.canvas)
+        assertNull((layouts - PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE).androidPlayerLayout(true))
+        assertNull((layouts - PlayerLayoutArea.ANDROID_FULL_PLAYER).androidPlayerLayout(false))
+        assertEquals(wide, (layouts - PlayerLayoutArea.ANDROID_FULL_PLAYER).androidPlayerLayout(true))
+        assertTrue(wide.frame.canvasColors.containsKey("glow"))
+    }
+
+    @Test
+    fun `wide host content retains its independently declared background`() {
+        val result = parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
+            """{"layout":"host","frame":{"split":0.5,"canvas":"background/wide.js","canvasColors":{"glow":"#AABBCC"}}}""") as PlayerLayoutParseResult.Success
+        assertTrue(result.spec.hostContent)
+        assertTrue(result.warnings.isEmpty())
+        assertEquals(0.5f, result.frame.split)
+        assertEquals("background/wide.js", result.frame.canvas)
+    }
+
+    @Test
+    fun `removed fluid effect is ignored with a warning`() {
+        for (area in listOf(PlayerLayoutArea.ANDROID_FULL_PLAYER, PlayerLayoutArea.ANDROID_LYRICS)) {
+            val result = parse(area,
+                """{"frame":{"fluid":{"speed":1}},"layout":{"type":"column","children":[{"type":"controls"},{"type":"lyricsView"}]}}""") as PlayerLayoutParseResult.Success
+            assertEquals(PlayerLayoutFrame.Default, result.frame)
+            assertTrue(result.warnings.any { it.contains("fluid") })
+        }
+    }
+
+    @Test
+    fun `lyric colors are opt in and contain no effect defaults`() {
+        val original = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"type":"lyricsView"}""") as PlayerLayoutParseResult.Success
+        assertNull(original.frame.sungColor)
+        assertNull(original.frame.unsungColor)
+        assertNull(original.frame.harmonySungColor)
+        assertNull(original.frame.harmonyUnsungColor)
+        assertNull(original.frame.translationColor)
+        assertNull(original.frame.romanizationColor)
+        val styled = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"frame":{"sungColor":{"mix":["cover.base","#FFFFFF"],"amount":0.4},"unsungColor":"#73202124","harmonySungColor":{"light":"#D1202124","dark":"#D1FFFFFF"},"harmonyUnsungColor":"#38202124"},"layout":{"type":"lyricsView"}}""") as PlayerLayoutParseResult.Success
+        assertTrue(styled.warnings.isEmpty())
+        assertTrue(styled.frame.sungColor is LayoutColor.Mix)
+        assertTrue(styled.frame.unsungColor is LayoutColor.Fixed)
+        assertTrue(styled.frame.harmonySungColor is LayoutColor.Fixed)
+        assertTrue(styled.frame.harmonyUnsungColor is LayoutColor.Fixed)
+        val invalid = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"frame":{"harmonySungColor":false,"harmonyUnsungColor":[]},"layout":{"type":"lyricsView"}}""") as PlayerLayoutParseResult.Success
+        assertNull(invalid.frame.harmonySungColor)
+        assertNull(invalid.frame.harmonyUnsungColor)
+        assertEquals(2, invalid.warnings.size)
+        val mini = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER,
+            """{"layout":"host","frame":{"harmonySungColor":"#FFFFFF"}}""") as PlayerLayoutParseResult.Success
+        assertNull(mini.frame.harmonySungColor)
+        assertTrue(mini.warnings.any { it.contains("harmonySungColor") })
+    }
+
+    @Test
+    fun `mini host content is opt in and preserves frame gradient`() {
+        val result = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER,
+            """{"layout":"host","frame":{"background":{"gradient":[{"mix":["cover.base","#FFFFFF"],"amount":{"light":0.95,"dark":0.2}},"cover.base"],"angle":90},"contentColor":{"light":"#202124","dark":"#FFFFFF"}}}""") as PlayerLayoutParseResult.Success
+        assertTrue(result.spec.hostContent)
+        assertTrue(result.warnings.isEmpty())
+        val gradient = (result.frame.background as FrameBackground.Fill).fill as LayoutFill.Gradient
+        val mix = gradient.colors.first() as LayoutColor.Mix
+        assertEquals(0.95f, mix.lightAmount)
+        assertEquals(0.2f, mix.darkAmount)
+        assertTrue(result.frame.contentColor is LayoutColor.Fixed)
+        assertTrue(parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":"host"}""") is PlayerLayoutParseResult.Failure)
+        val original = parse(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"type":"controls"}""") as PlayerLayoutParseResult.Success
+        assertEquals(false, original.spec.hostContent)
+        assertEquals(FrameBackground.Host, original.frame.background)
+        assertNull(original.frame.contentColor)
+    }
+
+    @Test
+    fun `lyrics host layout preserves plugin frame`() {
+        val result = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{
+                "layout": "host",
+                "frame": {
+                    "canvas": "background/fluid.js",
+                    "sungColor": "cover.base",
+                    "unsungColor": "#99202124",
+                    "translationColor": {"light": "#526480", "dark": "#B9CCE8"},
+                    "romanizationColor": {"mix": ["cover.base", "#FFFFFF"], "amount": 0.5}
+                }
+            }""") as PlayerLayoutParseResult.Success
+        assertTrue(result.spec.hostContent)
+        assertTrue(result.warnings.isEmpty())
+        assertEquals("background/fluid.js", result.frame.canvas)
+        assertTrue(result.frame.sungColor is LayoutColor.Cover)
+        assertTrue(result.frame.unsungColor is LayoutColor.Fixed)
+        assertTrue(result.frame.translationColor is LayoutColor.Fixed)
+        assertTrue(result.frame.romanizationColor is LayoutColor.Mix)
+    }
+
+    @Test
+    fun `color adjustment parses theme values and rejects invalid input`() {
+        val color = LayoutStyleParser.color(json("""{"adjust":"cover.base","hue":-30,"saturation":{"light":1.15,"dark":1}}""")) as LayoutColor.Adjust
+        assertEquals(330f, color.lightHue)
+        assertEquals(1.15f, color.lightSaturation)
+        assertEquals(1f, color.darkSaturation)
+        assertNull(LayoutStyleParser.color(json("""{"adjust":"cover.base","saturation":{"light":1}}""")))
+        assertNull(LayoutStyleParser.color(json("""{"adjust":"cover.base","hue":"30"}""")))
+        var nested = "\"cover.base\""
+        repeat(6) { nested = """{"adjust":$nested}""" }
+        assertNull(LayoutStyleParser.color(json(nested)))
+    }
+
+    @Test
+    fun `HSL adjustment rotates hue and preserves lightness alpha and gray`() {
+        val red = androidx.compose.ui.graphics.Color(1f, 0f, 0f, 0.5f)
+        val green = red.adjustHsl(120f, 1f)
+        assertEquals(0f, green.red, 0.001f)
+        assertEquals(1f, green.green, 0.001f)
+        assertEquals(red.alpha, green.alpha, 0.001f)
+        val gray = red.adjustHsl(0f, 0f)
+        assertEquals(0.5f, gray.red, 1f / 255f)
+        assertEquals(gray.red, gray.green, 0.001f)
+        assertEquals(gray, gray.adjustHsl(90f, 2f))
+        val base = androidx.compose.ui.graphics.Color(0xFF1F3346)
+        val richer = base.adjustHsl(0f, 1.15f)
+        assertTrue(richer.blue - richer.red > base.blue - base.red)
+        assertEquals(base.blue + base.red, richer.blue + richer.red, 2f / 255f)
+    }
+
+    @Test
+    fun `hue palette selects wrap boundary neutral and ignores brightness`() {
+        val palette = LayoutStyleParser.color(json("""{"huePalette":"cover.base","minSaturation":0.16,"neutral":"#777777","stops":[{"hue":15,"color":"#FF0000"},{"hue":195,"color":"#0000FF"}]}""")) as LayoutColor.HuePalette
+        fun pick(hex: Long) = (palette.select(androidx.compose.ui.graphics.Color(hex)) as LayoutColor.Fixed).light
+        assertEquals(pick(0xFF0000FF), pick(0xFFFF0000)) // below first stop wraps to last
+        assertEquals(pick(0xFFFF8000), pick(0xFF804000)) // same hue, different brightness
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF777777), pick(0xFF777D87))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFFF0000), pick(0xFF00FF00))
+        assertNull(LayoutStyleParser.color(json("""{"huePalette":"cover.base","minSaturation":0.16,"neutral":"#777777","stops":[]}""")))
+        assertNull(LayoutStyleParser.color(json("""{"huePalette":"cover.base","minSaturation":2,"neutral":"#777777","stops":[{"hue":0,"color":"#FFFFFF"}]}""")))
+        assertNull(LayoutStyleParser.color(json("""{"huePalette":"cover.base","minSaturation":0.1,"neutral":"#777777","stops":[{"hue":100,"color":"#FFFFFF"},{"hue":50,"color":"#000000"}]}""")))
+        val frame = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"layout":"host","frame":{"canvasColors":{"glow1":"#FFAACC"}}}""") as PlayerLayoutParseResult.Success
+        assertTrue(frame.warnings.isEmpty())
+        assertTrue(frame.frame.canvasColors["glow1"] is LayoutColor.Fixed)
+        val invalid = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"layout":"host","frame":{"canvasColors":{"bad-name":"#FFAACC"}}}""") as PlayerLayoutParseResult.Success
+        assertTrue(invalid.warnings.isNotEmpty())
+    }
+
+    @Test
+    fun `mixed colors reject malformed and excessively nested values`() {
+        assertNull(LayoutStyleParser.color(json("""{"mix":["cover.base"],"amount":0.5}""")))
+        assertNull(LayoutStyleParser.color(json("""{"mix":["cover.base","#FFFFFF"],"amount":{"light":0.5}}""")))
+        var nested = "\"cover.base\""
+        repeat(6) { nested = """{"mix":[$nested,"#FFFFFF"],"amount":0.5}""" }
+        assertNull(LayoutStyleParser.color(json(nested)))
+        val mix = LayoutStyleParser.color(json("""{"mix":["cover.base","#FFFFFF"],"amount":5}""")) as LayoutColor.Mix
+        assertEquals(1f, mix.lightAmount)
+        assertEquals(1f, mix.darkAmount)
+    }
+
+    @Test
+    fun `canvas paths are restricted and script is loaded only from plugin files`() {
+        assertTrue(PluginPaths.isAllowed("background/fluid.js"))
+        for (path in listOf("background/../main.js", "background/a/b.js", "background/a.html", "https://x/a.js")) {
+            assertEquals(false, PluginPaths.isBackground(path))
+        }
+        val result = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"frame":{"canvas":"background/fluid.js","sungColor":"cover.base"},"layout":{"type":"lyricsView"}}""") as PlayerLayoutParseResult.Success
+        assertEquals("background/fluid.js", result.frame.canvas)
+        assertTrue(result.warnings.isEmpty())
+        val invalid = parse(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"frame":{"canvas":"../a.js"},"layout":{"type":"lyricsView"}}""") as PlayerLayoutParseResult.Success
+        assertNull(invalid.frame.canvas)
+        assertTrue(invalid.warnings.isNotEmpty())
+        val folder = Files.createTempDirectory("canvas-plugin").toFile()
+        try {
+            File(folder, "background").mkdirs()
+            val file = File(folder, "background/fluid.js").apply { writeText("background.render = () => {};") }
+            val parsed = PluginParser.parse("""{"format":2,"id":"com.test.canvas","name":"Canvas","version":"1","apiVersion":"1.10","contributes":{"playerLayouts":{"android.lyrics":{"frame":{"canvas":"background/fluid.js"},"layout":{"type":"lyricsView"}}}}}""", folder, PluginPlatform.ANDROID) as PluginParseResult.Success
+            val loaded = PlayerLayoutParser.load(parsed.manifest, PlayerLayoutArea.ANDROID_LYRICS) as PlayerLayoutParseResult.Success
+            assertEquals(file.readText(), loaded.spec.canvasScript)
+            file.delete()
+            assertTrue(PlayerLayoutParser.load(parsed.manifest, PlayerLayoutArea.ANDROID_LYRICS) is PlayerLayoutParseResult.Failure)
+        } finally { folder.deleteRecursively() }
+    }
+
     private val validBar = """
         {"type":"row","padding":[0,16],"spacing":12,"align":"center","height":96,"children":[
             {"type":"cover","shape":"circle","maxSize":64},
@@ -145,11 +336,12 @@ class PlayerLayoutTest {
     fun `外框字段按区域过滤，取值收到边界内`() {
         val wide = parse(
             PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
-            """{"frame":{"split":0.9,"cards":false},"layout":$minimalFull}"""
+            """{"frame":{"split":0.9,"cards":false,"radius":12},"layout":$minimalFull}"""
         ) as PlayerLayoutParseResult.Success
         assertEquals(0.7f, wide.frame.split)
-        assertTrue(wide.frame.cards)
+        assertEquals(false, wide.frame.cards)
         assertEquals(1, wide.warnings.size)
+        assertTrue(wide.warnings.single().contains("radius"))
 
         val mini = parse(
             PlayerLayoutArea.ANDROID_MINI_PLAYER,

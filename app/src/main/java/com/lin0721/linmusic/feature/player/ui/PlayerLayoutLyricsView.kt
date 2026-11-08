@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.plugin.resolve
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,6 +66,7 @@ fun EmbeddedLyricsView(
     activeIndices: Set<Int>,
     isLoading: Boolean,
     highlightColor: Color,
+    lyricColors: PluginLyricColors,
     currentPositionProvider: () -> Long,
     isPlaying: Boolean,
     onSeek: (Long) -> Unit,
@@ -101,7 +103,12 @@ fun EmbeddedLyricsView(
         activeIndices = activeIndices,
         isLoading = isLoading,
         isUserScrolling = isUserScrolling,
-        highlightColor = highlightColor,
+        highlightColor = lyricColors.unsung ?: highlightColor,
+        sungColor = lyricColors.sung,
+        harmonySungColor = lyricColors.harmonySung,
+        harmonyUnsungColor = lyricColors.harmonyUnsung,
+        translationColor = lyricColors.translation,
+        romanizationColor = lyricColors.romanization,
         currentPositionProvider = currentPositionProvider,
         lazyListState = listState,
         viewportHeightPx = viewportPx,
@@ -124,5 +131,33 @@ fun EmbeddedLyricsView(
             isUserScrolling = false
             onSeek(line.timeMs)
         }
+    )
+}
+
+// 全屏、宽屏及播放页内嵌歌词共用的插件配色
+data class PluginLyricColors(
+    val sung: Color? = null,
+    val unsung: Color? = null,
+    val harmonySung: Color? = null,
+    val harmonyUnsung: Color? = null,
+    val translation: Color? = null,
+    val romanization: Color? = null
+)
+
+@Composable
+internal fun rememberPluginLyricColors(cover: com.lin0721.linmusic.core.plugin.LayoutCoverColors): PluginLyricColors {
+    val frame = com.lin0721.linmusic.core.plugin.LocalPlayerLayouts.current[
+        com.lin0721.linmusic.core.plugin.PlayerLayoutArea.ANDROID_LYRICS]?.frame
+    val sung = frame?.sungColor?.resolve(cover)
+    val harmony = frame?.harmonySungColor?.resolve(cover)
+    return PluginLyricColors(
+        sung = sung?.let { androidx.compose.animation.animateColorAsState(it,
+            androidx.compose.animation.core.tween(800), label = "lyricColor").value },
+        unsung = frame?.unsungColor?.resolve(cover),
+        harmonySung = harmony?.let { androidx.compose.animation.animateColorAsState(it,
+            androidx.compose.animation.core.tween(800), label = "harmonyColor").value },
+        harmonyUnsung = frame?.harmonyUnsungColor?.resolve(cover),
+        translation = frame?.translationColor?.resolve(cover),
+        romanization = frame?.romanizationColor?.resolve(cover)
     )
 }

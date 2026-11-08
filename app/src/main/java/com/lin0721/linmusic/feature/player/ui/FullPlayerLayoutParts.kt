@@ -99,6 +99,7 @@ class FullPlayerLayoutParts(
     val activeLyricIndices: Set<Int>,
     val lyricPositionProvider: () -> Long,
     val lyricsHighlightColor: Color,
+    private val lyricsCoverColors: LayoutCoverColors,
     val sleepTimerActive: Boolean,
     val onSleepTimerClick: () -> Unit,
     val onCommentsClick: () -> Unit
@@ -203,7 +204,7 @@ class FullPlayerLayoutParts(
                     lyrics = songState.lyrics,
                     currentLyricIndex = currentLyricIndex,
                     isPlaying = isPlaying,
-                    onClick = onMiniLyricClick,
+                    onClick = if (node.onTap == null) onMiniLyricClick else null,
                     horizontalPadding = 0.dp,
                     textAlign = node.textAlign,
                     marquee = node.marquee
@@ -270,6 +271,7 @@ class FullPlayerLayoutParts(
                 activeIndices = activeLyricIndices,
                 isLoading = songState.isLyricsLoading,
                 highlightColor = lyricsHighlightColor,
+                lyricColors = rememberPluginLyricColors(lyricsCoverColors),
                 currentPositionProvider = lyricPositionProvider,
                 isPlaying = isPlaying,
                 onSeek = onSeek,
