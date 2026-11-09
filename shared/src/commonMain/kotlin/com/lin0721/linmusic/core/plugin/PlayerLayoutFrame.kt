@@ -34,7 +34,16 @@ data class PlayerLayoutFrame(
     val background: FrameBackground = FrameBackground.Host,
     val corners: LayoutCorners? = null,
     val shadow: Boolean = true,
-    val border: Boolean = true
+    val border: Boolean = true,
+    val contentColor: LayoutColor? = null,
+    val canvas: String? = null,
+    val canvasColors: Map<String, LayoutColor> = emptyMap(),
+    val sungColor: LayoutColor? = null,
+    val unsungColor: LayoutColor? = null,
+    val harmonySungColor: LayoutColor? = null,
+    val harmonyUnsungColor: LayoutColor? = null,
+    val translationColor: LayoutColor? = null,
+    val romanizationColor: LayoutColor? = null
 ) {
     companion object {
         val Default = PlayerLayoutFrame()
@@ -70,7 +79,9 @@ data class PlayerLayoutSpec(
     val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
     val variants: List<PlayerLayoutVariant> = emptyList(),
     // 提供布局的插件，脚本动作发给它
-    val pluginId: String = ""
+    val pluginId: String = "",
+    val hostContent: Boolean = false,
+    val canvasScript: String? = null
 ) {
     val usesScript: Boolean get() = root.usesScript() || variants.any { it.root.usesScript() }
 
@@ -99,6 +110,21 @@ internal object PlayerLayoutFrameParser {
                 return@forEach
             }
             val next = when (key) {
+                "canvasColors" -> (item as? JsonObject)?.takeIf { it.size <= 16 }?.let { colors ->
+                    val parsed = colors.mapNotNull { (name, value) ->
+                        if (!name.matches(Regex("[A-Za-z][A-Za-z0-9_]{0,31}"))) null
+                        else LayoutStyleParser.color(value)?.let { name to it }
+                    }
+                    if (parsed.size == colors.size) frame.copy(canvasColors = parsed.toMap()) else null
+                }
+                "canvas" -> item.text()?.takeIf(PluginPaths::isBackground)?.let { frame.copy(canvas = it) }
+                "sungColor" -> LayoutStyleParser.color(item)?.let { frame.copy(sungColor = it) }
+                "unsungColor" -> LayoutStyleParser.color(item)?.let { frame.copy(unsungColor = it) }
+                "harmonySungColor" -> LayoutStyleParser.color(item)?.let { frame.copy(harmonySungColor = it) }
+                "harmonyUnsungColor" -> LayoutStyleParser.color(item)?.let { frame.copy(harmonyUnsungColor = it) }
+                "translationColor" -> LayoutStyleParser.color(item)?.let { frame.copy(translationColor = it) }
+                "romanizationColor" -> LayoutStyleParser.color(item)?.let { frame.copy(romanizationColor = it) }
+                "contentColor" -> LayoutStyleParser.color(item)?.let { frame.copy(contentColor = it) }
                 "header" -> item.text()?.let(LayoutHeader::fromKey)?.let { frame.copy(header = it) }
                 "cards" -> item.bool()?.let { frame.copy(cards = it) }
                 "split" -> item.number()?.let { frame.copy(split = it.coerceIn(MIN_SPLIT, MAX_SPLIT)) }

@@ -9,6 +9,7 @@
 | `plugin.json` | 清单，必需 | 256KB |
 | `main.js` | 脚本入口；声明了页面、音源、歌词源或事件时必需 | 2MB |
 | `ui/*.json` | 页面与布局描述，只允许一层 | 单个 256KB |
+| `background/*.js` | Android 插件 Canvas 2D 背景脚本，只允许一层 | 单个 2MB |
 | `assets/*.png/jpg/jpeg/webp` | 图片，只允许一层 | 单个 2MB |
 | `plugin.jar` | 原生插件的代码，仅桌面端 | 64MB |
 | `native/windows-x64/*.dll` | 原生插件的动态库，可选，仅桌面端 | 单个 64MB |
@@ -51,7 +52,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.9` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.10` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -350,7 +351,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
-`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词。手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版。`android.fullPlayerWide` 只在平板侧栏铺开到全屏时出现，只替换左栏，右栏歌词与卡片不变。
+`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关闭卡片不改变 `miniLyric` 的默认点击行为；需要打开全屏歌词时，插件应显式声明 `onTap: "openLyrics"`。API 1.10 起，普通横屏也独立使用 `android.fullPlayerWide`；旧插件需补充此区域，未声明时横屏使用内置布局。API 1.10 起，横屏播放页及其背景独立使用 `android.fullPlayerWide`，不再读取 `android.fullPlayer`；普通横屏使用它排版播放内容，两栏横屏用它替换左栏，右栏歌词仍由宿主负责。
 
 ### 通用属性
 
@@ -619,3 +620,74 @@ class HelloPlugin : MelodiaPlugin {
 - 原生插件运行时使用 `plugins/.native/run/<id>/` 下的副本，每次启动重建。
 - 插件数据放在 `plugins/.data/<id>/`，升级时保留，删除插件时一并删除。
 - 导出时只打包安装文件，不包含插件数据。
+
+
+## 插件设置迷你播放器外观（API 1.10）
+
+`contributes.playerLayouts.android.miniPlayer` 可以引用带 `"layout": "host"` 的文件。
+这种模式保留宿主原有封面、歌名、歌手/输出设备、收藏、播放控制、进度及滑动交互，只让插件设置 `frame`。
+此模式仅允许 `layout` 和 `frame`，不支持 `variants`。未启用或未选择插件布局时，宿主保留原来的封面取色背景。
+
+`frame.contentColor` 可指定内容颜色，支持深浅色固定值；不声明则沿用默认沉浸配色。
+颜色新增混合表达式：
+
+```json
+{"mix": ["cover.base", "#FFFFFF"], "amount": {"light": 0.82, "dark": 0.15}}
+```
+
+`mix` 必须为两个合法颜色，`amount` 可为一个数或包含 `light`、`dark` 的对象，范围 0–1。
+数值表示向第二个颜色混合的比例，允许最多 4 层嵌套；非法结构被拒绝。
+可用于渐变的每个颜色，让插件自行决定封面色的混白比例、深浅色差异和渐变方向。
+实际示例在 `melodia-plugins/fluid-player/ui/mini.json`。
+
+
+## 背景画布（API 1.10，Android）
+
+布局 `android.fullPlayer` 或 `android.lyrics` 的 `frame.canvas` 引用 `background/*.js`。
+仅允许一层文件，单个脚本最多 2MB；它与 `main.js` 的宿主能力脚本相互独立。
+当前版本通过现有布局选择挂载背景，尚未提供独立背景选择器。
+
+插件入口设置 `background.render = (ctx, state, timeMs) => { ... }`，由脚本直接在 Canvas 2D 绘制。
+`state` 包含 `version: 1`、逻辑像素宽高 `width/height`、`pixelRatio`、`theme`（light/dark）、
+`coverColor`（#RRGGBB）、`playing`、`motion`、`visible`。
+可选 `background.onState = state => { ... }` 接收状态更新。时间为从 0 开始的动画累计毫秒，与音频进度无关；初始相位偏移由插件自行决定。
+宿主在调用前设置像素缩放；插件使用逻辑像素坐标。当前绘制上限 30fps、100 万背板像素。
+暂停或关闭动画时仍绘制静态帧；非前台时销毁整个文档，恢复前台重建。
+画布不接收触摸，不具备网络、文件、账号、存储或原生桥接能力。
+脚本加载/绘制异常时画布透明，露出页面主题底色；其他布局不受影响。宿主不提供内置光斑算法，效果由插件脚本实现。
+当前接口提供 Canvas 2D，不承诺 WebGL 或插件可执行任意平台原生代码。
+
+歌词页可选 `frame.sungColor` / `frame.unsungColor`，支持已有颜色表达式。
+API 1.10 新增 `frame.harmonySungColor` / `frame.harmonyUnsungColor`，用于和声的已唱、未唱颜色。
+已唱和未唱颜色分别生效，省略时沿用宿主配色。`sungColor` 用于主声部逐字高亮及当前普通歌词。
+`android.lyrics` 的 `frame.translationColor` 和 `frame.romanizationColor` 分别设置翻译和音译颜色，也适用于和声附带的翻译和音译。
+声明后，副文本在当前行和其他行使用同一个设定颜色。省略时沿用默认配色，主声部当前行使用主题正文色，其他行使用未唱文字颜色，和声副文本跟随和声行的颜色。
+插件可声明深浅色分支、封面色混合及带 alpha 的固定颜色；宿主只解析并传给现有歌词组件。
+
+小歌词的 `onTap` 为显式覆盖：有声明时交给通用动作系统，无声明时沿用原组件点击。
+禁用插件或切回内置布局后，使用原有播放器背景、歌词主题、配色和交互。
+
+效果职责示例：无卡片全屏排版、小歌词打开歌词页、迷你条渐变、歌词及和声配色均写在插件包；
+宿主仅保留布局解释器、颜色表达式、动作分发、画布与组件样式参数。
+
+全屏歌词页也支持 `"layout": "host"`：保留宿主原有标题、歌词和完整控制栏，`frame` 仍可声明插件画布和歌词颜色。
+
+### 通用 HSL 颜色调整（API 1.10）
+
+颜色表达式支持 `{"adjust":"cover.base","hue":0,"saturation":{"light":1.15,"dark":1}}`。
+`adjust` 可为任意颜色表达式（包括 mix）；hue 为旋转角度，默认 0，按 360 度循环；saturation 为 HSL 饱和度倍率，默认 1，范围 0–4，结果饱和度限制在 0–1。
+两个参数均支持数字或完整的 light/dark 对象。明度、透明度保持不变，灰色保持无彩色。表达式最多嵌套 4 层。
+
+### 色相分段与画布颜色（API 1.10）
+
+通用颜色表达式：
+```json
+{"huePalette":"cover.base","minSaturation":0.16,"neutral":{"light":"#405F83","dark":"#CCDEF3"},"stops":[{"hue":0,"color":{"light":"#A52D43","dark":"#FFB7C1"}},{"hue":195,"color":{"light":"#285EA3","dark":"#B4D4FF"}}]}
+```
+`stops` 是 1–16 个严格递增的起始色相（0 ≤ hue < 360）。选择不大于输入色相的最后一项，低于第一项时环绕到最后一项。使用 HSV 饱和度判断色相是否可靠（低于插件声明的 minSaturation 时选 neutral；无彩色总选 neutral），不将封面饱和度或明度带入输出颜色。输出可为任意颜色表达式，仍受总嵌套深度限制。
+
+Android 播放页／全屏歌词页支持 `frame.canvasColors`：最多 16 个命名颜色表达式，名称匹配 `[A-Za-z][A-Za-z0-9_]{0,31}`。宿主解析、平滑过渡后以 `state.colors` 的 `#RRGGBB` 值传入插件画布。不提供时传空对象，原有画布脚本兼容。预设列表、阈值及颜色均由插件声明，宿主不内置具体配色。画布是 RGB 表面，此接口不传透明度。
+
+### 横竖屏独立选择（API 1.10）
+
+竖屏播放页、背景和沉浸主题判定读取 android.fullPlayer；横屏读取 android.fullPlayerWide。宽屏区域新增 frame.header/cards/canvas/canvasColors，并支持 layout: host。选择内置布局（或未提供该区域）时不回退到另一方向的插件。全屏歌词背景仍由 android.lyrics 独立选择。

@@ -7,6 +7,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -15,6 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.resolve
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
@@ -89,8 +93,11 @@ fun FullPlayerLyricsOverlay(
         modifier = Modifier.fillMaxSize()
     ) {
         val visibilityTransition = transition
-        // 全屏歌词是沉浸场景，浅色主题下仍按深色取色、中调铺底
-        ImmersiveTheme(colors.base) {
+        val layout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]
+        val frame = layout?.frame
+        val coverColors = LayoutCoverColors(colors.base, colors.textHighlight)
+        val lyricColors = rememberPluginLyricColors(coverColors)
+        val page: @Composable () -> Unit = {
             FullScreenLyricsView(
                 coverage = coverage,
                 isFullyEntered = {
@@ -106,7 +113,12 @@ fun FullPlayerLyricsOverlay(
                 coverUrl = coverUrl,
                 songLink = songLink,
                 base = colors.base,
-                highlightColor = colors.textHighlight,
+                highlightColor = lyricColors.unsung ?: colors.textHighlight,
+                sungColor = lyricColors.sung,
+                harmonySungColor = lyricColors.harmonySung,
+                harmonyUnsungColor = lyricColors.harmonyUnsung,
+                translationColor = lyricColors.translation,
+                romanizationColor = lyricColors.romanization,
                 onSeek = onSeek,
                 hazeState = hazeState,
                 onClose = onClose,
@@ -129,5 +141,6 @@ fun FullPlayerLyricsOverlay(
                 pluginContent = pluginContent
             )
         }
+        if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
     }
 }

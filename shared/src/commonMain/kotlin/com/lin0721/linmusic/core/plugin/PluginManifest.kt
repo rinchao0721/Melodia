@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 9
+const val PLUGIN_API_MINOR = 10
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
@@ -222,6 +222,8 @@ object PluginPaths {
     private val FILE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
     private val imageExtensions = setOf("png", "jpg", "jpeg", "webp")
 
+    fun isBackground(path: String): Boolean = inFolder(path, "background/") && extension(path) == "js"
+
     fun isUi(path: String): Boolean = inFolder(path, UI_PREFIX) && extension(path) == "json"
 
     fun isAsset(path: String): Boolean = inFolder(path, ASSETS_PREFIX) && extension(path) in imageExtensions
@@ -229,7 +231,7 @@ object PluginPaths {
     fun isNativeLibrary(path: String): Boolean = inFolder(path, NATIVE_LIBRARY_PREFIX) && extension(path) == "dll"
 
     fun isAllowed(path: String): Boolean =
-        path == MANIFEST || path == SCRIPT || path == JAR || isUi(path) || isAsset(path) || isNativeLibrary(path)
+        path == MANIFEST || path == SCRIPT || path == JAR || isUi(path) || isBackground(path) || isAsset(path) || isNativeLibrary(path)
 
     private fun inFolder(path: String, prefix: String): Boolean {
         if (!path.startsWith(prefix)) return false

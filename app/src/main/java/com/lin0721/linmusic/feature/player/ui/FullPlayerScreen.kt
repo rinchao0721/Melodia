@@ -5,8 +5,10 @@ import com.lin0721.linmusic.core.preferences.PlayerCardEntries
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
+import com.lin0721.linmusic.core.plugin.androidPlayerLayout
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
@@ -130,7 +132,9 @@ fun FullPlayerScreen(
     onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     // 播放区透出皮肤背景图时整页按沉浸区深色配色（深色遮罩配白字），浅色主题下也一样
-    val playerBackdrop = isCoverBackdrop(CoverGroup.PLAYER)
+    val playerBackdrop = isCoverBackdrop(CoverGroup.PLAYER) &&
+        LocalPlayerLayouts.current.androidPlayerLayout(
+            rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape)?.canvasScript == null
     LightStatusBarIconsWhile(isPlayerOpen && playerBackdrop && onToggleSidebarFullscreen == null)
     PlayerTintScope(playerBackdrop) {
         FullPlayerScreenContent(
@@ -234,7 +238,10 @@ private fun FullPlayerScreenContent(
     var showQueueSheet by remember { mutableStateOf(false) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
     // 手机全屏歌词盖住状态栏且是有色底，浅色主题下状态栏图标切为浅色
-    LightStatusBarIconsWhile(isPlayerOpen && isLyricsFullScreen && onToggleSidebarFullscreen == null)
+    LightStatusBarIconsWhile(
+        isPlayerOpen && isLyricsFullScreen && onToggleSidebarFullscreen == null &&
+            LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.canvasScript == null
+    )
 
     LaunchedEffect(isLyricsFullScreen) {
         onLyricsFullScreenChange(isLyricsFullScreen)
@@ -414,6 +421,7 @@ private fun FullPlayerScreenContent(
         )
     }
     val colors = rememberFullPlayerColors(colorPalette)
+    val lyricsCoverColors = LayoutCoverColors(colorPalette.base, colorPalette.textHighlight)
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
@@ -478,7 +486,8 @@ private fun FullPlayerScreenContent(
     val density = LocalDensity.current
     val navigationBarBottomPadding = melodiaNavigationBarBottomPadding()
     val pluginLayouts = LocalPlayerLayouts.current
-    val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
+    val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
+    val pluginFullLayout = pluginLayouts.androidPlayerLayout(isLandscape)
     val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
     val pluginLyricsLayout = pluginLayouts[PlayerLayoutArea.ANDROID_LYRICS]
     // 插件关掉卡片流时首屏就是整页
@@ -486,7 +495,7 @@ private fun FullPlayerScreenContent(
     val coverFitInsetPx = rememberCoverFitInsetPx(
         listState = listState,
         // 插件布局的首屏高度固定为一屏，不存在需要缩封面的情况
-        enabled = pluginFullLayout == null && (fitCoverToViewport || fitCoverAboveNavigationBar),
+        enabled = pluginFullLayout?.hostContent != false && (fitCoverToViewport || fitCoverAboveNavigationBar),
         bottomReservePx = if (fitCoverAboveNavigationBar) with(density) { navigationBarBottomPadding.toPx() } else 0f
     )
     val coverExtraInset = with(density) { coverFitInsetPx.toDp() }
@@ -539,7 +548,6 @@ private fun FullPlayerScreenContent(
         }
     }
 
-    val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
     val isPanelAtStart = LocalMelodiaPlayerPanelAtStart.current
     val fullscreenProgress: () -> Float = { sidebarFullscreenProgress?.invoke()?.coerceIn(0f, 1f) ?: 0f }
     val canUseWideLayout = sidebarFullscreenProgress != null && isLandscape && fullscreenContentWidth.isSpecified
@@ -649,7 +657,7 @@ private fun FullPlayerScreenContent(
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
-            onMiniLyricClick = if (showInfoCards) scrollToLyricsCard else ({ isLyricsFullScreen = true }),
+            onMiniLyricClick = scrollToLyricsCard,
             onSeek = viewModel::seekToTime,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,
@@ -671,6 +679,7 @@ private fun FullPlayerScreenContent(
             activeLyricIndices = activeLyricIndices,
             lyricPositionProvider = lyricPositionProvider,
             lyricsHighlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
+            lyricsCoverColors = lyricsCoverColors,
             sleepTimerActive = sleepTimerRemaining > 0L,
             onSleepTimerClick = { showTimerSheet = true },
             onCommentsClick = { showCommentsSheet = true }
@@ -704,7 +713,16 @@ private fun FullPlayerScreenContent(
                 }
             )
     ) {
-        PlayerBackdrop(
+        val canvasScript = pluginFullLayout?.canvasScript
+        if (canvasScript != null) {
+            PluginCanvasBackdrop(
+                script = canvasScript,
+                base = if (pluginFullLayout.frame.canvasColors.isEmpty()) colors.base else colorPalette.base,
+                playing = isPlaying && !isLyricsFullScreen,
+                modifier = Modifier.matchParentSize(),
+                colors = pluginFullLayout.frame.canvasColors
+            )
+        } else PlayerBackdrop(
             base = colors.base,
             mode = BackdropMode.Collapsed,
             translationYProvider = { if (showColumnLayout) scrollMetrics.backgroundTranslationY else 0f }
@@ -747,7 +765,7 @@ private fun FullPlayerScreenContent(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .haze(hazeState)
+                        .then(if (pluginFullLayout?.canvasScript == null) Modifier.haze(hazeState) else Modifier)
                         // 全屏歌词完整盖住时整页不可见，跳过绘制，避免随进度刷新反复重绘并上传封面贴图
                         .drawWithContent { if (!lyricsCoverage.isCovering) drawContent() },
                     contentPadding = PaddingValues(
@@ -757,7 +775,7 @@ private fun FullPlayerScreenContent(
                         bottom = (if (allCardsHidden || !showInfoCards) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )
                 ) {
-                    if (pluginFullLayout != null && pluginParts != null) {
+                    if (pluginFullLayout != null && !pluginFullLayout.hostContent && pluginParts != null) {
                         fullPlayerPluginSection(pluginFullLayout, pluginParts, isLandscape) { barModifier ->
                             FullPlayerSourceBar(
                                 playContext = playContext,
@@ -973,13 +991,14 @@ private fun FullPlayerScreenContent(
                 activeLyricIndices = activeLyricIndices,
                 // 宽屏两栏的歌词直接铺在页面上，浅色下未唱到的行改用三级文字色
                 highlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
+                lyricColors = rememberPluginLyricColors(lyricsCoverColors),
                 currentPositionProvider = lyricPositionProvider,
                 isPlaying = isPlaying,
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onSeek = viewModel::seekToTime,
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
                 leftFraction = pluginWideLayout?.frame?.split,
-                pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
+                pluginLeftColumn = if (pluginWideLayout != null && !pluginWideLayout.hostContent && pluginParts != null) {
                     {
                         BoxWithConstraints(Modifier.fillMaxSize()) {
                             CompositionLocalProvider(
@@ -1019,7 +1038,7 @@ private fun FullPlayerScreenContent(
             visible = isLyricsFullScreen,
             coverage = lyricsCoverage,
             songState = songDetailState,
-            colors = colors,
+            colors = if (pluginLyricsLayout?.frame?.canvasColors?.isNotEmpty() == true) colorPalette else colors,
             currentLyricIndex = currentLyricIndex,
             activeLyricIndices = activeLyricIndices,
             title = title,
@@ -1043,7 +1062,7 @@ private fun FullPlayerScreenContent(
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
             onMoreClick = { showMoreOptionsSheet = true },
-            pluginContent = if (pluginLyricsLayout != null && pluginParts != null) {
+            pluginContent = if (pluginLyricsLayout != null && !pluginLyricsLayout.hostContent && pluginParts != null) {
                 { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
             } else {
                 null
