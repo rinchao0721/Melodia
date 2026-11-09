@@ -131,6 +131,7 @@ internal fun RouteContent(
             plugins = deps.plugins,
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
+            downloadScanner = deps.downloadScanner,
             focusCategory = state.settingsFocus,
             onFocusConsumed = { state.settingsFocus = null }
         )

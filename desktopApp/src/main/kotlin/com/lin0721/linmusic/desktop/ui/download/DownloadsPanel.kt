@@ -188,7 +188,7 @@ private fun TaskStatusLine(task: DownloadTask) {
         DownloadTaskStatus.QUEUED -> StatusText("排队中", DesktopColors.TextGray)
         DownloadTaskStatus.PAUSED -> StatusText("已暂停", DesktopColors.TextGray)
         DownloadTaskStatus.FAILED -> StatusText(task.failureReason ?: "下载失败", DesktopColors.Accent)
-        DownloadTaskStatus.SUCCEEDED -> StatusText(if (task.skipped) "已下载过" else "已完成", DesktopColors.TextGray)
+        DownloadTaskStatus.SUCCEEDED -> StatusText(if (task.skipped) "已存在，已跳过" else "已完成", DesktopColors.TextGray)
     }
 }
 

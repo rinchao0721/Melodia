@@ -16,6 +16,9 @@ import androidx.work.workDataOf
 import com.lin0721.linmusic.core.download.data.DownloadApi
 import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
 import com.lin0721.linmusic.core.download.data.isTrialAudio
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
+import com.lin0721.linmusic.core.download.recognition.SONG_ID_TAG
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -52,7 +55,8 @@ class SongDownloadWorker(
     private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
-    private val queueGate: DownloadQueueGate
+    private val queueGate: DownloadQueueGate,
+    private val downloadRecognizer: DownloadRecognizer
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -62,6 +66,7 @@ class SongDownloadWorker(
         const val KEY_ALBUM_NAME = "album_name"
         const val KEY_COVER_URL = "cover_url"
         const val KEY_ALBUM_YEAR = "album_year"
+        const val KEY_DURATION_MS = "duration_ms"
         const val KEY_LEVEL = "level"
         const val KEY_ERROR = "error"
         // 面向用户的失败原因，供下载管理面板展示
@@ -93,7 +98,8 @@ class SongDownloadWorker(
             coverUrl: String? = null,
             albumYear: Int = 0,
             batchTag: String? = null,
-            batchLabel: String? = null
+            batchLabel: String? = null,
+            durationMs: Long = 0
         ) = workDataOf(
             KEY_SONG_ID to songId,
             KEY_SONG_NAME to songName,
@@ -103,7 +109,8 @@ class SongDownloadWorker(
             KEY_ALBUM_YEAR to albumYear,
             KEY_LEVEL to level,
             KEY_BATCH_TAG to batchTag,
-            KEY_BATCH_LABEL to batchLabel
+            KEY_BATCH_LABEL to batchLabel,
+            KEY_DURATION_MS to durationMs
         )
     }
 
@@ -113,6 +120,7 @@ class SongDownloadWorker(
     private val albumName: String get() = inputData.getString(KEY_ALBUM_NAME) ?: ""
     private val coverUrl: String? get() = inputData.getString(KEY_COVER_URL)
     private val albumYear: Int get() = inputData.getInt(KEY_ALBUM_YEAR, 0)
+    private val durationMs: Long get() = inputData.getLong(KEY_DURATION_MS, 0)
     private val level: String get() = inputData.getString(KEY_LEVEL) ?: "standard"
     private val batchTag: String? get() = inputData.getString(KEY_BATCH_TAG)
     private val batchLabel: String get() = inputData.getString(KEY_BATCH_LABEL) ?: "歌曲"
@@ -124,9 +132,12 @@ class SongDownloadWorker(
             return Result.failure(workDataOf(KEY_ERROR to "参数缺失"))
         }
 
-        // 已下载同等或更高音质时直接跳过，避免重复下载产生多份文件
+        // 已下载同等或更高音质、或目录里已有识别出的同一首时直接跳过，避免重复下载产生多份文件
         val existingRecord = downloadPreferences.findVerifiedRecord(songId)
-        if (existingRecord != null && existingRecord.satisfies(level)) {
+            ?: downloadRecognizer.recognize(
+                listOf(RecognitionTarget(songId, songName, listOf(artistName), durationMs))
+            ).firstOrNull()
+        if (existingRecord != null && existingRecord.skipsDownloadAt(level)) {
             AppLogger.i(TAG, "已下载 ${existingRecord.quality}，跳过 songId=$songId level=$level")
             persistState(PersistedTaskState.SUCCEEDED, skipped = true)
             onTerminalSkipped()
@@ -482,6 +493,7 @@ class SongDownloadWorker(
             val metadata = TagLib.getMetadata(fd, readPictures = false)
             val propertyMap = HashMap<String, Array<String>>(metadata?.propertyMap ?: emptyMap())
             propertyMap["TITLE"] = arrayOf(songName)
+            propertyMap[SONG_ID_TAG] = arrayOf(songId.toString())
             propertyMap["ARTIST"] = arrayOf(artistName)
             if (albumName.isNotBlank()) {
                 propertyMap["ALBUM"] = arrayOf(albumName)

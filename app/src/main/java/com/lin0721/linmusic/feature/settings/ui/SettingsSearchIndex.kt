@@ -39,6 +39,7 @@ object SettingsSearchIndex {
 
             entry(DOWNLOAD_STORAGE, 0, "边听边存", "缓存 在线播放 保存"),
             entry(DOWNLOAD_STORAGE, 0, "下载目录", "保存位置 文件夹 恢复默认"),
+            entry(DOWNLOAD_STORAGE, 0, "识别已下载歌曲", "扫描 本地 重装 已有文件 重复下载"),
             entry(DOWNLOAD_STORAGE, 0, "内嵌歌词", "歌词 写入 音频文件"),
             entry(DOWNLOAD_STORAGE, 1, "清理缓存", "存储 空间 音频缓存 图片缓存 日志 临时文件 更新安装包 最大缓存"),
 

@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.data.recognition.DesktopRecognition
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
@@ -60,6 +61,7 @@ class DesktopAppDependencies(
     val playerCards: PlayerCardSource,
     val playbackController: DesktopPlaybackController,
     val downloader: DesktopSongDownloader,
+    val downloadScanner: DesktopDownloadFolderScanner,
     val desktopPreferences: DesktopPreferences,
     val settingsPreferences: SettingsPreferences,
     val sessionMonitor: SessionMonitor,

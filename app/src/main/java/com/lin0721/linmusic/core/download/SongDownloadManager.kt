@@ -8,6 +8,8 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,7 +65,8 @@ data class DownloadTask(
 class SongDownloadManager(
     private val context: Context,
     private val downloadPreferences: DownloadPreferences,
-    private val taskStore: DownloadTaskStore
+    private val taskStore: DownloadTaskStore,
+    private val downloadRecognizer: DownloadRecognizer
 ) : SongDownloader {
 
     companion object {
@@ -112,8 +115,10 @@ class SongDownloadManager(
         batchLabel: String
     ): BatchEnqueueResult {
         val distinctTracks = tracks.distinctBy { it.songId }
+        // 先把目录里已有的同一首补登记，再统一按记录判断跳过
+        downloadRecognizer.recognize(distinctTracks.map { it.toRecognitionTarget() })
         val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
-            .filter { it.satisfies(level) }
+            .filter { it.skipsDownloadAt(level) }
             .mapTo(HashSet()) { it.songId }
         val infos = currentWorkInfos()
         val queuedIds = infos.filterNot { it.state.isFinished }.mapNotNullTo(HashSet()) { songIdOf(it) }
@@ -285,7 +290,7 @@ class SongDownloadManager(
         .setInputData(
             SongDownloadWorker.buildInputData(
                 track.songId, track.songName, track.artistName, level,
-                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel
+                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel, track.durationMs
             )
         )
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

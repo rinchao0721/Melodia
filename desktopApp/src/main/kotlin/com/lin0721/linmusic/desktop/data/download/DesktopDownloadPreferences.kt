@@ -53,6 +53,17 @@ class DesktopDownloadPreferences(private val dataStore: DataStore<Preferences>) 
         }
     }
 
+    suspend fun addRecords(newRecords: List<DownloadRecord>) {
+        if (newRecords.isEmpty()) return
+        val ids = newRecords.mapTo(HashSet()) { it.songId }
+        dataStore.edit { prefs ->
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in ids } + newRecords
+            prefs[KEY_RECORDS] = json.encodeToString(updated)
+        }
+    }
+
+    suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) { File(path).isFile }
+
     suspend fun loadTasks(): List<DownloadTask> {
         val raw = dataStore.data.first()[KEY_TASKS]
         if (raw.isNullOrBlank()) return emptyList()

@@ -64,6 +64,7 @@ import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.data.local.LocalScanFilter
 import com.lin0721.linmusic.desktop.data.local.LocalScanState
@@ -369,7 +370,8 @@ internal fun settingsEntries(
     lxPlugins: LxPluginSettingsViewModel,
     plugins: PluginRepository,
     updateChecker: UpdateChecker,
-    localLibrary: LocalLibraryRepository
+    localLibrary: LocalLibraryRepository,
+    downloadScanner: DesktopDownloadFolderScanner
 ): List<SettingsEntry> {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
@@ -403,6 +405,7 @@ internal fun settingsEntries(
     val themeSettings by common.themeSettings.collectAsState()
     val downloadFolder by common.downloadFolderUri.collectAsState()
     val downloadLyrics by common.downloadLyricsEnabled.collectAsState()
+    val downloadScanning by downloadScanner.scanning.collectAsState()
     val localData by localLibrary.data.collectAsState()
     val localScan by localLibrary.scanState.collectAsState()
     val defaultPlaylistPrivate by common.defaultPlaylistPrivate.collectAsState()
@@ -695,6 +698,30 @@ internal fun settingsEntries(
                         }
                     })
                 }
+            }
+        )
+        add(
+            rowEntry(
+                "recognizeDownloads", SettingsCategory.Storage, "识别已下载歌曲",
+                subtitle = if (downloadScanning) "正在扫描…" else "扫描之前的下载目录，已有歌曲不再重复下载",
+                keywords = listOf("下载", "扫描", "本地", "重装", "已有文件", "重复下载"),
+                group = "下载"
+            ) {
+                SettingsActionButton("选择目录", enabled = !downloadScanning, onClick = {
+                    scope.launch {
+                        val initial = File(customDownloadFolder ?: desktop.defaultDownloadDir.absolutePath)
+                        val folder = chooseDirectory(initial, "选择要扫描的下载目录") ?: return@launch
+                        downloadScanner.launchScan(folder) { count ->
+                            val message = when {
+                                count == null -> "无法读取该目录"
+                                count == 0 -> "该目录下没有找到音频文件"
+                                else -> "已扫描 $count 个音频文件，打开歌单或下载时会自动识别"
+                            }
+                            // 回调在 IO 线程，提示切回界面线程
+                            scope.launch { navigator.showMessage(message) }
+                        }
+                    }
+                })
             }
         )
         add(

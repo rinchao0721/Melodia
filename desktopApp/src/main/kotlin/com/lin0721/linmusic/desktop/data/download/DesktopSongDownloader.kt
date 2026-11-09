@@ -8,7 +8,9 @@ import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.data.DownloadApi
 import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
 import com.lin0721.linmusic.core.download.data.isTrialAudio
-import com.lin0721.linmusic.core.download.satisfies
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
+import com.lin0721.linmusic.core.download.skipsDownloadAt
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -81,7 +83,8 @@ class DesktopSongDownloader(
     private val settingsPreferences: SettingsPreferences,
     private val downloadPreferences: DesktopDownloadPreferences,
     private val tempDir: File,
-    private val defaultDir: File
+    private val defaultDir: File,
+    private val recognizer: DownloadRecognizer? = null
 ) : SongDownloader {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -129,8 +132,10 @@ class DesktopSongDownloader(
         batchLabel: String
     ): BatchEnqueueResult {
         val distinctTracks = tracks.distinctBy { it.songId }
+        // 先把目录里已有的同一首补登记，再统一按记录判断跳过
+        recognizer?.recognize(distinctTracks.map { it.toRecognitionTarget() })
         val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
-            .filter { it.satisfies(level) }
+            .filter { it.skipsDownloadAt(level) }
             .mapTo(HashSet()) { it.songId }
         val liveIds = _tasks.value.filter { it.isLive }.mapTo(HashSet()) { it.songId }
         val queuedIds = distinctTracks.mapNotNullTo(HashSet()) { it.songId.takeIf(liveIds::contains) }
@@ -218,6 +223,7 @@ class DesktopSongDownloader(
                 albumName = track.albumName,
                 coverUrl = track.coverUrl,
                 albumYear = track.albumYear,
+                durationMs = track.durationMs,
                 level = level,
                 batchLabel = batchLabel,
                 status = DownloadTaskStatus.QUEUED,
@@ -354,7 +360,8 @@ class DesktopSongDownloader(
     private suspend fun download(track: DownloadTrackInfo, level: String, batchLabel: String?, onProgress: (Int) -> Unit): Outcome {
         val songId = track.songId
         val existing = downloadPreferences.findVerifiedRecord(songId)
-        if (existing != null && existing.satisfies(level)) return Outcome.Skipped
+            ?: recognizer?.recognize(listOf(track.toRecognitionTarget()))?.firstOrNull()
+        if (existing != null && existing.skipsDownloadAt(level)) return Outcome.Skipped
 
         val response = downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = songId, level = level))
         val item = response.data
@@ -486,6 +493,7 @@ class DesktopSongDownloader(
             val tag = audio.tagOrCreateAndSetDefault
             tag.setField(FieldKey.TITLE, track.songName)
             tag.setField(FieldKey.ARTIST, track.artistName)
+            tag.writeSongId(track.songId)
             if (track.albumName.isNotBlank()) tag.setField(FieldKey.ALBUM, track.albumName)
             if (track.albumYear > 0) tag.setField(FieldKey.YEAR, track.albumYear.toString())
             if (rawLyrics != null) tag.setField(FieldKey.LYRICS, rawLyrics)

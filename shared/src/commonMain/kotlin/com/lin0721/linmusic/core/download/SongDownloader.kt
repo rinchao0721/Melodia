@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.download
 
+import com.lin0721.linmusic.core.model.Track
 import java.util.UUID
 
 // 待下载歌曲信息
@@ -9,7 +10,19 @@ data class DownloadTrackInfo(
     val artistName: String,
     val albumName: String = "",
     val coverUrl: String? = null,
-    val albumYear: Int = 0
+    val albumYear: Int = 0,
+    // 0 表示未知，仅用于识别本地已有文件
+    val durationMs: Long = 0
+)
+
+fun Track.toDownloadTrackInfo() = DownloadTrackInfo(
+    songId = id,
+    songName = name,
+    artistName = ar.joinToString("/") { it.name },
+    albumName = al.name,
+    coverUrl = al.picUrl.takeIf { it.isNotBlank() },
+    albumYear = yearFromEpochMillis(publishTime),
+    durationMs = dt
 )
 
 // 批量入队结果：已下载过同等或更高音质、或已在下载队列中的歌曲不会重复入队

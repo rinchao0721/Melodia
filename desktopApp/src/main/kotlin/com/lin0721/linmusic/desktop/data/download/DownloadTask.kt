@@ -15,6 +15,7 @@ data class DownloadTask(
     val albumName: String = "",
     val coverUrl: String? = null,
     val albumYear: Int = 0,
+    val durationMs: Long = 0,
     val level: String,
     // 批量下载所属歌单名，单曲为空
     val batchLabel: String? = null,
@@ -31,5 +32,5 @@ data class DownloadTask(
     // 未结束（含暂停）
     val isLive: Boolean get() = isActive || status == DownloadTaskStatus.PAUSED
 
-    fun toTrackInfo() = DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear)
+    fun toTrackInfo() = DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear, durationMs)
 }

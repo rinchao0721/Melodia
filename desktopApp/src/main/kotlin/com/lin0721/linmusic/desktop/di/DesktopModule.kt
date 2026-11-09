@@ -7,6 +7,8 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -47,6 +49,7 @@ import com.lin0721.linmusic.desktop.data.DesktopResourceProvider
 import com.lin0721.linmusic.desktop.data.cloud.CloudLibrary
 import com.lin0721.linmusic.desktop.data.recognition.DesktopRecognition
 import com.lin0721.linmusic.desktop.data.recognition.GraalAfpFingerprintEngine
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
@@ -199,7 +202,21 @@ val desktopPlatformModule = module {
             settingsPreferences = get(),
             downloadPreferences = get(),
             tempDir = DesktopPaths.downloadTempDir,
-            defaultDir = DesktopPaths.defaultDownloadDir
+            defaultDir = DesktopPaths.defaultDownloadDir,
+            recognizer = get()
+        )
+    }
+    single { LocalAudioIndexStore(File(DesktopPaths.dataDir, "download_recognition_index.json")) }
+    single { DesktopDownloadFolderScanner(get()) }
+    single {
+        val downloadPreferences = get<DesktopDownloadPreferences>()
+        val localLibrary = get<LocalLibraryRepository>()
+        DownloadRecognizer(
+            indexStore = get(),
+            records = { downloadPreferences.records.first() },
+            addRecords = downloadPreferences::addRecords,
+            isAlive = downloadPreferences::fileExists,
+            extraEntries = { localLibrary.matchedEntries() }
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }

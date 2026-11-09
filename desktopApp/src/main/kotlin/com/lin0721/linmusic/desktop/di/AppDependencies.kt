@@ -28,6 +28,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         playerCards = get(),
         playbackController = get(),
         downloader = get(),
+        downloadScanner = get(),
         desktopPreferences = get(),
         settingsPreferences = get(),
         sessionMonitor = get(),
