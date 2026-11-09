@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import com.lin0721.linmusic.core.plugin.LayoutColor
 import com.lin0721.linmusic.core.plugin.LayoutCoverColors
 import com.lin0721.linmusic.core.plugin.resolve
@@ -26,10 +25,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import androidx.compose.material3.MaterialTheme
 import kotlinx.serialization.json.*
 
-/** Generic drawing surface. No effect geometry, color recipe, network or native JS bridge. */
+// 插件 Canvas 2D 背景：受限 WebView，无网络、无原生桥接、不接收触摸
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier: Modifier = Modifier, colors: Map<String, LayoutColor> = emptyMap()) {
@@ -38,9 +38,12 @@ fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier
     val motion = LocalUiMotion.current.enabled
     val density = LocalDensity.current.density
     var size by remember { mutableStateOf(IntSize.Zero) }
-    val resolvedColors = colors.toSortedMap().mapValues { (_, value) ->
-        val target = value.resolve(LayoutCoverColors(base, base))
-        animateColorAsState(target, tween(800), label = "canvasColor").value
+    // 按名称分组，颜色增删时各自的过渡状态不串位
+    val resolvedColors = colors.toSortedMap().mapValues { (name, value) ->
+        key(name) {
+            val target = value.resolve(LayoutCoverColors(base, base))
+            animateColorAsState(target, uiTween(800), label = "canvasColor").value
+        }
     }
     val state = buildJsonObject {
         put("version", 1)
@@ -57,7 +60,7 @@ fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier
         put("visible", lifecycle.isAtLeast(Lifecycle.State.RESUMED))
     }.toString()
     Box(modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { size = it }) {
-        // Remove the entire document in background: plugin timers cannot keep executing.
+        // 非前台时销毁整个文档，插件定时器不能继续跑
         if (lifecycle.isAtLeast(Lifecycle.State.RESUMED)) key(script) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -74,8 +77,7 @@ private class BackgroundCanvasView(context: Context, private val script: String)
     private var ready = false
     private var state = "{}"
     init {
-        // Compose measures the view, but WebView also consults its layout params
-        // for the CSS viewport. WRAP_CONTENT leaves percentage heights at zero.
+        // WebView 按 layoutParams 计算 CSS 视口，WRAP_CONTENT 会让百分比高度为 0
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT

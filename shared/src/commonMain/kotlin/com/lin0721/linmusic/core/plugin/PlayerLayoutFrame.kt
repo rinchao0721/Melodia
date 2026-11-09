@@ -81,7 +81,9 @@ data class PlayerLayoutSpec(
     // 提供布局的插件，脚本动作发给它
     val pluginId: String = "",
     val hostContent: Boolean = false,
-    val canvasScript: String? = null
+    val canvasScript: String? = null,
+    // 插件声明 apiVersion ≥ 1.10 时横屏改读 android.fullPlayerWide
+    val separateLandscape: Boolean = false
 ) {
     val usesScript: Boolean get() = root.usesScript() || variants.any { it.root.usesScript() }
 

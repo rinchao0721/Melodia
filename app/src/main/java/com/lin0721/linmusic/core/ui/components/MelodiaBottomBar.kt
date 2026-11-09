@@ -160,8 +160,7 @@ fun MiniPlayerCard(
         currentTrack.mediaMetadata.artworkUri?.toString() ?: ""
     }
 
-    // Keep the previous completed palette until the next cover is ready.
-    // Resetting to fallback on every track change flashes the neutral preset.
+    // 切歌时沿用上一首的配色直到新封面取色完成，避免闪回默认底色
     var colorPalette by remember {
         mutableStateOf(
             PaletteMemoryCache.get(currentTrack.mediaId) ?: FallbackBackdropPalette
@@ -241,8 +240,7 @@ fun MiniPlayerCard(
 
     val pluginSpec = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
     val pluginFrame = pluginSpec?.frame ?: PlayerLayoutFrame.Default
-    // Resolve discrete plugin selections from the final cover color, then
-    // animate the resulting colors. Never select presets from animated hues.
+    // 按最终封面色解析插件颜色再做过渡，不能用过渡中的色相选色板
     val coverColors = LayoutCoverColors(
         coverBase(CoverGroup.PLAYER, colorPalette.base) ?: colorPalette.base,
         colorPalette.textHighlight
@@ -474,7 +472,7 @@ fun MiniPlayerCard(
     }
 }
 
-// Plugin foreground is opt-in. Without a plugin declaration, retain the original theme.
+// 插件声明了内容色才覆盖，否则沿用沉浸配色
 @Composable
 private fun MiniPlayerBackdropTheme(foreground: Color?, backgrounds: List<Color>, content: @Composable () -> Unit) {
     if (foreground != null) {

@@ -351,7 +351,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
-`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关闭卡片不改变 `miniLyric` 的默认点击行为；需要打开全屏歌词时，插件应显式声明 `onTap: "openLyrics"`。API 1.10 起，普通横屏也独立使用 `android.fullPlayerWide`；旧插件需补充此区域，未声明时横屏使用内置布局。API 1.10 起，横屏播放页及其背景独立使用 `android.fullPlayerWide`，不再读取 `android.fullPlayer`；普通横屏使用它排版播放内容，两栏横屏用它替换左栏，右栏歌词仍由宿主负责。
+`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词；`miniLyric` 写了 `onTap` 时按 `onTap` 执行。`apiVersion` 低于 `1.10`（或未声明）的插件，手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版；声明 `1.10` 及以上时，横屏改用 `android.fullPlayerWide`，见「横竖屏独立选择」。`android.fullPlayerWide` 在平板侧栏铺开到全屏时只替换左栏，右栏歌词与卡片不变。
 
 ### 通用属性
 
@@ -638,7 +638,6 @@ class HelloPlugin : MelodiaPlugin {
 `mix` 必须为两个合法颜色，`amount` 可为一个数或包含 `light`、`dark` 的对象，范围 0–1。
 数值表示向第二个颜色混合的比例，允许最多 4 层嵌套；非法结构被拒绝。
 可用于渐变的每个颜色，让插件自行决定封面色的混白比例、深浅色差异和渐变方向。
-实际示例在 `melodia-plugins/fluid-player/ui/mini.json`。
 
 
 ## 背景画布（API 1.10，Android）
@@ -690,4 +689,6 @@ Android 播放页／全屏歌词页支持 `frame.canvasColors`：最多 16 个�
 
 ### 横竖屏独立选择（API 1.10）
 
-竖屏播放页、背景和沉浸主题判定读取 android.fullPlayer；横屏读取 android.fullPlayerWide。宽屏区域新增 frame.header/cards/canvas/canvasColors，并支持 layout: host。选择内置布局（或未提供该区域）时不回退到另一方向的插件。全屏歌词背景仍由 android.lyrics 独立选择。
+仅对 `apiVersion` 声明为 `1.10` 及以上的插件生效。竖屏播放页、背景和沉浸主题判定读取 `android.fullPlayer`；横屏读取 `android.fullPlayerWide`。宽屏区域新增 `frame.header`/`cards`/`canvas`/`canvasColors`，并支持 `layout: host`。横屏选择内置布局（或未提供该区域）时不回退到竖屏的插件布局。全屏歌词背景仍由 `android.lyrics` 独立选择。
+
+竖屏选中的是低于 `1.10` 的插件时，横屏沿用它的竖屏布局，与之前的版本一致。

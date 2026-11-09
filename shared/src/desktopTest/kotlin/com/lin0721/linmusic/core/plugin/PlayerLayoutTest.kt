@@ -27,8 +27,10 @@ class PlayerLayoutTest {
     fun `portrait and landscape page and canvas selections are independent`() {
         val portrait = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER,
             """{"frame":{"canvas":"background/portrait.js"},"layout":{"type":"controls"}}""") as PlayerLayoutParseResult.Success).spec
+            .copy(separateLandscape = true)
         val wide = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
             """{"frame":{"canvas":"background/wide.js","canvasColors":{"glow":"#FF0000"},"cards":false},"layout":{"type":"controls"}}""") as PlayerLayoutParseResult.Success).spec
+            .copy(separateLandscape = true)
         val layouts = mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER to portrait, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE to wide)
         assertEquals("background/portrait.js", layouts.androidPlayerLayout(false)?.frame?.canvas)
         assertEquals("background/wide.js", layouts.androidPlayerLayout(true)?.frame?.canvas)
@@ -36,6 +38,33 @@ class PlayerLayoutTest {
         assertNull((layouts - PlayerLayoutArea.ANDROID_FULL_PLAYER).androidPlayerLayout(false))
         assertEquals(wide, (layouts - PlayerLayoutArea.ANDROID_FULL_PLAYER).androidPlayerLayout(true))
         assertTrue(wide.frame.canvasColors.containsKey("glow"))
+    }
+
+    @Test
+    fun `1_10 以前的插件横屏沿用竖屏布局`() {
+        val legacyPortrait = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"type":"controls"}""") as PlayerLayoutParseResult.Success).spec
+        val legacyWide = (parse(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"type":"controls"}""") as PlayerLayoutParseResult.Success).spec
+        val newWide = legacyWide.copy(separateLandscape = true)
+        assertEquals(legacyPortrait, mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER to legacyPortrait).androidPlayerLayout(true))
+        assertEquals(legacyPortrait, mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER to legacyPortrait, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE to newWide).androidPlayerLayout(true))
+        // 旧插件的宽屏区域只用于平板两栏左栏，不进手机横屏整页
+        assertNull(mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE to legacyWide).androidPlayerLayout(true))
+        assertEquals(newWide, mapOf(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE to newWide).androidPlayerLayout(true))
+    }
+
+    @Test
+    fun `load 按清单 apiVersion 标记横屏独立`() {
+        val folder = Files.createTempDirectory("landscape-plugin").toFile()
+        try {
+            fun loaded(apiVersion: String): PlayerLayoutSpec {
+                val extra = if (apiVersion.isEmpty()) "" else ""","apiVersion":"$apiVersion""""
+                val parsed = PluginParser.parse("""{"format":2,"id":"com.test.landscape","name":"L","version":"1"$extra,"contributes":{"playerLayouts":{"android.fullPlayer":{"type":"controls"}}}}""", folder, PluginPlatform.ANDROID) as PluginParseResult.Success
+                return (PlayerLayoutParser.load(parsed.manifest, PlayerLayoutArea.ANDROID_FULL_PLAYER) as PlayerLayoutParseResult.Success).spec
+            }
+            assertEquals(false, loaded("").separateLandscape)
+            assertEquals(false, loaded("1.9").separateLandscape)
+            assertEquals(true, loaded("1.10").separateLandscape)
+        } finally { folder.deleteRecursively() }
     }
 
     @Test
@@ -49,7 +78,7 @@ class PlayerLayoutTest {
     }
 
     @Test
-    fun `removed fluid effect is ignored with a warning`() {
+    fun `unknown frame field is ignored with a warning`() {
         for (area in listOf(PlayerLayoutArea.ANDROID_FULL_PLAYER, PlayerLayoutArea.ANDROID_LYRICS)) {
             val result = parse(area,
                 """{"frame":{"fluid":{"speed":1}},"layout":{"type":"column","children":[{"type":"controls"},{"type":"lyricsView"}]}}""") as PlayerLayoutParseResult.Success

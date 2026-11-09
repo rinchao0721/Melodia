@@ -386,9 +386,13 @@ sealed interface PlayerLayoutParseResult {
         val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
         val variants: List<PlayerLayoutVariant> = emptyList(),
         val hostContent: Boolean = false,
-        val canvasScript: String? = null
+        val canvasScript: String? = null,
+        val separateLandscape: Boolean = false
     ) : PlayerLayoutParseResult {
-        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(root, frame, variants, hostContent = hostContent, canvasScript = canvasScript)
+        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(
+            root, frame, variants,
+            hostContent = hostContent, canvasScript = canvasScript, separateLandscape = separateLandscape
+        )
     }
     data class Failure(val reason: String) : PlayerLayoutParseResult
 }
@@ -706,6 +710,8 @@ object PlayerLayoutParser {
         }
         var parsed = parse(area, json)
         if (parsed is PlayerLayoutParseResult.Success) {
+            val minor = manifest.apiVersion?.substringAfter('.', "")?.toIntOrNull()
+            parsed = parsed.copy(separateLandscape = minor != null && minor >= SEPARATE_LANDSCAPE_API_MINOR)
             val path = parsed.frame.canvas
             if (path != null) {
                 val file = manifest.file(path)
@@ -780,7 +786,13 @@ object PlayerLayoutParser {
 // 当前生效的播放器布局，key 为区域；没有插件布局的区域不在表里
 val LocalPlayerLayouts = staticCompositionLocalOf<Map<PlayerLayoutArea, PlayerLayoutSpec>> { emptyMap() }
 
-// Portrait and landscape are independent selections. Missing landscape means
-// built-in, including when the user explicitly selected the built-in option.
-fun Map<PlayerLayoutArea, PlayerLayoutSpec>.androidPlayerLayout(isLandscape: Boolean): PlayerLayoutSpec? =
-    get(if (isLandscape) PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE else PlayerLayoutArea.ANDROID_FULL_PLAYER)
+// 横屏独立读取宽屏区域的起始 API 次版本
+private const val SEPARATE_LANDSCAPE_API_MINOR = 10
+
+// 1.10 以前的插件横屏沿用竖屏布局；新插件横竖屏各自选择，横屏未选插件即内置
+fun Map<PlayerLayoutArea, PlayerLayoutSpec>.androidPlayerLayout(isLandscape: Boolean): PlayerLayoutSpec? {
+    val portrait = get(PlayerLayoutArea.ANDROID_FULL_PLAYER)
+    if (!isLandscape) return portrait
+    if (portrait != null && !portrait.separateLandscape) return portrait
+    return get(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE)?.takeIf { it.separateLandscape }
+}

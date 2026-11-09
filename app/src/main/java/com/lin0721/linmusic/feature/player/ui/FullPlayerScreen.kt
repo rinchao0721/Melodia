@@ -657,7 +657,7 @@ private fun FullPlayerScreenContent(
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
-            onMiniLyricClick = scrollToLyricsCard,
+            onMiniLyricClick = if (showInfoCards) scrollToLyricsCard else ({ isLyricsFullScreen = true }),
             onSeek = viewModel::seekToTime,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,

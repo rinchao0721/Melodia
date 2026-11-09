@@ -57,7 +57,7 @@ fun LayoutColor.resolve(cover: LayoutCoverColors? = LocalLayoutCoverColors.curre
     }
 }
 
-// Preserve HSL lightness and alpha; achromatic inputs stay achromatic.
+// 保留 HSL 明度与透明度，灰色输入保持无彩色
 internal fun Color.adjustHsl(hue: Float, saturation: Float): Color {
     val hi = maxOf(red, green, blue)
     val lo = minOf(red, green, blue)
@@ -238,7 +238,7 @@ internal object LayoutStyleParser {
     }
 }
 
-// Generic hue buckets. The plugin owns all thresholds, stops and output colors.
+// 按色相分段选色，阈值、分段与输出色都由插件声明
 internal fun LayoutColor.HuePalette.select(input: Color): LayoutColor {
     val hi = maxOf(input.red, input.green, input.blue)
     val lo = minOf(input.red, input.green, input.blue)
