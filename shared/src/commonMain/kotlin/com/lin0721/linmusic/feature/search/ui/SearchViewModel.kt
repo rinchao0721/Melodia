@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -153,9 +154,21 @@ class SearchViewModel(
     private var searchJob: Job? = null
     private var suggestJob: Job? = null
     private var hitsJob: Job? = null
+    // 须在 init 之前声明：Main.immediate 下 init 里的收集会同步执行到 loadDiscoveryData
+    private var discoveryJob: Job? = null
+    private var keywordEnabled = true
+    private var hotSearchEnabled = true
 
     init {
-        loadDiscoveryData()
+        viewModelScope.launch {
+            // 推荐词与热搜开关变化时重新加载发现页，首个值即触发首次加载
+            combine(
+                settingsPreferences?.searchDefaultKeywordEnabled ?: flowOf(true),
+                settingsPreferences?.hotSearchEnabled ?: flowOf(true)
+            ) { keyword, hot -> keyword to hot }
+                .distinctUntilChanged()
+                .collect { (keyword, hot) -> loadDiscoveryData(keyword, hot) }
+        }
         loadLikedSongIds()
         viewModelScope.launch {
             searchPlatforms.collect { platforms ->
@@ -229,12 +242,16 @@ class SearchViewModel(
         }
     }
 
-    private fun loadDiscoveryData() {
-        viewModelScope.launch {
+    private fun loadDiscoveryData(keywordEnabled: Boolean = this.keywordEnabled, hotEnabled: Boolean = this.hotSearchEnabled) {
+        this.keywordEnabled = keywordEnabled
+        this.hotSearchEnabled = hotEnabled
+        discoveryJob?.cancel()
+        discoveryJob = viewModelScope.launch {
             _discoveryState.value = DiscoveryUiState.Loading
+            if (!hotEnabled) _featuredTrack.value = null
 
-            val keywordDeferred = async { repository.getDefaultSearchKeyword().firstOrNull() }
-            val hotSearchDeferred = async { repository.getHotSearches().firstOrNull() }
+            val keywordDeferred = async { if (keywordEnabled) repository.getDefaultSearchKeyword().firstOrNull() else null }
+            val hotSearchDeferred = async { if (hotEnabled) repository.getHotSearches().firstOrNull() else null }
             val tagsDeferred = async { repository.getPlaylistTags().firstOrNull() }
 
             val keywordResult = keywordDeferred.await()
@@ -253,7 +270,7 @@ class SearchViewModel(
 
             val hotSearches = hotSearchResult?.getOrNull() ?: emptyList()
             _discoveryState.value = DiscoveryUiState.Success(
-                defaultKeyword = keywordResult?.getOrNull() ?: "搜索你想听的",
+                defaultKeyword = keywordResult?.getOrNull().orEmpty(),
                 hotSearches = hotSearches,
                 playlistTags = tagsResult?.getOrNull() ?: emptyList()
             )

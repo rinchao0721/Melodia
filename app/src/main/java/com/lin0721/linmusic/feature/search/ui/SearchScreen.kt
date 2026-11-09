@@ -107,8 +107,8 @@ fun SearchScreen(
         viewModel.cancelSearch()
     }
 
-    // 网易返回的真实推荐词，仅用于兜底触发搜索；未成功加载时为 null，不能拿占位文案当关键词去搜
-    val remoteDefaultKeyword = (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword
+    // 网易返回的真实推荐词，仅用于兜底触发搜索；未加载或已关闭推荐词时为 null，不能拿占位文案当关键词去搜
+    val remoteDefaultKeyword = (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword?.takeIf { it.isNotBlank() }
     val placeholder = remoteDefaultKeyword ?: "搜索你想听的"
 
     Column(

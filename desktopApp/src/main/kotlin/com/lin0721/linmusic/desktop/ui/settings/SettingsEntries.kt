@@ -141,6 +141,7 @@ private val ActionSpacing = Arrangement.spacedBy(8.dp)
 private const val CARD_LAYOUT_EXPAND_MS = 200
 
 private const val DESKTOP_LYRIC_GROUP = "桌面歌词"
+private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
@@ -375,6 +376,9 @@ internal fun settingsEntries(
 
     val quality by common.wifiQuality.collectAsState()
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
+    val searchDefaultKeywordEnabled by common.searchDefaultKeywordEnabled.collectAsState()
+    val hotSearchEnabled by common.hotSearchEnabled.collectAsState()
+    val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
     val pluginBeforeOfficial by common.pluginBeforeOfficial.collectAsState()
@@ -496,6 +500,24 @@ internal fun settingsEntries(
                 keywords = listOf("搜索", "酷狗", "酷我", "qq", "平台")
             ) {
                 SettingSwitch(searchAggregationEnabled, onChange = common::updateSearchAggregationEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "searchDefaultKeyword", SettingsCategory.Source, "搜索框推荐词",
+                subtitle = "搜索框为空时显示网易云推荐的关键词，关闭后显示固定提示",
+                keywords = listOf("搜索", "推荐", "关键词", "默认", "占位")
+            ) {
+                SettingSwitch(searchDefaultKeywordEnabled, onChange = common::updateSearchDefaultKeywordEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "hotSearch", SettingsCategory.Source, "热搜榜",
+                subtitle = "在发现页显示网易云热搜榜",
+                keywords = listOf("搜索", "热搜", "排行", "推荐")
+            ) {
+                SettingSwitch(hotSearchEnabled, onChange = common::updateHotSearchEnabled)
             }
         )
         add(
@@ -735,6 +757,49 @@ internal fun settingsEntries(
                 PluginSetting(plugins)
             }
         )
+        add(
+            rowEntry(
+                "lyricFilter", SettingsCategory.Interface, "歌词过滤",
+                subtitle = "去掉歌词开头和结尾的作词、作曲、版权声明等信息行，修改后从下一首歌生效",
+                keywords = listOf("歌词", "过滤", "屏蔽", "作词", "作曲", "版权", "正则", "关键词"),
+                group = LYRIC_FILTER_GROUP
+            ) {
+                var editing by remember { mutableStateOf(false) }
+                Row(horizontalArrangement = ActionSpacing, verticalAlignment = Alignment.CenterVertically) {
+                    SettingsActionButton("编辑规则", onClick = { editing = true })
+                    SettingSwitch(lyricFilter.enabled, onChange = common::updateLyricFilterEnabled)
+                }
+                if (editing) {
+                    LyricFilterDialog(
+                        rules = lyricFilter.rules,
+                        onSave = common::updateLyricFilterRules,
+                        onDismiss = { editing = false }
+                    )
+                }
+            }
+        )
+        if (lyricFilter.enabled) {
+            add(
+                rowEntry(
+                    "lyricFilterAmll", SettingsCategory.Interface, "过滤 AMLL 歌词",
+                    subtitle = "AMLL 歌词库要求不含作词、作曲等内容，一般无需开启",
+                    keywords = listOf("歌词", "过滤", "amll", "ttml"),
+                    group = LYRIC_FILTER_GROUP
+                ) {
+                    SettingSwitch(lyricFilter.filterAmll, onChange = common::updateLyricFilterAmll)
+                }
+            )
+            add(
+                rowEntry(
+                    "lyricFilterLocal", SettingsCategory.Interface, "过滤本地歌词",
+                    subtitle = "本地歌曲内嵌或同名文件中的歌词",
+                    keywords = listOf("歌词", "过滤", "本地"),
+                    group = LYRIC_FILTER_GROUP
+                ) {
+                    SettingSwitch(lyricFilter.filterLocal, onChange = common::updateLyricFilterLocal)
+                }
+            )
+        }
         add(
             rowEntry(
                 "desktopLyric", SettingsCategory.Interface, "显示桌面歌词",

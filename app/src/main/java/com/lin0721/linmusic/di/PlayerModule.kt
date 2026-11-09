@@ -61,7 +61,8 @@ val playerModule = module {
             matchNeteaseId = neteaseLookup::find,
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,
-            readPluginLyrics = pluginLyrics::fetch
+            readPluginLyrics = pluginLyrics::fetch,
+            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() }
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

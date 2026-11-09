@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
+import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -64,6 +66,9 @@ class SettingsViewModel(
 
     // ─── 本地偏好设置对外状态流 ───
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
+    val searchDefaultKeywordEnabled = settingsPreferences.searchDefaultKeywordEnabled.asState(true)
+    val hotSearchEnabled = settingsPreferences.hotSearchEnabled.asState(true)
+    val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
     val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
@@ -260,6 +265,19 @@ class SettingsViewModel(
 
     // ─── 核心设置修改方法 ───
     fun updateSearchAggregationEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveSearchAggregationEnabled(enabled) }
+
+    fun updateSearchDefaultKeywordEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchDefaultKeywordEnabled(enabled) }
+
+    fun updateHotSearchEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHotSearchEnabled(enabled) }
+
+    fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }
+
+    fun updateLyricFilterAmll(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterAmll(enabled) }
+
+    fun updateLyricFilterLocal(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterLocal(enabled) }
+
+    fun updateLyricFilterRules(rules: LyricFilterRules) = launchSave { settingsPreferences.saveLyricFilterRules(rules) }
+
 
     fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
 
