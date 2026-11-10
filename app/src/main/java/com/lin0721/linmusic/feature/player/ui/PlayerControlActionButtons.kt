@@ -30,6 +30,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 
 // 插件布局用的操作行：按给定按钮与顺序排布
@@ -118,21 +119,17 @@ fun ActionButtons(
     val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup
     val outputDeviceTint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
 
-    Box(
+    // 依次排入设备、音质、按钮三个槽位，见 ActionRowLayout
+    ActionRowLayout(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MelodiaSpacing.lg)
             .padding(top = MelodiaSpacing.sm, bottom = MelodiaSpacing.md)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .weight(1f, fill = false)
                     // 反馈交给里面的图标按钮，外层只是把设备名也纳入点击区
                     .pressable(MelodiaPress.None, onClick = onOutputDeviceClick)
             ) {
@@ -155,6 +152,19 @@ fun ActionButtons(
                     )
                 }
             }
+        }
+        Box {
+            if (qualityLabel != null) {
+                Text(
+                    text = qualityLabel,
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
+        }
+        Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)
@@ -224,15 +234,28 @@ fun ActionButtons(
                 }
             }
         }
-        if (qualityLabel != null) {
-            Text(
-                text = qualityLabel,
-                color = MelodiaColors.TextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.Center)
-            )
+    }
+}
+
+// 底部操作行：按钮按自身宽度靠右，音质尽量居中、碰到按钮就左移、仍放不下则隐藏，设备名只用音质左侧剩余宽度
+@Composable
+private fun ActionRowLayout(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val gap = MelodiaSpacing.sm.roundToPx()
+        val buttons = measurables[2].measure(loose)
+        val buttonsX = (width - buttons.width).coerceAtLeast(0)
+        val quality = measurables[1].measure(loose.copy(maxWidth = buttonsX))
+        val qualityX = minOf((width - quality.width) / 2, buttonsX - gap - quality.width)
+        val showQuality = quality.width > 0 && qualityX >= 0
+        val deviceMaxWidth = ((if (showQuality) qualityX else buttonsX) - gap).coerceAtLeast(0)
+        val device = measurables[0].measure(loose.copy(maxWidth = deviceMaxWidth))
+        val height = maxOf(device.height, quality.height, buttons.height)
+        layout(width, height) {
+            device.placeRelative(0, (height - device.height) / 2)
+            if (showQuality) quality.placeRelative(qualityX, (height - quality.height) / 2)
+            buttons.placeRelative(buttonsX, (height - buttons.height) / 2)
         }
     }
 }
