@@ -385,6 +385,7 @@ private fun HomeFeed(
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) viewModel.loadMoreShelves()
     }
+    val showRecentPlay by viewModel.showRecentPlay.collectAsState()
 
     LookaheadScope {
         CompositionLocalProvider(LocalHomeLookaheadScope provides this) {
@@ -395,7 +396,7 @@ private fun HomeFeed(
                     contentPadding = PaddingValues(vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
-                    homeItems(data, viewModel, onPlaylistClick, onTileHover)
+                    homeItems(data, viewModel, showRecentPlay, onPlaylistClick, onTileHover)
                 }
             }
         }
@@ -411,10 +412,11 @@ private fun LazyItemScope.reflow(): Modifier =
 private fun LazyListScope.homeItems(
     data: HomeFeedData,
     viewModel: HomeViewModel,
+    showRecentPlay: Boolean,
     onPlaylistClick: (id: Long, title: String) -> Unit,
     onTileHover: (coverUrl: String, isHovered: Boolean) -> Unit
 ) {
-    if (data.recentPlaylists.isNotEmpty()) {
+    if (showRecentPlay && data.recentPlaylists.isNotEmpty()) {
         item(key = "recent") {
             RecentGrid(
                 data = data,

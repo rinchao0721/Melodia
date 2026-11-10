@@ -49,8 +49,6 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     val searchAggregationEnabled by viewModel.searchAggregationEnabled.collectAsStateWithLifecycle()
-    val searchDefaultKeywordEnabled by viewModel.searchDefaultKeywordEnabled.collectAsStateWithLifecycle()
-    val hotSearchEnabled by viewModel.hotSearchEnabled.collectAsStateWithLifecycle()
     val fallbackEnabled by viewModel.fallbackEnabled.collectAsStateWithLifecycle()
     val unmServerUrl by viewModel.unmServerUrl.collectAsStateWithLifecycle()
     val unmRemoteFallbackEnabled by viewModel.unmRemoteFallbackEnabled.collectAsStateWithLifecycle()
@@ -110,20 +108,6 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     subtitle = "在搜索结果页提供酷狗、酷我、QQ 音乐的平台标签，切换后才会发起搜索；播放通过换源插件解析",
                     checked = searchAggregationEnabled,
                     onCheckedChange = { viewModel.updateSearchAggregationEnabled(it) }
-                )
-                HorizontalDivider(color = MelodiaColors.Divider)
-                SettingsSwitchRow(
-                    title = "搜索框推荐词",
-                    subtitle = "搜索框为空时显示网易云推荐的关键词，关闭后显示固定提示",
-                    checked = searchDefaultKeywordEnabled,
-                    onCheckedChange = { viewModel.updateSearchDefaultKeywordEnabled(it) }
-                )
-                HorizontalDivider(color = MelodiaColors.Divider)
-                SettingsSwitchRow(
-                    title = "热搜榜",
-                    subtitle = "在搜索页显示网易云热搜榜",
-                    checked = hotSearchEnabled,
-                    onCheckedChange = { viewModel.updateHotSearchEnabled(it) }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(

@@ -50,6 +50,9 @@ class CommonSettingsViewModel(
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
     val searchDefaultKeywordEnabled = settingsPreferences.searchDefaultKeywordEnabled.asState(true)
     val hotSearchEnabled = settingsPreferences.hotSearchEnabled.asState(true)
+    val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)
+    val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
+    val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
     val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
     val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
@@ -101,6 +104,13 @@ class CommonSettingsViewModel(
     fun updateSearchDefaultKeywordEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchDefaultKeywordEnabled(enabled) }
 
     fun updateHotSearchEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHotSearchEnabled(enabled) }
+
+    fun updatePlaylistTagsEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTagsEnabled(enabled) }
+
+    fun updateSearchSuggestionEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchSuggestionEnabled(enabled) }
+
+    fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
+
     fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
 
     fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }

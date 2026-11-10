@@ -158,16 +158,27 @@ class SearchViewModel(
     private var discoveryJob: Job? = null
     private var keywordEnabled = true
     private var hotSearchEnabled = true
+    private var playlistTagsEnabled = true
+    private var suggestionEnabled = true
 
     init {
         viewModelScope.launch {
-            // 推荐词与热搜开关变化时重新加载发现页，首个值即触发首次加载
+            // 推荐词、热搜与歌单分类开关变化时重新加载发现页，首个值即触发首次加载
             combine(
                 settingsPreferences?.searchDefaultKeywordEnabled ?: flowOf(true),
-                settingsPreferences?.hotSearchEnabled ?: flowOf(true)
-            ) { keyword, hot -> keyword to hot }
+                settingsPreferences?.hotSearchEnabled ?: flowOf(true),
+                settingsPreferences?.playlistTagsEnabled ?: flowOf(true)
+            ) { keyword, hot, tags -> Triple(keyword, hot, tags) }
                 .distinctUntilChanged()
-                .collect { (keyword, hot) -> loadDiscoveryData(keyword, hot) }
+                .collect { (keyword, hot, tags) -> loadDiscoveryData(keyword, hot, tags) }
+        }
+        viewModelScope.launch {
+            (settingsPreferences?.searchSuggestionEnabled ?: flowOf(true))
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    suggestionEnabled = enabled
+                    if (!enabled || _mode.value == SearchMode.Typing) requestSuggestions(_inputState.value.query)
+                }
         }
         loadLikedSongIds()
         viewModelScope.launch {
@@ -242,9 +253,14 @@ class SearchViewModel(
         }
     }
 
-    private fun loadDiscoveryData(keywordEnabled: Boolean = this.keywordEnabled, hotEnabled: Boolean = this.hotSearchEnabled) {
+    private fun loadDiscoveryData(
+        keywordEnabled: Boolean = this.keywordEnabled,
+        hotEnabled: Boolean = this.hotSearchEnabled,
+        tagsEnabled: Boolean = this.playlistTagsEnabled
+    ) {
         this.keywordEnabled = keywordEnabled
         this.hotSearchEnabled = hotEnabled
+        this.playlistTagsEnabled = tagsEnabled
         discoveryJob?.cancel()
         discoveryJob = viewModelScope.launch {
             _discoveryState.value = DiscoveryUiState.Loading
@@ -252,7 +268,7 @@ class SearchViewModel(
 
             val keywordDeferred = async { if (keywordEnabled) repository.getDefaultSearchKeyword().firstOrNull() else null }
             val hotSearchDeferred = async { if (hotEnabled) repository.getHotSearches().firstOrNull() else null }
-            val tagsDeferred = async { repository.getPlaylistTags().firstOrNull() }
+            val tagsDeferred = async { if (tagsEnabled) repository.getPlaylistTags().firstOrNull() else null }
 
             val keywordResult = keywordDeferred.await()
             val hotSearchResult = hotSearchDeferred.await()
@@ -347,7 +363,7 @@ class SearchViewModel(
     private fun requestSuggestions(query: String) {
         suggestJob?.cancel()
         hitsJob?.cancel()
-        if (query.isBlank()) {
+        if (query.isBlank() || !suggestionEnabled) {
             _inputState.value = _inputState.value.copy(
                 suggestions = emptyList(), suggestionQuery = "", songHits = emptyList(), songHitsQuery = ""
             )

@@ -165,6 +165,10 @@ class SettingsPreferences(
         private val KEY_LYRIC_FILTER_RULES = stringPreferencesKey("lyric_filter_rules")
         private val KEY_SEARCH_DEFAULT_KEYWORD_ENABLED = booleanPreferencesKey("search_default_keyword_enabled")
         private val KEY_HOT_SEARCH_ENABLED = booleanPreferencesKey("hot_search_enabled")
+        private val KEY_PLAYLIST_TAGS_ENABLED = booleanPreferencesKey("playlist_tags_enabled")
+        private val KEY_SEARCH_SUGGESTION_ENABLED = booleanPreferencesKey("search_suggestion_enabled")
+        private val KEY_HOME_RECENT_PLAY_ENABLED = booleanPreferencesKey("home_recent_play_enabled")
+        private val KEY_HOME_FOR_YOU_ENABLED = booleanPreferencesKey("home_for_you_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
@@ -901,6 +905,42 @@ class SettingsPreferences(
 
     suspend fun saveHotSearchEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_HOT_SEARCH_ENABLED] = enabled }
+    }
+
+    // 搜索发现页歌单分类开关，默认启用
+    val playlistTagsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLAYLIST_TAGS_ENABLED] ?: true
+    }
+
+    suspend fun savePlaylistTagsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_PLAYLIST_TAGS_ENABLED] = enabled }
+    }
+
+    // 输入时联想开关，默认启用
+    val searchSuggestionEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SEARCH_SUGGESTION_ENABLED] ?: true
+    }
+
+    suspend fun saveSearchSuggestionEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SEARCH_SUGGESTION_ENABLED] = enabled }
+    }
+
+    // 首页最近播放开关，默认启用
+    val homeRecentPlayEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOME_RECENT_PLAY_ENABLED] ?: true
+    }
+
+    suspend fun saveHomeRecentPlayEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOME_RECENT_PLAY_ENABLED] = enabled }
+    }
+
+    // 首页「为你定制」入口开关，默认启用
+    val homeForYouEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOME_FOR_YOU_ENABLED] ?: true
+    }
+
+    suspend fun saveHomeForYouEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOME_FOR_YOU_ENABLED] = enabled }
     }
 
     // 逐字歌词流光动效 Flow

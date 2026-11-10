@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 
 private const val TAG = "HomeViewModel"
@@ -66,7 +67,8 @@ class HomeViewModel(
     private val onlineState: OnlineStateProvider,
     private val userPlaylistRepository: UserPlaylistRepository,
     private val songDownloadManager: SongDownloader,
-    private val playlistMutationBus: PlaylistMutationBus
+    private val playlistMutationBus: PlaylistMutationBus,
+    settingsPreferences: SettingsPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -74,6 +76,12 @@ class HomeViewModel(
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // 数据照常加载，开关只决定是否显示，重新打开无需刷新
+    val showRecentPlay: StateFlow<Boolean> = settingsPreferences.homeRecentPlayEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val showForYou: StateFlow<Boolean> = settingsPreferences.homeForYouEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()

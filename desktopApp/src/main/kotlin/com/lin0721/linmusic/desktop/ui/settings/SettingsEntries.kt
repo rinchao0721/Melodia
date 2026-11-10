@@ -144,6 +144,7 @@ private const val CARD_LAYOUT_EXPAND_MS = 200
 private const val DESKTOP_LYRIC_GROUP = "桌面歌词"
 private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
+private const val SIMPLIFY_GROUP = "界面精简"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
 
@@ -380,6 +381,9 @@ internal fun settingsEntries(
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
     val searchDefaultKeywordEnabled by common.searchDefaultKeywordEnabled.collectAsState()
     val hotSearchEnabled by common.hotSearchEnabled.collectAsState()
+    val playlistTagsEnabled by common.playlistTagsEnabled.collectAsState()
+    val searchSuggestionEnabled by common.searchSuggestionEnabled.collectAsState()
+    val homeRecentPlayEnabled by common.homeRecentPlayEnabled.collectAsState()
     val showSongMaxQuality by common.showSongMaxQuality.collectAsState()
     val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
@@ -513,24 +517,6 @@ internal fun settingsEntries(
                 keywords = listOf("搜索", "酷狗", "酷我", "qq", "平台")
             ) {
                 SettingSwitch(searchAggregationEnabled, onChange = common::updateSearchAggregationEnabled)
-            }
-        )
-        add(
-            rowEntry(
-                "searchDefaultKeyword", SettingsCategory.Source, "搜索框推荐词",
-                subtitle = "搜索框为空时显示网易云推荐的关键词，关闭后显示固定提示",
-                keywords = listOf("搜索", "推荐", "关键词", "默认", "占位")
-            ) {
-                SettingSwitch(searchDefaultKeywordEnabled, onChange = common::updateSearchDefaultKeywordEnabled)
-            }
-        )
-        add(
-            rowEntry(
-                "hotSearch", SettingsCategory.Source, "热搜榜",
-                subtitle = "在发现页显示网易云热搜榜",
-                keywords = listOf("搜索", "热搜", "排行", "推荐")
-            ) {
-                SettingSwitch(hotSearchEnabled, onChange = common::updateHotSearchEnabled)
             }
         )
         add(
@@ -781,6 +767,56 @@ internal fun settingsEntries(
                 keywords = listOf("皮肤", "主题", "外观", "背景", "背景图", "壁纸", "导入", "导出", "配色")
             ) {
                 SkinSetting(settings = themeSettings, repository = common.skins)
+            }
+        )
+        add(
+            rowEntry(
+                "homeRecentPlay", SettingsCategory.Interface, "首页最近播放",
+                subtitle = "在首页顶部显示最近播放的歌单与专辑",
+                keywords = listOf("首页", "主页", "最近播放", "精简", "隐藏"),
+                group = SIMPLIFY_GROUP
+            ) {
+                SettingSwitch(homeRecentPlayEnabled, onChange = common::updateHomeRecentPlayEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "searchDefaultKeyword", SettingsCategory.Interface, "搜索框推荐词",
+                subtitle = "搜索框为空时显示网易云推荐的关键词，关闭后显示固定提示",
+                keywords = listOf("搜索", "推荐", "关键词", "默认", "占位", "精简"),
+                group = SIMPLIFY_GROUP
+            ) {
+                SettingSwitch(searchDefaultKeywordEnabled, onChange = common::updateSearchDefaultKeywordEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "hotSearch", SettingsCategory.Interface, "热搜榜",
+                subtitle = "在浏览页显示网易云热搜榜",
+                keywords = listOf("搜索", "热搜", "排行", "推荐", "精简"),
+                group = SIMPLIFY_GROUP
+            ) {
+                SettingSwitch(hotSearchEnabled, onChange = common::updateHotSearchEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "playlistTags", SettingsCategory.Interface, "歌单分类",
+                subtitle = "在浏览页显示歌单分类",
+                keywords = listOf("搜索", "浏览", "歌单", "分类", "标签", "精简"),
+                group = SIMPLIFY_GROUP
+            ) {
+                SettingSwitch(playlistTagsEnabled, onChange = common::updatePlaylistTagsEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                "searchSuggestion", SettingsCategory.Interface, "搜索联想",
+                subtitle = "输入时显示联想词与匹配的歌曲、歌手、专辑，不影响搜索历史",
+                keywords = listOf("搜索", "联想", "建议", "补全", "下拉", "精简"),
+                group = SIMPLIFY_GROUP
+            ) {
+                SettingSwitch(searchSuggestionEnabled, onChange = common::updateSearchSuggestionEnabled)
             }
         )
         add(

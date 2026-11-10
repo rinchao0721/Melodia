@@ -65,6 +65,8 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val showRecentPlay by viewModel.showRecentPlay.collectAsStateWithLifecycle()
+    val showForYou by viewModel.showForYou.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val musicUiState by musicViewModel.uiState.collectAsStateWithLifecycle()
     val podcastState by podcastViewModel.state.collectAsStateWithLifecycle()
@@ -188,7 +190,9 @@ fun HomeScreen(
                         onLoadMore = { viewModel.loadMoreShelves() },
                         onIntelligenceClick = { viewModel.startIntelligenceMode() },
                         onRoamingClick = { viewModel.startRoaming() },
-                        onDailyPlay = { viewModel.playDailySong() }
+                        onDailyPlay = { viewModel.playDailySong() },
+                        showRecentPlay = showRecentPlay,
+                        showForYou = showForYou
                     )
                 }
             }

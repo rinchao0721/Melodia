@@ -84,6 +84,7 @@ fun HomeHighlightsSection(
     onIntelligenceClick: () -> Unit,
     onRadarClick: (Long) -> Unit,
     onRoamingClick: () -> Unit,
+    showForYou: Boolean,
     modifier: Modifier = Modifier
 ) {
     val entries = rememberForYouEntries(
@@ -100,7 +101,7 @@ fun HomeHighlightsSection(
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val cardWidth = rememberHomeCardWidth(maxWidth)
 
-        if (sideBySide && dailySongs.isNotEmpty()) {
+        if (sideBySide && showForYou && dailySongs.isNotEmpty()) {
             val forYouWidth = min(
                 HomeEdgePadding + cardWidth * entries.size + HomeCardGap * entries.size,
                 maxWidth * FOR_YOU_SIDE_MAX_FRACTION
@@ -134,12 +135,14 @@ fun HomeHighlightsSection(
                             .padding(horizontal = HomeEdgePadding)
                     )
                 }
-                ForYouSection(
-                    entries = entries,
-                    cardWidth = cardWidth,
-                    contentPadding = PaddingValues(horizontal = HomeEdgePadding),
-                    modifier = Modifier.fillMaxWidth().padding(top = HomeSectionSpacing)
-                )
+                if (showForYou) {
+                    ForYouSection(
+                        entries = entries,
+                        cardWidth = cardWidth,
+                        contentPadding = PaddingValues(horizontal = HomeEdgePadding),
+                        modifier = Modifier.fillMaxWidth().padding(top = HomeSectionSpacing)
+                    )
+                }
             }
         }
     }
