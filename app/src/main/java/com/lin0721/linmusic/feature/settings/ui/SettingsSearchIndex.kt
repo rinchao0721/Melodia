@@ -28,6 +28,7 @@ object SettingsSearchIndex {
             entry(QUALITY_SOURCES, 0, "Wi-Fi 环境播放音质", "wifi 无线 码率"),
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),
             entry(QUALITY_SOURCES, 1, "显示实际音质", "播放页 全屏"),
+            entry(QUALITY_SOURCES, 1, "显示歌曲最高音质", "徽标 列表 无损 Hi-Res 母带"),
             entry(QUALITY_SOURCES, 2, "多平台聚合搜索", "酷狗 酷我 QQ 音乐"),
             entry(QUALITY_SOURCES, 2, "搜索框推荐词", "搜索 推荐 关键词 默认"),
             entry(QUALITY_SOURCES, 2, "热搜榜", "搜索 热搜 排行"),

@@ -43,12 +43,26 @@ data class Track(
     val publishTime: Long = 0,
     val dt: Long = 0,
     // 歌曲播放与下载权限信息
-    val privilege: SongPrivilege? = null
+    val privilege: SongPrivilege? = null,
+    // 各档位文件信息，歌单详情、song/detail 等列表普遍下发，没有该档位时为 null
+    val hr: SongFileInfo? = null,
+    val sq: SongFileInfo? = null,
+    val h: SongFileInfo? = null,
+    val m: SongFileInfo? = null,
+    val l: SongFileInfo? = null
+)
+
+@Serializable
+data class SongFileInfo(
+    val br: Int = 0,
+    val sr: Int = 0
 )
 
 // 歌曲权限详情
 @Serializable
 data class SongPrivilege(
+    // song/detail 顶层 privileges 数组靠它对应歌曲
+    val id: Long = 0,
     val dlLevel: String? = null,
     val plLevel: String? = null,
     val flLevel: String? = null,

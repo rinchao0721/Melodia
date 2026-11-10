@@ -273,6 +273,7 @@ private fun ResultEntry(
         is SearchResultItem.SongItem -> TrackRow(
             index = index,
             track = item.track,
+            qualitySongId = item.track.id,
             isCurrent = currentSongId == item.track.id,
             onPlay = { viewModel.playSong(item.track) },
             actions = actions

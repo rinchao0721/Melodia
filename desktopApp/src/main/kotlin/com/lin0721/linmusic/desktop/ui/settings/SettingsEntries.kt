@@ -380,6 +380,7 @@ internal fun settingsEntries(
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
     val searchDefaultKeywordEnabled by common.searchDefaultKeywordEnabled.collectAsState()
     val hotSearchEnabled by common.hotSearchEnabled.collectAsState()
+    val showSongMaxQuality by common.showSongMaxQuality.collectAsState()
     val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
@@ -445,6 +446,15 @@ internal fun settingsEntries(
                     label = { key -> QualityOptions.firstOrNull { it.first == key }?.second ?: key },
                     onSelect = common::updateWifiQuality
                 )
+            }
+        )
+        add(
+            rowEntry(
+                "songMaxQuality", SettingsCategory.Playback, "显示歌曲最高音质",
+                subtitle = "在歌曲列表的歌手名前标出该歌曲可用的最高音质",
+                keywords = listOf("音质", "徽标", "无损", "hi-res", "母带")
+            ) {
+                SettingSwitch(showSongMaxQuality, onChange = common::updateShowSongMaxQuality)
             }
         )
         add(

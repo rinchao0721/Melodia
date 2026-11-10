@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
@@ -50,7 +51,10 @@ fun LazyListScope.playlistRecommendItems(
                 title = track.name,
                 artist = track.ar.joinToString(" • ") { it.name },
                 coverUrl = track.al.picUrl,
-                isVip = track.fee == 1
+                isVip = track.fee == 1,
+                qualitySongId = track.id,
+                maxBrLevel = track.privilege?.maxBrLevel,
+                inferredLevel = track.inferredMaxBrLevel()
             ),
             isActive = currentTrackId == track.id.toString(),
             isPlaying = isPlaying,

@@ -167,6 +167,7 @@ private fun LazyListScope.songItems(
             TrackRow(
                 index = startIndex + offset,
                 track = song.track,
+                qualitySongId = song.track.id,
                 isCurrent = currentSongId == song.track.id,
                 onPlay = { onPlay(song) },
                 modifier = Modifier.padding(horizontal = 16.dp),

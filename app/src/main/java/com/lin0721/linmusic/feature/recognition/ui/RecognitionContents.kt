@@ -267,7 +267,8 @@ internal fun RecognitionFoundContent(
                             id = candidate.songId,
                             title = candidate.title,
                             artist = "${candidate.artists} · 命中 ${formatTime(candidate.startTimeMs)}",
-                            coverUrl = candidate.coverUrl
+                            coverUrl = candidate.coverUrl,
+                            qualitySongId = candidate.songId
                         ),
                         isActive = isCurrent,
                         isPlaying = nowPlaying?.isPlaying == true,

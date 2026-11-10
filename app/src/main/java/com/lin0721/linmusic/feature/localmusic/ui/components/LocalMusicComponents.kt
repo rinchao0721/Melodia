@@ -139,7 +139,9 @@ fun LocalTrackRow(
             title = track.title,
             artist = subtitle,
             coverUrl = coverUrl,
-            durationText = track.durationMs.takeIf { it > 0 }?.let(::formatTime)
+            durationText = track.durationMs.takeIf { it > 0 }?.let(::formatTime),
+            // 只有匹配到网易云的本地歌曲才有可查的歌曲 id
+            qualitySongId = track.songId
         ),
         isActive = playingMediaId == track.queueSongId.toString(),
         isPlaying = isPlaying,

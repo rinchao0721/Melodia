@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
@@ -71,5 +72,6 @@ class DesktopAppDependencies(
     val localMusic: LocalMusicActions,
     val cloudMusic: CloudMusicActions,
     val recognition: DesktopRecognition,
+    val songQuality: SongQualityCache,
     val pageViewModels: PageViewModelFactory
 )

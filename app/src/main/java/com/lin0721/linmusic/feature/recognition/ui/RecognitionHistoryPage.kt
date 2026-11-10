@@ -182,7 +182,8 @@ private fun HistoryRow(
                     id = entry.songId,
                     title = entry.title,
                     artist = "${entry.artists} · ${row.timeLabel}",
-                    coverUrl = entry.coverUrl
+                    coverUrl = entry.coverUrl,
+                    qualitySongId = entry.songId
                 ),
                 isActive = isCurrent,
                 isPlaying = nowPlaying?.isPlaying == true,

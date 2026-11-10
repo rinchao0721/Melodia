@@ -194,6 +194,8 @@ class SettingsPreferences(
         private val KEY_SHOW_MINI_LYRIC = booleanPreferencesKey("show_mini_lyric")
         // 播放页显示实际音质，默认 false
         private val KEY_SHOW_PLAYBACK_QUALITY = booleanPreferencesKey("show_playback_quality")
+        // 歌曲列表显示最高音质徽标，默认 false
+        private val KEY_SHOW_SONG_MAX_QUALITY = booleanPreferencesKey("show_song_max_quality")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -1062,6 +1064,17 @@ class SettingsPreferences(
     suspend fun saveShowPlaybackQuality(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_PLAYBACK_QUALITY] = show
+        }
+    }
+
+    // 歌曲列表最高音质徽标显隐 Flow
+    val showSongMaxQuality: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_SONG_MAX_QUALITY] ?: false
+    }
+
+    suspend fun saveShowSongMaxQuality(show: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_SONG_MAX_QUALITY] = show
         }
     }
 }

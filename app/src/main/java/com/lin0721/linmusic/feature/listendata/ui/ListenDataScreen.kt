@@ -188,7 +188,8 @@ private fun TodayList(
                     id = song.id,
                     title = song.name,
                     artist = song.artistName,
-                    coverUrl = song.coverUrl
+                    coverUrl = song.coverUrl,
+                    qualitySongId = song.id
                 ),
                 isActive = currentTrackId == song.id.toString(),
                 isPlaying = isPlaying,
@@ -271,7 +272,8 @@ private fun PeriodList(
                         title = song.name,
                         artist = song.artistName,
                         coverUrl = song.coverUrl,
-                        durationText = "${song.playCount}次"
+                        durationText = "${song.playCount}次",
+                        qualitySongId = song.id
                     ),
                     isActive = currentTrackId == song.id.toString(),
                     isPlaying = isPlaying,
