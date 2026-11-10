@@ -187,6 +187,7 @@ class SettingsViewModel(
     val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
 
     val fluidCloudLyricEnabled = settingsPreferences.fluidCloudLyricEnabled.asState(false)
+    val flymeStatusBarLyricEnabled = settingsPreferences.flymeStatusBarLyricEnabled.asState(false)
 
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
@@ -479,6 +480,8 @@ class SettingsViewModel(
     fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
 
     fun updateFluidCloudLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFluidCloudLyricEnabled(enabled) }
+
+    fun updateFlymeStatusBarLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFlymeStatusBarLyricEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

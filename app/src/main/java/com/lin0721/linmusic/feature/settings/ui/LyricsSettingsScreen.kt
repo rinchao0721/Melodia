@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.core.player.external.FluidCloudLyricNotifier
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
@@ -49,6 +50,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val fullScreenLyricAlignment by viewModel.fullScreenLyricAlignment.collectAsStateWithLifecycle()
     val fullScreenKaraokeAdvancedEffect by viewModel.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle()
     val fluidCloudLyricEnabled by viewModel.fluidCloudLyricEnabled.collectAsStateWithLifecycle()
+    val flymeStatusBarLyricEnabled by viewModel.flymeStatusBarLyricEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var floatingSheet by remember { mutableStateOf<FloatingSheet?>(null) }
@@ -226,6 +228,15 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                             }
                         }
                     )
+                    if (FlymeStatusBarLyric.isSupported) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "魅族状态栏歌词（测试）",
+                            subtitle = "播放时在 Flyme 状态栏显示当前行歌词，暂停时收起",
+                            checked = flymeStatusBarLyricEnabled,
+                            onCheckedChange = { viewModel.updateFlymeStatusBarLyricEnabled(it) }
+                        )
+                    }
                 }
             }
 

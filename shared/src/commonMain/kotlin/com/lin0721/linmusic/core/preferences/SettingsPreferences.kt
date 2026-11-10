@@ -194,6 +194,7 @@ class SettingsPreferences(
         private val KEY_LYRICON_ENABLED = booleanPreferencesKey("lyricon_enabled")
         // 启用状态栏歌词胶囊 (Android 16 实时更新通知)，默认 false
         private val KEY_FLUID_CLOUD_LYRIC_ENABLED = booleanPreferencesKey("fluid_cloud_lyric_enabled")
+        private val KEY_FLYME_STATUS_BAR_LYRIC_ENABLED = booleanPreferencesKey("flyme_status_bar_lyric_enabled")
         // 播放页小歌词显隐，默认 true
         private val KEY_SHOW_MINI_LYRIC = booleanPreferencesKey("show_mini_lyric")
         // 播放页显示实际音质，默认 false
@@ -1083,6 +1084,15 @@ class SettingsPreferences(
         dataStore.edit { prefs ->
             prefs[KEY_FLUID_CLOUD_LYRIC_ENABLED] = enabled
         }
+    }
+
+    // 魅族状态栏歌词开关，默认关闭
+    val flymeStatusBarLyricEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FLYME_STATUS_BAR_LYRIC_ENABLED] ?: false
+    }
+
+    suspend fun saveFlymeStatusBarLyricEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_FLYME_STATUS_BAR_LYRIC_ENABLED] = enabled }
     }
 
     // 播放页小歌词显隐 Flow

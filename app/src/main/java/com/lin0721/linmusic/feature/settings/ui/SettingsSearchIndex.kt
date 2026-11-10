@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.feature.settings.ui.SettingsSubMenu.*
 
 // 设置搜索条目；条件显示的条目只索引到所属子页，不定位具体行
@@ -90,6 +91,8 @@ object SettingsSearchIndex {
             entry(ABOUT, 2, "日志级别", "诊断 调试"),
             entry(ABOUT, 2, "导出并分享日志", "反馈 故障"),
             entry(ABOUT, 3, "特别感谢", "致谢 开源项目")
+        ) + listOfNotNull(
+            entry(LYRICS, 2, "魅族状态栏歌词", "flyme meizu 状态栏").takeIf { FlymeStatusBarLyric.isSupported }
         )
     }
 
