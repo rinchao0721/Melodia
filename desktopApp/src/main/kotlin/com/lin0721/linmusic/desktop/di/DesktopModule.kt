@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
+import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -117,11 +118,18 @@ private fun createPlaybackController(
     downloadPreferences: DesktopDownloadPreferences,
     audioCache: AudioCache,
     cacheManager: DesktopCacheManager,
-    externalResolver: ExternalTrackResolver
+    externalResolver: ExternalTrackResolver,
+    recognizer: DownloadRecognizer
 ): DesktopPlaybackController = try {
     MpvPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
-        localAudioOf = { songId -> downloadPreferences.findVerifiedRecord(songId)?.mediaStoreUri },
+        // 没有下载记录时查本地扫描索引补登记，不联网
+        localAudioOf = { item ->
+            downloadPreferences.findVerifiedRecord(item.songId)?.mediaStoreUri
+                ?: item.takeIf { it.songId > 0 && it.radioId == 0L }
+                    ?.let { recognizer.recognizeSingle(RecognitionTarget(it.songId, it.title, listOf(it.artist))) }
+                    ?.mediaStoreUri
+        },
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
         audioCache = audioCache,
         cacheManager = cacheManager,
@@ -220,7 +228,7 @@ val desktopPlatformModule = module {
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
-    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single<PlaybackController> { get<DesktopPlaybackController>() }
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }

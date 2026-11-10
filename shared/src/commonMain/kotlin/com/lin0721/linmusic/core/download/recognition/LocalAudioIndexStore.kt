@@ -15,14 +15,20 @@ private const val TAG = "LocalAudioIndexStore"
 @Serializable
 private data class IndexFile(val entries: List<LocalAudioEntry> = emptyList())
 
+// 索引内容与其版本号，版本随每次写入递增，供调用方判断缓存是否失效
+class IndexSnapshot(val version: Long, val entries: List<LocalAudioEntry>)
+
 // 已扫描本地音频的索引，以 JSON 文件持久化
 class LocalAudioIndexStore(private val file: File) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
     private var cache: List<LocalAudioEntry>? = null
+    private var version = 0L
 
     suspend fun entries(): List<LocalAudioEntry> = mutex.withLock { loadLocked() }
+
+    suspend fun snapshot(): IndexSnapshot = mutex.withLock { IndexSnapshot(version, loadLocked()) }
 
     // 用新扫描结果整体替换该目录下的条目
     suspend fun replaceRoot(root: String, scanned: List<LocalAudioEntry>) = mutex.withLock {
@@ -51,6 +57,7 @@ class LocalAudioIndexStore(private val file: File) {
 
     private suspend fun saveLocked(entries: List<LocalAudioEntry>) {
         cache = entries
+        version++
         withContext(Dispatchers.IO) {
             runCatching {
                 file.parentFile?.mkdirs()
