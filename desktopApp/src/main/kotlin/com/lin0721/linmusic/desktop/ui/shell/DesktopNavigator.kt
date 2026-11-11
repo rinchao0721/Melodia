@@ -34,7 +34,8 @@ class DesktopNavigator(
     val toggleCommentsPanel: (CommentsHost) -> Unit,
     val isCommentsPanelOpen: (CommentsHost) -> Boolean,
     // 为当前播放的歌曲打开分享卡片
-    val openShareCard: (ShareCardKind) -> Unit
+    val openShareCard: (ShareCardKind) -> Unit,
+    val openListenTogether: () -> Unit
 )
 
 val LocalDesktopNavigator = compositionLocalOf<DesktopNavigator> {

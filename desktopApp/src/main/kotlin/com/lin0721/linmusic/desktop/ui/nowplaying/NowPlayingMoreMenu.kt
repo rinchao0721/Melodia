@@ -116,7 +116,14 @@ internal fun NowPlayingMoreMenu(
     var showListenTogether by remember { mutableStateOf(false) }
     val listenTogether = LocalListenTogetherViewModel.current
     if (showListenTogether && listenTogether != null) {
-        ListenTogetherDialog(listenTogether, onDismiss = { showListenTogether = false })
+        ListenTogetherDialog(
+            listenTogether,
+            onDismiss = { showListenTogether = false },
+            onRoomReady = {
+                showListenTogether = false
+                navigator.openListenTogether()
+            }
+        )
     }
 
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, width = MoreMenuWidth) {
@@ -273,7 +280,11 @@ internal fun NowPlayingMoreMenu(
         if (cloud) {
             MenuItem("一起听", icon = Icons.Rounded.Group, onClick = {
                 onDismiss()
-                if (navigator.isLoggedIn) showListenTogether = true else navigator.showMessage("请先登录账号")
+                when {
+                    !navigator.isLoggedIn -> navigator.showMessage("请先登录账号")
+                    listenTogether?.state?.value?.active == true -> navigator.openListenTogether()
+                    else -> showListenTogether = true
+                }
             })
         }
 

@@ -22,21 +22,24 @@ import retrofit2.Retrofit
 fun listenTogetherModule(playerDispatcher: CoroutineDispatcher): Module = module {
     single<ListenTogetherApi> { get<Retrofit>().create(ListenTogetherApi::class.java) }
     single<ListenTogetherRepository> { ListenTogetherRepositoryImpl(get()) }
-    single {
+    single<RoomTrackResolver> {
         val playerRepository = get<PlayerRepository>()
+        RoomTrackResolver { songIds ->
+            if (songIds.isEmpty()) {
+                emptyList()
+            } else {
+                playerRepository.getSongDetails(songIds).first().getOrNull().orEmpty()
+                    .filter { it.id > 0L }
+                    .map { QueueItem(it.id, it.name, it.ar.joinToString("/") { a -> a.name }, it.al.picUrl) }
+            }
+        }
+    }
+    single {
         val userPreferences = get<UserPreferences>()
         ListenTogetherSession(
             repository = get(),
             controller = get<PlaybackController>(),
-            resolver = RoomTrackResolver { songIds ->
-                if (songIds.isEmpty()) {
-                    emptyList()
-                } else {
-                    playerRepository.getSongDetails(songIds).first().getOrNull().orEmpty()
-                        .filter { it.id > 0L }
-                        .map { QueueItem(it.id, it.name, it.ar.joinToString("/") { a -> a.name }, it.al.picUrl) }
-                }
-            },
+            resolver = get(),
             selfUserId = { userPreferences.userProfile.first()?.uid ?: 0L },
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             playerDispatcher = playerDispatcher
