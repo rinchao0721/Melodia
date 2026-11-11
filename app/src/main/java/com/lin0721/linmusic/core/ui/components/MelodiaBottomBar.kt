@@ -121,6 +121,7 @@ import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.feature.player.ui.rememberPlaybackQualityLabel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherCoverBadge
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
@@ -371,11 +372,14 @@ fun MiniPlayerCard(
                     PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
                         val scale = node.size.scale
                         when (node.type) {
-                            LayoutNodeType.COVER -> AntiFlickerCoverImage(
-                                url = miniThumbUrl(displayedCleanCoverUrl),
-                                contentScale = ContentScale.Crop,
-                                modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
-                            )
+                            LayoutNodeType.COVER -> Box(nodeModifier) {
+                                AntiFlickerCoverImage(
+                                    url = miniThumbUrl(displayedCleanCoverUrl),
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                                )
+                                ListenTogetherCoverBadge(Modifier.align(Alignment.BottomEnd))
+                            }
                             LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
                             LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
                             LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
@@ -648,13 +652,16 @@ private fun MiniPlayerContentRow(
             .fillMaxSize()
             .graphicsLayer { translationX = translationXProvider() }
     ) {
-        AntiFlickerCoverImage(
-            url = thumbUrl,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(RadiusCompact))
-        )
+        Box {
+            AntiFlickerCoverImage(
+                url = thumbUrl,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(RadiusCompact))
+            )
+            ListenTogetherCoverBadge(Modifier.align(Alignment.BottomEnd))
+        }
         Spacer(modifier = Modifier.width(12.dp))
         Column(
             modifier = Modifier.weight(1f),

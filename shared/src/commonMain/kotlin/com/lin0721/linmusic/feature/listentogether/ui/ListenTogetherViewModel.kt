@@ -52,6 +52,10 @@ class ListenTogetherViewModel(
     private val _roomTracks = MutableStateFlow<List<QueueItem>>(emptyList())
     val roomTracks: StateFlow<List<QueueItem>> = _roomTracks.asStateFlow()
 
+    // 房间页是否展开，供播放页标题与房间页入口共用
+    private val _roomOpen = MutableStateFlow(false)
+    val roomOpen: StateFlow<Boolean> = _roomOpen.asStateFlow()
+
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
@@ -65,6 +69,18 @@ class ListenTogetherViewModel(
                     _roomTracks.value = if (ids.isEmpty()) emptyList() else resolveTracks(ids)
                 }
         }
+        // 会话结束时收起房间页
+        viewModelScope.launch {
+            session.state.map { it.active }.distinctUntilChanged().collect { active -> if (!active) _roomOpen.value = false }
+        }
+    }
+
+    fun openRoom() {
+        if (session.state.value.active) _roomOpen.value = true
+    }
+
+    fun closeRoom() {
+        _roomOpen.value = false
     }
 
     // 进入入口时接回服务端仍存在的房间，失败不打扰用户

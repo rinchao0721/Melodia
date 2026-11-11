@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherTitleLabel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import org.koin.androidx.compose.koinViewModel
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -202,6 +208,12 @@ fun FullPlayerSourceLabel(
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
+    val listenTogether: ListenTogetherViewModel = koinViewModel()
+    val roomState by listenTogether.state.collectAsState()
+    if (roomState.active) {
+        ListenTogetherTitleLabel(roomState, onClick = listenTogether::openRoom, modifier = modifier)
+        return
+    }
     AnimatedContent(
         targetState = playContext,
         transitionSpec = {

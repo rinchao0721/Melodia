@@ -61,6 +61,7 @@ object DesktopColors {
     val Scrim: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.scrim
     val ShadowSpot: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.shadowSpot
     val Success: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.success
+    val Vip: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.vip
     val Error: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.error
     val InverseText: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.inverseText
     val IsDark: Boolean @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.isDark

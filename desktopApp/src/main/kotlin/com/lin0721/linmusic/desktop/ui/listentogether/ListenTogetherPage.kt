@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +52,8 @@ import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
+import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import kotlinx.coroutines.launch
@@ -60,7 +61,6 @@ import kotlinx.coroutines.launch
 private val CoverSize = 280.dp
 private val AvatarSize = 44.dp
 private val CardShape = RoundedCornerShape(12.dp)
-private const val BACKGROUND_DARKEN = 0.35f
 private const val COLOR_TRANSITION_MS = 800
 
 // 一起听房间页：封面取色铺底，左栏为当前歌曲、成员与操作，右栏为房间队列
@@ -74,11 +74,11 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
     val tracks by viewModel.roomTracks.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val base = rememberCoverBase(nowPlaying?.artworkUri)
-    val background by animateColorAsState(lerp(base, Color.Black, BACKGROUND_DARKEN), uiTween(COLOR_TRANSITION_MS), label = "roomBackground")
-    val content = Color.White
-    val secondary = Color.White.copy(alpha = 0.72f)
-    val cardFill = Color.White.copy(alpha = 0.10f)
+    val immersive = rememberImmersiveColors(rememberCoverBase(nowPlaying?.artworkUri))
+    val background by animateColorAsState(immersive.fill, uiTween(COLOR_TRANSITION_MS), label = "roomBackground")
+    val content = immersive.content
+    val secondary = immersive.inactive
+    val cardFill = content.copy(alpha = 0.10f)
 
     Box(modifier.fillMaxSize().background(background)) {
         if (!state.active) {
@@ -173,7 +173,7 @@ private fun RoomHeader(state: ListenTogetherState, content: Color, secondary: Co
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(6.dp).clip(CircleShape)
-                    .background(if (state.message != null) Color(0xFFFFC107) else Color(0xFF4CAF50))
+                    .background(if (state.message != null) DesktopColors.TextTertiary else DesktopColors.Success)
             )
             Spacer(Modifier.width(6.dp))
             Text((state.message ?: "同步中") + if (state.isHost) " · 你是房主" else " · 跟随中", color = secondary, fontSize = 12.sp)
@@ -216,7 +216,7 @@ private fun MemberAvatar(member: ListenTogetherMember, isHost: Boolean, content:
                     Modifier.align(Alignment.BottomEnd).size(16.dp).clip(CircleShape).background(content),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Star, "房主", tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
+                    Icon(Icons.Rounded.Star, "房主", tint = DesktopColors.Vip, modifier = Modifier.size(12.dp))
                 }
             }
         }
@@ -246,7 +246,7 @@ private fun RoomTrackRow(
     Row(
         Modifier.fillMaxWidth()
             .hoverable(interaction)
-            .background(if (hovered && clickable) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+            .background(if (hovered && clickable) content.copy(alpha = 0.08f) else Color.Transparent)
             .then(if (clickable) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically

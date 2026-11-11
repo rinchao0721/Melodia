@@ -65,6 +65,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.PlayingEqualizerBars
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
@@ -108,9 +109,9 @@ fun ListenTogetherRoomScreen(
     }
     val immersive = rememberImmersiveColors(paletteBase)
     val background by animateColorAsState(immersive.fill, uiTween(COLOR_TRANSITION_MS), label = "roomBackground")
-    val content = Color.White
-    val secondary = Color.White.copy(alpha = 0.72f)
-    val cardFill = Color.White.copy(alpha = 0.10f)
+    val content = MelodiaColors.OnPlayer
+    val secondary = MelodiaColors.OnCoverSecondary
+    val cardFill = content.copy(alpha = 0.10f)
 
     // 会话结束（被结束、断网退出）后自动关闭
     LaunchedEffect(state.active) { if (!state.active) onClose() }
@@ -235,7 +236,7 @@ private fun RoomTopBar(state: ListenTogetherState, content: Color, secondary: Co
                     modifier = Modifier
                         .size(6.dp)
                         .clip(CircleShape)
-                        .background(if (unstable) Color(0xFFFFC107) else Color(0xFF4CAF50))
+                        .background(if (unstable) MelodiaColors.TextTertiary else MelodiaColors.Success)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
@@ -353,7 +354,7 @@ private fun MemberAvatar(member: ListenTogetherMember, isHost: Boolean, content:
                         .background(content),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Star, contentDescription = "房主", tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
+                    Icon(Icons.Rounded.Star, contentDescription = "房主", tint = MelodiaColors.Vip, modifier = Modifier.size(12.dp))
                 }
             }
         }

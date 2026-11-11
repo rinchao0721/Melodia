@@ -40,6 +40,7 @@ internal fun desktopNavigator(
         toggleCommentsPanel = state::toggleCommentsPanel,
         isCommentsPanelOpen = state::isCommentsPanelOpen,
         openShareCard = { kind -> state.shareCardKind = kind },
-        openListenTogether = { state.navigate(DesktopRoute.ListenTogether) }
+        openListenTogether = { state.navigate(DesktopRoute.ListenTogether) },
+        isListenTogetherOpen = state.backStack.current == DesktopRoute.ListenTogether
     )
 }
