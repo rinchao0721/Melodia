@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Share
@@ -59,6 +60,8 @@ import com.lin0721.linmusic.desktop.ui.components.songLink
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.library.LibrarySearchInput
+import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherDialog
+import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
@@ -109,6 +112,12 @@ internal fun NowPlayingMoreMenu(
     val cloud = !podcast.isPodcast && cloudSongId != null
     val modes = !podcast.isPodcast && (cloud || isIntelligence || isRoaming)
     val currentQuality = navigator.downloadLevel
+
+    var showListenTogether by remember { mutableStateOf(false) }
+    val listenTogether = LocalListenTogetherViewModel.current
+    if (showListenTogether && listenTogether != null) {
+        ListenTogetherDialog(listenTogether, onDismiss = { showListenTogether = false })
+    }
 
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, width = MoreMenuWidth) {
         if (cloud && cloudSongId != null) {
@@ -259,6 +268,13 @@ internal fun NowPlayingMoreMenu(
                     )
                 }
             }
+        }
+
+        if (cloud) {
+            MenuItem("一起听", icon = Icons.Rounded.Group, onClick = {
+                onDismiss()
+                if (navigator.isLoggedIn) showListenTogether = true else navigator.showMessage("请先登录账号")
+            })
         }
 
         SubMenuItem(

@@ -24,6 +24,7 @@ import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
@@ -73,5 +74,6 @@ class DesktopAppDependencies(
     val cloudMusic: CloudMusicActions,
     val recognition: DesktopRecognition,
     val songQuality: SongQualityCache,
+    val listenTogether: ListenTogetherViewModel,
     val pageViewModels: PageViewModelFactory
 )
