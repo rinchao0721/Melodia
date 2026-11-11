@@ -75,6 +75,7 @@ import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
 import com.lin0721.linmusic.desktop.di.desktopAppDependencies
 import com.lin0721.linmusic.desktop.di.desktopPlatformModule
 import com.lin0721.linmusic.desktop.di.desktopViewModelModule
+import com.lin0721.linmusic.di.listenTogetherModule
 import com.lin0721.linmusic.desktop.di.platformModuleFor
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
@@ -178,7 +179,8 @@ fun main(args: Array<String>) {
         modules(
             platformModuleFor(System.getProperty("os.name").orEmpty()),
             desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule,
-            updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") }
+            updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") },
+            listenTogetherModule(Dispatchers.Default)
         )
     }.koin
     val controller = koin.get<DesktopPlaybackController>()

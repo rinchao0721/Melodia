@@ -13,3 +13,8 @@ fun songInfoText(name: String, artists: String): String =
 
 // 网易云单曲页链接
 fun songLink(songId: Long): String = "https://music.163.com/song?id=$songId"
+
+// 读取系统剪贴板文本，无文本或读取失败返回空串
+fun readTextFromClipboard(): String = runCatching {
+    Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+}.getOrNull().orEmpty()

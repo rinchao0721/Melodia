@@ -77,6 +77,7 @@ fun SongMoreOptionsSheet(
     onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onDismiss: () -> Unit,
+    onListenTogetherClick: () -> Unit = {},
     songId: Long? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -253,6 +254,20 @@ fun SongMoreOptionsSheet(
                     )
 
 
+                }
+
+                if (!isPodcast) {
+                    OptionRow(
+                        icon = Icons.Rounded.Group,
+                        text = "一起听",
+                        onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                                onListenTogetherClick()
+                            }
+                        }
+                    )
                 }
 
                 // 6. 分享

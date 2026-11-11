@@ -25,6 +25,7 @@ import com.lin0721.linmusic.di.downloadModule
 import com.lin0721.linmusic.di.localModule
 import com.lin0721.linmusic.di.localMusicModule
 import com.lin0721.linmusic.di.lxPluginModule
+import com.lin0721.linmusic.di.listenTogetherModule
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.playerModule
 import com.lin0721.linmusic.di.pluginModule
@@ -91,7 +92,8 @@ class MelodiaApplication : Application() {
             modules(
                 networkModule, localModule, repositoryModule, sourceModule, lxPluginModule, viewModelModule, playerModule,
                 updateModule(BuildConfig.VERSION_CODE), downloadModule, localMusicModule, recognitionModule,
-                pluginModule { File(androidContext().filesDir, "plugins") }
+                pluginModule { File(androidContext().filesDir, "plugins") },
+                listenTogetherModule(Dispatchers.Main)
             )
         }
 
