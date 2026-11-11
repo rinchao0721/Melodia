@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.listentogether.domain.RoomCommand
 import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
 import com.lin0721.linmusic.core.listentogether.domain.RoomStatus
 import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.podcast.ui.FakePlaybackController
@@ -27,7 +28,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
-private class TestController : PlaybackController by FakePlaybackController() {
+internal class TestController : PlaybackController by FakePlaybackController() {
     val nowPlayingFlow = MutableStateFlow<NowPlaying?>(null)
     val playWhenReadyFlow = MutableStateFlow(false)
     val positionFlow = MutableStateFlow(0L)
@@ -46,9 +47,12 @@ private class TestController : PlaybackController by FakePlaybackController() {
         queueFlow.value = queueFlow.value + items
     }
     override fun playAtIndex(index: Int) { actions += "play:${queueFlow.value[index].songId}" }
+    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?, startPositionMs: Long) {
+        actions += "queue:${items.size}@$startIndex"
+    }
 }
 
-private class FakeRepository : ListenTogetherRepository {
+internal class FakeRepository : ListenTogetherRepository {
     var status: Result<RoomStatus> = Result.success(RoomStatus(true, null))
     var playback: Result<RoomPlayback?> = Result.success(null)
     var acceptCommand = true
