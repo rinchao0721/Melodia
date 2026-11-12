@@ -14,14 +14,16 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.lin0721.linmusic.core.download.data.DownloadApi
+import com.lin0721.linmusic.core.download.data.DownloadUrlOutcome
+import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
 import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
-import com.lin0721.linmusic.core.download.data.isTrialAudio
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.download.recognition.SONG_ID_TAG
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.SourcePreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -41,9 +43,6 @@ import android.content.Context
 private const val TAG = "SongDownloadWorker"
 private const val MAX_ATTEMPTS = 3
 
-private val LOSSLESS_AND_ABOVE = setOf("lossless", "hires", "jyeffect", "sky", "jymaster")
-private val COMPRESSED_ENCODE_TYPES = setOf("mp3", "aac", "m4a")
-
 // 歌曲下载后台任务
 class SongDownloadWorker(
     context: Context,
@@ -56,8 +55,18 @@ class SongDownloadWorker(
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate,
-    private val downloadRecognizer: DownloadRecognizer
+    private val downloadRecognizer: DownloadRecognizer,
+    // 未注入时（如单元测试）不启用换源回退，保持原有行为
+    private val sourcePreferences: SourcePreferences? = null
 ) : CoroutineWorker(context, params) {
+
+    private val downloadUrlResolver = DownloadUrlResolver(
+        fallbackEnabled = { sourcePreferences?.let { it.fallbackEnabled.first() } ?: false },
+        official = { id, requestedLevel ->
+            downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = requestedLevel))
+        },
+        playback = { id -> playbackRepository.getSongPlaybackInfo(id).first().getOrNull() }
+    )
 
     companion object {
         const val KEY_SONG_ID = "song_id"
@@ -161,28 +170,24 @@ class SongDownloadWorker(
         // 失败或取消时的清理回调
         var cleanup: (() -> Unit)? = null
         try {
-            val response = downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = songId, level = level))
-            val item = response.data
-            val url = item?.url
-            if (!response.isSuccess || url.isNullOrBlank()) {
-                return fail("获取下载链接失败", "获取下载链接失败，code=${response.code}")
+            val source = when (val outcome = downloadUrlResolver.resolve(songId, level)) {
+                is DownloadUrlOutcome.Rejected -> {
+                    AppLogger.w(TAG, "解析下载链接失败 songId=$songId level=$level: ${outcome.reason}")
+                    return fail(outcome.reason)
+                }
+                is DownloadUrlOutcome.Ready -> outcome.source
             }
-            if (item.isTrialAudio) {
-                return fail("该音质仅支持试听，需要 VIP/购买后才能完整下载", "仅试听版本")
+            if (source.fromFallback) {
+                AppLogger.i(TAG, "官方下载链接不可用，改用换源直链 songId=$songId")
             }
-
-            val actualEncodeType = (item.type ?: item.encodeType)?.lowercase()
-            // 校验是否因权限不足被静默降级为压缩格式
-            if (level in LOSSLESS_AND_ABOVE && actualEncodeType in COMPRESSED_ENCODE_TYPES) {
-                return fail("需要更高会员等级才能下载该音质", "音质权限不足")
-            }
-            val extension = (actualEncodeType ?: "mp3")
+            val url = source.url
+            val extension = source.encodeType
             val displayName = "${sanitizeFileName("$artistName - $songName")}.$extension"
             val mimeType = mimeTypeFor(extension)
 
-            val partialFile = partialFile(applicationContext, songId, level, item.size)
+            val partialFile = partialFile(applicationContext, songId, level, source.size)
             partial = partialFile
-            val downloadedSize = downloadToFile(partialFile, url, item.size)
+            val downloadedSize = downloadToFile(partialFile, url, source.size)
             if (downloadedSize == null) {
                 return fail("下载中断")
             }
@@ -254,12 +259,13 @@ class SongDownloadWorker(
                 DownloadRecord(
                     songId = songId,
                     mediaStoreUri = finalUri.toString(),
-                    quality = item.level ?: level,
+                    quality = source.level,
                     downloadedAt = System.currentTimeMillis(),
                     fileSize = finalFileSize,
                     songName = songName,
                     artistName = artistName,
-                    requestedLevel = level
+                    // 换源音质不可知，请求档位也按最低档记，避免误判为已完成高音质下载
+                    requestedLevel = if (source.fromFallback) source.level else level
                 )
             )
 

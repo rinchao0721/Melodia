@@ -6,14 +6,16 @@ import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.data.DownloadApi
+import com.lin0721.linmusic.core.download.data.DownloadUrlOutcome
+import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
 import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
-import com.lin0721.linmusic.core.download.data.isTrialAudio
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
 import com.lin0721.linmusic.core.download.skipsDownloadAt
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.SourcePreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -59,9 +61,6 @@ private const val RETRY_DELAY_MS = 2_000L
 private const val PARTIAL_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 private const val BUFFER_SIZE = 64 * 1024
 
-private val LOSSLESS_AND_ABOVE = setOf("lossless", "hires", "jyeffect", "sky", "jymaster")
-private val COMPRESSED_ENCODE_TYPES = setOf("mp3", "aac", "m4a")
-
 private sealed interface Outcome {
     data object Success : Outcome
     data object Skipped : Outcome
@@ -84,8 +83,18 @@ class DesktopSongDownloader(
     private val downloadPreferences: DesktopDownloadPreferences,
     private val tempDir: File,
     private val defaultDir: File,
-    private val recognizer: DownloadRecognizer? = null
+    private val recognizer: DownloadRecognizer? = null,
+    // 未注入时（如单元测试）不启用换源回退，保持原有行为
+    private val sourcePreferences: SourcePreferences? = null
 ) : SongDownloader {
+
+    private val downloadUrlResolver = DownloadUrlResolver(
+        fallbackEnabled = { sourcePreferences?.let { it.fallbackEnabled.first() } ?: false },
+        official = { id, requestedLevel ->
+            downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = requestedLevel))
+        },
+        playback = { id -> playbackRepository.getSongPlaybackInfo(id).first().getOrNull() }
+    )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder()
@@ -363,24 +372,24 @@ class DesktopSongDownloader(
             ?: recognizer?.recognize(listOf(track.toRecognitionTarget()))?.firstOrNull()
         if (existing != null && existing.skipsDownloadAt(level)) return Outcome.Skipped
 
-        val response = downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = songId, level = level))
-        val item = response.data
-        val url = item?.url
-        if (!response.isSuccess || url.isNullOrBlank()) throw NonRetryableException("获取下载链接失败")
-        if (item.isTrialAudio) throw NonRetryableException("该音质仅支持试听，需要 VIP 或购买后才能完整下载")
-        val encodeType = (item.type ?: item.encodeType)?.lowercase()
-        // 无权限时服务端会静默降级为压缩格式
-        if (level in LOSSLESS_AND_ABOVE && encodeType in COMPRESSED_ENCODE_TYPES) {
-            throw NonRetryableException("需要更高会员等级才能下载该音质")
+        val source = when (val outcome = downloadUrlResolver.resolve(songId, level)) {
+            is DownloadUrlOutcome.Rejected -> {
+                AppLogger.w(TAG, "解析下载链接失败 songId=$songId level=$level: ${outcome.reason}")
+                throw NonRetryableException(outcome.reason)
+            }
+            is DownloadUrlOutcome.Ready -> outcome.source
         }
-        val extension = encodeType ?: "mp3"
+        if (source.fromFallback) {
+            AppLogger.i(TAG, "官方下载链接不可用，改用换源直链 songId=$songId")
+        }
+        val extension = source.encodeType
 
         val directory = resolveDirectory(batchLabel)
         tempDir.mkdirs()
-        val partial = File(tempDir, "dl_${songId}_${level}_${item.size}.part")
+        val partial = File(tempDir, "dl_${songId}_${level}_${source.size}.part")
         val staged = File(tempDir, "dl_${songId}_${System.currentTimeMillis()}.$extension")
         try {
-            downloadToFile(partial, url, item.size, onProgress)
+            downloadToFile(partial, source.url, source.size, onProgress)
             moveFile(partial, staged)
             runCatching { writeTags(staged, track) }
                 .onFailure { AppLogger.w(TAG, "写入标签失败，跳过 songId=$songId", it) }
@@ -393,12 +402,13 @@ class DesktopSongDownloader(
                 DownloadRecord(
                     songId = songId,
                     mediaStoreUri = target.absolutePath,
-                    quality = item.level ?: level,
+                    quality = source.level,
                     downloadedAt = System.currentTimeMillis(),
                     fileSize = fileSize,
                     songName = track.songName,
                     artistName = track.artistName,
-                    requestedLevel = level
+                    // 换源音质不可知，请求档位也按最低档记，避免误判为已完成高音质下载
+                    requestedLevel = if (source.fromFallback) source.level else level
                 )
             )
             existing?.mediaStoreUri?.takeIf { it != target.absolutePath }?.let { File(it).delete() }

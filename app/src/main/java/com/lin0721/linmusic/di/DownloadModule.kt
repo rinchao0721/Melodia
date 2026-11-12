@@ -48,7 +48,8 @@ val downloadModule = module {
             downloadClient = get(named(DOWNLOAD_CLIENT)),
             taskStore = get(),
             queueGate = get(),
-            downloadRecognizer = get()
+            downloadRecognizer = get(),
+            sourcePreferences = get()
         )
     }
 

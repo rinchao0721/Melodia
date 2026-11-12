@@ -211,7 +211,8 @@ val desktopPlatformModule = module {
             downloadPreferences = get(),
             tempDir = DesktopPaths.downloadTempDir,
             defaultDir = DesktopPaths.defaultDownloadDir,
-            recognizer = get()
+            recognizer = get(),
+            sourcePreferences = get()
         )
     }
     single { LocalAudioIndexStore(File(DesktopPaths.dataDir, "download_recognition_index.json")) }

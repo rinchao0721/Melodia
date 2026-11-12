@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.download.data.DownloadApi
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.SourcePreferences
 import okhttp3.OkHttpClient
 
 // 自定义 WorkerFactory
@@ -20,7 +21,9 @@ class DownloadWorkerFactory(
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate,
-    private val downloadRecognizer: DownloadRecognizer
+    private val downloadRecognizer: DownloadRecognizer,
+    // 未注入时（如单元测试）不启用换源回退，保持原有行为
+    private val sourcePreferences: SourcePreferences? = null
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -39,7 +42,8 @@ class DownloadWorkerFactory(
             downloadClient,
             taskStore,
             queueGate,
-            downloadRecognizer
+            downloadRecognizer,
+            sourcePreferences
         )
         else -> null
     }
