@@ -63,6 +63,7 @@ import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.AntiFlickerCoverImage
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.PlayingEqualizerBars
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -113,6 +114,10 @@ fun ListenTogetherRoomScreen(
     val secondary = MelodiaColors.OnCoverSecondary
     val cardFill = content.copy(alpha = 0.10f)
 
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
+
     // 会话结束（被结束、断网退出）后自动关闭
     LaunchedEffect(state.active) { if (!state.active) onClose() }
 
@@ -141,13 +146,36 @@ fun ListenTogetherRoomScreen(
                         title = nowPlaying?.title.orEmpty(),
                         artist = nowPlaying?.artist.orEmpty(),
                         progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
-                        followText = if (state.isHost) "好友正在跟随你的播放" else "正在跟随房主播放",
+                        followText = when {
+                            !state.isHost -> "你和房主都可以控制播放"
+                            state.allowMemberControl -> "成员可以一起控制播放"
+                            else -> "仅你可以控制播放"
+                        },
                         content = content,
                         secondary = secondary
                     )
                 }
                 item {
                     MembersSection(state = state, content = content, secondary = secondary, cardFill = cardFill)
+                }
+                if (state.isHost) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MelodiaSpacing.lg)
+                                .clip(CardShape)
+                                .background(cardFill)
+                                .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "允许成员控制", color = content, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "关闭后成员的切歌、暂停、点歌会被还原", color = secondary, fontSize = 12.sp)
+                            }
+                            MelodiaSwitch(checked = state.allowMemberControl, onCheckedChange = viewModel::setAllowMemberControl)
+                        }
+                    }
                 }
                 item {
                     Text(
@@ -172,7 +200,7 @@ fun ListenTogetherRoomScreen(
                         RoomTrackRow(
                             item = item,
                             active = item.songId == nowPlaying?.songId,
-                            clickable = state.isHost,
+                            clickable = true,
                             content = content,
                             secondary = secondary,
                             onClick = { viewModel.playRoomTrack(index) }

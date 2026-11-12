@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -53,6 +56,7 @@ import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
 import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
+import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
@@ -73,6 +77,7 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
     val duration by viewModel.duration.collectAsState()
     val tracks by viewModel.roomTracks.collectAsState()
     val scope = rememberCoroutineScope()
+    LaunchedEffect(viewModel) { viewModel.messages.collect { navigator.showMessage(it) } }
 
     val immersive = rememberImmersiveColors(rememberCoverBase(nowPlaying?.artworkUri))
     val background by animateColorAsState(immersive.fill, uiTween(COLOR_TRANSITION_MS), label = "roomBackground")
@@ -90,7 +95,11 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
             return@Box
         }
         Row(Modifier.fillMaxSize().padding(32.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-            Column(Modifier.width(CoverSize + 40.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // 窗口较矮时左栏可滚动，开关与操作按钮不会被截断
+            Column(
+                Modifier.width(CoverSize + 40.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 RoomHeader(state, content, secondary)
                 Cover(nowPlaying?.artworkUri, CoverSize, shape = RoundedCornerShape(16.dp))
                 Column {
@@ -111,10 +120,29 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
                         modifier = Modifier.width(CoverSize).height(3.dp).clip(CircleShape)
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text(if (state.isHost) "好友正在跟随你的播放" else "正在跟随房主播放", color = secondary, fontSize = 12.sp)
+                    Text(
+                        when {
+                            !state.isHost -> "你和房主都可以控制播放"
+                            state.allowMemberControl -> "成员可以一起控制播放"
+                            else -> "仅你可以控制播放"
+                        },
+                        color = secondary,
+                        fontSize = 12.sp
+                    )
                 }
                 MembersCard(state, content, secondary, cardFill)
-                Spacer(Modifier.weight(1f))
+                if (state.isHost) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(CardShape).background(cardFill).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("允许成员控制", color = content, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("关闭后成员的操作会被还原", color = secondary, fontSize = 12.sp)
+                        }
+                        SettingSwitch(state.allowMemberControl, onChange = viewModel::setAllowMemberControl)
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.isHost) {
                         PillButton("复制邀请", background, content, icon = { Icon(Icons.Rounded.Link, null, tint = background, modifier = Modifier.size(16.dp)) }) {
@@ -136,9 +164,6 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
-                if (!state.isHost) {
-                    Text("队列由房主控制", color = secondary, fontSize = 12.sp)
-                }
                 Spacer(Modifier.height(12.dp))
                 if (tracks.isEmpty()) {
                     Text(
@@ -153,7 +178,7 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
                                 index = index,
                                 item = item,
                                 active = item.songId == nowPlaying?.songId,
-                                clickable = state.isHost,
+                                clickable = true,
                                 content = content,
                                 secondary = secondary,
                                 onClick = { viewModel.playRoomTrack(index) }

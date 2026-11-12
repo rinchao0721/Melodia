@@ -1,12 +1,14 @@
 package com.lin0721.linmusic.core.listentogether.data
 
-import com.lin0721.linmusic.core.listentogether.domain.HostCommand
+import com.lin0721.linmusic.core.listentogether.domain.PlayCommand
 import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherRoom
 import com.lin0721.linmusic.core.listentogether.domain.RoomCheck
 import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
 import com.lin0721.linmusic.core.listentogether.domain.RoomStatus
 import com.lin0721.linmusic.core.listentogether.domain.parseRoom
 import com.lin0721.linmusic.core.listentogether.domain.parseRoomPlayback
+import com.lin0721.linmusic.core.AppEnvironment
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.apiFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
@@ -21,7 +23,7 @@ interface ListenTogetherRepository {
     fun playback(roomId: String): Flow<Result<RoomPlayback?>>
 
     // Boolean 为服务端是否接受该指令
-    fun reportCommand(roomId: String, command: HostCommand): Flow<Result<Boolean>>
+    fun reportCommand(roomId: String, command: PlayCommand): Flow<Result<Boolean>>
     fun reportPlaylist(
         roomId: String,
         userId: Long,
@@ -82,10 +84,14 @@ class ListenTogetherRepositoryImpl(
         isSuccess = { it.isSuccess },
         code = { it.code },
         msg = { it.message },
-        transform = { parseRoomPlayback(it.data) }
+        transform = { response ->
+            // 调试包记录原始指令，用于确认发起人等未知字段
+            if (AppEnvironment.isDebug) AppLogger.d("ListenTogether", "原始指令 ${response.data?.get("playCommand")}")
+            parseRoomPlayback(response.data)
+        }
     )
 
-    override fun reportCommand(roomId: String, command: HostCommand) = apiFlow(
+    override fun reportCommand(roomId: String, command: PlayCommand) = apiFlow(
         request = {
             val info = ListenTogetherCommandInfo(
                 commandType = command.type.wire,

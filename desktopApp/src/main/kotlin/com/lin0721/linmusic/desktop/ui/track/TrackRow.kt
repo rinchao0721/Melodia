@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Group
+import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
@@ -406,6 +408,13 @@ internal fun TrackMenu(
             onDismiss()
             actions.onPlayNext(track)
         })
+        val listenTogether = LocalListenTogetherViewModel.current
+        if (listenTogether != null && listenTogether.state.value.active && track.id > 0L) {
+            MenuItem("添加到一起听队列", icon = Icons.Rounded.Group, onClick = {
+                onDismiss()
+                listenTogether.addToRoomQueue(listOf(track.id)) { navigator.showMessage(it) }
+            })
+        }
         if (navigator.isLoggedIn) {
             SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                 CollectSubmenuContent(track, actions, onDismiss)

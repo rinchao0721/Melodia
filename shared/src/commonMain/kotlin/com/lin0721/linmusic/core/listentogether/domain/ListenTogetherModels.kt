@@ -21,13 +21,14 @@ data class ListenTogetherRoom(
     fun isHost(userId: Long): Boolean = userId != 0L && userId == creatorId
 }
 
-// 房间里的播放指令，serverSeq 是服务端时间戳，暂停也会递增
+// 房间里的播放指令，serverSeq 是服务端时间戳，暂停也会递增；userId 为发起人
 data class RoomCommand(
     val commandType: String?,
     val targetSongId: Long?,
     val progressMs: Long,
     val playing: Boolean?,
-    val serverSeq: Long
+    val serverSeq: Long,
+    val userId: Long? = null
 )
 
 data class RoomPlayback(
@@ -83,7 +84,8 @@ fun parseRoomPlayback(data: JsonObject?): RoomPlayback? {
                 "PLAY", "PLAYING" -> true
                 else -> false
             },
-            serverSeq = raw.num("serverSeq") ?: 0L
+            serverSeq = raw.num("serverSeq") ?: 0L,
+            userId = raw.num("userId")?.takeIf { it > 0 }
         )
     }
     return RoomPlayback(songIds = ids, command = command)

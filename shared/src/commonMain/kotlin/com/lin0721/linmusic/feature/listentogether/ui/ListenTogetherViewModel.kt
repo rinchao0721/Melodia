@@ -128,13 +128,30 @@ class ListenTogetherViewModel(
         }
     }
 
-    // 仅房主可点播房间队列，好友随房主指令跟随；客机点击会被下一条指令拉回，故不响应
+    // 所有成员都可点播房间队列，其他人随之跟随；本地已有该曲目就跳转，否则追加后播放，不整份替换本地队列
     fun playRoomTrack(index: Int) {
-        val current = session.state.value
-        if (!current.active || !current.isHost) return
-        val tracks = _roomTracks.value
-        if (index !in tracks.indices) return
-        controller.playQueue(tracks, index)
+        if (!session.state.value.active) return
+        val track = _roomTracks.value.getOrNull(index) ?: return
+        val existing = controller.queue.value.indexOfFirst { it.songId == track.songId }
+        if (existing >= 0) {
+            controller.playAtIndex(existing)
+        } else {
+            controller.appendToQueue(listOf(track))
+            val appended = controller.queue.value.indexOfFirst { it.songId == track.songId }
+            if (appended >= 0) controller.playAtIndex(appended)
+        }
+    }
+
+    fun setAllowMemberControl(allowed: Boolean) = session.setAllowMemberControl(allowed)
+
+    // 把歌曲追加到房间队列末尾，任何成员都可点歌
+    fun addToRoomQueue(songIds: List<Long>, onResult: (String) -> Unit = { _messages.tryEmit(it) }) {
+        if (!session.state.value.active) return
+        viewModelScope.launch {
+            session.addToRoomQueue(songIds)
+                .onSuccess { added -> onResult(if (added > 0) "已添加到一起听队列" else "歌曲已在一起听队列中") }
+                .onFailure { onResult(it.toUserMessage(resourceProvider)) }
+        }
     }
 
     // 当前房间的邀请文案，不在房间内返回空串

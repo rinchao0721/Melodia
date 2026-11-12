@@ -9,7 +9,6 @@ import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -38,6 +37,9 @@ class ListenTogetherViewModelTest {
         ids.reversed().map(::item)
     }
 
+    // 会话合并新增曲目时只解析新增的单首，界面解析的是整份房间队列
+    private fun roomListResolves() = resolveCalls.count { it.size > 1 }
+
     @After
     fun tearDown() {
         Dispatchers.resetMain()
@@ -46,7 +48,7 @@ class ListenTogetherViewModelTest {
     private fun TestScope.build(repo: FakeRepository, controller: TestController, selfId: Long): Pair<ListenTogetherSession, ListenTogetherViewModel> {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
-        val session = ListenTogetherSession(repo, controller, resolver, { selfId }, CoroutineScope(dispatcher), dispatcher)
+        val session = ListenTogetherSession(repo, controller, resolver, { selfId }, backgroundScope, dispatcher) { testScheduler.currentTime }
         val viewModel = ListenTogetherViewModel(session, controller, resolver, UserPreferences(InMemoryPreferencesStore()), testResourceProvider)
         return session to viewModel
     }
@@ -58,12 +60,12 @@ class ListenTogetherViewModelTest {
         session.joinRoom("r1", 1L)
         runCurrent()
         advanceTimeBy(10_000L)
-        assertEquals(1, resolveCalls.size)
+        assertEquals(1, roomListResolves())
         assertEquals(listOf(1L, 2L), viewModel.roomTracks.value.map { it.songId })
 
         repo.playback = Result.success(RoomPlayback(listOf(1L, 2L, 3L), null))
         advanceTimeBy(3_100L)
-        assertEquals(2, resolveCalls.size)
+        assertEquals(2, roomListResolves())
         assertEquals(listOf(1L, 2L, 3L), viewModel.roomTracks.value.map { it.songId })
         session.stop()
         runCurrent()
@@ -83,22 +85,22 @@ class ListenTogetherViewModelTest {
     }
 
     @Test
-    fun `只有房主点击房间队列会切歌`() = runTest {
+    fun `房主与成员点击房间队列都会切歌`() = runTest {
         val repo = FakeRepository().apply { playback = Result.success(RoomPlayback(listOf(1L, 2L), null)) }
         val guestController = TestController()
         val (guest, guestVm) = build(repo, guestController, selfId = 2L)
         guest.joinRoom("r1", 1L)
         runCurrent()
         guestVm.playRoomTrack(1)
-        assertTrue(guestController.actions.none { it.startsWith("queue:") })
         guest.stop()
+        assertTrue(guestController.actions.contains("play:2"))
 
         val hostController = TestController().apply { queueFlow.value = listOf(item(1L), item(2L)) }
         val (host, hostVm) = build(repo, hostController, selfId = 1L)
         host.createRoom(listOf(1L, 2L))
         runCurrent()
         hostVm.playRoomTrack(1)
-        assertTrue(hostController.actions.contains("queue:2@1"))
+        assertTrue(hostController.actions.contains("play:2"))
         host.stop()
     }
 }
