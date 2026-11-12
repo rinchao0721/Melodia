@@ -326,6 +326,50 @@ class ListenTogetherSessionTest {
     }
 
     @Test
+    fun `成员退出后接回时跳过该房间，再次加入后可接回`() = runTest {
+        val room = com.lin0721.linmusic.core.listentogether.domain.ListenTogetherRoom("r1", 1L, emptyList())
+        val repo = FakeRepository().apply { status = Result.success(RoomStatus(true, room)) }
+        val session = session(repo, TestController(), selfId = 2L)
+        session.joinRoom("r1", 1L)
+        runCurrent()
+        session.leave()
+
+        assertFalse(session.resumeExisting())
+        assertFalse(session.state.value.active)
+
+        session.joinRoom("r1", 1L)
+        runCurrent()
+        session.stop()
+        assertTrue(session.resumeExisting())
+        session.stop()
+    }
+
+    @Test
+    fun `房主推送队列前并入成员刚点的歌`() = runTest {
+        val repo = FakeRepository()
+        val controller = TestController().apply {
+            queueFlow.value = listOf(item(1L))
+            nowPlayingFlow.value = NowPlaying("1", "歌1", "手", null)
+            playWhenReadyFlow.value = true
+        }
+        val session = session(repo, controller, selfId = 1L)
+        session.createRoom(listOf(1L))
+        runCurrent()
+        assertEquals(listOf(1L), repo.playlists.last())
+
+        // 成员在房间里加了 7，房主本地同时加了 8
+        repo.playback = Result.success(RoomPlayback(listOf(1L, 7L), null))
+        controller.queueFlow.value = listOf(item(1L), item(8L))
+        advanceTimeBy(3_100L)
+
+        val pushed = repo.playlists.last()
+        assertTrue(7L in pushed)
+        assertTrue(8L in pushed)
+        assertTrue(controller.queueFlow.value.any { it.songId == 7L })
+        session.stop()
+    }
+
+    @Test
     fun `房间不可加入时返回失败且不启动`() = runTest {
         val repo = FakeRepository().apply { checkJoinable = false }
         val session = session(repo, TestController())

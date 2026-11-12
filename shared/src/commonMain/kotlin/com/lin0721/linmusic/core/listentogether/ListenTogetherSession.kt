@@ -97,10 +97,14 @@ class ListenTogetherSession(
     private var sinceHeartbeatMs = 0L
     private var lastLoggedSeq = 0L
 
+    // 成员主动退出的房间：服务端仍记其在房内，接回时跳过，再次通过邀请加入时清除
+    private var leftRoomId: String? = null
+
     suspend fun createRoom(seedSongIds: List<Long>): Result<ListenTogetherRoom> {
         val ids = seedSongIds.filter { it > 0L }.distinct()
         if (ids.isEmpty()) return Result.failure(IllegalArgumentException("没有可同步的网易云歌曲"))
         val room = repository.createRoom(ids).first().getOrElse { return Result.failure(it) }
+        leftRoomId = null
         start(room, isHost = true, uid = selfUserId())
         return Result.success(room)
     }
@@ -110,6 +114,7 @@ class ListenTogetherSession(
         val check = repository.checkRoom(roomId).first().getOrElse { return Result.failure(it) }
         if (!check.joinable) return Result.failure(IllegalStateException(check.message ?: "房间已无法加入"))
         val room = repository.acceptInvitation(roomId, inviterId).first().getOrElse { return Result.failure(it) }
+        leftRoomId = null
         val uid = selfUserId()
         start(room, isHost = room.isHost(uid), uid = uid)
         return Result.success(room)
@@ -119,6 +124,7 @@ class ListenTogetherSession(
     suspend fun resumeExisting(): Boolean {
         if (_state.value.active) return true
         val room = repository.status().first().getOrNull()?.room ?: return false
+        if (room.id == leftRoomId) return false
         val uid = selfUserId()
         start(room, isHost = room.isHost(uid), uid = uid)
         return true
@@ -131,6 +137,7 @@ class ListenTogetherSession(
         val result = if (current.isHost && roomId != null) {
             repository.endRoom(roomId).first().map { }
         } else {
+            leftRoomId = roomId
             Result.success(Unit)
         }
         stop()
@@ -372,13 +379,21 @@ class ListenTogetherSession(
     }
 
     private suspend fun pushQueueIfChanged(roomId: String) {
-        val ids = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct()
-        if (ids.isEmpty() || ids == pushedSongIds) return
+        val localIds = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct()
+        if (localIds.isEmpty() || localIds == pushedSongIds) return
         if (selfId <= 0L) return
+        // 整份替换前重读房间队列，先并入成员刚点的歌，避免被本地队列覆盖
+        val latest = repository.playback(roomId).first().getOrThrow()?.songIds.orEmpty()
+        val known = mergedRoomIds.orEmpty()
+        mergeRoomQueue(latest)
+        val merged = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct()
+        // 详情解析失败的新增曲目本地缺失，仍保留在推送列表里
+        val unresolved = latest.filter { it > 0L && it !in merged && it !in known }
+        val ids = (merged + unresolved).distinct()
         val anchor = ids.indexOf(controller.nowPlaying.value?.songId).coerceAtLeast(0)
         val accepted = repository.reportPlaylist(roomId, selfId, playlistVersion + 1, ids, anchor).first().getOrThrow()
         if (accepted) {
-            pushedSongIds = ids
+            pushedSongIds = merged
             playlistVersion += 1
             mergedRoomIds = (mergedRoomIds ?: emptySet()) + ids
         } else {

@@ -180,7 +180,7 @@ fun main(args: Array<String>) {
             platformModuleFor(System.getProperty("os.name").orEmpty()),
             desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule,
             updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") },
-            listenTogetherModule(Dispatchers.Default)
+            listenTogetherModule(Dispatchers.Main)
         )
     }.koin
     val controller = koin.get<DesktopPlaybackController>()

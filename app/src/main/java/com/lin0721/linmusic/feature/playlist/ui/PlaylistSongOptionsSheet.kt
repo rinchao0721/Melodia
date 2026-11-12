@@ -12,16 +12,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.material.icons.filled.Group
-import com.lin0721.linmusic.core.ui.components.ToastManager
-import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
-import org.koin.androidx.compose.koinViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +36,12 @@ import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import org.koin.androidx.compose.koinViewModel
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）

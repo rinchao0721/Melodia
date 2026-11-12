@@ -1,11 +1,5 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherTitleLabel
-import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
-import org.koin.androidx.compose.koinViewModel
-
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -43,6 +37,9 @@ import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherTitleLabel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import org.koin.androidx.compose.koinViewModel
 
 private val SidebarToggleGap = 4.dp
 
