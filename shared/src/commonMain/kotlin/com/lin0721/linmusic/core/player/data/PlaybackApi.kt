@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.player.data
 
+import com.lin0721.linmusic.core.model.SongPrivilege
 import com.lin0721.linmusic.core.model.Track
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
@@ -114,7 +115,9 @@ data class SongDetailRequest(
 @Serializable
 data class SongDetailResponse(
     val code: Int = 0,
-    val songs: List<Track> = emptyList()
+    val songs: List<Track> = emptyList(),
+    // 与 songs 同级下发，按 id 对应
+    val privileges: List<SongPrivilege> = emptyList()
 ) {
     val isSuccess: Boolean get() = code == 200
 }

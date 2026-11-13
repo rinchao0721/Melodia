@@ -16,6 +16,8 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricSecondary
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
+import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
+import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
@@ -156,6 +158,17 @@ class SettingsPreferences(
         private val KEY_AMLL_LYRICS_ENABLED = booleanPreferencesKey("amll_lyrics_enabled")
         private val KEY_QQ_LYRICS_ENABLED = booleanPreferencesKey("qq_lyrics_enabled")
         private val KEY_NETEASE_LYRICS_ENABLED = booleanPreferencesKey("netease_lyrics_enabled")
+        private val KEY_LYRIC_FILTER_ENABLED = booleanPreferencesKey("lyric_filter_enabled")
+        private val KEY_LYRIC_FILTER_AMLL = booleanPreferencesKey("lyric_filter_amll")
+        private val KEY_LYRIC_FILTER_LOCAL = booleanPreferencesKey("lyric_filter_local")
+        // 用户规则 JSON，格式见 LyricFilterRules；不存在时使用内置规则
+        private val KEY_LYRIC_FILTER_RULES = stringPreferencesKey("lyric_filter_rules")
+        private val KEY_SEARCH_DEFAULT_KEYWORD_ENABLED = booleanPreferencesKey("search_default_keyword_enabled")
+        private val KEY_HOT_SEARCH_ENABLED = booleanPreferencesKey("hot_search_enabled")
+        private val KEY_PLAYLIST_TAGS_ENABLED = booleanPreferencesKey("playlist_tags_enabled")
+        private val KEY_SEARCH_SUGGESTION_ENABLED = booleanPreferencesKey("search_suggestion_enabled")
+        private val KEY_HOME_RECENT_PLAY_ENABLED = booleanPreferencesKey("home_recent_play_enabled")
+        private val KEY_HOME_FOR_YOU_ENABLED = booleanPreferencesKey("home_for_you_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
@@ -181,10 +194,13 @@ class SettingsPreferences(
         private val KEY_LYRICON_ENABLED = booleanPreferencesKey("lyricon_enabled")
         // 启用状态栏歌词胶囊 (Android 16 实时更新通知)，默认 false
         private val KEY_FLUID_CLOUD_LYRIC_ENABLED = booleanPreferencesKey("fluid_cloud_lyric_enabled")
+        private val KEY_FLYME_STATUS_BAR_LYRIC_ENABLED = booleanPreferencesKey("flyme_status_bar_lyric_enabled")
         // 播放页小歌词显隐，默认 true
         private val KEY_SHOW_MINI_LYRIC = booleanPreferencesKey("show_mini_lyric")
         // 播放页显示实际音质，默认 false
         private val KEY_SHOW_PLAYBACK_QUALITY = booleanPreferencesKey("show_playback_quality")
+        // 歌曲列表显示最高音质徽标，默认 false
+        private val KEY_SHOW_SONG_MAX_QUALITY = booleanPreferencesKey("show_song_max_quality")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -822,6 +838,112 @@ class SettingsPreferences(
         dataStore.edit { prefs -> prefs[KEY_AMLL_LYRICS_ENABLED] = enabled }
     }
 
+    // 先按原始值去重，其他设置变动时不重复解析规则 JSON
+    val lyricFilterConfig: Flow<LyricFilterConfig> = dataStore.data.map { prefs ->
+        RawLyricFilter(
+            enabled = prefs[KEY_LYRIC_FILTER_ENABLED] ?: true,
+            filterAmll = prefs[KEY_LYRIC_FILTER_AMLL] ?: false,
+            filterLocal = prefs[KEY_LYRIC_FILTER_LOCAL] ?: false,
+            rulesJson = prefs[KEY_LYRIC_FILTER_RULES]
+        )
+    }.distinctUntilChanged().map { raw ->
+        LyricFilterConfig(
+            enabled = raw.enabled,
+            filterAmll = raw.filterAmll,
+            filterLocal = raw.filterLocal,
+            rules = raw.rulesJson?.let { json ->
+                LyricFilterRules.decodeOrNull(json).also {
+                    if (it == null) AppLogger.w(TAG, "歌词过滤规则解析失败，回退内置规则")
+                }
+            } ?: LyricFilterRules.DEFAULT
+        )
+    }
+
+    private data class RawLyricFilter(
+        val enabled: Boolean,
+        val filterAmll: Boolean,
+        val filterLocal: Boolean,
+        val rulesJson: String?
+    )
+
+    suspend fun saveLyricFilterEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_LYRIC_FILTER_ENABLED] = enabled }
+    }
+
+    suspend fun saveLyricFilterAmll(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_LYRIC_FILTER_AMLL] = enabled }
+    }
+
+    suspend fun saveLyricFilterLocal(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_LYRIC_FILTER_LOCAL] = enabled }
+    }
+
+    // 与内置规则相同时不落盘，内置规则日后更新仍能生效
+    suspend fun saveLyricFilterRules(rules: LyricFilterRules) {
+        val normalized = rules.normalized()
+        dataStore.edit { prefs ->
+            if (normalized == LyricFilterRules.DEFAULT.normalized()) {
+                prefs.remove(KEY_LYRIC_FILTER_RULES)
+            } else {
+                prefs[KEY_LYRIC_FILTER_RULES] = LyricFilterRules.encode(normalized)
+            }
+        }
+    }
+
+    // 搜索框推荐词开关，默认启用
+    val searchDefaultKeywordEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SEARCH_DEFAULT_KEYWORD_ENABLED] ?: true
+    }
+
+    suspend fun saveSearchDefaultKeywordEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SEARCH_DEFAULT_KEYWORD_ENABLED] = enabled }
+    }
+
+    // 热搜榜开关，默认启用
+    val hotSearchEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOT_SEARCH_ENABLED] ?: true
+    }
+
+    suspend fun saveHotSearchEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOT_SEARCH_ENABLED] = enabled }
+    }
+
+    // 搜索发现页歌单分类开关，默认启用
+    val playlistTagsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PLAYLIST_TAGS_ENABLED] ?: true
+    }
+
+    suspend fun savePlaylistTagsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_PLAYLIST_TAGS_ENABLED] = enabled }
+    }
+
+    // 输入时联想开关，默认启用
+    val searchSuggestionEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SEARCH_SUGGESTION_ENABLED] ?: true
+    }
+
+    suspend fun saveSearchSuggestionEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SEARCH_SUGGESTION_ENABLED] = enabled }
+    }
+
+    // 首页最近播放开关，默认启用
+    val homeRecentPlayEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOME_RECENT_PLAY_ENABLED] ?: true
+    }
+
+    suspend fun saveHomeRecentPlayEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOME_RECENT_PLAY_ENABLED] = enabled }
+    }
+
+    // 首页「为你定制」入口开关，默认启用
+    val homeForYouEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOME_FOR_YOU_ENABLED] ?: true
+    }
+
+    suspend fun saveHomeForYouEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOME_FOR_YOU_ENABLED] = enabled }
+    }
+
     // 逐字歌词流光动效 Flow
     val fullScreenKaraokeAdvancedEffect: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] ?: true
@@ -964,6 +1086,15 @@ class SettingsPreferences(
         }
     }
 
+    // 魅族状态栏歌词开关，默认关闭
+    val flymeStatusBarLyricEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FLYME_STATUS_BAR_LYRIC_ENABLED] ?: false
+    }
+
+    suspend fun saveFlymeStatusBarLyricEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_FLYME_STATUS_BAR_LYRIC_ENABLED] = enabled }
+    }
+
     // 播放页小歌词显隐 Flow
     val showMiniLyric: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_SHOW_MINI_LYRIC] ?: true
@@ -983,6 +1114,17 @@ class SettingsPreferences(
     suspend fun saveShowPlaybackQuality(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_PLAYBACK_QUALITY] = show
+        }
+    }
+
+    // 歌曲列表最高音质徽标显隐 Flow
+    val showSongMaxQuality: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_SONG_MAX_QUALITY] ?: false
+    }
+
+    suspend fun saveShowSongMaxQuality(show: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_SONG_MAX_QUALITY] = show
         }
     }
 }

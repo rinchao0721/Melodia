@@ -1,9 +1,8 @@
 package com.lin0721.linmusic.feature.playlist.domain
 
-import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
-import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -80,13 +79,7 @@ class CollectionActionsDelegate(
             onToast(if (isAlbum) "该专辑没有可下载的歌曲" else "该歌单没有可下载的歌曲")
             return
         }
-        val downloadTracks = loaded.tracks.map { track ->
-            DownloadTrackInfo(
-                track.id, track.name, track.ar.joinToString("/") { it.name },
-                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                yearFromEpochMillis(track.publishTime)
-            )
-        }
+        val downloadTracks = loaded.tracks.map { it.toDownloadTrackInfo() }
         val result = songDownloadManager.enqueueBatch(downloadTracks, level, batchTag = batchTag, batchLabel = loaded.name)
         onToast(result.toToastMessage())
     }

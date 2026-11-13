@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.core.player.external.FluidCloudLyricNotifier
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
@@ -49,10 +50,13 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val fullScreenLyricAlignment by viewModel.fullScreenLyricAlignment.collectAsStateWithLifecycle()
     val fullScreenKaraokeAdvancedEffect by viewModel.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle()
     val fluidCloudLyricEnabled by viewModel.fluidCloudLyricEnabled.collectAsStateWithLifecycle()
+    val flymeStatusBarLyricEnabled by viewModel.flymeStatusBarLyricEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var floatingSheet by remember { mutableStateOf<FloatingSheet?>(null) }
     var showAlignmentSheet by remember { mutableStateOf(false) }
+    val lyricFilter by viewModel.lyricFilterConfig.collectAsStateWithLifecycle()
+    var showLyricFilterSheet by remember { mutableStateOf(false) }
 
     val alignmentLabel = when (fullScreenLyricAlignment) {
         "center" -> "居中对齐"
@@ -224,8 +228,58 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                             }
                         }
                     )
+                    if (FlymeStatusBarLyric.isSupported) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "魅族状态栏歌词（测试）",
+                            subtitle = "播放时在 Flyme 状态栏显示当前行歌词，暂停时收起",
+                            checked = flymeStatusBarLyricEnabled,
+                            onCheckedChange = { viewModel.updateFlymeStatusBarLyricEnabled(it) }
+                        )
+                    }
                 }
             }
+
+            item {
+                SettingsGroupCard(SettingsSubMenu.LYRICS.sectionTitles[3]) {
+                    SettingsSwitchRow(
+                        title = "启用歌词过滤",
+                        subtitle = "去掉歌词开头和结尾的作词、作曲、版权声明等信息行，修改后从下一首歌生效",
+                        checked = lyricFilter.enabled,
+                        onCheckedChange = { viewModel.updateLyricFilterEnabled(it) }
+                    )
+                    if (lyricFilter.enabled) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsRow(
+                            title = "编辑过滤规则",
+                            subtitle = "关键词 ${lyricFilter.rules.keywords.size} 条 · 正则 ${lyricFilter.rules.regexes.size} 条",
+                            onClick = { showLyricFilterSheet = true }
+                        )
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "过滤 AMLL 歌词",
+                            subtitle = "AMLL 歌词库要求不含作词、作曲等内容，一般无需开启",
+                            checked = lyricFilter.filterAmll,
+                            onCheckedChange = { viewModel.updateLyricFilterAmll(it) }
+                        )
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "过滤本地歌词",
+                            subtitle = "本地歌曲内嵌或同名文件中的歌词",
+                            checked = lyricFilter.filterLocal,
+                            onCheckedChange = { viewModel.updateLyricFilterLocal(it) }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showLyricFilterSheet) {
+            LyricFilterRulesSheet(
+                rules = lyricFilter.rules,
+                onSave = viewModel::updateLyricFilterRules,
+                onDismiss = { showLyricFilterSheet = false }
+            )
         }
 
         if (showAlignmentSheet) {

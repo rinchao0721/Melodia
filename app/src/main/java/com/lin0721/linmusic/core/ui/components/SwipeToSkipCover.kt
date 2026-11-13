@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -18,6 +19,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +48,13 @@ private const val SwipeConfirmVelocityPx = 1200f
 // 点击上一首/下一首按钮、或播完自动切歌等非拖拽路径触发切歌时，判断应该模拟哪个方向的滑入动画
 enum class SwipeDirection { NEXT, PREVIOUS }
 
+// 队列当前位置：key 与当前曲目不一致说明队列先行、曲目数据还没跟上；
+// index 用于相邻同一首歌时判断切歌是否已落地（此时 key 不会变）
+@Immutable
+data class SwipeQueueTarget(val index: Int, val key: Any?) {
+    fun isAheadOf(currentKey: Any?): Boolean = key != null && key.toString() != currentKey.toString()
+}
+
 // 手势捕获区域跟实际跟手滑动的视觉区域尺寸不一致时使用（比如迷你条：整条悬浮栏都能拖出切歌手势，
 // 但只有封面+歌名歌手那一行跟着滑动）。containerWidthPx 由调用方在渲染滑动内容时上报自己的宽度，
 // 阈值和归位动画都按它算，跟手势检测区域无关
@@ -62,6 +71,11 @@ class SwipeToSkipCoverState {
     // 拖拽确认已经自己在跑滑出动画，跟外部（按钮/自动切歌）触发的过渡区分开，
     // 避免归零时误判成外部触发又补一次动画
     private var isDragConfirmed = false
+    // 本次冻结期间是否观察到队列先行
+    private var queueWasAhead = false
+    // 拖拽确认时的队列位置，位置变了且 key 已追上即视为切歌落地
+    private var confirmedQueueIndex: Int? = null
+    private var lastQueueIndex: Int? = null
 
     // 预览内容不跟着刷新，等 syncCurrentKey 探测到曲目真正切换完成后再放开
     var isTransitioning by mutableStateOf(false)
@@ -70,12 +84,14 @@ class SwipeToSkipCoverState {
     fun beginTransition() {
         isTransitioning = true
         isDragConfirmed = true
+        confirmedQueueIndex = lastQueueIndex
     }
 
     // 撤销成功：这次过渡等同于没发生过，立刻解冻
     fun cancelTransition() {
         isTransitioning = false
         isDragConfirmed = false
+        resetFreezeTracking()
     }
 
     // 撤销来不及：保持"过渡中"冻结，但不再压制新歌数据落地时该补的滑入动画
@@ -83,19 +99,20 @@ class SwipeToSkipCoverState {
         isDragConfirmed = false
     }
 
-    // 每次重组都要调用。队列 currentIndex 往往先于 currentTrack 更新：一旦发现活的
-    // previousKey/nextKey 已经等于还没让位的当前 key，说明外部（按钮/自动切歌）触发的切歌
-    // 已经在路上了，提前进入"过渡中"并把 lastNext/PreviousKey 锁定在这一帧之前的值，
-    // 不能被过渡期里的新值覆盖，否则等 key 真的变化时会拿错比对对象、判断不出方向
-    fun syncCurrentKey(key: Any?, previousKey: Any? = null, nextKey: Any? = null): SwipeDirection? {
+    // 每次重组都要调用。队列 currentIndex 先于 currentTrack 更新时提前冻结，
+    // 并把 lastNext/PreviousKey 锁定在冻结前的值，等 key 真的变化时才能判断出方向。
+    // 冻结判据只看队列是否先行：相邻曲目与当前同 key（重复曲目、循环回绕）不代表切歌中
+    fun syncCurrentKey(
+        key: Any?,
+        previousKey: Any? = null,
+        nextKey: Any? = null,
+        queueTarget: SwipeQueueTarget? = null
+    ): SwipeDirection? {
+        lastQueueIndex = queueTarget?.index
         // 拖拽或收尾动画正握着 offsetX，这次同步先跳过，等手势彻底结束再处理
         if (isDragActive || settleJob?.isActive == true) return null
-        if (!isTransitioning && syncedKey == key && (previousKey == key || nextKey == key)) {
-            isTransitioning = true
-        }
-        var direction: SwipeDirection? = null
         if (syncedKey != key) {
-            direction = when {
+            val direction = when {
                 isDragConfirmed -> null
                 key == lastNextKey -> SwipeDirection.NEXT
                 key == lastPreviousKey -> SwipeDirection.PREVIOUS
@@ -109,14 +126,38 @@ class SwipeToSkipCoverState {
             syncedKey = key
             isTransitioning = false
             isDragConfirmed = false
+            resetFreezeTracking()
             lastPreviousKey = previousKey
             lastNextKey = nextKey
-        } else if (!isTransitioning) {
+            return direction
+        }
+        if (queueTarget?.isAheadOf(key) == true) {
+            isTransitioning = true
+            queueWasAhead = true
+        } else if (isTransitioning && hasQueueSettled(queueTarget)) {
+            // key 没变但队列已落地（相邻同一首歌、或切歌失败退回），直接解冻
+            offsetX = 0f
+            isTransitioning = false
+            isDragConfirmed = false
+            resetFreezeTracking()
+        }
+        if (!isTransitioning) {
             // 稳定态才刷新，过渡期内保持冻结
             lastPreviousKey = previousKey
             lastNextKey = nextKey
         }
-        return direction
+        return null
+    }
+
+    private fun hasQueueSettled(queueTarget: SwipeQueueTarget?): Boolean {
+        if (queueWasAhead) return true
+        val confirmed = confirmedQueueIndex ?: return false
+        return queueTarget != null && queueTarget.index != confirmed
+    }
+
+    private fun resetFreezeTracking() {
+        queueWasAhead = false
+        confirmedQueueIndex = null
     }
 }
 
@@ -228,7 +269,9 @@ fun SwipeToSkipCover(
     shape: Shape = RectangleShape,
     elevation: Dp = 0.dp,
     // 快速滑回中间时尝试撤销上一次已确认但还没落地的切歌；返回 true 表示撤销成功
-    onCancelPending: () -> Boolean = { false }
+    onCancelPending: () -> Boolean = { false },
+    // 队列当前位置，判断切歌是否还在途中；为空时不做冻结
+    queueTarget: SwipeQueueTarget? = null
 ) {
     val motion = LocalUiMotion.current
     val scope = rememberCoroutineScope()
@@ -254,30 +297,43 @@ fun SwipeToSkipCover(
     var displayedCoverUrl by remember { mutableStateOf(coverUrl) }
     var displayedCurrentKey by remember { mutableStateOf(currentKey) }
     var outgoingSlideInfo by remember { mutableStateOf<OutgoingSlideInfo?>(null) }
-    if (!isTransitioning) {
-        val currentKeyStr = currentKey.toString()
-        val prevKeyStr = previousKey?.toString()
-        val nextKeyStr = nextKey?.toString()
-        // 点击上一首/下一首切歌时外部队列索引先变，若与当前Key重合则冻结预览，避免被提前顶掉
-        if ((prevKeyStr != null && prevKeyStr == currentKeyStr) ||
-            (nextKeyStr != null && nextKeyStr == currentKeyStr)
-        ) {
-            isTransitioning = true
-        } else {
-            displayedPreviousCoverUrl = previousCoverUrl
-            displayedNextCoverUrl = nextCoverUrl
-            displayedPreviousKey = previousKey
-            displayedNextKey = nextKey
-            displayedCoverUrl = coverUrl
-            displayedCurrentKey = currentKey
+    var syncedKey by remember { mutableStateOf(currentKey) }
+    // 本次冻结期间是否观察到队列先行
+    var queueWasAhead by remember { mutableStateOf(false) }
+    // 拖拽确认时的队列位置，位置变了且 key 已追上即视为切歌落地
+    var confirmedQueueIndex by remember { mutableStateOf<Int?>(null) }
+    val latestQueueIndex by rememberUpdatedState(queueTarget?.index)
+    val gestureBusy = isDragActive || settleJob?.isActive == true
+    // 冻结判据只看队列是否先行：相邻曲目与当前同 key（重复曲目、循环回绕）不代表切歌中
+    if (queueTarget?.isAheadOf(currentKey) == true) {
+        isTransitioning = true
+        queueWasAhead = true
+    } else if (isTransitioning && !gestureBusy && syncedKey == currentKey) {
+        val confirmed = confirmedQueueIndex
+        val queueSettled = queueWasAhead ||
+            (confirmed != null && queueTarget != null && queueTarget.index != confirmed)
+        if (queueSettled) {
+            // key 没变但队列已落地（相邻同一首歌、或切歌失败退回），下面的 key 同步不会执行，在这里解冻
+            offsetX = 0f
+            isTransitioning = false
+            isDragConfirmed = false
+            queueWasAhead = false
+            confirmedQueueIndex = null
         }
+    }
+    if (!isTransitioning) {
+        displayedPreviousCoverUrl = previousCoverUrl
+        displayedNextCoverUrl = nextCoverUrl
+        displayedPreviousKey = previousKey
+        displayedNextKey = nextKey
+        displayedCoverUrl = coverUrl
+        displayedCurrentKey = currentKey
     }
     val canSwipeToPrevious = displayedPreviousCoverUrl != null
     val canSwipeToNext = displayedNextCoverUrl != null
 
-    var syncedKey by remember { mutableStateOf(currentKey) }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
-    if (!isDragActive && settleJob?.isActive != true && syncedKey != currentKey) {
+    if (!gestureBusy && syncedKey != currentKey) {
         val matchesNext = displayedNextKey != null && displayedNextKey.toString() == currentKey.toString()
         val matchesPrevious = displayedPreviousKey != null && displayedPreviousKey.toString() == currentKey.toString()
         val direction = if (isDragConfirmed) {
@@ -311,6 +367,8 @@ fun SwipeToSkipCover(
         syncedKey = currentKey
         isTransitioning = false
         isDragConfirmed = false
+        queueWasAhead = false
+        confirmedQueueIndex = null
     }
     LaunchedEffect(pendingSlideInKey) {
         if (pendingSlideInKey != null) {
@@ -349,6 +407,7 @@ fun SwipeToSkipCover(
                             if (confirmNext || confirmPrevious) {
                                 isTransitioning = true
                                 isDragConfirmed = true
+                                confirmedQueueIndex = latestQueueIndex
                             }
                             settleJob = scope.launch {
                                 when {
@@ -372,6 +431,8 @@ fun SwipeToSkipCover(
                                             if (onCancelPending()) {
                                                 isTransitioning = false
                                                 isDragConfirmed = false
+                                                queueWasAhead = false
+                                                confirmedQueueIndex = null
                                             } else {
                                                 isDragConfirmed = false
                                             }

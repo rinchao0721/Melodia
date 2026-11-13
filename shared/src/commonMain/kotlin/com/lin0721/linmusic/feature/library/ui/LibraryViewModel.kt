@@ -6,11 +6,10 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
-import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
-import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepository
@@ -705,13 +704,7 @@ class LibraryViewModel(
                         if (allTracks.isEmpty()) {
                             _toastEvent.emit(if (isAlbum) "该专辑没有可下载的歌曲" else "该歌单没有可下载的歌曲")
                         } else {
-                            val tracks = allTracks.map { track ->
-                                DownloadTrackInfo(
-                                    track.id, track.name, track.ar.joinToString("/") { it.name },
-                                    track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                                    yearFromEpochMillis(track.publishTime)
-                                )
-                            }
+                            val tracks = allTracks.map { it.toDownloadTrackInfo() }
                             val enqueueResult = songDownloadManager.enqueueBatch(
                                 tracks, level, batchTag = "library_${item.type}_$id", batchLabel = item.title
                             )

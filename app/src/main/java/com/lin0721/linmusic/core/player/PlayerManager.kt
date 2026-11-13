@@ -15,8 +15,11 @@ import androidx.media3.common.util.UnstableApi
 import java.io.File
 import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
+import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
@@ -69,7 +72,8 @@ class PlayerManager(
     private val songDownloadManager: SongDownloadManager,
     private val externalInterruptionResumeController: ExternalInterruptionResumeController,
     private val onlineState: OnlineStateProvider,
-    private val externalResolver: ExternalTrackResolver
+    private val externalResolver: ExternalTrackResolver,
+    private val downloadRecognizer: DownloadRecognizer
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -676,7 +680,7 @@ class PlayerManager(
             }
 
             // 本地已下载文件优先播放
-            val localRecord = downloadPreferences.findVerifiedRecord(item.songId)
+            val localRecord = localRecordOf(item)
 
             // 离线时只能播已缓存的歌曲，没有缓存的沿当前方向跳到下一首可播放的
             if (localRecord == null && !onlineState.isOnline()) {
@@ -911,7 +915,7 @@ class PlayerManager(
                 return@launch
             }
             // 下一首已下载时跳过网络预取
-            if (downloadPreferences.findVerifiedRecord(nextItem.songId) != null) return@launch
+            if (localRecordOf(nextItem) != null) return@launch
             repository.getSongPlaybackInfo(nextItem.songId).collect { result ->
                 result.onSuccess { info ->
                     // 退回试听的结果不缓存，真正切歌时重新取链并提示
@@ -978,13 +982,21 @@ class PlayerManager(
         }
     }
 
+    // 已下载记录；没有时查本地扫描索引补登记，不联网
+    private suspend fun localRecordOf(item: QueueItem): DownloadRecord? {
+        downloadPreferences.findVerifiedRecord(item.songId)?.let { return it }
+        if (item.songId <= 0 || item.radioId != 0L || item.external != null) return null
+        val target = RecognitionTarget(item.songId, item.title, listOf(item.artist))
+        return downloadRecognizer.recognizeSingle(target)
+    }
+
     private fun canAutoCrossfade(): Boolean =
         crossfadeEnabled && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP && playbackQueue.size > 1
 
     // 下一首的可解码音频：本地 > 已下载 > 预取到的在线链接
     private suspend fun nextTrackSourceUri(nextItem: QueueItem): String? =
         nextItem.localUri
-            ?: downloadPreferences.findVerifiedRecord(nextItem.songId)?.mediaStoreUri
+            ?: localRecordOf(nextItem)?.mediaStoreUri
             ?: run {
                 prefetchJob?.join()
                 prefetchedNextUrl?.takeIf { it.songId == nextItem.songId }?.url
@@ -1180,7 +1192,7 @@ class PlayerManager(
         trackLastPauseElapsedMs = if (startPlaying) null else trackStartElapsedMs
     }
 
-    private fun skipToNextOnError(failedIndex: Int) {
+    private fun skipToNextOnError(failedIndex: Int, giveUpMessage: String = "无法获取该歌曲的播放链接") {
         consecutiveErrors++
         if (consecutiveErrors >= 3 || playbackQueue.size <= 1) {
             AppLogger.e(TAG, "连续 $consecutiveErrors 次播放失败，放弃自动切歌 failedIndex=$failedIndex queueSize=${playbackQueue.size}")
@@ -1189,7 +1201,7 @@ class PlayerManager(
             clearPendingTrack(restorePlayWhenReady = false)
             MelodiaPlaybackService.stopPendingForeground(context)
             scope.launch {
-                Toast.makeText(context, "无法获取该歌曲的播放链接", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, giveUpMessage, Toast.LENGTH_SHORT).show()
             }
             return
         }
@@ -1318,7 +1330,14 @@ class PlayerManager(
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
-        skipToNextOnError(playbackQueue.currentIndex.value)
+        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(error))
+    }
+
+    // 链接已拿到、是播放器本身出错，不能沿用取链接失败的提示（#172 硬解 FLAC 失败被误报为取链接失败）
+    private fun playerErrorMessage(error: PlaybackException): String = when (error.errorCode) {
+        in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED ->
+            "设备无法解码当前音质，可尝试调低播放音质"
+        else -> "连续多首歌曲无法播放"
     }
 
     // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；

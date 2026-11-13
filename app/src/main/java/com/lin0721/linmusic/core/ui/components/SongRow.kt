@@ -71,6 +71,8 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.lin0721.linmusic.core.download.DownloadPreferences
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
 import com.lin0721.linmusic.core.ui.interaction.copyOnLongClick
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -98,7 +100,13 @@ data class SongRowData(
     val platformTag: String? = null,
     val platformTagColorArgb: Long? = null,
     // 长按复制的歌手文本，为空时复制展示的 artist（artist 掺了专辑等附加信息时单独指定）
-    val copyArtist: String? = null
+    val copyArtist: String? = null,
+    // 网易云歌曲 id，非空时按开关显示最高音质徽标；本地、外部平台、播客留空
+    val qualitySongId: Long? = null,
+    // 接口自带的最高音质等级，有值时不再补查
+    val maxBrLevel: String? = null,
+    // 由档位文件推断的等级，除 Hi-Res 外直接采用不再补查
+    val inferredLevel: String? = null
 )
 
 // 离线不可播放的歌曲行置灰程度
@@ -253,18 +261,25 @@ fun SongRow(
                 }
             }
             Spacer(Modifier.height(MelodiaSpacing.xxs))
-            Text(
-                text = data.artist,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = artistFontSize,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = when {
-                    copyable && enabled -> Modifier.copyOnLongClick(data.copyArtist ?: data.artist, "歌手", onArtistClick ?: onClick)
-                    onArtistClick != null && enabled -> Modifier.clickable { onArtistClick() }
-                    else -> Modifier
+            val qualityBadge = rememberSongQualityBadge(koinInject<SongQualityCache>(), data.qualitySongId, data.maxBrLevel, data.inferredLevel)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (qualityBadge != null) {
+                    SongQualityBadgeTag(qualityBadge)
+                    Spacer(Modifier.width(MelodiaSpacing.xs))
                 }
-            )
+                Text(
+                    text = data.artist,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = artistFontSize,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = when {
+                        copyable && enabled -> Modifier.copyOnLongClick(data.copyArtist ?: data.artist, "歌手", onArtistClick ?: onClick)
+                        onArtistClick != null && enabled -> Modifier.clickable { onArtistClick() }
+                        else -> Modifier
+                    }
+                )
+            }
         }
 
         if (data.durationText != null) {
@@ -485,13 +500,20 @@ fun DraggableSongRow(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                data.artist,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            val qualityBadge = rememberSongQualityBadge(koinInject<SongQualityCache>(), data.qualitySongId, data.maxBrLevel, data.inferredLevel)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (qualityBadge != null) {
+                    SongQualityBadgeTag(qualityBadge)
+                    Spacer(Modifier.width(MelodiaSpacing.xs))
+                }
+                Text(
+                    data.artist,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         // 拖拽手柄

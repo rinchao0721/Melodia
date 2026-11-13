@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,8 +21,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
+import com.lin0721.linmusic.core.plugin.resolve
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.uiTween
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
@@ -65,6 +71,7 @@ fun EmbeddedLyricsView(
     activeIndices: Set<Int>,
     isLoading: Boolean,
     highlightColor: Color,
+    lyricColors: PluginLyricColors,
     currentPositionProvider: () -> Long,
     isPlaying: Boolean,
     onSeek: (Long) -> Unit,
@@ -101,7 +108,12 @@ fun EmbeddedLyricsView(
         activeIndices = activeIndices,
         isLoading = isLoading,
         isUserScrolling = isUserScrolling,
-        highlightColor = highlightColor,
+        highlightColor = lyricColors.unsung ?: highlightColor,
+        sungColor = lyricColors.sung,
+        harmonySungColor = lyricColors.harmonySung,
+        harmonyUnsungColor = lyricColors.harmonyUnsung,
+        translationColor = lyricColors.translation,
+        romanizationColor = lyricColors.romanization,
         currentPositionProvider = currentPositionProvider,
         lazyListState = listState,
         viewportHeightPx = viewportPx,
@@ -124,5 +136,30 @@ fun EmbeddedLyricsView(
             isUserScrolling = false
             onSeek(line.timeMs)
         }
+    )
+}
+
+// 全屏、宽屏及播放页内嵌歌词共用的插件配色
+data class PluginLyricColors(
+    val sung: Color? = null,
+    val unsung: Color? = null,
+    val harmonySung: Color? = null,
+    val harmonyUnsung: Color? = null,
+    val translation: Color? = null,
+    val romanization: Color? = null
+)
+
+@Composable
+internal fun rememberPluginLyricColors(cover: LayoutCoverColors): PluginLyricColors {
+    val frame = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.frame
+    val sung = frame?.sungColor?.resolve(cover)
+    val harmony = frame?.harmonySungColor?.resolve(cover)
+    return PluginLyricColors(
+        sung = sung?.let { animateColorAsState(it, uiTween(800), label = "lyricColor").value },
+        unsung = frame?.unsungColor?.resolve(cover),
+        harmonySung = harmony?.let { animateColorAsState(it, uiTween(800), label = "harmonyColor").value },
+        harmonyUnsung = frame?.harmonyUnsungColor?.resolve(cover),
+        translation = frame?.translationColor?.resolve(cover),
+        romanization = frame?.romanizationColor?.resolve(cover)
     )
 }

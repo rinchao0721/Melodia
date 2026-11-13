@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
+import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -64,6 +66,13 @@ class SettingsViewModel(
 
     // ─── 本地偏好设置对外状态流 ───
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
+    val searchDefaultKeywordEnabled = settingsPreferences.searchDefaultKeywordEnabled.asState(true)
+    val hotSearchEnabled = settingsPreferences.hotSearchEnabled.asState(true)
+    val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)
+    val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
+    val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
+    val homeForYouEnabled = settingsPreferences.homeForYouEnabled.asState(true)
+    val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
     val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
@@ -81,6 +90,7 @@ class SettingsViewModel(
 
     val wifiQuality = settingsPreferences.wifiQuality.asState("lossless")
     val showPlaybackQuality = settingsPreferences.showPlaybackQuality.asState(false)
+    val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
 
     val mobileQuality = settingsPreferences.mobileQuality.asState("standard")
 
@@ -177,6 +187,7 @@ class SettingsViewModel(
     val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
 
     val fluidCloudLyricEnabled = settingsPreferences.fluidCloudLyricEnabled.asState(false)
+    val flymeStatusBarLyricEnabled = settingsPreferences.flymeStatusBarLyricEnabled.asState(false)
 
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
@@ -261,6 +272,27 @@ class SettingsViewModel(
     // ─── 核心设置修改方法 ───
     fun updateSearchAggregationEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveSearchAggregationEnabled(enabled) }
 
+    fun updateSearchDefaultKeywordEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchDefaultKeywordEnabled(enabled) }
+
+    fun updateHotSearchEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHotSearchEnabled(enabled) }
+
+    fun updatePlaylistTagsEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTagsEnabled(enabled) }
+
+    fun updateSearchSuggestionEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchSuggestionEnabled(enabled) }
+
+    fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
+
+    fun updateHomeForYouEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeForYouEnabled(enabled) }
+
+    fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }
+
+    fun updateLyricFilterAmll(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterAmll(enabled) }
+
+    fun updateLyricFilterLocal(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterLocal(enabled) }
+
+    fun updateLyricFilterRules(rules: LyricFilterRules) = launchSave { settingsPreferences.saveLyricFilterRules(rules) }
+
+
     fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
 
     fun updateUnmServerUrl(url: String) = launchSave { sourcePreferences.saveUnmServerUrl(url) }
@@ -330,6 +362,7 @@ class SettingsViewModel(
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
     fun updateShowPlaybackQuality(show: Boolean) = launchSave { settingsPreferences.saveShowPlaybackQuality(show) }
+    fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
 
     fun updateMobileQuality(quality: String) = launchSave { settingsPreferences.saveMobileQuality(quality) }
 
@@ -447,6 +480,8 @@ class SettingsViewModel(
     fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
 
     fun updateFluidCloudLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFluidCloudLyricEnabled(enabled) }
+
+    fun updateFlymeStatusBarLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFlymeStatusBarLyricEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

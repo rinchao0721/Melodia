@@ -110,7 +110,7 @@ class DownloadPreferences(private val context: Context) {
         }
 
     // 检查目标 Uri 文件是否存在
-    private suspend fun fileExists(uriString: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun fileExists(uriString: String): Boolean = withContext(Dispatchers.IO) {
         runCatching {
             context.contentResolver.openInputStream(Uri.parse(uriString))?.use { true } ?: false
         }.getOrDefault(false)
@@ -141,6 +141,17 @@ class DownloadPreferences(private val context: Context) {
         verifiedUris.add(record.mediaStoreUri)
         context.downloadDataStore.edit { prefs ->
             val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId == record.songId } + record
+            prefs[KEY_RECORDS] = json.encodeToString(updated)
+        }
+    }
+
+    // 批量添加或更新下载记录
+    suspend fun addRecords(newRecords: List<DownloadRecord>) {
+        if (newRecords.isEmpty()) return
+        newRecords.forEach { verifiedUris.add(it.mediaStoreUri) }
+        val ids = newRecords.mapTo(HashSet()) { it.songId }
+        context.downloadDataStore.edit { prefs ->
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in ids } + newRecords
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }

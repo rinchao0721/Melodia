@@ -31,12 +31,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherTitleLabel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import org.koin.androidx.compose.koinViewModel
 
 private val SidebarToggleGap = 4.dp
 
@@ -55,6 +59,7 @@ fun FullPlayerCoverArt(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
+    queueTarget: SwipeQueueTarget? = null,
     // 在默认左右留白之外再内缩的距离，封面随之居中缩小
     coverExtraInset: Dp = 0.dp,
     // 封面默认基础水平边距，默认 MelodiaSpacing.lg (24dp)，关闭小歌词时可自适应缩窄以放大封面
@@ -100,7 +105,8 @@ fun FullPlayerCoverArt(
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 6.dp,
             modifier = Modifier.fillMaxWidth(),
-            onCancelPending = onCancelSwipe
+            onCancelPending = onCancelSwipe,
+            queueTarget = queueTarget
         )
     }
 }
@@ -202,6 +208,12 @@ fun FullPlayerSourceLabel(
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
+    val listenTogether: ListenTogetherViewModel = koinViewModel()
+    val roomState by listenTogether.state.collectAsState()
+    if (roomState.active) {
+        ListenTogetherTitleLabel(roomState, onClick = listenTogether::openRoom, modifier = modifier)
+        return
+    }
     AnimatedContent(
         targetState = playContext,
         transitionSpec = {

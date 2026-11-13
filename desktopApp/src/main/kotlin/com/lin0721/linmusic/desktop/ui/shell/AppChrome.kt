@@ -71,8 +71,11 @@ internal fun WindowScope.AppTitleBar(
         onSearchSubmit = {
             if (!dropdown.activateSelected()) {
                 dropdown.close()
-                openSearch()
-                searchViewModel.searchWithKeyword(searchInput.query.ifBlank { defaultKeyword })
+                val keyword = searchInput.query.ifBlank { defaultKeyword }
+                if (keyword.isNotBlank()) {
+                    openSearch()
+                    searchViewModel.searchWithKeyword(keyword)
+                }
             }
         },
         isBrowseActive = state.backStack.current == DesktopRoute.Browse,

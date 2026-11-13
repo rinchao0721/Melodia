@@ -108,7 +108,7 @@ class MpvExclusiveOutputTest {
             settings,
             PlaybackPreferences(PreferencesStores.get(File(dir, "playback.preferences_pb"))),
             DesktopPreferences(PreferencesStores.get(File(dir, "desktop.preferences_pb"))),
-            localAudioOf = { songId -> paths[songId] },
+            localAudioOf = { item -> paths[item.songId] },
             scope = scope,
             engineOptions = engineOptions
         ).also { controller = it }

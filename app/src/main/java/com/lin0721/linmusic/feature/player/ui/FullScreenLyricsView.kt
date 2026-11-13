@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.feature.player.presentation.hasSecondaryText
 import com.lin0721.linmusic.feature.player.share.LyricShareSheet
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -98,12 +101,18 @@ fun FullScreenLyricsView(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
+    sungColor: Color? = null,
+    harmonySungColor: Color? = null,
+    harmonyUnsungColor: Color? = null,
+    translationColor: Color? = null,
+    romanizationColor: Color? = null,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     coverage: LyricsOverlayCoverage? = null,
     isFullyEntered: () -> Boolean = { true },
     // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
     pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
 ) {
+    val hasCanvasBackground = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.canvasScript != null
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var timerJob by remember { mutableStateOf<Job?>(null) }
@@ -128,8 +137,8 @@ fun FullScreenLyricsView(
     var areControlsVisible by remember { mutableStateOf(true) }
     var autoHideJob by remember { mutableStateOf<Job?>(null) }
 
-    val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
-    val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
+    val hasTranslation = remember(lyrics) { hasSecondaryText(lyrics, "translation") }
+    val hasRoma = remember(lyrics) { hasSecondaryText(lyrics, "roma") }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
 
@@ -312,7 +321,9 @@ fun FullScreenLyricsView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeChild(state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f))
+                    .then(if (hasCanvasBackground) Modifier else Modifier.hazeChild(
+                        state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f)
+                    ))
                     .windowInsetsPadding(topSafeInsets)
             ) {
                 val lyricsList: @Composable (Modifier) -> Unit = { listModifier ->
@@ -325,6 +336,11 @@ fun FullScreenLyricsView(
                         isLoading = isLoading,
                         isUserScrolling = isUserScrolling,
                         highlightColor = highlightColor,
+                        sungColor = sungColor,
+                        harmonySungColor = harmonySungColor,
+                        harmonyUnsungColor = harmonyUnsungColor,
+                        translationColor = translationColor,
+                        romanizationColor = romanizationColor,
                         currentPositionProvider = lyricPositionProvider,
                         lazyListState = lazyListState,
                         viewportHeightPx = dragState.viewportHeightPx,

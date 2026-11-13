@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
+import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherBadge
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.DropdownMenu
@@ -281,6 +282,7 @@ private fun PanelHeader(
         } else {
             PanelTitle(track, controller, playerViewModel, Modifier.weight(1f))
         }
+        ListenTogetherBadge(Modifier.padding(end = 6.dp))
         if (sleepActive) {
             Icon(Icons.Rounded.Bedtime, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             Text(

@@ -335,7 +335,8 @@ fun PlayQueueSheet(
                                     id = item.songId,
                                     title = item.title,
                                     artist = item.artist,
-                                    coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                    coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                                    qualitySongId = item.qualitySongId()
                                 ),
                                 isCurrent = false,
                                 isPlaying = false,
@@ -366,7 +367,8 @@ fun PlayQueueSheet(
                                     artist = queue[currentIndex].artist,
                                     coverUrl = rememberQueueItemCoverUrl(
                                         queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
-                                    )
+                                    ),
+                                    qualitySongId = queue[currentIndex].qualitySongId()
                                 ),
                                 isCurrent = true,
                                 isPlaying = isPlaying,
@@ -399,7 +401,8 @@ fun PlayQueueSheet(
                                         artist = queue[currentIndex].artist,
                                         coverUrl = rememberQueueItemCoverUrl(
                                             queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
-                                        )
+                                        ),
+                                        qualitySongId = queue[currentIndex].qualitySongId()
                                     ),
                                     isCurrent = true,
                                     isPlaying = isPlaying,
@@ -456,7 +459,8 @@ fun PlayQueueSheet(
                                             id = item.songId,
                                             title = item.title,
                                             artist = item.artist,
-                                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri)
+                                            coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                                            qualitySongId = item.qualitySongId()
                                         ),
                                         isCurrent = false,
                                         isPlaying = false,
@@ -719,3 +723,7 @@ private fun BottomActionRow(
         }
     }
 }
+
+// 本地文件、播客、外部平台歌曲的 songId 不是网易云歌曲 id，不查最高音质
+private fun QueueItem.qualitySongId(): Long? =
+    songId.takeIf { localUri == null && radioId == 0L && external == null }

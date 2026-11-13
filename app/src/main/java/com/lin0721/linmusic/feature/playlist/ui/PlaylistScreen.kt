@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -492,7 +493,10 @@ fun PlaylistScreen(
                                             id = item.id,
                                             title = item.name,
                                             artist = item.ar.joinToString("/") { it.name },
-                                            coverUrl = item.al.picUrl
+                                            coverUrl = item.al.picUrl,
+                                            qualitySongId = item.id,
+                                            maxBrLevel = item.privilege?.maxBrLevel,
+                                            inferredLevel = item.inferredMaxBrLevel()
                                         ),
                                         isCurrent = currentTrack?.mediaId == item.id.toString(),
                                         isPlaying = isPlaying,

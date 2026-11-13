@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Group
+import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
@@ -81,7 +83,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.model.Artist
+import com.lin0721.linmusic.core.model.QualityBadge
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.inferredMaxBrLevel
+import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
+import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
+import androidx.compose.foundation.border
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.theme.densityScaled
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -147,7 +154,9 @@ fun TrackRow(
     // 非 null 时用它替换默认的歌曲菜单（本地歌曲）
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
-    sourcePlatform: MusicPlatform? = null
+    sourcePlatform: MusicPlatform? = null,
+    // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；本地、插件歌曲留空
+    qualitySongId: Long? = null
 ) {
     val activeActions = actions.takeIf { selection == null }
     val activeMenu = menuContent.takeIf { selection == null }
@@ -269,13 +278,22 @@ fun TrackRow(
                     )
                     if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
                 }
-                Text(
-                    artistLinks(track.ar, navigator.openArtist),
-                    color = DesktopColors.TextGray,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                val qualityBadge = rememberSongQualityBadge(
+                    LocalSongQualityCache.current,
+                    qualitySongId.takeIf { sourcePlatform == null },
+                    track.privilege?.maxBrLevel,
+                    track.inferredMaxBrLevel()
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (qualityBadge != null) SongQualityBadgeTag(qualityBadge, Modifier.padding(end = 6.dp))
+                    Text(
+                        artistLinks(track.ar, navigator.openArtist),
+                        color = DesktopColors.TextGray,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Text(
                 albumLink(track, navigator.openAlbum),
@@ -390,6 +408,13 @@ internal fun TrackMenu(
             onDismiss()
             actions.onPlayNext(track)
         })
+        val listenTogether = LocalListenTogetherViewModel.current
+        if (listenTogether != null && listenTogether.state.value.active && track.id > 0L) {
+            MenuItem("添加到一起听队列", icon = Icons.Rounded.Group, onClick = {
+                onDismiss()
+                listenTogether.addToRoomQueue(listOf(track.id)) { navigator.showMessage(it) }
+            })
+        }
         if (navigator.isLoggedIn) {
             SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                 CollectSubmenuContent(track, actions, onDismiss)
@@ -478,6 +503,24 @@ private fun Track.toPluginArgs(): JsonObject =
     pluginSongArgs(id, name, ar.joinToString(" / ") { it.name }, al.name, al.picUrl)
 
 private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
+
+// 歌手名前的最高音质描边标签
+@Composable
+private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifier) {
+    val color = badge.colorArgb?.let { Color(it) } ?: DesktopColors.TextGray
+    val shape = RoundedCornerShape(3.dp)
+    Text(
+        badge.label,
+        color = color,
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        maxLines = 1,
+        modifier = modifier
+            .background(color.copy(alpha = 0.1f), shape)
+            .border(0.5.dp, color, shape)
+            .padding(horizontal = 4.dp, vertical = 1.dp)
+    )
+}
 
 // 多位歌手各自可点，无 id 的歌手只展示名字
 @Composable

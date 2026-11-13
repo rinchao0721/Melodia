@@ -373,6 +373,7 @@ private fun LazyListScope.trackItems(
         TrackRow(
             index = index,
             track = track,
+            qualitySongId = track.id,
             isCurrent = currentSongId == track.id,
             onPlay = { onPlay(track) },
             actions = actions,

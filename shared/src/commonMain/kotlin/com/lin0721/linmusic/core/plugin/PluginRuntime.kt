@@ -196,6 +196,11 @@ class PluginRuntime(
                 val source = ScriptContentSource(manifest, name, manifest.contributes.contentSources[order].search)
                 registry.register(Extension(ExtensionPoints.CONTENT_SOURCE, manifest.id, manifest.name, name, source, order))
             }
+            PluginPrelude.KIND_DOWNLOAD_SOURCE -> {
+                val order = manifest.contributes.downloadSources.indexOfFirst { it.id == name }
+                if (order < 0) return
+                registry.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, manifest.id, manifest.name, name, ScriptDownloadSource(manifest.id, name), order))
+            }
             PluginPrelude.KIND_COMMAND -> {
                 val order = manifest.contributes.commands.indexOfFirst { it.id == name }
                 if (order < 0) return
@@ -253,6 +258,16 @@ class PluginRuntime(
                 put("params", JsonObject(query.toJson() + ("quality" to JsonPrimitive(quality))))
             }
             return invoke(pluginId, PluginPrelude.KIND_AUDIO_SOURCE, name, args, SOURCE_TIMEOUT_MS)
+        }
+    }
+
+    private inner class ScriptDownloadSource(private val pluginId: String, private val name: String) : DownloadSourceExtension {
+        override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? {
+            val args = buildJsonObject {
+                put("method", "resolve")
+                put("params", JsonObject(query.toJson() + ("quality" to JsonPrimitive(quality))))
+            }
+            return invoke(pluginId, PluginPrelude.KIND_DOWNLOAD_SOURCE, name, args, SOURCE_TIMEOUT_MS)
         }
     }
 

@@ -2,7 +2,10 @@ package com.lin0721.linmusic.core.player
 
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
+import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricMetadataStripper
 import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.player.domain.LyricTimeline
 import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
@@ -51,8 +54,35 @@ class LyricsResolver(
     private val readExternalQqLyrics: suspend (ExternalTrack) -> List<LyricLine> = { emptyList() },
     // 插件歌词源：没有可用插件时不查询；外部歌曲带上自身信息，网易歌曲由实现方自行补全
     private val hasPluginLyrics: () -> Boolean = { false },
-    private val readPluginLyrics: suspend (songId: Long, external: ExternalTrack?) -> List<LyricLine> = { _, _ -> emptyList() }
+    private val readPluginLyrics: suspend (songId: Long, external: ExternalTrack?) -> List<LyricLine> = { _, _ -> emptyList() },
+    // 歌词首尾信息行过滤配置，每首歌开始解析时读取一次
+    private val lyricFilterConfig: suspend () -> LyricFilterConfig = { LyricFilterConfig(enabled = false) }
 ) {
+
+    // 规则不变时复用已编译的正则
+    private var cachedStripper: Pair<LyricFilterRules, LyricMetadataStripper>? = null
+
+    private class ActiveFilter(val config: LyricFilterConfig, val stripper: LyricMetadataStripper) {
+        fun online(lines: List<LyricLine>): List<LyricLine> = stripper.strip(lines)
+        fun amll(lines: List<LyricLine>): List<LyricLine> = if (config.filterAmll) stripper.strip(lines) else lines
+        fun local(lines: List<LyricLine>): List<LyricLine> = if (config.filterLocal) stripper.strip(lines) else lines
+    }
+
+    // 读取失败按不过滤处理，不能因此拿不到歌词
+    private suspend fun activeFilter(): ActiveFilter? {
+        val config = try {
+            lyricFilterConfig()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.w("LyricsResolver", "读取歌词过滤配置失败: ${e.message}")
+            return null
+        }
+        if (!config.enabled) return null
+        val stripper = cachedStripper?.takeIf { it.first == config.rules }?.second
+            ?: LyricMetadataStripper(config.rules).also { cachedStripper = config.rules to it }
+        return if (stripper.isEmpty) null else ActiveFilter(config, stripper)
+    }
 
     private companion object {
         const val AMLL_TIMEOUT_MS = 6000L
@@ -96,7 +126,8 @@ class LyricsResolver(
 
     private suspend fun localLyrics(uri: String): ResolvedLyrics {
         val lines = readLocalLyrics(uri)?.let(LyricParser::parseLocal).orEmpty()
-        return ResolvedLyrics(LyricTimeline.prepareLines(lines), LyricsSource.LOCAL)
+        val filtered = activeFilter()?.local(lines) ?: lines
+        return ResolvedLyrics(LyricTimeline.prepareLines(filtered), LyricsSource.LOCAL)
     }
 
     private sealed interface SourceUpdate {
@@ -161,6 +192,7 @@ class LyricsResolver(
             val qqEnabled = isQqEnabled()
             val neteaseEnabled = isNeteaseEnabled()
             val pluginEnabled = hasPluginLyrics()
+            val filter = activeFilter()
             val state = LyricsSourceState(amllEnabled, qqEnabled, neteaseEnabled, pluginEnabled)
             // 所有来源都关闭时没有可等待的查询，直接交出空结果
             if (state.isFinished) {
@@ -209,10 +241,13 @@ class LyricsResolver(
             try {
                 while (!state.isFinished || state.dirty) {
                     when (val update = updates.receive()) {
-                        is SourceUpdate.Netease -> state.onNetease(update.result)
-                        is SourceUpdate.Amll -> state.onAmll(update.lines)
-                        is SourceUpdate.Qq -> state.onQq(update.lines)
-                        is SourceUpdate.Plugin -> state.onPlugin(update.lines)
+                        // 先过滤再择优：某个来源只剩信息行时变为空，让其他来源胜出
+                        is SourceUpdate.Netease -> state.onNetease(
+                            if (filter == null) update.result else update.result.map(filter::online)
+                        )
+                        is SourceUpdate.Amll -> state.onAmll(filter?.amll(update.lines) ?: update.lines)
+                        is SourceUpdate.Qq -> state.onQq(filter?.online(update.lines) ?: update.lines)
+                        is SourceUpdate.Plugin -> state.onPlugin(filter?.online(update.lines) ?: update.lines)
                         is SourceUpdate.Cancelled -> if (!state.isOwnAmllCancellation(update.source)) throw update.exception
                         SourceUpdate.Tick -> if (state.dirty) publish()
                     }

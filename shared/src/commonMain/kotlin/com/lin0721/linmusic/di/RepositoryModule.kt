@@ -8,6 +8,10 @@ import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.cache.OfflineFallback
 import com.lin0721.linmusic.core.offline.OfflinePlayability
+import com.lin0721.linmusic.core.player.data.PlaybackApi
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.songquality.fetchSongMaxQuality
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.feature.create.data.CreateRepository
@@ -97,6 +101,16 @@ val repositoryModule = module {
     singleOf(::PodcastRepositoryImpl) { bind<PodcastRepository>() }
     // 播放器里的播客订阅状态，迷你条与全屏播放页共用，随进程存活
     single { PodcastPlayerController(CoroutineScope(SupervisorJob() + Dispatchers.Main), get(), get(), get(), get()) }
+
+    // 歌曲列表最高音质徽标的补查缓存，两端列表共用，随进程存活
+    single {
+        val api = get<PlaybackApi>()
+        SongQualityCache(
+            enabledFlow = get<SettingsPreferences>().showSongMaxQuality,
+            fetcher = { ids -> fetchSongMaxQuality(api, ids) },
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        )
+    }
 
     // 搜索数据仓储（feature/search）
     singleOf(::SearchRepositoryImpl) { bind<SearchRepository>() }

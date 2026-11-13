@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.LongState
@@ -140,6 +142,15 @@ fun PlayerBackdrop(
     translationYProvider: () -> Float = { 0f },
     content: @Composable BoxScope.() -> Unit = {}
 ) {
+    val backgroundLayout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]
+    val canvasScript = backgroundLayout?.canvasScript
+    if (mode == BackdropMode.Immersive && canvasScript != null) {
+        Box(modifier) {
+            PluginCanvasBackdrop(canvasScript, base, animateMesh, Modifier.matchParentSize(), backgroundLayout.frame.canvasColors)
+            content()
+        }
+        return
+    }
     // 透出皮肤背景图时由外层整页画背景，这里只在歌词全屏层补画一次
     if (isCoverBackdrop(CoverGroup.PLAYER)) {
         Box(modifier.then(if (mode == BackdropMode.Immersive) Modifier.playerBackdrop(Color.Transparent) else Modifier), content = content)

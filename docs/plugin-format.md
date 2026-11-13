@@ -9,6 +9,7 @@
 | `plugin.json` | 清单，必需 | 256KB |
 | `main.js` | 脚本入口；声明了页面、音源、歌词源或事件时必需 | 2MB |
 | `ui/*.json` | 页面与布局描述，只允许一层 | 单个 256KB |
+| `background/*.js` | Android 插件 Canvas 2D 背景脚本，只允许一层 | 单个 2MB |
 | `assets/*.png/jpg/jpeg/webp` | 图片，只允许一层 | 单个 2MB |
 | `plugin.jar` | 原生插件的代码，仅桌面端 | 64MB |
 | `native/windows-x64/*.dll` | 原生插件的动态库，可选，仅桌面端 | 单个 64MB |
@@ -51,7 +52,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.9` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.11` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -66,6 +67,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `settings`（format 2）：插件设置项，见「设置」一节。
 - `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
 - `backdrops`（format 2）：窗口动态背景，见「动态背景」一节。
+- `downloadSources`（format 2，API 1.11 起）：下载源，见「下载源」一节。每项需要 `id`，`name` 可选。
 - `layoutActions`（format 2）：播放器布局的手势里用到 `script:` 动作时写 `true`，插件需要带 `main.js`，见「手势」。
 
 单项写错时只忽略这一项，并在导入时提示。
@@ -84,6 +86,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `ui.openUrl` | 用系统浏览器打开网页，每次打开前询问用户 | |
 | `library.read` | 读取当前用户的歌单与红心列表 | |
 | `contentSource` | 提供歌曲、歌单与搜索结果 | `contentSources` 必需 |
+| `downloadSource` | 官方无法下载时提供下载链接 | `downloadSources` 必需 |
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
 | `netease.write` | 以当前用户身份调用网易写方法 | |
 
@@ -143,6 +146,32 @@ melodia.register.audioSource('main', {
 - `origin` 为 `songId` 所属平台（`netease`、`qq`、`kugou`、`kuwo`、`migu`）；`quality` 为当前音质档位（`standard`、`exhigh`、`lossless`、`hires`）。
 - 只接受 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个音源。
 - 多个插件音源按插件名称顺序尝试；`register` 的名称必须在清单 `audioSources` 里声明过。
+
+## 下载源
+
+API 1.11 起提供。
+
+```js
+melodia.register.downloadSource('main', {
+  resolve: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin, quality }
+    return {
+      url: 'https://...',
+      type: 'flac',                        // 文件格式，可选
+      quality: 'lossless',                 // 实际音质档位，可选
+      headers: { Referer: 'https://...' }  // 下载时附带的请求头，可选
+    };                                     // 也可以只返回链接字符串
+  }
+});
+```
+
+- 先请求官方下载接口；官方没给链接、只给了试听片段、或请求无损却被降级为压缩格式时，若开启了「无版权/VIP 自动换源」，按插件名称顺序调用下载源。官方链接可用时不会调用。
+- 下载源与音源相互独立：只注册 `audioSource` 的插件不会参与下载，需要的话把同一个实现再注册一次下载源。
+- 只接受格式合法的 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个下载源，所有下载源合计最多等 15 秒，全部没有结果时按官方的失败原因提示。
+- `type` 用作扩展名，只接受 `mp3`、`flac`、`m4a`、`aac`、`ogg`、`wav`，没给或不认识时从链接后缀推断，再推断不出按 `mp3` 保存。
+- `quality` 记入下载记录，取值同 `song.quality`；没给或不认识时按 `standard` 记录。已下载过这首歌且原文件音质不低于 `quality` 时，不会下载，保留原文件。
+- `headers` 随下载请求发出，取值只能是可打印 ASCII 字符；`Range`、`Accept-Encoding`、`Host`、`Connection`、`Content-Length`、`Transfer-Encoding`、`TE`、`Upgrade` 和以 `If-` 开头的请求头由宿主控制，写了也会被忽略，名称或取值不合法的同样丢弃。宿主不会附带网易账号的 Cookie。
+- 文件大小未知，按响应头 `Content-Length` 校验是否下载完整，空响应视为失败，中断后从头重新下载。
 
 ## 歌词源
 
@@ -350,7 +379,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 `desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
 
-`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词。手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版。`android.fullPlayerWide` 只在平板侧栏铺开到全屏时出现，只替换左栏，右栏歌词与卡片不变。
+`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词；`miniLyric` 写了 `onTap` 时按 `onTap` 执行。`apiVersion` 低于 `1.10`（或未声明）的插件，手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版；声明 `1.10` 及以上时，横屏改用 `android.fullPlayerWide`，见「横竖屏独立选择」。`android.fullPlayerWide` 在平板侧栏铺开到全屏时只替换左栏，右栏歌词与卡片不变。
 
 ### 通用属性
 
@@ -604,7 +633,7 @@ class HelloPlugin : MelodiaPlugin {
 - **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库、kotlinx.coroutines 和 Compose（runtime、ui、foundation、animation、material3 与 Skia），这些不要打进 `plugin.jar`；其他依赖打进 JAR，包括 Compose 图标库。应用内部的类对插件不可见。
 - **Compose 页面**：清单写 `{ "id": "panel", "title": "面板", "compose": true }`，代码里调用 `context.extensions.composePage("panel") { ... }`。需要 API 1.2，用与应用相同的 Compose 版本（当前 1.10）编译，Compose 有不兼容升级时 API 主版本会提升。页面在独立的窗口层渲染：出错只影响这个页面，但不继承应用主题，自己铺背景，也盖在应用内的弹层和菜单上方。
 - **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
-- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、下载源（API 1.11 起，返回 `DownloadLink`）、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
 - **宿主能力**：除频谱外，`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
 - **频谱**：`context.spectrum.frames()` 返回 `Flow<SpectrumFrame>`，约 30 帧/秒，含 64 个对数频段（20 Hz–16 kHz，0–1）和最近 1024 个单声道采样（-1–1）。需要 API 1.3 和 `playback.read` 权限，缺权限或系统不支持时收集会抛 `PluginApiException`。收集时才采集，来不及处理的帧会被丢弃，无声时停发；数组由所有订阅者共用，不要修改。数据取自实际输出，随音量变化；优先只录 Melodia 自己的声音，系统不支持时退回默认输出设备的混音，这时会混入其他应用的声音。沙盒脚本和 Android 不提供。
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
@@ -619,3 +648,75 @@ class HelloPlugin : MelodiaPlugin {
 - 原生插件运行时使用 `plugins/.native/run/<id>/` 下的副本，每次启动重建。
 - 插件数据放在 `plugins/.data/<id>/`，升级时保留，删除插件时一并删除。
 - 导出时只打包安装文件，不包含插件数据。
+
+
+## 插件设置迷你播放器外观（API 1.10）
+
+`contributes.playerLayouts.android.miniPlayer` 可以引用带 `"layout": "host"` 的文件。
+这种模式保留宿主原有封面、歌名、歌手/输出设备、收藏、播放控制、进度及滑动交互，只让插件设置 `frame`。
+此模式仅允许 `layout` 和 `frame`，不支持 `variants`。未启用或未选择插件布局时，宿主保留原来的封面取色背景。
+
+`frame.contentColor` 可指定内容颜色，支持深浅色固定值；不声明则沿用默认沉浸配色。
+颜色新增混合表达式：
+
+```json
+{"mix": ["cover.base", "#FFFFFF"], "amount": {"light": 0.82, "dark": 0.15}}
+```
+
+`mix` 必须为两个合法颜色，`amount` 可为一个数或包含 `light`、`dark` 的对象，范围 0–1。
+数值表示向第二个颜色混合的比例，允许最多 4 层嵌套；非法结构被拒绝。
+可用于渐变的每个颜色，让插件自行决定封面色的混白比例、深浅色差异和渐变方向。
+
+
+## 背景画布（API 1.10，Android）
+
+布局 `android.fullPlayer` 或 `android.lyrics` 的 `frame.canvas` 引用 `background/*.js`。
+仅允许一层文件，单个脚本最多 2MB；它与 `main.js` 的宿主能力脚本相互独立。
+当前版本通过现有布局选择挂载背景，尚未提供独立背景选择器。
+
+插件入口设置 `background.render = (ctx, state, timeMs) => { ... }`，由脚本直接在 Canvas 2D 绘制。
+`state` 包含 `version: 1`、逻辑像素宽高 `width/height`、`pixelRatio`、`theme`（light/dark）、
+`coverColor`（#RRGGBB）、`playing`、`motion`、`visible`。
+可选 `background.onState = state => { ... }` 接收状态更新。时间为从 0 开始的动画累计毫秒，与音频进度无关；初始相位偏移由插件自行决定。
+宿主在调用前设置像素缩放；插件使用逻辑像素坐标。当前绘制上限 30fps、100 万背板像素。
+暂停或关闭动画时仍绘制静态帧；非前台时销毁整个文档，恢复前台重建。
+画布不接收触摸，不具备网络、文件、账号、存储或原生桥接能力。
+脚本加载/绘制异常时画布透明，露出页面主题底色；其他布局不受影响。宿主不提供内置光斑算法，效果由插件脚本实现。
+当前接口提供 Canvas 2D，不承诺 WebGL 或插件可执行任意平台原生代码。
+
+歌词页可选 `frame.sungColor` / `frame.unsungColor`，支持已有颜色表达式。
+API 1.10 新增 `frame.harmonySungColor` / `frame.harmonyUnsungColor`，用于和声的已唱、未唱颜色。
+已唱和未唱颜色分别生效，省略时沿用宿主配色。`sungColor` 用于主声部逐字高亮及当前普通歌词。
+`android.lyrics` 的 `frame.translationColor` 和 `frame.romanizationColor` 分别设置翻译和音译颜色，也适用于和声附带的翻译和音译。
+声明后，副文本在当前行和其他行使用同一个设定颜色。省略时沿用默认配色，主声部当前行使用主题正文色，其他行使用未唱文字颜色，和声副文本跟随和声行的颜色。
+插件可声明深浅色分支、封面色混合及带 alpha 的固定颜色；宿主只解析并传给现有歌词组件。
+
+小歌词的 `onTap` 为显式覆盖：有声明时交给通用动作系统，无声明时沿用原组件点击。
+禁用插件或切回内置布局后，使用原有播放器背景、歌词主题、配色和交互。
+
+效果职责示例：无卡片全屏排版、小歌词打开歌词页、迷你条渐变、歌词及和声配色均写在插件包；
+宿主仅保留布局解释器、颜色表达式、动作分发、画布与组件样式参数。
+
+全屏歌词页也支持 `"layout": "host"`：保留宿主原有标题、歌词和完整控制栏，`frame` 仍可声明插件画布和歌词颜色。
+
+### 通用 HSL 颜色调整（API 1.10）
+
+颜色表达式支持 `{"adjust":"cover.base","hue":0,"saturation":{"light":1.15,"dark":1}}`。
+`adjust` 可为任意颜色表达式（包括 mix）；hue 为旋转角度，默认 0，按 360 度循环；saturation 为 HSL 饱和度倍率，默认 1，范围 0–4，结果饱和度限制在 0–1。
+两个参数均支持数字或完整的 light/dark 对象。明度、透明度保持不变，灰色保持无彩色。表达式最多嵌套 4 层。
+
+### 色相分段与画布颜色（API 1.10）
+
+通用颜色表达式：
+```json
+{"huePalette":"cover.base","minSaturation":0.16,"neutral":{"light":"#405F83","dark":"#CCDEF3"},"stops":[{"hue":0,"color":{"light":"#A52D43","dark":"#FFB7C1"}},{"hue":195,"color":{"light":"#285EA3","dark":"#B4D4FF"}}]}
+```
+`stops` 是 1–16 个严格递增的起始色相（0 ≤ hue < 360）。选择不大于输入色相的最后一项，低于第一项时环绕到最后一项。使用 HSV 饱和度判断色相是否可靠（低于插件声明的 minSaturation 时选 neutral；无彩色总选 neutral），不将封面饱和度或明度带入输出颜色。输出可为任意颜色表达式，仍受总嵌套深度限制。
+
+Android 播放页／全屏歌词页支持 `frame.canvasColors`：最多 16 个命名颜色表达式，名称匹配 `[A-Za-z][A-Za-z0-9_]{0,31}`。宿主解析、平滑过渡后以 `state.colors` 的 `#RRGGBB` 值传入插件画布。不提供时传空对象，原有画布脚本兼容。预设列表、阈值及颜色均由插件声明，宿主不内置具体配色。画布是 RGB 表面，此接口不传透明度。
+
+### 横竖屏独立选择（API 1.10）
+
+仅对 `apiVersion` 声明为 `1.10` 及以上的插件生效。竖屏播放页、背景和沉浸主题判定读取 `android.fullPlayer`；横屏读取 `android.fullPlayerWide`。宽屏区域新增 `frame.header`/`cards`/`canvas`/`canvasColors`，并支持 `layout: host`。横屏选择内置布局（或未提供该区域）时不回退到竖屏的插件布局。全屏歌词背景仍由 `android.lyrics` 独立选择。
+
+竖屏选中的是低于 `1.10` 的插件时，横屏沿用它的竖屏布局，与之前的版本一致。

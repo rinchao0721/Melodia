@@ -315,7 +315,7 @@ private fun TaskInfo(task: DownloadTask, modifier: Modifier = Modifier, showProg
         Spacer(Modifier.height(2.dp))
         val secondary = when {
             task.status == DownloadTaskStatus.FAILED -> task.failureReason ?: "下载失败"
-            task.skipped -> "${meta.artistName} · 已存在，未重复下载"
+            task.skipped -> "${meta.artistName} · 已存在，已跳过"
             else -> meta.artistName
         }
         Text(

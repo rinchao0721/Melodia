@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
-import com.lin0721.linmusic.core.download.DownloadTrackInfo
-import com.lin0721.linmusic.core.download.yearFromEpochMillis
+import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 
@@ -15,11 +14,7 @@ internal fun desktopNavigator(
 ): DesktopNavigator {
     val downloadAt: (Track, String) -> Unit = { track, level ->
         deps.downloader.enqueueSingle(
-            DownloadTrackInfo(
-                track.id, track.name, track.ar.joinToString("/") { it.name },
-                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                yearFromEpochMillis(track.publishTime)
-            ),
+            track.toDownloadTrackInfo(),
             level
         )
         state.showMessage("已加入下载队列")
@@ -44,6 +39,8 @@ internal fun desktopNavigator(
         goBack = state::popBack,
         toggleCommentsPanel = state::toggleCommentsPanel,
         isCommentsPanelOpen = state::isCommentsPanelOpen,
-        openShareCard = { kind -> state.shareCardKind = kind }
+        openShareCard = { kind -> state.shareCardKind = kind },
+        openListenTogether = { state.navigate(DesktopRoute.ListenTogether) },
+        isListenTogetherOpen = state.backStack.current == DesktopRoute.ListenTogether
     )
 }

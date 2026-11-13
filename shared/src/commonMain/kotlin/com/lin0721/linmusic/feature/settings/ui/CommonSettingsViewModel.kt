@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
+import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -46,6 +48,13 @@ class CommonSettingsViewModel(
     val themeSettings = settingsPreferences.themeSettings.asState(ThemeSettings())
 
     val searchAggregationEnabled = sourcePreferences.searchAggregationEnabled.asState(false)
+    val searchDefaultKeywordEnabled = settingsPreferences.searchDefaultKeywordEnabled.asState(true)
+    val hotSearchEnabled = settingsPreferences.hotSearchEnabled.asState(true)
+    val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)
+    val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
+    val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
+    val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
+    val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
     val pluginBeforeOfficial = sourcePreferences.pluginBeforeOfficial.asState(false)
@@ -91,6 +100,27 @@ class CommonSettingsViewModel(
     fun updateThemeCustomColor(isDark: Boolean, hex: String) = launchSave { settingsPreferences.saveThemeCustomColor(isDark, hex) }
 
     fun updateSearchAggregationEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveSearchAggregationEnabled(enabled) }
+
+    fun updateSearchDefaultKeywordEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchDefaultKeywordEnabled(enabled) }
+
+    fun updateHotSearchEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHotSearchEnabled(enabled) }
+
+    fun updatePlaylistTagsEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTagsEnabled(enabled) }
+
+    fun updateSearchSuggestionEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchSuggestionEnabled(enabled) }
+
+    fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
+
+    fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
+
+    fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }
+
+    fun updateLyricFilterAmll(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterAmll(enabled) }
+
+    fun updateLyricFilterLocal(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterLocal(enabled) }
+
+    fun updateLyricFilterRules(rules: LyricFilterRules) = launchSave { settingsPreferences.saveLyricFilterRules(rules) }
+
 
     fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
 

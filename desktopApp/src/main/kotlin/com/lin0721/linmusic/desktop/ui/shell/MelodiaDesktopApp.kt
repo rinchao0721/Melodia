@@ -1,9 +1,11 @@
 package com.lin0721.linmusic.desktop.ui.shell
 
+import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginCardContext
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
 import com.lin0721.linmusic.desktop.ui.plugin.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import androidx.compose.animation.AnimatedVisibility
@@ -146,7 +148,9 @@ fun WindowScope.MelodiaDesktopApp(
         LocalDesktopNavigator provides navigator,
         LocalPlayerLayouts provides pluginLayouts.specs,
         LocalPluginCards provides pluginCards,
-        LocalPluginCommands provides deps.pluginCommands
+        LocalPluginCommands provides deps.pluginCommands,
+        LocalSongQualityCache provides deps.songQuality,
+        LocalListenTogetherViewModel provides deps.listenTogether
     ) {
         LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
         LaunchedEffect(deps) {

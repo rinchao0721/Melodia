@@ -69,6 +69,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.player.presentation.secondaryText
 
 // 全屏歌词列表区：加载态/空态、当前行自动居中定位、居中行推导与拖动定位覆盖层
 @Composable
@@ -95,6 +96,11 @@ fun FullScreenLyricsList(
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     karaokeGlowEffect: Boolean = false,
+    sungColor: Color? = null,
+    harmonySungColor: Color? = null,
+    harmonyUnsungColor: Color? = null,
+    translationColor: Color? = null,
+    romanizationColor: Color? = null,
     isPlaying: Boolean = true,
     // 以下为宽屏播放器用：关掉居中线与播放胶囊、关掉列表自带拖动（由外层按命中规则接管）、上报每行文字范围
     showSeekGuide: Boolean = true,
@@ -148,11 +154,7 @@ fun FullScreenLyricsList(
         }
 
         val current = lyrics[currentIndex]
-        val hasSecondary = current.backgroundLine != null || when (secondaryMode) {
-            "translation" -> current.translation != null
-            "roma" -> current.roma != null
-            else -> false
-        }
+        val hasSecondary = current.backgroundLine != null || secondaryText(current, secondaryMode) != null
         val itemHeightPx = with(density) {
             (if (hasSecondary) 96 + secondarySpacing - 6 else 54).coerceAtLeast(1).dp.toPx()
         }
@@ -247,6 +249,11 @@ fun FullScreenLyricsList(
                         isCenterTarget = isCenterTarget,
                         distance = distance,
                         highlightColor = highlightColor,
+                        sungColor = sungColor,
+                        harmonySungColor = harmonySungColor,
+                        harmonyUnsungColor = harmonyUnsungColor,
+                        translationColor = translationColor,
+                        romanizationColor = romanizationColor,
                         currentPositionProvider = currentPositionProvider,
                         fontSize = fontSize,
                         alignment = alignment,

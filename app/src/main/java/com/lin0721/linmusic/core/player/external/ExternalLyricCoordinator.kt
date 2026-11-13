@@ -56,9 +56,15 @@ class ExternalLyricCoordinator(
     private var isBluetoothLyricEnabled = false
     private var isLyriconEnabled = false
     private var isFluidCloudLyricEnabled = false
+    private var isFlymeLyricEnabled = false
     private var isShowTranslation = true
 
     var onMetadataChanged: (() -> Unit)? = null
+
+    // 魅族状态栏歌词当前行，null 表示不显示
+    var flymeTickerText: String? = null
+        private set
+    var onTickerChanged: (() -> Unit)? = null
 
     init {
         observeSettings()
@@ -127,6 +133,13 @@ class ExternalLyricCoordinator(
         }
 
         scope.launch {
+            settingsPreferences.flymeStatusBarLyricEnabled.collectLatest { enabled ->
+                isFlymeLyricEnabled = enabled
+                refreshFlymeTicker()
+            }
+        }
+
+        scope.launch {
             settingsPreferences.fullScreenLyricShowTranslation.collectLatest { show ->
                 isShowTranslation = show
                 rebuildLyricInfo()
@@ -135,7 +148,7 @@ class ExternalLyricCoordinator(
                 }
                 onMetadataChanged?.invoke()
                 dispatchSuperLyricCurrentLine()
-                refreshFluidCloudLyric()
+                refreshStatusBarLyrics()
                 lyriconAdapter.setDisplayTranslation(show)
             }
         }
@@ -223,7 +236,7 @@ class ExternalLyricCoordinator(
                                 )
                             }
                             dispatchSuperLyricCurrentLine()
-                            refreshFluidCloudLyric()
+                            refreshStatusBarLyrics()
                         }.onFailure {
                             AppLogger.w(TAG, "外部歌词加载失败: songId=$songId", it)
                         }
@@ -235,7 +248,7 @@ class ExternalLyricCoordinator(
         } else {
             onMetadataChanged?.invoke()
         }
-        refreshFluidCloudLyric()
+        refreshStatusBarLyrics()
     }
 
     private fun handlePlayStateChanged(isPlaying: Boolean) {
@@ -260,7 +273,7 @@ class ExternalLyricCoordinator(
         if (isLyriconEnabled) {
             lyriconAdapter.updatePlaybackState(isPlaying, playerManager.currentPosition.value)
         }
-        refreshFluidCloudLyric()
+        refreshStatusBarLyrics()
     }
 
     private fun handlePositionChanged(positionMs: Long) {
@@ -274,7 +287,7 @@ class ExternalLyricCoordinator(
                         updateBluetoothTitleForIndex(newIndex)
                         onMetadataChanged?.invoke()
                     }
-                    refreshFluidCloudLyric()
+                    refreshStatusBarLyrics()
                 }
             }
         }
@@ -339,6 +352,23 @@ class ExternalLyricCoordinator(
         }
 
         SuperLyricHelper.sendLyric(data)
+    }
+
+    private fun refreshStatusBarLyrics() {
+        refreshFluidCloudLyric()
+        refreshFlymeTicker()
+    }
+
+    private fun refreshFlymeTicker() {
+        val text = resolveFlymeTickerText(
+            supported = FlymeStatusBarLyric.isSupported,
+            enabled = isFlymeLyricEnabled && currentSongId != -1L,
+            playing = playerManager.isPlaying.value,
+            line = currentLines.getOrNull(currentLyricIndex)?.text
+        )
+        if (text == flymeTickerText) return
+        flymeTickerText = text
+        onTickerChanged?.invoke()
     }
 
     private fun refreshFluidCloudLyric() {
@@ -425,5 +455,6 @@ class ExternalLyricCoordinator(
         lyricFetchJob?.cancel()
         scope.cancel()
         onMetadataChanged = null
+        onTickerChanged = null
     }
 }

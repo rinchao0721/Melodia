@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -31,6 +32,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.progressScaled
 import com.lin0721.linmusic.desktop.ui.components.TooltipLabel
@@ -61,12 +63,18 @@ fun PlayerSlider(
     var dragging by remember { mutableStateOf(false) }
     val active = enabled && (hovered || dragging || externalActive)
 
-    var widthPx by remember { mutableStateOf(0) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val widthPx = size.width
     var hoverX by remember { mutableStateOf<Float?>(null) }
     val thumbPx = with(density) { ThumbSize.toPx() }
     val hoverFraction = hoverX?.takeIf { widthPx > thumbPx }
         ?.let { ((it - thumbPx / 2) / (widthPx - thumbPx)).coerceIn(0f, 1f) }
-    val previewing = !externalActive && previewLabel != null && enabled && hoverFraction != null
+    val previewing = !externalActive && previewLabel != null && enabled && hoverFraction != null &&
+        (hovered || dragging)
+
+    // 气泡画在轨道外，越界的指针事件也会经子节点派发进来；只认轨道内的坐标，否则气泡会跟着鼠标赖着不走
+    fun boundedX(position: Offset): Float? =
+        position.x.takeIf { position.x in 0f..size.width.toFloat() && position.y in 0f..size.height.toFloat() }
 
     val currentOnValueChange by rememberUpdatedState(onValueChange)
     val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
@@ -78,10 +86,10 @@ fun PlayerSlider(
     Box(
         modifier = modifier
             .height(TouchHeight)
-            .onSizeChanged { widthPx = it.width }
+            .onSizeChanged { size = it }
             .hoverable(interaction, enabled = enabled)
-            .onPointerEvent(PointerEventType.Enter) { hoverX = it.changes.firstOrNull()?.position?.x }
-            .onPointerEvent(PointerEventType.Move) { hoverX = it.changes.firstOrNull()?.position?.x }
+            .onPointerEvent(PointerEventType.Enter) { hoverX = it.changes.firstOrNull()?.position?.let(::boundedX) }
+            .onPointerEvent(PointerEventType.Move) { hoverX = it.changes.firstOrNull()?.position?.let(::boundedX) }
             .onPointerEvent(PointerEventType.Exit) { hoverX = null }
             .then(
                 if (enabled) {
@@ -99,11 +107,15 @@ fun PlayerSlider(
                             hoverX = down.position.x
                             down.consume()
 
+                            var lastPosition = down.position
                             drag(down.id) { change ->
                                 currentOnValueChange(calculateFraction(change.position.x))
                                 hoverX = change.position.x
+                                lastPosition = change.position
                                 change.consume()
                             }
+                            // 拖到轨道外松手时 Exit 可能早于松手到达，这里补一次清理
+                            hoverX = boundedX(lastPosition)
                             dragging = false
                             currentOnValueChangeFinished?.invoke()
                         }

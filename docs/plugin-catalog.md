@@ -22,6 +22,9 @@
       "apiVersion": "1.0",
       "permissions": ["storage"],
       "source": "https://github.com/作者/仓库",
+      "screenshots": [
+        { "url": "https://example.com/shot-1.png", "label": "播放页" }
+      ],
       "download": {
         "url": "https://github.com/作者/仓库/releases/download/v1.0.0/hello.melodiaplugin",
         "sha256": "64 位小写十六进制",
@@ -41,6 +44,7 @@
 | `platforms`、`apiVersion`、`minAppVersion` | 可选，含义同 `plugin.json`；不兼容的条目显示但不能安装 |
 | `permissions` | 可选，只用于展示数量；实际权限以包内清单为准，安装时预览 |
 | `source` | 源码地址；原生插件必需，且必须是 https |
+| `screenshots` | 可选，目录网页展示的预览图列表；每项为 https 图片地址，或 `{ "url": "https://...", "label": "说明" }` |
 | `download.url` | 必需，只允许 https，可以重定向，但不能重定向到 http |
 | `download.sha256` | 必需，整个插件包的 SHA-256 |
 | `download.size` | 必需，整个插件包的字节数；沙盒插件不超过 10MB，原生插件不超过 200MB |

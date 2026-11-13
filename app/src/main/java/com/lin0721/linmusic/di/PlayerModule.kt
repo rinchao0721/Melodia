@@ -27,7 +27,7 @@ import org.koin.dsl.module
 val playerModule = module {
     single { ExternalInterruptionResumeController(androidContext(), get()) }
     single {
-        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
+        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
             // 随播放器一同创建，进程内常驻记录播客收听进度
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
@@ -61,7 +61,8 @@ val playerModule = module {
             matchNeteaseId = neteaseLookup::find,
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,
-            readPluginLyrics = pluginLyrics::fetch
+            readPluginLyrics = pluginLyrics::fetch,
+            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() }
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

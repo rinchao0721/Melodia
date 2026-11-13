@@ -36,6 +36,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.player.presentation.secondaryText
 
 // 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字流光，可附带译文/罗马音与背景和声
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
@@ -54,6 +55,11 @@ fun FullScreenLyricsRow(
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     karaokeGlowEffect: Boolean = false,
+    sungColor: Color? = null,
+    harmonySungColor: Color? = null,
+    harmonyUnsungColor: Color? = null,
+    translationColor: Color? = null,
+    romanizationColor: Color? = null,
     isPlaying: Boolean = true,
     // 宽屏按下点命中判定用：上报本行文字实际占据的范围（根坐标），离开组合时上报 Rect.Zero
     onTextBoundsInRoot: ((Rect) -> Unit)? = null,
@@ -114,6 +120,8 @@ fun FullScreenLyricsRow(
     val spacingBetween = secondarySpacing.coerceAtLeast(0).dp
     val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
+    val showRoma = secondaryMode == "roma"
+    val secondaryColor = if (showRoma) romanizationColor else translationColor
 
     val targetScale = when {
         isCurrent -> 1.12f
@@ -191,7 +199,7 @@ fun FullScreenLyricsRow(
                         line = line,
                         currentPositionProvider = currentPositionProvider,
                         inactiveColor = highlightColor,
-                        activeColor = MelodiaColors.TextPrimary,
+                        activeColor = sungColor ?: MelodiaColors.TextPrimary,
                         fontSize = mainFontSize,
                         lineHeight = mainLineHeight,
                         textAlign = textAlign,
@@ -206,7 +214,7 @@ fun FullScreenLyricsRow(
                     text = line.text,
                     fontSize = mainFontSize,
                     lineHeight = mainLineHeight,
-                    color = if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
+                    color = if (isCurrent) sungColor ?: MelodiaColors.TextPrimary else highlightColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.mainLayout = it },
@@ -216,18 +224,14 @@ fun FullScreenLyricsRow(
                 )
             }
 
-            val secondaryText = when (secondaryMode) {
-                "translation" -> line.translation
-                "roma" -> line.roma
-                else -> null
-            }
-            if (secondaryText != null) {
+            val secondary = secondaryText(line, secondaryMode)
+            if (secondary != null) {
                 Spacer(modifier = Modifier.height(spacingBetween))
                 Text(
-                    text = secondaryText,
+                    text = secondary,
                     fontSize = translationFontSize,
                     lineHeight = translationLineHeight,
-                    color = if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
+                    color = secondaryColor ?: if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.secondaryLayout = it },
                     modifier = Modifier
@@ -242,8 +246,9 @@ fun FullScreenLyricsRow(
             // 整体缩进到 90% 宽并按自身对齐方式摆放，避免和主声部抢视觉重心。
             line.backgroundLine?.let { background ->
                 // 未激活和本行激活但和声尚未开唱时使用同一底色，避免状态切换变色。
-                val backgroundInactiveColor = MelodiaColors.TextPrimary.copy(alpha = 0.22f)
-                val backgroundActiveColor = MelodiaColors.TextPrimary.copy(alpha = 0.82f)
+                val backgroundInactiveColor = harmonyUnsungColor ?: MelodiaColors.TextPrimary.copy(alpha = 0.22f)
+                val backgroundActiveColor = harmonySungColor ?: MelodiaColors.TextPrimary.copy(alpha = 0.82f)
+                val backgroundColor = if (isCurrent) backgroundActiveColor else backgroundInactiveColor
                 val backgroundTextAlign = textAlign
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(
@@ -274,28 +279,18 @@ fun FullScreenLyricsRow(
                             text = background.text,
                             fontSize = backgroundFontSize,
                             lineHeight = backgroundLineHeight,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
+                            color = backgroundColor,
                             fontWeight = FontWeight.Bold,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    background.translation?.let {
-                        Spacer(modifier = Modifier.height(3.dp))
+                    secondaryText(background, secondaryMode)?.let {
+                        Spacer(modifier = Modifier.height(if (showRoma) 2.dp else 3.dp))
                         Text(
                             text = it,
-                            fontSize = (fontSize - 8).coerceAtLeast(11).sp,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
-                            textAlign = backgroundTextAlign,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    background.roma?.let {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = it,
-                            fontSize = (fontSize - 9).coerceAtLeast(11).sp,
-                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
+                            fontSize = (fontSize - if (showRoma) 9 else 8).coerceAtLeast(11).sp,
+                            color = secondaryColor ?: backgroundColor,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )

@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -153,9 +154,32 @@ class SearchViewModel(
     private var searchJob: Job? = null
     private var suggestJob: Job? = null
     private var hitsJob: Job? = null
+    // 须在 init 之前声明：Main.immediate 下 init 里的收集会同步执行到 loadDiscoveryData
+    private var discoveryJob: Job? = null
+    private var keywordEnabled = true
+    private var hotSearchEnabled = true
+    private var playlistTagsEnabled = true
+    private var suggestionEnabled = true
 
     init {
-        loadDiscoveryData()
+        viewModelScope.launch {
+            // 推荐词、热搜与歌单分类开关变化时重新加载发现页，首个值即触发首次加载
+            combine(
+                settingsPreferences?.searchDefaultKeywordEnabled ?: flowOf(true),
+                settingsPreferences?.hotSearchEnabled ?: flowOf(true),
+                settingsPreferences?.playlistTagsEnabled ?: flowOf(true)
+            ) { keyword, hot, tags -> Triple(keyword, hot, tags) }
+                .distinctUntilChanged()
+                .collect { (keyword, hot, tags) -> loadDiscoveryData(keyword, hot, tags) }
+        }
+        viewModelScope.launch {
+            (settingsPreferences?.searchSuggestionEnabled ?: flowOf(true))
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    suggestionEnabled = enabled
+                    if (!enabled || _mode.value == SearchMode.Typing) requestSuggestions(_inputState.value.query)
+                }
+        }
         loadLikedSongIds()
         viewModelScope.launch {
             searchPlatforms.collect { platforms ->
@@ -229,13 +253,22 @@ class SearchViewModel(
         }
     }
 
-    private fun loadDiscoveryData() {
-        viewModelScope.launch {
+    private fun loadDiscoveryData(
+        keywordEnabled: Boolean = this.keywordEnabled,
+        hotEnabled: Boolean = this.hotSearchEnabled,
+        tagsEnabled: Boolean = this.playlistTagsEnabled
+    ) {
+        this.keywordEnabled = keywordEnabled
+        this.hotSearchEnabled = hotEnabled
+        this.playlistTagsEnabled = tagsEnabled
+        discoveryJob?.cancel()
+        discoveryJob = viewModelScope.launch {
             _discoveryState.value = DiscoveryUiState.Loading
+            if (!hotEnabled) _featuredTrack.value = null
 
-            val keywordDeferred = async { repository.getDefaultSearchKeyword().firstOrNull() }
-            val hotSearchDeferred = async { repository.getHotSearches().firstOrNull() }
-            val tagsDeferred = async { repository.getPlaylistTags().firstOrNull() }
+            val keywordDeferred = async { if (keywordEnabled) repository.getDefaultSearchKeyword().firstOrNull() else null }
+            val hotSearchDeferred = async { if (hotEnabled) repository.getHotSearches().firstOrNull() else null }
+            val tagsDeferred = async { if (tagsEnabled) repository.getPlaylistTags().firstOrNull() else null }
 
             val keywordResult = keywordDeferred.await()
             val hotSearchResult = hotSearchDeferred.await()
@@ -253,7 +286,7 @@ class SearchViewModel(
 
             val hotSearches = hotSearchResult?.getOrNull() ?: emptyList()
             _discoveryState.value = DiscoveryUiState.Success(
-                defaultKeyword = keywordResult?.getOrNull() ?: "搜索你想听的",
+                defaultKeyword = keywordResult?.getOrNull().orEmpty(),
                 hotSearches = hotSearches,
                 playlistTags = tagsResult?.getOrNull() ?: emptyList()
             )
@@ -330,7 +363,7 @@ class SearchViewModel(
     private fun requestSuggestions(query: String) {
         suggestJob?.cancel()
         hitsJob?.cancel()
-        if (query.isBlank()) {
+        if (query.isBlank() || !suggestionEnabled) {
             _inputState.value = _inputState.value.copy(
                 suggestions = emptyList(), suggestionQuery = "", songHits = emptyList(), songHitsQuery = ""
             )

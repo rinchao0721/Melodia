@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.recent.ui
 
+import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -138,7 +139,10 @@ private fun RecentPlayList(
                                 title = track.name,
                                 artist = track.ar.joinToString(" / ") { it.name },
                                 coverUrl = track.al.picUrl,
-                                durationText = song.playedAtText.ifBlank { null }
+                                durationText = song.playedAtText.ifBlank { null },
+                                qualitySongId = track.id,
+                                maxBrLevel = track.privilege?.maxBrLevel,
+                                inferredLevel = track.inferredMaxBrLevel()
                             ),
                             isActive = currentTrackId == track.id.toString(),
                             isPlaying = isPlaying,

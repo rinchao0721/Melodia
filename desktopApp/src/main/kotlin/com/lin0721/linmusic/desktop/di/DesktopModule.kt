@@ -7,6 +7,9 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
+import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -47,6 +50,7 @@ import com.lin0721.linmusic.desktop.data.DesktopResourceProvider
 import com.lin0721.linmusic.desktop.data.cloud.CloudLibrary
 import com.lin0721.linmusic.desktop.data.recognition.DesktopRecognition
 import com.lin0721.linmusic.desktop.data.recognition.GraalAfpFingerprintEngine
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
@@ -72,6 +76,8 @@ import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
@@ -114,11 +120,18 @@ private fun createPlaybackController(
     downloadPreferences: DesktopDownloadPreferences,
     audioCache: AudioCache,
     cacheManager: DesktopCacheManager,
-    externalResolver: ExternalTrackResolver
+    externalResolver: ExternalTrackResolver,
+    recognizer: DownloadRecognizer
 ): DesktopPlaybackController = try {
     MpvPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
-        localAudioOf = { songId -> downloadPreferences.findVerifiedRecord(songId)?.mediaStoreUri },
+        // 没有下载记录时查本地扫描索引补登记，不联网
+        localAudioOf = { item ->
+            downloadPreferences.findVerifiedRecord(item.songId)?.mediaStoreUri
+                ?: item.takeIf { it.songId > 0 && it.radioId == 0L }
+                    ?.let { recognizer.recognizeSingle(RecognitionTarget(it.songId, it.title, listOf(it.artist))) }
+                    ?.mediaStoreUri
+        },
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
         audioCache = audioCache,
         cacheManager = cacheManager,
@@ -199,11 +212,26 @@ val desktopPlatformModule = module {
             settingsPreferences = get(),
             downloadPreferences = get(),
             tempDir = DesktopPaths.downloadTempDir,
-            defaultDir = DesktopPaths.defaultDownloadDir
+            defaultDir = DesktopPaths.defaultDownloadDir,
+            recognizer = get(),
+            urlResolver = get()
+        )
+    }
+    single { LocalAudioIndexStore(File(DesktopPaths.dataDir, "download_recognition_index.json")) }
+    single { DesktopDownloadFolderScanner(get()) }
+    single {
+        val downloadPreferences = get<DesktopDownloadPreferences>()
+        val localLibrary = get<LocalLibraryRepository>()
+        DownloadRecognizer(
+            indexStore = get(),
+            records = { downloadPreferences.records.first() },
+            addRecords = downloadPreferences::addRecords,
+            isAlive = downloadPreferences::fileExists,
+            extraEntries = { localLibrary.matchedEntries() }
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
-    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single<PlaybackController> { get<DesktopPlaybackController>() }
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }
@@ -256,7 +284,8 @@ val desktopPlatformModule = module {
             matchNeteaseId = neteaseLookup::find,
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,
-            readPluginLyrics = pluginLyrics::fetch
+            readPluginLyrics = pluginLyrics::fetch,
+            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() }
         )
     }
 }
@@ -300,6 +329,8 @@ val desktopViewModelModule = module {
     factoryOf(::PlaylistCategoryViewModel)
     factoryOf(::PlaylistViewModel)
     singleOf(::PlayerViewModel)
+    singleOf(::ListenTogetherViewModel)
+    factoryOf(::RoomSongPickerViewModel)
     factoryOf(::ArtistViewModel)
     singleOf(::CommonSettingsViewModel)
     singleOf(::LxPluginSettingsViewModel)

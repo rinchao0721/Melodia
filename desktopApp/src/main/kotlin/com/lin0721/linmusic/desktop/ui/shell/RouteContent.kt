@@ -22,6 +22,7 @@ import com.lin0721.linmusic.desktop.ui.profile.RecentPlayPage
 import com.lin0721.linmusic.desktop.ui.search.BrowsePage
 import com.lin0721.linmusic.desktop.ui.search.PlaylistCategoryPage
 import com.lin0721.linmusic.desktop.ui.search.SearchPage
+import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherPage
 import com.lin0721.linmusic.desktop.ui.settings.SettingsPage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -123,6 +124,10 @@ internal fun RouteContent(
             mode = route.mode,
             viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent }
         )
+        DesktopRoute.ListenTogether -> ListenTogetherPage(
+            viewModel = deps.listenTogether,
+            songPicker = frameHost.pageViewModel(entry, factory)
+        )
         is DesktopRoute.PluginPage -> PluginPageScreen(route.pluginId, route.pageId, deps.plugins, deps.pluginPages)
         DesktopRoute.Settings -> SettingsPage(
             common = deps.commonSettingsViewModel,
@@ -131,6 +136,7 @@ internal fun RouteContent(
             plugins = deps.plugins,
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
+            downloadScanner = deps.downloadScanner,
             focusCategory = state.settingsFocus,
             onFocusConsumed = { state.settingsFocus = null }
         )

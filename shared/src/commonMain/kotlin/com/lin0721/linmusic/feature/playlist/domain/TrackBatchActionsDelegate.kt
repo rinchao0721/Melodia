@@ -1,10 +1,9 @@
 package com.lin0721.linmusic.feature.playlist.domain
 
 import com.lin0721.linmusic.core.auth.UserPreferences
-import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
-import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -36,11 +35,6 @@ class TrackBatchActionsDelegate(
     private fun Track.toQueueItem(externals: Map<Long, ExternalTrack>) =
         externals[id]?.toQueueItem() ?: QueueItem(id, name, ar.joinToString("/") { it.name }, al.picUrl)
 
-    private fun Track.toDownloadInfo() = DownloadTrackInfo(
-        id, name, ar.joinToString("/") { it.name },
-        al.name, al.picUrl.takeIf { it.isNotBlank() },
-        yearFromEpochMillis(publishTime)
-    )
 
     // 不可播放的歌曲不入队；全部不可播放时不做任何操作
     suspend fun playNext(
@@ -119,7 +113,7 @@ class TrackBatchActionsDelegate(
             onToast("外部平台歌曲暂不支持下载")
             return false
         }
-        val result = songDownloadManager.enqueueBatch(downloadable.map { it.toDownloadInfo() }, level, batchTag, batchLabel)
+        val result = songDownloadManager.enqueueBatch(downloadable.map { it.toDownloadTrackInfo() }, level, batchTag, batchLabel)
         onToast(result.toToastMessage())
         return true
     }

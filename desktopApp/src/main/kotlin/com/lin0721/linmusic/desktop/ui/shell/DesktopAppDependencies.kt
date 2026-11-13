@@ -9,8 +9,10 @@ import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
 import com.lin0721.linmusic.desktop.data.recognition.DesktopRecognition
 import com.lin0721.linmusic.desktop.platform.BrowserLocator
@@ -22,6 +24,7 @@ import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
@@ -60,6 +63,7 @@ class DesktopAppDependencies(
     val playerCards: PlayerCardSource,
     val playbackController: DesktopPlaybackController,
     val downloader: DesktopSongDownloader,
+    val downloadScanner: DesktopDownloadFolderScanner,
     val desktopPreferences: DesktopPreferences,
     val settingsPreferences: SettingsPreferences,
     val sessionMonitor: SessionMonitor,
@@ -69,5 +73,7 @@ class DesktopAppDependencies(
     val localMusic: LocalMusicActions,
     val cloudMusic: CloudMusicActions,
     val recognition: DesktopRecognition,
+    val songQuality: SongQualityCache,
+    val listenTogether: ListenTogetherViewModel,
     val pageViewModels: PageViewModelFactory
 )

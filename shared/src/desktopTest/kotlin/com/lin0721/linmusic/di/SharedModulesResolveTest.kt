@@ -21,6 +21,7 @@ import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepositoryImpl
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.userartist.UserArtistRepositoryImpl
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepositoryImpl
 import com.lin0721.linmusic.feature.artist.data.ArtistRepositoryImpl
@@ -96,6 +97,7 @@ class SharedModulesResolveTest {
                 LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, ProfileRepositoryImpl::class,
                 PodcastProgressPreferences::class, PodcastSeenPreferences::class, OfflinePlayability::class,
                 CloudUploadManager::class, CloudUploadRunner::class, RecognitionRepository::class,
+                SongQualityCache::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

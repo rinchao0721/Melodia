@@ -639,6 +639,7 @@ private fun PlaylistContent(
                 TrackRow(
                     index = index,
                     track = track,
+                    qualitySongId = track.id,
                     isCurrent = nowPlaying?.songId == track.id,
                     onPlay = { playbackState.playFrom(track) },
                     actions = actions,
@@ -700,6 +701,7 @@ private fun PlaylistContent(
                     TrackRow(
                         index = index,
                         track = track,
+                        qualitySongId = track.id,
                         isCurrent = nowPlaying?.songId == track.id,
                         onPlay = { viewModel.playRecommendedTrack(track) },
                         modifier = Modifier.padding(horizontal = 16.dp),

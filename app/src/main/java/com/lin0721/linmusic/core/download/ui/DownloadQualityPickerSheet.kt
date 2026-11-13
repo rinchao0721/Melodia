@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.satisfies
+import com.lin0721.linmusic.core.download.skipsDownloadAt
 import com.lin0721.linmusic.core.model.DOWNLOAD_QUALITY_LEVELS
 import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.model.qualityRank
@@ -165,15 +166,16 @@ fun DownloadQualityPickerSheet(
             DOWNLOAD_QUALITY_LEVELS.forEach { quality ->
                 val planLabel = requiredPlanLabel(quality)
                 val needsHigherPlan = if (maxRank != null) qualityRank(quality) > maxRank else planLabel != null
-                val coveredBySingle = singleRecord?.satisfies(quality) == true
-                val batchDownloaded = batchRecords?.count { it.satisfies(quality) }
+                val coveredBySingle = singleRecord?.skipsDownloadAt(quality) == true
+                val batchDownloaded = batchRecords?.count { it.skipsDownloadAt(quality) }
 
                 QualityRow(
                     title = getQualityDisplayName(quality),
                     description = qualityDescription(quality),
                     status = when {
                         singleRecord?.quality == quality -> RowStatus("已下载", highlighted = true)
-                        coveredBySingle -> RowStatus("已有更高音质")
+                        singleRecord?.satisfies(quality) == true -> RowStatus("已有更高音质")
+                        coveredBySingle -> RowStatus("已存在本地文件")
                         batchSongIds == null -> null
                         batchDownloaded == null -> RowStatus("统计中…")
                         batchTotal in 1..batchDownloaded -> RowStatus("已全部下载", highlighted = true)

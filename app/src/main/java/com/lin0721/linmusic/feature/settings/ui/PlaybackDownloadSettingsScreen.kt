@@ -30,10 +30,12 @@ import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.download.DownloadFolderScanner
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import org.koin.compose.koinInject
 
 private fun resolveDisplayPath(context: android.content.Context, uriString: String?): String {
     if (uriString.isNullOrBlank()) {
@@ -179,6 +181,8 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
+    val folderScanner: DownloadFolderScanner = koinInject()
+    val scanning by folderScanner.scanning.collectAsStateWithLifecycle()
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -191,6 +195,21 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
         // 保留旧目录持久权限，避免已有下载文件丢失读取授权
         viewModel.updateDownloadFolderUri(uri.toString())
         ToastManager.showToast("下载目录已更新")
+    }
+
+    val scanPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        folderScanner.launchScan(uri) { count ->
+            ToastManager.showToast(
+                when {
+                    count == null -> "无法读取该目录"
+                    count == 0 -> "该目录下没有找到音频文件"
+                    else -> "已扫描 $count 个音频文件，打开歌单或下载时会自动识别"
+                }
+            )
+        }
     }
 
     val downloadFolderSubtitle = remember(downloadFolderUri) {
@@ -213,6 +232,14 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
                     onClick = {
                         val initialUri = resolveInitialFolderUri(downloadFolderUri)
                         folderPickerLauncher.launch(initialUri)
+                    }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsRow(
+                    title = "识别已下载歌曲",
+                    subtitle = if (scanning) "正在扫描…" else "选择之前的下载目录，已有歌曲不再重复下载",
+                    onClick = {
+                        if (!scanning) scanPickerLauncher.launch(resolveInitialFolderUri(downloadFolderUri))
                     }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)

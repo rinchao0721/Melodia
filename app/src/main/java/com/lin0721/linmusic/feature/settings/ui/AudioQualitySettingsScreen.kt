@@ -28,6 +28,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
     val wifiQuality by viewModel.wifiQuality.collectAsStateWithLifecycle()
     val mobileQuality by viewModel.mobileQuality.collectAsStateWithLifecycle()
     val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
+    val showSongMaxQuality by viewModel.showSongMaxQuality.collectAsStateWithLifecycle()
 
     var qualityDialogTarget by remember { mutableStateOf<String?>(null) }
 
@@ -56,6 +57,13 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                     subtitle = "在全屏播放页底部显示当前歌曲接口实际下发的音质",
                     checked = showPlaybackQuality,
                     onCheckedChange = { viewModel.updateShowPlaybackQuality(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "显示歌曲最高音质",
+                    subtitle = "在歌曲列表的歌手名前标出该歌曲可用的最高音质",
+                    checked = showSongMaxQuality,
+                    onCheckedChange = { viewModel.updateShowSongMaxQuality(it) }
                 )
             }
         }

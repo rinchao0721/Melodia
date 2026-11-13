@@ -79,7 +79,7 @@ class MpvPlaybackController(
     private val settingsPreferences: SettingsPreferences,
     private val preferences: PlaybackPreferences,
     private val desktopPreferences: DesktopPreferences,
-    private val localAudioOf: suspend (songId: Long) -> String?,
+    private val localAudioOf: suspend (item: QueueItem) -> String?,
     private val scope: CoroutineScope,
     // 仅测试用
     engineOptions: Map<String, String> = emptyMap(),
@@ -698,15 +698,16 @@ class MpvPlaybackController(
     // 队列项自带直链时直接使用；外部平台歌曲轮到时经换源插件解析；否则按网易云歌曲 id 解析
     private suspend fun resolvePlayback(item: QueueItem): Result<Playback> {
         item.localUri?.takeIf { it.isNotBlank() }?.let { return Result.success(Playback(it, null)) }
-        val external = item.external ?: return resolvePlayback(item.songId)
+        val external = item.external ?: return resolveNeteasePlayback(item)
         val resolver = externalResolver ?: return Result.failure(IllegalStateException("当前平台暂无可用换源插件"))
         val url = resolver.resolve(external) ?: return Result.failure(IllegalStateException(resolver.explainFailure(external)))
         return Result.success(Playback(url, null))
     }
 
     // 已下载 > 缓存命中 > 联网（同时录制缓存）；联网失败退回任意音质缓存
-    private suspend fun resolvePlayback(songId: Long): Result<Playback> {
-        localAudioOf(songId)?.let { return Result.success(Playback(it, null)) }
+    private suspend fun resolveNeteasePlayback(item: QueueItem): Result<Playback> {
+        val songId = item.songId
+        localAudioOf(item)?.let { return Result.success(Playback(it, null)) }
         val level = settingsPreferences.wifiQuality.first()
         audioCache?.completeFile(songId, level)?.let { return Result.success(Playback(it.absolutePath, null)) }
         return repository.getSongPlaybackInfo(songId).first().fold(

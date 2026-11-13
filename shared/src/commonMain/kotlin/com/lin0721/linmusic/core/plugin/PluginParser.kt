@@ -179,6 +179,8 @@ object PluginParser {
             "订阅了播放事件，但没有申请 ${PluginPermission.PLAYBACK_READ.key} 权限"
         contributes.contentSources.isNotEmpty() && PluginPermission.CONTENT_SOURCE !in permissions ->
             "提供了内容源，但没有申请 ${PluginPermission.CONTENT_SOURCE.key} 权限"
+        contributes.downloadSources.isNotEmpty() && PluginPermission.DOWNLOAD_SOURCE !in permissions ->
+            "提供了下载源，但没有申请 ${PluginPermission.DOWNLOAD_SOURCE.key} 权限"
         else -> null
     }
 
@@ -260,7 +262,8 @@ object PluginParser {
         val backdrops = parseEntries(root["backdrops"], "动态背景", warnings) { item, id -> parseBackdrop(item, id, kind, warnings) }
         return PluginContributions(
             layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources, backdrops,
-            layoutActions = (root["layoutActions"] as? JsonPrimitive)?.booleanOrNull == true
+            layoutActions = (root["layoutActions"] as? JsonPrimitive)?.booleanOrNull == true,
+            downloadSources = parseSources(root["downloadSources"], "下载源", warnings)
         )
     }
 

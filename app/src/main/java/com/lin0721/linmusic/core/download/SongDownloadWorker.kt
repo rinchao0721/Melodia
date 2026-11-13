@@ -13,12 +13,18 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.lin0721.linmusic.core.download.data.DownloadApi
-import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
-import com.lin0721.linmusic.core.download.data.isTrialAudio
+import com.lin0721.linmusic.core.download.data.DownloadUrlOutcome
+import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
+import com.lin0721.linmusic.core.download.data.PLUGIN_NOT_BETTER
+import com.lin0721.linmusic.core.download.data.notBetterThan
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
+import com.lin0721.linmusic.core.download.recognition.SONG_ID_TAG
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -38,21 +44,19 @@ import android.content.Context
 private const val TAG = "SongDownloadWorker"
 private const val MAX_ATTEMPTS = 3
 
-private val LOSSLESS_AND_ABOVE = setOf("lossless", "hires", "jyeffect", "sky", "jymaster")
-private val COMPRESSED_ENCODE_TYPES = setOf("mp3", "aac", "m4a")
-
 // 歌曲下载后台任务
 class SongDownloadWorker(
     context: Context,
     params: WorkerParameters,
-    private val downloadApi: DownloadApi,
     private val downloadPreferences: DownloadPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val notificationHelper: DownloadNotificationHelper,
     private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
-    private val queueGate: DownloadQueueGate
+    private val queueGate: DownloadQueueGate,
+    private val downloadRecognizer: DownloadRecognizer,
+    private val urlResolver: DownloadUrlResolver
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -62,6 +66,7 @@ class SongDownloadWorker(
         const val KEY_ALBUM_NAME = "album_name"
         const val KEY_COVER_URL = "cover_url"
         const val KEY_ALBUM_YEAR = "album_year"
+        const val KEY_DURATION_MS = "duration_ms"
         const val KEY_LEVEL = "level"
         const val KEY_ERROR = "error"
         // 面向用户的失败原因，供下载管理面板展示
@@ -93,7 +98,8 @@ class SongDownloadWorker(
             coverUrl: String? = null,
             albumYear: Int = 0,
             batchTag: String? = null,
-            batchLabel: String? = null
+            batchLabel: String? = null,
+            durationMs: Long = 0
         ) = workDataOf(
             KEY_SONG_ID to songId,
             KEY_SONG_NAME to songName,
@@ -103,7 +109,8 @@ class SongDownloadWorker(
             KEY_ALBUM_YEAR to albumYear,
             KEY_LEVEL to level,
             KEY_BATCH_TAG to batchTag,
-            KEY_BATCH_LABEL to batchLabel
+            KEY_BATCH_LABEL to batchLabel,
+            KEY_DURATION_MS to durationMs
         )
     }
 
@@ -113,6 +120,7 @@ class SongDownloadWorker(
     private val albumName: String get() = inputData.getString(KEY_ALBUM_NAME) ?: ""
     private val coverUrl: String? get() = inputData.getString(KEY_COVER_URL)
     private val albumYear: Int get() = inputData.getInt(KEY_ALBUM_YEAR, 0)
+    private val durationMs: Long get() = inputData.getLong(KEY_DURATION_MS, 0)
     private val level: String get() = inputData.getString(KEY_LEVEL) ?: "standard"
     private val batchTag: String? get() = inputData.getString(KEY_BATCH_TAG)
     private val batchLabel: String get() = inputData.getString(KEY_BATCH_LABEL) ?: "歌曲"
@@ -124,9 +132,12 @@ class SongDownloadWorker(
             return Result.failure(workDataOf(KEY_ERROR to "参数缺失"))
         }
 
-        // 已下载同等或更高音质时直接跳过，避免重复下载产生多份文件
+        // 已下载同等或更高音质、或目录里已有识别出的同一首时直接跳过，避免重复下载产生多份文件
         val existingRecord = downloadPreferences.findVerifiedRecord(songId)
-        if (existingRecord != null && existingRecord.satisfies(level)) {
+            ?: downloadRecognizer.recognize(
+                listOf(RecognitionTarget(songId, songName, listOf(artistName), durationMs))
+            ).firstOrNull()
+        if (existingRecord != null && existingRecord.skipsDownloadAt(level)) {
             AppLogger.i(TAG, "已下载 ${existingRecord.quality}，跳过 songId=$songId level=$level")
             persistState(PersistedTaskState.SUCCEEDED, skipped = true)
             onTerminalSkipped()
@@ -150,28 +161,20 @@ class SongDownloadWorker(
         // 失败或取消时的清理回调
         var cleanup: (() -> Unit)? = null
         try {
-            val response = downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = songId, level = level))
-            val item = response.data
-            val url = item?.url
-            if (!response.isSuccess || url.isNullOrBlank()) {
-                return fail("获取下载链接失败", "获取下载链接失败，code=${response.code}")
+            val query = PluginTrackQuery(songId.toString(), songName, artistName, albumName, durationMs, MusicPlatform.NETEASE)
+            val source = when (val outcome = urlResolver.resolve(songId, level, query)) {
+                is DownloadUrlOutcome.Rejected -> return fail(outcome.reason)
+                is DownloadUrlOutcome.Ready -> outcome.download
             }
-            if (item.isTrialAudio) {
-                return fail("该音质仅支持试听，需要 VIP/购买后才能完整下载", "仅试听版本")
-            }
-
-            val actualEncodeType = (item.type ?: item.encodeType)?.lowercase()
-            // 校验是否因权限不足被静默降级为压缩格式
-            if (level in LOSSLESS_AND_ABOVE && actualEncodeType in COMPRESSED_ENCODE_TYPES) {
-                return fail("需要更高会员等级才能下载该音质", "音质权限不足")
-            }
-            val extension = (actualEncodeType ?: "mp3")
+            if (source.notBetterThan(existingRecord)) return fail(PLUGIN_NOT_BETTER)
+            if (source.fromPlugin) AppLogger.i(TAG, "官方下载链接不可用，改用插件下载源 songId=$songId")
+            val extension = source.encodeType
             val displayName = "${sanitizeFileName("$artistName - $songName")}.$extension"
             val mimeType = mimeTypeFor(extension)
 
-            val partialFile = partialFile(applicationContext, songId, level, item.size)
+            val partialFile = partialFile(applicationContext, songId, level, source.size)
             partial = partialFile
-            val downloadedSize = downloadToFile(partialFile, url, item.size)
+            val downloadedSize = downloadToFile(partialFile, source.url, source.size, source.headers)
             if (downloadedSize == null) {
                 return fail("下载中断")
             }
@@ -243,12 +246,13 @@ class SongDownloadWorker(
                 DownloadRecord(
                     songId = songId,
                     mediaStoreUri = finalUri.toString(),
-                    quality = item.level ?: level,
+                    quality = source.level,
                     downloadedAt = System.currentTimeMillis(),
                     fileSize = finalFileSize,
                     songName = songName,
                     artistName = artistName,
-                    requestedLevel = level
+                    // 插件来源以实际音质为准，避免之后选更高音质时被判为已下载
+                    requestedLevel = if (source.fromPlugin) source.level else level
                 )
             )
 
@@ -482,6 +486,7 @@ class SongDownloadWorker(
             val metadata = TagLib.getMetadata(fd, readPictures = false)
             val propertyMap = HashMap<String, Array<String>>(metadata?.propertyMap ?: emptyMap())
             propertyMap["TITLE"] = arrayOf(songName)
+            propertyMap[SONG_ID_TAG] = arrayOf(songId.toString())
             propertyMap["ARTIST"] = arrayOf(artistName)
             if (albumName.isNotBlank()) {
                 propertyMap["ALBUM"] = arrayOf(albumName)
@@ -518,7 +523,12 @@ class SongDownloadWorker(
     }.getOrNull()
 
     // 流式下载到断点文件；已有部分数据且服务端支持 Range 时从断点续传
-    private suspend fun downloadToFile(file: File, url: String, expectedSize: Long): Long? = withContext(Dispatchers.IO) {
+    private suspend fun downloadToFile(
+        file: File,
+        url: String,
+        expectedSize: Long,
+        headers: Map<String, String>
+    ): Long? = withContext(Dispatchers.IO) {
         val existing = if (file.exists()) file.length() else 0L
         if (expectedSize > 0 && existing == expectedSize) {
             return@withContext existing
@@ -526,7 +536,10 @@ class SongDownloadWorker(
         val resumeFrom = if (expectedSize > 0 && existing in 1 until expectedSize) existing else 0L
         val request = Request.Builder()
             .url(url)
-            .apply { if (resumeFrom > 0) header("Range", "bytes=$resumeFrom-") }
+            .apply {
+                headers.forEach { (name, value) -> header(name, value) }
+                if (resumeFrom > 0) header("Range", "bytes=$resumeFrom-")
+            }
             .build()
         downloadClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
@@ -566,7 +579,8 @@ class SongDownloadWorker(
                     }
                 }
             }
-            if (total > 0 && written != total) null else written
+            // 插件来源大小未知且没有 Content-Length 时，只能靠这里拦住空响应
+            if (written == 0L || (total > 0 && written != total)) null else written
         }
     }
 

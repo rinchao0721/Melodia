@@ -253,6 +253,7 @@ fun pluginFeatureSummary(manifest: PluginManifest): String {
         if (contributes.commands.isNotEmpty()) add("命令 ${contributes.commands.size} 个")
         if (contributes.settings.isNotEmpty()) add("设置 ${contributes.settings.size} 项")
         if (contributes.contentSources.isNotEmpty()) add("内容源 ${contributes.contentSources.size} 个")
+        if (contributes.downloadSources.isNotEmpty()) add("下载源 ${contributes.downloadSources.size} 个")
         if (contributes.backdrops.isNotEmpty()) add("动态背景 ${contributes.backdrops.size} 个")
     }.joinToString("、")
 }

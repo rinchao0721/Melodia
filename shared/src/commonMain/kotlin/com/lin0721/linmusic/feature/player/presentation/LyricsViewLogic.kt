@@ -20,6 +20,11 @@ fun secondaryText(line: LyricLine, mode: String): String? = when (mode) {
     else -> null
 }?.takeIf { it.isNotBlank() }
 
+fun hasSecondaryText(lines: List<LyricLine>, mode: String): Boolean = lines.any { line ->
+    secondaryText(line, mode) != null ||
+        line.backgroundLine?.let { secondaryText(it, mode) } != null
+}
+
 // 当前高亮的行：重叠区间同时高亮，没有集合时退回主行
 fun isActiveLine(index: Int, primaryIndex: Int, activeIndices: Set<Int>): Boolean =
     if (activeIndices.isNotEmpty()) index in activeIndices else index == primaryIndex

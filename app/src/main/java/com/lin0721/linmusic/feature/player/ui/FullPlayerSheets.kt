@@ -1,6 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherPlayerEntry
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -79,6 +84,12 @@ fun FullPlayerSheets(
         )
     }
 
+    var listenTogetherRequested by remember { mutableStateOf(false) }
+    ListenTogetherPlayerEntry(
+        requested = listenTogetherRequested,
+        onRequestHandled = { listenTogetherRequested = false }
+    )
+
     if (showMoreOptionsSheet) {
         val albumName = songState.songDetail?.al?.name ?: songState.songWiki?.album ?: "未知专辑"
         SongMoreOptionsSheet(
@@ -106,7 +117,8 @@ fun FullPlayerSheets(
             onCollectClick = onCollectClick,
             onShareClick = onShareClick,
             onDownloadClick = onDownloadClick,
-            onDismiss = onMoreOptionsDismiss
+            onDismiss = onMoreOptionsDismiss,
+            onListenTogetherClick = { listenTogetherRequested = true }
         )
     }
 

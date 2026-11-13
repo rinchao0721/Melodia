@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.desktop.data.local
 
 import com.lin0721.linmusic.core.download.DownloadRecord
+import com.lin0721.linmusic.core.download.recognition.LocalAudioEntry
+import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
+import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.player.QueueItem
@@ -39,6 +42,7 @@ private const val SAVE_DEBOUNCE_MS = 500L
 private const val MATCH_INTERVAL_MS = 400L
 private const val SCAN_PROGRESS_STEP = 20
 private const val NAME_MAX_LENGTH = 40
+private val MATCHED_STATES = setOf(LocalMatchState.AUTO, LocalMatchState.MANUAL)
 
 // 本地音乐库：歌单、扫描索引、云端匹配；整库存一个 JSON
 class LocalLibraryRepository(
@@ -117,6 +121,21 @@ class LocalLibraryRepository(
     fun coverUri(track: LocalTrack): String? = scanner.coverUri(track)
 
     fun pathForSongId(songId: Long): String? = pathIndex[songId]
+
+    // 已匹配网易歌曲的本地文件，供下载前识别已有文件
+    fun matchedEntries(): List<LocalAudioEntry> = _data.value.tracks
+        .filter { it.songId != null && it.matchState in MATCHED_STATES }
+        .map { track ->
+            LocalAudioEntry(
+                uri = track.path,
+                title = track.title,
+                artist = track.artist,
+                durationMs = track.durationMs,
+                sizeBytes = track.size,
+                quality = guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
+                songIdTag = track.songId
+            )
+        }
 
     fun readLyrics(path: String): String? = LocalLyricsReader.read(path)
 

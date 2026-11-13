@@ -37,7 +37,9 @@ fun HomeContent(
     onLoadMore: () -> Unit,
     onIntelligenceClick: () -> Unit,
     onRoamingClick: () -> Unit,
-    onDailyPlay: () -> Unit
+    onDailyPlay: () -> Unit,
+    showRecentPlay: Boolean,
+    showForYou: Boolean
 ) {
     val listState = rememberLazyListState()
     val feed = (uiState as? HomeUiState.Success)?.data
@@ -65,12 +67,14 @@ fun HomeContent(
                             val data = uiState.data
 
                             // 区块高度随列数变化时，下方区块平滑让位；只做位移，不给新增区块加淡入淡出
-                            item(key = RECENT_PLAY_KEY) {
-                                RecentPlaySection(
-                                    items = data.recentPlaylists,
-                                    onClick = { item -> onPlaylistClick(item.id, false) },
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                                )
+                            if (showRecentPlay) {
+                                item(key = RECENT_PLAY_KEY) {
+                                    RecentPlaySection(
+                                        items = data.recentPlaylists,
+                                        onClick = { item -> onPlaylistClick(item.id, false) },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    )
+                                }
                             }
 
                             item(key = FOR_YOU_KEY) {
@@ -84,7 +88,8 @@ fun HomeContent(
                                     onHotlistClick = { onPlaylistClick(it, false) },
                                     onIntelligenceClick = onIntelligenceClick,
                                     onRadarClick = { onPlaylistClick(it, false) },
-                                    onRoamingClick = onRoamingClick
+                                    onRoamingClick = onRoamingClick,
+                                    showForYou = showForYou
                                 )
                             }
 

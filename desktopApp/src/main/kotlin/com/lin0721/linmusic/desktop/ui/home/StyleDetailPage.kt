@@ -224,6 +224,7 @@ private fun StyleDetailContent(
                     TrackRow(
                         index = index,
                         track = track,
+                        qualitySongId = track.id,
                         isCurrent = nowPlayingSongId == track.id,
                         onPlay = { viewModel.playSongAt(index) },
                         modifier = Modifier.padding(horizontal = 16.dp)

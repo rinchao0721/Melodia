@@ -66,6 +66,7 @@ object PluginPackage {
         val extracted = SafeZip.extract(input, directory, "插件包", MAX_ENTRIES, maxTotal) { name ->
             when {
                 nativeAllowed && (name == PluginPaths.JAR || PluginPaths.isNativeLibrary(name)) -> MAX_NATIVE_FILE_BYTES
+                PluginPaths.isBackground(name) -> MAX_SCRIPT_BYTES
                 name == PluginPaths.MANIFEST -> MAX_MANIFEST_BYTES
                 name == PluginPaths.SCRIPT -> MAX_SCRIPT_BYTES
                 PluginPaths.isUi(name) -> MAX_UI_BYTES
