@@ -36,6 +36,7 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.player.presentation.secondaryText
 
 // 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字流光，可附带译文/罗马音与背景和声
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
@@ -119,6 +120,8 @@ fun FullScreenLyricsRow(
     val spacingBetween = secondarySpacing.coerceAtLeast(0).dp
     val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
+    val showRoma = secondaryMode == "roma"
+    val secondaryColor = if (showRoma) romanizationColor else translationColor
 
     val targetScale = when {
         isCurrent -> 1.12f
@@ -221,16 +224,11 @@ fun FullScreenLyricsRow(
                 )
             }
 
-            val secondaryText = when (secondaryMode) {
-                "translation" -> line.translation
-                "roma" -> line.roma
-                else -> null
-            }
-            if (secondaryText != null) {
-                val secondaryColor = if (secondaryMode == "roma") romanizationColor else translationColor
+            val secondary = secondaryText(line, secondaryMode)
+            if (secondary != null) {
                 Spacer(modifier = Modifier.height(spacingBetween))
                 Text(
-                    text = secondaryText,
+                    text = secondary,
                     fontSize = translationFontSize,
                     lineHeight = translationLineHeight,
                     color = secondaryColor ?: if (isCurrent) MelodiaColors.TextPrimary else highlightColor,
@@ -287,22 +285,12 @@ fun FullScreenLyricsRow(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    background.translation?.let {
-                        Spacer(modifier = Modifier.height(3.dp))
+                    secondaryText(background, secondaryMode)?.let {
+                        Spacer(modifier = Modifier.height(if (showRoma) 2.dp else 3.dp))
                         Text(
                             text = it,
-                            fontSize = (fontSize - 8).coerceAtLeast(11).sp,
-                            color = translationColor ?: backgroundColor,
-                            textAlign = backgroundTextAlign,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    background.roma?.let {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = it,
-                            fontSize = (fontSize - 9).coerceAtLeast(11).sp,
-                            color = romanizationColor ?: backgroundColor,
+                            fontSize = (fontSize - if (showRoma) 9 else 8).coerceAtLeast(11).sp,
+                            color = secondaryColor ?: backgroundColor,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )

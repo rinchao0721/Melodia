@@ -116,6 +116,7 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.desktop.ui.track.artistLinks
 import com.lin0721.linmusic.feature.player.presentation.LyricsPlaceholder
+import com.lin0721.linmusic.feature.player.presentation.hasSecondaryText
 import com.lin0721.linmusic.feature.player.presentation.isActiveLine
 import com.lin0721.linmusic.feature.player.presentation.lyricsPlaceholder
 import com.lin0721.linmusic.feature.player.presentation.secondaryText
@@ -227,8 +228,8 @@ private fun LyricsViewContent(
     val base = rememberCoverBase(track.artworkUri)
     val immersive = rememberLyricsViewColors(base)
     val fill = immersive.fill
-    val hasTranslation = remember(lines) { lines.any { it.translation != null } }
-    val hasRoma = remember(lines) { lines.any { it.roma != null } }
+    val hasTranslation = remember(lines) { hasSecondaryText(lines, "translation") }
+    val hasRoma = remember(lines) { hasSecondaryText(lines, "roma") }
 
     var settingsOpen by remember { mutableStateOf(false) }
     var moveTick by remember { mutableIntStateOf(0) }
@@ -635,11 +636,15 @@ private fun BackgroundVocal(
         }
         val tint = if (active) activeColor else inactive
         val secondarySize = settings.backgroundSecondaryFontSize
-        line.translation?.let {
-            Text(it, color = tint, fontSize = secondarySize, textAlign = alignment.textAlign, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
-        }
-        line.roma?.let {
-            Text(it, color = tint, fontSize = secondarySize, textAlign = alignment.textAlign, modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+        secondaryText(line, settings.secondaryMode)?.let {
+            val spacing = if (settings.secondaryMode == "roma") 2.dp else 3.dp
+            Text(
+                text = it,
+                color = tint,
+                fontSize = secondarySize,
+                textAlign = alignment.textAlign,
+                modifier = Modifier.fillMaxWidth().padding(top = spacing)
+            )
         }
     }
 }
