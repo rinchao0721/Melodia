@@ -69,6 +69,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.player.presentation.secondaryText
 
 // 全屏歌词列表区：加载态/空态、当前行自动居中定位、居中行推导与拖动定位覆盖层
 @Composable
@@ -153,11 +154,7 @@ fun FullScreenLyricsList(
         }
 
         val current = lyrics[currentIndex]
-        val hasSecondary = current.backgroundLine != null || when (secondaryMode) {
-            "translation" -> current.translation != null
-            "roma" -> current.roma != null
-            else -> false
-        }
+        val hasSecondary = current.backgroundLine != null || secondaryText(current, secondaryMode) != null
         val itemHeightPx = with(density) {
             (if (hasSecondary) 96 + secondarySpacing - 6 else 54).coerceAtLeast(1).dp.toPx()
         }
