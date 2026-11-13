@@ -124,7 +124,7 @@ class ListenTogetherSessionTest {
         RoomPlayback(listOf(song), RoomCommand("GOTO", song, progress, playing, seq, from))
 
     @Test
-    fun `房主建房后推送队列并上报当前歌曲`() = runTest {
+    fun `房主建房后只上报当前歌曲，不推送本地队列`() = runTest {
         val repo = FakeRepository()
         val controller = TestController().apply {
             queueFlow.value = listOf(item(1), item(2))
@@ -136,7 +136,7 @@ class ListenTogetherSessionTest {
         assertTrue(session.createRoom(listOf(1L, 2L)).isSuccess)
         runCurrent()
 
-        assertEquals(listOf(listOf(1L, 2L)), repo.playlists)
+        assertTrue(repo.playlists.isEmpty())
         assertEquals("GOTO", repo.commands.first().type.wire)
         assertEquals(1L, repo.commands.first().songId)
         session.stop()
@@ -282,6 +282,25 @@ class ListenTogetherSessionTest {
     }
 
     @Test
+    fun `房间没有队列时客机仍跟随房主指令且不提前上报`() = runTest {
+        val repo = FakeRepository().apply {
+            playback = Result.success(RoomPlayback(emptyList(), RoomCommand("GOTO", 5L, 3_000L, true, 100L, 1L)))
+        }
+        val controller = TestController().apply {
+            nowPlayingFlow.value = NowPlaying("9", "歌9", "手", null)
+            playWhenReadyFlow.value = true
+        }
+        val session = session(repo, controller, selfId = 2L)
+        session.joinRoom("r1", 1L)
+        runCurrent()
+
+        assertEquals(listOf("play:5@3000"), controller.actions)
+        assertTrue(repo.commands.none { it.songId == 9L })
+        assertTrue(session.state.value.roomSongIds.isEmpty())
+        session.stop()
+    }
+
+    @Test
     fun `成员进房时不用本机歌曲覆盖房间`() = runTest {
         val repo = FakeRepository().apply { playback = Result.success(roomCommand(5L, seq = 100L)) }
         val controller = TestController().apply {
@@ -345,7 +364,7 @@ class ListenTogetherSessionTest {
     }
 
     @Test
-    fun `房主推送队列前并入成员刚点的歌`() = runTest {
+    fun `房主本地队列变化不改动房间队列`() = runTest {
         val repo = FakeRepository()
         val controller = TestController().apply {
             queueFlow.value = listOf(item(1L))
@@ -355,17 +374,11 @@ class ListenTogetherSessionTest {
         val session = session(repo, controller, selfId = 1L)
         session.createRoom(listOf(1L))
         runCurrent()
-        assertEquals(listOf(1L), repo.playlists.last())
 
-        // 成员在房间里加了 7，房主本地同时加了 8
-        repo.playback = Result.success(RoomPlayback(listOf(1L, 7L), null))
-        controller.queueFlow.value = listOf(item(1L), item(8L))
-        advanceTimeBy(3_100L)
+        controller.queueFlow.value = listOf(item(1L), item(8L), item(9L))
+        advanceTimeBy(6_100L)
 
-        val pushed = repo.playlists.last()
-        assertTrue(7L in pushed)
-        assertTrue(8L in pushed)
-        assertTrue(controller.queueFlow.value.any { it.songId == 7L })
+        assertTrue(repo.playlists.isEmpty())
         session.stop()
     }
 

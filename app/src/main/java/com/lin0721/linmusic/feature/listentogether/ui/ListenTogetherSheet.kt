@@ -80,7 +80,7 @@ fun ListenTogetherSheet(
 
             if (!state.active) {
                 Text(
-                    text = "与好友同步播放当前队列中的网易云歌曲，双方各自播放，互不占用流量。",
+                    text = "与好友同步收听，房间队列由大家一起点歌，双方各自播放，互不占用流量。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp
                 )

@@ -44,6 +44,6 @@ fun ListenTogetherDialog(viewModel: ListenTogetherViewModel, onDismiss: () -> Un
         }
     ) {
         state.message?.let { Text(it, color = DesktopColors.TextGray, fontSize = 12.sp) }
-        Text("与好友同步播放当前队列中的网易云歌曲，双方各自播放。", color = DesktopColors.TextGray, fontSize = 13.sp)
+        Text("与好友同步收听，房间队列由大家一起点歌，双方各自播放。", color = DesktopColors.TextGray, fontSize = 13.sp)
     }
 }

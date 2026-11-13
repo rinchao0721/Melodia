@@ -21,6 +21,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.profile.ui.FollowListViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
 import com.lin0721.linmusic.feature.message.ui.MessageViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.feature.recent.ui.RecentPlayViewModel
@@ -85,6 +86,7 @@ val viewModelModule = module {
 
     viewModelOf(::MessageViewModel)
     viewModelOf(::ListenTogetherViewModel)
+    viewModelOf(::RoomSongPickerViewModel)
     viewModelOf(::ProfileViewModel)
     viewModelOf(::FollowListViewModel)
 

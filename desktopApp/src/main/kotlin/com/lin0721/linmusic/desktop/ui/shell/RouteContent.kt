@@ -124,7 +124,10 @@ internal fun RouteContent(
             mode = route.mode,
             viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent }
         )
-        DesktopRoute.ListenTogether -> ListenTogetherPage(viewModel = deps.listenTogether)
+        DesktopRoute.ListenTogether -> ListenTogetherPage(
+            viewModel = deps.listenTogether,
+            songPicker = frameHost.pageViewModel(entry, factory)
+        )
         is DesktopRoute.PluginPage -> PluginPageScreen(route.pluginId, route.pageId, deps.plugins, deps.pluginPages)
         DesktopRoute.Settings -> SettingsPage(
             common = deps.commonSettingsViewModel,

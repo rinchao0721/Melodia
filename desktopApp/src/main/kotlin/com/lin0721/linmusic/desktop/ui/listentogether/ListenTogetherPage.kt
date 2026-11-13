@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Star
@@ -36,8 +37,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +63,7 @@ import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
 import kotlinx.coroutines.launch
 
 private val CoverSize = 280.dp
@@ -69,7 +73,7 @@ private const val COLOR_TRANSITION_MS = 800
 
 // 一起听房间页：封面取色铺底，左栏为当前歌曲、成员与操作，右栏为房间队列
 @Composable
-fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = Modifier) {
+fun ListenTogetherPage(viewModel: ListenTogetherViewModel, songPicker: RoomSongPickerViewModel, modifier: Modifier = Modifier) {
     val navigator = LocalDesktopNavigator.current
     val state by viewModel.state.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
@@ -77,6 +81,8 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
     val duration by viewModel.duration.collectAsState()
     val tracks by viewModel.roomTracks.collectAsState()
     val scope = rememberCoroutineScope()
+    var showPicker by remember { mutableStateOf(false) }
+    if (showPicker) RoomSongPickerDialog(songPicker, onDismiss = { showPicker = false })
     LaunchedEffect(viewModel) { viewModel.messages.collect { navigator.showMessage(it) } }
 
     val immersive = rememberImmersiveColors(rememberCoverBase(nowPlaying?.artworkUri))
@@ -158,16 +164,22 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, modifier: Modifier = 
                 }
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                Text(
-                    if (state.roomSongIds.isEmpty()) "房间队列" else "房间队列 · ${state.roomSongIds.size} 首",
-                    color = content,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (state.roomSongIds.isEmpty()) "房间队列" else "房间队列 · ${state.roomSongIds.size} 首",
+                        color = content,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    PillButton("添加歌曲", background, content, icon = { Icon(Icons.Rounded.Add, null, tint = background, modifier = Modifier.size(16.dp)) }) {
+                        showPicker = true
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 if (tracks.isEmpty()) {
                     Text(
-                        if (state.roomSongIds.isEmpty()) "房主推送队列后显示" else "曲目信息加载中",
+                        if (state.roomSongIds.isEmpty()) "还没有歌曲，点「添加歌曲」一起点歌" else "曲目信息加载中",
                         color = secondary,
                         fontSize = 13.sp
                     )

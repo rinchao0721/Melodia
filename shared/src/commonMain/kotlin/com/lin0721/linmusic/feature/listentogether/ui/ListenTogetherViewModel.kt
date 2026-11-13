@@ -26,9 +26,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-// 建房时同步给服务端的种子曲目上限
-private const val SEED_SONG_LIMIT = 200
-
 // 房间队列展示与解析的条数上限
 internal const val ROOM_TRACK_LIMIT = 100
 
@@ -92,11 +89,13 @@ class ListenTogetherViewModel(
     // 以当前播放队列中的网易云歌曲建房；成功后返回邀请文案
     fun startRoom(onCreated: (String) -> Unit) {
         if (_busy.value || session.state.value.active) return
-        val ids = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct().take(SEED_SONG_LIMIT)
-        if (ids.isEmpty()) {
-            _messages.tryEmit("当前队列没有网易云歌曲，无法发起一起听")
+        // 房间队列默认为空，靠成员手动添加；建房接口要求非空，只带上当前歌曲作为起播曲目
+        val current = controller.nowPlaying.value?.songId?.takeIf { it > 0L }
+        if (current == null) {
+            _messages.tryEmit("请先播放一首网易云歌曲再发起一起听")
             return
         }
+        val ids = listOf(current)
         viewModelScope.launch {
             _busy.value = true
             session.createRoom(ids)

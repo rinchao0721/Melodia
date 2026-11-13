@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Star
@@ -118,6 +119,11 @@ fun ListenTogetherRoomScreen(
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
     }
 
+    var showPicker by remember { mutableStateOf(false) }
+    if (showPicker) {
+        RoomSongPickerSheet(onDismiss = { showPicker = false })
+    }
+
     // 会话结束（被结束、断网退出）后自动关闭
     LaunchedEffect(state.active) { if (!state.active) onClose() }
 
@@ -130,116 +136,108 @@ fun ListenTogetherRoomScreen(
                 .fillMaxSize()
                 .background(background)
         ) {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md)
+                    .navigationBarsPadding()
             ) {
-                item {
-                    RoomTopBar(state = state, content = content, secondary = secondary, onClose = onClose)
-                }
-                item {
-                    NowPlayingSection(
-                        coverUrl = coverUrl,
-                        title = nowPlaying?.title.orEmpty(),
-                        artist = nowPlaying?.artist.orEmpty(),
-                        progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
-                        followText = when {
-                            !state.isHost -> "你和房主都可以控制播放"
-                            state.allowMemberControl -> "成员可以一起控制播放"
-                            else -> "仅你可以控制播放"
-                        },
-                        content = content,
-                        secondary = secondary
-                    )
-                }
-                item {
-                    MembersSection(state = state, content = content, secondary = secondary, cardFill = cardFill)
-                }
-                if (state.isHost) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.md)
+                ) {
                     item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MelodiaSpacing.lg)
-                                .clip(CardShape)
-                                .background(cardFill)
-                                .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "允许成员控制", color = content, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text(text = "关闭后成员的切歌、暂停、点歌会被还原", color = secondary, fontSize = 12.sp)
+                        RoomTopBar(state = state, content = content, secondary = secondary, onClose = onClose)
+                    }
+                    item {
+                        NowPlayingSection(
+                            coverUrl = coverUrl,
+                            title = nowPlaying?.title.orEmpty(),
+                            artist = nowPlaying?.artist.orEmpty(),
+                            progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
+                            followText = when {
+                                !state.isHost -> "你和房主都可以控制播放"
+                                state.allowMemberControl -> "成员可以一起控制播放"
+                                else -> "仅你可以控制播放"
+                            },
+                            content = content,
+                            secondary = secondary
+                        )
+                    }
+                    item {
+                        MembersSection(state = state, content = content, secondary = secondary, cardFill = cardFill)
+                    }
+                    if (state.isHost) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MelodiaSpacing.lg)
+                                    .clip(CardShape)
+                                    .background(cardFill)
+                                    .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = "允许成员控制", color = content, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "关闭后成员的切歌、暂停、点歌会被还原", color = secondary, fontSize = 12.sp)
+                                }
+                                MelodiaSwitch(checked = state.allowMemberControl, onCheckedChange = viewModel::setAllowMemberControl)
                             }
-                            MelodiaSwitch(checked = state.allowMemberControl, onCheckedChange = viewModel::setAllowMemberControl)
                         }
                     }
-                }
-                item {
-                    Text(
-                        text = if (state.roomSongIds.isEmpty()) "房间队列" else "房间队列 · ${state.roomSongIds.size} 首",
-                        color = content,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = MelodiaSpacing.lg)
-                    )
-                }
-                if (tracks.isEmpty()) {
                     item {
                         Text(
-                            text = if (state.roomSongIds.isEmpty()) "房主推送队列后显示" else "曲目信息加载中",
-                            color = secondary,
-                            fontSize = 13.sp,
+                            text = if (state.roomSongIds.isEmpty()) "房间队列" else "房间队列 · ${state.roomSongIds.size} 首",
+                            color = content,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = MelodiaSpacing.lg)
                         )
                     }
-                } else {
-                    itemsIndexed(tracks, key = { index, item -> "${item.songId}_$index" }) { index, item ->
-                        RoomTrackRow(
-                            item = item,
-                            active = item.songId == nowPlaying?.songId,
-                            clickable = true,
-                            content = content,
-                            secondary = secondary,
-                            onClick = { viewModel.playRoomTrack(index) }
-                        )
+                    if (tracks.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (state.roomSongIds.isEmpty()) "还没有歌曲，点「添加歌曲」一起点歌" else "曲目信息加载中",
+                                color = secondary,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(horizontal = MelodiaSpacing.lg)
+                            )
+                        }
+                    } else {
+                        itemsIndexed(tracks, key = { index, item -> "${item.songId}_$index" }) { index, item ->
+                            RoomTrackRow(
+                                item = item,
+                                active = item.songId == nowPlaying?.songId,
+                                clickable = true,
+                                content = content,
+                                secondary = secondary,
+                                onClick = { viewModel.playRoomTrack(index) }
+                            )
+                        }
                     }
+                    item { Spacer(Modifier.height(MelodiaSpacing.sm)) }
                 }
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.md),
-                        verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
-                    ) {
-                        if (state.isHost) {
-                            MelodiaButton(
-                                onClick = {
-                                    scope.launch {
-                                        val text = viewModel.currentInviteText()
-                                        if (text.isNotBlank()) {
-                                            clipboard.setText(AnnotatedString(text))
-                                            Toast.makeText(context, "邀请文案已复制，发给好友粘贴加入", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Rounded.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(MelodiaSpacing.sm))
-                                Text("复制邀请文案")
+                // 底部固定操作栏：队列再长也能直接点到
+                RoomActionBar(
+                    isHost = state.isHost,
+                    content = content,
+                    background = background,
+                    cardFill = cardFill,
+                    onAddSongs = { showPicker = true },
+                    onCopyInvite = {
+                        scope.launch {
+                            val text = viewModel.currentInviteText()
+                            if (text.isNotBlank()) {
+                                clipboard.setText(AnnotatedString(text))
+                                Toast.makeText(context, "邀请文案已复制，发给好友粘贴加入", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        MelodiaButton(
-                            onClick = { viewModel.leave() },
-                            colors = ButtonDefaults.buttonColors(containerColor = cardFill, contentColor = content),
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (state.isHost) "结束房间" else "退出一起听") }
-                    }
-                }
+                    },
+                    onLeave = { viewModel.leave() }
+                )
             }
         }
     }
@@ -436,5 +434,51 @@ private fun RoomTrackRow(
             Spacer(Modifier.width(MelodiaSpacing.sm))
             PlayingEqualizerBars(color = content, animate = true)
         }
+    }
+}
+
+@Composable
+private fun RoomActionBar(
+    isHost: Boolean,
+    content: Color,
+    background: Color,
+    cardFill: Color,
+    onAddSongs: () -> Unit,
+    onCopyInvite: () -> Unit,
+    onLeave: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background)
+            .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MelodiaButton(
+            onClick = onAddSongs,
+            colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("添加歌曲", maxLines = 1)
+        }
+        if (isHost) {
+            MelodiaButton(
+                onClick = onCopyInvite,
+                colors = ButtonDefaults.buttonColors(containerColor = cardFill, contentColor = content),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Rounded.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("邀请", maxLines = 1)
+            }
+        }
+        MelodiaButton(
+            onClick = onLeave,
+            colors = ButtonDefaults.buttonColors(containerColor = cardFill, contentColor = content),
+            modifier = Modifier.weight(1f)
+        ) { Text(if (isHost) "结束房间" else "退出", maxLines = 1) }
     }
 }

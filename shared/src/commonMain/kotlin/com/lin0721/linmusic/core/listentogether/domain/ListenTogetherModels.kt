@@ -65,15 +65,18 @@ fun parseRoom(roomInfo: JsonObject?): ListenTogetherRoom? {
     return ListenTogetherRoom(id = id, creatorId = roomInfo.num("creatorId") ?: 0L, members = members)
 }
 
-// 房主尚未推送队列时 data 为空对象，返回 null
+// 房间队列与播放指令分别解析：房间没人点歌时只有 playCommand，两者都没有才返回 null
 fun parseRoomPlayback(data: JsonObject?): RoomPlayback? {
-    val playlist = data?.obj("playlist") ?: return null
-    val mode = playlist.str("playMode")?.uppercase().orEmpty()
-    val random = "RANDOM" in mode || "SHUFFLE" in mode
-    val list = playlist.obj(if (random) "randomList" else "displayList")
-    val ids = (list?.get("result") as? JsonArray).orEmpty().mapNotNull { element ->
-        (element as? JsonPrimitive)?.let { it.longOrNull ?: it.contentOrNull?.toLongOrNull() }
-    }.distinct()
+    data ?: return null
+    val playlist = data.obj("playlist")
+    val ids = playlist?.let { list ->
+        val mode = list.str("playMode")?.uppercase().orEmpty()
+        val random = "RANDOM" in mode || "SHUFFLE" in mode
+        val source = list.obj(if (random) "randomList" else "displayList")
+        (source?.get("result") as? JsonArray).orEmpty().mapNotNull { element ->
+            (element as? JsonPrimitive)?.let { it.longOrNull ?: it.contentOrNull?.toLongOrNull() }
+        }.distinct()
+    }.orEmpty()
     val command = data.obj("playCommand")?.let { raw ->
         RoomCommand(
             commandType = raw.str("commandType")?.uppercase(),
@@ -88,5 +91,6 @@ fun parseRoomPlayback(data: JsonObject?): RoomPlayback? {
             userId = raw.num("userId")?.takeIf { it > 0 }
         )
     }
+    if (playlist == null && command == null) return null
     return RoomPlayback(songIds = ids, command = command)
 }

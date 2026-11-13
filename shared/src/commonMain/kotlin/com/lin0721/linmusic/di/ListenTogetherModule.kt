@@ -6,8 +6,14 @@ import com.lin0721.linmusic.core.listentogether.RoomTrackResolver
 import com.lin0721.linmusic.core.listentogether.data.ListenTogetherApi
 import com.lin0721.linmusic.core.listentogether.data.ListenTogetherRepository
 import com.lin0721.linmusic.core.listentogether.data.ListenTogetherRepositoryImpl
+import com.lin0721.linmusic.core.listentogether.data.RoomSongSource
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.feature.search.data.SearchRepository
+import com.lin0721.linmusic.feature.search.domain.SearchResultItem
+import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -30,8 +36,29 @@ fun listenTogetherModule(playerDispatcher: CoroutineDispatcher): Module = module
             } else {
                 playerRepository.getSongDetails(songIds).first().getOrNull().orEmpty()
                     .filter { it.id > 0L }
-                    .map { QueueItem(it.id, it.name, it.ar.joinToString("/") { a -> a.name }, it.al.picUrl) }
+                    .map { it.toQueueItem() }
             }
+        }
+    }
+    // 点歌来源：喜欢列表按红心时间倒序取前若干首补详情；搜索走云搜索单曲
+    single<RoomSongSource> {
+        val playerRepository = get<PlayerRepository>()
+        val songLikeRepository = get<SongLikeRepository>()
+        val searchRepository = get<SearchRepository>()
+        val userPreferences = get<UserPreferences>()
+        object : RoomSongSource {
+            override suspend fun liked(limit: Int): List<QueueItem> {
+                val uid = userPreferences.userProfile.first()?.uid ?: return emptyList()
+                val ids = songLikeRepository.getLikedSongIds(uid).first().getOrThrow().filter { it > 0L }.take(limit)
+                if (ids.isEmpty()) return emptyList()
+                val tracks = playerRepository.getSongDetails(ids).first().getOrThrow().associateBy { it.id }
+                return ids.mapNotNull { tracks[it] }.map { it.toQueueItem() }
+            }
+
+            override suspend fun search(keyword: String, limit: Int): List<QueueItem> =
+                searchRepository.search(keyword, SearchType.SONG, limit = limit).first().getOrThrow().items
+                    .filterIsInstance<SearchResultItem.SongItem>()
+                    .map { it.track.toQueueItem() }
         }
     }
     single {
@@ -46,3 +73,5 @@ fun listenTogetherModule(playerDispatcher: CoroutineDispatcher): Module = module
         )
     }
 }
+
+private fun Track.toQueueItem() = QueueItem(id, name, ar.joinToString("/") { it.name }, al.picUrl)

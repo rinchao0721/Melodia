@@ -90,7 +90,6 @@ class ListenTogetherSession(
     private var forceReport = false
     private var suppressReportUntil = 0L
     private var rejectCooldown = 0
-    private var pushedSongIds: List<Long> = emptyList()
     private var playlistVersion = 0L
     private var mergedRoomIds: Set<Long>? = null
     private var heartbeatSeconds = DEFAULT_HEARTBEAT_SECONDS
@@ -190,7 +189,6 @@ class ListenTogetherSession(
         forceReport = false
         suppressReportUntil = 0L
         rejectCooldown = 0
-        pushedSongIds = emptyList()
         playlistVersion = 0L
         mergedRoomIds = null
         sinceHeartbeatMs = 0L
@@ -242,7 +240,6 @@ class ListenTogetherSession(
         playback?.command?.let { logCommand(it, isHost, playback.songIds.size) }
 
         mergeRoomQueue(playback?.songIds.orEmpty())
-        if (isHost) pushQueueIfChanged(roomId)
         handleRemote(playback?.command)
         reportIfChanged(roomId)
         sendHeartbeatIfDue(roomId, snapshot())
@@ -376,29 +373,6 @@ class ListenTogetherSession(
         if (items.isEmpty()) return
         withContext(playerDispatcher) { controller.appendToQueue(items) }
         AppLogger.i(TAG, "房间新增 ${items.size} 首，已追加到本地队列")
-    }
-
-    private suspend fun pushQueueIfChanged(roomId: String) {
-        val localIds = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct()
-        if (localIds.isEmpty() || localIds == pushedSongIds) return
-        if (selfId <= 0L) return
-        // 整份替换前重读房间队列，先并入成员刚点的歌，避免被本地队列覆盖
-        val latest = repository.playback(roomId).first().getOrThrow()?.songIds.orEmpty()
-        val known = mergedRoomIds.orEmpty()
-        mergeRoomQueue(latest)
-        val merged = controller.queue.value.map { it.songId }.filter { it > 0L }.distinct()
-        // 详情解析失败的新增曲目本地缺失，仍保留在推送列表里
-        val unresolved = latest.filter { it > 0L && it !in merged && it !in known }
-        val ids = (merged + unresolved).distinct()
-        val anchor = ids.indexOf(controller.nowPlaying.value?.songId).coerceAtLeast(0)
-        val accepted = repository.reportPlaylist(roomId, selfId, playlistVersion + 1, ids, anchor).first().getOrThrow()
-        if (accepted) {
-            pushedSongIds = merged
-            playlistVersion += 1
-            mergedRoomIds = (mergedRoomIds ?: emptySet()) + ids
-        } else {
-            AppLogger.w(TAG, "房间队列未被服务端接受，下一轮重试")
-        }
     }
 
     private suspend fun reportIfChanged(roomId: String) {

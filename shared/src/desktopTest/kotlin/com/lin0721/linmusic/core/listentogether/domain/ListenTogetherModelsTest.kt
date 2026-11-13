@@ -56,8 +56,18 @@ class ListenTogetherModelsTest {
     }
 
     @Test
-    fun `房主未推送队列时为空`() {
+    fun `既无队列也无指令时为空`() {
         assertNull(parseRoomPlayback(obj("{}")))
+    }
+
+    @Test
+    fun `房间没有队列时仍解析出播放指令`() {
+        val playback = parseRoomPlayback(
+            obj("""{"playCommand":{"commandType":"GOTO","targetSongId":"5","progress":1000,"playStatus":"PLAY","serverSeq":7,"userId":1}}""")
+        )
+        assertTrue(playback!!.songIds.isEmpty())
+        assertEquals(5L, playback.command?.targetSongId)
+        assertEquals(1L, playback.command?.userId)
     }
 
     @Test

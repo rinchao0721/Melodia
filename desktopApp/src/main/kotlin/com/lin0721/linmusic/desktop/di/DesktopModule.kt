@@ -77,6 +77,7 @@ import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
@@ -329,6 +330,7 @@ val desktopViewModelModule = module {
     factoryOf(::PlaylistViewModel)
     singleOf(::PlayerViewModel)
     singleOf(::ListenTogetherViewModel)
+    factoryOf(::RoomSongPickerViewModel)
     factoryOf(::ArtistViewModel)
     singleOf(::CommonSettingsViewModel)
     singleOf(::LxPluginSettingsViewModel)
