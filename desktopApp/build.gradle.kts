@@ -280,7 +280,8 @@ compose.desktop {
             appResourcesRootDir.set(layout.buildDirectory.dir("appResources"))
             // jdeps 建议列表 + TLS 椭圆曲线套件所需的 jdk.crypto.ec（jdeps 无法静态分析出）
             // jdk.management 用于后台运行时调整堆空闲比例
-            modules("java.instrument", "java.naming", "java.prefs", "java.sql", "jdk.unsupported", "jdk.crypto.ec", "jdk.management")
+            // jdk.accessibility：用户目录 .accessibility.properties 启用 Access Bridge 时 AWT 初始化需要加载它
+            modules("java.instrument", "java.naming", "java.prefs", "java.sql", "jdk.unsupported", "jdk.crypto.ec", "jdk.management", "jdk.accessibility")
             windows {
                 iconFile.set(layout.projectDirectory.file("icons/melodia.ico"))
                 // 固定值，覆盖安装时据此识别为同一应用并升级
