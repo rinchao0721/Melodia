@@ -64,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.feature.player.presentation.hasSecondaryText
 import com.lin0721.linmusic.feature.player.share.LyricShareSheet
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -136,8 +137,8 @@ fun FullScreenLyricsView(
     var areControlsVisible by remember { mutableStateOf(true) }
     var autoHideJob by remember { mutableStateOf<Job?>(null) }
 
-    val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
-    val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
+    val hasTranslation = remember(lyrics) { hasSecondaryText(lyrics, "translation") }
+    val hasRoma = remember(lyrics) { hasSecondaryText(lyrics, "roma") }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
 

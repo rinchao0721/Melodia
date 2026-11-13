@@ -31,9 +31,21 @@ class LyricsViewLogicTest {
         val l = line("词", translation = "译文", roma = "romaji")
         assertEquals("译文", secondaryText(l, "translation"))
         assertEquals("romaji", secondaryText(l, "roma"))
-        assertNull(secondaryText(l, "off"))
+        assertNull(secondaryText(l, "none"))
         assertNull(secondaryText(line("词"), "translation"))
         assertNull(secondaryText(line("词", translation = "  "), "translation"))
+    }
+
+    @Test
+    fun `主声部和背景和声都可提供副行选项`() {
+        val background = line("和声", translation = "和声译文", roma = "  ")
+        val main = line("主歌词", roma = "romaji").copy(backgroundLine = background)
+        val lines = listOf(main)
+
+        assertTrue(hasSecondaryText(lines, "translation"))
+        assertTrue(hasSecondaryText(lines, "roma"))
+        assertFalse(hasSecondaryText(lines, "none"))
+        assertFalse(hasSecondaryText(listOf(main.copy(roma = null)), "roma"))
     }
 
     @Test
