@@ -1192,7 +1192,7 @@ class PlayerManager(
         trackLastPauseElapsedMs = if (startPlaying) null else trackStartElapsedMs
     }
 
-    private fun skipToNextOnError(failedIndex: Int) {
+    private fun skipToNextOnError(failedIndex: Int, giveUpMessage: String = "无法获取该歌曲的播放链接") {
         consecutiveErrors++
         if (consecutiveErrors >= 3 || playbackQueue.size <= 1) {
             AppLogger.e(TAG, "连续 $consecutiveErrors 次播放失败，放弃自动切歌 failedIndex=$failedIndex queueSize=${playbackQueue.size}")
@@ -1201,7 +1201,7 @@ class PlayerManager(
             clearPendingTrack(restorePlayWhenReady = false)
             MelodiaPlaybackService.stopPendingForeground(context)
             scope.launch {
-                Toast.makeText(context, "无法获取该歌曲的播放链接", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, giveUpMessage, Toast.LENGTH_SHORT).show()
             }
             return
         }
@@ -1330,7 +1330,14 @@ class PlayerManager(
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
-        skipToNextOnError(playbackQueue.currentIndex.value)
+        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(error))
+    }
+
+    // 链接已拿到、是播放器本身出错，不能沿用取链接失败的提示（#172 硬解 FLAC 失败被误报为取链接失败）
+    private fun playerErrorMessage(error: PlaybackException): String = when (error.errorCode) {
+        in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED ->
+            "设备无法解码当前音质，可尝试调低播放音质"
+        else -> "连续多首歌曲无法播放"
     }
 
     // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；
