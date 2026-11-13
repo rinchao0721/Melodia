@@ -146,6 +146,7 @@ fun MiniPlayerCard(
     onDragEnd: ((Float) -> Unit)? = null,
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
+    queueTarget: SwipeQueueTarget? = null,
     onPrevious: () -> Unit = {},
     onCancelPendingSkip: () -> Boolean = { false },
     isLiked: Boolean = false,
@@ -201,7 +202,8 @@ fun MiniPlayerCard(
     val swipeDirection = swipeState.syncCurrentKey(
         key = currentTrack.mediaId,
         previousKey = previousQueueItem?.songId?.toString(),
-        nextKey = nextQueueItem?.songId?.toString()
+        nextKey = nextQueueItem?.songId?.toString(),
+        queueTarget = queueTarget
     )
     var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
     var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }

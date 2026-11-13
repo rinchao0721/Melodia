@@ -66,6 +66,7 @@ import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -455,13 +456,10 @@ private fun FullPlayerScreenContent(
 
     // 歌名/歌手要跟封面一起冻结：队列已经先切过去、currentTrack 还没跟上时，
     // 直接用实时值会让封面下方的文字在滑动/切歌过程中先于封面硬跳
-    val previousKeyStr = previousQueueItem?.songId?.toString()
-    val nextKeyStr = nextQueueItem?.songId?.toString()
+    val swipeQueueTarget = SwipeQueueTarget(currentQueueIndex, currentQueueItem?.songId?.toString())
     var displayedTitle by remember { mutableStateOf(title) }
     var displayedArtist by remember { mutableStateOf(artist) }
-    if ((previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
-        (nextKeyStr != null && nextKeyStr == currentTrack.mediaId)
-    ) {
+    if (swipeQueueTarget.isAheadOf(currentTrack.mediaId)) {
         // 队列已经先切过去，曲目数据还没跟上，先保留原文字，等 currentTrack 落地后再刷新
     } else {
         displayedTitle = title
@@ -644,6 +642,7 @@ private fun FullPlayerScreenContent(
             currentKey = currentTrack.mediaId,
             previousKey = previousQueueItem?.songId?.toString(),
             nextKey = nextQueueItem?.songId?.toString(),
+            queueTarget = swipeQueueTarget,
             currentLyricIndex = currentLyricIndex,
             isPlaying = isPlaying,
             playWhenReady = playWhenReady,
@@ -799,6 +798,7 @@ private fun FullPlayerScreenContent(
                         currentKey = currentTrack.mediaId,
                         previousKey = previousQueueItem?.songId?.toString(),
                         nextKey = nextQueueItem?.songId?.toString(),
+                        queueTarget = swipeQueueTarget,
                         coverExtraInset = coverExtraInset,
                         onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                         isSidebarFullscreen = isSidebarFullscreen,
@@ -937,7 +937,8 @@ private fun FullPlayerScreenContent(
                         shape = RoundedCornerShape(RadiusCompact),
                         elevation = 24.dp,
                         modifier = coverModifier,
-                        onCancelPending = viewModel.playerManager::cancelPendingSkip
+                        onCancelPending = viewModel.playerManager::cancelPendingSkip,
+                        queueTarget = swipeQueueTarget
                     )
                 },
                 playbackControls = {

@@ -43,6 +43,7 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -64,6 +65,7 @@ class FullPlayerLayoutParts(
     val currentKey: Any,
     val previousKey: Any?,
     val nextKey: Any?,
+    val queueTarget: SwipeQueueTarget?,
     val currentLyricIndex: Int,
     val isPlaying: Boolean,
     val playWhenReady: Boolean,
@@ -189,7 +191,8 @@ class FullPlayerLayoutParts(
                     shape = node.layoutShape(),
                     modifier = (if (byHeight) limited.fillMaxHeight() else limited.fillMaxWidth())
                         .aspectRatio(node.aspect, matchHeightConstraintsFirst = byHeight),
-                    onCancelPending = onCancelSkip
+                    onCancelPending = onCancelSkip,
+                    queueTarget = queueTarget
                 )
             }
             LayoutNodeType.SONG_TITLE -> SongTitleText(title, onAlbumClick, modifier, (22 * scale).sp, node.maxLines)

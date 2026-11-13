@@ -37,6 +37,7 @@ import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
@@ -119,6 +120,7 @@ fun MelodiaBottomOverlay(
     onMiniPlayerDragEnd: (Float) -> Unit,
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
+    queueTarget: SwipeQueueTarget? = null,
     onMiniPlayerPrevious: () -> Unit = {},
     onCancelPendingSkip: () -> Boolean = { false },
     isMiniPlayerLiked: Boolean = false,
@@ -248,6 +250,7 @@ fun MelodiaBottomOverlay(
                                     onDragEnd = onMiniPlayerDragEnd,
                                     previousQueueItem = previousQueueItem,
                                     nextQueueItem = nextQueueItem,
+                                    queueTarget = queueTarget,
                                     onPrevious = onMiniPlayerPrevious,
                                     onCancelPendingSkip = onCancelPendingSkip,
                                     isLiked = isMiniPlayerLiked,
@@ -306,6 +309,7 @@ fun MelodiaBottomOverlay(
                             onDragEnd = onMiniPlayerDragEnd,
                             previousQueueItem = previousQueueItem,
                             nextQueueItem = nextQueueItem,
+                            queueTarget = queueTarget,
                             onPrevious = onMiniPlayerPrevious,
                             onCancelPendingSkip = onCancelPendingSkip,
                             isLiked = isMiniPlayerLiked,
