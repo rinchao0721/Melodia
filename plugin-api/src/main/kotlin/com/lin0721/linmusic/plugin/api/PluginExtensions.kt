@@ -20,6 +20,9 @@ interface PluginExtensions {
 
     // API 1.2 起提供；对应清单 pages 里 compose 为 true 的页面，在独立的窗口层渲染，出错只影响这个页面
     fun composePage(id: String, content: @Composable () -> Unit)
+
+    // API 1.11 起提供；官方下载接口给不出可用链接且开启了换源时调用
+    fun downloadSource(id: String, source: DownloadSource)
 }
 
 // 窗口背景的逐帧来源；帧率与遮罩写在清单 backdrops 里，窗口隐藏时不调用
@@ -37,6 +40,19 @@ interface AudioSource {
     // 返回 http(s) 地址，没有结果返回 null
     suspend fun resolve(query: TrackQuery, quality: String): String?
 }
+
+interface DownloadSource {
+    // 没有结果返回 null
+    suspend fun resolve(query: TrackQuery, quality: String): DownloadLink?
+}
+
+// type 为文件格式（mp3、flac 等），用作扩展名；quality 为实际音质档位，记入下载记录；headers 随下载请求发出
+class DownloadLink(
+    val url: String,
+    val type: String? = null,
+    val quality: String? = null,
+    val headers: Map<String, String> = emptyMap()
+)
 
 interface LyricsSource {
     suspend fun fetch(query: TrackQuery): LyricsResult?

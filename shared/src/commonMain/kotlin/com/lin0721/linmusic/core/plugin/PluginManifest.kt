@@ -7,7 +7,7 @@ import java.io.File
 
 const val PLUGIN_FORMAT_VERSION = 2
 const val PLUGIN_API_MAJOR = 1
-const val PLUGIN_API_MINOR = 10
+const val PLUGIN_API_MINOR = 11
 const val PLUGIN_FILE_EXTENSION = "melodiaplugin"
 
 // 由各端启动时写入；开发构建没有可比较的版本号，不校验 minAppVersion
@@ -37,6 +37,7 @@ enum class PluginPermission(val key: String, val label: String) {
     CONTENT_SOURCE("contentSource", "提供歌曲、歌单与搜索结果"),
     NETEASE_READ("netease.read", "以你的账号读取网易云内容"),
     NETEASE_WRITE("netease.write", "修改你的网易云账号：红心、歌单、收藏与关注"),
+    DOWNLOAD_SOURCE("downloadSource", "官方无法下载时提供下载链接"),
     NATIVE("native", "在主进程运行原生代码，不受其他权限限制");
 
     companion object {
@@ -169,11 +170,13 @@ data class PluginContributions(
     val contentSources: List<PluginContentEntry> = emptyList(),
     val backdrops: List<PluginBackdropEntry> = emptyList(),
     // 播放器布局里用到 script: 动作
-    val layoutActions: Boolean = false
+    val layoutActions: Boolean = false,
+    val downloadSources: List<PluginSourceEntry> = emptyList()
 ) {
     val needsScript: Boolean
         get() = pages.isNotEmpty() || audioSources.isNotEmpty() || lyricsSources.isNotEmpty() || events.isNotEmpty() ||
-            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty() || layoutActions
+            commands.isNotEmpty() || settings.isNotEmpty() || contentSources.isNotEmpty() || layoutActions ||
+            downloadSources.isNotEmpty()
 
     val isEmpty: Boolean
         get() = playerLayouts.isEmpty() && backdrops.isEmpty() && !needsScript

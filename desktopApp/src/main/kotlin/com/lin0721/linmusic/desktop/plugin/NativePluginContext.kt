@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.plugin.BackdropExtension
 import com.lin0721.linmusic.core.plugin.CommandExtension
 import com.lin0721.linmusic.core.plugin.ComposePageExtension
 import com.lin0721.linmusic.core.plugin.ContentSourceExtension
+import com.lin0721.linmusic.core.plugin.DownloadSourceExtension
 import com.lin0721.linmusic.core.plugin.EventExtension
 import com.lin0721.linmusic.core.plugin.Extension
 import com.lin0721.linmusic.core.plugin.ExtensionPoints
@@ -26,6 +27,7 @@ import com.lin0721.linmusic.plugin.api.BackdropSource
 import com.lin0721.linmusic.plugin.api.ContentPlaylist
 import com.lin0721.linmusic.plugin.api.ContentSource
 import com.lin0721.linmusic.plugin.api.ContentTrack
+import com.lin0721.linmusic.plugin.api.DownloadSource
 import com.lin0721.linmusic.plugin.api.LibraryApi
 import com.lin0721.linmusic.plugin.api.LibraryPlaylist
 import com.lin0721.linmusic.plugin.api.LyricsSource
@@ -126,6 +128,19 @@ internal class NativePluginContext(
             guard.register(Extension(ExtensionPoints.AUDIO_SOURCE, pluginId, manifest.name, id, object : AudioSourceExtension {
                 override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? =
                     guard.guarded("音源 $id", DesktopNativePluginHost.CALL_TIMEOUT_MS) { source.resolve(query.toApi(), quality) }?.let(::JsonPrimitive)
+            }, order))
+        }
+
+        override fun downloadSource(id: String, source: DownloadSource) {
+            val order = indexOf(manifest.contributes.downloadSources.map { it.id }, id, "下载源")
+            track("downloadSource:$id")
+            guard.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, pluginId, manifest.name, id, object : DownloadSourceExtension {
+                override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? =
+                    guard.guarded("下载源 $id", DesktopNativePluginHost.CALL_TIMEOUT_MS) {
+                        source.resolve(query.toApi(), quality)?.let { link ->
+                            toJson(mapOf("url" to link.url, "type" to link.type, "quality" to link.quality, "headers" to link.headers))
+                        }
+                    }
             }, order))
         }
 

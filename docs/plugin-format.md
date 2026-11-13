@@ -52,7 +52,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.10` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.11` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -67,6 +67,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 - `settings`（format 2）：插件设置项，见「设置」一节。
 - `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
 - `backdrops`（format 2）：窗口动态背景，见「动态背景」一节。
+- `downloadSources`（format 2，API 1.11 起）：下载源，见「下载源」一节。每项需要 `id`，`name` 可选。
 - `layoutActions`（format 2）：播放器布局的手势里用到 `script:` 动作时写 `true`，插件需要带 `main.js`，见「手势」。
 
 单项写错时只忽略这一项，并在导入时提示。
@@ -85,6 +86,7 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | `ui.openUrl` | 用系统浏览器打开网页，每次打开前询问用户 | |
 | `library.read` | 读取当前用户的歌单与红心列表 | |
 | `contentSource` | 提供歌曲、歌单与搜索结果 | `contentSources` 必需 |
+| `downloadSource` | 官方无法下载时提供下载链接 | `downloadSources` 必需 |
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
 | `netease.write` | 以当前用户身份调用网易写方法 | |
 
@@ -144,6 +146,32 @@ melodia.register.audioSource('main', {
 - `origin` 为 `songId` 所属平台（`netease`、`qq`、`kugou`、`kuwo`、`migu`）；`quality` 为当前音质档位（`standard`、`exhigh`、`lossless`、`hires`）。
 - 只接受 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个音源。
 - 多个插件音源按插件名称顺序尝试；`register` 的名称必须在清单 `audioSources` 里声明过。
+
+## 下载源
+
+API 1.11 起提供。
+
+```js
+melodia.register.downloadSource('main', {
+  resolve: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin, quality }
+    return {
+      url: 'https://...',
+      type: 'flac',                        // 文件格式，可选
+      quality: 'lossless',                 // 实际音质档位，可选
+      headers: { Referer: 'https://...' }  // 下载时附带的请求头，可选
+    };                                     // 也可以只返回链接字符串
+  }
+});
+```
+
+- 先请求官方下载接口；官方没给链接、只给了试听片段、或请求无损却被降级为压缩格式时，若开启了「无版权/VIP 自动换源」，按插件名称顺序调用下载源。官方链接可用时不会调用。
+- 下载源与音源相互独立：只注册 `audioSource` 的插件不会参与下载，需要的话把同一个实现再注册一次下载源。
+- 只接受格式合法的 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个下载源，所有下载源合计最多等 15 秒，全部没有结果时按官方的失败原因提示。
+- `type` 用作扩展名，只接受 `mp3`、`flac`、`m4a`、`aac`、`ogg`、`wav`，没给或不认识时从链接后缀推断，再推断不出按 `mp3` 保存。
+- `quality` 记入下载记录，取值同 `song.quality`；没给或不认识时按 `standard` 记录。已下载过这首歌且原文件音质不低于 `quality` 时，不会下载，保留原文件。
+- `headers` 随下载请求发出，取值只能是可打印 ASCII 字符；`Range`、`Accept-Encoding`、`Host`、`Connection`、`Content-Length`、`Transfer-Encoding`、`TE`、`Upgrade` 和以 `If-` 开头的请求头由宿主控制，写了也会被忽略，名称或取值不合法的同样丢弃。宿主不会附带网易账号的 Cookie。
+- 文件大小未知，按响应头 `Content-Length` 校验是否下载完整，空响应视为失败，中断后从头重新下载。
 
 ## 歌词源
 
@@ -605,7 +633,7 @@ class HelloPlugin : MelodiaPlugin {
 - **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库、kotlinx.coroutines 和 Compose（runtime、ui、foundation、animation、material3 与 Skia），这些不要打进 `plugin.jar`；其他依赖打进 JAR，包括 Compose 图标库。应用内部的类对插件不可见。
 - **Compose 页面**：清单写 `{ "id": "panel", "title": "面板", "compose": true }`，代码里调用 `context.extensions.composePage("panel") { ... }`。需要 API 1.2，用与应用相同的 Compose 版本（当前 1.10）编译，Compose 有不兼容升级时 API 主版本会提升。页面在独立的窗口层渲染：出错只影响这个页面，但不继承应用主题，自己铺背景，也盖在应用内的弹层和菜单上方。
 - **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
-- **扩展**：通过 `context.extensions` 注册音源、歌词源、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、下载源（API 1.11 起，返回 `DownloadLink`）、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
 - **宿主能力**：除频谱外，`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
 - **频谱**：`context.spectrum.frames()` 返回 `Flow<SpectrumFrame>`，约 30 帧/秒，含 64 个对数频段（20 Hz–16 kHz，0–1）和最近 1024 个单声道采样（-1–1）。需要 API 1.3 和 `playback.read` 权限，缺权限或系统不支持时收集会抛 `PluginApiException`。收集时才采集，来不及处理的帧会被丢弃，无声时停发；数组由所有订阅者共用，不要修改。数据取自实际输出，随音量变化；优先只录 Melodia 自己的声音，系统不支持时退回默认输出设备的混音，这时会混入其他应用的声音。沙盒脚本和 Android 不提供。
 - **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。

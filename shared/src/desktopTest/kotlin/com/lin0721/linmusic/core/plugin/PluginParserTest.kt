@@ -168,6 +168,20 @@ class PluginParserTest {
     }
 
     @Test
+    fun `下载源需要对应权限，只在 format 2 解析`() {
+        fun manifest(format: Int, permissions: String) =
+            """{"format":$format,"id":"com.example.dl","name":"下载","version":"1.0.0","permissions":[$permissions],"contributes":{"downloadSources":[{"id":"main","name":"主下载源"},{"id":"main"}]}}"""
+        val parsed = PluginParser.parse(manifest(2, "\"downloadSource\""), platform = PluginPlatform.DESKTOP) as PluginParseResult.Success
+        assertEquals(listOf(PluginSourceEntry("main", "主下载源")), parsed.manifest.contributes.downloadSources)
+        assertTrue(parsed.manifest.contributes.needsScript)
+        assertTrue(pluginFeatureSummary(parsed.manifest).contains("下载源 1 个"))
+        val missing = PluginParser.parse(manifest(2, ""), platform = PluginPlatform.DESKTOP) as PluginParseResult.Failure
+        assertTrue(missing.reason.contains("downloadSource"))
+        val v1 = PluginParser.parse(manifest(1, ""), platform = PluginPlatform.DESKTOP)
+        assertTrue(v1 !is PluginParseResult.Success || v1.manifest.contributes.downloadSources.isEmpty())
+    }
+
+    @Test
     fun `format 1 忽略 format 2 的字段`() {
         val manifest = success(
             ""","kind":"native","platforms":["android"],"apiVersion":"9.0","contributes":{"playerLayouts":{"desktop.playerBar":"ui/bar.json"}}"""

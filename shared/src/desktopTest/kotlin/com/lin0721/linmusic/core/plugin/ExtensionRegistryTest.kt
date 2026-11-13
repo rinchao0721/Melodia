@@ -4,6 +4,8 @@ import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,6 +25,15 @@ class ExtensionRegistryTest {
 
     private class FakeLyricsSource(private val lrc: String?) : LyricsSourceExtension {
         override suspend fun fetch(query: PluginTrackQuery): JsonElement? = lrc?.let(::JsonPrimitive)
+    }
+
+    private class FakeDownloadSource(private val result: JsonElement?) : DownloadSourceExtension {
+        var calls = 0
+
+        override suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement? {
+            calls++
+            return result
+        }
     }
 
     private val registry = ExtensionRegistry()
@@ -95,6 +106,33 @@ class ExtensionRegistryTest {
     @Test
     fun `没有音源时返回空`() = runBlocking {
         assertNull(PluginAudioSourceProvider(registry).resolveUrl("1", "歌", "歌手", "专辑", 1000, "exhigh"))
+    }
+
+    @Test
+    fun `下载源跳过空结果与试听链接，取第一个可用链接`() = runBlocking {
+        val query = PluginTrackQuery("1", "歌", "歌手", "专辑", 1000, MusicPlatform.NETEASE)
+        assertNull(PluginDownloadSources(registry).resolve(query, "lossless"))
+        val trial = FakeDownloadSource(JsonPrimitive("https://m701.music.126.net/musicrep-ts/a.mp3"))
+        val working = FakeDownloadSource(buildJsonObject {
+            put("url", "https://cdn.example.com/a.flac")
+            put("type", "flac")
+            put("quality", "lossless")
+            put("headers", buildJsonObject {
+                put("Referer", "https://example.com/")
+                put("X-Number", 1)
+            })
+        })
+        val unused = FakeDownloadSource(JsonPrimitive("https://cdn.example.com/b.mp3"))
+        registry.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, "c.a", "A", "main", FakeDownloadSource(JsonPrimitive("ftp://x"))))
+        registry.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, "c.b", "B", "main", trial))
+        registry.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, "c.c", "C", "main", working))
+        registry.register(Extension(ExtensionPoints.DOWNLOAD_SOURCE, "c.d", "D", "main", unused))
+
+        val link = PluginDownloadSources(registry).resolve(query, "lossless")
+
+        assertEquals(PluginDownloadLink("https://cdn.example.com/a.flac", "flac", "lossless", mapOf("Referer" to "https://example.com/")), link)
+        assertEquals(1, trial.calls)
+        assertEquals(0, unused.calls)
     }
 
     @Test

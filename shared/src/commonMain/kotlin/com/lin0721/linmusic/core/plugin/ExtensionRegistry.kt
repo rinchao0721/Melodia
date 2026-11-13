@@ -22,12 +22,18 @@ object ExtensionPoints {
     val ACTION = ExtensionPoint<ActionExtension>("action")
     val BACKDROP = ExtensionPoint<BackdropExtension>("backdropSource")
     val COMPOSE_PAGE = ExtensionPoint<ComposePageExtension>("composeSlot")
+    val DOWNLOAD_SOURCE = ExtensionPoint<DownloadSourceExtension>("downloadSource", ordered = true)
 }
 
 data class PlayerLayoutExtension(val area: PlayerLayoutArea, val plugin: InstalledPlugin, val spec: PlayerLayoutSpec)
 
 // 返回值的格式与脚本一致，由 PluginResults 宽松解析
 interface AudioSourceExtension {
+    suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement?
+}
+
+// 官方下载接口给不出可用链接时调用，返回值格式见 PluginResults.downloadLink
+interface DownloadSourceExtension {
     suspend fun resolve(query: PluginTrackQuery, quality: String): JsonElement?
 }
 

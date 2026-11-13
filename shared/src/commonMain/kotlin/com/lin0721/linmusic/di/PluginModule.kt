@@ -1,10 +1,14 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.download.data.DownloadApi
+import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
+import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
 import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginCommands
+import com.lin0721.linmusic.core.plugin.PluginDownloadSources
 import com.lin0721.linmusic.core.plugin.PluginConfirmations
 import com.lin0721.linmusic.core.plugin.PluginNeteaseApi
 import com.lin0721.linmusic.core.plugin.RepositoryPluginNeteaseBackend
@@ -20,6 +24,7 @@ import com.lin0721.linmusic.core.plugin.PluginRuntime
 import com.lin0721.linmusic.core.plugin.PluginStore
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.source.SourcePreferences
 import kotlinx.coroutines.flow.first
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -71,6 +76,15 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
         PluginEventDispatcher(get(), playback = { scope.getOrNull<PlaybackController>() })
     }
     single<AudioSourceProvider>(named("plugin")) { PluginAudioSourceProvider(get()) }
+    single { PluginDownloadSources(get()) }
+    single {
+        val scope = this
+        DownloadUrlResolver(
+            official = { id, level -> scope.get<DownloadApi>().getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = level)) },
+            fallbackEnabled = { scope.get<SourcePreferences>().fallbackEnabled.first() },
+            plugins = scope.get<PluginDownloadSources>()::resolve
+        )
+    }
     single {
         val scope = this
         PluginLyricsSource(get()) { songId ->

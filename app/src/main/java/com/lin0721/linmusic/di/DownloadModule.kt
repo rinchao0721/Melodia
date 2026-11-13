@@ -8,7 +8,6 @@ import com.lin0721.linmusic.core.download.DownloadTaskStore
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.SongDownloader
-import com.lin0721.linmusic.core.download.data.DownloadApi
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
 import kotlinx.coroutines.flow.first
@@ -40,7 +39,6 @@ val downloadModule = module {
 
     single {
         DownloadWorkerFactory(
-            downloadApi = get<DownloadApi>(),
             downloadPreferences = get(),
             settingsPreferences = get(),
             notificationHelper = get(),
@@ -48,7 +46,8 @@ val downloadModule = module {
             downloadClient = get(named(DOWNLOAD_CLIENT)),
             taskStore = get(),
             queueGate = get(),
-            downloadRecognizer = get()
+            downloadRecognizer = get(),
+            urlResolver = get()
         )
     }
 
