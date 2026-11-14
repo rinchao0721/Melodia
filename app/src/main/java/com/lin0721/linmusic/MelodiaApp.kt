@@ -35,11 +35,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -72,13 +73,16 @@ import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.deeplink.ClipboardLinkFloatingCard
+import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
 import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import com.lin0721.linmusic.core.deeplink.SongLinkTarget
-import com.lin0721.linmusic.core.deeplink.ClipboardLinkDialog
-import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
+import com.lin0721.linmusic.core.deeplink.playLinkTrack
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -204,51 +208,10 @@ fun MelodiaApp() {
     LaunchedEffect(navigation) { pluginContent.opens.collect { navigation.openPlaylist(it.id, false) } }
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
 
-    // 从外链或分享进来：单曲拉到详情就起播并展开播放页，歌单/专辑/歌手直接跳页
     val playbackRepository: PlaybackRepository = koinInject()
-    LaunchedEffect(Unit) {
-        SongLinkRequests.pendingTarget.filterNotNull().collect { target ->
-            SongLinkRequests.consume()
-            when (target) {
-                is SongLinkTarget.Playlist -> navigation.openPlaylist(target.id, target.isAlbum)
-                is SongLinkTarget.Artist -> navigation.openArtist(target.id)
-                is SongLinkTarget.Song -> {
-                    val track = playbackRepository.getSongDetail(target.id).first().getOrNull()
-                    if (track == null) {
-                        ToastManager.showToast("这首歌打不开，可能已下架")
-                        return@collect
-                    }
-                    playerManager.playQueue(
-                        listOf(QueueItem(track.id, track.name, track.ar.joinToString { it.name }, track.al.picUrl)),
-                        0,
-                        "链接",
-                        null,
-                        0L
-                    )
-                    playerSheet.animateTo(true, 0f)
-                }
-            }
-        }
-    }
-
-    // 剪贴板兜底：复制链接再开应用时先亮出歌曲信息再问一句
-    val clipboardLink by SongLinkRequests.pendingClipboard.collectAsState()
-    var clipboardTrack by remember { mutableStateOf<Track?>(null) }
-    LaunchedEffect(clipboardLink) {
-        clipboardTrack = null
-        val songId = (clipboardLink?.target as? SongLinkTarget.Song)?.id ?: return@LaunchedEffect
-        clipboardTrack = playbackRepository.getSongDetail(songId).first().getOrNull()
-    }
-    clipboardLink?.let { link ->
-        ClipboardLinkDialog(
-            link = link,
-            track = clipboardTrack,
-            onConfirm = {
-                SongLinkRequests.takeClipboard()?.let { SongLinkRequests.request(it.target) }
-            },
-            onDismiss = { SongLinkRequests.dismissClipboard() }
-        )
-    }
+    val songLinkRequests: SongLinkRequests = koinInject()
+    val linkPreviewResolver: LinkPreviewResolver = koinInject()
+    val scope = rememberCoroutineScope()
 
     // 动态同步底栏首个可用路由为首选根 Tab
     LaunchedEffect(bottomBarLayout) {
@@ -392,6 +355,60 @@ fun MelodiaApp() {
 
     fun openPanel() {
         isPanelExpanded = true
+    }
+
+    val currentUsePanel by rememberUpdatedState(usePanel)
+
+    // 从外链或分享进来：单曲拉到详情就非破坏性插播并展开播放页，歌单/专辑/歌手收起浮层并跳页
+    LaunchedEffect(Unit) {
+        songLinkRequests.pendingTarget.filterNotNull().collect { target ->
+            songLinkRequests.consume()
+            when (target) {
+                is SongLinkTarget.Playlist -> {
+                    if (sidebar.isOpen) sidebar.close()
+                    showCreateSheet = false
+                    if (playerSheet.isOpen) {
+                        navigation.resetPlayerNavigation()
+                        playerSheet.animateTo(false, 0f)
+                    }
+                    isPanelFullscreen = false
+                    navigation.openPlaylist(target.id, target.isAlbum)
+                }
+                is SongLinkTarget.Artist -> {
+                    if (sidebar.isOpen) sidebar.close()
+                    showCreateSheet = false
+                    if (playerSheet.isOpen) {
+                        navigation.resetPlayerNavigation()
+                        playerSheet.animateTo(false, 0f)
+                    }
+                    isPanelFullscreen = false
+                    navigation.openArtist(target.id)
+                }
+                is SongLinkTarget.Song -> {
+                    val track = playbackRepository.getSongDetail(target.id).first().getOrNull()
+                    if (track == null) {
+                        ToastManager.showToast("这首歌打不开，可能已下架")
+                        return@collect
+                    }
+                    playerManager.playLinkTrack(track, "链接")
+                    if (currentUsePanel) {
+                        openPanel()
+                    } else {
+                        playerSheet.animateTo(true, 0f)
+                    }
+                }
+            }
+        }
+    }
+
+    // 剪贴板兜底：切回应用识别到网易云链接时，用轻浮条异步展示预览信息
+    val clipboardLink by songLinkRequests.pendingClipboard.collectAsStateWithLifecycle()
+    var clipboardPreviewState by remember { mutableStateOf<LinkPreviewState>(LinkPreviewState.Loading) }
+    LaunchedEffect(clipboardLink) {
+        val current = clipboardLink ?: return@LaunchedEffect
+        clipboardPreviewState = LinkPreviewState.Loading
+        val preview = linkPreviewResolver.resolve(current.target)
+        clipboardPreviewState = if (preview != null) LinkPreviewState.Ready(preview) else LinkPreviewState.Failed
     }
 
     fun handleBack() {
@@ -888,6 +905,56 @@ fun MelodiaApp() {
                 }
             )
         }
+
+        // 4.5 剪贴板识别到的网易云链接轻量浮动条
+        ClipboardLinkFloatingCard(
+            link = clipboardLink,
+            previewState = clipboardPreviewState,
+            onPrimaryAction = {
+                val current = songLinkRequests.takeClipboard() ?: return@ClipboardLinkFloatingCard
+                val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
+                if (current.target is SongLinkTarget.Song && readyTrack != null) {
+                    playerManager.playLinkTrack(readyTrack, "链接")
+                    if (currentUsePanel) {
+                        openPanel()
+                    } else {
+                        playerSheet.animateTo(true, 0f)
+                    }
+                } else {
+                    songLinkRequests.request(current.target)
+                }
+            },
+            onEnqueueNext = {
+                val current = songLinkRequests.takeClipboard() ?: return@ClipboardLinkFloatingCard
+                val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkFloatingCard
+                val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
+                if (readyTrack != null) {
+                    playerManager.enqueueLinkTrackNext(readyTrack)
+                    ToastManager.showToast("已添加至下一首播放")
+                } else {
+                    scope.launch {
+                        val track = playbackRepository.getSongDetail(songTarget.id).first().getOrNull()
+                        if (track != null) {
+                            playerManager.enqueueLinkTrackNext(track)
+                            ToastManager.showToast("已添加至下一首播放")
+                        } else {
+                            ToastManager.showToast("这首歌打不开，可能已下架")
+                        }
+                    }
+                }
+            },
+            onDismiss = { songLinkRequests.dismissClipboard() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(2f)
+                .padding(
+                    bottom = if (playerSheet.isOpen) {
+                        navigationBarBottom + 16.dp
+                    } else {
+                        (if (bottomOverlayHeight > 0.dp) bottomOverlayHeight else navigationBarBottom) + 8.dp
+                    }
+                )
+        )
 
         // 5. 全局自定义 Toast 提示
         MelodiaToastHost(toastMessage = toastMessage)

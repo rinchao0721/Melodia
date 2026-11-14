@@ -7,6 +7,8 @@ import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.cache.OfflineFallback
+import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import com.lin0721.linmusic.core.offline.OfflinePlayability
 import com.lin0721.linmusic.core.player.data.PlaybackApi
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -208,4 +210,14 @@ val repositoryModule = module {
 
     // 个人主页数据仓储
     singleOf(::ProfileRepositoryImpl) { bind<ProfileRepository>() }
+
+    // 网易云外链与剪贴板识别、预览元数据解析
+    single {
+        LinkPreviewResolver(
+            playbackRepository = getOrNull<PlaybackRepository>() ?: get<PlaybackRepositoryImpl>(),
+            playlistRepository = get(),
+            artistRepository = get()
+        )
+    }
+    single { SongLinkRequests() }
 }

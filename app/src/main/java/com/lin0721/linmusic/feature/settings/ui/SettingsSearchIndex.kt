@@ -81,6 +81,7 @@ object SettingsSearchIndex {
 
             entry(SYSTEM, 0, "启用系统锁屏显示", "锁屏 控制器"),
             entry(SYSTEM, 1, "车载模式蓝牙自动启动", "蓝牙 车机 自动播放"),
+            entry(SYSTEM, 1, "自动识别剪贴板链接", "剪贴板 链接 外链 网易云 歌曲 歌单 专辑 歌手"),
             entry(SYSTEM, 2, "全局沉浸", "状态栏 导航栏 全屏 平板"),
             entry(SYSTEM, 3, "插件", "扩展 命令 插件页面 目录"),
 

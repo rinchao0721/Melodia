@@ -420,7 +420,7 @@ class PlayerManager(
     }
 
     // 插播到"下一首"并立即从指定位置播放，保留原队列
-    fun playNextNow(item: QueueItem, startPosition: Long = 0L) {
+    override fun playNextNow(item: QueueItem, startPositionMs: Long) {
         val targetIndex = if (playbackQueue.isEmpty) {
             playbackQueue.replaceAll(listOf(item), 0)
             0
@@ -430,7 +430,7 @@ class PlayerManager(
         }
         consecutiveErrors = 0
         saveQueueState()
-        fetchUrlAndPlay(targetIndex, startPosition.coerceAtLeast(0L))
+        fetchUrlAndPlay(targetIndex, startPositionMs.coerceAtLeast(0L))
     }
 
     override fun playNext() {

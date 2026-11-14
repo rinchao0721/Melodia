@@ -17,7 +17,7 @@ interface DesktopPlaybackController : PlaybackController, AudioOutputControl {
     fun setVolume(percent: Int)
 
     // 插到"下一首"并立即从指定位置播放，保留原队列
-    fun playNextNow(item: QueueItem, startPositionMs: Long)
+    override fun playNextNow(item: QueueItem, startPositionMs: Long)
 
     // 需要提示给用户的播放事件，如播放失败、输出设备断开
     val messages: Flow<String>

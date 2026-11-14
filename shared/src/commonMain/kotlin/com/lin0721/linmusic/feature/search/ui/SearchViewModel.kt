@@ -6,6 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
+import com.lin0721.linmusic.core.deeplink.NeteaseLink
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
+import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
+import com.lin0721.linmusic.core.deeplink.playLinkTrack
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -68,7 +74,8 @@ class SearchViewModel(
     private val sourcePreferences: SourcePreferences? = null,
     private val collectionActions: CollectionActionsDelegate? = null,
     private val artistRepository: ArtistRepository? = null,
-    private val podcastRepository: PodcastRepository? = null
+    private val podcastRepository: PodcastRepository? = null,
+    private val linkPreviewResolver: LinkPreviewResolver? = null
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
@@ -154,6 +161,7 @@ class SearchViewModel(
     private var searchJob: Job? = null
     private var suggestJob: Job? = null
     private var hitsJob: Job? = null
+    private var linkResolveJob: Job? = null
     // 须在 init 之前声明：Main.immediate 下 init 里的收集会同步执行到 loadDiscoveryData
     private var discoveryJob: Job? = null
     private var keywordEnabled = true
@@ -326,7 +334,9 @@ class SearchViewModel(
     fun editQuery() {
         if (_mode.value != SearchMode.Results) return
         _mode.value = SearchMode.Typing
-        requestSuggestions(_inputState.value.query)
+        val query = _inputState.value.query
+        requestSuggestions(query)
+        requestLinkDetection(query)
     }
 
     fun cancelSearch() {
@@ -339,6 +349,7 @@ class SearchViewModel(
         suggestJob?.cancel()
         cancelExternalJobs()
         hitsJob?.cancel()
+        linkResolveJob?.cancel()
         _inputState.value = SearchInputState()
         _committedQuery.value = ""
         offsetByType.clear()
@@ -352,18 +363,20 @@ class SearchViewModel(
         _inputState.value = _inputState.value.copy(query = newQuery)
         if (_mode.value == SearchMode.Results) _mode.value = SearchMode.Typing
         requestSuggestions(newQuery)
+        requestLinkDetection(newQuery)
     }
 
     // 只改输入框草稿词与联想，不动当前模式与已加载的结果；桌面端下拉浮层专用
     fun updateDraft(newQuery: String) {
         _inputState.value = _inputState.value.copy(query = newQuery)
         requestSuggestions(newQuery)
+        requestLinkDetection(newQuery)
     }
 
     private fun requestSuggestions(query: String) {
         suggestJob?.cancel()
         hitsJob?.cancel()
-        if (query.isBlank() || !suggestionEnabled) {
+        if (query.isBlank() || !suggestionEnabled || NeteaseLink.containsRecognizableLink(query)) {
             _inputState.value = _inputState.value.copy(
                 suggestions = emptyList(), suggestionQuery = "", songHits = emptyList(), songHitsQuery = ""
             )
@@ -386,6 +399,74 @@ class SearchViewModel(
         }
     }
 
+    private fun requestLinkDetection(query: String) {
+        linkResolveJob?.cancel()
+        if (query.isBlank()) {
+            _inputState.value = _inputState.value.copy(linkHit = null)
+            return
+        }
+        val direct = NeteaseLink.target(query)
+        val shortLink = if (direct == null) NeteaseLink.shortLink(query) else null
+        if (direct == null && shortLink == null) {
+            _inputState.value = _inputState.value.copy(linkHit = null)
+            return
+        }
+        if (direct != null) {
+            _inputState.value = _inputState.value.copy(
+                linkHit = SearchLinkHit(query, direct, LinkPreviewState.Loading)
+            )
+        } else {
+            _inputState.value = _inputState.value.copy(linkHit = null)
+        }
+        linkResolveJob = viewModelScope.launch {
+            val target = direct ?: run {
+                delay(150)
+                NeteaseLink.resolve(shortLink!!) ?: return@launch
+            }
+            if (_inputState.value.query != query) return@launch
+            if (direct == null) {
+                _inputState.value = _inputState.value.copy(
+                    linkHit = SearchLinkHit(query, target, LinkPreviewState.Loading)
+                )
+            }
+            val preview = linkPreviewResolver?.resolve(target)
+            if (_inputState.value.query != query) return@launch
+            _inputState.value = _inputState.value.copy(
+                linkHit = SearchLinkHit(
+                    query = query,
+                    target = target,
+                    previewState = if (preview != null) LinkPreviewState.Ready(preview) else LinkPreviewState.Failed
+                )
+            )
+        }
+    }
+
+    fun playLinkSong(songId: Long, cachedTrack: Track? = null, onOpened: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val track = cachedTrack
+                ?: (linkPreviewResolver?.resolve(SongLinkTarget.Song(songId))?.track)
+            if (track == null) {
+                _toastEvent.emit("这首歌打不开，可能已下架")
+                return@launch
+            }
+            playerManager.playLinkTrack(track, "链接")
+            onOpened?.invoke()
+        }
+    }
+
+    fun enqueueLinkSongNext(songId: Long, cachedTrack: Track? = null) {
+        viewModelScope.launch {
+            val track = cachedTrack
+                ?: (linkPreviewResolver?.resolve(SongLinkTarget.Song(songId))?.track)
+            if (track == null) {
+                _toastEvent.emit("这首歌打不开，可能已下架")
+                return@launch
+            }
+            playerManager.enqueueLinkTrackNext(track)
+            _toastEvent.emit("已添加至下一首播放")
+        }
+    }
+
     fun playSongHit(track: Track) {
         val keyword = _inputState.value.query
         if (keyword.isNotBlank()) viewModelScope.launch { historyPreferences.addKeyword(keyword) }
@@ -402,6 +483,7 @@ class SearchViewModel(
         searchJob?.cancel()
         suggestJob?.cancel()
         hitsJob?.cancel()
+        linkResolveJob?.cancel()
         cancelExternalJobs()
         _mode.value = SearchMode.Results
         _committedQuery.value = keyword

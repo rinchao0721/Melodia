@@ -33,7 +33,6 @@ import com.lin0721.linmusic.feature.recognition.service.ACTION_OPEN_RECOGNITION_
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.core.deeplink.NeteaseLink
 import com.lin0721.linmusic.core.deeplink.ClipboardLink
-import com.lin0721.linmusic.core.deeplink.ClipboardLinkPrefs
 import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import android.content.ClipboardManager
 import android.content.pm.ActivityInfo
@@ -65,10 +64,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.core.context.GlobalContext
 
@@ -83,6 +80,10 @@ class MainActivity : ComponentActivity() {
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
+    private val songLinkRequests: SongLinkRequests by inject()
+
+    // 仅在 onStart 后重新获得窗口焦点时查剪贴板，避免弹窗/输入法关闭反复读取
+    private var checkClipboardOnNextFocus = false
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -194,6 +195,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
+    override fun onStart() {
+        super.onStart()
+        checkClipboardOnNextFocus = true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleLaunchIntent(intent)
@@ -208,53 +214,86 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 浏览器点开网易云链接、或别的应用把分享文案发进来：认出歌曲 id 交给界面层
+    // 浏览器点开网易云链接、或别的应用把分享文案发进来：认出目标交给界面层
     private fun handleSongLink(intent: Intent) {
         val text = if (intent.action == Intent.ACTION_SEND) {
             intent.getStringExtra(Intent.EXTRA_TEXT)
         } else {
             intent.dataString
         }
-        NeteaseLink.target(text)?.let {
-            SongLinkRequests.request(it)
+        NeteaseLink.target(text)?.let { target ->
+            if (!text.isNullOrBlank()) {
+                songLinkRequests.markSelfHandled(text)
+                lifecycleScope.launch { settingsPreferences.setLastHandledClipboardLink(text) }
+            }
+            songLinkRequests.request(target)
             return
         }
-        val shortLink = NeteaseLink.shortLink(text) ?: return
+        val shortLink = NeteaseLink.shortLink(text)
+        if (shortLink == null) {
+            ToastManager.showToast("暂不支持该链接或链接已失效")
+            return
+        }
         lifecycleScope.launch {
-            val target = withContext(Dispatchers.IO) { NeteaseLink.resolve(shortLink) }
-            if (target != null) SongLinkRequests.request(target)
+            val target = NeteaseLink.resolve(shortLink)
+            if (target != null) {
+                if (!text.isNullOrBlank()) {
+                    songLinkRequests.markSelfHandled(text)
+                    settingsPreferences.setLastHandledClipboardLink(text)
+                }
+                songLinkRequests.request(target)
+            } else {
+                ToastManager.showToast("暂不支持该链接或链接已失效")
+            }
         }
     }
 
     // 复制链接再点图标进来时系统不会给 Intent，只能读剪贴板兜一次
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        // Android 10 起剪贴板只对有焦点的应用开放，等拿回焦点再读
-        if (hasFocus) promptClipboardLink()
+        // Android 10 起剪贴板只对有焦点的应用开放，仅在切回前台后拿回焦点时读取一次
+        if (hasFocus && checkClipboardOnNextFocus) {
+            checkClipboardOnNextFocus = false
+            promptClipboardLink()
+        }
     }
 
     private fun promptClipboardLink() {
         val clipboard = getSystemService(ClipboardManager::class.java) ?: return
         if (!clipboard.hasPrimaryClip()) return
-        val text = clipboard.primaryClip
-            ?.takeIf { it.itemCount > 0 }
-            ?.getItemAt(0)
-            ?.coerceToText(this)
-            ?.toString()
-            ?: return
-        if (text == ClipboardLinkPrefs.lastHandled()) return
-        val direct = NeteaseLink.target(text)
-        val shortLink = if (direct == null) NeteaseLink.shortLink(text) else null
-        if (direct == null && shortLink == null) return
-        ClipboardLinkPrefs.markHandled(text)
-        if (direct != null) {
-            SongLinkRequests.offerClipboard(ClipboardLink(direct, text))
-            return
-        }
-        // 短链要跟一次跳转才知道是哪首，放后台解析后再弹
+        val description = clipboard.primaryClipDescription
+        if (description != null && !description.hasMimeType("text/*")) return
+
         lifecycleScope.launch {
-            val target = withContext(Dispatchers.IO) { NeteaseLink.resolve(shortLink!!) } ?: return@launch
-            SongLinkRequests.offerClipboard(ClipboardLink(target, text))
+            if (!settingsPreferences.clipboardLinkEnabled.first()) return@launch
+            val text = clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this@MainActivity)
+                ?.toString()
+                ?.takeIf { it.isNotBlank() }
+                ?: return@launch
+
+            if (songLinkRequests.isRecentlyHandled(text) ||
+                text == settingsPreferences.lastHandledClipboardLink.first()
+            ) {
+                return@launch
+            }
+
+            val direct = NeteaseLink.target(text)
+            val shortLink = if (direct == null) NeteaseLink.shortLink(text) else null
+            if (direct == null && shortLink == null) return@launch
+
+            if (direct != null) {
+                songLinkRequests.offerClipboard(ClipboardLink(direct, text))
+                settingsPreferences.setLastHandledClipboardLink(text)
+                return@launch
+            }
+
+            // 短链解析成功后再标记为已处理，避免弱网/断网失败被永久跳过
+            val target = NeteaseLink.resolve(shortLink!!) ?: return@launch
+            songLinkRequests.offerClipboard(ClipboardLink(target, text))
+            settingsPreferences.setLastHandledClipboardLink(text)
         }
     }
 

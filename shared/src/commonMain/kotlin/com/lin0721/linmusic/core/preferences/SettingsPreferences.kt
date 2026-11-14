@@ -201,6 +201,10 @@ class SettingsPreferences(
         private val KEY_SHOW_PLAYBACK_QUALITY = booleanPreferencesKey("show_playback_quality")
         // 歌曲列表显示最高音质徽标，默认 false
         private val KEY_SHOW_SONG_MAX_QUALITY = booleanPreferencesKey("show_song_max_quality")
+        // 自动识别剪贴板中的网易云链接，默认 true
+        private val KEY_CLIPBOARD_LINK_ENABLED = booleanPreferencesKey("clipboard_link_enabled")
+        // 上次已提示或应用内自己复制的剪贴板链接原文，避免反复打扰
+        private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -1125,6 +1129,28 @@ class SettingsPreferences(
     suspend fun saveShowSongMaxQuality(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_SONG_MAX_QUALITY] = show
+        }
+    }
+
+    // 自动识别剪贴板链接开关 Flow，默认开启
+    val clipboardLinkEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_CLIPBOARD_LINK_ENABLED] ?: true
+    }
+
+    suspend fun setClipboardLinkEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CLIPBOARD_LINK_ENABLED] = enabled
+        }
+    }
+
+    // 上次已提示或应用内自己复制的剪贴板链接原文 Flow
+    val lastHandledClipboardLink: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK].orEmpty()
+    }
+
+    suspend fun setLastHandledClipboardLink(text: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK] = text
         }
     }
 }

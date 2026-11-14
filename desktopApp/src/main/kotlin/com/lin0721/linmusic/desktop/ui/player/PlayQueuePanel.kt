@@ -92,8 +92,7 @@ import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import kotlinx.coroutines.launch
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.songLink
 
 private val HeaderButtonSize = 32.dp
 private val RowButtonSize = 28.dp
@@ -339,11 +338,7 @@ private fun SectionLabel(text: String) {
     Text(text, color = DesktopColors.TextGray, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
 }
 
-private fun copySongLink(songId: Long): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(
-        StringSelection("https://music.163.com/song?id=$songId"), null
-    )
-}.isSuccess
+private fun copySongLink(songId: Long): Boolean = copyTextToClipboard(songLink(songId))
 
 // 双击跳播；悬停时显示拖动把手与移除按钮，拖动中保持显示
 @OptIn(ExperimentalComposeUiApi::class)

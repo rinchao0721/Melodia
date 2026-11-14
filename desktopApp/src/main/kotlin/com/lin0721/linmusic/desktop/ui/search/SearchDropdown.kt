@@ -2,10 +2,12 @@ package com.lin0721.linmusic.desktop.ui.search
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -61,6 +63,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
+import com.lin0721.linmusic.core.deeplink.typeLabel
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -70,6 +75,7 @@ import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
+import com.lin0721.linmusic.feature.search.ui.SearchLinkHit
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import kotlin.math.roundToInt
 
@@ -80,6 +86,7 @@ private const val HOVER_ALPHA = 0.06f
 
 internal sealed interface DropdownEntry {
     data class Recent(val keyword: String) : DropdownEntry
+    data class LinkHit(val hit: SearchLinkHit) : DropdownEntry
     data class Literal(val query: String) : DropdownEntry
     data class SongHit(val track: Track) : DropdownEntry
     data class ArtistHit(val id: Long, val name: String, val avatarUrl: String) : DropdownEntry
@@ -158,8 +165,14 @@ internal sealed interface DropdownRow {
     data object ClearHistory : DropdownRow
 }
 
-// 空输入列最近搜索；有输入时依次是“搜索xxx”、歌曲/歌手/专辑命中卡片、联想词
-internal fun buildRows(query: String, history: List<String>, hits: List<Track>, suggestions: List<SearchSuggestion>): List<DropdownRow> {
+// 空输入列最近搜索；有输入时若有链接直达放首位，依次是“搜索xxx”、歌曲/歌手/专辑命中卡片、联想词
+internal fun buildRows(
+    query: String,
+    history: List<String>,
+    hits: List<Track>,
+    suggestions: List<SearchSuggestion>,
+    linkHit: SearchLinkHit? = null
+): List<DropdownRow> {
     val rows = mutableListOf<DropdownRow>()
     var index = 0
     fun item(entry: DropdownEntry) = rows.add(DropdownRow.Item(entry, index++))
@@ -169,6 +182,9 @@ internal fun buildRows(query: String, history: List<String>, hits: List<Track>, 
         history.forEach { item(DropdownEntry.Recent(it)) }
         rows.add(DropdownRow.ClearHistory)
         return rows
+    }
+    if (linkHit != null) {
+        item(DropdownEntry.LinkHit(linkHit))
     }
     item(DropdownEntry.Literal(query.trim()))
     hits.forEach { item(DropdownEntry.SongHit(it)) }
@@ -194,7 +210,7 @@ fun SearchDropdown(
     val density = LocalDensity.current
 
     val rows = remember(input, history) {
-        buildRows(input.query, history, input.currentSongHits, input.currentSuggestions)
+        buildRows(input.query, history, input.currentSongHits, input.currentSuggestions, input.currentLinkHit)
     }
     val entries = remember(rows) { rows.filterIsInstance<DropdownRow.Item>().map { it.entry } }
     val visible = state.focused && rows.isNotEmpty()
@@ -207,6 +223,17 @@ fun SearchDropdown(
             is DropdownEntry.SongHit -> viewModel.playSongHit(entry.track)
             is DropdownEntry.ArtistHit -> navigator.openArtist(entry.id, entry.name)
             is DropdownEntry.AlbumHit -> navigator.openAlbum(entry.id, entry.name)
+            is DropdownEntry.LinkHit -> {
+                val preview = (entry.hit.previewState as? LinkPreviewState.Ready)?.preview
+                when (val target = entry.hit.target) {
+                    is SongLinkTarget.Song -> viewModel.playLinkSong(target.id, preview?.track)
+                    is SongLinkTarget.Playlist -> {
+                        val title = preview?.title.orEmpty()
+                        if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                    }
+                    is SongLinkTarget.Artist -> navigator.openArtist(target.id, preview?.title.orEmpty())
+                }
+            }
         }
         state.close()
         focusManager.clearFocus()
@@ -316,6 +343,7 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         when (entry) {
+            is DropdownEntry.LinkHit -> LinkHitRow(entry.hit)
             is DropdownEntry.Recent -> Line(Icons.Rounded.History, entry.keyword)
             is DropdownEntry.Literal -> Line(Icons.Rounded.Search, "搜索“${entry.query}”")
             is DropdownEntry.Keyword -> Line(Icons.Rounded.Search, entry.text)
@@ -334,6 +362,60 @@ private fun EntryRow(
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.LinkHitRow(hit: SearchLinkHit) {
+    val preview = (hit.previewState as? LinkPreviewState.Ready)?.preview
+    val target = hit.target
+    val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
+    val badgeText = "链接直达 · ${preview?.typeLabel ?: target.typeLabel}"
+    val titleText = when {
+        preview != null -> preview.title
+        hit.previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
+        else -> "网易云${target.typeLabel}"
+    }
+    val subtitleText = when {
+        preview != null && preview.subtitle.isNotBlank() -> preview.subtitle
+        hit.previewState is LinkPreviewState.Loading -> "解析链接中…"
+        else -> if (target is SongLinkTarget.Song) "点击插播" else "点击打开${target.typeLabel}"
+    }
+    Cover(preview?.coverUrl.orEmpty(), 40.dp, shape = if (isCircle) CircleShape else RoundedCornerShape(4.dp))
+    Column(
+        Modifier.weight(1f).padding(start = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val badgeShape = RoundedCornerShape(3.dp)
+            Box(
+                modifier = Modifier
+                    .background(DesktopColors.AccentText.copy(alpha = 0.1f), badgeShape)
+                    .border(BorderStroke(0.5.dp, DesktopColors.AccentText), badgeShape)
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    text = badgeText,
+                    color = DesktopColors.AccentText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 12.sp,
+                    maxLines = 1
+                )
+            }
+            Text(titleText, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(subtitleText, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    Text(
+        text = if (target is SongLinkTarget.Song) "插播" else "打开",
+        color = DesktopColors.AccentText,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(start = 8.dp, end = 4.dp)
+    )
 }
 
 @Composable

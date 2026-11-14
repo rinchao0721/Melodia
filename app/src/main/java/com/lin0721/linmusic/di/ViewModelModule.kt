@@ -66,7 +66,8 @@ val viewModelModule = module {
             externalResolver = get(),
             searchProviders = getAll<PlatformSearchProvider>(),
             settingsPreferences = getOrNull(),
-            sourcePreferences = getOrNull()
+            sourcePreferences = getOrNull(),
+            linkPreviewResolver = getOrNull()
         )
     }
     viewModelOf(::PlaylistCategoryViewModel)

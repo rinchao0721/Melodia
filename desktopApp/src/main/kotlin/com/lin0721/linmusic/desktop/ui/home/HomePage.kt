@@ -119,8 +119,7 @@ import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import kotlinx.coroutines.launch
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.time.LocalDate
 
 internal val CardWidth = 168.dp
@@ -499,11 +498,7 @@ private fun LazyListScope.homeItems(
     }
 }
 
-private fun copyLink(url: String): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(
-        StringSelection(url), null
-    )
-}.isSuccess
+private fun copyLink(url: String): Boolean = copyTextToClipboard(url)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

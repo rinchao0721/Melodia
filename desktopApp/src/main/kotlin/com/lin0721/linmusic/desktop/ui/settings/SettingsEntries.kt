@@ -393,6 +393,7 @@ internal fun settingsEntries(
     val unmRemoteFallbackEnabled by common.unmRemoteFallbackEnabled.collectAsState()
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
     val showDesktopLyric by common.showDesktopLrc.collectAsState()
+    val clipboardLinkEnabled by common.clipboardLinkEnabled.collectAsState()
     val logLevelName by common.logLevel.collectAsState()
     val logBytes by desktop.logBytes.collectAsState()
     val cacheMaxSize by common.audioCacheMaxSize.collectAsState()
@@ -980,6 +981,15 @@ internal fun settingsEntries(
                 keywords = listOf("开机", "自启", "启动", "登录")
             ) {
                 AutoStartRow(desktop)
+            }
+        )
+        add(
+            rowEntry(
+                "clipboardLink", SettingsCategory.System, "自动识别剪贴板链接",
+                subtitle = "切回应用时识别剪贴板中的网易云歌曲、歌单、专辑或歌手链接",
+                keywords = listOf("剪贴板", "链接", "分享", "网易云", "识别")
+            ) {
+                SettingSwitch(clipboardLinkEnabled, onChange = common::updateClipboardLinkEnabled)
             }
         )
         add(

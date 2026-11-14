@@ -104,8 +104,7 @@ import com.lin0721.linmusic.desktop.ui.components.songInfoText
 import com.lin0721.linmusic.desktop.ui.components.detectLongPressReorder
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.songLink
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -380,11 +379,7 @@ private fun RowMenu(
     }
 }
 
-private fun copySongLink(songId: Long): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(
-        StringSelection("https://music.163.com/song?id=$songId"), null
-    )
-}.isSuccess
+private fun copySongLink(songId: Long): Boolean = copyTextToClipboard(songLink(songId))
 
 @Composable
 internal fun TrackMenu(

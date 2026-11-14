@@ -145,8 +145,7 @@ import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.util.Collections
 
 // 距离列表底部还剩几项时加载下一页曲目
@@ -1195,7 +1194,5 @@ private fun SortArrow(order: PlaylistSortOrder, key: PlaylistSortKey) {
 
 private fun copyPlaylistLink(isAlbum: Boolean, id: Long): Boolean {
     val path = if (isAlbum) "album" else "playlist"
-    return runCatching {
-        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection("https://music.163.com/$path?id=$id"), null)
-    }.isSuccess
+    return copyTextToClipboard("https://music.163.com/$path?id=$id")
 }

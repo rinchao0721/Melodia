@@ -23,10 +23,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -45,10 +49,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import com.lin0721.linmusic.core.deeplink.ClipboardLink
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
+import com.lin0721.linmusic.core.deeplink.NeteaseLink
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
+import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
+import com.lin0721.linmusic.core.deeplink.playLinkTrack
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
+import com.lin0721.linmusic.desktop.ui.components.registerClipboardCopyObserver
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
+import com.lin0721.linmusic.desktop.ui.deeplink.ClipboardLinkBanner
 import com.lin0721.linmusic.desktop.ui.login.LoginDialog
 import com.lin0721.linmusic.desktop.ui.lyricsview.CHROME_ANIM_MS
 import com.lin0721.linmusic.desktop.ui.lyricsview.LyricsViewState
@@ -60,8 +73,17 @@ import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val ChromeEnter = fadeIn(tween(CHROME_ANIM_MS)) + expandVertically(tween(CHROME_ANIM_MS))
 private val ChromeExit = fadeOut(tween(CHROME_ANIM_MS)) + shrinkVertically(tween(CHROME_ANIM_MS))
@@ -152,6 +174,81 @@ fun WindowScope.MelodiaDesktopApp(
         LocalSongQualityCache provides deps.songQuality,
         LocalListenTogetherViewModel provides deps.listenTogether
     ) {
+        val scope = rememberCoroutineScope()
+        var clipboardCheckJob by remember { mutableStateOf<Job?>(null) }
+        fun checkClipboardOnFocus() {
+            clipboardCheckJob?.cancel()
+            clipboardCheckJob = scope.launch {
+                if (!deps.settingsPreferences.clipboardLinkEnabled.first()) return@launch
+                val text = withContext(Dispatchers.IO) { readTextFromClipboard() }
+                if (text.isBlank()) return@launch
+                if (deps.songLinkRequests.isRecentlyHandled(text)) return@launch
+                val lastHandled = deps.settingsPreferences.lastHandledClipboardLink.first()
+                if (text == lastHandled) return@launch
+                val direct = NeteaseLink.target(text)
+                if (direct != null) {
+                    deps.settingsPreferences.setLastHandledClipboardLink(text)
+                    deps.songLinkRequests.offerClipboard(ClipboardLink(direct, text))
+                    return@launch
+                }
+                val shortLink = NeteaseLink.shortLink(text) ?: return@launch
+                val resolved = NeteaseLink.resolve(shortLink) ?: return@launch
+                deps.settingsPreferences.setLastHandledClipboardLink(text)
+                deps.songLinkRequests.offerClipboard(ClipboardLink(resolved, text))
+            }
+        }
+        DisposableEffect(deps) {
+            registerClipboardCopyObserver { text ->
+                if (NeteaseLink.containsRecognizableLink(text)) {
+                    deps.songLinkRequests.markSelfHandled(text)
+                    scope.launch { deps.settingsPreferences.setLastHandledClipboardLink(text) }
+                }
+            }
+            onDispose { registerClipboardCopyObserver(null) }
+        }
+        DisposableEffect(window, deps) {
+            val listener = object : WindowAdapter() {
+                override fun windowGainedFocus(e: WindowEvent?) {
+                    checkClipboardOnFocus()
+                }
+            }
+            window.addWindowFocusListener(listener)
+            onDispose { window.removeWindowFocusListener(listener) }
+        }
+        LaunchedEffect(deps) { checkClipboardOnFocus() }
+
+        LaunchedEffect(deps) {
+            deps.songLinkRequests.pendingTarget.filterNotNull().collect { target ->
+                deps.songLinkRequests.consume()
+                when (target) {
+                    is SongLinkTarget.Playlist -> {
+                        lyricsView.close()
+                        if (target.isAlbum) navigator.openAlbum(target.id, "") else navigator.openPlaylist(target.id, "")
+                    }
+                    is SongLinkTarget.Artist -> {
+                        lyricsView.close()
+                        navigator.openArtist(target.id, "")
+                    }
+                    is SongLinkTarget.Song -> {
+                        val track = deps.playbackRepository.getSongDetail(target.id).firstOrNull()?.getOrNull()
+                        if (track == null) {
+                            state.showMessage("这首歌打不开，可能已下架")
+                            return@collect
+                        }
+                        controller.playLinkTrack(track, "链接")
+                    }
+                }
+            }
+        }
+        val clipboardLink by deps.songLinkRequests.pendingClipboard.collectAsState()
+        var clipboardPreviewState by remember { mutableStateOf<LinkPreviewState>(LinkPreviewState.Loading) }
+        LaunchedEffect(clipboardLink) {
+            val current = clipboardLink ?: return@LaunchedEffect
+            clipboardPreviewState = LinkPreviewState.Loading
+            val preview = deps.linkPreviewResolver.resolve(current.target)
+            clipboardPreviewState = if (preview != null) LinkPreviewState.Ready(preview) else LinkPreviewState.Failed
+        }
+
         LaunchedEffect(deps) { deps.pluginCommands.notices.messages.collect { navigator.showMessage(it) } }
         LaunchedEffect(deps) {
             deps.pluginCommands.content.opens.collect { state.navigate(DesktopRoute.Playlist(it.id, it.title)) }
@@ -172,11 +269,12 @@ fun WindowScope.MelodiaDesktopApp(
                         MOUSE_BUTTON_FORWARD -> state.navigateForward()
                     }
                 }
-                // Esc 先让输入框放弃焦点，窗口级快捷键随即恢复；不消费，输入框自己的 Esc 逻辑照常
+                // Esc 先让输入框放弃焦点，窗口级快捷键随即恢复；同时收起剪贴板浮动条
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
                         searchDropdown.close()
                         focusManager.clearFocus()
+                        deps.songLinkRequests.dismissClipboard()
                     }
                     false
                 }
@@ -203,6 +301,54 @@ fun WindowScope.MelodiaDesktopApp(
                 state.navigate(DesktopRoute.Search)
                 deps.searchViewModel.searchWithKeyword(keyword)
             }
+            ClipboardLinkBanner(
+                link = clipboardLink,
+                previewState = clipboardPreviewState,
+                onPrimaryAction = {
+                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                    val readyPreview = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview
+                    when (val target = current.target) {
+                        is SongLinkTarget.Song -> {
+                            val readyTrack = readyPreview?.track
+                            if (readyTrack != null) {
+                                controller.playLinkTrack(readyTrack, "链接")
+                            } else {
+                                deps.songLinkRequests.request(target)
+                            }
+                        }
+                        is SongLinkTarget.Playlist -> {
+                            lyricsView.close()
+                            val title = readyPreview?.title.orEmpty()
+                            if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                        }
+                        is SongLinkTarget.Artist -> {
+                            lyricsView.close()
+                            navigator.openArtist(target.id, readyPreview?.title.orEmpty())
+                        }
+                    }
+                },
+                onEnqueueNext = {
+                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                    val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkBanner
+                    val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
+                    if (readyTrack != null) {
+                        controller.enqueueLinkTrackNext(readyTrack)
+                        state.showMessage("已添加至下一首播放")
+                    } else {
+                        scope.launch {
+                            val track = deps.playbackRepository.getSongDetail(songTarget.id).firstOrNull()?.getOrNull()
+                            if (track != null) {
+                                controller.enqueueLinkTrackNext(track)
+                                state.showMessage("已添加至下一首播放")
+                            } else {
+                                state.showMessage("这首歌打不开，可能已下架")
+                            }
+                        }
+                    }
+                },
+                onDismiss = { deps.songLinkRequests.dismissClipboard() },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)
+            )
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)) { data ->
                 Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
             }

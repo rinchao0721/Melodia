@@ -269,6 +269,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
 fun SystemSettingsView(viewModel: SettingsViewModel) {
     val showLockscreen by viewModel.showLockscreen.collectAsStateWithLifecycle()
     val carMode by viewModel.carMode.collectAsStateWithLifecycle()
+    val clipboardLinkEnabled by viewModel.clipboardLinkEnabled.collectAsStateWithLifecycle()
     val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
     val pluginRepository = koinInject<PluginRepository>()
@@ -292,6 +293,13 @@ fun SystemSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "连接车载蓝牙设备时自动恢复媒体播放",
                         checked = carMode,
                         onCheckedChange = { viewModel.updateCarMode(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "自动识别剪贴板链接",
+                        subtitle = "切回应用时识别剪贴板中的网易云歌曲、歌单、专辑或歌手链接",
+                        checked = clipboardLinkEnabled,
+                        onCheckedChange = { viewModel.updateClipboardLinkEnabled(it) }
                     )
                 }
             }
