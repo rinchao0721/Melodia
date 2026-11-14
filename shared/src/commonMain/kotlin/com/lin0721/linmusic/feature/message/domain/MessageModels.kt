@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.message.domain
 
+import com.lin0721.linmusic.core.share.ShareCardMessage
+
 data class MessageUser(
     val uid: Long,
     val nickname: String,
@@ -10,7 +12,8 @@ data class MessageUser(
 data class MessagePage<T>(
     val items: List<T>,
     val hasMore: Boolean,
-    val nextCursor: Long
+    val nextCursor: Long,
+    val newMsgCount: Int = 0
 )
 
 // 回复我的评论 Tab 的条目
@@ -69,4 +72,46 @@ sealed interface NoticeItem {
         override val id: Long,
         override val time: Long
     ) : NoticeItem
+}
+
+data class PrivateConversation(
+    val id: Long,
+    val user: MessageUser,
+    val lastMessage: String?,
+    val lastTime: Long,
+    val unreadCount: Int
+)
+
+enum class PrivateCardKind(val label: String) {
+    Song("单曲"),
+    Playlist("歌单"),
+    Album("专辑"),
+    Mv("MV"),
+    General("分享")
+}
+
+data class PrivateCard(
+    val kind: PrivateCardKind,
+    val title: String,
+    val subtitle: String,
+    val cover: String?,
+    val resourceId: Long
+)
+
+// 私信正文是字符串化的 JSON；解析失败或无法识别时保留原文于 raw，界面按 unsupported 降级
+data class PrivateMessage(
+    val id: Long,
+    val time: Long,
+    val fromUserId: Long,
+    val toUserId: Long,
+    val type: Int,
+    val text: String?,
+    val card: PrivateCard?,
+    val raw: String?,
+    val fromUser: MessageUser? = null,
+    val toUser: MessageUser? = null,
+    // Melodia 之间附带的分享卡片参数，仅歌曲卡片可能携带
+    val shareCard: ShareCardMessage? = null
+) {
+    val isUnsupported: Boolean get() = text.isNullOrBlank() && card == null
 }

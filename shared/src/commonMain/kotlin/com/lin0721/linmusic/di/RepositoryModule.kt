@@ -32,6 +32,7 @@ import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepositoryImpl
 import com.lin0721.linmusic.feature.message.data.MessageRepository
 import com.lin0721.linmusic.feature.message.data.MessageRepositoryImpl
+import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
 import com.lin0721.linmusic.feature.profile.data.ProfileRepositoryImpl
 import com.lin0721.linmusic.core.comment.data.CommentRepository
@@ -143,6 +144,14 @@ val repositoryModule = module {
 
     // 消息数据仓储（feature/message）
     singleOf(::MessageRepositoryImpl) { bind<MessageRepository>() }
+    single {
+        PrivateUnreadMonitor(
+            get(),
+            get(),
+            get(),
+            CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        )
+    }
 
     // 歌手数据仓储（feature/artist）
     singleOf(::ArtistRepositoryImpl) { bind<ArtistRepository>() }
