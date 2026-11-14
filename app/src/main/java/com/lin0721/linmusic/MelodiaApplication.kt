@@ -64,6 +64,7 @@ class MelodiaApplication : Application() {
         AppEnvironment.isDebug = BuildConfig.DEBUG
         AppLogger.init(this)
         CrashHandler.init(this)
+        com.lin0721.linmusic.core.deeplink.ClipboardLinkPrefs.init(this)
 
         val imageLoader = ImageLoader.Builder(this)
             .memoryCache {

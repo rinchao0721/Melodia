@@ -31,6 +31,11 @@ import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.feature.recognition.service.ACTION_OPEN_RECOGNITION_RESULT
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
+import com.lin0721.linmusic.core.deeplink.NeteaseLink
+import com.lin0721.linmusic.core.deeplink.ClipboardLink
+import com.lin0721.linmusic.core.deeplink.ClipboardLinkPrefs
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import android.content.ClipboardManager
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -60,8 +65,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.core.context.GlobalContext
 
@@ -197,6 +204,57 @@ class MainActivity : ComponentActivity() {
         when (intent?.action) {
             ACTION_OPEN_RECOGNITION_RESULT -> playbackRecognitionState.requestOpenResult()
             ACTION_OPEN_LYRIC_SETTINGS -> floatingLyricRequests.requestOpenSettings()
+            Intent.ACTION_VIEW, Intent.ACTION_SEND -> handleSongLink(intent)
+        }
+    }
+
+    // 浏览器点开网易云链接、或别的应用把分享文案发进来：认出歌曲 id 交给界面层
+    private fun handleSongLink(intent: Intent) {
+        val text = if (intent.action == Intent.ACTION_SEND) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else {
+            intent.dataString
+        }
+        NeteaseLink.target(text)?.let {
+            SongLinkRequests.request(it)
+            return
+        }
+        val shortLink = NeteaseLink.shortLink(text) ?: return
+        lifecycleScope.launch {
+            val target = withContext(Dispatchers.IO) { NeteaseLink.resolve(shortLink) }
+            if (target != null) SongLinkRequests.request(target)
+        }
+    }
+
+    // 复制链接再点图标进来时系统不会给 Intent，只能读剪贴板兜一次
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Android 10 起剪贴板只对有焦点的应用开放，等拿回焦点再读
+        if (hasFocus) promptClipboardLink()
+    }
+
+    private fun promptClipboardLink() {
+        val clipboard = getSystemService(ClipboardManager::class.java) ?: return
+        if (!clipboard.hasPrimaryClip()) return
+        val text = clipboard.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.coerceToText(this)
+            ?.toString()
+            ?: return
+        if (text == ClipboardLinkPrefs.lastHandled()) return
+        val direct = NeteaseLink.target(text)
+        val shortLink = if (direct == null) NeteaseLink.shortLink(text) else null
+        if (direct == null && shortLink == null) return
+        ClipboardLinkPrefs.markHandled(text)
+        if (direct != null) {
+            SongLinkRequests.offerClipboard(ClipboardLink(direct, text))
+            return
+        }
+        // 短链要跟一次跳转才知道是哪首，放后台解析后再弹
+        lifecycleScope.launch {
+            val target = withContext(Dispatchers.IO) { NeteaseLink.resolve(shortLink!!) } ?: return@launch
+            SongLinkRequests.offerClipboard(ClipboardLink(target, text))
         }
     }
 
@@ -253,3 +311,4 @@ class MainActivity : ComponentActivity() {
         )
     }
 }
+

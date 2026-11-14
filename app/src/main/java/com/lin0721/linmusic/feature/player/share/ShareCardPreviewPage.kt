@@ -156,6 +156,8 @@ internal fun ShareCardPreviewPage(
             songLink?.let { link ->
                 OptionChip("复制链接", Icons.Rounded.Link, false) {
                     clipboard.setText(AnnotatedString(link))
+                    // 自己复制出去的链接不要下次开应用再弹一次
+                    com.lin0721.linmusic.core.deeplink.ClipboardLinkPrefs.markHandled(link)
                     ToastManager.showToast("已复制链接")
                 }
             }

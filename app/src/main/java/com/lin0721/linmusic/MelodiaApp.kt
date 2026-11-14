@@ -35,6 +35,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,13 @@ import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.components.ToastManager
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
+import com.lin0721.linmusic.core.deeplink.ClipboardLinkDialog
+import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import kotlinx.coroutines.flow.filterNotNull
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -195,6 +203,52 @@ fun MelodiaApp() {
     val pluginContent: PluginContent = koinInject()
     LaunchedEffect(navigation) { pluginContent.opens.collect { navigation.openPlaylist(it.id, false) } }
     val sidebar = rememberMelodiaSidebarState(SidebarWidth)
+
+    // 从外链或分享进来：单曲拉到详情就起播并展开播放页，歌单/专辑/歌手直接跳页
+    val playbackRepository: PlaybackRepository = koinInject()
+    LaunchedEffect(Unit) {
+        SongLinkRequests.pendingTarget.filterNotNull().collect { target ->
+            SongLinkRequests.consume()
+            when (target) {
+                is SongLinkTarget.Playlist -> navigation.openPlaylist(target.id, target.isAlbum)
+                is SongLinkTarget.Artist -> navigation.openArtist(target.id)
+                is SongLinkTarget.Song -> {
+                    val track = playbackRepository.getSongDetail(target.id).first().getOrNull()
+                    if (track == null) {
+                        ToastManager.showToast("这首歌打不开，可能已下架")
+                        return@collect
+                    }
+                    playerManager.playQueue(
+                        listOf(QueueItem(track.id, track.name, track.ar.joinToString { it.name }, track.al.picUrl)),
+                        0,
+                        "链接",
+                        null,
+                        0L
+                    )
+                    playerSheet.animateTo(true, 0f)
+                }
+            }
+        }
+    }
+
+    // 剪贴板兜底：复制链接再开应用时先亮出歌曲信息再问一句
+    val clipboardLink by SongLinkRequests.pendingClipboard.collectAsState()
+    var clipboardTrack by remember { mutableStateOf<Track?>(null) }
+    LaunchedEffect(clipboardLink) {
+        clipboardTrack = null
+        val songId = (clipboardLink?.target as? SongLinkTarget.Song)?.id ?: return@LaunchedEffect
+        clipboardTrack = playbackRepository.getSongDetail(songId).first().getOrNull()
+    }
+    clipboardLink?.let { link ->
+        ClipboardLinkDialog(
+            link = link,
+            track = clipboardTrack,
+            onConfirm = {
+                SongLinkRequests.takeClipboard()?.let { SongLinkRequests.request(it.target) }
+            },
+            onDismiss = { SongLinkRequests.dismissClipboard() }
+        )
+    }
 
     // 动态同步底栏首个可用路由为首选根 Tab
     LaunchedEffect(bottomBarLayout) {
