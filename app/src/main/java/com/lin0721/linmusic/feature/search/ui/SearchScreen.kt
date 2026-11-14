@@ -164,10 +164,26 @@ fun SearchScreen(
                     )
                     SearchMode.Typing -> SearchTypingPanel(
                         query = inputState.query,
+                        linkHit = inputState.currentLinkHit,
                         suggestions = inputState.currentSuggestions,
                         history = history,
                         onSubmitKeyword = viewModel::searchWithKeyword,
                         onFillQuery = viewModel::updateQuery,
+                        onOpenLinkTarget = { target, cachedTrack ->
+                            focusManager.clearFocus()
+                            when (target) {
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Song ->
+                                    viewModel.playLinkSong(target.id, cachedTrack)
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Playlist ->
+                                    onPlaylistClick(target.id, target.isAlbum)
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Artist ->
+                                    onArtistClick(target.id)
+                            }
+                        },
+                        onEnqueueLinkNext = { songId, cachedTrack ->
+                            focusManager.clearFocus()
+                            viewModel.enqueueLinkSongNext(songId, cachedTrack)
+                        },
                         onArtistClick = onArtistClick,
                         onAlbumClick = { id -> onPlaylistClick(id, true) },
                         onRemoveHistory = viewModel::removeHistory,

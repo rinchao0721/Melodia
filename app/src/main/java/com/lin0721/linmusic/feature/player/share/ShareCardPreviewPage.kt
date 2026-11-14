@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -58,6 +59,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.share.ShareCardBackground
 import com.lin0721.linmusic.core.share.ShareCardContent
 import com.lin0721.linmusic.core.share.ShareCardKind
@@ -73,6 +76,8 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import kotlin.math.absoluteValue
 
 private val PillShape = RoundedCornerShape(PillRadius)
@@ -103,6 +108,9 @@ internal fun ShareCardPreviewPage(
     val styles = ShareCardStyle.of(kind)
     var fontSheetOpen by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val settingsPreferences: SettingsPreferences = koinInject()
+    val songLinkRequests: SongLinkRequests = koinInject()
+    val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
         key(kind) {
             val pagerState = rememberPagerState(initialPage = styleIndex.coerceIn(0, styles.lastIndex)) { styles.size }
@@ -156,6 +164,9 @@ internal fun ShareCardPreviewPage(
             songLink?.let { link ->
                 OptionChip("复制链接", Icons.Rounded.Link, false) {
                     clipboard.setText(AnnotatedString(link))
+                    // 自己复制出去的链接不要下次开应用再弹一次
+                    songLinkRequests.markSelfHandled(link)
+                    scope.launch { settingsPreferences.setLastHandledClipboardLink(link) }
                     ToastManager.showToast("已复制链接")
                 }
             }

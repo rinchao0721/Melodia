@@ -140,6 +140,8 @@ class SettingsViewModel(
 
     val carMode = settingsPreferences.carMode.asState(false)
 
+    val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
+
     val showCreateEntry = settingsPreferences.showCreateEntry.asState(true)
 
     val bottomBarLayout = settingsPreferences.bottomBarLayout.asState(BottomBarLayout.DEFAULT)
@@ -423,6 +425,10 @@ class SettingsViewModel(
     fun updateShowLockscreen(enabled: Boolean) = launchSave { settingsPreferences.saveShowLockscreen(enabled) }
 
     fun updateCarMode(enabled: Boolean) = launchSave { settingsPreferences.saveCarMode(enabled) }
+
+    fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave {
+        settingsPreferences.setClipboardLinkEnabled(enabled)
+    }
 
     fun updateShowCreateEntry(enabled: Boolean) = launchSave { settingsPreferences.saveShowCreateEntry(enabled) }
 

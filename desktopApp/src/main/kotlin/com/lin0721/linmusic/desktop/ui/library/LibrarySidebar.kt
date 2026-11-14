@@ -131,8 +131,7 @@ import com.lin0721.linmusic.feature.library.ui.LibraryItemType
 import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryUiState
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 
 private const val VIEW_SWITCH_MS = 150
 private val SearchHeight = FilterChipDefaults.Height
@@ -742,11 +741,7 @@ private fun copyLibraryItemLink(item: LibraryItem): Boolean {
         LibraryItemType.ALBUM -> "album"
         LibraryItemType.ARTIST -> "artist"
     }
-    return runCatching {
-        Toolkit.getDefaultToolkit().systemClipboard.setContents(
-            StringSelection("https://music.163.com/$path?id=$id"), null
-        )
-    }.isSuccess
+    return copyTextToClipboard("https://music.163.com/$path?id=$id")
 }
 
 @Composable

@@ -66,6 +66,14 @@ interface PlaybackController {
         playContext: String? = null
     )
     fun addToPlayNext(items: List<QueueItem>)
+    fun playNextNow(item: QueueItem, startPositionMs: Long = 0L) {
+        if (queue.value.isEmpty()) {
+            playQueue(listOf(item), 0, startPositionMs = startPositionMs)
+        } else {
+            addToPlayNext(listOf(item))
+            playNext()
+        }
+    }
     fun appendToQueue(items: List<QueueItem>)
 
     // 大歌单先播后补：队列仍是 source 起播的那一份时，把后台补全的曲目接到末尾

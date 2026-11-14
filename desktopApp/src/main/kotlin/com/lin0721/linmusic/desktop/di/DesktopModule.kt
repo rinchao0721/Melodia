@@ -323,7 +323,8 @@ val desktopViewModelModule = module {
             sourcePreferences = getOrNull(),
             collectionActions = get(),
             artistRepository = get(),
-            podcastRepository = get()
+            podcastRepository = get(),
+            linkPreviewResolver = getOrNull()
         )
     }
     factoryOf(::PlaylistCategoryViewModel)

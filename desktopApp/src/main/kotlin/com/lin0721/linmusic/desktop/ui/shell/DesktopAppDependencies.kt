@@ -7,6 +7,9 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.songquality.SongQualityCache
@@ -74,6 +77,9 @@ class DesktopAppDependencies(
     val cloudMusic: CloudMusicActions,
     val recognition: DesktopRecognition,
     val songQuality: SongQualityCache,
+    val playbackRepository: PlaybackRepository,
+    val songLinkRequests: SongLinkRequests,
+    val linkPreviewResolver: LinkPreviewResolver,
     val listenTogether: ListenTogetherViewModel,
     val pageViewModels: PageViewModelFactory
 )

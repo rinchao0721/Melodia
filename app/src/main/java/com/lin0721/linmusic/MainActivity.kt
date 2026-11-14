@@ -31,6 +31,10 @@ import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.ThemeRevealHost
 import com.lin0721.linmusic.feature.recognition.service.ACTION_OPEN_RECOGNITION_RESULT
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
+import com.lin0721.linmusic.core.deeplink.NeteaseLink
+import com.lin0721.linmusic.core.deeplink.ClipboardLink
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import android.content.ClipboardManager
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -76,6 +80,10 @@ class MainActivity : ComponentActivity() {
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
+    private val songLinkRequests: SongLinkRequests by inject()
+
+    // 仅在 onStart 后重新获得窗口焦点时查剪贴板，避免弹窗/输入法关闭反复读取
+    private var checkClipboardOnNextFocus = false
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -187,6 +195,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
+    override fun onStart() {
+        super.onStart()
+        checkClipboardOnNextFocus = true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleLaunchIntent(intent)
@@ -197,6 +210,90 @@ class MainActivity : ComponentActivity() {
         when (intent?.action) {
             ACTION_OPEN_RECOGNITION_RESULT -> playbackRecognitionState.requestOpenResult()
             ACTION_OPEN_LYRIC_SETTINGS -> floatingLyricRequests.requestOpenSettings()
+            Intent.ACTION_VIEW, Intent.ACTION_SEND -> handleSongLink(intent)
+        }
+    }
+
+    // 浏览器点开网易云链接、或别的应用把分享文案发进来：认出目标交给界面层
+    private fun handleSongLink(intent: Intent) {
+        val text = if (intent.action == Intent.ACTION_SEND) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else {
+            intent.dataString
+        }
+        NeteaseLink.target(text)?.let { target ->
+            if (!text.isNullOrBlank()) {
+                songLinkRequests.markSelfHandled(text)
+                lifecycleScope.launch { settingsPreferences.setLastHandledClipboardLink(text) }
+            }
+            songLinkRequests.request(target)
+            return
+        }
+        val shortLink = NeteaseLink.shortLink(text)
+        if (shortLink == null) {
+            ToastManager.showToast("暂不支持该链接或链接已失效")
+            return
+        }
+        lifecycleScope.launch {
+            val target = NeteaseLink.resolve(shortLink)
+            if (target != null) {
+                if (!text.isNullOrBlank()) {
+                    songLinkRequests.markSelfHandled(text)
+                    settingsPreferences.setLastHandledClipboardLink(text)
+                }
+                songLinkRequests.request(target)
+            } else {
+                ToastManager.showToast("暂不支持该链接或链接已失效")
+            }
+        }
+    }
+
+    // 复制链接再点图标进来时系统不会给 Intent，只能读剪贴板兜一次
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Android 10 起剪贴板只对有焦点的应用开放，仅在切回前台后拿回焦点时读取一次
+        if (hasFocus && checkClipboardOnNextFocus) {
+            checkClipboardOnNextFocus = false
+            promptClipboardLink()
+        }
+    }
+
+    private fun promptClipboardLink() {
+        val clipboard = getSystemService(ClipboardManager::class.java) ?: return
+        if (!clipboard.hasPrimaryClip()) return
+        val description = clipboard.primaryClipDescription
+        if (description != null && !description.hasMimeType("text/*")) return
+
+        lifecycleScope.launch {
+            if (!settingsPreferences.clipboardLinkEnabled.first()) return@launch
+            val text = clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this@MainActivity)
+                ?.toString()
+                ?.takeIf { it.isNotBlank() }
+                ?: return@launch
+
+            if (songLinkRequests.isRecentlyHandled(text) ||
+                text == settingsPreferences.lastHandledClipboardLink.first()
+            ) {
+                return@launch
+            }
+
+            val direct = NeteaseLink.target(text)
+            val shortLink = if (direct == null) NeteaseLink.shortLink(text) else null
+            if (direct == null && shortLink == null) return@launch
+
+            if (direct != null) {
+                songLinkRequests.offerClipboard(ClipboardLink(direct, text))
+                settingsPreferences.setLastHandledClipboardLink(text)
+                return@launch
+            }
+
+            // 短链解析成功后再标记为已处理，避免弱网/断网失败被永久跳过
+            val target = NeteaseLink.resolve(shortLink!!) ?: return@launch
+            songLinkRequests.offerClipboard(ClipboardLink(target, text))
+            settingsPreferences.setLastHandledClipboardLink(text)
         }
     }
 
@@ -253,3 +350,4 @@ class MainActivity : ComponentActivity() {
         )
     }
 }
+

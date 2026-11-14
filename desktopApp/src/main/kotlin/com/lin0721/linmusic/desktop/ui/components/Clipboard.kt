@@ -3,8 +3,16 @@ package com.lin0721.linmusic.desktop.ui.components
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
+private var clipboardCopyObserver: ((String) -> Unit)? = null
+
+fun registerClipboardCopyObserver(observer: ((String) -> Unit)?) {
+    clipboardCopyObserver = observer
+}
+
 fun copyTextToClipboard(text: String): Boolean = runCatching {
     Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+}.onSuccess {
+    clipboardCopyObserver?.invoke(text)
 }.isSuccess
 
 // 复制歌曲信息的统一格式：歌名 - 歌手

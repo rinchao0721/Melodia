@@ -83,8 +83,7 @@ import com.lin0721.linmusic.feature.newworks.domain.typeLabel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksReleaseStatus
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 
 // 距离末尾还剩几项时提前拉下一页
 private const val LOAD_MORE_THRESHOLD = 2
@@ -471,8 +470,5 @@ private fun MenuEntry(
 
 private fun copyReleaseLink(release: NewWorksRelease): Boolean {
     val path = if (release.isAlbum) "album" else "song"
-    val link = "https://music.163.com/$path?id=${release.id}"
-    return runCatching {
-        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(link), null)
-    }.isSuccess
+    return copyTextToClipboard("https://music.163.com/$path?id=${release.id}")
 }

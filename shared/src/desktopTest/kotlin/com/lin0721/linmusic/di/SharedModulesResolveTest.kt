@@ -98,6 +98,8 @@ class SharedModulesResolveTest {
                 PodcastProgressPreferences::class, PodcastSeenPreferences::class, OfflinePlayability::class,
                 CloudUploadManager::class, CloudUploadRunner::class, RecognitionRepository::class,
                 SongQualityCache::class,
+                com.lin0721.linmusic.core.deeplink.LinkPreviewResolver::class,
+                com.lin0721.linmusic.core.deeplink.SongLinkRequests::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()
