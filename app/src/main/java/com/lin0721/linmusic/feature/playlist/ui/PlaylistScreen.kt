@@ -100,7 +100,8 @@ fun PlaylistScreen(
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
-    onNavigateToProfile: (Long) -> Unit = {}
+    onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val settingsPreferences = koinInject<com.lin0721.linmusic.core.preferences.SettingsPreferences>()
@@ -682,7 +683,8 @@ fun PlaylistScreen(
                         }
                     },
                     onToggleSelectAll = viewModel::toggleSelectAll,
-                    onExitSelection = viewModel::exitSelection
+                    onExitSelection = viewModel::exitSelection,
+                    onNavigateToPrivateChat = onNavigateToPrivateChat
                 )
             }
             }

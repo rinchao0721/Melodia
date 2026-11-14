@@ -15,6 +15,9 @@ class MessageRepositoryImplTest {
         var commentsResponse = MessageCommentsResponse(code = 200)
         var forwardsResponse = MessageForwardsResponse(code = 200)
         var noticesResponse = MessageNoticesResponse(code = 200)
+        var privateConversationsResponse = PrivateConversationsResponse(code = 200)
+        var privateHistoryResponse = PrivateHistoryResponse(code = 200)
+        var privateSendResponse = PrivateSendResponse(code = 200)
 
         var lastCommentsUid = 0L
         var lastCommentsRequest: MessageCommentsRequest? = null
@@ -36,6 +39,15 @@ class MessageRepositoryImplTest {
             lastNoticesRequest = body
             return noticesResponse
         }
+
+        override suspend fun getPrivateConversations(body: PrivateConversationsRequest): PrivateConversationsResponse =
+            privateConversationsResponse
+
+        override suspend fun getPrivateHistory(body: PrivateHistoryRequest): PrivateHistoryResponse =
+            privateHistoryResponse
+
+        override suspend fun sendPrivateMessage(body: PrivateSendRequest): PrivateSendResponse =
+            privateSendResponse
     }
 
     private val api = FakeMessageApi()

@@ -115,7 +115,8 @@ fun PlaylistContent(
     selectionUi: TrackSelectionUi = TrackSelectionUi(),
     selectionActions: List<SelectionAction> = emptyList(),
     onToggleSelectAll: (List<Long>) -> Unit = {},
-    onExitSelection: () -> Unit = {}
+    onExitSelection: () -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val density = LocalDensity.current
@@ -505,6 +506,8 @@ fun PlaylistContent(
         )
     }
 
+    var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }
+
     if (activeSongMoreOptions != null) {
         val track = activeSongMoreOptions!!
         // 外部平台歌曲没有网易云歌手、专辑与下载
@@ -532,7 +535,19 @@ fun PlaylistContent(
                 { onReduceRecommend(it.id) }
             } else {
                 null
+            },
+            onShareClick = { clickedTrack ->
+                shareTarget = clickedTrack to (!isExternal && clickedTrack.id > 0L)
             }
+        )
+    }
+
+    shareTarget?.let { (targetTrack, isNetease) ->
+        com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
+            track = targetTrack,
+            isNetease = isNetease,
+            onDismiss = { shareTarget = null },
+            onNavigateToPrivateChat = onNavigateToPrivateChat
         )
     }
 

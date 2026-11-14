@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.message.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -19,18 +20,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
+import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.cloud.domain.formatUploadedAt
 import com.lin0721.linmusic.feature.message.domain.CommentMessage
 import com.lin0721.linmusic.feature.message.domain.ForwardMessage
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.domain.NoticeItem
+import com.lin0721.linmusic.feature.message.domain.PrivateConversation
 
 // 三个 Tab 共用的条目骨架：头像 + 昵称 + 副标题（动作与时间），正文由调用方填充
 @Composable
@@ -214,4 +222,127 @@ private fun UnsupportedNoticeRow(time: Long) {
             .fillMaxWidth()
             .padding(horizontal = MelodiaSpacing.md, vertical = 14.dp)
     )
+}
+
+@Composable
+fun PrivateConversationRow(
+    item: PrivateConversation,
+    onClick: () -> Unit,
+    onDismissUnread: () -> Unit = {}
+) {
+    val summary = formatPrivateSummary(item.lastMessage)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressable(MelodiaPress.Row, onClick = onClick)
+            .padding(horizontal = MelodiaSpacing.md, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = item.user.avatarUrl.takeIf { it.isNotBlank() }?.let { "$it?param=120y120" },
+            contentDescription = item.user.nickname,
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MelodiaColors.Fill),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = item.user.nickname.takeIf { it.isNotBlank() } ?: "网易云用户",
+                    color = MelodiaColors.TextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                val timeText = formatUploadedAt(item.lastTime)
+                if (timeText.isNotBlank()) {
+                    Text(
+                        text = timeText,
+                        color = MelodiaColors.TextTertiary,
+                        fontSize = 11.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val secondaryColor = MelodiaColors.TextSecondary
+                val noteTintColor = MelodiaColors.AccentText
+                Text(
+                    text = buildAnnotatedString {
+                        if (summary.isShare) {
+                            withStyle(SpanStyle(color = noteTintColor)) {
+                                append("♪ ")
+                            }
+                        }
+                        withStyle(SpanStyle(color = secondaryColor)) {
+                            append(summary.text)
+                        }
+                    },
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (item.unreadCount > 0) {
+                    DraggableUnreadBadge(
+                        count = item.unreadCount,
+                        onDismiss = onDismissUnread,
+                        containerColor = MelodiaColors.Accent,
+                        contentColor = MelodiaColors.OnAccent
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class PrivateSummary(val isShare: Boolean, val text: String)
+
+private val shareSummaryPrefixes = listOf(
+    "分享单曲" to "单曲",
+    "分享歌单" to "歌单",
+    "分享专辑" to "专辑",
+    "分享MV" to "MV",
+    "分享分享" to "分享"
+)
+
+private fun formatPrivateSummary(raw: String?): PrivateSummary {
+    val trimmed = raw?.trim().orEmpty()
+    if (trimmed.isEmpty()) return PrivateSummary(isShare = false, text = "暂无消息")
+    for ((prefix, label) in shareSummaryPrefixes) {
+        if (trimmed == prefix) {
+            return PrivateSummary(isShare = true, text = "[$label]")
+        }
+        val withFullColon = "$prefix："
+        val withHalfColon = "$prefix:"
+        when {
+            trimmed.startsWith(withFullColon) -> {
+                val title = trimmed.removePrefix(withFullColon).trim()
+                return PrivateSummary(isShare = true, text = if (title.isEmpty()) "[$label]" else "[$label] $title")
+            }
+            trimmed.startsWith(withHalfColon) -> {
+                val title = trimmed.removePrefix(withHalfColon).trim()
+                return PrivateSummary(isShare = true, text = if (title.isEmpty()) "[$label]" else "[$label] $title")
+            }
+        }
+    }
+    return PrivateSummary(isShare = false, text = trimmed)
 }

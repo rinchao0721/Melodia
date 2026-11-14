@@ -364,6 +364,7 @@ fun MelodiaFullPlayerOverlay(
     onAlbumClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
     onLyricsFullScreenChange: (Boolean) -> Unit = {},
     onLyricsControlsVisibilityChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -398,6 +399,7 @@ fun MelodiaFullPlayerOverlay(
                 onAlbumClick = onAlbumClick,
                 onPlaylistClick = onPlaylistClick,
                 onNavigateToProfile = onNavigateToProfile,
+                onNavigateToPrivateChat = onNavigateToPrivateChat,
                 fitCoverAboveNavigationBar = true,
                 onLyricsFullScreenChange = onLyricsFullScreenChange,
                 onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange

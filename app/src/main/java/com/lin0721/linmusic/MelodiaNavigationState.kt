@@ -82,6 +82,8 @@ sealed class Screen {
     @Serializable
     data object Message : Screen()
     @Serializable
+    data class PrivateChat(val uid: Long) : Screen()
+    @Serializable
     data object MyProfile : Screen()
     // 个人主页与关注/粉丝列表
     @Serializable
@@ -333,6 +335,10 @@ class MelodiaNavigationState(
 
     fun openMessage() {
         navigateTo(Screen.Message)
+    }
+
+    fun openPrivateChat(uid: Long) {
+        if (uid > 0L) navigateTo(Screen.PrivateChat(uid))
     }
 
     fun openMyProfile() {

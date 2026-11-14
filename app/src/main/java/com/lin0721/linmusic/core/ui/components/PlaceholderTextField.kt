@@ -3,9 +3,11 @@ package com.lin0721.linmusic.core.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,7 +45,10 @@ fun PlaceholderTextField(
     borderColor: Color? = null,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
     placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    // 多行模式的内边距，嵌在胶囊等固定高度容器里时需要收紧以对齐相邻控件
+    multiLinePadding: PaddingValues = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -66,7 +71,7 @@ fun PlaceholderTextField(
             .padding(horizontal = 14.dp)
     } else {
         baseModifier
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(multiLinePadding)
     }
 
     val contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart
@@ -91,7 +96,8 @@ fun PlaceholderTextField(
             singleLine = singleLine,
             minLines = minLines,
             maxLines = maxLines,
-            keyboardOptions = keyboardOptions
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions
         )
     }
 }

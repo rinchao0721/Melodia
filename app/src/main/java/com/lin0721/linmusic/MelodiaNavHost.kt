@@ -58,6 +58,7 @@ fun MelodiaNavHost(
     onNavigateToPlaylistCategory: (String) -> Unit,
     onNavigateToProfile: (Long) -> Unit,
     onNavigateToFollowList: (Long, FollowListMode) -> Unit,
+    onNavigateToPrivateChat: (Long) -> Unit,
     onHomeTabSelected: (Int) -> Unit,
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
@@ -67,7 +68,7 @@ fun MelodiaNavHost(
     onBack: () -> Unit
 ) {
     val motion = LocalUiMotion.current
-    val localMusicNavigation = remember(onBack, onNavigateToScreen, onNavigateToArtist, onNavigateToPlaylist, onLoginScreenVisibilityChanged) {
+    val localMusicNavigation = remember(onBack, onNavigateToScreen, onNavigateToArtist, onNavigateToPlaylist, onLoginScreenVisibilityChanged, onNavigateToPrivateChat) {
         LocalMusicNavigation(
             onBack = onBack,
             openSongs = { onNavigateToScreen(Screen.LocalSongs) },
@@ -83,7 +84,8 @@ fun MelodiaNavHost(
             openOnlineArtist = onNavigateToArtist,
             openOnlineAlbum = { onNavigateToPlaylist(it, true) },
             openTagEditor = { onNavigateToScreen(Screen.LocalTagEditor(it)) },
-            onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
+            onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged,
+            openPrivateChat = onNavigateToPrivateChat
         )
     }
     val userProfile by homeViewModel.userProfile.collectAsStateWithLifecycle()
@@ -148,7 +150,8 @@ fun MelodiaNavHost(
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
                         onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
-                        onNavigateToProfile = onNavigateToProfile
+                        onNavigateToProfile = onNavigateToProfile,
+                        onNavigateToPrivateChat = onNavigateToPrivateChat
                     )
                 }
                 is Screen.Search -> {
@@ -159,7 +162,8 @@ fun MelodiaNavHost(
                         onArtistClick = onNavigateToArtist,
                         onRadioClick = onNavigateToRadio,
                         onPlaylistCategoryClick = onNavigateToPlaylistCategory,
-                        onOpenRecognition = onOpenRecognition
+                        onOpenRecognition = onOpenRecognition,
+                        onNavigateToPrivateChat = onNavigateToPrivateChat
                     )
                 }
                 is Screen.Library -> {
@@ -234,7 +238,8 @@ fun MelodiaNavHost(
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
                         onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) },
-                        onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) }
+                        onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                        onNavigateToPrivateChat = onNavigateToPrivateChat
                     )
                 }
                 is Screen.RecentPlay -> {
@@ -259,7 +264,16 @@ fun MelodiaNavHost(
                 is Screen.Message -> {
                     com.lin0721.linmusic.feature.message.ui.MessageScreen(
                         onBack = onBack,
-                        onUserClick = onNavigateToProfile
+                        onUserClick = onNavigateToProfile,
+                        onConversationClick = onNavigateToPrivateChat
+                    )
+                }
+                is Screen.PrivateChat -> {
+                    com.lin0721.linmusic.feature.message.ui.PrivateChatScreen(
+                        userId = screen.uid,
+                        onBack = onBack,
+                        onUserClick = onNavigateToProfile,
+                        onPlaylistClick = onNavigateToPlaylist
                     )
                 }
                 is Screen.MyProfile -> {
@@ -291,7 +305,8 @@ fun MelodiaNavHost(
                         uid = screen.uid,
                         onBack = onBack,
                         onNavigateToFollowList = onNavigateToFollowList,
-                        onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) }
+                        onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) },
+                        onMessageClick = onNavigateToPrivateChat
                     )
                 }
                 is Screen.FollowList -> {

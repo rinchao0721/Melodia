@@ -67,6 +67,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
@@ -123,6 +126,7 @@ import com.lin0721.linmusic.core.ui.theme.PanelRiseSpec
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
+import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import kotlin.math.roundToInt
 
@@ -176,6 +180,21 @@ fun MelodiaApp() {
     val currentPositionProvider = { currentPositionState.value }
     val duration by viewModel.playerManager.duration.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val privateUnreadMonitor: com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor = koinInject()
+    val privateUnreadCount by privateUnreadMonitor.unreadCount.collectAsStateWithLifecycle()
+    // 私信未读只在前台轮询
+    val appLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(appLifecycleOwner, privateUnreadMonitor) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> privateUnreadMonitor.setForeground(true)
+                Lifecycle.Event.ON_STOP -> privateUnreadMonitor.setForeground(false)
+                else -> Unit
+            }
+        }
+        appLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { appLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     // mini 栏＋按钮触发的"收藏到歌单"弹层，非 null 时显示
@@ -500,6 +519,7 @@ fun MelodiaApp() {
             )
             .skinBackdropRoot(MelodiaColors.Background)
     ) {
+        DragBadgeOverlayHost(modifier = Modifier.fillMaxSize()) {
         // 1. 侧边栏层 (位于最底层或同步移动)
         Box(
             modifier = Modifier
@@ -512,6 +532,8 @@ fun MelodiaApp() {
         ) {
             ProfileSidebar(
                 userProfile = userProfile,
+                privateUnreadCount = privateUnreadCount,
+                onDismissUnread = { privateUnreadMonitor.markAllRead() },
                 onLogin = { showSidebarLoginSheet = true },
                 onLogout = {
                     viewModel.logout()
@@ -595,6 +617,7 @@ fun MelodiaApp() {
                                     onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
                                     onNavigateToProfile = { uid -> navigation.openProfile(uid) },
                                     onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
+                                    onNavigateToPrivateChat = { uid -> navigation.openPrivateChat(uid) },
                                     onHomeTabSelected = { navigation.selectHomeTab(it) },
                                     onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                                     onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
@@ -770,6 +793,10 @@ fun MelodiaApp() {
                             isPanelFullscreen = false
                             navigation.openProfile(uid)
                         },
+                        onNavigateToPrivateChat = { uid ->
+                            isPanelFullscreen = false
+                            navigation.openPrivateChat(uid)
+                        },
                         isFullscreen = isPanelFullscreen,
                         onToggleFullscreen = { isPanelFullscreen = !isPanelFullscreen },
                         fullscreenProgress = { panelFullscreen.value },
@@ -820,6 +847,12 @@ fun MelodiaApp() {
             onNavigateToProfile = { uid ->
                 navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openProfile(uid)
+                }
+                playerSheet.animateTo(false, 0f)
+            },
+            onNavigateToPrivateChat = { uid ->
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
+                    navigation.openPrivateChat(uid)
                 }
                 playerSheet.animateTo(false, 0f)
             },
@@ -904,6 +937,8 @@ fun MelodiaApp() {
                     viewModel.handleLoginSuccess(cookies)
                 }
             )
+        }
+
         }
 
         // 4.5 剪贴板识别到的网易云链接轻量浮动条

@@ -92,6 +92,7 @@ fun FullPlayerSheets(
 
     if (showMoreOptionsSheet) {
         val albumName = songState.songDetail?.al?.name ?: songState.songWiki?.album ?: "未知专辑"
+        val currentSongId = songState.songDetail?.id
         SongMoreOptionsSheet(
             title = title,
             artist = artist,
@@ -101,7 +102,7 @@ fun FullPlayerSheets(
             sleepTimerRemaining = sleepTimerRemaining,
             currentQuality = activeQuality,
             isLocalOnly = songState.isLocalOnly,
-            songId = songState.songDetail?.id,
+            songId = currentSongId,
             isPodcast = isPodcast,
             showMiniLyric = showMiniLyric,
             onToggleMiniLyric = onToggleMiniLyric,

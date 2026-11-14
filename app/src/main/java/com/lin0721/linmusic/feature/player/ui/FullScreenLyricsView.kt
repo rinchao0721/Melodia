@@ -84,6 +84,7 @@ fun FullScreenLyricsView(
     artist: String,
     coverUrl: String = "",
     songLink: String? = null,
+    songId: Long? = null,
     base: Color,
     highlightColor: Color,
     onSeek: (Long) -> Unit,
@@ -107,6 +108,7 @@ fun FullScreenLyricsView(
     translationColor: Color? = null,
     romanizationColor: Color? = null,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
     coverage: LyricsOverlayCoverage? = null,
     isFullyEntered: () -> Boolean = { true },
     // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
@@ -526,7 +528,9 @@ fun FullScreenLyricsView(
                 coverUrl = coverUrl,
                 durationMs = duration,
                 songLink = songLink,
-                onDismiss = { showShareSheet = false }
+                songId = songId,
+                onDismiss = { showShareSheet = false },
+                onNavigateToPrivateChat = onNavigateToPrivateChat
             )
         }
     }

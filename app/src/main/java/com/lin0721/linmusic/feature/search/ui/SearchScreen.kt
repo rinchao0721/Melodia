@@ -58,7 +58,8 @@ fun SearchScreen(
     onArtistClick: (id: Long) -> Unit = {},
     onRadioClick: (id: Long) -> Unit = {},
     onPlaylistCategoryClick: (category: String) -> Unit = {},
-    onOpenRecognition: () -> Unit = {}
+    onOpenRecognition: () -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val discoveryState by viewModel.discoveryState.collectAsStateWithLifecycle()
@@ -226,6 +227,8 @@ fun SearchScreen(
             }
         }
 
+        var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }
+
         optionsTrack?.let { track ->
             PlaylistSongOptionsSheet(
                 track = track,
@@ -240,7 +243,8 @@ fun SearchScreen(
                 },
                 onArtistClick = onArtistClick,
                 onAlbumClick = { id -> onPlaylistClick(id, true) },
-                onRequireLogin = { showLoginSheet = true }
+                onRequireLogin = { showLoginSheet = true },
+                onShareClick = { shareTarget = it to (it.id > 0L) }
             )
         }
 
@@ -262,6 +266,7 @@ fun SearchScreen(
                 showLikeOption = false,
                 showArtistOption = false,
                 showAlbumOption = false,
+                onShareClick = { shareTarget = it to false },
                 extraOptions = {
                     OptionRow(
                         icon = Icons.Default.Search,
@@ -272,6 +277,15 @@ fun SearchScreen(
                         }
                     )
                 }
+            )
+        }
+
+        shareTarget?.let { (track, isNetease) ->
+            com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
+                track = track,
+                isNetease = isNetease,
+                onDismiss = { shareTarget = null },
+                onNavigateToPrivateChat = onNavigateToPrivateChat
             )
         }
 

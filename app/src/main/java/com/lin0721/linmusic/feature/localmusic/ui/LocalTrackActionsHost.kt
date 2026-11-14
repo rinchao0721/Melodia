@@ -54,6 +54,7 @@ fun LocalTrackActionsHost(
     val pickerTracks by viewModel.playlistPickerTracks.collectAsStateWithLifecycle()
     var deleteTarget by remember { mutableStateOf<LocalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    var shareTarget by remember { mutableStateOf<com.lin0721.linmusic.core.model.Track?>(null) }
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
 
@@ -63,6 +64,15 @@ fun LocalTrackActionsHost(
 
     LaunchedEffect(showWebViewLogin) {
         navigation.onLoginScreenVisibilityChanged(showWebViewLogin)
+    }
+
+    shareTarget?.let { target ->
+        com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
+            track = target,
+            isNetease = target.id > 0L,
+            onDismiss = { shareTarget = null },
+            onNavigateToPrivateChat = navigation.openPrivateChat
+        )
     }
 
     val state = uiState as? LocalMusicUiState.Success ?: return
@@ -87,6 +97,7 @@ fun LocalTrackActionsHost(
                 onArtistClick = navigation.openOnlineArtist,
                 onAlbumClick = navigation.openOnlineAlbum,
                 onRequireLogin = { showLoginSheet = true },
+                onShareClick = { shareTarget = it },
                 extraOptions = {
                     OptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, text = "加入本地歌单") {
                         viewModel.openPlaylistPicker(listOf(track))

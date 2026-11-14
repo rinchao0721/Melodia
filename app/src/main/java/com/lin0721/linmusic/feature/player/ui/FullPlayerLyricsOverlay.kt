@@ -45,6 +45,7 @@ fun FullPlayerLyricsOverlay(
     artist: String,
     coverUrl: String,
     songLink: String?,
+    songId: Long? = null,
     hazeState: HazeState,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
@@ -60,6 +61,7 @@ fun FullPlayerLyricsOverlay(
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
     pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
@@ -112,6 +114,7 @@ fun FullPlayerLyricsOverlay(
                 artist = artist,
                 coverUrl = coverUrl,
                 songLink = songLink,
+                songId = songId,
                 base = colors.base,
                 highlightColor = lyricColors.unsung ?: colors.textHighlight,
                 sungColor = lyricColors.sung,
@@ -138,6 +141,7 @@ fun FullPlayerLyricsOverlay(
                 onToggleRepeat = onToggleRepeat,
                 onMoreClick = onMoreClick,
                 onControlsVisibilityChange = onControlsVisibilityChange,
+                onNavigateToPrivateChat = onNavigateToPrivateChat,
                 pluginContent = pluginContent
             )
         }

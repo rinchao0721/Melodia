@@ -26,6 +26,7 @@ import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
@@ -53,6 +54,7 @@ val localModule = module {
     single { SearchHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SEARCH_HISTORY)) }
     single { PodcastProgressPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
+    single { PrivateReadPreferences(PreferencesStores.get(androidContext(), PreferencesStores.MESSAGE)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(PreferencesStores.get(androidContext(), PreferencesStores.XEAPI_KEY)) }
     single { DownloadPreferences(androidContext()) }
 }

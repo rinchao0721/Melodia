@@ -115,6 +115,7 @@ fun FullPlayerScreen(
     onAlbumClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
     // 手机全屏：封面按可用高度收缩，快捷操作行需让开导航栏
     fitCoverAboveNavigationBar: Boolean = false,
@@ -151,6 +152,7 @@ fun FullPlayerScreen(
             onAlbumClick = onAlbumClick,
             onPlaylistClick = onPlaylistClick,
             onNavigateToProfile = onNavigateToProfile,
+            onNavigateToPrivateChat = onNavigateToPrivateChat,
             onDragClose = onDragClose,
             fitCoverAboveNavigationBar = fitCoverAboveNavigationBar,
             fitCoverToViewport = fitCoverToViewport,
@@ -185,6 +187,7 @@ private fun FullPlayerScreenContent(
     onAlbumClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
     onDragClose: (Float, Float) -> Unit = { _, _ -> },
     // 手机全屏：封面按可用高度收缩，快捷操作行需让开导航栏
     fitCoverAboveNavigationBar: Boolean = false,
@@ -1035,6 +1038,9 @@ private fun FullPlayerScreenContent(
             )
         }
 
+        val shareSongId = currentTrack.mediaId.toLongOrNull()
+            ?.takeIf { it > 0 && !songDetailState.isLocalOnly && !podcast.isPodcast }
+
         FullPlayerLyricsOverlay(
             visible = isLyricsFullScreen,
             coverage = lyricsCoverage,
@@ -1046,6 +1052,7 @@ private fun FullPlayerScreenContent(
             artist = artist,
             coverUrl = coverUrl,
             songLink = songLink,
+            songId = shareSongId,
             hazeState = hazeState,
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
@@ -1063,6 +1070,10 @@ private fun FullPlayerScreenContent(
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
             onMoreClick = { showMoreOptionsSheet = true },
+            onNavigateToPrivateChat = { uid ->
+                isLyricsFullScreen = false
+                onNavigateToPrivateChat(uid)
+            },
             pluginContent = if (pluginLyricsLayout != null && !pluginLyricsLayout.hostContent && pluginParts != null) {
                 { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
             } else {
@@ -1079,8 +1090,10 @@ private fun FullPlayerScreenContent(
                 coverUrl = coverUrl,
                 durationMs = duration,
                 songLink = songLink,
+                songId = shareSongId,
                 initialKind = ShareCardKind.SONG,
-                onDismiss = { showShareCard = false }
+                onDismiss = { showShareCard = false },
+                onNavigateToPrivateChat = onNavigateToPrivateChat
             )
         }
 

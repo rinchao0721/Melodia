@@ -45,7 +45,8 @@ fun ArtistScreen(
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
@@ -164,7 +165,8 @@ fun ArtistScreen(
                         SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true }
                     ),
                     onToggleSelectAll = viewModel::toggleSelectAll,
-                    onExitSelection = viewModel::exitSelection
+                    onExitSelection = viewModel::exitSelection,
+                    onNavigateToPrivateChat = onNavigateToPrivateChat
                 )
             }
         }

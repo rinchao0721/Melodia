@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -38,6 +39,8 @@ import com.lin0721.linmusic.core.ui.theme.PillRadiusLarge
 @Composable
 fun ProfileSidebar(
     userProfile: UserProfile?,
+    privateUnreadCount: Int = 0,
+    onDismissUnread: () -> Unit = {},
     onLogin: () -> Unit,
     onLogout: () -> Unit,
     onDismiss: () -> Unit,
@@ -168,6 +171,8 @@ fun ProfileSidebar(
             SidebarMenuItem(
                 icon = Icons.Outlined.Notifications,
                 title = "消息",
+                badgeCount = privateUnreadCount,
+                onBadgeDismiss = onDismissUnread,
                 onClick = withLogin(onNavigateToMessage)
             )
             SidebarMenuItem(
@@ -228,6 +233,8 @@ fun ProfileSidebar(
 private fun SidebarMenuItem(
     icon: ImageVector,
     title: String,
+    badgeCount: Int = 0,
+    onBadgeDismiss: () -> Unit = {},
     onClick: () -> Unit
 ) {
     Row(
@@ -253,6 +260,15 @@ private fun SidebarMenuItem(
             letterSpacing = 0.5.sp, // 稍微拉开字间距
             modifier = Modifier.weight(1f)
         )
+        if (badgeCount > 0) {
+            DraggableUnreadBadge(
+                count = badgeCount,
+                onDismiss = onBadgeDismiss,
+                containerColor = MelodiaColors.Accent,
+                contentColor = MelodiaColors.OnAccent
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
