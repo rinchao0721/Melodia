@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
@@ -85,6 +86,7 @@ import com.lin0721.linmusic.desktop.ui.components.OverlayPanelHeader
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.songInfoText
+import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.shell.SongActionSources
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -501,7 +503,18 @@ private fun QueueItemMenu(
             }
         }
         // 外部平台歌曲的负数 id 没有对应的网易云链接
-        if (item.songId > 0) {
+        if (item.songId > 0L) {
+            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                onDismiss()
+                navigator.openSongShareCard(
+                    DesktopAppState.ShareSongInfo(
+                        songId = item.songId,
+                        title = item.title,
+                        artist = item.artist,
+                        coverUrl = item.coverUrl
+                    )
+                )
+            })
             MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
                 onDismiss()
                 val ok = copySongLink(item.songId)

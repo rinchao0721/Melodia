@@ -26,6 +26,11 @@ sealed interface DesktopRoute {
     data object Settings : DesktopRoute
     data class PluginPage(val pluginId: String, val pageId: String) : DesktopRoute
     data object ListenTogether : DesktopRoute
+    data class Messages(
+        val peerUid: Long? = null,
+        val peerName: String = "",
+        val peerAvatar: String = ""
+    ) : DesktopRoute
 }
 
 // 历史栈帧：id 唯一，同一路由在历史里重复出现时仍可区分各自的页面现场

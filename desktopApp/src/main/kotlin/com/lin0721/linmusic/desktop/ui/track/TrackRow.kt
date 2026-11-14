@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -102,6 +103,7 @@ import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.songInfoText
 import com.lin0721.linmusic.desktop.ui.components.detectLongPressReorder
+import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.components.songLink
@@ -461,6 +463,20 @@ internal fun TrackMenu(
             MenuItem("减少推荐", icon = Icons.Rounded.HeartBroken, onClick = {
                 onDismiss()
                 reduce(track)
+            })
+        }
+        if (track.id > 0L) {
+            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                onDismiss()
+                navigator.openSongShareCard(
+                    DesktopAppState.ShareSongInfo(
+                        songId = track.id,
+                        title = track.name,
+                        artist = track.ar.joinToString(" / ") { it.name },
+                        coverUrl = track.al.picUrl,
+                        durationMs = track.dt
+                    )
+                )
             })
         }
         if (!isExternal) {

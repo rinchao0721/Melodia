@@ -27,6 +27,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         pluginCommands = get(),
         playerCards = get(),
         playbackController = get(),
+        lyricsResolver = get(),
         downloader = get(),
         downloadScanner = get(),
         desktopPreferences = get(),
@@ -43,6 +44,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         songLinkRequests = get(),
         linkPreviewResolver = get(),
         listenTogether = get(),
+        privateUnreadMonitor = get(),
         pageViewModels = object : PageViewModelFactory {
             override fun <T : ViewModel> create(modelClass: KClass<T>): T = koin.get(modelClass)
         }

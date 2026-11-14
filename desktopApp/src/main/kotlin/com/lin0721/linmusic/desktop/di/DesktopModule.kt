@@ -78,10 +78,14 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
+import com.lin0721.linmusic.feature.message.ui.MessageViewModel
+import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
 import com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedViewModel
@@ -174,6 +178,7 @@ val desktopPlatformModule = module {
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
+    single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }
@@ -332,6 +337,9 @@ val desktopViewModelModule = module {
     singleOf(::PlayerViewModel)
     singleOf(::ListenTogetherViewModel)
     factoryOf(::RoomSongPickerViewModel)
+    factoryOf(::MessageViewModel)
+    factoryOf(::PrivateChatViewModel)
+    factoryOf(::ShareToFriendViewModel)
     factoryOf(::ArtistViewModel)
     singleOf(::CommonSettingsViewModel)
     singleOf(::LxPluginSettingsViewModel)

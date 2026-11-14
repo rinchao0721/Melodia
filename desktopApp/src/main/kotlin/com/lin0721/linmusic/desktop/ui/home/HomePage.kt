@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -106,6 +107,7 @@ import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTabActions
+import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.data.DailySong
@@ -824,6 +826,19 @@ private fun ServerShelf(
                         onDismiss()
                         viewModel.addShelfSongToPlayNext(card)
                     })
+                    if (card.id > 0L) {
+                        MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                            onDismiss()
+                            navigator.openSongShareCard(
+                                DesktopAppState.ShareSongInfo(
+                                    songId = card.id,
+                                    title = card.title,
+                                    artist = "",
+                                    coverUrl = card.coverUrl
+                                )
+                            )
+                        })
+                    }
                     MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/song?id=${card.id}")

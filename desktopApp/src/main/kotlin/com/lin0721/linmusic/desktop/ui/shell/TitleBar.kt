@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.FilterNone
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MailOutline
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
@@ -92,11 +93,13 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.download.DownloadTask
 import com.lin0721.linmusic.desktop.data.download.DownloadTaskStatus
@@ -155,6 +158,10 @@ fun WindowScope.TitleBar(
     recognitionOpen: Boolean,
     onRecognitionClick: () -> Unit,
     cloudMusic: CloudMusicActions,
+    privateUnreadCount: Int = 0,
+    onDismissUnread: () -> Unit = {},
+    messagesOpen: Boolean = false,
+    onMessagesClick: () -> Unit = {},
     downloadTasks: List<DownloadTask>,
     downloadsOpen: Boolean,
     onDownloadsClick: (() -> Unit)?,
@@ -225,6 +232,7 @@ fun WindowScope.TitleBar(
             Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
                 rememberPluginCommands(PluginMenuLocation.TOOLBAR).forEach { item -> PluginToolbarButton(item) }
                 CloudUploadsButton(cloudMusic)
+                MessagesButton(privateUnreadCount, messagesOpen, onMessagesClick, onDismissUnread)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
                 AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
                 WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
@@ -309,6 +317,47 @@ private fun HomeButton(
             tint = DesktopColors.TextPrimary,
             modifier = Modifier.size(24.dp)
         )
+    }
+}
+
+// 标题栏消息入口：风格同下载按钮，右上角展示私信未读数
+@Composable
+private fun MessagesButton(
+    unreadCount: Int,
+    open: Boolean,
+    onClick: () -> Unit,
+    onDismissUnread: () -> Unit
+) {
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val scale by animateFloatAsState(if (hovered) DOWNLOAD_HOVER_SCALE else 1f, uiTween(FILL_ANIMATION_MS), label = "messagesHover")
+    val tint = if (hovered || open) DesktopColors.TextPrimary else DesktopColors.TextGray
+    val tooltip = if (unreadCount > 0) "消息 · $unreadCount 条未读" else "消息"
+    DesktopTooltip(tooltip, side = TooltipSide.Bottom, modifier = Modifier.padding(end = 4.dp)) {
+        Box(contentAlignment = Alignment.Center) {
+            IconButton(
+                onClick = onClick,
+                interactionSource = hoverSource,
+                modifier = Modifier.size(DOWNLOAD_BUTTON_SIZE).graphicsLayer { scaleX = scale; scaleY = scale }
+            ) {
+                Icon(Icons.Rounded.MailOutline, "消息", tint = tint, modifier = Modifier.size(DOWNLOAD_ICON_SIZE))
+            }
+            if (unreadCount > 0) {
+                DraggableUnreadBadge(
+                    count = unreadCount,
+                    onDismiss = onDismissUnread,
+                    containerColor = DesktopColors.Accent,
+                    contentColor = DesktopColors.OnAccent,
+                    fontSize = 9.sp,
+                    minWidth = 15.dp,
+                    height = 15.dp,
+                    horizontalPadding = 4.dp,
+                    borderWidth = 1.dp,
+                    borderColor = DesktopColors.WindowBackground,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 1.dp)
+                )
+            }
+        }
     }
 }
 

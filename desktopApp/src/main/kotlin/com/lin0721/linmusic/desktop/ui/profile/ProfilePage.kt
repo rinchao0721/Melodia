@@ -143,11 +143,17 @@ private fun ProfileContent(
                             onFollowedsClick = { navigator.openFollowList(info.uid, FollowListMode.FOLLOWEDS) }
                         )
                         if (!state.isSelf) {
-                            FollowButton(
-                                followed = info.isFollowedByMe,
-                                modifier = Modifier.padding(start = ContentPadding, end = ContentPadding, bottom = 20.dp)
+                            Row(
+                                modifier = Modifier.padding(start = ContentPadding, end = ContentPadding, bottom = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (navigator.isLoggedIn) viewModel.toggleFollow() else navigator.showMessage("请先登录账号")
+                                FollowButton(followed = info.isFollowedByMe) {
+                                    if (navigator.isLoggedIn) viewModel.toggleFollow() else navigator.showMessage("请先登录账号")
+                                }
+                                SendMessageButton {
+                                    navigator.openMessages(info.uid, info.nickname, info.avatarUrl)
+                                }
                             }
                         } else {
                             Box(Modifier.height(20.dp))
@@ -278,6 +284,24 @@ internal fun FollowButton(followed: Boolean, modifier: Modifier = Modifier, onCl
         Text(
             if (followed) "已关注" else "关注",
             color = DesktopColors.TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun SendMessageButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.clip(RoundedCornerShape(16.dp))
+            .background(DesktopColors.Accent)
+            .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "发私信",
+            color = DesktopColors.OnAccent,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold
         )

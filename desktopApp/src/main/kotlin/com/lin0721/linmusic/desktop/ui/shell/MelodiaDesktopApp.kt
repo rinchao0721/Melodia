@@ -55,6 +55,7 @@ import com.lin0721.linmusic.core.deeplink.NeteaseLink
 import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
 import com.lin0721.linmusic.core.deeplink.playLinkTrack
+import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
@@ -279,27 +280,29 @@ fun WindowScope.MelodiaDesktopApp(
                     false
                 }
         ) {
-            Column(Modifier.fillMaxSize()) {
-                // 全屏或歌词沉浸态时收起自绘标题栏，Esc 或底栏按钮退出
-                AnimatedVisibility(
-                    visible = !isFullscreen && !lyricsView.isImmersive,
-                    enter = uiEnter(ChromeEnter),
-                    exit = uiExit(ChromeExit)
-                ) {
-                    AppTitleBar(state, deps, windowState, userProfile, searchFocusRequests, searchDropdown, onClose)
+            DragBadgeOverlayHost(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                    // 全屏或歌词沉浸态时收起自绘标题栏，Esc 或底栏按钮退出
+                    AnimatedVisibility(
+                        visible = !isFullscreen && !lyricsView.isImmersive,
+                        enter = uiEnter(ChromeEnter),
+                        exit = uiExit(ChromeExit)
+                    ) {
+                        AppTitleBar(state, deps, windowState, userProfile, searchFocusRequests, searchDropdown, onClose)
+                    }
+                    Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
+                    AnimatedVisibility(
+                        visible = !lyricsView.isImmersive,
+                        enter = uiEnter(ChromeEnter),
+                        exit = uiExit(ChromeExit)
+                    ) {
+                        AppPlayerBar(state, deps, audioOutput, fullscreen, onEnterMiniPlayer)
+                    }
                 }
-                Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
-                AnimatedVisibility(
-                    visible = !lyricsView.isImmersive,
-                    enter = uiEnter(ChromeEnter),
-                    exit = uiExit(ChromeExit)
-                ) {
-                    AppPlayerBar(state, deps, audioOutput, fullscreen, onEnterMiniPlayer)
+                SearchDropdown(searchDropdown, deps.searchViewModel) { keyword ->
+                    state.navigate(DesktopRoute.Search)
+                    deps.searchViewModel.searchWithKeyword(keyword)
                 }
-            }
-            SearchDropdown(searchDropdown, deps.searchViewModel) { keyword ->
-                state.navigate(DesktopRoute.Search)
-                deps.searchViewModel.searchWithKeyword(keyword)
             }
             ClipboardLinkBanner(
                 link = clipboardLink,
@@ -363,12 +366,15 @@ fun WindowScope.MelodiaDesktopApp(
                 onDismiss = { state.showRecognition = false }
             )
         }
-        state.shareCardKind?.let { kind ->
+        state.shareCardTarget?.let { target ->
             ShareCardDialog(
-                initialKind = kind,
+                initialKind = target.kind,
+                targetSong = target.song,
                 controller = deps.playbackController,
                 playerViewModel = deps.playerViewModel,
-                onDismiss = { state.shareCardKind = null }
+                lyricsResolver = deps.lyricsResolver,
+                pageViewModels = deps.pageViewModels,
+                onDismiss = { state.shareCardTarget = null }
             )
         }
     }

@@ -441,4 +441,33 @@ class DesktopAppStateTest {
 
         assertEquals(DesktopRoute.Home, state.backStack.current)
     }
+
+    @Test
+    fun messagesRouteNavigatesAndStepsBack() {
+        val state = create()
+        val route = DesktopRoute.Messages(peerUid = 42L, peerName = "测试用户", peerAvatar = "https://img")
+        state.navigate(route)
+        assertEquals(route, state.backStack.current)
+        assertTrue(state.canGoBack)
+
+        state.navigateBack()
+        assertEquals(DesktopRoute.Home, state.backStack.current)
+
+        state.navigateForward()
+        assertEquals(route, state.backStack.current)
+    }
+
+    @Test
+    fun shareCardTargetHoldsTargetUntilCleared() {
+        val state = create()
+        assertNull(state.shareCardTarget)
+        val target = DesktopAppState.ShareCardTarget(
+            kind = com.lin0721.linmusic.core.share.ShareCardKind.SONG,
+            song = DesktopAppState.ShareSongInfo(186016L, "晴天", "周杰伦", null)
+        )
+        state.shareCardTarget = target
+        assertEquals(target, state.shareCardTarget)
+        state.shareCardTarget = null
+        assertNull(state.shareCardTarget)
+    }
 }

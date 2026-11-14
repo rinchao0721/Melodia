@@ -36,6 +36,7 @@ internal fun WindowScope.AppTitleBar(
     val discovery by searchViewModel.discoveryState.collectAsState()
     val downloadTasks by deps.downloader.tasks.collectAsState()
     val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
+    val privateUnreadCount by deps.privateUnreadMonitor.unreadCount.collectAsState()
     LaunchedEffect(Unit) { searchViewModel.songHitsEnabled = true }
     LaunchedEffect(Unit) {
         deps.cloudMusic.uploadRunner.batchFinished.collect { state.showMessage(uploadBatchMessage(it.succeeded, it.failed)) }
@@ -83,6 +84,17 @@ internal fun WindowScope.AppTitleBar(
         recognitionOpen = state.showRecognition,
         onRecognitionClick = { state.showRecognition = true },
         cloudMusic = deps.cloudMusic,
+        privateUnreadCount = privateUnreadCount,
+        onDismissUnread = deps.privateUnreadMonitor::markAllRead,
+        messagesOpen = state.backStack.current is DesktopRoute.Messages,
+        onMessagesClick = {
+            if (userProfile != null) {
+                state.navigate(DesktopRoute.Messages())
+            } else {
+                state.showMessage("请先登录账号")
+                state.showLogin = true
+            }
+        },
         downloadTasks = downloadTasks,
         downloadsOpen = state.isOverlayOpen(DockOverlay.Downloads),
         onDownloadsClick = { state.toggleOverlay(DockOverlay.Downloads) },
