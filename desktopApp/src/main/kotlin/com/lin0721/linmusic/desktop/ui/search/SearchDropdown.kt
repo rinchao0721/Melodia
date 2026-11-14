@@ -369,7 +369,6 @@ private fun RowScope.LinkHitRow(hit: SearchLinkHit) {
     val preview = (hit.previewState as? LinkPreviewState.Ready)?.preview
     val target = hit.target
     val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
-    val badgeText = "链接直达 · ${preview?.typeLabel ?: target.typeLabel}"
     val titleText = when {
         preview != null -> preview.title
         hit.previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
@@ -385,28 +384,7 @@ private fun RowScope.LinkHitRow(hit: SearchLinkHit) {
         Modifier.weight(1f).padding(start = 12.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val badgeShape = RoundedCornerShape(3.dp)
-            Box(
-                modifier = Modifier
-                    .background(DesktopColors.AccentText.copy(alpha = 0.1f), badgeShape)
-                    .border(BorderStroke(0.5.dp, DesktopColors.AccentText), badgeShape)
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
-            ) {
-                Text(
-                    text = badgeText,
-                    color = DesktopColors.AccentText,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    lineHeight = 12.sp,
-                    maxLines = 1
-                )
-            }
-            Text(titleText, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Text(titleText, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitleText, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     Text(

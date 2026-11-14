@@ -115,7 +115,6 @@ fun ClipboardLinkFloatingCard(
             val isSong = target is SongLinkTarget.Song
             val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
             val cardShape = RoundedCornerShape(InfoCardRadius)
-            val badgeText = preview?.typeLabel ?: target.typeLabel
             val titleText = when {
                 preview != null -> preview.title
                 previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
@@ -123,7 +122,7 @@ fun ClipboardLinkFloatingCard(
             }
             val subtitleText = when {
                 preview != null && preview.subtitle.isNotBlank() -> preview.subtitle
-                previewState is LinkPreviewState.Loading -> "来自剪贴板"
+                previewState is LinkPreviewState.Loading -> "正在解析…"
                 else -> "点击${if (isSong) "插播" else "打开"}"
             }
 
@@ -175,20 +174,14 @@ fun ClipboardLinkFloatingCard(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            LinkTypeBadge(badgeText)
-                            Text(
-                                text = titleText,
-                                color = MelodiaColors.TextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Text(
+                            text = titleText,
+                            color = MelodiaColors.TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Text(
                             text = subtitleText,
                             color = MelodiaColors.TextSecondary,
@@ -245,26 +238,6 @@ fun ClipboardLinkFloatingCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LinkTypeBadge(label: String) {
-    val shape = RoundedCornerShape(3.dp)
-    Box(
-        modifier = Modifier
-            .background(MelodiaColors.AccentText.copy(alpha = 0.1f), shape)
-            .border(BorderStroke(0.5.dp, MelodiaColors.AccentText), shape)
-            .padding(horizontal = MelodiaSpacing.xs, vertical = 1.dp)
-    ) {
-        Text(
-            text = label,
-            color = MelodiaColors.AccentText,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 11.sp,
-            maxLines = 1
-        )
     }
 }
 

@@ -85,7 +85,6 @@ internal fun ClipboardLinkBanner(
             val isSong = target is SongLinkTarget.Song
             val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
             val cardShape = RoundedCornerShape(10.dp)
-            val badgeText = preview?.typeLabel ?: target.typeLabel
             val titleText = when {
                 preview != null -> preview.title
                 previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
@@ -93,7 +92,7 @@ internal fun ClipboardLinkBanner(
             }
             val subtitleText = when {
                 preview != null && preview.subtitle.isNotBlank() -> preview.subtitle
-                previewState is LinkPreviewState.Loading -> "来自剪贴板"
+                previewState is LinkPreviewState.Loading -> "正在解析…"
                 else -> "点击${if (isSong) "插播" else "打开"}"
             }
 
@@ -119,20 +118,14 @@ internal fun ClipboardLinkBanner(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        LinkTypeBadge(badgeText)
-                        Text(
-                            text = titleText,
-                            color = DesktopColors.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = titleText,
+                        color = DesktopColors.TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         text = subtitleText,
                         color = DesktopColors.TextGray,
@@ -188,25 +181,5 @@ internal fun ClipboardLinkBanner(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LinkTypeBadge(label: String) {
-    val shape = RoundedCornerShape(3.dp)
-    Box(
-        modifier = Modifier
-            .background(DesktopColors.AccentText.copy(alpha = 0.1f), shape)
-            .border(BorderStroke(0.5.dp, DesktopColors.AccentText), shape)
-            .padding(horizontal = 5.dp, vertical = 1.dp)
-    ) {
-        Text(
-            text = label,
-            color = DesktopColors.AccentText,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 12.sp,
-            maxLines = 1
-        )
     }
 }

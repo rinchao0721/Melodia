@@ -217,7 +217,7 @@ private fun SearchLinkHitCard(
     }
     val subtitleText = when {
         preview != null && preview.subtitle.isNotBlank() -> preview.subtitle
-        hit.previewState is LinkPreviewState.Loading -> "链接直达"
+        hit.previewState is LinkPreviewState.Loading -> "正在解析…"
         else -> if (isSong) "点击插播" else "点击打开${target.typeLabel}"
     }
     val cardShape = RoundedCornerShape(InfoCardRadius)
@@ -238,35 +238,14 @@ private fun SearchLinkHitCard(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val badgeShape = RoundedCornerShape(3.dp)
-                Box(
-                    modifier = Modifier
-                        .background(MelodiaColors.AccentText.copy(alpha = 0.1f), badgeShape)
-                        .border(BorderStroke(0.5.dp, MelodiaColors.AccentText), badgeShape)
-                        .padding(horizontal = MelodiaSpacing.xs, vertical = 1.dp)
-                ) {
-                    Text(
-                        text = "链接直达 · ${preview?.typeLabel ?: target.typeLabel}",
-                        color = MelodiaColors.AccentText,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = 11.sp,
-                        maxLines = 1
-                    )
-                }
-                Text(
-                    text = titleText,
-                    color = MelodiaColors.TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = titleText,
+                color = MelodiaColors.TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 text = subtitleText,
                 color = MelodiaColors.TextSecondary,
