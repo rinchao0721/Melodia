@@ -37,8 +37,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -83,6 +86,9 @@ class PlayerManager(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _isPlaying = MutableStateFlow(false)
+    // 主动跳转事件：外部歌词服务靠它立刻重建时基，不用等下一次 1s 轮询
+    private val _seekEvents = MutableSharedFlow<Long>(extraBufferCapacity = 8)
+    val seekEvents: SharedFlow<Long> = _seekEvents.asSharedFlow()
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
     // 播放意图：点了播放就立即置真，不等音频真正流出。弱网缓冲期间 isPlaying 还是 false，
@@ -129,6 +135,11 @@ class PlayerManager(
 
     internal fun setPlaybackPositionSource(source: (() -> PlaybackPositionSample?)?) {
         playbackPositionSource = source
+    }
+
+    // 外部歌词服务要的是"此刻"的进度：直接读控制器，绕开 1s 一次的业务轮询
+    fun currentPositionExact(): Long {
+        return controllerHolder.currentPositionOrNull ?: currentPositionNow()
     }
 
     // 直接读时钟仍可能得到离散采样值；用共享绘制时钟逐帧推进，并渐进校正。
@@ -538,6 +549,7 @@ class PlayerManager(
         lyricRenderClock.reset(positionMs, SystemClock.elapsedRealtime(), _isPlaying.value, awaitSeek = true)
         controllerHolder.seekTo(positionMs)
         progress.setPosition(positionMs)
+        _seekEvents.tryEmit(positionMs.coerceAtLeast(0L))
         val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
         if (songId != -1L) {
             maybeCheckStreamCacheProgress(songId, positionMs, progress.duration.value)

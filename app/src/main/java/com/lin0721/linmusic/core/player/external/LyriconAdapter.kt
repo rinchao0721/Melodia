@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.core.player.external
 
 import android.content.Context
+import android.media.session.PlaybackState
+import android.os.SystemClock
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
@@ -11,17 +13,22 @@ import io.github.proify.lyricon.lyric.model.Song
 import io.github.proify.lyricon.provider.LyriconFactory
 import io.github.proify.lyricon.provider.LyriconProvider
 import io.github.proify.lyricon.provider.service.addConnectionListener
+import kotlin.math.abs
 
 class LyriconAdapter(private val context: Context) {
     companion object {
         private const val TAG = "LyriconAdapter"
         // 无行时长且无下一行时的兜底时长
         private const val FALLBACK_LINE_DURATION_MS = 4000L
+        // 位置偏差容忍值：小于此值不重发，避免频繁跨进程调用
+        private const val POSITION_DRIFT_TOLERANCE_MS = 300L
     }
 
     private var provider: LyriconProvider? = null
     private var isEnabled = false
     private var lastPlaying: Boolean? = null
+    private var lastPositionMs = 0L
+    private var lastPositionAt = 0L
 
     fun setEnabled(enabled: Boolean) {
         if (enabled == isEnabled) return
@@ -32,8 +39,11 @@ class LyriconAdapter(private val context: Context) {
                 target.register()
             } else {
                 provider?.player?.setSong(null)
+                // 清空驱动状态，下次开启时重新建立时间基准
+                provider?.player?.setPlaybackState(null as PlaybackState?)
                 provider?.unregister()
                 lastPlaying = null
+                lastPositionAt = 0L
             }
         } catch (e: Exception) {
             AppLogger.w(TAG, "Lyricon 注册状态切换失败: enabled=$enabled", e)
@@ -90,24 +100,59 @@ class LyriconAdapter(private val context: Context) {
         }
     }
 
-    fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
+    /**
+     * 同步播放状态与位置。
+     *
+     * 词幕中心服务支持 PlaybackState 驱动模式：拿到 (位置, 速度, 更新时间) 后
+     * 会自己按 elapsedRealtime 外推，不再依赖提供端高频写共享内存。
+     * 之前只调 setPosition，共享内存里永远是上一次 1s 轮询的值，
+     * 状态栏歌词因此最多慢一整秒，这就是不同步的来源。
+     *
+     * @param force 切歌、跳转、连接建立后必须重发，否则会被漂移判断吞掉
+     */
+    fun syncPlaybackState(isPlaying: Boolean, positionMs: Long, force: Boolean = false) {
         if (!isEnabled) return
         val player = provider?.player ?: return
+        val position = positionMs.coerceAtLeast(0L)
+        val now = SystemClock.elapsedRealtime()
         try {
-            // 位置写共享内存开销很小，播放状态仅在变化时跨进程发送
-            player.setPosition(positionMs.coerceAtLeast(0L))
-            if (lastPlaying != isPlaying) {
-                lastPlaying = isPlaying
-                player.setPlaybackState(isPlaying)
+            val playingChanged = lastPlaying != isPlaying
+            if (!force && !playingChanged) {
+                // 播放中位置会自己走；暂停时位置不该变。两者都只按偏差决定是否重发
+                val expected = if (isPlaying) lastPositionMs + (now - lastPositionAt) else lastPositionMs
+                if (abs(expected - position) <= POSITION_DRIFT_TOLERANCE_MS) return
             }
+            player.setPlaybackState(
+                PlaybackState.Builder()
+                    .setState(
+                        if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                        position,
+                        1.0f,
+                        now
+                    )
+                    .setActions(
+                        PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SEEK_TO
+                    )
+                    .build()
+            )
+            lastPlaying = isPlaying
+            lastPositionMs = position
+            lastPositionAt = now
         } catch (e: Exception) {
-            AppLogger.w(TAG, "Lyricon 更新播放状态失败", e)
+            AppLogger.w(TAG, "Lyricon 同步播放状态失败", e)
         }
+    }
+
+    /** 切歌或重新连接后清掉时间基准，保证下一次同步一定发出去。 */
+    fun invalidatePositionBase() {
+        lastPositionAt = 0L
+        lastPlaying = null
     }
 
     fun release() {
         isEnabled = false
         lastPlaying = null
+        lastPositionAt = 0L
         try {
             provider?.destroy()
         } catch (e: Exception) {
