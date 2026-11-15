@@ -67,6 +67,24 @@ class ExternalLyricCoordinator(
     var onTickerChanged: (() -> Unit)? = null
 
     init {
+        // 断线重连后词幕那边已经丢了状态，把当前歌曲与播放位置整份补发
+        lyriconAdapter.onReconnected = {
+            if (isLyriconEnabled && currentSongId != -1L) {
+                lyriconAdapter.updateSong(
+                    songId = currentSongId.toString(),
+                    title = originalTitle,
+                    artist = originalArtist,
+                    durationMs = originalDurationMs,
+                    lines = currentLines,
+                    showTranslation = isShowTranslation
+                )
+                lyriconAdapter.syncPlaybackState(
+                    isPlaying = playerManager.isPlaying.value,
+                    positionMs = playerManager.currentPositionExact(),
+                    force = true
+                )
+            }
+        }
         observeSettings()
         observePlayback()
     }
@@ -488,8 +506,7 @@ class ExternalLyricCoordinator(
         lyriconAdapter.release()
         fluidCloudNotifier.dismiss()
         lyricFetchJob?.cancel()
-        scope.cancel()
-        onMetadataChanged = null
-        onTickerChanged = null
+        // 不取消 scope、不清回调：本类是 Application 级单例，服务被划掉后还会被重新拉起，
+        // 观察链留着，重连后才能把当前歌曲与位置补回去
     }
 }

@@ -12,7 +12,16 @@ import io.github.proify.lyricon.lyric.model.RichLyricLine
 import io.github.proify.lyricon.lyric.model.Song
 import io.github.proify.lyricon.provider.LyriconFactory
 import io.github.proify.lyricon.provider.LyriconProvider
+import io.github.proify.lyricon.provider.isDisconnected
 import io.github.proify.lyricon.provider.service.addConnectionListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 class LyriconAdapter(private val context: Context) {
@@ -22,6 +31,10 @@ class LyriconAdapter(private val context: Context) {
         private const val FALLBACK_LINE_DURATION_MS = 4000L
         // 位置偏差容忍值：小于此值不重发，避免频繁跨进程调用
         private const val POSITION_DRIFT_TOLERANCE_MS = 300L
+        // 断线重连的退避序列（毫秒），超过长度后固定用最后一档
+        private val RECONNECT_DELAYS = longArrayOf(1_000L, 2_000L, 5_000L, 10_000L, 30_000L)
+        // 守护巡检间隔：进程被杀重开、词幕重启等场景靠它兜底
+        private const val WATCHDOG_INTERVAL_MS = 15_000L
     }
 
     private var provider: LyriconProvider? = null
@@ -30,14 +43,33 @@ class LyriconAdapter(private val context: Context) {
     private var lastPositionMs = 0L
     private var lastPositionAt = 0L
 
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var reconnectJob: Job? = null
+    private var watchdogJob: Job? = null
+    private var reconnectAttempt = 0
+    // release 之后 adapter 仍可复用：服务被系统回收再拉起时靠它恢复注册
+    private var released = false
+
+    /**
+     * 重新连上中心服务后回调。
+     * 词幕断线期间可能已经丢掉歌曲与歌词，这里让调用方把当前状态整份补发一次。
+     */
+    var onReconnected: (() -> Unit)? = null
+
     fun setEnabled(enabled: Boolean) {
+        ensureStarted()
         if (enabled == isEnabled) return
         isEnabled = enabled
         try {
             if (enabled) {
                 val target = provider ?: createProvider()?.also { provider = it } ?: return
                 target.register()
+                startWatchdog()
             } else {
+                stopWatchdog()
+                reconnectJob?.cancel()
+                reconnectJob = null
+                reconnectAttempt = 0
                 provider?.player?.setSong(null)
                 // 清空驱动状态，下次开启时重新建立时间基准
                 provider?.player?.setPlaybackState(null as PlaybackState?)
@@ -53,15 +85,86 @@ class LyriconAdapter(private val context: Context) {
     private fun createProvider(): LyriconProvider? = try {
         LyriconFactory.createProvider(context.applicationContext).apply {
             service.addConnectionListener {
-                onConnected { AppLogger.i(TAG, "Lyricon 已连接") }
-                onReconnected { AppLogger.i(TAG, "Lyricon 已重连") }
-                onDisconnected { AppLogger.i(TAG, "Lyricon 连接断开") }
-                onConnectTimeout { AppLogger.w(TAG, "Lyricon 连接超时，中心服务可能未运行") }
+                onConnected {
+                    AppLogger.i(TAG, "Lyricon 已连接")
+                    onConnectedInternal()
+                }
+                onReconnected {
+                    AppLogger.i(TAG, "Lyricon 已重连")
+                    onConnectedInternal()
+                }
+                onDisconnected {
+                    AppLogger.w(TAG, "Lyricon 连接断开，安排重连")
+                    scheduleReconnect("连接断开")
+                }
+                onConnectTimeout {
+                    AppLogger.w(TAG, "Lyricon 连接超时，安排重连")
+                    scheduleReconnect("连接超时")
+                }
             }
         }
     } catch (e: Exception) {
         AppLogger.w(TAG, "Lyricon Provider 创建失败", e)
         null
+    }
+
+    // 连上后重置退避，并把当前状态补一遍，避免断线期间状态丢失
+    private fun onConnectedInternal() {
+        reconnectAttempt = 0
+        reconnectJob?.cancel()
+        reconnectJob = null
+        invalidatePositionBase()
+        onReconnected?.invoke()
+    }
+
+    /** 断线或超时后按退避重试注册；进程重启、词幕重启都靠它自愈。 */
+    private fun scheduleReconnect(reason: String) {
+        if (!isEnabled) return
+        if (reconnectJob?.isActive == true) return
+        val delayMs = RECONNECT_DELAYS[reconnectAttempt.coerceAtMost(RECONNECT_DELAYS.lastIndex)]
+        reconnectAttempt++
+        AppLogger.i(TAG, "Lyricon $reason，${delayMs}ms 后重试注册")
+        reconnectJob = scope.launch {
+            delay(delayMs)
+            if (!isEnabled) return@launch
+            try {
+                val target = provider ?: createProvider()?.also { provider = it }
+                if (target == null) {
+                    scheduleReconnect("Provider 创建失败")
+                    return@launch
+                }
+                target.register()
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "Lyricon 重连失败", e)
+                scheduleReconnect("重连失败")
+            }
+        }
+    }
+
+    // 定期巡检连接状态：省电机制下重连协程可能被推迟，这里再兜一层
+    private fun startWatchdog() {
+        if (watchdogJob?.isActive == true) return
+        watchdogJob = scope.launch {
+            while (isActive && isEnabled) {
+                delay(WATCHDOG_INTERVAL_MS)
+                if (!isEnabled) break
+                val target = provider
+                if (target == null) {
+                    scheduleReconnect("Provider 缺失")
+                    continue
+                }
+                val status = target.service.connectionStatus
+                if (status.isDisconnected()) {
+                    AppLogger.w(TAG, "Lyricon 巡检发现未连接（$status），重新注册")
+                    scheduleReconnect("巡检未连接")
+                }
+            }
+        }
+    }
+
+    private fun stopWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = null
     }
 
     fun updateSong(
@@ -72,6 +175,7 @@ class LyriconAdapter(private val context: Context) {
         lines: List<LyricLine>,
         showTranslation: Boolean
     ) {
+        ensureStarted()
         if (!isEnabled) return
         val player = provider?.player ?: return
         try {
@@ -111,6 +215,7 @@ class LyriconAdapter(private val context: Context) {
      * @param force 切歌、跳转、连接建立后必须重发，否则会被漂移判断吞掉
      */
     fun syncPlaybackState(isPlaying: Boolean, positionMs: Long, force: Boolean = false) {
+        ensureStarted()
         if (!isEnabled) return
         val player = provider?.player ?: return
         val position = positionMs.coerceAtLeast(0L)
@@ -150,15 +255,41 @@ class LyriconAdapter(private val context: Context) {
     }
 
     fun release() {
-        isEnabled = false
+        // 只拆连接、不关开关：服务被系统回收后重新拉起时，按原设置自动恢复注册
+        released = true
         lastPlaying = null
         lastPositionAt = 0L
+        stopWatchdog()
+        reconnectJob?.cancel()
+        reconnectJob = null
+        reconnectAttempt = 0
         try {
             provider?.destroy()
         } catch (e: Exception) {
             AppLogger.w(TAG, "Lyricon 释放失败", e)
         }
         provider = null
+        scope.cancel()
+    }
+
+    /**
+     * release 之后重新可用：重建协程作用域与 Provider，开关仍是开的话直接注册。
+     * 服务被划掉又在通知栏点播放拉起时走的就是这条路。
+     */
+    private fun ensureStarted() {
+        if (!released) return
+        released = false
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val target = createProvider() ?: return
+        provider = target
+        if (!isEnabled) return
+        try {
+            target.register()
+            startWatchdog()
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Lyricon 恢复注册失败", e)
+            scheduleReconnect("恢复注册失败")
+        }
     }
 
     private fun List<LyricLine>.toRichLines(songDurationMs: Long): List<RichLyricLine> =
