@@ -56,6 +56,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.ACTION_OPEN_LYRIC_SETTINGS
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
+import com.lin0721.linmusic.core.ui.back.LocalPredictiveBackEnabled
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaTheme
 import com.lin0721.linmusic.core.ui.theme.UiMotion
@@ -156,6 +157,8 @@ class MainActivity : ComponentActivity() {
             val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
             val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
             val uiAnimationsEnabled by settingsPreferences.uiAnimationsEnabled.collectAsState(initial = true)
+            val predictiveBackEnabled by settingsPreferences.predictiveBackEnabled.collectAsState(initial = false)
+            val isPredictiveBackEnabled = predictiveBackEnabled && uiAnimationsEnabled && Build.VERSION.SDK_INT >= 34
             val uiMotion = remember { UiMotion() }
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
             val pluginLayouts by pluginRepository.layouts.collectAsState()
@@ -169,6 +172,7 @@ class MainActivity : ComponentActivity() {
             }
             CompositionLocalProvider(
                 LocalUiMotion provides uiMotion,
+                LocalPredictiveBackEnabled provides isPredictiveBackEnabled,
                 LocalPlayerLayouts provides pluginLayouts.specs,
                 LocalPluginCards provides pluginCards,
                 LocalPluginCommands provides pluginCommands

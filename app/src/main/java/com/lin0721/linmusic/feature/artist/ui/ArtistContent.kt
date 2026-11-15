@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -156,9 +157,12 @@ fun ArtistContent(
         if (!searchOpen) onSongSearchQueryChange("")
     }
     // 搜索展开中拦截系统返回：先关搜索，不直接退出歌手页
-    BackHandler(enabled = searchOpen) {
-        searchBarRevealState.close()
-    }
+    MelodiaBackHandler(
+        enabled = searchOpen,
+        onProgress = { searchBarRevealState.onBackProgress(it.progress) },
+        onCancel = { searchBarRevealState.onBackCancel() },
+        onBack = { searchBarRevealState.close() }
+    )
     BackHandler(enabled = selectionUi.active) {
         onExitSelection()
     }

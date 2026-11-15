@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -238,9 +239,12 @@ fun PlaylistContent(
     val searchFullyRevealed = searchBarRevealState.isOpen
 
     // 搜索展开中拦截系统返回：先关搜索，不直接退出歌单页
-    BackHandler(enabled = searchBarRevealState.isOpen) {
-        searchBarRevealState.close()
-    }
+    MelodiaBackHandler(
+        enabled = searchBarRevealState.isOpen,
+        onProgress = { searchBarRevealState.onBackProgress(it.progress) },
+        onCancel = { searchBarRevealState.onBackCancel() },
+        onBack = { searchBarRevealState.close() }
+    )
     BackHandler(enabled = selectionUi.active) {
         onExitSelection()
     }

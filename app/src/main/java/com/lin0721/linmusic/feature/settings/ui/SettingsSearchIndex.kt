@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import android.os.Build
 import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.feature.settings.ui.SettingsSubMenu.*
 
@@ -94,6 +95,7 @@ object SettingsSearchIndex {
             entry(ABOUT, 2, "导出并分享日志", "反馈 故障"),
             entry(ABOUT, 3, "特别感谢", "致谢 开源项目")
         ) + listOfNotNull(
+            entry(APPEARANCE, 0, "预见式返回动画（测试）", "返回 手势 预览 动画 测试").takeIf { Build.VERSION.SDK_INT >= 34 },
             entry(LYRICS, 2, "魅族状态栏歌词", "flyme meizu 状态栏").takeIf { FlymeStatusBarLyric.isSupported }
         )
     }

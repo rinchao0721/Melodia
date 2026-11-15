@@ -8,7 +8,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,10 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.WebLoginBackground
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
@@ -61,7 +64,10 @@ fun WebViewLoginScreen(
     onLoginSuccess: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler { onClose() }
+    val dismissState = rememberBackDismissState()
+    MelodiaDismissBackHandler(enabled = true, state = dismissState) {
+        onClose()
+    }
 
     var isLoading by remember { mutableStateOf(true) }
 
@@ -95,7 +101,9 @@ fun WebViewLoginScreen(
     val readyToLoadWebView = resolvedHeaders != null && slideInFinished
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .backDismissPreview(dismissState, TransformOrigin(0.5f, 1f)),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {

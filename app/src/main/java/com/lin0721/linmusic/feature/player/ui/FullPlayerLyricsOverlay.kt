@@ -6,6 +6,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
@@ -62,7 +63,8 @@ fun FullPlayerLyricsOverlay(
     onMoreClick: () -> Unit,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
-    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
+    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
 
@@ -145,6 +147,8 @@ fun FullPlayerLyricsOverlay(
                 pluginContent = pluginContent
             )
         }
-        if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
+        Box(modifier = Modifier.fillMaxSize().then(modifier)) {
+            if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
+        }
     }
 }

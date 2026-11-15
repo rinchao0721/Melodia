@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -24,7 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -52,6 +52,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
+import com.lin0721.linmusic.core.ui.back.BackDismissState
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
@@ -103,6 +105,7 @@ fun MelodiaBottomOverlay(
     modifier: Modifier = Modifier,
     currentScreen: Screen,
     showCreateSheet: Boolean,
+    createBackDismissState: BackDismissState? = null,
     isLoginScreenVisible: Boolean,
     // 多选等操作态下收起迷你播放器
     isMiniPlayerHidden: Boolean = false,
@@ -156,6 +159,13 @@ fun MelodiaBottomOverlay(
                 modifier = Modifier
                     .padding(horizontal = MelodiaSpacing.md)
                     .padding(bottom = 12.dp)
+                    .then(
+                        if (createBackDismissState != null) {
+                            Modifier.backDismissPreview(createBackDismissState, TransformOrigin(0.5f, 1f))
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
                 CreatePopupMenu(
                     onDismiss = onCreateDismiss,
@@ -343,6 +353,11 @@ fun MelodiaBottomOverlay(
     }
 }
 
+private val PlayerDragTopCornerShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+private val PlayerBackTransformOrigin = TransformOrigin(0.5f, 1f)
+private const val PlayerBackMinScale = 0.94f
+private const val PlayerBackMaxCornerDp = 28f
+
 // ────────────────────────────────────────────────────────────────────────────
 // 全屏播放器悬浮层（随 playerOffsetY 拖拽/弹簧动画上下滑动）
 // ────────────────────────────────────────────────────────────────────────────
@@ -353,6 +368,7 @@ fun MelodiaFullPlayerOverlay(
     isPlayerOpen: Boolean,
     // 位移只在布局阶段读取，展开动画逐帧推进时不会让调用方整体重组
     playerOffsetY: () -> Float,
+    backShrinkFraction: () -> Float = { 0f },
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -372,18 +388,33 @@ fun MelodiaFullPlayerOverlay(
     // 仅在播放器打开或动画进行中时渲染，避免关闭后 nestedScroll 拦截触摸事件
     if (currentTrack != null && screenHeightPx > 0f && isPlayerOpen) {
         val offsetProvider by rememberUpdatedState(playerOffsetY)
-        // 圆角只在"是否贴顶"翻转时才触发重组，不随每帧位移重组
-        val hasTopCorners by remember { derivedStateOf { offsetProvider() > 0f } }
+        val shrinkProvider by rememberUpdatedState(backShrinkFraction)
         Box(
             modifier = modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetProvider().toInt()) }
-                .clip(
-                    RoundedCornerShape(
-                        topStart = if (hasTopCorners) 24.dp else 0.dp,
-                        topEnd = if (hasTopCorners) 24.dp else 0.dp
-                    )
-                )
+                .graphicsLayer {
+                    val shrink = shrinkProvider().coerceIn(0f, 1f)
+                    if (shrink > 0f) {
+                        val scale = 1f - (1f - PlayerBackMinScale) * shrink
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = PlayerBackTransformOrigin
+                        val cornerDp = (PlayerBackMaxCornerDp * shrink).dp
+                        shape = RoundedCornerShape(topStart = cornerDp, topEnd = cornerDp)
+                        clip = true
+                    } else {
+                        scaleX = 1f
+                        scaleY = 1f
+                        transformOrigin = PlayerBackTransformOrigin
+                        if (offsetProvider() > 0f) {
+                            shape = PlayerDragTopCornerShape
+                            clip = true
+                        } else {
+                            clip = false
+                        }
+                    }
+                }
         ) {
             FullPlayerScreen(
                 currentTrack = currentTrack,

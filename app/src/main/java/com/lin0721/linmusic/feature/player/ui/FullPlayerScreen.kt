@@ -49,7 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -331,11 +335,18 @@ private fun FullPlayerScreenContent(
         }
     }
 
+    val lyricsBackDismissState = rememberBackDismissState()
+    val commentsBackDismissState = rememberBackDismissState()
+    val commentFloorBackDismissState = rememberBackDismissState()
+
     BackHandler(enabled = showQueueSheet) {
         showQueueSheet = false
     }
 
-    BackHandler(enabled = isLyricsFullScreen) {
+    MelodiaDismissBackHandler(
+        enabled = isLyricsFullScreen,
+        state = lyricsBackDismissState
+    ) {
         isLyricsFullScreen = false
     }
 
@@ -347,11 +358,17 @@ private fun FullPlayerScreenContent(
         showTimerSheet = false
     }
 
-    BackHandler(enabled = showCommentsSheet) {
+    MelodiaDismissBackHandler(
+        enabled = showCommentsSheet,
+        state = commentsBackDismissState
+    ) {
         showCommentsSheet = false
     }
 
-    BackHandler(enabled = showCommentFloor) {
+    MelodiaDismissBackHandler(
+        enabled = showCommentFloor,
+        state = commentFloorBackDismissState
+    ) {
         showCommentFloor = false
     }
 
@@ -782,8 +799,10 @@ private fun FullPlayerScreenContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(if (pluginFullLayout?.canvasScript == null) Modifier.haze(hazeState) else Modifier)
-                        // 全屏歌词完整盖住时整页不可见，跳过绘制，避免随进度刷新反复重绘并上传封面贴图
-                        .drawWithContent { if (!lyricsCoverage.isCovering) drawContent() },
+                        // 全屏歌词完整盖住且未处于返回跟手时整页不可见，跳过绘制；开始跟手缩小时立即恢复绘制以透出底层播放页
+                        .drawWithContent {
+                            if (!lyricsCoverage.isCovering || lyricsBackDismissState.fraction > 0f) drawContent()
+                        },
                     contentPadding = PaddingValues(
                         start = startInset,
                         end = endInset,
@@ -1092,7 +1111,8 @@ private fun FullPlayerScreenContent(
                 { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
             } else {
                 null
-            }
+            },
+            modifier = Modifier.backDismissPreview(lyricsBackDismissState, TransformOrigin(0.5f, 1f))
         )
 
         if (showShareCard) {
@@ -1207,33 +1227,39 @@ private fun FullPlayerScreenContent(
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
             exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
         ) {
-            CommentFullScreen(
-                commentsState = commentsState,
-                currentUserId = userProfile?.uid,
-                composerState = composerState,
-                onBack = { showCommentsSheet = false },
-                onSortChange = viewModel::changeCommentSort,
-                onLikeComment = viewModel::likeComment,
-                onUserClick = { uid ->
-                    showCommentsSheet = false
-                    onNavigateToProfile(uid)
-                },
-                onExpandFloor = { comment ->
-                    showCommentFloor = true
-                    viewModel.openCommentFloor(comment)
-                },
-                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                onSubmitComment = { content, target ->
-                    if (target != null) {
-                        viewModel.submitCommentReply(target.commentId, content)
-                    } else {
-                        viewModel.submitComment(content)
-                    }
-                },
-                onRequireLogin = { ToastManager.showToast("请先登录账号") },
-                onLoadMore = viewModel::loadMoreComments,
-                onRetry = { viewModel.retryComments() }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .backDismissPreview(commentsBackDismissState, TransformOrigin(0.5f, 1f))
+            ) {
+                CommentFullScreen(
+                    commentsState = commentsState,
+                    currentUserId = userProfile?.uid,
+                    composerState = composerState,
+                    onBack = { showCommentsSheet = false },
+                    onSortChange = viewModel::changeCommentSort,
+                    onLikeComment = viewModel::likeComment,
+                    onUserClick = { uid ->
+                        showCommentsSheet = false
+                        onNavigateToProfile(uid)
+                    },
+                    onExpandFloor = { comment ->
+                        showCommentFloor = true
+                        viewModel.openCommentFloor(comment)
+                    },
+                    onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                    onSubmitComment = { content, target ->
+                        if (target != null) {
+                            viewModel.submitCommentReply(target.commentId, content)
+                        } else {
+                            viewModel.submitComment(content)
+                        }
+                    },
+                    onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                    onLoadMore = viewModel::loadMoreComments,
+                    onRetry = { viewModel.retryComments() }
+                )
+            }
         }
 
         AnimatedVisibility(
@@ -1241,21 +1267,27 @@ private fun FullPlayerScreenContent(
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
             exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
         ) {
-            CommentFloorScreen(
-                floorState = floorState,
-                currentUserId = userProfile?.uid,
-                composerState = composerState,
-                onBack = { showCommentFloor = false },
-                onLoadMore = viewModel::loadMoreCommentFloor,
-                onSubmitReply = { parentCommentId, content ->
-                    viewModel.submitCommentReply(parentCommentId, content)
-                },
-                onRequireLogin = { ToastManager.showToast("请先登录账号") },
-                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                onLikeClick = { comment -> viewModel.likeComment(comment) },
-                onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
-                onUserClick = onNavigateToProfile
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .backDismissPreview(commentFloorBackDismissState, TransformOrigin(0.5f, 1f))
+            ) {
+                CommentFloorScreen(
+                    floorState = floorState,
+                    currentUserId = userProfile?.uid,
+                    composerState = composerState,
+                    onBack = { showCommentFloor = false },
+                    onLoadMore = viewModel::loadMoreCommentFloor,
+                    onSubmitReply = { parentCommentId, content ->
+                        viewModel.submitCommentReply(parentCommentId, content)
+                    },
+                    onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                    onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                    onLikeClick = { comment -> viewModel.likeComment(comment) },
+                    onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
+                    onUserClick = onNavigateToProfile
+                )
+            }
         }
 
         if (showDownloadQualitySheet) {

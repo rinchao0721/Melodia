@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -42,13 +41,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
@@ -191,15 +196,68 @@ fun RecognitionScreen(
         }
     }
 
-    BackHandler(enabled = backHandlerEnabled) {
-        if (showHistory) showHistory = false else onClose()
+    val screenDismissState = rememberBackDismissState()
+    val historyDismissState = rememberBackDismissState()
+    val latestShowHistory by rememberUpdatedState(showHistory)
+    val latestOnClose by rememberUpdatedState(onClose)
+    // 在同帧应用阶段同步复位，避免识别页或历史页再次打开时闪出上次残留收缩态
+    val wasBackEnabled = remember { booleanArrayOf(false) }
+    val wasHistoryVisible = remember { booleanArrayOf(false) }
+    SideEffect {
+        if (backHandlerEnabled && !wasBackEnabled[0]) {
+            screenDismissState.reset()
+        }
+        wasBackEnabled[0] = backHandlerEnabled
+        if (showHistory && !wasHistoryVisible[0]) {
+            historyDismissState.reset()
+        }
+        wasHistoryVisible[0] = showHistory
     }
+    val gestureSession = remember { object { var targetIsHistory: Boolean? = null } }
+
+    MelodiaBackHandler(
+        enabled = backHandlerEnabled,
+        onProgress = { progress ->
+            val targetIsHistory = gestureSession.targetIsHistory ?: latestShowHistory.also {
+                gestureSession.targetIsHistory = it
+            }
+            if (targetIsHistory) {
+                historyDismissState.onProgress(progress.progress)
+            } else {
+                screenDismissState.onProgress(progress.progress)
+            }
+        },
+        onCancel = {
+            val targetIsHistory = gestureSession.targetIsHistory
+            gestureSession.targetIsHistory = null
+            when (targetIsHistory) {
+                true -> historyDismissState.onCancel()
+                false -> screenDismissState.onCancel()
+                null -> Unit
+            }
+        },
+        onBack = {
+            val targetIsHistory = gestureSession.targetIsHistory
+            gestureSession.targetIsHistory = null
+            when (targetIsHistory) {
+                true -> historyDismissState.onCommit()
+                false -> screenDismissState.onCommit()
+                null -> Unit
+            }
+            if (latestShowHistory) showHistory = false else latestOnClose()
+        }
+    )
 
     // 聆听中播放已暂停，且迷你条会挡住取消按钮
     val showMiniPlayer = nowPlaying != null && uiState !is RecognitionUiState.Listening
 
     // Surface 吃掉触摸，避免点击穿透到下层页面
-    Surface(modifier = Modifier.fillMaxSize(), color = MelodiaColors.PageFill) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .backDismissPreview(screenDismissState, TransformOrigin(0.5f, 1f)),
+        color = MelodiaColors.PageFill
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 底部导航栏留白由最外层统一处理，内部（含历史页 Scaffold）不再重复计算
             Box(
@@ -275,14 +333,20 @@ fun RecognitionScreen(
                     enter = slideInHorizontally(uiTween(ContentSwitchDurationMs)) { it } + fadeIn(uiTween(ContentSwitchDurationMs)),
                     exit = slideOutHorizontally(uiTween(ContentSwitchDurationMs)) { it } + fadeOut(uiTween(ContentSwitchDurationMs))
                 ) {
-                    RecognitionHistoryPage(
-                        history = history,
-                        nowPlaying = nowPlaying,
-                        onBack = { showHistory = false },
-                        onPlay = viewModel::openHistory,
-                        onRemove = viewModel::removeHistory,
-                        onClear = viewModel::clearHistory
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .backDismissPreview(historyDismissState, TransformOrigin(1f, 0.5f))
+                    ) {
+                        RecognitionHistoryPage(
+                            history = history,
+                            nowPlaying = nowPlaying,
+                            onBack = { showHistory = false },
+                            onPlay = viewModel::openHistory,
+                            onRemove = viewModel::removeHistory,
+                            onClear = viewModel::clearHistory
+                        )
+                    }
                 }
             }
 

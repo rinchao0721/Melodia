@@ -1,7 +1,6 @@
 package com.lin0721.linmusic
 
 import com.lin0721.linmusic.core.plugin.PluginContent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
@@ -37,12 +36,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -84,8 +86,13 @@ import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
 import com.lin0721.linmusic.core.deeplink.playLinkTrack
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.back.LocalPredictiveBackEnabled
+import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
+import com.lin0721.linmusic.core.ui.back.decelerateBackProgress
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -138,6 +145,48 @@ private val PanelRiseStartRadius = 8.dp
 
 // 面板生长进度走到这个比例时完全不透明，此前与底下的迷你条交叉淡入
 private const val PanelRiseFadeFraction = 0.4f
+
+internal const val PANEL_BACK_MIN_VALUE = 0.85f
+
+// 平板面板返回跟手进度：从完全展开的 1f 往回拖到最低 0.85f
+internal fun computePanelBackValue(progress: Float): Float =
+    1f - (1f - PANEL_BACK_MIN_VALUE) * decelerateBackProgress(progress)
+
+private enum class GlobalBackTarget {
+    Undecided,
+    PlayerSheet,
+    Sidebar,
+    CreateSheet,
+    Page,
+    Ignored
+}
+
+private enum class PanelBackPhase {
+    Idle,
+    Seeking,
+    Canceling
+}
+
+private enum class PanelBackSession {
+    Undecided,
+    Active,
+    Ignored
+}
+
+private sealed interface PanelRiseIntent {
+    data object ResetOffPanel : PanelRiseIntent
+    data object Open : PanelRiseIntent
+    data object Close : PanelRiseIntent
+    data class Seek(val value: Float) : PanelRiseIntent
+    data object CancelToOpen : PanelRiseIntent
+}
+
+private sealed interface PanelFullscreenIntent {
+    data object SnapOff : PanelFullscreenIntent
+    data class Animate(val targetFullscreen: Boolean) : PanelFullscreenIntent
+    data class Seek(val value: Float) : PanelFullscreenIntent
+    data object CancelToFullscreen : PanelFullscreenIntent
+}
 
 // 面板生长时的可见区域：宽度不变，只裁上下边界
 private class PanelRevealShape(
@@ -302,21 +351,73 @@ fun MelodiaApp() {
     // 面板铺满全屏：由面板左上角的侧栏按钮切换；面板收起或离开 Expanded 时一并退出
     var isPanelFullscreen by remember { mutableStateOf(false) }
     val panelFullscreen = remember { Animatable(0f) }
-    LaunchedEffect(isPanelVisible, usePanel) {
-        if (!isPanelVisible) isPanelFullscreen = false
-        if (!usePanel) {
-            isPanelExpanded = false
-            isPanelDocked = false
-            panelRise.snapTo(0f)
-            panelFullscreen.snapTo(0f)
-        } else if (isPanelVisible) {
-            panelRise.animateTo(1f, motion.spec(PanelRiseSpec))
-            isPanelDocked = true
-        } else {
-            isPanelDocked = false
-            panelRise.animateTo(0f, motion.spec(PanelRiseSpec))
+    var isLyricsFullScreen by remember { mutableStateOf(false) }
+    var isLyricsControlsVisible by remember { mutableStateOf(true) }
+
+    var riseBackPhase by remember { mutableStateOf(PanelBackPhase.Idle) }
+    var riseBackProgress by remember { mutableFloatStateOf(0f) }
+    var fullscreenBackPhase by remember { mutableStateOf(PanelBackPhase.Idle) }
+    var fullscreenBackProgress by remember { mutableFloatStateOf(0f) }
+
+    val latestUsePanel by rememberUpdatedState(usePanel)
+    val latestLyricsFullscreen by rememberUpdatedState(isLyricsFullScreen)
+    val latestSidePlayerPinned by rememberUpdatedState(sidePlayerPinned)
+    val latestSidebarOpen by rememberUpdatedState(sidebar.isOpen)
+    val latestShowCreateSheet by rememberUpdatedState(showCreateSheet)
+    val latestMotion by rememberUpdatedState(motion)
+
+    // 单一协程串行消费面板升起/收起与返回跟手进度，防止手势与状态切换并发调用 Animatable
+    LaunchedEffect(panelRise) {
+        snapshotFlow {
+            // 直接读状态而非重组后的快照：返回提交改完布尔值的那一帧就要走收起，不能先被判成展开
+            val panelVisible = latestUsePanel && isPanelExpanded
+            val canRiseBack = panelVisible && !latestSidePlayerPinned && !latestSidebarOpen && !latestShowCreateSheet
+            when {
+                !latestUsePanel -> PanelRiseIntent.ResetOffPanel
+                !panelVisible -> PanelRiseIntent.Close
+                riseBackPhase == PanelBackPhase.Seeking && canRiseBack ->
+                    PanelRiseIntent.Seek(computePanelBackValue(riseBackProgress))
+                riseBackPhase == PanelBackPhase.Canceling && canRiseBack ->
+                    PanelRiseIntent.CancelToOpen
+                else -> PanelRiseIntent.Open
+            }
+        }.collectLatest { intent ->
+            when (intent) {
+                PanelRiseIntent.ResetOffPanel -> {
+                    riseBackPhase = PanelBackPhase.Idle
+                    isPanelFullscreen = false
+                    isPanelExpanded = false
+                    isPanelDocked = false
+                    panelRise.snapTo(0f)
+                }
+                PanelRiseIntent.Close -> {
+                    riseBackPhase = PanelBackPhase.Idle
+                    isPanelFullscreen = false
+                    isPanelDocked = false
+                    panelRise.animateTo(0f, latestMotion.spec(PanelRiseSpec))
+                }
+                PanelRiseIntent.Open -> {
+                    riseBackPhase = PanelBackPhase.Idle
+                    panelRise.animateTo(1f, latestMotion.spec(PanelRiseSpec))
+                    isPanelDocked = true
+                }
+                is PanelRiseIntent.Seek -> {
+                    panelRise.snapTo(intent.value)
+                }
+                PanelRiseIntent.CancelToOpen -> {
+                    try {
+                        panelRise.animateTo(1f, latestMotion.spec(PanelRiseSpec))
+                        isPanelDocked = true
+                    } finally {
+                        if (riseBackPhase == PanelBackPhase.Canceling) {
+                            riseBackPhase = PanelBackPhase.Idle
+                        }
+                    }
+                }
+            }
         }
     }
+
     // 切到侧栏模式（设置变更或旋转）时收起已打开的底部全屏播放页
     LaunchedEffect(usePanel) {
         if (usePanel && playerSheet.isOpen) playerSheet.animateTo(false, 0f)
@@ -326,22 +427,60 @@ fun MelodiaApp() {
     LaunchedEffect(isPanelShown) {
         if (isPanelShown) hasPanelBeenShown = true
     }
-    LaunchedEffect(isPanelFullscreen) {
-        // 面板尚未显示时直接就位：默认全屏展开若与升起动画同时拉宽，首帧组合时进度已走一半，宽度会跳变
-        if (isPanelFullscreen && panelRise.value == 0f) {
-            panelFullscreen.snapTo(1f)
-        } else {
-            panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, motion.spec(PanelFullscreenSpec))
+
+    // 单一协程串行消费面板全屏/侧栏切换与返回跟手进度，避免被打断在半路
+    LaunchedEffect(panelFullscreen) {
+        snapshotFlow {
+            when {
+                !latestUsePanel -> PanelFullscreenIntent.SnapOff
+                !isPanelFullscreen -> PanelFullscreenIntent.Animate(targetFullscreen = false)
+                fullscreenBackPhase == PanelBackPhase.Seeking && !latestLyricsFullscreen ->
+                    PanelFullscreenIntent.Seek(computePanelBackValue(fullscreenBackProgress))
+                fullscreenBackPhase == PanelBackPhase.Canceling && !latestLyricsFullscreen ->
+                    PanelFullscreenIntent.CancelToFullscreen
+                else -> PanelFullscreenIntent.Animate(targetFullscreen = true)
+            }
+        }.collectLatest { intent ->
+            when (intent) {
+                PanelFullscreenIntent.SnapOff -> {
+                    fullscreenBackPhase = PanelBackPhase.Idle
+                    panelFullscreen.snapTo(0f)
+                }
+                is PanelFullscreenIntent.Animate -> {
+                    fullscreenBackPhase = PanelBackPhase.Idle
+                    if (intent.targetFullscreen) {
+                        // 面板尚未显示时直接就位：默认全屏展开若与升起动画同时拉宽，首帧组合时进度已走一半，宽度会跳变
+                        if (Snapshot.withoutReadObservation { panelRise.value == 0f }) {
+                            panelFullscreen.snapTo(1f)
+                        } else {
+                            panelFullscreen.animateTo(1f, latestMotion.spec(PanelFullscreenSpec))
+                        }
+                    } else {
+                        panelFullscreen.animateTo(0f, latestMotion.spec(PanelFullscreenSpec))
+                    }
+                }
+                is PanelFullscreenIntent.Seek -> {
+                    panelFullscreen.snapTo(intent.value)
+                }
+                PanelFullscreenIntent.CancelToFullscreen -> {
+                    try {
+                        panelFullscreen.animateTo(1f, latestMotion.spec(PanelFullscreenSpec))
+                    } finally {
+                        if (fullscreenBackPhase == PanelBackPhase.Canceling) {
+                            fullscreenBackPhase = PanelBackPhase.Idle
+                        }
+                    }
+                }
+            }
         }
     }
+
     val panelWidth = rememberMelodiaPlayerPanelWidth()
     // 主页面内容层的实际宽度，用于算出播放面板铺满全屏时的卡片宽度
     var contentLayerWidth by remember { mutableStateOf(0.dp) }
     // 原始系统栏高度，双卡片模式下两张卡片据此避让；此处在任何 consumeWindowInsets 之外，读到的是完整值
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    var isLyricsFullScreen by remember { mutableStateOf(false) }
-    var isLyricsControlsVisible by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
     val window = (context as? ComponentActivity)?.window
@@ -452,28 +591,192 @@ fun MelodiaApp() {
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
             showCreateSheet || navigation.canGoBackToHomeAll
 
-    BackHandler(enabled = isAnyOverlayOpen) {
-        when {
-            playerSheet.isOpen -> {
-                navigation.resetPlayerNavigation()
-                playerSheet.animateTo(false, 0f)
-            }
-            navigation.isNavigatingFromPlayer -> handleBack()
-            sidebar.isOpen -> sidebar.close()
-            showCreateSheet -> showCreateSheet = false
-            navigation.canGoBackToHomeAll -> handleBack()
+    val pageBackGesture = remember { PageBackGestureState() }
+    val createBackDismissState = rememberBackDismissState()
+    val wasCreateMenuVisible = remember { booleanArrayOf(false) }
+    val isCreateMenuVisible = showCreateSheet && !isLoginScreenVisible
+    SideEffect {
+        if (isCreateMenuVisible && !wasCreateMenuVisible[0]) {
+            createBackDismissState.reset()
         }
+        wasCreateMenuVisible[0] = isCreateMenuVisible
     }
+    val predictiveBackEnabled by rememberUpdatedState(LocalPredictiveBackEnabled.current)
+    val gestureSession = remember { object { var target = GlobalBackTarget.Undecided } }
 
+    MelodiaBackHandler(
+        enabled = isAnyOverlayOpen,
+        onProgress = { event ->
+            if (gestureSession.target == GlobalBackTarget.Undecided) {
+                when {
+                    playerSheet.isOpen -> {
+                        gestureSession.target = GlobalBackTarget.PlayerSheet
+                        playerSheet.onBackProgress(event.progress)
+                    }
+                    navigation.isNavigatingFromPlayer -> {
+                        val target = navigation.peekBackTarget() as? BackTarget.Entry
+                        if (target != null) {
+                            gestureSession.target = GlobalBackTarget.Page
+                            pageBackGesture.begin(
+                                origin = navigation.currentEntry,
+                                target = target.entry,
+                                fromLeftEdge = event.fromLeftEdge,
+                                progress = event.progress
+                            )
+                        } else {
+                            gestureSession.target = GlobalBackTarget.Ignored
+                        }
+                    }
+                    sidebar.isOpen -> {
+                        gestureSession.target = GlobalBackTarget.Sidebar
+                        sidebar.onBackProgress(event.progress)
+                    }
+                    showCreateSheet -> {
+                        gestureSession.target = GlobalBackTarget.CreateSheet
+                        createBackDismissState.onProgress(event.progress)
+                    }
+                    navigation.canGoBackToHomeAll -> {
+                        val target = navigation.peekBackTarget() as? BackTarget.Entry
+                        if (target != null) {
+                            gestureSession.target = GlobalBackTarget.Page
+                            pageBackGesture.begin(
+                                origin = navigation.currentEntry,
+                                target = target.entry,
+                                fromLeftEdge = event.fromLeftEdge,
+                                progress = event.progress
+                            )
+                        } else {
+                            gestureSession.target = GlobalBackTarget.Ignored
+                        }
+                    }
+                    else -> gestureSession.target = GlobalBackTarget.Ignored
+                }
+            } else {
+                when (gestureSession.target) {
+                    GlobalBackTarget.PlayerSheet -> playerSheet.onBackProgress(event.progress)
+                    GlobalBackTarget.Sidebar -> sidebar.onBackProgress(event.progress)
+                    GlobalBackTarget.CreateSheet -> createBackDismissState.onProgress(event.progress)
+                    GlobalBackTarget.Page -> pageBackGesture.update(
+                        progress = event.progress,
+                        fromLeftEdge = event.fromLeftEdge
+                    )
+                    GlobalBackTarget.Ignored, GlobalBackTarget.Undecided -> Unit
+                }
+            }
+        },
+        onCancel = {
+            when (gestureSession.target) {
+                GlobalBackTarget.PlayerSheet -> playerSheet.onBackCancel()
+                GlobalBackTarget.Sidebar -> sidebar.onBackCancel()
+                GlobalBackTarget.CreateSheet -> createBackDismissState.onCancel()
+                GlobalBackTarget.Page -> pageBackGesture.cancel()
+                GlobalBackTarget.Ignored, GlobalBackTarget.Undecided -> Unit
+            }
+            gestureSession.target = GlobalBackTarget.Undecided
+        },
+        onBack = {
+            val sessionTarget = gestureSession.target
+            gestureSession.target = GlobalBackTarget.Undecided
+            when (sessionTarget) {
+                GlobalBackTarget.Page -> pageBackGesture.commit()
+                GlobalBackTarget.CreateSheet -> createBackDismissState.onCommit()
+                GlobalBackTarget.Undecided -> {
+                    // 极快轻扫时系统可能跳过 onBackProgressed 直接触发 onBackPressed，补走预见式退场以防回退到原动画
+                    if (predictiveBackEnabled && !playerSheet.isOpen &&
+                        (navigation.isNavigatingFromPlayer || (!sidebar.isOpen && !showCreateSheet && navigation.canGoBackToHomeAll))
+                    ) {
+                        val target = navigation.peekBackTarget() as? BackTarget.Entry
+                        if (target != null) {
+                            pageBackGesture.begin(
+                                origin = navigation.currentEntry,
+                                target = target.entry,
+                                fromLeftEdge = true,
+                                progress = 0f
+                            )
+                            pageBackGesture.commit()
+                        }
+                    }
+                }
+                else -> Unit
+            }
+            when {
+                playerSheet.isOpen -> {
+                    navigation.resetPlayerNavigation()
+                    playerSheet.animateTo(false, 0f)
+                }
+                navigation.isNavigatingFromPlayer -> handleBack()
+                sidebar.isOpen -> sidebar.close()
+                showCreateSheet -> showCreateSheet = false
+                navigation.canGoBackToHomeAll -> handleBack()
+            }
+        }
+    )
+
+    val fullscreenBackSession = remember { object { var state = PanelBackSession.Undecided } }
     // 全屏态下返回键先收回侧栏；注册在上面的通用返回处理之后，优先级更高
-    BackHandler(enabled = isPanelFullscreen) {
-        isPanelFullscreen = false
-    }
+    MelodiaBackHandler(
+        enabled = isPanelFullscreen,
+        onProgress = { event ->
+            if (fullscreenBackSession.state == PanelBackSession.Undecided) {
+                if (isPanelFullscreen && !isLyricsFullScreen) {
+                    fullscreenBackSession.state = PanelBackSession.Active
+                    fullscreenBackProgress = event.progress
+                    fullscreenBackPhase = PanelBackPhase.Seeking
+                } else {
+                    fullscreenBackSession.state = PanelBackSession.Ignored
+                }
+            } else if (fullscreenBackSession.state == PanelBackSession.Active && isPanelFullscreen && !isLyricsFullScreen) {
+                fullscreenBackProgress = event.progress
+            }
+        },
+        onCancel = {
+            val wasActive = fullscreenBackSession.state == PanelBackSession.Active
+            fullscreenBackSession.state = PanelBackSession.Undecided
+            if (wasActive && isPanelFullscreen && !isLyricsFullScreen && fullscreenBackPhase == PanelBackPhase.Seeking) {
+                fullscreenBackPhase = PanelBackPhase.Canceling
+            }
+        },
+        onBack = {
+            fullscreenBackSession.state = PanelBackSession.Undecided
+            fullscreenBackPhase = PanelBackPhase.Idle
+            fullscreenBackProgress = 0f
+            isPanelFullscreen = false
+        }
+    )
 
+    val riseBackSession = remember { object { var state = PanelBackSession.Undecided } }
     // 侧栏未钉住时返回直接收起面板（含全屏态）；侧边栏、创建菜单等全局浮层先处理
-    BackHandler(enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet) {
-        isPanelExpanded = false
-    }
+    MelodiaBackHandler(
+        enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet,
+        onProgress = { event ->
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            if (riseBackSession.state == PanelBackSession.Undecided) {
+                if (canHandle) {
+                    riseBackSession.state = PanelBackSession.Active
+                    riseBackProgress = event.progress
+                    riseBackPhase = PanelBackPhase.Seeking
+                } else {
+                    riseBackSession.state = PanelBackSession.Ignored
+                }
+            } else if (riseBackSession.state == PanelBackSession.Active && canHandle) {
+                riseBackProgress = event.progress
+            }
+        },
+        onCancel = {
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            val wasActive = riseBackSession.state == PanelBackSession.Active
+            riseBackSession.state = PanelBackSession.Undecided
+            if (wasActive && canHandle && riseBackPhase == PanelBackPhase.Seeking) {
+                riseBackPhase = PanelBackPhase.Canceling
+            }
+        },
+        onBack = {
+            riseBackSession.state = PanelBackSession.Undecided
+            riseBackPhase = PanelBackPhase.Idle
+            riseBackProgress = 0f
+            isPanelExpanded = false
+        }
+    )
 
     // 面板停靠左侧时左边缘被面板占住，边缘拉出侧边栏会和面板内的拖动手势冲突
     val isEdgeSwipeBlocked = usePanel && isPanelAtStart && isPanelShown
@@ -606,6 +909,7 @@ fun MelodiaApp() {
                                 MelodiaNavHost(
                                     currentEntry = navigation.currentEntry,
                                     liveEntryIds = navigation.liveEntryIds,
+                                    backGestureState = pageBackGesture,
                                     homeViewModel = viewModel,
                                     homeTab = navigation.homeTab,
                                     showMusicNewWorks = navigation.showMusicNewWorks,
@@ -645,6 +949,7 @@ fun MelodiaApp() {
                             modifier = Modifier.align(Alignment.BottomCenter),
                             currentScreen = navigation.currentScreen,
                             showCreateSheet = showCreateSheet,
+                            createBackDismissState = createBackDismissState,
                             isLoginScreenVisible = isLoginScreenVisible || showSidebarWebLogin,
                             isMiniPlayerHidden = miniPlayerSuppressor.requestCount > 0,
                             isPanelDocked = isPanelDocked,
@@ -815,6 +1120,7 @@ fun MelodiaApp() {
             screenHeightPx = playerSheet.screenHeightPx,
             isPlayerOpen = playerSheet.isOpen,
             playerOffsetY = { playerSheet.offsetY },
+            backShrinkFraction = { playerSheet.backShrinkFraction },
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
             duration = duration,

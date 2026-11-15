@@ -8,6 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,9 +18,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lin0721.linmusic.core.ui.back.PredictiveBackTransitionContainer
+import com.lin0721.linmusic.core.ui.back.predictiveContentTransform
+import com.lin0721.linmusic.core.ui.back.rememberPredictiveBackTransition
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.feature.home.ui.HomeScreen
+import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumsScreen
@@ -30,13 +40,6 @@ import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.songs.LocalSongsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.tageditor.LocalTagEditorScreen
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.lin0721.linmusic.feature.home.ui.HomeScreen
-import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -46,6 +49,7 @@ import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 fun MelodiaNavHost(
     currentEntry: NavEntry,
     liveEntryIds: Set<Long>,
+    backGestureState: PageBackGestureState,
     homeViewModel: HomeViewModel,
     homeTab: Int,
     showMusicNewWorks: Boolean,
@@ -98,31 +102,43 @@ fun MelodiaNavHost(
     }
     LaunchedEffect(liveEntryIds) { frameRegistry.reconcile() }
 
-    AnimatedContent(
-        targetState = currentEntry,
-        transitionSpec = {
-            val forward = targetState.screen != Screen.Home
-            val offsetY = 40
-            if (forward) {
-                (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
-                        + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
-                    .togetherWith(
-                        fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
-                                + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { -offsetY }
-                    )
-            } else {
-                (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
-                        + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
-                    .togetherWith(
-                        fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
-                                + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { offsetY }
-                    )
-            }.using(SizeTransform(clip = false))
-        },
+    val screenTransition = rememberPredictiveBackTransition(
+        currentState = currentEntry,
+        gestureState = backGestureState,
         label = "screen_transition"
+    )
+
+    screenTransition.AnimatedContent(
+        transitionSpec = {
+            predictiveContentTransform(backGestureState) {
+                val forward = targetState.screen != Screen.Home
+                val offsetY = 40
+                if (forward) {
+                    (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
+                            + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { offsetY })
+                        .togetherWith(
+                            fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
+                                    + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { -offsetY }
+                        )
+                } else {
+                    (fadeIn(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing))
+                            + slideInVertically(motion.tween(420, delayMillis = 100, easing = FastOutSlowInEasing)) { -offsetY })
+                        .togetherWith(
+                            fadeOut(motion.tween(300, easing = FastOutSlowInEasing))
+                                    + slideOutVertically(motion.tween(300, easing = FastOutSlowInEasing)) { offsetY }
+                        )
+                }.using(SizeTransform(clip = false))
+            }
+        },
+        contentKey = { it.id }
     ) { entry ->
-        frameRegistry.Provide(entry) {
-            val screen = entry.screen
+        PredictiveBackTransitionContainer(
+            parentTransition = screenTransition,
+            itemState = entry,
+            gestureState = backGestureState
+        ) {
+            frameRegistry.Provide(entry) {
+                val screen = entry.screen
             when (screen) {
                 is Screen.Home -> {
                     HomeScreen(
@@ -318,6 +334,7 @@ fun MelodiaNavHost(
                     )
                 }
             }
+        }
         }
     }
 }

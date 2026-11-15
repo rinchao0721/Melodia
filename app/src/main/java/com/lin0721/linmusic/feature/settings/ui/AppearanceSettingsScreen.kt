@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import android.os.Build
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import org.koin.compose.koinInject
 import androidx.compose.foundation.clickable
@@ -55,6 +56,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
+    val predictiveBackEnabled by viewModel.predictiveBackEnabled.collectAsStateWithLifecycle()
     val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
@@ -132,6 +134,15 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         checked = uiAnimationsEnabled,
                         onCheckedChange = { viewModel.updateUiAnimationsEnabled(it) }
                     )
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "预见式返回动画（测试）",
+                            subtitle = "返回手势跟手预览上一级",
+                            checked = predictiveBackEnabled,
+                            onCheckedChange = { viewModel.updatePredictiveBackEnabled(it) }
+                        )
+                    }
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "歌单显示序号",

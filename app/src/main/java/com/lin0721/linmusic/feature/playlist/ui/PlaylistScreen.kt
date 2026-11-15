@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
@@ -43,6 +46,7 @@ import com.lin0721.linmusic.core.model.CommentItem
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
@@ -219,11 +223,19 @@ fun PlaylistScreen(
         }
     }
 
-    BackHandler(enabled = showCommentsSheet && !isGlobalOverlayOpen) {
+    val commentsDismissState = rememberBackDismissState()
+    MelodiaDismissBackHandler(
+        enabled = showCommentsSheet && !isGlobalOverlayOpen,
+        state = commentsDismissState
+    ) {
         showCommentsSheet = false
     }
 
-    BackHandler(enabled = showCommentFloor && !isGlobalOverlayOpen) {
+    val commentFloorDismissState = rememberBackDismissState()
+    MelodiaDismissBackHandler(
+        enabled = showCommentFloor && !isGlobalOverlayOpen,
+        state = commentFloorDismissState
+    ) {
         showCommentFloor = false
     }
 
@@ -724,31 +736,37 @@ fun PlaylistScreen(
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
             exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
         ) {
-            CommentFullScreen(
-                commentsState = commentsState,
-                currentUserId = userProfile?.uid,
-                composerState = composerState,
-                onBack = { showCommentsSheet = false },
-                onSortChange = viewModel::changeCommentSort,
-                onLikeComment = viewModel::likeComment,
-                onUserClick = onNavigateToProfile,
-                onExpandFloor = { comment ->
-                    showCommentFloor = true
-                    viewModel.openCommentFloor(comment)
-                },
-                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                onSubmitComment = { content, target ->
-                    if (target != null) {
-                        viewModel.submitCommentReply(target.commentId, content)
-                    } else {
-                        viewModel.submitComment(content)
-                    }
-                },
-                onRequireLogin = { showLoginSheet = true },
-                onLoadMore = viewModel::loadMoreComments,
-                onRetry = { viewModel.loadPlaylistComments(playlistId) },
-                bottomOverlayInset = LocalBottomOverlayInset.current
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .backDismissPreview(commentsDismissState, TransformOrigin(0.5f, 1f))
+            ) {
+                CommentFullScreen(
+                    commentsState = commentsState,
+                    currentUserId = userProfile?.uid,
+                    composerState = composerState,
+                    onBack = { showCommentsSheet = false },
+                    onSortChange = viewModel::changeCommentSort,
+                    onLikeComment = viewModel::likeComment,
+                    onUserClick = onNavigateToProfile,
+                    onExpandFloor = { comment ->
+                        showCommentFloor = true
+                        viewModel.openCommentFloor(comment)
+                    },
+                    onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                    onSubmitComment = { content, target ->
+                        if (target != null) {
+                            viewModel.submitCommentReply(target.commentId, content)
+                        } else {
+                            viewModel.submitComment(content)
+                        }
+                    },
+                    onRequireLogin = { showLoginSheet = true },
+                    onLoadMore = viewModel::loadMoreComments,
+                    onRetry = { viewModel.loadPlaylistComments(playlistId) },
+                    bottomOverlayInset = LocalBottomOverlayInset.current
+                )
+            }
         }
 
         AnimatedVisibility(
@@ -756,21 +774,27 @@ fun PlaylistScreen(
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
             exit = slideOutVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeOut(uiTween(ScreenSlideDurationMs))
         ) {
-            CommentFloorScreen(
-                floorState = floorState,
-                currentUserId = userProfile?.uid,
-                composerState = composerState,
-                onBack = { showCommentFloor = false },
-                onLoadMore = viewModel::loadMoreCommentFloor,
-                onSubmitReply = { parentCommentId, content ->
-                    viewModel.submitCommentReply(parentCommentId, content)
-                },
-                onRequireLogin = { showLoginSheet = true },
-                onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
-                onLikeClick = { comment -> viewModel.likeComment(comment) },
-                onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
-                onUserClick = onNavigateToProfile
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .backDismissPreview(commentFloorDismissState, TransformOrigin(0.5f, 1f))
+            ) {
+                CommentFloorScreen(
+                    floorState = floorState,
+                    currentUserId = userProfile?.uid,
+                    composerState = composerState,
+                    onBack = { showCommentFloor = false },
+                    onLoadMore = viewModel::loadMoreCommentFloor,
+                    onSubmitReply = { parentCommentId, content ->
+                        viewModel.submitCommentReply(parentCommentId, content)
+                    },
+                    onRequireLogin = { showLoginSheet = true },
+                    onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
+                    onLikeClick = { comment -> viewModel.likeComment(comment) },
+                    onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
+                    onUserClick = onNavigateToProfile
+                )
+            }
         }
 
 

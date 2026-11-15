@@ -21,12 +21,22 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.back.decelerateBackProgress
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.UiMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+internal const val SEARCH_BAR_BACK_RETREAT_FRACTION = 0.30f
+
+// 展开态下返回手势跟手把搜索栏向上预退至多 30%，释放后直接从当前位置提交关闭或回弹
+internal fun computeSearchBarBackRevealPx(maxRevealPx: Float, progress: Float): Float {
+    if (maxRevealPx <= 0f) return 0f
+    val eased = decelerateBackProgress(progress)
+    return (maxRevealPx * (1f - SEARCH_BAR_BACK_RETREAT_FRACTION * eased)).coerceIn(0f, maxRevealPx)
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // 搜索栏下拉展开：橡皮筋阻尼位移 + fling 速度带入弹簧收尾。
@@ -122,6 +132,32 @@ class SearchBarRevealState internal constructor(
         if (max <= 0f || isOpen) return
         saveScrollPosition()
         isOpen = true
+        settleJob?.cancel()
+        settleJob = scope.launch {
+            animate(
+                initialValue = revealPx,
+                targetValue = max,
+                animationSpec = motion.spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) { value, _ ->
+                revealPx = value.coerceIn(0f, max)
+            }
+        }
+    }
+
+    fun onBackProgress(progress: Float) {
+        val max = searchBarHeightPx
+        if (max <= 0f || !isOpen || isClosing) return
+        settleJob?.cancel()
+        settleJob = null
+        revealPx = computeSearchBarBackRevealPx(max, progress)
+    }
+
+    fun onBackCancel() {
+        val max = searchBarHeightPx
+        if (max <= 0f || !isOpen || isClosing) return
         settleJob?.cancel()
         settleJob = scope.launch {
             animate(
