@@ -2,6 +2,12 @@ package com.lin0721.linmusic.feature.message
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.listentogether.data.ListenTogetherRepository
+import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherRoom
+import com.lin0721.linmusic.core.listentogether.domain.PlayCommand
+import com.lin0721.linmusic.core.listentogether.domain.RoomCheck
+import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
+import com.lin0721.linmusic.core.listentogether.domain.RoomStatus
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayMode
@@ -302,3 +308,40 @@ fun testPrivateMessage(
     fromUser = fromUser,
     toUser = toUser
 )
+
+class FakeListenTogetherRepository : ListenTogetherRepository {
+    val checkRoomCalls = mutableListOf<String>()
+    var checkRoomHandler: suspend (String) -> Result<RoomCheck> = {
+        Result.success(RoomCheck(joinable = true, message = null))
+    }
+
+    override fun status(): Flow<Result<RoomStatus>> = flowOf(Result.success(RoomStatus(false, null)))
+
+    override fun checkRoom(roomId: String): Flow<Result<RoomCheck>> = flow {
+        checkRoomCalls += roomId
+        emit(checkRoomHandler(roomId))
+    }
+
+    override fun createRoom(songIds: List<Long>): Flow<Result<ListenTogetherRoom>> =
+        flowOf(Result.failure(UnsupportedOperationException()))
+
+    override fun acceptInvitation(roomId: String, inviterId: Long): Flow<Result<ListenTogetherRoom>> =
+        flowOf(Result.failure(UnsupportedOperationException()))
+
+    override fun playback(roomId: String): Flow<Result<RoomPlayback?>> = flowOf(Result.success(null))
+
+    override fun reportCommand(roomId: String, command: PlayCommand): Flow<Result<Boolean>> = flowOf(Result.success(true))
+
+    override fun reportPlaylist(
+        roomId: String,
+        userId: Long,
+        version: Long,
+        songIds: List<Long>,
+        anchorIndex: Int
+    ): Flow<Result<Boolean>> = flowOf(Result.success(true))
+
+    override fun heartbeat(roomId: String, songId: Long, playing: Boolean, progressMs: Long): Flow<Result<Int?>> =
+        flowOf(Result.success(30))
+
+    override fun endRoom(roomId: String): Flow<Result<Boolean>> = flowOf(Result.success(true))
+}

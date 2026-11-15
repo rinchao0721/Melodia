@@ -63,16 +63,24 @@ internal class FakeRepository : ListenTogetherRepository {
     var playback: Result<RoomPlayback?> = Result.success(null)
     var acceptCommand = true
     var checkJoinable = true
+    var checkRoomHandler: (suspend (String) -> Result<RoomCheck>)? = null
+    var acceptHandler: (suspend (String, Long) -> Result<ListenTogetherRoom>)? = null
+    var endHandler: (suspend (String) -> Result<Boolean>)? = null
     val commands = mutableListOf<PlayCommand>()
     val playlists = mutableListOf<List<Long>>()
+    var joinCalls = 0
     var endCalls = 0
     var playbackCalls = 0
 
     override fun status(): Flow<Result<RoomStatus>> = flowOf(status)
-    override fun checkRoom(roomId: String) = flowOf(Result.success(RoomCheck(checkJoinable, "房间已满")))
+    override fun checkRoom(roomId: String): Flow<Result<RoomCheck>> = kotlinx.coroutines.flow.flow {
+        emit(checkRoomHandler?.invoke(roomId) ?: Result.success(RoomCheck(checkJoinable, "房间已满")))
+    }
     override fun createRoom(songIds: List<Long>) = flowOf(Result.success(ListenTogetherRoom("r1", 1L, emptyList())))
-    override fun acceptInvitation(roomId: String, inviterId: Long) =
-        flowOf(Result.success(ListenTogetherRoom(roomId, inviterId, emptyList())))
+    override fun acceptInvitation(roomId: String, inviterId: Long): Flow<Result<ListenTogetherRoom>> = kotlinx.coroutines.flow.flow {
+        joinCalls++
+        emit(acceptHandler?.invoke(roomId, inviterId) ?: Result.success(ListenTogetherRoom(roomId, inviterId, emptyList())))
+    }
     override fun playback(roomId: String): Flow<Result<RoomPlayback?>> {
         playbackCalls++
         return flowOf(playback)
@@ -86,9 +94,9 @@ internal class FakeRepository : ListenTogetherRepository {
         return flowOf(Result.success(true))
     }
     override fun heartbeat(roomId: String, songId: Long, playing: Boolean, progressMs: Long) = flowOf(Result.success<Int?>(30))
-    override fun endRoom(roomId: String): Flow<Result<Boolean>> {
+    override fun endRoom(roomId: String): Flow<Result<Boolean>> = kotlinx.coroutines.flow.flow {
         endCalls++
-        return flowOf(Result.success(true))
+        emit(endHandler?.invoke(roomId) ?: Result.success(true))
     }
 }
 

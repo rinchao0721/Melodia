@@ -220,4 +220,69 @@ class PrivateMessageParsersTest {
         assertEquals(999, unknownTypeEmpty!!.type)
         assertTrue(unknownTypeEmpty.isUnsupported)
     }
+
+    @Test
+    fun `纯文本私信识别一起听邀请并替换可读文本，会话摘要显示一起听邀请`() {
+        val withSongMsg = parsePrivateMessage(
+            parseJsonObject(
+                """{"id":30,"time":10,"fromUser":{"userId":1},"toUser":{"userId":2},"msg":"{\"type\":6,\"msg\":\"邀请你一起听「晴天」【Melodia 一起听】roomId=room_1;inviterId=1\"}"}"""
+            )
+        )
+        assertNotNull(withSongMsg)
+        assertEquals("邀请你一起听「晴天」", withSongMsg!!.text)
+        assertEquals("room_1", withSongMsg.listenInvite?.roomId)
+        assertEquals(1L, withSongMsg.listenInvite?.inviterId)
+        assertEquals("晴天", withSongMsg.listenInvite?.songName)
+        assertFalse(withSongMsg.isUnsupported)
+
+        val legacyMsg = parsePrivateMessage(
+            parseJsonObject(
+                """{"id":31,"time":11,"msg":"{\"type\":6,\"msg\":\"【Melodia 一起听】roomId=room_2;inviterId=9\"}"}"""
+            )
+        )
+        assertEquals("邀请你一起听", legacyMsg?.text)
+        assertEquals("room_2", legacyMsg?.listenInvite?.roomId)
+        assertEquals(9L, legacyMsg?.listenInvite?.inviterId)
+        assertNull(legacyMsg?.listenInvite?.songName)
+
+        // 非纯文本消息（type=1）不按一起听邀请解析
+        val songTypeMsg = parsePrivateMessage(
+            parseJsonObject(
+                """{"id":32,"time":12,"msg":"{\"type\":1,\"msg\":\"【Melodia 一起听】roomId=room_3;inviterId=9\",\"song\":{\"id\":101,\"name\":\"晴天\"}}"}"""
+            )
+        )
+        assertNull(songTypeMsg?.listenInvite)
+
+        val conv = parsePrivateConversation(
+            parseJsonObject(
+                """
+                {
+                  "fromUser": {"userId": 200, "nickname": "好友", "avatarUrl": ""},
+                  "toUser": {"userId": 100, "nickname": "我", "avatarUrl": ""},
+                  "user": {"fromUserId": 200, "toUserId": 100},
+                  "lastMsgTime": 6000,
+                  "lastMsg": "{\"type\":6,\"msg\":\"邀请你一起听「晴天」【Melodia 一起听】roomId=room_1;inviterId=200\"}"
+                }
+                """.trimIndent()
+            ),
+            selfUid = 100L
+        )
+        assertEquals("一起听邀请", conv?.lastMessage)
+
+        val legacyConv = parsePrivateConversation(
+            parseJsonObject(
+                """
+                {
+                  "fromUser": {"userId": 200, "nickname": "好友", "avatarUrl": ""},
+                  "toUser": {"userId": 100, "nickname": "我", "avatarUrl": ""},
+                  "user": {"fromUserId": 200, "toUserId": 100},
+                  "lastMsgTime": 6001,
+                  "lastMsg": "{\"msgId\":1,\"msg\":\"{\\\"type\\\":6,\\\"msg\\\":\\\"【Melodia 一起听】roomId=room_2;inviterId=200\\\"}\"}"
+                }
+                """.trimIndent()
+            ),
+            selfUid = 100L
+        )
+        assertEquals("一起听邀请", legacyConv?.lastMessage)
+    }
 }

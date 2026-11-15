@@ -29,6 +29,12 @@ import kotlinx.coroutines.launch
 // 房间队列展示与解析的条数上限
 internal const val ROOM_TRACK_LIMIT = 100
 
+sealed interface JoinInviteEvent {
+    data class Joined(val inviterId: Long) : JoinInviteEvent
+    data class NeedLeaveCurrent(val roomId: String, val inviterId: Long) : JoinInviteEvent
+    data class Failed(val message: String) : JoinInviteEvent
+}
+
 class ListenTogetherViewModel(
     private val session: ListenTogetherSession,
     private val controller: PlaybackController,
@@ -55,6 +61,9 @@ class ListenTogetherViewModel(
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    private val _joinEvents = MutableSharedFlow<JoinInviteEvent>(extraBufferCapacity = 4)
+    val joinEvents: SharedFlow<JoinInviteEvent> = _joinEvents.asSharedFlow()
 
     init {
         // 轮询每轮都会刷新状态，只在 id 列表变化时才拉歌曲详情
@@ -98,26 +107,90 @@ class ListenTogetherViewModel(
         val ids = listOf(current)
         viewModelScope.launch {
             _busy.value = true
-            session.createRoom(ids)
-                .onSuccess { room -> onCreated(inviteText(room.id, selfUid())) }
-                .onFailure { _messages.tryEmit(it.toUserMessage(resourceProvider)) }
-            _busy.value = false
+            try {
+                session.createRoom(ids)
+                    .onSuccess { room -> onCreated(inviteText(room.id, selfUid())) }
+                    .onFailure { _messages.tryEmit(it.toUserMessage(resourceProvider)) }
+            } finally {
+                _busy.value = false
+            }
         }
     }
 
     fun joinByInvite(text: String) {
-        if (_busy.value || session.state.value.active) return
+        if (_busy.value) return
         val target = ListenTogetherInvite.parse(text)
         if (target == null) {
             _messages.tryEmit("未识别到邀请内容，请粘贴完整的邀请文案")
             return
         }
+        joinInviteInternal(target.roomId, target.inviterId, emitToast = true)
+    }
+
+    fun joinInvite(roomId: String, inviterId: Long) {
+        if (_busy.value) return
+        joinInviteInternal(roomId, inviterId, emitToast = false)
+    }
+
+    fun leaveAndJoin(roomId: String, inviterId: Long) {
+        if (_busy.value) return
+        val id = roomId.trim()
+        if (id.isEmpty() || inviterId < 0L) {
+            _joinEvents.tryEmit(JoinInviteEvent.Failed("无效的邀请信息"))
+            return
+        }
         viewModelScope.launch {
             _busy.value = true
-            session.joinRoom(target.roomId, target.inviterId)
-                .onSuccess { _messages.tryEmit("已加入，将跟随房主播放") }
-                .onFailure { _messages.tryEmit(it.toUserMessage(resourceProvider)) }
-            _busy.value = false
+            try {
+                val leaveResult = session.leave()
+                if (leaveResult.isFailure) {
+                    _joinEvents.tryEmit(
+                        JoinInviteEvent.Failed(leaveResult.exceptionOrNull()!!.toUserMessage(resourceProvider))
+                    )
+                    return@launch
+                }
+                session.joinRoom(id, inviterId)
+                    .onSuccess { _joinEvents.tryEmit(JoinInviteEvent.Joined(inviterId)) }
+                    .onFailure { _joinEvents.tryEmit(JoinInviteEvent.Failed(it.toUserMessage(resourceProvider))) }
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
+    private fun joinInviteInternal(roomId: String, inviterId: Long, emitToast: Boolean) {
+        val id = roomId.trim()
+        if (id.isEmpty() || inviterId < 0L) {
+            val msg = "无效的邀请信息"
+            _joinEvents.tryEmit(JoinInviteEvent.Failed(msg))
+            if (emitToast) _messages.tryEmit(msg)
+            return
+        }
+        val current = session.state.value
+        if (current.active) {
+            if (current.roomId == id) {
+                _joinEvents.tryEmit(JoinInviteEvent.Joined(inviterId))
+            } else {
+                _joinEvents.tryEmit(JoinInviteEvent.NeedLeaveCurrent(id, inviterId))
+            }
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                session.joinRoom(id, inviterId)
+                    .onSuccess {
+                        _joinEvents.tryEmit(JoinInviteEvent.Joined(inviterId))
+                        if (emitToast) _messages.tryEmit("已加入，将跟随房主播放")
+                    }
+                    .onFailure {
+                        val msg = it.toUserMessage(resourceProvider)
+                        _joinEvents.tryEmit(JoinInviteEvent.Failed(msg))
+                        if (emitToast) _messages.tryEmit(msg)
+                    }
+            } finally {
+                _busy.value = false
+            }
         }
     }
 
@@ -169,7 +242,12 @@ class ListenTogetherViewModel(
         emptyList()
     }
 
-    private fun inviteText(roomId: String, uid: Long): String = ListenTogetherInvite.format(roomId, uid)
+    private fun currentSongName(): String? =
+        controller.nowPlaying.value?.title?.takeIf { it.isNotBlank() }
+            ?: controller.currentQueueItem.value?.title?.takeIf { it.isNotBlank() }
+
+    private fun inviteText(roomId: String, uid: Long): String =
+        ListenTogetherInvite.format(roomId, uid, currentSongName())
 
     private suspend fun selfUid(): Long = userPreferences.userProfile.first()?.uid ?: 0L
 }

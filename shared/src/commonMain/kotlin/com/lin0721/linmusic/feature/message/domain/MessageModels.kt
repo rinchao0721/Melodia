@@ -98,6 +98,13 @@ data class PrivateCard(
     val resourceId: Long
 )
 
+// 私信中的「一起听」邀请卡片数据；由纯文本消息里的邀请码解析得出
+data class ListenTogetherInviteMessage(
+    val roomId: String,
+    val inviterId: Long,
+    val songName: String? = null
+)
+
 // 私信正文是字符串化的 JSON；解析失败或无法识别时保留原文于 raw，界面按 unsupported 降级
 data class PrivateMessage(
     val id: Long,
@@ -111,7 +118,8 @@ data class PrivateMessage(
     val fromUser: MessageUser? = null,
     val toUser: MessageUser? = null,
     // Melodia 之间附带的分享卡片参数，仅歌曲卡片可能携带
-    val shareCard: ShareCardMessage? = null
+    val shareCard: ShareCardMessage? = null,
+    val listenInvite: ListenTogetherInviteMessage? = null
 ) {
-    val isUnsupported: Boolean get() = text.isNullOrBlank() && card == null
+    val isUnsupported: Boolean get() = text.isNullOrBlank() && card == null && listenInvite == null
 }

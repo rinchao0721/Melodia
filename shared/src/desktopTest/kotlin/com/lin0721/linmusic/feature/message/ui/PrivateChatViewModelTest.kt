@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.message.ui
 
+import com.lin0721.linmusic.core.listentogether.domain.RoomCheck
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
@@ -7,12 +8,14 @@ import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.feature.message.FakeListenTogetherRepository
 import com.lin0721.linmusic.feature.message.FakeMessageRepository
 import com.lin0721.linmusic.feature.message.FakePlayerRepository
 import com.lin0721.linmusic.feature.message.FakeProfileRepository
 import com.lin0721.linmusic.feature.message.MutableFakePlaybackController
 import com.lin0721.linmusic.feature.message.createTestReadPreferences
 import com.lin0721.linmusic.feature.message.createTestUserPreferences
+import com.lin0721.linmusic.feature.message.domain.ListenTogetherInviteMessage
 import com.lin0721.linmusic.feature.message.domain.MessagePage
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.loginAs
@@ -20,6 +23,7 @@ import com.lin0721.linmusic.feature.message.testMessageUser
 import com.lin0721.linmusic.feature.message.testPrivateMessage
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
 import com.lin0721.linmusic.feature.profile.domain.ProfileUserInfo
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -51,7 +55,8 @@ class PrivateChatViewModelTest {
         profileRepository: FakeProfileRepository = FakeProfileRepository(),
         playerRepository: FakePlayerRepository = FakePlayerRepository(),
         playbackController: MutableFakePlaybackController = MutableFakePlaybackController(),
-        unreadMonitor: PrivateUnreadMonitor? = null
+        unreadMonitor: PrivateUnreadMonitor? = null,
+        listenTogetherRepository: FakeListenTogetherRepository = FakeListenTogetherRepository()
     ): Triple<PrivateChatViewModel, com.lin0721.linmusic.core.auth.UserPreferences, MutableFakePlaybackController> {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
@@ -65,7 +70,8 @@ class PrivateChatViewModelTest {
             profileRepository = profileRepository,
             unreadMonitor = unreadMonitor
                 ?: PrivateUnreadMonitor(messageRepository, userPreferences, createTestReadPreferences(), backgroundScope),
-            readPreferences = createTestReadPreferences()
+            readPreferences = createTestReadPreferences(),
+            listenTogetherRepository = listenTogetherRepository
         )
         return Triple(vm, userPreferences, playbackController)
     }
@@ -112,7 +118,8 @@ class PrivateChatViewModelTest {
             playbackController = MutableFakePlaybackController(),
             profileRepository = FakeProfileRepository(),
             unreadMonitor = monitor,
-            readPreferences = createTestReadPreferences()
+            readPreferences = createTestReadPreferences(),
+            listenTogetherRepository = FakeListenTogetherRepository()
         )
 
         vm.open(userId = 20L)
@@ -408,5 +415,108 @@ class PrivateChatViewModelTest {
         advanceUntilIdle()
         assertEquals(2, historyCalls)
         assertEquals(2, vm.messages.value.size)
+    }
+
+    @Test
+    fun `checkInvite 按 roomId 缓存 Joinable 和 Ended，Checking 防重复请求，Failed 允许重查`() = runTest {
+        val listenRepo = FakeListenTogetherRepository()
+        val deferred = CompletableDeferred<Result<RoomCheck>>()
+        listenRepo.checkRoomHandler = { roomId ->
+            when (roomId) {
+                "room_joinable" -> deferred.await()
+                "room_ended" -> Result.success(RoomCheck(joinable = false, message = "房间已结束"))
+                "room_fail" -> Result.failure(IllegalStateException("网络异常"))
+                else -> Result.success(RoomCheck(joinable = true, message = null))
+            }
+        }
+        val (vm, _, _) = build(listenTogetherRepository = listenRepo)
+
+        // 空串忽略
+        vm.checkInvite("   ")
+        advanceUntilIdle()
+        assertTrue(listenRepo.checkRoomCalls.isEmpty())
+
+        // Checking 中再次调用不会重复请求
+        vm.checkInvite("room_joinable")
+        assertEquals(InviteStatus.Checking, vm.inviteStatus.value["room_joinable"])
+        vm.checkInvite("room_joinable")
+        runCurrent()
+        assertEquals(listOf("room_joinable"), listenRepo.checkRoomCalls)
+
+        // 返回 Joinable 后再次调用复用缓存
+        deferred.complete(Result.success(RoomCheck(joinable = true, message = null)))
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Joinable, vm.inviteStatus.value["room_joinable"])
+        vm.checkInvite("room_joinable")
+        advanceUntilIdle()
+        assertEquals(1, listenRepo.checkRoomCalls.count { it == "room_joinable" })
+
+        // Ended 同样复用缓存
+        vm.checkInvite("room_ended")
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Ended, vm.inviteStatus.value["room_ended"])
+        vm.checkInvite("room_ended")
+        advanceUntilIdle()
+        assertEquals(1, listenRepo.checkRoomCalls.count { it == "room_ended" })
+
+        // Failed 允许重查并可恢复为 Joinable
+        vm.checkInvite("room_fail")
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Failed, vm.inviteStatus.value["room_fail"])
+        listenRepo.checkRoomHandler = { Result.success(RoomCheck(joinable = true, message = null)) }
+        vm.checkInvite("room_fail")
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Joinable, vm.inviteStatus.value["room_fail"])
+        assertEquals(2, listenRepo.checkRoomCalls.count { it == "room_fail" })
+    }
+
+    @Test
+    fun `服务端占位消息转为系统提示并断开气泡分组，紧跟邀请时提示一起听已结束`() {
+        val self = 10L
+        val peer = 20L
+        val placeholder = "当前版本无法显示该信息，请在应用市场下载最新版app"
+        val invite = testPrivateMessage(id = 2L, time = 2_000L, fromUserId = peer, toUserId = self)
+            .copy(listenInvite = ListenTogetherInviteMessage("room1", peer, "夜曲"))
+        val messages = listOf(
+            testPrivateMessage(id = 1L, time = 1_000L, fromUserId = peer, toUserId = self, text = placeholder),
+            invite,
+            testPrivateMessage(id = 3L, time = 3_000L, fromUserId = peer, toUserId = self, text = placeholder),
+            testPrivateMessage(id = 4L, time = 4_000L, fromUserId = peer, toUserId = self)
+        )
+
+        val items = groupPrivateMessages(messages, isMine = { it.toUserId == peer })
+
+        assertEquals("暂不支持显示该消息", items[0].systemNotice)
+        assertNull(items[1].systemNotice)
+        assertTrue(items[1].isGroupStart)
+        assertTrue(items[1].isGroupEnd)
+        assertEquals("一起听已结束", items[2].systemNotice)
+        assertNull(items[3].systemNotice)
+        assertTrue(items[3].isGroupStart)
+    }
+
+    @Test
+    fun `recheckJoinableInvites 只重查进行中的房间，结束后变为 Ended，查询失败保持 Joinable`() = runTest {
+        val listenRepo = FakeListenTogetherRepository()
+        val (vm, _, _) = build(listenTogetherRepository = listenRepo)
+        vm.checkInvite("room_a")
+        advanceUntilIdle()
+        listenRepo.checkRoomHandler = { Result.success(RoomCheck(joinable = false, message = null)) }
+        vm.checkInvite("room_b")
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Joinable, vm.inviteStatus.value["room_a"])
+        assertEquals(InviteStatus.Ended, vm.inviteStatus.value["room_b"])
+
+        listenRepo.checkRoomHandler = { Result.failure(IllegalStateException("网络异常")) }
+        vm.recheckJoinableInvites()
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Joinable, vm.inviteStatus.value["room_a"])
+        assertEquals(1, listenRepo.checkRoomCalls.count { it == "room_b" })
+
+        listenRepo.checkRoomHandler = { Result.success(RoomCheck(joinable = false, message = null)) }
+        vm.recheckJoinableInvites()
+        advanceUntilIdle()
+        assertEquals(InviteStatus.Ended, vm.inviteStatus.value["room_a"])
+        assertEquals(3, listenRepo.checkRoomCalls.count { it == "room_a" })
     }
 }

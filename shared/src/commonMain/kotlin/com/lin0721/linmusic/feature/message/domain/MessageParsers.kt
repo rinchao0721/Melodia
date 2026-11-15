@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.message.domain
 
+import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherInvite
 import com.lin0721.linmusic.core.share.ShareCardMessageCodec
 import com.lin0721.linmusic.feature.message.data.MessageCommentDto
 import com.lin0721.linmusic.feature.message.data.MessageNoticeDto
@@ -193,7 +194,8 @@ private fun summarizePrivateBody(body: PrivateBody?): String? {
     body ?: return null
     val card = body.card
     return when {
-        body.type == PRIVATE_TYPE_TEXT -> body.text
+        body.type == PRIVATE_TYPE_TEXT ->
+            if (body.text != null && ListenTogetherInvite.parse(body.text) != null) "一起听邀请" else body.text
         card?.kind == PrivateCardKind.Song && ShareCardMessageCodec.decode(body.text).message != null ->
             "分享卡片：${card.title}"
         body.title != null -> body.title
@@ -228,10 +230,23 @@ fun parsePrivateMessage(obj: JsonObject): PrivateMessage? {
     val body = parsePrivateBody(raw)
     val fromUser = parseUser(obj.obj("fromUser"))
     val toUser = parseUser(obj.obj("toUser"))
-    val decodedCard = if (body?.card?.kind == PrivateCardKind.Song) ShareCardMessageCodec.decode(body.text) else null
+    val rawText = body?.text
+    val listenInvite = if (body?.type == PRIVATE_TYPE_TEXT && rawText != null) {
+        ListenTogetherInvite.parse(rawText)?.let { target ->
+            ListenTogetherInviteMessage(
+                roomId = target.roomId,
+                inviterId = target.inviterId,
+                songName = ListenTogetherInvite.extractSongName(rawText)
+            )
+        }
+    } else {
+        null
+    }
+    val decodedCard = if (body?.card?.kind == PrivateCardKind.Song) ShareCardMessageCodec.decode(rawText) else null
     val text = when {
+        listenInvite != null -> ListenTogetherInvite.displayText(rawText!!)
         decodedCard?.message != null -> decodedCard.displayText.ifBlank { null }
-        else -> body?.text ?: if (body?.type == PRIVATE_TYPE_TEXT) null else body?.title
+        else -> rawText ?: if (body?.type == PRIVATE_TYPE_TEXT) null else body?.title
     }
     return PrivateMessage(
         id = id,
@@ -244,7 +259,8 @@ fun parsePrivateMessage(obj: JsonObject): PrivateMessage? {
         raw = raw,
         fromUser = fromUser,
         toUser = toUser,
-        shareCard = decodedCard?.message
+        shareCard = decodedCard?.message,
+        listenInvite = listenInvite
     )
 }
 

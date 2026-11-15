@@ -9,6 +9,7 @@ import com.lin0721.linmusic.feature.message.data.MessageRepository
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -150,16 +151,30 @@ class ShareToFriendViewModel(
             viewModelScope.launch { _toastEvent.emit("仅支持分享网易云歌曲") }
             return
         }
-        val current = _uiState.value as? ShareToFriendUiState.Ready ?: return
-        if (current.sendingToUid != null) return
         val content = note.trim().ifEmpty {
             if (songName.isNotBlank()) "分享单曲：$songName" else "分享单曲"
         }
+        sendToRecipient(userId) {
+            messageRepository.sendPrivateSong(userId = userId, songId = songId, text = content)
+        }
+    }
+
+    fun sendListenInvite(userId: Long, text: String) {
+        val content = text.trim()
+        if (userId <= 0L || content.isEmpty()) return
+        sendToRecipient(userId) {
+            messageRepository.sendPrivateText(userId = userId, text = content)
+        }
+    }
+
+    private fun sendToRecipient(userId: Long, send: () -> Flow<Result<Unit>>) {
+        val current = _uiState.value as? ShareToFriendUiState.Ready ?: return
+        if (current.sendingToUid != null) return
         val recipient = (current.recentUsers + current.followUsers).firstOrNull { it.uid == userId }
             ?: MessageUser(userId, "", "")
         _uiState.value = current.copy(sendingToUid = userId)
         viewModelScope.launch {
-            messageRepository.sendPrivateSong(userId = userId, songId = songId, text = content).first()
+            send().first()
                 .onSuccess {
                     val latest = _uiState.value as? ShareToFriendUiState.Ready
                     if (latest != null) _uiState.value = latest.copy(sendingToUid = null)

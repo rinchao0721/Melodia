@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.message.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.listentogether.data.ListenTogetherRepository
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.NowPlaying
@@ -14,6 +15,7 @@ import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.domain.PrivateMessage
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val CHAT_PAGE_SIZE = 30
@@ -36,14 +39,29 @@ sealed interface ChatState {
     data class Error(val message: String) : ChatState
 }
 
+sealed interface InviteStatus {
+    data object Checking : InviteStatus
+    data object Joinable : InviteStatus
+    data object Ended : InviteStatus
+    data object Failed : InviteStatus
+}
+
 // 聊天列表渲染项：携带收发方向、5 分钟时间分隔与同一发送者连续分组标记
 data class PrivateChatItem(
     val message: PrivateMessage,
     val isMine: Boolean,
     val showTimeDivider: Boolean,
     val isGroupStart: Boolean,
-    val isGroupEnd: Boolean
+    val isGroupEnd: Boolean,
+    // 非空时按居中系统提示渲染，不画气泡
+    val systemNotice: String? = null
 )
+
+// 服务端对旧客户端不支持的消息类型下发的占位文案，结构上与普通文本无法区分
+private const val UNSUPPORTED_PLACEHOLDER = "当前版本无法显示该信息，请在应用市场下载最新版app"
+
+private fun PrivateMessage.isUnsupportedPlaceholder(): Boolean =
+    card == null && listenInvite == null && text?.trim() == UNSUPPORTED_PLACEHOLDER
 
 internal fun groupPrivateMessages(
     messages: List<PrivateMessage>,
@@ -55,16 +73,25 @@ internal fun groupPrivateMessages(
         val prev = messages.getOrNull(index - 1)
         val next = messages.getOrNull(index + 1)
         val currentMine = isMine(current)
+        // 房间结束时服务端紧跟邀请下发一条占位消息
+        val notice = when {
+            !current.isUnsupportedPlaceholder() -> null
+            prev?.listenInvite != null -> "一起听已结束"
+            else -> "暂不支持显示该消息"
+        }
         val showTimeDivider = prev == null || (current.time - prev.time) >= timeGapMs
-        val sameAsPrev = prev != null && !showTimeDivider && isSameSender(prev, current, isMine(prev), currentMine)
+        val sameAsPrev = prev != null && notice == null && !prev.isUnsupportedPlaceholder() &&
+            !showTimeDivider && isSameSender(prev, current, isMine(prev), currentMine)
         val nextShowDivider = next == null || (next.time - current.time) >= timeGapMs
-        val sameAsNext = next != null && !nextShowDivider && isSameSender(current, next, currentMine, isMine(next))
+        val sameAsNext = next != null && notice == null && !next.isUnsupportedPlaceholder() &&
+            !nextShowDivider && isSameSender(current, next, currentMine, isMine(next))
         PrivateChatItem(
             message = current,
             isMine = currentMine,
             showTimeDivider = showTimeDivider,
             isGroupStart = !sameAsPrev,
-            isGroupEnd = !sameAsNext
+            isGroupEnd = !sameAsNext,
+            systemNotice = notice
         )
     }
 }
@@ -90,7 +117,8 @@ class PrivateChatViewModel(
     private val playbackController: PlaybackController,
     private val profileRepository: ProfileRepository,
     private val unreadMonitor: PrivateUnreadMonitor,
-    private val readPreferences: PrivateReadPreferences
+    private val readPreferences: PrivateReadPreferences,
+    private val listenTogetherRepository: ListenTogetherRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ChatState>(ChatState.Loading)
@@ -116,6 +144,9 @@ class PrivateChatViewModel(
 
     private val _sending = MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending.asStateFlow()
+
+    private val _inviteStatus = MutableStateFlow<Map<String, InviteStatus>>(emptyMap())
+    val inviteStatus: StateFlow<Map<String, InviteStatus>> = _inviteStatus.asStateFlow()
 
     val nowPlaying: StateFlow<NowPlaying?> = playbackController.nowPlaying
     val isPlaying: StateFlow<Boolean> = playbackController.isPlaying
@@ -267,6 +298,40 @@ class PrivateChatViewModel(
         }
     }
 
+    // 同一房间在 Checking/Joinable/Ended 时复用缓存，仅 Failed 允许重查
+    fun checkInvite(roomId: String) {
+        val id = roomId.trim()
+        if (id.isEmpty()) return
+        val current = _inviteStatus.value[id]
+        if (current == InviteStatus.Checking || current == InviteStatus.Joinable || current == InviteStatus.Ended) {
+            return
+        }
+        _inviteStatus.update { it + (id to InviteStatus.Checking) }
+        queryInvite(id)
+    }
+
+    // 房间可能已被结束，重查仍显示进行中的邀请；查询期间保留原状态避免卡片闪烁
+    fun recheckJoinableInvites() {
+        _inviteStatus.value.filterValues { it == InviteStatus.Joinable }.keys
+            .forEach { queryInvite(it, onFailure = InviteStatus.Joinable) }
+    }
+
+    private fun queryInvite(id: String, onFailure: InviteStatus = InviteStatus.Failed) {
+        viewModelScope.launch {
+            val next = try {
+                listenTogetherRepository.checkRoom(id).first().fold(
+                    onSuccess = { check -> if (check.joinable) InviteStatus.Joinable else InviteStatus.Ended },
+                    onFailure = { onFailure }
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                onFailure
+            }
+            _inviteStatus.update { it + (id to next) }
+        }
+    }
+
     private fun currentShareableSong(): NowPlaying? {
         val now = playbackController.nowPlaying.value ?: return null
         val songId = now.songId ?: return null
@@ -312,6 +377,7 @@ class PrivateChatViewModel(
                     _state.value = ChatState.Ready
                     if (time == 0L) {
                         markReadUpToLatest(uid, targetUid)
+                        recheckJoinableInvites()
                     }
                 }
                 .onFailure { failure ->

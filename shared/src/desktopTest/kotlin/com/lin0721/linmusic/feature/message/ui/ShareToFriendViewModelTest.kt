@@ -123,4 +123,57 @@ class ShareToFriendViewModelTest {
 
         assertTrue(vm.uiState.value is ShareToFriendUiState.Error)
     }
+
+    @Test
+    fun `sendListenInvite 成功通知 shareCompleted 与 unreadMonitor，失败发 toast 并复位状态`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val messageRepo = FakeMessageRepository().apply {
+            conversationsHandler = { _, _, _ ->
+                Result.success(
+                    MessagePage(
+                        items = listOf(PrivateConversation(1L, testMessageUser(20L, "Alice"), "hi", 100L, 0)),
+                        hasMore = false,
+                        nextCursor = 1L
+                    )
+                )
+            }
+        }
+        val monitorRepo = FakeMessageRepository()
+        val prefs = createTestUserPreferences().apply { loginAs(10L) }
+        val monitor = PrivateUnreadMonitor(monitorRepo, prefs, createTestReadPreferences(), backgroundScope, pollIntervalMs = 60_000L)
+        val vm = ShareToFriendViewModel(messageRepo, FakeProfileRepository(), prefs, testResourceProvider, monitor)
+
+        vm.refresh()
+        advanceUntilIdle()
+
+        // 空白内容不发送
+        vm.sendListenInvite(userId = 20L, text = "   ")
+        advanceUntilIdle()
+        assertTrue(messageRepo.sendTextCalls.isEmpty())
+
+        // 发送成功
+        val sentUids = mutableListOf<Long>()
+        val completedDeferred = async { vm.shareCompleted.first() }
+        val sentDeferred = async { monitor.messageSent.first().also { sentUids += it } }
+        runCurrent()
+
+        val inviteText = "邀请你一起听「晴天」【Melodia 一起听】roomId=r1;inviterId=10"
+        vm.sendListenInvite(userId = 20L, text = inviteText)
+        advanceUntilIdle()
+
+        assertEquals(20L, completedDeferred.await().uid)
+        assertEquals(20L, sentDeferred.await())
+        assertEquals(listOf(FakeMessageRepository.SendTextCall(20L, inviteText)), messageRepo.sendTextCalls)
+        assertNull((vm.uiState.value as ShareToFriendUiState.Ready).sendingToUid)
+
+        // 发送失败
+        messageRepo.sendTextHandler = { _, _ -> Result.failure(IllegalStateException("发送失败")) }
+        val toastDeferred = async { vm.toastEvent.first() }
+        runCurrent()
+        vm.sendListenInvite(userId = 20L, text = inviteText)
+        advanceUntilIdle()
+
+        assertEquals("发送失败", toastDeferred.await())
+        assertNull((vm.uiState.value as ShareToFriendUiState.Ready).sendingToUid)
+    }
 }

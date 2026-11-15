@@ -73,8 +73,50 @@ class ListenTogetherModelsTest {
     @Test
     fun `邀请文案往返与非法输入`() {
         val text = ListenTogetherInvite.format("abc_1", 42L)
+        assertEquals("邀请你一起听【Melodia 一起听】roomId=abc_1;inviterId=42", text)
         assertEquals(InviteTarget("abc_1", 42L), ListenTogetherInvite.parse("前缀 $text 后缀"))
+        assertEquals(InviteTarget("abc_1", 42L), ListenTogetherInvite.parse("【Melodia 一起听】roomId=abc_1;inviterId=42"))
+        assertEquals(InviteTarget("abc_1", 42L), ListenTogetherInvite.parse("roomId=abc_1;inviterId=42"))
+        assertNull(ListenTogetherInvite.parse(""))
+        assertNull(ListenTogetherInvite.parse("   "))
         assertNull(ListenTogetherInvite.parse("roomId=abc_1"))
         assertNull(ListenTogetherInvite.parse("随便一段文字"))
+        assertNull(ListenTogetherInvite.parse("【Melodia 一起听】roomId=abc/def;inviterId=42"))
+        assertNull(ListenTogetherInvite.parse("【Melodia 一起听】roomId=;inviterId=42"))
+        assertNull(ListenTogetherInvite.parse("【Melodia 一起听】roomId=${"a".repeat(129)};inviterId=42"))
+        assertNull(ListenTogetherInvite.parse("【Melodia 一起听】roomId=abc_1;inviterId=42abc"))
+        assertNull(ListenTogetherInvite.parse("a".repeat(5000)))
+    }
+
+    @Test
+    fun `带歌名的邀请文案格式化、截断、展示文本与歌名提取`() {
+        val withSong = ListenTogetherInvite.format("r1", 7L, "晴天")
+        assertEquals("邀请你一起听「晴天」【Melodia 一起听】roomId=r1;inviterId=7", withSong)
+        assertEquals(InviteTarget("r1", 7L), ListenTogetherInvite.parse(withSong))
+        assertEquals("邀请你一起听「晴天」", ListenTogetherInvite.displayText(withSong))
+        assertEquals("晴天", ListenTogetherInvite.extractSongName(withSong))
+
+        val longName = "一二三四五六七八九十".repeat(5)
+        val formattedLong = ListenTogetherInvite.format("r2", 8L, longName)
+        val extractedLong = ListenTogetherInvite.extractSongName(formattedLong)
+        assertEquals(40, extractedLong?.length)
+        assertEquals(longName.take(40), extractedLong)
+
+        val nested = ListenTogetherInvite.format("r3", 9L, "晴天「Live」")
+        assertEquals("晴天「Live」", ListenTogetherInvite.extractSongName(nested))
+
+        val blankSong = ListenTogetherInvite.format("r4", 10L, "   ")
+        assertEquals("邀请你一起听【Melodia 一起听】roomId=r4;inviterId=10", blankSong)
+        assertEquals("邀请你一起听", ListenTogetherInvite.displayText(blankSong))
+        assertNull(ListenTogetherInvite.extractSongName(blankSong))
+
+        val legacy = "【Melodia 一起听】roomId=r5;inviterId=11"
+        assertEquals("邀请你一起听", ListenTogetherInvite.displayText(legacy))
+        assertNull(ListenTogetherInvite.extractSongName(legacy))
+
+        assertEquals("", ListenTogetherInvite.displayText(""))
+        assertEquals("普通文本", ListenTogetherInvite.displayText("普通文本"))
+        assertNull(ListenTogetherInvite.extractSongName("邀请你一起听「」【Melodia 一起听】roomId=r6;inviterId=12"))
+        assertNull(ListenTogetherInvite.extractSongName("普通文本"))
     }
 }
