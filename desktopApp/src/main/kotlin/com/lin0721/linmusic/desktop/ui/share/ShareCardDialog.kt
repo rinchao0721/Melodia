@@ -1,9 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.share
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -37,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,7 +46,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -63,11 +56,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
@@ -92,8 +83,6 @@ import com.lin0721.linmusic.core.share.ui.ShareCardExportSurface
 import com.lin0721.linmusic.core.share.ui.ShareCardTypography
 import com.lin0721.linmusic.core.share.ui.ShareCardTypographyOptions
 import com.lin0721.linmusic.core.share.ui.rememberShareCardCapture
-import com.lin0721.linmusic.core.ui.theme.contentColorOn
-import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.platform.chooseSaveFile
 import com.lin0721.linmusic.desktop.platform.revealInFileManager
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -101,12 +90,13 @@ import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.DialogLabel
+import com.lin0721.linmusic.desktop.ui.components.SuccessActionCapsule
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
+import com.lin0721.linmusic.desktop.ui.components.awaitCapsuleTimeout
+import com.lin0721.linmusic.desktop.ui.components.buildSuccessBannerMessage
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
+import com.lin0721.linmusic.desktop.ui.components.recipientDisplayName
 import com.lin0721.linmusic.desktop.ui.components.songLink
-import com.lin0721.linmusic.desktop.ui.components.uiEnter
-import com.lin0721.linmusic.desktop.ui.components.uiExit
-import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.home.OutlineChip
 import com.lin0721.linmusic.desktop.ui.message.ShareToFriendDialog
 import com.lin0721.linmusic.desktop.ui.palette.FallbackBase
@@ -121,9 +111,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "ShareCardDialog"
 private val RowShape = RoundedCornerShape(10.dp)
@@ -783,34 +771,13 @@ private fun RecentFriendChip(
     }
 }
 
-internal fun sentRecipientDisplayName(nickname: String): String = nickname.ifBlank { "对方" }
+internal fun sentRecipientDisplayName(nickname: String): String = recipientDisplayName(nickname)
 
 internal suspend fun awaitSentCapsuleTimeout(
     hovered: Flow<Boolean>,
     timeoutMs: Long = NOTICE_MS,
     nowMs: () -> Long = { System.nanoTime() / 1_000_000L }
-) {
-    var remainingMs = timeoutMs
-    var isHovered = hovered.first()
-    while (remainingMs > 0L) {
-        if (isHovered) {
-            hovered.first { !it }
-            isHovered = false
-        } else {
-            val startedMs = nowMs()
-            val becameHovered = withTimeoutOrNull(remainingMs) {
-                hovered.first { it }
-            } != null
-            if (!becameHovered) {
-                remainingMs = 0L
-            } else {
-                val elapsedMs = (nowMs() - startedMs).coerceAtLeast(0L)
-                remainingMs = (remainingMs - elapsedMs).coerceAtLeast(0L)
-                isHovered = true
-            }
-        }
-    }
-}
+) = awaitCapsuleTimeout(hovered, timeoutMs, nowMs)
 
 @Composable
 private fun BoxScope.ShareSentCapsule(
@@ -819,89 +786,15 @@ private fun BoxScope.ShareSentCapsule(
     onHide: () -> Unit,
     onOpenChat: (MessageUser) -> Unit
 ) {
-    val hoverSource = remember { MutableInteractionSource() }
-    val hoveredState = hoverSource.collectIsHoveredAsState()
-    val goHover = remember { MutableInteractionSource() }
-    val goHovered by goHover.collectIsHoveredAsState()
-
-    LaunchedEffect(banner?.id, visible) {
-        if (banner == null || !visible) return@LaunchedEffect
-        awaitSentCapsuleTimeout(snapshotFlow { hoveredState.value })
-        onHide()
-    }
-
-    AnimatedVisibility(
-        visible = visible && banner != null,
-        modifier = Modifier.align(Alignment.BottomCenter),
-        enter = uiEnter(fadeIn(uiTween(180)) + slideInVertically(uiTween(200)) { it / 3 }),
-        exit = uiExit(fadeOut(uiTween(220)))
-    ) {
-        val current = banner ?: return@AnimatedVisibility
-        val message = buildAnnotatedString {
-            append("已发送给 ")
-            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
-                append(sentRecipientDisplayName(current.user.nickname))
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                // 阴影绘制在边距内，避免被动画层边界裁掉
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .widthIn(max = 460.dp)
-                .themedShadow(12.dp, CircleShape)
-                .clip(CircleShape)
-                .background(DesktopColors.PopupSurface)
-                .border(1.dp, DesktopColors.Outline, CircleShape)
-                .hoverable(hoverSource)
-                // 吞掉胶囊空白处点击，避免误触背后的预览或选项
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
-                .padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                Modifier.size(22.dp).clip(CircleShape).background(DesktopColors.Success),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = contentColorOn(DesktopColors.Success),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-            Cover(current.user.avatarUrl, 22.dp, shape = CircleShape)
-            Text(
-                text = message,
-                color = DesktopColors.TextPrimary,
-                fontSize = 12.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .hoverable(goHover)
-                    .background(if (goHovered) DesktopColors.Hover else Color.Transparent)
-                    .pointerHoverIcon(PointerIcon.Hand)
-                    .clickable { onOpenChat(current.user) }
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "去聊天 ›",
-                    color = DesktopColors.AccentText,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
+    val current = banner
+    SuccessActionCapsule(
+        bannerKey = current?.id,
+        visible = visible && current != null,
+        message = current?.let { buildSuccessBannerMessage("已发送给 ", it.user.nickname) } ?: AnnotatedString(""),
+        actionLabel = "去聊天 ›",
+        onAction = { current?.let { onOpenChat(it.user) } },
+        onHide = onHide,
+        avatarUrl = current?.user?.avatarUrl,
+        showAvatar = current != null
+    )
 }
-

@@ -27,8 +27,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,15 +58,23 @@ import com.lin0721.linmusic.core.listentogether.ListenTogetherState
 import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherMember
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
+import com.lin0721.linmusic.desktop.ui.components.SuccessActionCapsule
+import com.lin0721.linmusic.desktop.ui.components.TooltipSide
+import com.lin0721.linmusic.desktop.ui.components.buildSuccessBannerMessage
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.uiTween
+import com.lin0721.linmusic.desktop.ui.message.ShareToFriendDialog
+import com.lin0721.linmusic.desktop.ui.message.ShareToFriendMode
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
 import com.lin0721.linmusic.desktop.ui.palette.rememberImmersiveColors
 import com.lin0721.linmusic.desktop.ui.settings.SettingSwitch
-import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
+import com.lin0721.linmusic.desktop.ui.shell.PageViewModelFactory
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
+import com.lin0721.linmusic.feature.message.domain.MessageUser
 import kotlinx.coroutines.launch
 
 private val CoverSize = 280.dp
@@ -71,9 +82,16 @@ private val AvatarSize = 44.dp
 private val CardShape = RoundedCornerShape(12.dp)
 private const val COLOR_TRANSITION_MS = 800
 
+private data class InviteSentBanner(val id: Long, val user: MessageUser)
+
 // 一起听房间页：封面取色铺底，左栏为当前歌曲、成员与操作，右栏为房间队列
 @Composable
-fun ListenTogetherPage(viewModel: ListenTogetherViewModel, songPicker: RoomSongPickerViewModel, modifier: Modifier = Modifier) {
+fun ListenTogetherPage(
+    viewModel: ListenTogetherViewModel,
+    songPicker: RoomSongPickerViewModel,
+    pageViewModels: PageViewModelFactory,
+    modifier: Modifier = Modifier
+) {
     val navigator = LocalDesktopNavigator.current
     val state by viewModel.state.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
@@ -82,7 +100,26 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, songPicker: RoomSongP
     val tracks by viewModel.roomTracks.collectAsState()
     val scope = rememberCoroutineScope()
     var showPicker by remember { mutableStateOf(false) }
+    var showInviteDialog by remember { mutableStateOf(false) }
+    var sentBanner by remember { mutableStateOf<InviteSentBanner?>(null) }
+    var sentBannerVisible by remember { mutableStateOf(false) }
+    var nextBannerId by remember { mutableLongStateOf(0L) }
     if (showPicker) RoomSongPickerDialog(songPicker, onDismiss = { showPicker = false })
+    if (showInviteDialog) {
+        ShareToFriendDialog(
+            mode = ShareToFriendMode.ListenInvite(
+                songName = nowPlaying?.title?.takeIf { it.isNotBlank() },
+                buildInviteText = viewModel::currentInviteText
+            ),
+            factory = pageViewModels,
+            onSent = { user ->
+                nextBannerId += 1
+                sentBanner = InviteSentBanner(nextBannerId, user)
+                sentBannerVisible = true
+            },
+            onDismiss = { showInviteDialog = false }
+        )
+    }
     LaunchedEffect(viewModel) { viewModel.messages.collect { navigator.showMessage(it) } }
 
     val immersive = rememberImmersiveColors(rememberCoverBase(nowPlaying?.artworkUri))
@@ -149,14 +186,31 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, songPicker: RoomSongP
                         SettingSwitch(state.allowMemberControl, onChange = viewModel::setAllowMemberControl)
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     if (state.isHost) {
-                        PillButton("复制邀请", background, content, icon = { Icon(Icons.Rounded.Link, null, tint = background, modifier = Modifier.size(16.dp)) }) {
-                            scope.launch {
-                                val text = viewModel.currentInviteText()
-                                if (text.isNotBlank()) {
-                                    navigator.showMessage(if (copyTextToClipboard(text)) "邀请文案已复制，发给好友粘贴加入" else "复制失败")
-                                }
+                        PillButton("邀请好友", background, content, icon = { Icon(Icons.Rounded.PersonAdd, null, tint = background, modifier = Modifier.size(16.dp)) }) {
+                            showInviteDialog = true
+                        }
+                        DesktopTooltip("复制邀请文案", side = TooltipSide.Top) {
+                            Box(
+                                Modifier.size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(cardFill)
+                                    .pointerHoverIcon(PointerIcon.Hand)
+                                    .clickable {
+                                        scope.launch {
+                                            val text = viewModel.currentInviteText()
+                                            if (text.isNotBlank()) {
+                                                navigator.showMessage(if (copyTextToClipboard(text)) "邀请文案已复制，发给好友粘贴加入" else "复制失败")
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.ContentCopy, "复制邀请文案", tint = content, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -200,6 +254,22 @@ fun ListenTogetherPage(viewModel: ListenTogetherViewModel, songPicker: RoomSongP
                 }
             }
         }
+        val currentBanner = sentBanner
+        SuccessActionCapsule(
+            bannerKey = currentBanner?.id,
+            visible = sentBannerVisible && currentBanner != null,
+            message = currentBanner?.let { buildSuccessBannerMessage("已发送给 ", it.user.nickname) } ?: AnnotatedString(""),
+            actionLabel = "去聊天 ›",
+            onAction = {
+                val target = currentBanner?.user ?: return@SuccessActionCapsule
+                sentBannerVisible = false
+                navigator.openMessages(target.uid, target.nickname, target.avatarUrl)
+            },
+            onHide = { sentBannerVisible = false },
+            avatarUrl = currentBanner?.user?.avatarUrl,
+            showAvatar = currentBanner != null,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
     }
 }
 

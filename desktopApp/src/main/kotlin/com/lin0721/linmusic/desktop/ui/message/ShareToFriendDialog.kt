@@ -33,7 +33,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,9 +61,17 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.ui.ShareToFriendUiState
 import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ListHeight = 380.dp
 private const val FOLLOW_LOAD_MORE_THRESHOLD = 5
+private const val DIALOG_NOTICE_MS = 2_500L
+
+internal sealed interface ShareToFriendMode {
+    data class Song(val songId: Long, val songName: String, val note: String = "") : ShareToFriendMode
+    data class ListenInvite(val songName: String? = null, val buildInviteText: suspend () -> String) : ShareToFriendMode
+}
 
 @Composable
 internal fun ShareToFriendDialog(
@@ -73,7 +84,35 @@ internal fun ShareToFriendDialog(
     onSent: (MessageUser) -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    ShareToFriendDialog(
+        mode = ShareToFriendMode.Song(songId = songId, songName = songName, note = note),
+        factory = factory,
+        onMessage = onMessage,
+        onSent = onSent,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+internal fun ShareToFriendDialog(
+    mode: ShareToFriendMode,
+    factory: PageViewModelFactory,
+    // 由外层接管提示时传入，否则走窗口提示栏并在弹窗底栏显示
+    onMessage: ((String) -> Unit)? = null,
+    onSent: (MessageUser) -> Unit = {},
+    onDismiss: () -> Unit
+) {
     val navigator = LocalDesktopNavigator.current
+    val scope = rememberCoroutineScope()
+    var notice by remember { mutableStateOf<String?>(null) }
+    var preparingInvite by remember { mutableStateOf(false) }
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            delay(DIALOG_NOTICE_MS)
+            notice = null
+        }
+    }
+
     // 弹窗关闭即释放独立 ViewModelStore，避免选人协程泄漏
     val store = remember { ViewModelStore() }
     val viewModel = remember(store, factory) {
@@ -90,7 +129,14 @@ internal fun ShareToFriendDialog(
 
     LaunchedEffect(viewModel) { viewModel.loadIfNeeded() }
     LaunchedEffect(viewModel) {
-        viewModel.toastEvent.collect { msg -> onMessage?.invoke(msg) ?: navigator.showMessage(msg) }
+        viewModel.toastEvent.collect { msg ->
+            if (onMessage != null) {
+                onMessage(msg)
+            } else {
+                notice = msg
+                navigator.showMessage(msg)
+            }
+        }
     }
     LaunchedEffect(viewModel) {
         viewModel.shareCompleted.collect { user ->
@@ -101,15 +147,63 @@ internal fun ShareToFriendDialog(
 
     val uiState by viewModel.uiState.collectAsState()
     val query = (uiState as? ShareToFriendUiState.Ready)?.query.orEmpty()
+    val dialogTitle = when (mode) {
+        is ShareToFriendMode.Song -> "分享给好友"
+        is ShareToFriendMode.ListenInvite -> "邀请好友一起听"
+    }
+    val dialogSubtitle = when (mode) {
+        is ShareToFriendMode.Song -> if (mode.songName.isNotBlank()) "分享单曲：《${mode.songName}》" else "分享单曲"
+        is ShareToFriendMode.ListenInvite -> if (!mode.songName.isNullOrBlank()) {
+            "正在听「${mode.songName}」· 发送一起听邀请"
+        } else {
+            "选择好友发送一起听邀请"
+        }
+    }
+    val onSelectFriend: (MessageUser) -> Unit = { user ->
+        when (mode) {
+            is ShareToFriendMode.Song -> viewModel.shareSong(user.uid, mode.songId, mode.songName, mode.note)
+            is ShareToFriendMode.ListenInvite -> if (!preparingInvite) {
+                preparingInvite = true
+                scope.launch {
+                    try {
+                        val text = mode.buildInviteText()
+                        if (text.isBlank()) {
+                            val msg = "当前不在房间内"
+                            if (onMessage != null) onMessage(msg) else {
+                                notice = msg
+                                navigator.showMessage(msg)
+                            }
+                        } else {
+                            viewModel.sendListenInvite(user.uid, text)
+                        }
+                    } finally {
+                        preparingInvite = false
+                    }
+                }
+            }
+        }
+    }
 
     DesktopDialog(
-        title = "分享给好友",
+        title = dialogTitle,
         onDismiss = onDismiss,
         width = 440.dp,
-        actions = { DialogButton("取消", onDismiss) }
+        actions = {
+            notice?.let {
+                Text(
+                    text = it,
+                    color = DesktopColors.Error,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            DialogButton("取消", onDismiss)
+        }
     ) {
         Text(
-            text = if (songName.isNotBlank()) "分享单曲：《$songName》" else "分享单曲",
+            text = dialogSubtitle,
             color = DesktopColors.TextGray,
             fontSize = 12.sp,
             maxLines = 1,
@@ -160,6 +254,7 @@ internal fun ShareToFriendDialog(
                         )
                     } else {
                         val listState = rememberLazyListState()
+                        val rowEnabled = state.sendingToUid == null && !preparingInvite
                         HoverScrollbarBox(listState, Modifier.fillMaxSize()) {
                             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                                 if (recent.isNotEmpty()) {
@@ -170,8 +265,8 @@ internal fun ShareToFriendDialog(
                                         ShareFriendRow(
                                             user = user,
                                             sending = state.sendingToUid == user.uid,
-                                            enabled = state.sendingToUid == null,
-                                            onClick = { viewModel.shareSong(user.uid, songId, songName, note) }
+                                            enabled = rowEnabled,
+                                            onClick = { onSelectFriend(user) }
                                         )
                                     }
                                 }
@@ -186,8 +281,8 @@ internal fun ShareToFriendDialog(
                                         ShareFriendRow(
                                             user = user,
                                             sending = state.sendingToUid == user.uid,
-                                            enabled = state.sendingToUid == null,
-                                            onClick = { viewModel.shareSong(user.uid, songId, songName, note) }
+                                            enabled = rowEnabled,
+                                            onClick = { onSelectFriend(user) }
                                         )
                                         if (state.hasMoreFollows &&
                                             !state.isLoadingMoreFollows &&

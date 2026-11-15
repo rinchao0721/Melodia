@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -44,6 +45,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -74,6 +77,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -87,22 +91,36 @@ import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.share.ShareCardMessage
 import com.lin0721.linmusic.core.share.ui.ShareCard
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.components.SuccessActionCapsule
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
+import com.lin0721.linmusic.desktop.ui.components.buildSuccessBannerMessage
+import com.lin0721.linmusic.desktop.ui.components.recipientDisplayName
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
 import com.lin0721.linmusic.desktop.ui.components.uiTween
+import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import com.lin0721.linmusic.desktop.ui.share.rememberShareCardArt
+import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.feature.listentogether.ui.JoinInviteEvent
+import com.lin0721.linmusic.feature.message.domain.ListenTogetherInviteMessage
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.domain.PrivateCard
 import com.lin0721.linmusic.feature.message.domain.PrivateCardKind
+import com.lin0721.linmusic.feature.message.domain.PrivateMessage
 import com.lin0721.linmusic.feature.message.ui.ChatState
+import com.lin0721.linmusic.feature.message.ui.InviteStatus
 import com.lin0721.linmusic.feature.message.ui.PrivateChatItem
 import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 private val ChatAvatarSize = 36.dp
 private val OuterBubbleRadius = 16.dp
@@ -115,6 +133,19 @@ private val ComposerButtonSize = 36.dp
 private val ComposerContainerRadius = 24.dp
 private val NowPlayingPillCoverSize = 24.dp
 private val NowPlayingPillMaxWidth = 260.dp
+
+private data class PendingListenInvite(
+    val roomId: String,
+    val inviterId: Long,
+    val nickname: String,
+    val avatarUrl: String?,
+    val songName: String?
+)
+
+private data class JoinedBanner(
+    val id: Long,
+    val invite: PendingListenInvite
+)
 
 @Composable
 internal fun PrivateChatPane(
@@ -135,71 +166,220 @@ internal fun PrivateChatPane(
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val shareableNowPlaying by viewModel.shareableNowPlaying.collectAsState()
+    val inviteStatuses by viewModel.inviteStatus.collectAsState()
 
-    Column(modifier.fillMaxSize()) {
-        ChatHeaderBar(
-            peerUid = peerUid,
-            peerUser = peerUser,
-            onOpenProfile = { onOpenProfile(peerUid) }
-        )
-        HorizontalDivider(color = DesktopColors.Divider)
+    val navigator = LocalDesktopNavigator.current
+    val listenTogether = LocalListenTogetherViewModel.current
+    val listenBusy by (listenTogether?.busy ?: remember { MutableStateFlow(false) }).collectAsState()
+    var confirmTarget by remember { mutableStateOf<PendingListenInvite?>(null) }
+    var leaveTarget by remember { mutableStateOf<PendingListenInvite?>(null) }
+    // 仅响应本页发起的加入，避免其他入口的加入结果在这里弹提示
+    var awaitingJoin by remember { mutableStateOf<PendingListenInvite?>(null) }
+    var joinedBanner by remember { mutableStateOf<JoinedBanner?>(null) }
+    var joinedBannerVisible by remember { mutableStateOf(false) }
+    var nextBannerId by remember { mutableLongStateOf(0L) }
 
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (val state = chatState) {
-                ChatState.Loading -> {
-                    CircularProgressIndicator(
-                        color = DesktopColors.Accent,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+    // 房间结束后刷新仍显示进行中的邀请卡片
+    LaunchedEffect(listenTogether) {
+        listenTogether?.state?.map { it.active }?.distinctUntilChanged()?.collect { active ->
+            if (!active) viewModel.recheckJoinableInvites()
+        }
+    }
+
+    LaunchedEffect(listenTogether) {
+        listenTogether?.joinEvents?.collect { event ->
+            val pending = awaitingJoin ?: return@collect
+            when (event) {
+                is JoinInviteEvent.Joined -> if (event.inviterId == pending.inviterId) {
+                    awaitingJoin = null
+                    confirmTarget = null
+                    leaveTarget = null
+                    nextBannerId += 1
+                    joinedBanner = JoinedBanner(nextBannerId, pending)
+                    joinedBannerVisible = true
                 }
 
-                is ChatState.Error -> {
-                    Column(
-                        Modifier.align(Alignment.Center).padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(state.message, color = DesktopColors.TextGray, fontSize = 14.sp)
-                        TextButton(onClick = viewModel::retry) {
-                            Text("重试", color = DesktopColors.TextPrimary)
-                        }
-                    }
+                is JoinInviteEvent.NeedLeaveCurrent -> if (event.roomId == pending.roomId) {
+                    awaitingJoin = null
+                    confirmTarget = null
+                    leaveTarget = pending
                 }
 
-                ChatState.Ready -> {
-                    if (chatItems.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无消息记录，发句话打个招呼吧", color = DesktopColors.TextGray, fontSize = 13.sp)
-                        }
-                    } else {
-                        ChatMessageList(
-                            peerUid = peerUid,
-                            chatItems = chatItems,
-                            peerAvatarUrl = peerUser?.avatarUrl,
-                            hasMore = hasMore,
-                            isLoadingMore = isLoadingMore,
-                            currentSongId = nowPlaying?.songId,
-                            isPlaying = isPlaying,
-                            onLoadMore = viewModel::loadMore,
-                            onOpenProfile = { onOpenProfile(peerUid) },
-                            onPlaySong = viewModel::playSong,
-                            onOpenPlaylist = onOpenPlaylist,
-                            onOpenAlbum = onOpenAlbum
-                        )
-                    }
+                is JoinInviteEvent.Failed -> {
+                    awaitingJoin = null
+                    navigator.showMessage(event.message)
                 }
             }
         }
+    }
 
-        HorizontalDivider(color = DesktopColors.Divider)
-        ChatComposerBar(
-            draft = draft,
-            sending = sending,
-            shareableNowPlaying = shareableNowPlaying,
-            onDraftChange = viewModel::updateDraft,
-            onSend = viewModel::sendDraft,
-            onSendCurrentSong = viewModel::sendCurrentSong
+    confirmTarget?.let { target ->
+        ListenInviteConfirmDialog(
+            invite = target,
+            title = "加入 ${recipientDisplayName(target.nickname)} 的一起听？",
+            subtitle = target.songName?.let { "正在听「$it」· 加入后跟随房主播放" } ?: "加入后跟随房主播放",
+            confirmLabel = "加入",
+            loading = awaitingJoin != null,
+            enabled = !listenBusy,
+            onConfirm = {
+                val vm = listenTogether ?: return@ListenInviteConfirmDialog
+                awaitingJoin = target
+                vm.joinInvite(target.roomId, target.inviterId)
+            },
+            onDismiss = { confirmTarget = null }
         )
+    }
+    leaveTarget?.let { target ->
+        ListenInviteConfirmDialog(
+            invite = target,
+            title = "先退出当前一起听？",
+            subtitle = "退出当前房间后加入 ${recipientDisplayName(target.nickname)} 的一起听",
+            confirmLabel = "退出并加入",
+            loading = awaitingJoin != null,
+            enabled = !listenBusy,
+            onConfirm = {
+                val vm = listenTogether ?: return@ListenInviteConfirmDialog
+                awaitingJoin = target
+                vm.leaveAndJoin(target.roomId, target.inviterId)
+            },
+            onDismiss = { leaveTarget = null }
+        )
+    }
+
+    Box(modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            ChatHeaderBar(
+                peerUid = peerUid,
+                peerUser = peerUser,
+                onOpenProfile = { onOpenProfile(peerUid) }
+            )
+            HorizontalDivider(color = DesktopColors.Divider)
+
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (val state = chatState) {
+                    ChatState.Loading -> {
+                        CircularProgressIndicator(
+                            color = DesktopColors.Accent,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+
+                    is ChatState.Error -> {
+                        Column(
+                            Modifier.align(Alignment.Center).padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(state.message, color = DesktopColors.TextGray, fontSize = 14.sp)
+                            TextButton(onClick = viewModel::retry) {
+                                Text("重试", color = DesktopColors.TextPrimary)
+                            }
+                        }
+                    }
+
+                    ChatState.Ready -> {
+                        if (chatItems.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("暂无消息记录，发句话打个招呼吧", color = DesktopColors.TextGray, fontSize = 13.sp)
+                            }
+                        } else {
+                            ChatMessageList(
+                                peerUid = peerUid,
+                                chatItems = chatItems,
+                                peerAvatarUrl = peerUser?.avatarUrl,
+                                hasMore = hasMore,
+                                isLoadingMore = isLoadingMore,
+                                currentSongId = nowPlaying?.songId,
+                                isPlaying = isPlaying,
+                                inviteStatuses = inviteStatuses,
+                                onLoadMore = viewModel::loadMore,
+                                onOpenProfile = { onOpenProfile(peerUid) },
+                                onPlaySong = viewModel::playSong,
+                                onOpenPlaylist = onOpenPlaylist,
+                                onOpenAlbum = onOpenAlbum,
+                                onCheckInvite = viewModel::checkInvite,
+                                onJoinInvite = { invite, msg ->
+                                    confirmTarget = PendingListenInvite(
+                                        roomId = invite.roomId,
+                                        inviterId = invite.inviterId,
+                                        nickname = msg.fromUser?.nickname?.takeIf { it.isNotBlank() }
+                                            ?: peerUser?.nickname?.takeIf { it.isNotBlank() }
+                                            ?: "",
+                                        avatarUrl = msg.fromUser?.avatarUrl?.takeIf { it.isNotBlank() }
+                                            ?: peerUser?.avatarUrl,
+                                        songName = invite.songName?.takeIf { it.isNotBlank() }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+                // 放在消息区内，浮于输入栏上方而不遮挡输入框
+                val currentBanner = joinedBanner
+                SuccessActionCapsule(
+                    bannerKey = currentBanner?.id,
+                    visible = joinedBannerVisible && currentBanner != null,
+                    message = currentBanner?.let {
+                        buildSuccessBannerMessage("已加入 ", it.invite.nickname, " 的一起听")
+                    } ?: AnnotatedString(""),
+                    actionLabel = "去房间 ›",
+                    onAction = {
+                        joinedBannerVisible = false
+                        navigator.openListenTogether()
+                    },
+                    onHide = { joinedBannerVisible = false },
+                    avatarUrl = currentBanner?.invite?.avatarUrl,
+                    showAvatar = currentBanner != null,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
+
+            HorizontalDivider(color = DesktopColors.Divider)
+            ChatComposerBar(
+                draft = draft,
+                sending = sending,
+                shareableNowPlaying = shareableNowPlaying,
+                onDraftChange = viewModel::updateDraft,
+                onSend = viewModel::sendDraft,
+                onSendCurrentSong = viewModel::sendCurrentSong
+            )
+        }
+    }
+}
+
+@Composable
+private fun ListenInviteConfirmDialog(
+    invite: PendingListenInvite,
+    title: String,
+    subtitle: String,
+    confirmLabel: String,
+    loading: Boolean,
+    enabled: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    DesktopDialog(
+        title = title,
+        onDismiss = { if (!loading) onDismiss() },
+        width = 380.dp,
+        actions = {
+            DialogButton("取消", onDismiss, enabled = !loading)
+            DialogButton(confirmLabel, onConfirm, primary = true, enabled = enabled, loading = loading)
+        }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Cover(invite.avatarUrl, 40.dp, shape = CircleShape)
+            Text(
+                text = subtitle,
+                color = DesktopColors.TextGray,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -263,11 +443,14 @@ private fun ChatMessageList(
     isLoadingMore: Boolean,
     currentSongId: Long?,
     isPlaying: Boolean,
+    inviteStatuses: Map<String, InviteStatus>,
     onLoadMore: () -> Unit,
     onOpenProfile: () -> Unit,
     onPlaySong: (Long) -> Unit,
     onOpenPlaylist: (Long, String) -> Unit,
-    onOpenAlbum: (Long, String) -> Unit
+    onOpenAlbum: (Long, String) -> Unit,
+    onCheckInvite: (String) -> Unit,
+    onJoinInvite: (ListenTogetherInviteMessage, PrivateMessage) -> Unit
 ) {
     val listState = rememberLazyListState()
     var initialScrollDone by remember(peerUid) { mutableStateOf(false) }
@@ -352,13 +535,31 @@ private fun ChatMessageList(
                     peerAvatarUrl = peerAvatarUrl,
                     currentSongId = currentSongId,
                     isPlaying = isPlaying,
+                    inviteStatuses = inviteStatuses,
                     onOpenProfile = onOpenProfile,
                     onPlaySong = onPlaySong,
                     onOpenPlaylist = onOpenPlaylist,
-                    onOpenAlbum = onOpenAlbum
+                    onOpenAlbum = onOpenAlbum,
+                    onCheckInvite = onCheckInvite,
+                    onJoinInvite = onJoinInvite
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ChatCenterCapsule(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Text(
+            text = text,
+            color = DesktopColors.TextTertiary,
+            fontSize = 11.sp,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(DesktopColors.Overlay.copy(alpha = 0.07f))
+                .padding(horizontal = 10.dp, vertical = 3.dp)
+        )
     }
 }
 
@@ -368,35 +569,31 @@ private fun ChatItemRow(
     peerAvatarUrl: String?,
     currentSongId: Long?,
     isPlaying: Boolean,
+    inviteStatuses: Map<String, InviteStatus>,
     onOpenProfile: () -> Unit,
     onPlaySong: (Long) -> Unit,
     onOpenPlaylist: (Long, String) -> Unit,
-    onOpenAlbum: (Long, String) -> Unit
+    onOpenAlbum: (Long, String) -> Unit,
+    onCheckInvite: (String) -> Unit,
+    onJoinInvite: (ListenTogetherInviteMessage, PrivateMessage) -> Unit
 ) {
     val msg = item.message
     Column(Modifier.fillMaxWidth()) {
         if (item.showTimeDivider) {
             val timeText = formatChatTimeDivider(msg.time)
             if (timeText.isNotEmpty()) {
-                Box(
-                    Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = timeText,
-                        color = DesktopColors.TextTertiary,
-                        fontSize = 11.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(DesktopColors.Overlay.copy(alpha = 0.07f))
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
-                    )
-                }
+                ChatCenterCapsule(timeText, Modifier.padding(top = 10.dp, bottom = 8.dp))
             }
         } else if (item.isGroupStart) {
             Spacer(Modifier.height(10.dp))
         } else {
             Spacer(Modifier.height(3.dp))
+        }
+
+        val notice = item.systemNotice
+        if (notice != null) {
+            ChatCenterCapsule(notice, Modifier.padding(vertical = 2.dp))
+            return@Column
         }
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -425,9 +622,12 @@ private fun ChatItemRow(
                     maxBubbleWidth = maxBubbleWidth,
                     currentSongId = currentSongId,
                     isPlaying = isPlaying,
+                    inviteStatuses = inviteStatuses,
                     onPlaySong = onPlaySong,
                     onOpenPlaylist = onOpenPlaylist,
-                    onOpenAlbum = onOpenAlbum
+                    onOpenAlbum = onOpenAlbum,
+                    onCheckInvite = onCheckInvite,
+                    onJoinInvite = onJoinInvite
                 )
             }
         }
@@ -440,9 +640,12 @@ private fun MessageContentBlock(
     maxBubbleWidth: Dp,
     currentSongId: Long?,
     isPlaying: Boolean,
+    inviteStatuses: Map<String, InviteStatus>,
     onPlaySong: (Long) -> Unit,
     onOpenPlaylist: (Long, String) -> Unit,
-    onOpenAlbum: (Long, String) -> Unit
+    onOpenAlbum: (Long, String) -> Unit,
+    onCheckInvite: (String) -> Unit,
+    onJoinInvite: (ListenTogetherInviteMessage, PrivateMessage) -> Unit
 ) {
     val msg = item.message
     val shape = bubbleShape(item.isMine, item.isGroupStart, item.isGroupEnd)
@@ -457,6 +660,20 @@ private fun MessageContentBlock(
                 .clip(shape)
                 .background(DesktopColors.Overlay.copy(alpha = 0.06f))
                 .padding(horizontal = 12.dp, vertical = 7.dp)
+        )
+        return
+    }
+
+    val listenInvite = msg.listenInvite
+    if (listenInvite != null) {
+        ListenInviteCardBubble(
+            invite = listenInvite,
+            status = inviteStatuses[listenInvite.roomId] ?: InviteStatus.Checking,
+            isMine = item.isMine,
+            shape = shape,
+            maxWidth = maxBubbleWidth,
+            onCheckInvite = { onCheckInvite(listenInvite.roomId) },
+            onJoinClick = { onJoinInvite(listenInvite, msg) }
         )
         return
     }
@@ -549,6 +766,151 @@ private fun TextBubble(
 }
 
 @Composable
+private fun CardBubbleContainer(
+    isMine: Boolean,
+    shape: RoundedCornerShape,
+    maxWidth: Dp,
+    highlighted: Boolean = false,
+    dimmed: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    content: @Composable RowScope.() -> Unit
+) {
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val containerColor = if (isMine) DesktopColors.AccentContainer else DesktopColors.CardSurface
+    val borderColor = when {
+        highlighted -> DesktopColors.Accent.copy(alpha = 0.55f)
+        isMine -> DesktopColors.Accent.copy(alpha = if (hovered && onClick != null) 0.35f else 0.18f)
+        else -> if (hovered && onClick != null) DesktopColors.Outline else DesktopColors.Divider
+    }
+
+    Row(
+        Modifier.widthIn(min = 210.dp, max = maxWidth.coerceAtMost(320.dp))
+            .graphicsLayer { if (dimmed) alpha = 0.55f }
+            .clip(shape)
+            .background(containerColor)
+            .border(1.dp, borderColor, shape)
+            .hoverable(hoverSource)
+            .then(
+                if (onClick != null) {
+                    Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
+    )
+}
+
+@Composable
+private fun ListenInviteCardBubble(
+    invite: ListenTogetherInviteMessage,
+    status: InviteStatus,
+    isMine: Boolean,
+    shape: RoundedCornerShape,
+    maxWidth: Dp,
+    onCheckInvite: () -> Unit,
+    onJoinClick: () -> Unit
+) {
+    LaunchedEffect(invite.roomId) {
+        onCheckInvite()
+    }
+
+    val isEnded = status == InviteStatus.Ended
+    val songName = invite.songName?.takeIf { it.isNotBlank() }
+    val (statusText, statusColor) = when (status) {
+        InviteStatus.Checking -> "检查中…" to DesktopColors.TextTertiary
+        InviteStatus.Joinable -> "● 房间进行中" to DesktopColors.Success
+        InviteStatus.Ended -> "已结束" to DesktopColors.TextTertiary
+        InviteStatus.Failed -> "检查失败，点此重试" to DesktopColors.Error
+    }
+
+    CardBubbleContainer(
+        isMine = isMine,
+        shape = shape,
+        maxWidth = maxWidth,
+        dimmed = isEnded
+    ) {
+        Box(
+            Modifier.size(CardCoverSize)
+                .clip(RoundedCornerShape(9.dp))
+                .background(if (isMine) DesktopColors.Accent.copy(alpha = 0.16f) else DesktopColors.Surface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.Headphones,
+                contentDescription = null,
+                tint = if (isEnded) DesktopColors.TextTertiary else DesktopColors.AccentText,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+            Text(
+                text = "一起听邀请",
+                color = DesktopColors.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (songName != null) {
+                Text(
+                    text = songName,
+                    color = DesktopColors.TextGray,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+            }
+            Text(
+                text = statusText,
+                color = statusColor,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .then(
+                        if (status == InviteStatus.Failed) {
+                            Modifier.clip(RoundedCornerShape(4.dp))
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable(onClick = onCheckInvite)
+                        } else {
+                            Modifier
+                        }
+                    )
+            )
+        }
+
+        if (!isMine && status == InviteStatus.Joinable) {
+            Spacer(Modifier.width(10.dp))
+            val joinHover = remember { MutableInteractionSource() }
+            val joinHovered by joinHover.collectIsHoveredAsState()
+            Box(
+                Modifier.clip(RoundedCornerShape(14.dp))
+                    .hoverable(joinHover)
+                    .background(if (joinHovered) DesktopColors.Accent.copy(alpha = 0.88f) else DesktopColors.Accent)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable(onClick = onJoinClick)
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "加入",
+                    color = DesktopColors.OnAccent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ShareCardBubble(
     card: PrivateCard,
     isMine: Boolean,
@@ -570,30 +932,12 @@ private fun ShareCardBubble(
         PrivateCardKind.Mv, PrivateCardKind.General -> null
     }
 
-    val hoverSource = remember { MutableInteractionSource() }
-    val hovered by hoverSource.collectIsHoveredAsState()
-    val containerColor = if (isMine) DesktopColors.AccentContainer else DesktopColors.CardSurface
-    val borderColor = when {
-        isThisSongPlaying -> DesktopColors.Accent.copy(alpha = 0.55f)
-        isMine -> DesktopColors.Accent.copy(alpha = if (hovered && clickAction != null) 0.35f else 0.18f)
-        else -> if (hovered && clickAction != null) DesktopColors.Outline else DesktopColors.Divider
-    }
-
-    Row(
-        Modifier.widthIn(min = 210.dp, max = maxWidth.coerceAtMost(320.dp))
-            .clip(shape)
-            .background(containerColor)
-            .border(1.dp, borderColor, shape)
-            .hoverable(hoverSource)
-            .then(
-                if (clickAction != null) {
-                    Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = clickAction)
-                } else {
-                    Modifier
-                }
-            )
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    CardBubbleContainer(
+        isMine = isMine,
+        shape = shape,
+        maxWidth = maxWidth,
+        highlighted = isThisSongPlaying,
+        onClick = clickAction
     ) {
         Box(
             Modifier.size(CardCoverSize).clip(RoundedCornerShape(9.dp)),

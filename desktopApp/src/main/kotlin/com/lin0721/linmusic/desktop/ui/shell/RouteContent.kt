@@ -127,7 +127,8 @@ internal fun RouteContent(
         )
         DesktopRoute.ListenTogether -> ListenTogetherPage(
             viewModel = deps.listenTogether,
-            songPicker = frameHost.pageViewModel(entry, factory)
+            songPicker = frameHost.pageViewModel(entry, factory),
+            pageViewModels = factory
         )
         is DesktopRoute.Messages -> MessagesPage(
             initialPeerUid = route.peerUid,
