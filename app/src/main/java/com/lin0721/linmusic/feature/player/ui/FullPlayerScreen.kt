@@ -29,6 +29,7 @@ import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
+import com.lin0721.linmusic.core.ui.theme.KeepScreenOnWhile
 import com.lin0721.linmusic.core.ui.theme.LightStatusBarIconsWhile
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -130,6 +131,7 @@ fun FullPlayerScreen(
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
     fullscreenContentWidth: Dp = Dp.Unspecified,
+    isPlayerVisible: Boolean = isPlayerOpen,
     onLyricsFullScreenChange: (Boolean) -> Unit = {},
     onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
@@ -161,6 +163,7 @@ fun FullPlayerScreen(
             isSidebarFullscreen = isSidebarFullscreen,
             sidebarFullscreenProgress = sidebarFullscreenProgress,
             fullscreenContentWidth = fullscreenContentWidth,
+            isPlayerVisible = isPlayerVisible,
             onLyricsFullScreenChange = onLyricsFullScreenChange,
             onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange
         )
@@ -202,6 +205,7 @@ private fun FullPlayerScreenContent(
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
     fullscreenContentWidth: Dp = Dp.Unspecified,
+    isPlayerVisible: Boolean = isPlayerOpen,
     onLyricsFullScreenChange: (Boolean) -> Unit = {},
     onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
@@ -378,6 +382,7 @@ private fun FullPlayerScreenContent(
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
+    val fullScreenLyricKeepScreenOn by settingsPreferences.fullScreenLyricKeepScreenOn.collectAsStateWithLifecycle(initialValue = false)
 
     val hasTranslation = remember(songDetailState.lyrics) { songDetailState.lyrics.any { it.translation != null } }
     val hasRoma = remember(songDetailState.lyrics) { songDetailState.lyrics.any { it.roma != null } }
@@ -406,6 +411,15 @@ private fun FullPlayerScreenContent(
 
     // 宽屏两栏的歌词区当前是否在组合中（滑到卡片区后移出）
     var isWideLyricsVisible by remember { mutableStateOf(false) }
+
+    KeepScreenOnWhile(
+        shouldKeepScreenOn(
+            keepScreenOnEnabled = fullScreenLyricKeepScreenOn,
+            isPlayerVisible = isPlayerVisible && !showCommentsSheet && !showCommentFloor && !showShareCard,
+            isLyricsScreenVisible = isLyricsFullScreen || isWideLyricsVisible,
+            isPlaying = isPlaying
+        )
+    )
 
     // 全屏歌词与宽屏歌词区的逐字滚动都需要更密的进度回调
     DisposableEffect(isLyricsFullScreen || isWideLyricsVisible, isPlaying) {
@@ -1314,11 +1328,22 @@ private fun FullPlayerScreenContent(
                 onAmllLyricsEnabledChange = { enabled ->
                     coroutineScope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
                 },
+                keepScreenOn = fullScreenLyricKeepScreenOn,
+                onKeepScreenOnChange = { enabled ->
+                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricKeepScreenOn(enabled) }
+                },
                 onDismiss = { showLyricsSettingsSheet = false }
             )
         }
     }
 }
+
+internal fun shouldKeepScreenOn(
+    keepScreenOnEnabled: Boolean,
+    isPlayerVisible: Boolean,
+    isLyricsScreenVisible: Boolean,
+    isPlaying: Boolean
+): Boolean = keepScreenOnEnabled && isPlayerVisible && isLyricsScreenVisible && isPlaying
 
 // 当前歌曲的实际音质短标签；档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
 @Composable

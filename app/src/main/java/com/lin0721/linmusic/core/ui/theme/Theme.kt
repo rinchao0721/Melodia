@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
+import android.view.WindowManager
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -131,6 +132,23 @@ fun LightStatusBarIconsWhile(active: Boolean) {
         if (override) controller?.isAppearanceLightStatusBars = false
         onDispose {
             if (override) controller?.isAppearanceLightStatusBars = true
+        }
+    }
+}
+
+// 停留在需要常亮的界面期间保持屏幕常亮，离开或销毁时自动恢复
+@Composable
+fun KeepScreenOnWhile(active: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(view, active) {
+        val window = view.context.findActivity()?.window
+        if (active && window != null) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            if (active && window != null) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 }

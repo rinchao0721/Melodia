@@ -389,6 +389,8 @@ fun FullScreenLyricsSettingsSheet(
     onAutoHideControlsChange: (Boolean) -> Unit = {},
     centerFirstLine: Boolean = false,
     onCenterFirstLineChange: (Boolean) -> Unit = {},
+    keepScreenOn: Boolean = false,
+    onKeepScreenOnChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val motion = LocalUiMotion.current
@@ -650,6 +652,13 @@ fun FullScreenLyricsSettingsSheet(
                                 subtitle = "首行下沉到屏幕中央，不再吸顶",
                                 checked = centerFirstLine,
                                 onCheckedChange = onCenterFirstLineChange
+                            )
+
+                            LyricCompactSwitchRow(
+                                title = "保持屏幕常亮",
+                                subtitle = "停留在歌词界面且正在播放时防止自动息屏",
+                                checked = keepScreenOn,
+                                onCheckedChange = onKeepScreenOnChange
                             )
 
                         }

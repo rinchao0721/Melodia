@@ -180,6 +180,8 @@ class SettingsViewModel(
 
     val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
 
+    val fullScreenLyricKeepScreenOn = settingsPreferences.fullScreenLyricKeepScreenOn.asState(false)
+
     val superLyricEnabled = settingsPreferences.superLyricEnabled.asState(false)
 
     val lyricInfoEnabled = settingsPreferences.lyricInfoEnabled.asState(true)
@@ -476,6 +478,8 @@ class SettingsViewModel(
     fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
     
     fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+
+    fun updateFullScreenLyricKeepScreenOn(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricKeepScreenOn(enabled) }
 
     fun updateSuperLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSuperLyricEnabled(enabled) }
 

@@ -134,6 +134,7 @@ fun FullScreenLyricsView(
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
     val fullScreenLyricAutoHideControls by settingsPreferences.fullScreenLyricAutoHideControls.collectAsStateWithLifecycle(initialValue = false)
     val fullScreenLyricCenterFirstLine by settingsPreferences.fullScreenLyricCenterFirstLine.collectAsStateWithLifecycle(initialValue = false)
+    val fullScreenLyricKeepScreenOn by settingsPreferences.fullScreenLyricKeepScreenOn.collectAsStateWithLifecycle(initialValue = false)
     // 状态栏随控件隐藏时仍需避开挖孔摄像头
     val topSafeInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top)
     var areControlsVisible by remember { mutableStateOf(true) }
@@ -514,6 +515,10 @@ fun FullScreenLyricsView(
                 centerFirstLine = fullScreenLyricCenterFirstLine,
                 onCenterFirstLineChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenLyricCenterFirstLine(enabled) }
+                },
+                keepScreenOn = fullScreenLyricKeepScreenOn,
+                onKeepScreenOnChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricKeepScreenOn(enabled) }
                 },
                 onDismiss = { showSettingsSheet = false }
             )

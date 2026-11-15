@@ -802,6 +802,7 @@ fun MelodiaApp() {
                         fullscreenProgress = { panelFullscreen.value },
                         // 与上面铺开宽度的计算一致：左右各留 sm
                         fullscreenWidth = contentLayerWidth - MelodiaSpacing.sm * 2,
+                        isPlayerVisible = isPanelVisible && !showRecognition && !showSidebarWebLogin,
                         onLyricsFullScreenChange = { isLyricsFullScreen = it }
                     )
                 }

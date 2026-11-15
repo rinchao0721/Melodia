@@ -51,6 +51,7 @@ object SettingsSearchIndex {
             entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),
             entry(LYRICS, 0, "歌词对齐方式", "居中 左对齐"),
             entry(LYRICS, 0, "逐字歌词流光动效", "卡拉ok 渐变"),
+            entry(LYRICS, 0, "歌词界面保持屏幕常亮", "常亮 息屏 熄屏 屏幕 休眠 锁定"),
             entry(LYRICS, 1, "启用桌面悬浮歌词", "悬浮窗 桌面 锁定 阴影 粗体"),
             entry(LYRICS, 2, "SuperLyric 实时歌词", "状态栏 binder"),
             entry(LYRICS, 2, "LyricInfo 系统歌词", "锁屏岛 元数据"),

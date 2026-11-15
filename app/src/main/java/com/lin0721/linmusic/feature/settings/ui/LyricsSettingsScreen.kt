@@ -49,6 +49,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
     val fullScreenLyricTextSize by viewModel.fullScreenLyricTextSize.collectAsStateWithLifecycle()
     val fullScreenLyricAlignment by viewModel.fullScreenLyricAlignment.collectAsStateWithLifecycle()
     val fullScreenKaraokeAdvancedEffect by viewModel.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle()
+    val fullScreenLyricKeepScreenOn by viewModel.fullScreenLyricKeepScreenOn.collectAsStateWithLifecycle()
     val fluidCloudLyricEnabled by viewModel.fluidCloudLyricEnabled.collectAsStateWithLifecycle()
     val flymeStatusBarLyricEnabled by viewModel.flymeStatusBarLyricEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -121,6 +122,13 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "开启柔和渐变推进边缘",
                         checked = fullScreenKaraokeAdvancedEffect,
                         onCheckedChange = { viewModel.updateFullScreenKaraokeAdvancedEffect(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "歌词界面保持屏幕常亮",
+                        subtitle = "停留在歌词界面且正在播放时保持屏幕常亮",
+                        checked = fullScreenLyricKeepScreenOn,
+                        onCheckedChange = { viewModel.updateFullScreenLyricKeepScreenOn(it) }
                     )
                 }
             }
