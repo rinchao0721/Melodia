@@ -96,6 +96,7 @@ import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherRoomHost
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -1019,6 +1020,9 @@ fun MelodiaApp() {
                 onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }
+
+        // 8. 一起听房间全局弹窗，聊天页与播放页共用
+        ListenTogetherRoomHost()
     }
     }
 }

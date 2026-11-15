@@ -15,7 +15,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -40,11 +38,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.ButtonDefaults
@@ -65,25 +61,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.share.ShareCardBackground
 import com.lin0721.linmusic.core.share.ShareCardContent
 import com.lin0721.linmusic.core.share.ShareCardKind
@@ -98,7 +89,6 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
-import com.lin0721.linmusic.core.ui.theme.contentColorOn
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
@@ -106,6 +96,8 @@ import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.message.domain.MessageUser
+import com.lin0721.linmusic.feature.message.ui.FriendAvatarCircle
+import com.lin0721.linmusic.feature.message.ui.ShareSentCapsule
 import com.lin0721.linmusic.feature.message.ui.ShareToFriendUiState
 import kotlin.math.absoluteValue
 
@@ -290,8 +282,11 @@ internal fun ShareCardPreviewPage(
                     label = "shareSentNotice"
                 ) { current ->
                     ShareSentCapsule(
+                        prefixText = "已发送给 ",
+                        highlightText = current.user.nickname.trim().ifEmpty { "对方" },
                         user = current.user,
-                        onGoToChat = { onNavigateToPrivateChat(current.user.uid) }
+                        actionText = "去聊天 ›",
+                        onAction = { onNavigateToPrivateChat(current.user.uid) }
                     )
                 }
             }
@@ -535,134 +530,6 @@ private fun FriendAvatarItem(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
-    }
-}
-
-@Composable
-private fun FriendAvatarCircle(
-    user: MessageUser,
-    size: Dp,
-    fallbackIconSize: Dp
-) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(MelodiaColors.Fill)
-            .border(0.5.dp, MelodiaColors.Outline, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        val avatarModel = user.avatarUrl.takeIf { it.isNotBlank() }?.let { "$it?param=120y120" }
-        if (avatarModel != null) {
-            SubcomposeAsyncImage(
-                model = avatarModel,
-                contentDescription = user.nickname,
-                contentScale = ContentScale.Crop,
-                error = {
-                    Icon(
-                        imageVector = Icons.Rounded.Person,
-                        contentDescription = null,
-                        tint = MelodiaColors.TextSecondary,
-                        modifier = Modifier.size(fallbackIconSize)
-                    )
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = null,
-                tint = MelodiaColors.TextSecondary,
-                modifier = Modifier.size(fallbackIconSize)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ShareSentCapsule(
-    user: MessageUser,
-    onGoToChat: () -> Unit
-) {
-    val displayName = user.nickname.trim().ifEmpty { "对方" }
-    val ambientShadow = if (MelodiaColors.IsDark) MelodiaColors.ShadowAmbient.copy(alpha = 0.45f) else MelodiaColors.ShadowAmbient
-    val spotShadow = if (MelodiaColors.IsDark) MelodiaColors.ShadowSpot.copy(alpha = 0.45f) else MelodiaColors.ShadowSpot
-    Row(
-        modifier = Modifier
-            .widthIn(max = 360.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = PillShape,
-                ambientColor = ambientShadow,
-                spotColor = spotShadow
-            )
-            .clip(PillShape)
-            .background(MelodiaColors.PopupSurface)
-            .border(1.dp, MelodiaColors.Outline, PillShape)
-            // 吞掉胶囊本体触摸，防止点到背后被盖住的选项芯片
-            .pointerInput(Unit) { detectTapGestures { } }
-            .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(MelodiaColors.Success),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                tint = contentColorOn(MelodiaColors.Success),
-                modifier = Modifier.size(14.dp)
-            )
-        }
-        FriendAvatarCircle(
-            user = user,
-            size = 22.dp,
-            fallbackIconSize = 13.dp
-        )
-        Row(
-            modifier = Modifier.weight(1f, fill = false),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "已发送给 ",
-                color = MelodiaColors.TextPrimary,
-                fontSize = 13.sp,
-                maxLines = 1
-            )
-            Text(
-                text = displayName,
-                color = MelodiaColors.TextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-        }
-        Box(
-            modifier = Modifier
-                .pressable(
-                    style = MelodiaPress.Pill,
-                    shape = PillShape,
-                    role = Role.Button,
-                    onClick = onGoToChat
-                )
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "去聊天 ›",
-                color = MelodiaColors.AccentText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-        }
     }
 }
 

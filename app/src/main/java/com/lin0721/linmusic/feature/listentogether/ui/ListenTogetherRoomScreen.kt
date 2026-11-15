@@ -1,13 +1,20 @@
 package com.lin0721.linmusic.feature.listentogether.ui
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,8 +34,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +47,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,8 +58,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,19 +80,35 @@ import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.PlayingEqualizerBars
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.rememberImmersiveColors
+import com.lin0721.linmusic.core.ui.theme.uiEnter
+import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.message.domain.MessageUser
+import com.lin0721.linmusic.feature.message.ui.ShareSentCapsule
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendMode
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendSheet
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 private val CoverSize = 220.dp
 private val AvatarSize = 44.dp
 private val QueueCoverSize = 40.dp
 private val CardShape = RoundedCornerShape(16.dp)
 private const val COLOR_TRANSITION_MS = 800
+private const val INVITE_SENT_NOTICE_DURATION_MS = 2500L
+
+private data class InviteSentNotice(
+    val id: Long,
+    val user: MessageUser
+)
 
 // 一起听房间页：封面取色铺底，自上而下为状态栏、封面与当前歌曲、成员、房间队列、邀请与退出
 @Composable
@@ -96,6 +124,9 @@ fun ListenTogetherRoomScreen(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val motion = LocalUiMotion.current
+    val shareToFriendViewModel: ShareToFriendViewModel = koinViewModel()
 
     val coverUrl = nowPlaying?.artworkUri.orEmpty()
     var paletteBase by remember { mutableStateOf(FallbackBackdropPalette.base) }
@@ -120,6 +151,45 @@ fun ListenTogetherRoomScreen(
     var showPicker by remember { mutableStateOf(false) }
     if (showPicker) {
         RoomSongPickerSheet(onDismiss = { showPicker = false })
+    }
+
+    var showInviteSheet by remember { mutableStateOf(false) }
+    var sentNotice by remember { mutableStateOf<InviteSentNotice?>(null) }
+    var nextSentNoticeId by remember { mutableLongStateOf(0L) }
+    var heldSentNotice by remember { mutableStateOf(sentNotice) }
+    if (sentNotice != null) {
+        heldSentNotice = sentNotice
+    }
+    var actionBarHeightPx by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(shareToFriendViewModel) {
+        shareToFriendViewModel.toastEvent.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+    LaunchedEffect(shareToFriendViewModel) {
+        shareToFriendViewModel.shareCompleted.collect { recipient ->
+            showInviteSheet = false
+            nextSentNoticeId += 1L
+            sentNotice = InviteSentNotice(id = nextSentNoticeId, user = recipient)
+        }
+    }
+    LaunchedEffect(sentNotice?.id) {
+        val current = sentNotice ?: return@LaunchedEffect
+        delay(INVITE_SENT_NOTICE_DURATION_MS)
+        if (sentNotice?.id == current.id) {
+            sentNotice = null
+        }
+    }
+
+    if (showInviteSheet) {
+        ShareToFriendSheet(
+            mode = ShareToFriendMode.ListenInvite(
+                songName = nowPlaying?.title.orEmpty(),
+                inviteTextProvider = { viewModel.currentInviteText() }
+            ),
+            handleToasts = false,
+            viewModel = shareToFriendViewModel,
+            onDismiss = { showInviteSheet = false }
+        )
     }
 
     // 会话结束（被结束、断网退出）后自动关闭
@@ -229,6 +299,7 @@ fun ListenTogetherRoomScreen(
                     background = background,
                     cardFill = cardFill,
                     onAddSongs = { showPicker = true },
+                    onInviteFriends = { showInviteSheet = true },
                     onCopyInvite = {
                         scope.launch {
                             val text = viewModel.currentInviteText()
@@ -238,9 +309,47 @@ fun ListenTogetherRoomScreen(
                             }
                         }
                     },
-                    onLeave = { viewModel.leave() }
+                    onLeave = { viewModel.leave() },
+                    modifier = Modifier.onSizeChanged { actionBarHeightPx = it.height }
                 )
                 }
+
+            val bottomClearance = if (actionBarHeightPx > 0) {
+                with(density) { actionBarHeightPx.toDp() } + MelodiaSpacing.sm
+            } else {
+                72.dp
+            }
+            val slideOffsetPx = with(density) { 12.dp.roundToPx() }
+            AnimatedVisibility(
+                visible = sentNotice != null,
+                enter = uiEnter(
+                    fadeIn(uiTween(220)) +
+                        slideInVertically(uiTween(220)) { slideOffsetPx }
+                ),
+                exit = uiExit(fadeOut(uiTween(200))),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = MelodiaSpacing.md)
+                    .padding(bottom = bottomClearance)
+            ) {
+                heldSentNotice?.let { notice ->
+                    AnimatedContent(
+                        targetState = notice,
+                        transitionSpec = {
+                            motion.transform(fadeIn(motion.tween(150)) togetherWith fadeOut(motion.tween(120)))
+                        },
+                        contentKey = { it.id },
+                        label = "inviteSentNotice"
+                    ) { current ->
+                        ShareSentCapsule(
+                            prefixText = "已发送给 ",
+                            highlightText = current.user.nickname.trim().ifEmpty { "对方" },
+                            user = current.user
+                        )
+                    }
+                }
+            }
             }
         }
     }
@@ -447,41 +556,64 @@ private fun RoomActionBar(
     background: Color,
     cardFill: Color,
     onAddSongs: () -> Unit,
+    onInviteFriends: () -> Unit,
     onCopyInvite: () -> Unit,
-    onLeave: () -> Unit
+    onLeave: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .padding(horizontal = MelodiaSpacing.lg, vertical = MelodiaSpacing.sm),
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
         horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         MelodiaButton(
             onClick = onAddSongs,
             colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
+            contentPadding = PaddingValues(horizontal = 10.dp),
             modifier = Modifier.weight(1f)
         ) {
-            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
-            Text("添加歌曲", maxLines = 1)
+            Text("添加歌曲", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (isHost) {
             MelodiaButton(
-                onClick = onCopyInvite,
+                onClick = onInviteFriends,
                 colors = ButtonDefaults.buttonColors(containerColor = cardFill, contentColor = content),
+                contentPadding = PaddingValues(horizontal = 10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(Icons.Rounded.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("邀请", maxLines = 1)
+                Text("邀请好友", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            MelodiaIconButton(
+                onClick = onCopyInvite,
+                containerColor = cardFill
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ContentCopy,
+                    contentDescription = "复制邀请文案",
+                    tint = content,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
         MelodiaButton(
             onClick = onLeave,
             colors = ButtonDefaults.buttonColors(containerColor = cardFill, contentColor = content),
+            contentPadding = PaddingValues(horizontal = 10.dp),
             modifier = Modifier.weight(1f)
-        ) { Text(if (isHost) "结束房间" else "退出", maxLines = 1) }
+        ) {
+            Text(
+                text = if (isHost) "结束房间" else "退出",
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

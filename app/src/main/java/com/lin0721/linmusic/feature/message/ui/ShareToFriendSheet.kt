@@ -32,7 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,9 +57,17 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.message.domain.MessageUser
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+sealed interface ShareToFriendMode {
+    data class Song(val songId: Long, val songName: String, val note: String = "") : ShareToFriendMode
+    data class ListenInvite(
+        val songName: String = "",
+        val inviteTextProvider: suspend () -> String
+    ) : ShareToFriendMode
+}
+
 @Composable
 fun ShareToFriendSheet(
     songId: Long,
@@ -66,8 +77,26 @@ fun ShareToFriendSheet(
     handleToasts: Boolean = true,
     viewModel: ShareToFriendViewModel = koinViewModel()
 ) {
+    ShareToFriendSheet(
+        mode = ShareToFriendMode.Song(songId = songId, songName = songName, note = note),
+        onDismiss = onDismiss,
+        handleToasts = handleToasts,
+        viewModel = viewModel
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShareToFriendSheet(
+    mode: ShareToFriendMode,
+    onDismiss: () -> Unit,
+    handleToasts: Boolean = true,
+    viewModel: ShareToFriendViewModel = koinViewModel()
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    var preparingInvite by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.updateQuery("")
@@ -82,6 +111,44 @@ fun ShareToFriendSheet(
 
     LaunchedEffect(viewModel) {
         viewModel.shareCompleted.collect { onDismiss() }
+    }
+
+    val title = when (mode) {
+        is ShareToFriendMode.Song -> "分享给好友"
+        is ShareToFriendMode.ListenInvite -> "邀请好友一起听"
+    }
+    val subtitle = when (mode) {
+        is ShareToFriendMode.Song -> mode.songName
+        is ShareToFriendMode.ListenInvite -> mode.songName.takeIf { it.isNotBlank() }?.let { "正在听「$it」" }.orEmpty()
+    }
+    val emptyTitle = when (mode) {
+        is ShareToFriendMode.Song -> "暂无可分享的好友"
+        is ShareToFriendMode.ListenInvite -> "暂无可邀请的好友"
+    }
+
+    fun sendToFriend(userId: Long) {
+        when (mode) {
+            is ShareToFriendMode.Song -> viewModel.shareSong(
+                userId = userId,
+                songId = mode.songId,
+                songName = mode.songName,
+                note = mode.note
+            )
+            is ShareToFriendMode.ListenInvite -> {
+                if (preparingInvite) return
+                preparingInvite = true
+                scope.launch {
+                    try {
+                        val inviteText = mode.inviteTextProvider()
+                        if (inviteText.isNotBlank()) {
+                            viewModel.sendListenInvite(userId = userId, text = inviteText)
+                        }
+                    } finally {
+                        preparingInvite = false
+                    }
+                }
+            }
+        }
     }
 
     ModalBottomSheet(
@@ -103,15 +170,15 @@ fun ShareToFriendSheet(
                     .padding(horizontal = 20.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "分享给好友",
+                    text = title,
                     color = MelodiaColors.TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
-                if (songName.isNotBlank()) {
+                if (subtitle.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = songName,
+                        text = subtitle,
                         color = MelodiaColors.TextSecondary,
                         fontSize = 13.sp,
                         maxLines = 1,
@@ -180,7 +247,7 @@ fun ShareToFriendSheet(
                         ) {
                             EmptyState(
                                 icon = Icons.Rounded.Person,
-                                title = if (current.query.isNotBlank()) "没有找到匹配的好友" else "暂无可分享的好友"
+                                title = if (current.query.isNotBlank()) "没有找到匹配的好友" else emptyTitle
                             )
                         }
                     } else {
@@ -202,6 +269,8 @@ fun ShareToFriendSheet(
                             if (shouldLoadMore) viewModel.loadMoreFollows()
                         }
 
+                        val rowEnabled = current.sendingToUid == null && !preparingInvite
+
                         LazyColumn(
                             state = listState,
                             modifier = Modifier
@@ -217,15 +286,8 @@ fun ShareToFriendSheet(
                                     ShareFriendRow(
                                         user = user,
                                         isSending = current.sendingToUid == user.uid,
-                                        enabled = current.sendingToUid == null,
-                                        onClick = {
-                                            viewModel.shareSong(
-                                                userId = user.uid,
-                                                songId = songId,
-                                                songName = songName,
-                                                note = note
-                                            )
-                                        }
+                                        enabled = rowEnabled,
+                                        onClick = { sendToFriend(user.uid) }
                                     )
                                 }
                             }
@@ -238,15 +300,8 @@ fun ShareToFriendSheet(
                                     ShareFriendRow(
                                         user = user,
                                         isSending = current.sendingToUid == user.uid,
-                                        enabled = current.sendingToUid == null,
-                                        onClick = {
-                                            viewModel.shareSong(
-                                                userId = user.uid,
-                                                songId = songId,
-                                                songName = songName,
-                                                note = note
-                                            )
-                                        }
+                                        enabled = rowEnabled,
+                                        onClick = { sendToFriend(user.uid) }
                                     )
                                 }
                             }
