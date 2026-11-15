@@ -164,26 +164,32 @@ private fun melodiaColorScheme(palette: MelodiaPalette): ColorScheme {
     return base.copy(
         primary = palette.accent,
         onPrimary = palette.onAccent,
+        primaryContainer = palette.accentContainer,
+        onPrimaryContainer = palette.accentText,
+        secondary = palette.accent,
+        onSecondary = palette.onAccent,
+        secondaryContainer = palette.accentContainer,
+        onSecondaryContainer = palette.accentText,
         background = palette.pane,
         onBackground = palette.textPrimary,
         surface = palette.surface,
         onSurface = palette.textPrimary,
         surfaceVariant = palette.surfaceLight,
         onSurfaceVariant = palette.textSecondary,
+        outline = palette.outline,
+        outlineVariant = palette.divider,
         error = if (palette.isDark) ErrorRed else palette.error,
         onError = Color.White
     ).let { if (palette.isDark) it else it.withLightContainers(palette) }
 }
 
-// 浅色下 M3 组件的容器色、描边、遮罩改取色板；深色保持原有取值不变
+// 浅色下 M3 组件的容器色、遮罩改取色板；深色保持原有取值不变
 private fun ColorScheme.withLightContainers(palette: MelodiaPalette): ColorScheme = copy(
     surfaceContainerLowest = palette.pane,
     surfaceContainerLow = palette.cardSurface,
     surfaceContainer = palette.surface,
     surfaceContainerHigh = palette.popupSurface,
     surfaceContainerHighest = palette.surfaceLight,
-    outline = palette.outline,
-    outlineVariant = palette.divider,
     scrim = palette.scrim
 )
 

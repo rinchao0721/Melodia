@@ -7,9 +7,6 @@ import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
 import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
 
-private val NavPillSelectedDark = Color(0xFF383A4A)
-private val FilterPillInactiveDark = Color(0xFF332B2B)
-
 // 当前主题的界面语义色，语义见 MelodiaPalette；仅能在组合作用域内读取
 object MelodiaColors {
     val WindowBackground: Color @Composable @ReadOnlyComposable get() = LocalMelodiaPalette.current.windowBackground
@@ -70,7 +67,7 @@ object MelodiaColors {
     val NavigationBar: Color @Composable @ReadOnlyComposable get() = if (IsDark) Background else WindowBackground
 
     // 底栏选中项的药丸指示器底色
-    val NavPillSelected: Color @Composable @ReadOnlyComposable get() = if (IsDark) NavPillSelectedDark else Selected
+    val NavPillSelected: Color @Composable @ReadOnlyComposable get() = AccentContainer
 
     // 未选中药丸、标签上的文字与图标：深色沿用原浅灰，浅色改主文字色
     val PillContent: Color @Composable @ReadOnlyComposable get() = if (IsDark) Color.LightGray else TextPrimary
@@ -78,6 +75,6 @@ object MelodiaColors {
     // 次要提示文字：深色沿用原中灰，浅色改三级文字色
     val HintText: Color @Composable @ReadOnlyComposable get() = if (IsDark) Color.Gray else TextTertiary
 
-    // 筛选药丸未选中态底色，深色取 overlay 10% 叠在顶栏渐变上的等效不透明色
-    val FilterPillInactive: Color @Composable @ReadOnlyComposable get() = if (IsDark) FilterPillInactiveDark else Surface
+    // 筛选药丸未选中态底色：深色取 overlay 10%，浅色取表面色
+    val FilterPillInactive: Color @Composable @ReadOnlyComposable get() = if (IsDark) Overlay.copy(alpha = 0.1f) else Surface
 }

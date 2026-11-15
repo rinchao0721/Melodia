@@ -73,8 +73,6 @@ fun Color.saturateIfChromatic(amount: Float): Color {
     return saturate(amount * weight)
 }
 
-val GradientStart = Color(0xFF3a1515)
-
 // 全局 Toast 底色
 val ToastBackground = Color(0xFF2E2E2E)
 

@@ -51,7 +51,6 @@ import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.ui.interaction.pressable
-import com.lin0721.linmusic.core.ui.theme.GradientStart
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing

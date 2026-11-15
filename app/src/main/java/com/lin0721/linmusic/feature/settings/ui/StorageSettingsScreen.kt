@@ -106,7 +106,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MelodiaColors.AccentText
                         )
                     }
 
@@ -407,7 +407,7 @@ private fun CacheCategoryRow(
             Icon(
                 imageVector = Icons.Default.DeleteOutline,
                 contentDescription = "清理$title",
-                tint = MaterialTheme.colorScheme.error,
+                tint = MelodiaColors.AccentText,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -428,7 +428,7 @@ private fun ClearConfirmDialog(
         text = { Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
         confirmButton = {
             MelodiaTextButton(onClick = onConfirm) {
-                Text("清空", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text("清空", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

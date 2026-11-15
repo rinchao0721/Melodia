@@ -67,6 +67,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaSwitch
 import com.lin0721.linmusic.core.ui.components.PlayingEqualizerBars
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
+import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -111,9 +112,6 @@ fun ListenTogetherRoomScreen(
     }
     val immersive = rememberImmersiveColors(paletteBase)
     val background by animateColorAsState(immersive.fill, uiTween(COLOR_TRANSITION_MS), label = "roomBackground")
-    val content = MelodiaColors.OnPlayer
-    val secondary = MelodiaColors.OnCoverSecondary
-    val cardFill = content.copy(alpha = 0.10f)
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
@@ -131,17 +129,21 @@ fun ListenTogetherRoomScreen(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(background)
-        ) {
-            Column(
+        ImmersiveTheme(paletteBase) {
+            val content = MelodiaColors.OnPlayer
+            val secondary = MelodiaColors.OnCoverSecondary
+            val cardFill = content.copy(alpha = 0.10f)
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
+                    .background(background)
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                ) {
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -238,6 +240,7 @@ fun ListenTogetherRoomScreen(
                     },
                     onLeave = { viewModel.leave() }
                 )
+                }
             }
         }
     }

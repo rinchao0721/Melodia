@@ -194,7 +194,10 @@ fun PlaylistCollectSheet(
                                         userModifiedIds.add(item.playlistId)
                                         localItems[index] = item.copy(isContains = checked)
                                     },
-                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = MaterialTheme.colorScheme.primary,
+                                        checkmarkColor = MaterialTheme.colorScheme.onPrimary
+                                    )
                                 )
                             }
                         }

@@ -258,7 +258,7 @@ private fun MainSettingsMenu(
                         .height(50.dp),
                     shape = RoundedCornerShape(PillRadiusLarge),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, MelodiaColors.Accent.copy(alpha = 0.6f))
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -267,13 +267,13 @@ private fun MainSettingsMenu(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = MelodiaColors.Accent,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "退出登录",
-                            color = MaterialTheme.colorScheme.error,
+                            color = MelodiaColors.AccentText,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
