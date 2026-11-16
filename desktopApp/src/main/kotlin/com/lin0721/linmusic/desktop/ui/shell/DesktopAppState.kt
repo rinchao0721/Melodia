@@ -219,6 +219,15 @@ class DesktopAppState(
         if (pane.libraryMode == LibraryMode.EXPANDED) applyLibraryMode(LibraryMode.DEFAULT)
     }
 
+    fun openDailyRecommend() = record(
+        DesktopRoute.Playlist(
+            com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID,
+            com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
+        )
+    ) {
+        if (pane.libraryMode == LibraryMode.EXPANDED) applyLibraryMode(LibraryMode.DEFAULT)
+    }
+
     fun setLibrarySortOrder(order: LibrarySortOrder) = record { library.updateSortOrder(order) }
 
     private fun applyLibraryMode(mode: LibraryMode) {

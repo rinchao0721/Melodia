@@ -34,7 +34,7 @@ import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 
 private val RailCoverSize = 48.dp
 
-// 收起态：只保留图标、创建按钮与竖排封面
+// 收起态：音乐库图标、快捷入口、创建按钮与竖排封面
 @Composable
 fun LibraryRail(
     viewModel: LibraryViewModel,
@@ -42,23 +42,32 @@ fun LibraryRail(
     onItemClick: (LibraryItem) -> Unit,
     onModeChange: (LibraryMode) -> Unit,
     extras: LibraryExtrasEntry,
+    shortcutsState: LibraryShortcutsState,
     modifier: Modifier = Modifier
 ) {
     val displayItems = rememberLibraryDisplayItems(viewModel, extras, isLoggedIn)
     val handlers = rememberLibraryItemHandlers(viewModel, extras)
 
     Column(modifier.fillMaxSize().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        LibraryTitleToggle(
-            baseIcon = Icons.Rounded.LibraryMusic,
-            hoverIcon = Icons.Rounded.KeyboardDoubleArrowRight,
-            hint = "展开音乐库",
-            showTitle = false
-        ) {
-            viewModel.loadLibraryData()
-            onModeChange(LibraryMode.DEFAULT)
+        LibraryShortcutsContextBox(shortcutsState) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                LibraryTitleToggle(
+                    baseIcon = Icons.Rounded.LibraryMusic,
+                    hoverIcon = Icons.Rounded.KeyboardDoubleArrowRight,
+                    hint = "展开音乐库",
+                    showTitle = false
+                ) {
+                    viewModel.loadLibraryData()
+                    onModeChange(LibraryMode.DEFAULT)
+                }
+                if (shortcutsState.visibleShortcuts.isEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                } else {
+                    LibraryShortcutRailColumn(shortcutsState)
+                }
+                LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
         val items = displayItems ?: return@Column
         val listState = rememberAnchoredListState(items)
         val scrolled by remember { derivedStateOf { listState.isScrolled } }

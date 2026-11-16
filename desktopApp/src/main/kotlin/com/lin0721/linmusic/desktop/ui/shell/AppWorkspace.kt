@@ -82,6 +82,8 @@ internal fun Workspace(
             LocalPaneWidthExtra provides { workspace.centerWidthExtra },
             LocalPaneResizing provides pane.resizing
         ) {
+            val isLoggedIn = LocalDesktopNavigator.current.isLoggedIn
+            val shortcutsState = com.lin0721.linmusic.desktop.ui.library.rememberLibraryShortcutsState(state, deps, isLoggedIn)
             Row(Modifier.fillMaxSize().padding(horizontal = DesktopDimens.PaneGap)) {
                 LibraryPane(
                     mode = pane.libraryMode,
@@ -89,7 +91,7 @@ internal fun Workspace(
                     defaultWidth = measure.libraryDefaultWidth,
                     expandedWidth = workspace.expandedWidth,
                     viewModel = deps.libraryViewModel,
-                    isLoggedIn = LocalDesktopNavigator.current.isLoggedIn,
+                    isLoggedIn = isLoggedIn,
                     onLoginClick = { state.showLogin = true },
                     onItemClick = state::openLibraryItem,
                     onModeChange = state::setLibraryMode,
@@ -105,6 +107,7 @@ internal fun Workspace(
                         onOpenLocal = state::openLocalPlaylist,
                         onOpenCloud = state::openCloud
                     ),
+                    shortcutsState = shortcutsState,
                     footer = {
                         PluginPageEntries(deps.plugins) { active ->
                             state.navigate(DesktopRoute.PluginPage(active.manifest.id, active.page.id))

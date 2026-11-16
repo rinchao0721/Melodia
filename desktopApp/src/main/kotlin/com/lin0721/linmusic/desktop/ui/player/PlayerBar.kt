@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -76,6 +78,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.TextUnit
 import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.plugin.CONTROL_BUTTONS
 import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_PAUSE
 import com.lin0721.linmusic.core.plugin.CONTROL_PLAY_MODE
@@ -171,6 +174,8 @@ fun PlayerBar(
     val position by quantizedPosition.collectAsState(controller.currentPosition.value / POSITION_STEP_MS * POSITION_STEP_MS)
     val duration by controller.duration.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
+    val playContext by controller.playContext.collectAsState()
+    val personalFmMode by playerViewModel.personalFmMode.collectAsState()
     val parts = PlayerBarParts(
         controller = controller,
         playerViewModel = playerViewModel,
@@ -180,6 +185,8 @@ fun PlayerBar(
         position = position,
         duration = duration,
         isPodcast = podcast.isPodcast,
+        isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+        personalFmMode = personalFmMode,
         volume = volume,
         lastAudibleVolume = lastAudibleVolume,
         onVolumeChange = onVolumeChange,
@@ -263,6 +270,8 @@ internal class PlayerBarParts(
     val position: Long,
     val duration: Long,
     val isPodcast: Boolean,
+    val isPersonalFm: Boolean,
+    val personalFmMode: PersonalFmMode,
     val volume: Int?,
     val lastAudibleVolume: Int,
     val onVolumeChange: (Int) -> Unit,
@@ -311,11 +320,13 @@ internal class PlayerBarParts(
         when (action) {
             HostAction.TOGGLE_PLAY -> controller.togglePlayPause()
             HostAction.NEXT -> controller.playNext()
-            HostAction.PREVIOUS -> controller.skipToPrevious()
+            HostAction.PREVIOUS -> if (!isPersonalFm) controller.skipToPrevious()
             HostAction.SEEK_FORWARD -> controller.seekTo((position + SEEK_STEP_MS).coerceAtMost(duration.coerceAtLeast(0L)))
             HostAction.SEEK_BACK -> controller.seekTo((position - SEEK_STEP_MS).coerceAtLeast(0L))
             HostAction.TOGGLE_LIKE -> if (isPodcast) playerViewModel.toggleSubscribe() else playerViewModel.toggleLike()
-            HostAction.CYCLE_PLAY_MODE -> if (playMode == PlayMode.LIST_LOOP) controller.toggleRepeat() else controller.toggleShuffle()
+            HostAction.CYCLE_PLAY_MODE -> if (!isPersonalFm) {
+                if (playMode == PlayMode.LIST_LOOP) controller.toggleRepeat() else controller.toggleShuffle()
+            }
             HostAction.TOGGLE_NOW_PLAYING -> onToggleNowPlaying()
             HostAction.TOGGLE_LYRICS_VIEW -> onToggleLyricsView()
             else -> Unit
@@ -453,7 +464,7 @@ internal class PlayerBarParts(
         }
     }
 
-    // 播客没有随机与循环，对应按钮不显示
+    // 播客没有随机与循环，对应按钮不显示；私人FM 禁用上一首、将循环替换为不喜欢、将随机替换为 FM 模式菜单
     @Composable
     fun Controls(buttons: List<String>, modifier: Modifier = Modifier, scale: Float = 1f, variant: ControlVariant = ControlVariant.DEFAULT) {
         val transportSize = TransportButtonSize * scale
@@ -462,17 +473,21 @@ internal class PlayerBarParts(
             val transportOutline = if (outlined) Modifier.border(1.dp, DesktopColors.Outline, CircleShape) else Modifier
             buttons.forEach { button ->
                 when (button) {
-                    "shuffle" -> if (!isPodcast) BarIconButton(
-                        Icons.Rounded.Shuffle,
-                        "随机播放",
-                        enabled = hasTrack,
-                        active = playMode == PlayMode.SHUFFLE,
-                        showDot = true,
-                        size = transportSize,
-                        onClick = controller::toggleShuffle
-                    )
+                    "shuffle" -> if (isPersonalFm) {
+                        FmModeButton(size = transportSize)
+                    } else if (!isPodcast) {
+                        BarIconButton(
+                            Icons.Rounded.Shuffle,
+                            "随机播放",
+                            enabled = hasTrack,
+                            active = playMode == PlayMode.SHUFFLE,
+                            showDot = true,
+                            size = transportSize,
+                            onClick = controller::toggleShuffle
+                        )
+                    }
                     "previous" -> BarIconButton(
-                        Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack, size = transportSize,
+                        Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack && !isPersonalFm, size = transportSize,
                         onClick = controller::skipToPrevious, modifier = transportOutline
                     )
                     CONTROL_PLAY_PAUSE -> if (variant == ControlVariant.PLAIN) {
@@ -485,36 +500,79 @@ internal class PlayerBarParts(
                         PlayPauseButton(transportSize, outlined)
                     }
                     // 列表循环 → 单曲循环 → 随机 → 列表循环
-                    CONTROL_PLAY_MODE -> if (!isPodcast) BarIconButton(
-                        when (playMode) {
-                            PlayMode.LIST_LOOP -> Icons.Rounded.Repeat
-                            PlayMode.SINGLE_LOOP -> Icons.Rounded.RepeatOne
-                            PlayMode.SHUFFLE -> Icons.Rounded.Shuffle
-                        },
-                        when (playMode) {
-                            PlayMode.LIST_LOOP -> "列表循环"
-                            PlayMode.SINGLE_LOOP -> "单曲循环"
-                            PlayMode.SHUFFLE -> "随机播放"
-                        },
-                        enabled = hasTrack,
-                        size = transportSize,
-                        onClick = if (playMode == PlayMode.LIST_LOOP) controller::toggleRepeat else controller::toggleShuffle
-                    )
+                    CONTROL_PLAY_MODE -> if (isPersonalFm) {
+                        BarIconButton(
+                            Icons.Rounded.DeleteOutline,
+                            "不喜欢",
+                            enabled = hasTrack,
+                            size = transportSize,
+                            onClick = playerViewModel::trashCurrentFmSong
+                        )
+                    } else if (!isPodcast) {
+                        BarIconButton(
+                            when (playMode) {
+                                PlayMode.LIST_LOOP -> Icons.Rounded.Repeat
+                                PlayMode.SINGLE_LOOP -> Icons.Rounded.RepeatOne
+                                PlayMode.SHUFFLE -> Icons.Rounded.Shuffle
+                            },
+                            when (playMode) {
+                                PlayMode.LIST_LOOP -> "列表循环"
+                                PlayMode.SINGLE_LOOP -> "单曲循环"
+                                PlayMode.SHUFFLE -> "随机播放"
+                            },
+                            enabled = hasTrack,
+                            size = transportSize,
+                            onClick = if (playMode == PlayMode.LIST_LOOP) controller::toggleRepeat else controller::toggleShuffle
+                        )
+                    }
                     "next" -> BarIconButton(
                         Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
                         onClick = controller::playNext, modifier = transportOutline
                     )
-                    "repeat" -> if (!isPodcast) BarIconButton(
-                        if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        "循环模式",
-                        enabled = hasTrack,
-                        active = playMode == PlayMode.SINGLE_LOOP,
-                        showDot = true,
-                        size = transportSize,
-                        onClick = controller::toggleRepeat
-                    )
+                    "repeat" -> if (isPersonalFm) {
+                        BarIconButton(
+                            Icons.Rounded.DeleteOutline,
+                            "不喜欢",
+                            enabled = hasTrack,
+                            size = transportSize,
+                            onClick = playerViewModel::trashCurrentFmSong
+                        )
+                    } else if (!isPodcast) {
+                        BarIconButton(
+                            if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            "循环模式",
+                            enabled = hasTrack,
+                            active = playMode == PlayMode.SINGLE_LOOP,
+                            showDot = true,
+                            size = transportSize,
+                            onClick = controller::toggleRepeat
+                        )
+                    }
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun FmModeButton(size: Dp) {
+        var menuOpen by remember { mutableStateOf(false) }
+        Box {
+            BarIconButton(
+                Icons.Rounded.Tune,
+                "私人FM模式：${personalFmMode.displayName}",
+                enabled = hasTrack,
+                highlighted = true,
+                size = size,
+                onClick = { menuOpen = true }
+            )
+            PersonalFmModePopup(
+                expanded = menuOpen,
+                onDismiss = { menuOpen = false },
+                currentMode = personalFmMode,
+                onSelectMode = { mode ->
+                    if (mode != personalFmMode) playerViewModel.switchPersonalFmMode(mode)
+                }
+            )
         }
     }
 
@@ -846,6 +904,8 @@ internal fun rememberPlaybackParts(controller: PlaybackController, playerViewMod
     val position by quantizedPosition.collectAsState(controller.currentPosition.value / POSITION_STEP_MS * POSITION_STEP_MS)
     val duration by controller.duration.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
+    val playContext by controller.playContext.collectAsState()
+    val personalFmMode by playerViewModel.personalFmMode.collectAsState()
     return PlayerBarParts(
         controller = controller,
         playerViewModel = playerViewModel,
@@ -855,6 +915,8 @@ internal fun rememberPlaybackParts(controller: PlaybackController, playerViewMod
         position = position,
         duration = duration,
         isPodcast = podcast.isPodcast,
+        isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+        personalFmMode = personalFmMode,
         volume = null,
         lastAudibleVolume = 0,
         onVolumeChange = {},

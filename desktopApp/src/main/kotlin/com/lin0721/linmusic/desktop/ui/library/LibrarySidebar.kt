@@ -163,25 +163,28 @@ fun LibrarySidebar(
     onFilterToggle: (LibraryFilter) -> Unit,
     onSortOrderChange: (LibrarySortOrder) -> Unit,
     extras: LibraryExtrasEntry,
+    shortcutsState: LibraryShortcutsState,
     modifier: Modifier = Modifier,
     footer: @Composable () -> Unit = {}
 ) {
     val paneHover = remember { MutableInteractionSource() }
     val paneHovered by paneHover.collectIsHoveredAsState()
     Column(modifier.fillMaxSize().hoverable(paneHover).padding(top = 12.dp)) {
-        Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            LibraryTitleToggle(
-                baseIcon = null,
-                hoverIcon = Icons.Rounded.KeyboardDoubleArrowLeft,
-                hint = "收起音乐库",
-                showTitle = true,
-                iconRevealed = paneHovered,
-                onTitleClick = { viewModel.loadLibraryData() }
-            ) { onModeChange(LibraryMode.RAIL) }
-            Spacer(Modifier.weight(1f))
-            LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
-            Spacer(Modifier.width(4.dp))
-            LibraryIconButton(Icons.Rounded.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
+        LibraryShortcutsContextBox(shortcutsState) {
+            Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                LibraryTitleToggle(
+                    baseIcon = null,
+                    hoverIcon = Icons.Rounded.KeyboardDoubleArrowLeft,
+                    hint = "收起音乐库",
+                    showTitle = true,
+                    iconRevealed = paneHovered,
+                    onTitleClick = { viewModel.loadLibraryData() }
+                ) { onModeChange(LibraryMode.RAIL) }
+                LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
+                LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
+                Spacer(Modifier.width(4.dp))
+                LibraryIconButton(Icons.Rounded.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
+            }
         }
         Column(Modifier.weight(1f)) {
             LibraryBody(
@@ -204,7 +207,7 @@ fun LibrarySidebar(
     }
 }
 
-// 展开态：标题、创建按钮、收回，其余与默认态共用
+// 展开态：标题、快捷入口、创建按钮、收回，其余与默认态共用
 @Composable
 fun LibraryExpanded(
     viewModel: LibraryViewModel,
@@ -217,27 +220,30 @@ fun LibraryExpanded(
     onFilterToggle: (LibraryFilter) -> Unit,
     onSortOrderChange: (LibrarySortOrder) -> Unit,
     extras: LibraryExtrasEntry,
+    shortcutsState: LibraryShortcutsState,
     modifier: Modifier = Modifier
 ) {
     Column(modifier.fillMaxSize().padding(top = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-            DesktopTooltip("刷新音乐库", side = TooltipSide.Bottom) {
-                Text(
-                    "音乐库",
-                    color = DesktopColors.TextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .pointerHoverIcon(PointerIcon.Hand)
-                        .clickable { viewModel.loadLibraryData() }
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                )
+        LibraryShortcutsContextBox(shortcutsState) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                DesktopTooltip("刷新音乐库", side = TooltipSide.Bottom) {
+                    Text(
+                        "音乐库",
+                        color = DesktopColors.TextPrimary,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable { viewModel.loadLibraryData() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+                LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
+                LibraryCreateButton(viewModel, extras, isLoggedIn, pill = true)
+                Spacer(Modifier.width(8.dp))
+                LibraryIconButton(Icons.Rounded.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
             }
-            Spacer(Modifier.weight(1f))
-            LibraryCreateButton(viewModel, extras, isLoggedIn, pill = true)
-            Spacer(Modifier.width(8.dp))
-            LibraryIconButton(Icons.Rounded.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
         }
         LibraryBody(
             viewModel = viewModel,

@@ -61,6 +61,8 @@ import com.lin0721.linmusic.desktop.app.AppInfo
 import com.lin0721.linmusic.desktop.app.RenderBackend
 import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.CloseAction
+import com.lin0721.linmusic.desktop.data.LibraryShortcut
+import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
@@ -423,6 +425,7 @@ internal fun settingsEntries(
     val miniPlayerStyle by desktop.miniPlayerStyle.collectAsState()
     val miniPlayerOnTop by desktop.miniPlayerAlwaysOnTop.collectAsState()
     val miniLyric by desktop.miniLyricSettings.collectAsState()
+    val libraryShortcuts by desktop.libraryShortcuts.collectAsState()
     val mediaKeysEnabled by desktop.mediaKeysEnabled.collectAsState()
     val hotkeyMap by desktop.hotkeyMap.collectAsState()
     val failedHotkeys by desktop.failedHotkeys.collectAsState()
@@ -438,6 +441,7 @@ internal fun settingsEntries(
         "歌词 ${formatFileSize(cacheUsage.lyrics)} · 离线数据 ${formatFileSize(cacheUsage.metadata)}）"
     val unmServerSubtitle = unmServerUrl.ifBlank { "未配置" }
     val cardLayoutSubtitle = "拖动调整信息卡片的顺序，关闭开关可隐藏对应卡片"
+    val libraryShortcutsSubtitle = "拖动调整快捷入口顺序，开关控制侧栏显示（也可右键侧栏快捷入口区快速勾选）"
 
     return buildList {
         add(
@@ -911,6 +915,17 @@ internal fun settingsEntries(
         addAll(miniLyricEntries(miniLyric, desktop))
         add(
             SettingsEntry(
+                key = "libraryShortcuts",
+                category = SettingsCategory.Interface,
+                title = "音乐库快捷入口",
+                subtitle = libraryShortcutsSubtitle,
+                keywords = LibraryShortcut.entries.map { it.title } + listOf("音乐库", "快捷", "入口", "侧栏", "排序", "显示", "隐藏")
+            ) {
+                LibraryShortcutSettingRow(libraryShortcuts, libraryShortcutsSubtitle, desktop::updateLibraryShortcuts)
+            }
+        )
+        add(
+            SettingsEntry(
                 key = "cardLayout",
                 category = SettingsCategory.Interface,
                 title = "正在播放面板信息卡片",
@@ -1260,6 +1275,51 @@ private fun CardLayoutSetting(
             Column {
                 Spacer(Modifier.height(8.dp))
                 CardLayoutEditor(layout, onChange)
+            }
+        }
+    }
+}
+
+// 音乐库快捷入口列表：默认收起，展开可调整顺序与显隐
+@Composable
+private fun LibraryShortcutSettingRow(
+    layout: List<LibraryShortcutSetting>,
+    expandedSubtitle: String,
+    onChange: (List<LibraryShortcutSetting>) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val subtitle = if (expanded) {
+        expandedSubtitle
+    } else {
+        "已显示 ${layout.count { it.visible }}/${layout.size} 项，展开可调整顺序与显隐"
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("音乐库快捷入口", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+                Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = if (expanded) "收起" else "展开",
+                tint = DesktopColors.TextGray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(uiTween(CARD_LAYOUT_EXPAND_MS)) + expandVertically(uiTween(CARD_LAYOUT_EXPAND_MS)),
+            exit = fadeOut(uiTween(CARD_LAYOUT_EXPAND_MS)) + shrinkVertically(uiTween(CARD_LAYOUT_EXPAND_MS))
+        ) {
+            Column {
+                Spacer(Modifier.height(8.dp))
+                LibraryShortcutEditor(layout, onChange)
             }
         }
     }

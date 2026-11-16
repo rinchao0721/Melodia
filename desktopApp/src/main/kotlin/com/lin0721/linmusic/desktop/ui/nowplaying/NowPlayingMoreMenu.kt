@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -12,6 +13,8 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Group
@@ -49,6 +52,7 @@ import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.MAX_SLEEP_TIMER_MINUTES
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
+import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PERSONAL_FM
 import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.share.ShareCardKind
@@ -62,6 +66,7 @@ import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.library.LibrarySearchInput
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherDialog
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
+import com.lin0721.linmusic.desktop.ui.player.PersonalFmModeGrid
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
@@ -90,6 +95,7 @@ internal fun NowPlayingMoreMenu(
     val podcast by playerViewModel.podcastState.collectAsState()
     val detailState by playerViewModel.songDetailState.collectAsState()
     val collectState by playerViewModel.collectState.collectAsState()
+    val personalFmMode by playerViewModel.personalFmMode.collectAsState()
 
     // 红心与下一首播放用不到，只借用收藏二级菜单与新建歌单对话框
     val collectActions = rememberTrackActions(
@@ -106,6 +112,7 @@ internal fun NowPlayingMoreMenu(
     val detail = detailState.songDetail?.takeIf { it.id == songId }
     val isIntelligence = playContext == CONTEXT_INTELLIGENCE
     val isRoaming = playContext == SimilarRoamingController.CONTEXT_ROAMING
+    val isPersonalFm = playContext == CONTEXT_PERSONAL_FM
     val sleepActive = sleepRemaining > 0L
     // 本地歌曲未匹配云端时只有占位 id，依赖云端数据的项全部隐藏
     val cloudSongId = songId?.takeIf { it > 0L && !detailState.isLocalOnly }
@@ -127,6 +134,28 @@ internal fun NowPlayingMoreMenu(
     }
 
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, width = MoreMenuWidth) {
+        if (isPersonalFm) {
+            SubMenuItem("FM 模式: ${personalFmMode.displayName}", icon = Icons.Rounded.Radio, width = 300.dp) {
+                PersonalFmModeGrid(
+                    currentMode = personalFmMode,
+                    onSelectMode = { mode ->
+                        onDismiss()
+                        if (mode != personalFmMode) playerViewModel.switchPersonalFmMode(mode)
+                    },
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            MenuItem("不喜欢", icon = Icons.Rounded.DeleteOutline, onClick = {
+                onDismiss()
+                playerViewModel.trashCurrentFmSong()
+            })
+            MenuItem("退出私人FM", icon = Icons.Rounded.Close, onClick = {
+                onDismiss()
+                playerViewModel.disablePersonalFm()
+            })
+            MenuDivider()
+        }
+
         if (cloud && cloudSongId != null) {
             val albumName = detail?.al?.name?.takeIf { it.isNotBlank() } ?: detailState.songWiki?.album ?: "未知专辑"
             MenuItem("专辑: $albumName", icon = Icons.Rounded.Album, onClick = {

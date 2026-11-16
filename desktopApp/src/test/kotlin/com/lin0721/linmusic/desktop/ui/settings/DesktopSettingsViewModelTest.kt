@@ -320,4 +320,16 @@ class DesktopSettingsViewModelTest {
         preferences.mediaKeysEnabled.awaitValue(false)
         preferences.hotkeys.awaitValue(custom)
     }
+
+    @Test
+    fun libraryShortcutsArePersistedAndToggled() {
+        val vm = viewModel()
+        vm.toggleLibraryShortcut(com.lin0721.linmusic.desktop.data.LibraryShortcut.CLOUD)
+
+        val expected = com.lin0721.linmusic.desktop.data.LibraryShortcutLayout.toggleVisible(
+            com.lin0721.linmusic.desktop.data.LibraryShortcutLayout.DEFAULT,
+            com.lin0721.linmusic.desktop.data.LibraryShortcut.CLOUD
+        )
+        preferences.libraryShortcuts.awaitValue(expected)
+    }
 }
