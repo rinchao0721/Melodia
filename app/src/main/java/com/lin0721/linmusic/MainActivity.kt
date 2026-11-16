@@ -51,7 +51,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.lin0721.linmusic.core.player.ACTION_OPEN_SLEEP_TIMER_FROM_NOTIFICATION
 import com.lin0721.linmusic.core.player.FloatingLyricService
+import com.lin0721.linmusic.core.player.SleepTimerRequests
 import com.lin0721.linmusic.core.player.floatinglyric.ACTION_OPEN_LYRIC_SETTINGS
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -81,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
     private val floatingLyricRequests: FloatingLyricRequests by inject()
+    private val sleepTimerRequests: SleepTimerRequests by inject()
     private val songLinkRequests: SongLinkRequests by inject()
 
     // 仅在 onStart 后重新获得窗口焦点时查剪贴板，避免弹窗/输入法关闭反复读取
@@ -209,11 +212,12 @@ class MainActivity : ComponentActivity() {
         handleLaunchIntent(intent)
     }
 
-    // 识曲结果通知与悬浮歌词设置按钮拉起：交给界面层打开对应页面
+    // 识曲结果通知、悬浮歌词设置与通知栏定时关闭按钮拉起：交给界面层打开对应页面
     private fun handleLaunchIntent(intent: Intent?) {
         when (intent?.action) {
             ACTION_OPEN_RECOGNITION_RESULT -> playbackRecognitionState.requestOpenResult()
             ACTION_OPEN_LYRIC_SETTINGS -> floatingLyricRequests.requestOpenSettings()
+            ACTION_OPEN_SLEEP_TIMER_FROM_NOTIFICATION -> sleepTimerRequests.requestOpenTimer()
             Intent.ACTION_VIEW, Intent.ACTION_SEND -> handleSongLink(intent)
         }
     }

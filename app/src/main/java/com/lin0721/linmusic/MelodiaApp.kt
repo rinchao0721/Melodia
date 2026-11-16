@@ -122,6 +122,7 @@ import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.SleepTimerRequests
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
@@ -517,6 +518,22 @@ fun MelodiaApp() {
     }
 
     val currentUsePanel by rememberUpdatedState(usePanel)
+
+    // 通知栏定时关闭入口：展开播放页后由 FullPlayerScreen 消费并弹出定时关闭面板
+    val sleepTimerRequests: SleepTimerRequests = koinInject()
+    val pendingSleepTimer by sleepTimerRequests.pendingOpenTimer.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingSleepTimer, currentTrack) {
+        if (pendingSleepTimer && currentTrack != null) {
+            if (sidebar.isOpen) sidebar.close()
+            showCreateSheet = false
+            showRecognition = false
+            if (currentUsePanel) {
+                openPanel()
+            } else {
+                playerSheet.animateTo(true, 0f)
+            }
+        }
+    }
 
     // 从外链或分享进来：单曲拉到详情就非破坏性插播并展开播放页，歌单/专辑/歌手收起浮层并跳页
     LaunchedEffect(Unit) {

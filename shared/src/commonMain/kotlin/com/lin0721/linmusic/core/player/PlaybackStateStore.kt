@@ -45,6 +45,11 @@ class PlaybackStateStore(
         scope.launch { preferences.savePlaybackState(provider()) }
     }
 
+    // 退出前挂起等待进度落盘完成
+    suspend fun savePlaybackStateNow(state: PlaybackState) {
+        preferences.savePlaybackState(state)
+    }
+
     fun saveRecentFmTracks(tracks: List<RecentFmTrack>) {
         if (tracks.isEmpty()) return
         scope.launch { preferences.saveRecentFmTracks(tracks) }

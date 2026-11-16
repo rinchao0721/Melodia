@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.player
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,8 +10,11 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -52,6 +56,9 @@ import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.core.player.usb.UsbAudioDeviceManager
 import com.lin0721.linmusic.core.player.usb.UsbAudioOutputProvider
+import com.lin0721.linmusic.core.preferences.NotificationButton
+import com.lin0721.linmusic.core.preferences.NotificationButtonLayout
+import com.lin0721.linmusic.core.preferences.NotificationButtonSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.google.common.util.concurrent.Futures
@@ -65,7 +72,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -75,7 +81,16 @@ private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
 private const val PLAYBACK_CHANNEL_NAME = "正在播放"
-private const val ACTION_UNLOCK_FLOATING_LYRIC = "ACTION_UNLOCK_FLOATING_LYRIC"
+private const val ACTION_TOGGLE_LIKE = "ACTION_TOGGLE_LIKE"
+private const val ACTION_TRASH_FM = "ACTION_TRASH_FM"
+private const val ACTION_TOGGLE_PLAY_MODE = "ACTION_TOGGLE_PLAY_MODE"
+private const val ACTION_TOGGLE_DESKTOP_LRC = "ACTION_TOGGLE_DESKTOP_LRC"
+private const val ACTION_OPEN_SLEEP_TIMER = "ACTION_OPEN_SLEEP_TIMER"
+private const val ACTION_CLOSE_APP = "ACTION_CLOSE_APP"
+private const val ACTION_SEEK_BACK_15 = "ACTION_SEEK_BACK_15"
+private const val ACTION_SEEK_FORWARD_15 = "ACTION_SEEK_FORWARD_15"
+private const val REQUEST_CODE_SLEEP_TIMER = 1002
+private const val SEEK_STEP_SECONDS = 15L
 private const val ACTION_PREPARE_FOREGROUND = "com.lin0721.linmusic.action.PREPARE_FOREGROUND"
 private const val ACTION_STOP_PENDING_FOREGROUND = "com.lin0721.linmusic.action.STOP_PENDING_FOREGROUND"
 private const val EXTRA_PENDING_TITLE = "extra_pending_title"
@@ -113,13 +128,18 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val songLikeRepository: SongLikeRepository by inject()
     private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
     private val externalInterruptionResumeController: ExternalInterruptionResumeController by inject()
+    private val sleepTimerRequests: SleepTimerRequests by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
     private var isShowLockscreenEnabled = true
-    // 悬浮歌词开启且已锁定时，通知栏提供解锁按钮
+    private var notificationButtons: List<NotificationButtonSetting> = NotificationButtonLayout.DEFAULT
+    private var isShowDesktopLrc = false
+    // 悬浮歌词开启且已锁定时，悬浮歌词开关按钮临时显示为解锁
     private var isFloatingLyricLocked = false
     private var isPersonalFm = false
+    private var isPodcast = false
+    private var currentPlayMode = PlayMode.LIST_LOOP
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
@@ -190,6 +210,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.launch {
             songLikeRepository.likedSongIds.collect {
                 updateMediaSessionButtons()
+                triggerNotificationUpdate()
             }
         }
 
@@ -200,12 +221,34 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
 
         serviceScope.launch {
-            combine(settingsPreferences.showDesktopLrc, settingsPreferences.floatingLyricLocked) { shown, locked -> shown && locked }
+            settingsPreferences.notificationButtons
                 .distinctUntilChanged()
-                .collect { locked ->
+                .collect { layout ->
+                    notificationButtons = layout
+                    updateMediaSessionButtons()
+                    triggerNotificationUpdate()
+                }
+        }
+
+        serviceScope.launch {
+            combine(settingsPreferences.showDesktopLrc, settingsPreferences.floatingLyricLocked) { shown, locked ->
+                shown to (shown && locked)
+            }
+                .distinctUntilChanged()
+                .collect { (shown, locked) ->
+                    isShowDesktopLrc = shown
                     isFloatingLyricLocked = locked
                     updateMediaSessionButtons()
+                    triggerNotificationUpdate()
                 }
+        }
+
+        serviceScope.launch {
+            playerManager.playMode.collect { mode ->
+                currentPlayMode = mode
+                updateMediaSessionButtons()
+                triggerNotificationUpdate()
+            }
         }
 
         // 允许跨协议重定向（如 HTTPS 到 HTTP）
@@ -309,14 +352,12 @@ class MelodiaPlaybackService : MediaSessionService() {
         externalLyricCoordinator.onTickerChanged = { triggerNotificationUpdate() }
 
         serviceScope.launch {
-            playerManager.playContext
-                .map { it == PlaybackController.CONTEXT_PERSONAL_FM }
-                .distinctUntilChanged()
-                .collect { fm ->
-                    isPersonalFm = fm
-                    updateMediaSessionButtons()
-                    triggerNotificationUpdate()
-                }
+            playerManager.playContext.collect { ctx ->
+                isPersonalFm = ctx == PlaybackController.CONTEXT_PERSONAL_FM
+                isPodcast = ctx == PlaybackController.CONTEXT_PODCAST
+                updateMediaSessionButtons()
+                triggerNotificationUpdate()
+            }
         }
 
         externalInterruptionResumeController.start(
@@ -503,51 +544,183 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
     }
 
-    @OptIn(UnstableApi::class)
-    private fun buildLikeButton(): CommandButton {
-        val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
-        val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
-        val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
-        val displayName = if (isLiked) "取消喜欢" else "喜欢"
+    private fun currentVisibleButtons(): List<NotificationButton> =
+        NotificationButtonLayout.resolveVisibleForContext(
+            layout = notificationButtons,
+            isPersonalFm = isPersonalFm,
+            isPodcast = isPodcast
+        )
 
-        return CommandButton.Builder(icon)
-            .setSessionCommand(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
-            .setDisplayName(displayName)
-            .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
-            .build()
+    private fun playModePresentation(): Pair<Int, String> = when (currentPlayMode) {
+        PlayMode.LIST_LOOP -> R.drawable.ic_repeat to "列表循环"
+        PlayMode.SINGLE_LOOP -> R.drawable.ic_repeat_one to "单曲循环"
+        PlayMode.SHUFFLE -> R.drawable.ic_shuffle to "随机播放"
+    }
+
+    private fun desktopLyricPresentation(): Pair<Int, String> = when {
+        isFloatingLyricLocked -> R.drawable.ic_lock_open to "解锁歌词"
+        isShowDesktopLrc -> R.drawable.ic_desktop_lyric to "关闭悬浮歌词"
+        else -> R.drawable.ic_desktop_lyric to "开启悬浮歌词"
     }
 
     @OptIn(UnstableApi::class)
-    private fun buildUnlockLyricButton(): CommandButton =
-        CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setCustomIconResId(R.drawable.ic_lock_open)
-            .setSessionCommand(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
-            .setDisplayName("解锁歌词")
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build()
+    private fun buildCommandButton(
+        button: NotificationButton,
+        slotIndex: Int
+    ): CommandButton {
+        val builder = when (button) {
+            NotificationButton.LIKE -> {
+                val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
+                val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
+                val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
+                val displayName = if (isLiked) "取消喜欢" else "喜欢"
+                CommandButton.Builder(icon)
+                    .setSessionCommand(SessionCommand(ACTION_TOGGLE_LIKE, Bundle()))
+                    .setDisplayName(displayName)
+            }
+            NotificationButton.DISLIKE -> CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_thumb_down)
+                .setSessionCommand(SessionCommand(ACTION_TRASH_FM, Bundle()))
+                .setDisplayName("不喜欢")
+            NotificationButton.PLAY_MODE -> {
+                val (iconRes, title) = playModePresentation()
+                CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                    .setCustomIconResId(iconRes)
+                    .setSessionCommand(SessionCommand(ACTION_TOGGLE_PLAY_MODE, Bundle()))
+                    .setDisplayName(title)
+            }
+            NotificationButton.DESKTOP_LRC -> {
+                val (iconRes, title) = desktopLyricPresentation()
+                CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                    .setCustomIconResId(iconRes)
+                    .setSessionCommand(SessionCommand(ACTION_TOGGLE_DESKTOP_LRC, Bundle()))
+                    .setDisplayName(title)
+            }
+            NotificationButton.SLEEP_TIMER -> CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_sleep_timer)
+                .setSessionCommand(SessionCommand(ACTION_OPEN_SLEEP_TIMER, Bundle()))
+                .setDisplayName("定时关闭")
+            NotificationButton.CLOSE_APP -> CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_close)
+                .setSessionCommand(SessionCommand(ACTION_CLOSE_APP, Bundle()))
+                .setDisplayName("关闭")
+            NotificationButton.SEEK_BACK -> CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_replay_15)
+                .setSessionCommand(SessionCommand(ACTION_SEEK_BACK_15, Bundle()))
+                .setDisplayName("快退 15 秒")
+            NotificationButton.SEEK_FORWARD -> CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_forward_15)
+                .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD_15, Bundle()))
+                .setDisplayName("快进 15 秒")
+        }
 
-    // 解锁按钮随锁定状态增删，布局变化会让 Media3 重建通知
-    @OptIn(UnstableApi::class)
-    private fun buildCustomLayout(): List<CommandButton> {
-        return listOfNotNull(buildLikeButton(), buildUnlockLyricButton().takeIf { isFloatingLyricLocked })
+        // 绝不占用 SLOT_BACK / SLOT_FORWARD：前 2 个可见自定义项分配次级槽位，其余进入溢出槽位
+        when (slotIndex) {
+            0 -> builder.setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            1 -> builder.setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            else -> builder.setSlots(CommandButton.SLOT_OVERFLOW)
+        }
+        return builder.build()
     }
+
+    @OptIn(UnstableApi::class)
+    private fun buildVisibleCommandButtons(): List<CommandButton> =
+        currentVisibleButtons().mapIndexed { index, button ->
+            buildCommandButton(button, index)
+        }
+
+    @OptIn(UnstableApi::class)
+    private fun buildCustomLayout(): List<CommandButton> = buildVisibleCommandButtons()
 
     // 不能在这里声明 SLOT_BACK / SLOT_FORWARD 的上/下一首按钮：Media3 一旦发现这两个槽位被占用，
     // 会把标准的 ACTION_SKIP_TO_PREVIOUS / NEXT 从旧版 PlaybackState 里剔除，改以自定义动作下发。
     // 一加(ColorOS/OxygenOS)的折叠态媒体卡片只认标准动作，上/下一首会显示成不可点，展开后才恢复。
     // 省略后上/下一首由播放器可用命令自动映射为标准动作，所有系统界面都能识别。
     @OptIn(UnstableApi::class)
-    private fun buildMediaButtonPreferences(): List<CommandButton> {
-        return listOf(buildLikeButton())
-    }
+    private fun buildMediaButtonPreferences(): List<CommandButton> = buildVisibleCommandButtons()
 
     private fun buildAvailableSessionCommands(): SessionCommands {
         return SessionCommands.Builder()
-            .add(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
-            .add(SessionCommand("ACTION_TOGGLE_PLAY_MODE", Bundle()))
+            .add(SessionCommand(ACTION_TOGGLE_LIKE, Bundle()))
+            .add(SessionCommand(ACTION_TRASH_FM, Bundle()))
+            .add(SessionCommand(ACTION_TOGGLE_PLAY_MODE, Bundle()))
+            .add(SessionCommand(ACTION_TOGGLE_DESKTOP_LRC, Bundle()))
+            .add(SessionCommand(ACTION_OPEN_SLEEP_TIMER, Bundle()))
+            .add(SessionCommand(ACTION_CLOSE_APP, Bundle()))
+            .add(SessionCommand(ACTION_SEEK_BACK_15, Bundle()))
+            .add(SessionCommand(ACTION_SEEK_FORWARD_15, Bundle()))
             .add(SessionCommand("ACTION_SET_PREFERRED_AUDIO_DEVICE", Bundle()))
-            .add(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
             .build()
+    }
+
+    private fun createSleepTimerActivityIntent(): Intent =
+        Intent(this, MainActivity::class.java).apply {
+            action = ACTION_OPEN_SLEEP_TIMER_FROM_NOTIFICATION
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+
+    private fun createSleepTimerActivityPendingIntent(): PendingIntent =
+        PendingIntent.getActivity(
+            this,
+            REQUEST_CODE_SLEEP_TIMER,
+            createSleepTimerActivityIntent(),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    private fun toggleDesktopLyricFromNotification() {
+        if (isFloatingLyricLocked) {
+            serviceScope.launch { settingsPreferences.saveFloatingLyricLocked(false) }
+            return
+        }
+        if (isShowDesktopLrc) {
+            serviceScope.launch { settingsPreferences.saveShowDesktopLrc(false) }
+            runCatching { stopService(Intent(this, FloatingLyricService::class.java)) }
+            return
+        }
+        if (Settings.canDrawOverlays(this)) {
+            serviceScope.launch { settingsPreferences.saveShowDesktopLrc(true) }
+            runCatching { startService(Intent(this, FloatingLyricService::class.java)) }
+        } else {
+            Toast.makeText(this, "请开启悬浮窗权限以显示桌面歌词", Toast.LENGTH_LONG).show()
+            runCatching {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        }
+    }
+
+    private fun seekBySeconds(deltaSeconds: Long) {
+        val currentPlayer = player
+        val currentPos = currentPlayer?.currentPosition?.takeIf { it >= 0L } ?: playerManager.currentPositionExact()
+        val totalDuration = currentPlayer?.duration?.takeIf { it > 0L } ?: playerManager.duration.value
+        val rawTarget = currentPos + deltaSeconds * 1000L
+        val target = if (totalDuration > 0L) rawTarget.coerceIn(0L, totalDuration) else rawTarget.coerceAtLeast(0L)
+        playerManager.seekTo(target)
+        if (!playerManager.isControllerConnected) {
+            currentPlayer?.seekTo(target)
+        }
+    }
+
+    private fun closeAppFromNotification() {
+        serviceScope.launch {
+            playerManager.pause()
+            crossfadePlayer?.pause()
+            playerManager.saveStateNowAndDisconnect()
+            crossfadePlayer?.stop()
+            runCatching { stopService(Intent(this@MelodiaPlaybackService, FloatingLyricService::class.java)) }
+            runCatching { ServiceCompat.stopForeground(this@MelodiaPlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE) }
+            getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
+            getSystemService(ActivityManager::class.java)?.appTasks?.forEach { task ->
+                runCatching { task.finishAndRemoveTask() }
+            }
+            stopSelf()
+        }
     }
 
     @OptIn(UnstableApi::class)
@@ -665,29 +838,48 @@ class MelodiaPlaybackService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             customCommand: SessionCommand,
             args: Bundle
-        ): com.google.common.util.concurrent.ListenableFuture<SessionResult> {
+        ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
-                "ACTION_TOGGLE_LIKE" -> {
+                ACTION_TOGGLE_LIKE -> {
                     val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
                     if (songId != -1L) {
                         toggleLike(songId)
                     }
-                    return com.google.common.util.concurrent.Futures.immediateFuture(
-                        SessionResult(SessionResult.RESULT_SUCCESS)
-                    )
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
-                ACTION_UNLOCK_FLOATING_LYRIC -> {
-                    serviceScope.launch { settingsPreferences.saveFloatingLyricLocked(false) }
-                    return com.google.common.util.concurrent.Futures.immediateFuture(
-                        SessionResult(SessionResult.RESULT_SUCCESS)
-                    )
+                ACTION_TRASH_FM -> {
+                    if (isPersonalFm) {
+                        playerManager.trashCurrentFmSong()
+                    }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
-                "ACTION_TOGGLE_PLAY_MODE" -> {
+                ACTION_TOGGLE_PLAY_MODE -> {
                     playerManager.rotatePlayMode()
                     updateMediaSessionButtons()
-                    return com.google.common.util.concurrent.Futures.immediateFuture(
-                        SessionResult(SessionResult.RESULT_SUCCESS)
-                    )
+                    triggerNotificationUpdate()
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                ACTION_TOGGLE_DESKTOP_LRC -> {
+                    toggleDesktopLyricFromNotification()
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                ACTION_OPEN_SLEEP_TIMER -> {
+                    sleepTimerRequests.requestOpenTimer()
+                    runCatching { startActivity(createSleepTimerActivityIntent()) }
+                        .onFailure { AppLogger.w(TAG, "从媒体控制卡片打开定时关闭失败", it) }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                ACTION_CLOSE_APP -> {
+                    closeAppFromNotification()
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                ACTION_SEEK_BACK_15 -> {
+                    seekBySeconds(-SEEK_STEP_SECONDS)
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+                ACTION_SEEK_FORWARD_15 -> {
+                    seekBySeconds(SEEK_STEP_SECONDS)
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 "ACTION_SET_PREFERRED_AUDIO_DEVICE" -> {
                     val deviceId = args.getInt("device_id", -1)
@@ -699,9 +891,7 @@ class MelodiaPlaybackService : MediaSessionService() {
                             .firstOrNull { it.id == deviceId }
                     }
                     crossfadePlayer?.setPreferredAudioDevice(targetDevice)
-                    return com.google.common.util.concurrent.Futures.immediateFuture(
-                        SessionResult(SessionResult.RESULT_SUCCESS)
-                    )
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
             }
             return super.onCustomCommand(session, controller, customCommand, args)
@@ -741,18 +931,6 @@ class MelodiaPlaybackService : MediaSessionService() {
                 Player.COMMAND_SEEK_TO_NEXT
             )
 
-            val songId = currentItem?.mediaId?.toLongOrNull() ?: -1L
-            val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
-            val likeIconRes = if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
-            val likeTitle = if (isLiked) "取消喜欢" else "喜欢"
-            val likeAction = actionFactory.createCustomAction(
-                session,
-                IconCompat.createWithResource(this@MelodiaPlaybackService, likeIconRes),
-                likeTitle,
-                "ACTION_TOGGLE_LIKE",
-                Bundle.EMPTY
-            )
-
             val builder = NotificationCompat.Builder(this@MelodiaPlaybackService, PLAYBACK_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
@@ -774,18 +952,77 @@ class MelodiaPlaybackService : MediaSessionService() {
             builder
                 .addAction(playPauseAction)
                 .addAction(nextAction)
-                .addAction(likeAction)
 
-            if (isFloatingLyricLocked) {
-                builder.addAction(
-                    actionFactory.createCustomAction(
+            val songId = currentItem?.mediaId?.toLongOrNull() ?: -1L
+            val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
+            for (button in currentVisibleButtons()) {
+                val action = when (button) {
+                    NotificationButton.LIKE -> actionFactory.createCustomAction(
                         session,
-                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_lock_open),
-                        "解锁歌词",
-                        ACTION_UNLOCK_FLOATING_LYRIC,
+                        IconCompat.createWithResource(
+                            this@MelodiaPlaybackService,
+                            if (isLiked) R.drawable.ic_favorite else R.drawable.ic_favorite_border
+                        ),
+                        if (isLiked) "取消喜欢" else "喜欢",
+                        ACTION_TOGGLE_LIKE,
                         Bundle.EMPTY
                     )
-                )
+                    NotificationButton.DISLIKE -> actionFactory.createCustomAction(
+                        session,
+                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_thumb_down),
+                        "不喜欢",
+                        ACTION_TRASH_FM,
+                        Bundle.EMPTY
+                    )
+                    NotificationButton.PLAY_MODE -> {
+                        val (iconRes, modeTitle) = playModePresentation()
+                        actionFactory.createCustomAction(
+                            session,
+                            IconCompat.createWithResource(this@MelodiaPlaybackService, iconRes),
+                            modeTitle,
+                            ACTION_TOGGLE_PLAY_MODE,
+                            Bundle.EMPTY
+                        )
+                    }
+                    NotificationButton.DESKTOP_LRC -> {
+                        val (iconRes, lyricTitle) = desktopLyricPresentation()
+                        actionFactory.createCustomAction(
+                            session,
+                            IconCompat.createWithResource(this@MelodiaPlaybackService, iconRes),
+                            lyricTitle,
+                            ACTION_TOGGLE_DESKTOP_LRC,
+                            Bundle.EMPTY
+                        )
+                    }
+                    // 定时关闭直接用 Activity PendingIntent，避开 Android 12+ 通知跳板限制
+                    NotificationButton.SLEEP_TIMER -> NotificationCompat.Action.Builder(
+                        R.drawable.ic_sleep_timer,
+                        "定时关闭",
+                        createSleepTimerActivityPendingIntent()
+                    ).build()
+                    NotificationButton.CLOSE_APP -> actionFactory.createCustomAction(
+                        session,
+                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_close),
+                        "关闭",
+                        ACTION_CLOSE_APP,
+                        Bundle.EMPTY
+                    )
+                    NotificationButton.SEEK_BACK -> actionFactory.createCustomAction(
+                        session,
+                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_replay_15),
+                        "快退 15 秒",
+                        ACTION_SEEK_BACK_15,
+                        Bundle.EMPTY
+                    )
+                    NotificationButton.SEEK_FORWARD -> actionFactory.createCustomAction(
+                        session,
+                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_forward_15),
+                        "快进 15 秒",
+                        ACTION_SEEK_FORWARD_15,
+                        Bundle.EMPTY
+                    )
+                }
+                builder.addAction(action)
             }
 
             val lyricInfo = metadata?.extras?.getString(EXTRA_LYRIC_INFO)

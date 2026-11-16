@@ -75,19 +75,27 @@ class PlaybackNetworkGuard(
         recoveryCallback = null
     }
 
+    private var isRegistered = false
+
     // 注册网络回调
     fun register() {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (isRegistered) return
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        cm?.registerNetworkCallback(request, networkCallback)
+        runCatching {
+            cm.registerNetworkCallback(request, networkCallback)
+            isRegistered = true
+        }.onFailure { AppLogger.w(TAG, "注册网络回调失败", it) }
     }
 
     fun unregister() {
+        if (!isRegistered) return
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         kotlin.runCatching { cm?.unregisterNetworkCallback(networkCallback) }
             .onFailure { AppLogger.w(TAG, "注销网络回调失败", it) }
+        isRegistered = false
     }
 
     // 移动网络下开启了“仅 Wi-Fi 播放”时拦截起播并提示

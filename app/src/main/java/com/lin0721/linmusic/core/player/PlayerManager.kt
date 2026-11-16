@@ -320,7 +320,10 @@ class PlayerManager(
         sleepTimer.start(minutes)
     }
 
+    val isControllerConnected: Boolean get() = controllerHolder.isConnected
+
     override suspend fun initController() {
+        networkGuard.register()
         if (controllerHolder.isConnected) return
 
         val lastTrack = stateStore.loadLastTrack()
@@ -621,6 +624,27 @@ class PlayerManager(
                 durationMs = duration
             )
         }
+    }
+
+    // 退出前先同步等待当前进度落盘，再断开控制器以解除服务绑定
+    suspend fun saveStateNowAndDisconnect() {
+        val item = _currentTrack.value
+        val songId = item?.mediaId?.toLongOrNull() ?: -1L
+        if (item != null && songId != -1L) {
+            val duration = controllerHolder.duration.takeIf { it > 0L } ?: progress.duration.value
+            val position = controllerHolder.currentPositionOrNull ?: progress.currentPosition.value
+            stateStore.savePlaybackStateNow(
+                PlaybackState(
+                    songId = songId,
+                    title = item.mediaMetadata.title?.toString() ?: "",
+                    artist = item.mediaMetadata.artist?.toString() ?: "",
+                    coverUrl = item.mediaMetadata.artworkUri?.toString() ?: "",
+                    lastPositionMs = position,
+                    durationMs = duration
+                )
+            )
+        }
+        controllerHolder.disconnect()
     }
 
     // 清空播放队列中除当前播放歌曲外的其他歌曲，重置播放状态并同步本地持久化状态

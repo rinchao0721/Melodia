@@ -274,6 +274,13 @@ private fun FullPlayerScreenContent(
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
     var showShareCard by remember { mutableStateOf(false) }
     var showTimerSheet by remember { mutableStateOf(false) }
+    val sleepTimerRequests: com.lin0721.linmusic.core.player.SleepTimerRequests = koinInject()
+    val pendingOpenTimer by sleepTimerRequests.pendingOpenTimer.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingOpenTimer, isPlayerVisible) {
+        if (pendingOpenTimer && isPlayerVisible && sleepTimerRequests.consumeOpenTimer()) {
+            showTimerSheet = true
+        }
+    }
     var showCommentsSheet by remember { mutableStateOf(false) }
     var showCommentFloor by remember { mutableStateOf(false) }
     val composerState by viewModel.composerState.collectAsStateWithLifecycle()

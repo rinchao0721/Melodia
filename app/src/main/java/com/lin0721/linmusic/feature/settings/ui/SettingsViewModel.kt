@@ -10,6 +10,8 @@ import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
+import com.lin0721.linmusic.core.preferences.NotificationButtonLayout
+import com.lin0721.linmusic.core.preferences.NotificationButtonSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
@@ -147,6 +149,8 @@ class SettingsViewModel(
     val bottomBarLayout = settingsPreferences.bottomBarLayout.asState(BottomBarLayout.DEFAULT)
 
     val bottomBarIconOnly = settingsPreferences.bottomBarIconOnly.asState(false)
+
+    val notificationButtons = settingsPreferences.notificationButtons.asState(NotificationButtonLayout.DEFAULT)
 
     // 启动默认打开音乐库
     val startInLibrary = settingsPreferences.startInLibrary.asState(false)
@@ -442,6 +446,10 @@ class SettingsViewModel(
 
     fun updateBottomBarIconOnly(iconOnly: Boolean) = launchSave {
         settingsPreferences.saveBottomBarIconOnly(iconOnly)
+    }
+
+    fun updateNotificationButtons(layout: List<NotificationButtonSetting>) = launchSave {
+        settingsPreferences.saveNotificationButtons(layout)
     }
 
     fun updateStartInLibrary(enabled: Boolean) = launchSave { settingsPreferences.saveStartInLibrary(enabled) }

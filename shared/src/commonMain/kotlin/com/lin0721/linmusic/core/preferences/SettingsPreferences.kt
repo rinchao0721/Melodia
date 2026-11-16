@@ -187,6 +187,8 @@ class SettingsPreferences(
         private val KEY_BOTTOM_BAR_LAYOUT = stringPreferencesKey("bottom_bar_layout")
         // 底栏仅显示图标模式，默认 false
         private val KEY_BOTTOM_BAR_ICON_ONLY = booleanPreferencesKey("bottom_bar_icon_only")
+        // 通知栏自定义按钮排序与显隐，格式见 NotificationButtonLayout
+        private val KEY_NOTIFICATION_BUTTONS = stringPreferencesKey("notification_buttons")
         // 启动默认打开音乐库，默认 false
         private val KEY_START_IN_LIBRARY = booleanPreferencesKey("start_in_library")
         // 启用 SuperLyric 实时歌词，默认 false
@@ -527,6 +529,17 @@ class SettingsPreferences(
     suspend fun saveBottomBarIconOnly(iconOnly: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_BOTTOM_BAR_ICON_ONLY] = iconOnly
+        }
+    }
+
+    // 通知栏自定义按钮布局 Flow
+    val notificationButtons: Flow<List<NotificationButtonSetting>> = dataStore.data.map { prefs ->
+        NotificationButtonLayout.decode(prefs[KEY_NOTIFICATION_BUTTONS])
+    }
+
+    suspend fun saveNotificationButtons(layout: List<NotificationButtonSetting>) {
+        dataStore.edit { prefs ->
+            prefs[KEY_NOTIFICATION_BUTTONS] = NotificationButtonLayout.encode(layout)
         }
     }
 
