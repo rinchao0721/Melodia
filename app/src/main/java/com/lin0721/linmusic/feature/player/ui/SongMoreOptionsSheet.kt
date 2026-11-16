@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -78,7 +79,11 @@ fun SongMoreOptionsSheet(
     onDownloadClick: () -> Unit,
     onDismiss: () -> Unit,
     onListenTogetherClick: () -> Unit = {},
-    songId: Long? = null
+    songId: Long? = null,
+    isPersonalFm: Boolean = false,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    onPersonalFmModeClick: () -> Unit = {},
+    onDisablePersonalFm: () -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -220,6 +225,31 @@ fun SongMoreOptionsSheet(
                             sheetState.hide()
                             onDismiss()
                             onToggleIntelligence(!isIntelligence)
+                        }
+                    }
+                )
+            }
+
+            if (isPersonalFm) {
+                OptionRow(
+                    icon = Icons.Rounded.Radio,
+                    text = "切换FM模式 (${personalFmMode.displayName})",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onPersonalFmModeClick()
+                        }
+                    }
+                )
+                OptionRow(
+                    icon = Icons.Rounded.Close,
+                    text = "退出私人FM",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onDisablePersonalFm()
                         }
                     }
                 )

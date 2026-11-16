@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -78,10 +79,16 @@ fun HomeHighlightsSection(
     dailySongs: List<DailySong>,
     toplists: List<ToplistInfo>,
     recommendPlaylists: List<PersonalizedPlaylist>,
+    personalFmMode: PersonalFmMode,
+    fmCoverUrls: List<String>,
+    isFmPlaying: Boolean,
+    roamingCoverUrl: String,
+    hotTopCoverUrl: String,
+    isRoamingPlaying: Boolean,
     onDailyOpen: () -> Unit,
     onDailyPlay: () -> Unit,
     onHotlistClick: (Long) -> Unit,
-    onIntelligenceClick: () -> Unit,
+    onPersonalFmClick: () -> Unit,
     onRadarClick: (Long) -> Unit,
     onRoamingClick: () -> Unit,
     showForYou: Boolean,
@@ -90,8 +97,14 @@ fun HomeHighlightsSection(
     val entries = rememberForYouEntries(
         toplists = toplists,
         recommendPlaylists = recommendPlaylists,
+        personalFmMode = personalFmMode,
+        fmCoverUrls = fmCoverUrls,
+        isFmPlaying = isFmPlaying,
+        roamingCoverUrl = roamingCoverUrl,
+        hotTopCoverUrl = hotTopCoverUrl,
+        isRoamingPlaying = isRoamingPlaying,
         onHotlistClick = onHotlistClick,
-        onIntelligenceClick = onIntelligenceClick,
+        onPersonalFmClick = onPersonalFmClick,
         onRadarClick = onRadarClick,
         onRoamingClick = onRoamingClick
     )
@@ -162,6 +175,38 @@ private fun DailySpotlightSection(
     }
 }
 
+// 首页封面卡统一取色：浅色用与播放页一致的浓色中调（避免向黑混色在白底上发脏），深色向黑压暗。
+// initialBase 为取色完成前的底；取色失败（得到 FallbackBase）且 initialBase 为空时用 fallback
+@Composable
+internal fun rememberCoverCardColor(
+    coverUrl: String,
+    initialBase: Color?,
+    fallback: Color,
+    label: String
+): Color {
+    val context = LocalContext.current
+    var baseColor by remember { mutableStateOf(initialBase) }
+    LaunchedEffect(coverUrl) {
+        baseColor = if (coverUrl.isBlank()) {
+            initialBase
+        } else {
+            extractBaseColorFromUrl(context, coverUrl)
+                .takeUnless { initialBase == null && it == FallbackBase }
+                ?: initialBase
+        }
+    }
+    val isDark = MelodiaColors.IsDark
+    val color by animateColorAsState(
+        targetValue = baseColor
+            ?.let { coverBase(CoverGroup.CARDS, it) }
+            ?.let { if (isDark) lerp(it, Color.Black, SPOTLIGHT_DARKEN_FRACTION) else immersiveMidFill(it) }
+            ?: fallback,
+        animationSpec = uiSpring(),
+        label = label
+    )
+    return color
+}
+
 // 底色取自首曲封面
 @Composable
 private fun DailySpotlightCard(
@@ -170,20 +215,11 @@ private fun DailySpotlightCard(
     onPlay: () -> Unit,
     minHeight: Dp
 ) {
-    val context = LocalContext.current
     val coverUrl = songs.firstOrNull()?.al?.picUrl.orEmpty()
-    var baseColor by remember { mutableStateOf(FallbackBase) }
-    LaunchedEffect(coverUrl) {
-        if (coverUrl.isNotBlank()) {
-            baseColor = extractBaseColorFromUrl(context, coverUrl)
-        }
-    }
-    // 浅色下改用与播放页一致的浓色中调，避免向黑混色在白底上发脏
-    val isDark = MelodiaColors.IsDark
-    val containerColor by animateColorAsState(
-        targetValue = coverBase(CoverGroup.CARDS, baseColor)?.let { if (isDark) lerp(it, Color.Black, SPOTLIGHT_DARKEN_FRACTION) else immersiveMidFill(it) }
-            ?: MelodiaColors.ShellFill,
-        animationSpec = uiSpring(),
+    val containerColor = rememberCoverCardColor(
+        coverUrl = coverUrl,
+        initialBase = FallbackBase,
+        fallback = MelodiaColors.ShellFill,
         label = "daily_spotlight_color"
     )
     val today = remember { LocalDate.now() }

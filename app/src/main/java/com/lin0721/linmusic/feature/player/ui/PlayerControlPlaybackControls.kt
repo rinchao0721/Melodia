@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FloatingActionButton
@@ -51,6 +52,8 @@ fun PlaybackControls(
     onDisableRoaming: () -> Unit = {},
     isIntelligence: Boolean = false,
     onDisableIntelligence: () -> Unit = {},
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     // 播客没有随机与循环，隐藏后用等宽占位保持播放键居中
     showModeButtons: Boolean = true
 ) {
@@ -64,24 +67,28 @@ fun PlaybackControls(
     ) {
         if (showModeButtons) MelodiaIconButton(
             onClick = {
-                if (isRoaming) {
-                    onDisableRoaming()
-                } else if (isIntelligence) {
-                    onDisableIntelligence()
-                } else {
-                    onToggleShuffle()
+                when {
+                    isPersonalFm -> onTrashFm()
+                    isRoaming -> onDisableRoaming()
+                    isIntelligence -> onDisableIntelligence()
+                    else -> onToggleShuffle()
                 }
             },
             modifier = Modifier.offset(x = (-10).dp)
         ) {
             Icon(
                 imageVector = when {
+                    isPersonalFm -> Icons.Rounded.DeleteOutline
                     isRoaming -> Icons.Rounded.AllInclusive
                     isIntelligence -> Icons.Rounded.AutoAwesome
                     else -> Icons.Default.Shuffle
                 },
-                contentDescription = null,
-                tint = if (isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                contentDescription = if (isPersonalFm) "不喜欢" else null,
+                tint = if (!isPersonalFm && (isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE)) {
+                    MelodiaColors.TextPrimary
+                } else {
+                    MelodiaColors.TextSecondary
+                },
                 modifier = Modifier.size(28.dp)
             )
         } else Spacer(Modifier.size(ModeButtonSlot))
@@ -92,8 +99,18 @@ fun PlaybackControls(
         ) {
             val outlined = outlinedControls
             val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
-            MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
-                Icon(Icons.Rounded.SkipPrevious, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp))
+            MelodiaIconButton(
+                onClick = onPlayPrevious,
+                enabled = !isPersonalFm,
+                style = MelodiaPress.Transport,
+                modifier = transportOutline
+            ) {
+                Icon(
+                    Icons.Rounded.SkipPrevious,
+                    contentDescription = null,
+                    tint = if (isPersonalFm) MelodiaColors.TextSecondary.copy(alpha = 0.35f) else MelodiaColors.TextPrimary,
+                    modifier = Modifier.size(46.dp)
+                )
             }
             PlayPauseFab(isPlaying, onTogglePlay)
             MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
@@ -101,7 +118,7 @@ fun PlaybackControls(
             }
         }
 
-        if (showModeButtons) MelodiaIconButton(
+        if (showModeButtons && !isPersonalFm) MelodiaIconButton(
             onClick = onToggleRepeat,
             modifier = Modifier.offset(x = 10.dp)
         ) {
@@ -173,7 +190,9 @@ fun PlaybackControlRow(
     showModeButtons: Boolean,
     modifier: Modifier = Modifier,
     scale: Float = 1f,
-    variant: ControlVariant = ControlVariant.DEFAULT
+    variant: ControlVariant = ControlVariant.DEFAULT,
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {}
 ) {
     val outlined = variant == ControlVariant.OUTLINED || (variant == ControlVariant.DEFAULT && outlinedControls)
     val transportOutline = if (outlined) Modifier.border(1.dp, MelodiaColors.Outline, CircleShape) else Modifier
@@ -184,16 +203,39 @@ fun PlaybackControlRow(
     ) {
         buttons.forEach { button ->
             when (button) {
-                "shuffle" -> if (showModeButtons) MelodiaIconButton(onClick = onToggleShuffle) {
-                    Icon(
-                        Icons.Default.Shuffle,
-                        contentDescription = "随机播放",
-                        tint = if (playMode == PlayMode.SHUFFLE) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
-                        modifier = Modifier.size(28.dp * scale)
-                    )
+                "shuffle" -> if (showModeButtons) {
+                    if (isPersonalFm) {
+                        MelodiaIconButton(onClick = onTrashFm) {
+                            Icon(
+                                Icons.Rounded.DeleteOutline,
+                                contentDescription = "不喜欢",
+                                tint = MelodiaColors.TextSecondary,
+                                modifier = Modifier.size(28.dp * scale)
+                            )
+                        }
+                    } else {
+                        MelodiaIconButton(onClick = onToggleShuffle) {
+                            Icon(
+                                Icons.Default.Shuffle,
+                                contentDescription = "随机播放",
+                                tint = if (playMode == PlayMode.SHUFFLE) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                                modifier = Modifier.size(28.dp * scale)
+                            )
+                        }
+                    }
                 }
-                "previous" -> MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport, modifier = transportOutline) {
-                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
+                "previous" -> MelodiaIconButton(
+                    onClick = onPlayPrevious,
+                    enabled = !isPersonalFm,
+                    style = MelodiaPress.Transport,
+                    modifier = transportOutline
+                ) {
+                    Icon(
+                        Icons.Rounded.SkipPrevious,
+                        contentDescription = "上一首",
+                        tint = if (isPersonalFm) MelodiaColors.TextSecondary.copy(alpha = 0.35f) else MelodiaColors.TextPrimary,
+                        modifier = Modifier.size(46.dp * scale)
+                    )
                 }
                 // plain：播放键与切歌键同样是无底色图标
                 "playPause" -> if (variant == ControlVariant.PLAIN) {
@@ -206,7 +248,7 @@ fun PlaybackControlRow(
                 "next" -> MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport, modifier = transportOutline) {
                     Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(46.dp * scale))
                 }
-                "repeat" -> if (showModeButtons) MelodiaIconButton(onClick = onToggleRepeat) {
+                "repeat" -> if (showModeButtons && !isPersonalFm) MelodiaIconButton(onClick = onToggleRepeat) {
                     Icon(
                         if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
                         contentDescription = "循环模式",
@@ -215,23 +257,36 @@ fun PlaybackControlRow(
                     )
                 }
                 // 列表循环 → 单曲循环 → 随机 → 列表循环
-                "playMode" -> if (showModeButtons) MelodiaIconButton(
-                    onClick = if (playMode == PlayMode.LIST_LOOP) onToggleRepeat else onToggleShuffle
-                ) {
-                    Icon(
-                        when (playMode) {
-                            PlayMode.LIST_LOOP -> Icons.Default.Repeat
-                            PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne
-                            PlayMode.SHUFFLE -> Icons.Default.Shuffle
-                        },
-                        contentDescription = when (playMode) {
-                            PlayMode.LIST_LOOP -> "列表循环"
-                            PlayMode.SINGLE_LOOP -> "单曲循环"
-                            PlayMode.SHUFFLE -> "随机播放"
-                        },
-                        tint = MelodiaColors.TextPrimary,
-                        modifier = Modifier.size(28.dp * scale)
-                    )
+                "playMode" -> if (showModeButtons) {
+                    if (isPersonalFm) {
+                        MelodiaIconButton(onClick = onTrashFm) {
+                            Icon(
+                                Icons.Rounded.DeleteOutline,
+                                contentDescription = "不喜欢",
+                                tint = MelodiaColors.TextSecondary,
+                                modifier = Modifier.size(28.dp * scale)
+                            )
+                        }
+                    } else {
+                        MelodiaIconButton(
+                            onClick = if (playMode == PlayMode.LIST_LOOP) onToggleRepeat else onToggleShuffle
+                        ) {
+                            Icon(
+                                when (playMode) {
+                                    PlayMode.LIST_LOOP -> Icons.Default.Repeat
+                                    PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne
+                                    PlayMode.SHUFFLE -> Icons.Default.Shuffle
+                                },
+                                contentDescription = when (playMode) {
+                                    PlayMode.LIST_LOOP -> "列表循环"
+                                    PlayMode.SINGLE_LOOP -> "单曲循环"
+                                    PlayMode.SHUFFLE -> "随机播放"
+                                },
+                                tint = MelodiaColors.TextPrimary,
+                                modifier = Modifier.size(28.dp * scale)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -209,7 +209,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "首页为你定制",
-                        subtitle = "热歌榜、心动模式、私人雷达、音乐漫游入口",
+                        subtitle = "热歌榜、私人FM、私人雷达、音乐漫游入口",
                         checked = homeForYouEnabled,
                         onCheckedChange = { viewModel.updateHomeForYouEnabled(it) }
                     )

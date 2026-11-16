@@ -109,6 +109,8 @@ fun FullScreenLyricsView(
     romanizationColor: Color? = null,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     coverage: LyricsOverlayCoverage? = null,
     isFullyEntered: () -> Boolean = { true },
     // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
@@ -458,7 +460,9 @@ fun FullScreenLyricsView(
                         hasRoma = hasRoma,
                         onToggleSecondaryMode = handleToggleSecondaryMode,
                         onShareLyrics = handleShareLyrics,
-                        onLyricsSettingsClick = { showSettingsSheet = true }
+                        onLyricsSettingsClick = { showSettingsSheet = true },
+                        isPersonalFm = isPersonalFm,
+                        onTrashFm = onTrashFm
                     )
                 }
                 }

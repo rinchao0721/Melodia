@@ -6,14 +6,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherPlayerEntry
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 
-// 全屏播放器的底部弹层：播放队列、更多操作、收藏到歌单、睡眠定时、连接设备
+// 全屏播放器的底部弹层：播放队列、更多操作、收藏到歌单、睡眠定时、连接设备、私人FM模式
 @Composable
 fun FullPlayerSheets(
     songState: PlayerSongDetailState,
@@ -35,6 +37,8 @@ fun FullPlayerSheets(
     activeQuality: String,
     showMiniLyric: Boolean = true,
     isPodcast: Boolean = false,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    showPersonalFmModeSheet: Boolean = false,
     onToggleMiniLyric: (Boolean) -> Unit = {},
     onPlayAtIndex: (Int) -> Unit,
     onRemoveAtIndex: (Int) -> Unit,
@@ -43,6 +47,10 @@ fun FullPlayerSheets(
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onDisablePersonalFm: () -> Unit = {},
+    onPersonalFmModeClick: () -> Unit = {},
+    onSelectPersonalFmMode: (PersonalFmMode) -> Unit = {},
+    onPersonalFmModeDismiss: () -> Unit = {},
     onQueueDismiss: () -> Unit,
     onToggleLike: () -> Unit,
     onAlbumClick: () -> Unit,
@@ -79,6 +87,9 @@ fun FullPlayerSheets(
             onClearQueue = onClearQueue,
             onDisableRoaming = onDisableRoaming,
             onDisableIntelligence = onDisableIntelligence,
+            personalFmMode = personalFmMode,
+            onDisablePersonalFm = onDisablePersonalFm,
+            onPersonalFmModeClick = onPersonalFmModeClick,
             onShowTimerClick = onShowTimerClick,
             onDismiss = onQueueDismiss
         )
@@ -119,7 +130,11 @@ fun FullPlayerSheets(
             onShareClick = onShareClick,
             onDownloadClick = onDownloadClick,
             onDismiss = onMoreOptionsDismiss,
-            onListenTogetherClick = { listenTogetherRequested = true }
+            onListenTogetherClick = { listenTogetherRequested = true },
+            isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+            personalFmMode = personalFmMode,
+            onPersonalFmModeClick = onPersonalFmModeClick,
+            onDisablePersonalFm = onDisablePersonalFm
         )
     }
 
@@ -146,6 +161,14 @@ fun FullPlayerSheets(
         OutputDeviceSheet(
             onDeviceSelected = onOutputDeviceSelected,
             onDismiss = onOutputDeviceDismiss
+        )
+    }
+
+    if (showPersonalFmModeSheet) {
+        PersonalFmModeSheet(
+            currentMode = personalFmMode,
+            onSelectMode = onSelectPersonalFmMode,
+            onDismiss = onPersonalFmModeDismiss
         )
     }
 }

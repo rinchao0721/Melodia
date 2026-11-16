@@ -130,7 +130,12 @@ fun FullPlayerSourceBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen)
-        FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, Modifier.weight(1f))
+        FullPlayerSourceLabel(
+            playContext = playContext,
+            podcastRadioName = podcastRadioName,
+            onPlaylistClick = onPlaylistClick,
+            modifier = Modifier.weight(1f)
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (onFullscreenLyricsClick != null) {
                 MelodiaIconButton(

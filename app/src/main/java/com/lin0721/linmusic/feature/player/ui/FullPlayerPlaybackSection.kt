@@ -16,7 +16,9 @@ import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 
@@ -72,6 +74,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onToggleRepeat: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    onPersonalFmModeClick: (() -> Unit)? = null,
+    onTrashFm: () -> Unit = {},
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -127,7 +132,10 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onArtistClick = onArtistClick,
             onAlbumClick = onAlbumClick,
             podcast = podcast,
-            onToggleSubscribe = onToggleSubscribe
+            onToggleSubscribe = onToggleSubscribe,
+            isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+            personalFmMode = personalFmMode,
+            onPersonalFmModeClick = onPersonalFmModeClick
         )
     }
 
@@ -182,6 +190,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onDisableRoaming = onDisableRoaming,
             isIntelligence = playContext == "intelligence",
             onDisableIntelligence = onDisableIntelligence,
+            isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+            onTrashFm = onTrashFm,
             showModeButtons = !podcast.isPodcast
         )
     }

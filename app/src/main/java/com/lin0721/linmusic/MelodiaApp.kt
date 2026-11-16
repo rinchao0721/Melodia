@@ -929,6 +929,13 @@ fun MelodiaApp() {
                                     onNavigateToLocalMusic = { navigation.openLocalMusic() },
                                     onNavigateToScreen = { navigation.navigateTo(it) },
                                     onOpenRecognition = { showRecognition = true },
+                                    onOpenPlayer = {
+                                        if (usePanel) {
+                                            openPanel()
+                                        } else {
+                                            playerSheet.animateTo(true, 0f)
+                                        }
+                                    },
                                     onBack = { handleBack() }
                                 )
                             }

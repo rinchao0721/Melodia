@@ -61,6 +61,8 @@ fun FullPlayerLyricsOverlay(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
     pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null,
@@ -142,6 +144,8 @@ fun FullPlayerLyricsOverlay(
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
                 onMoreClick = onMoreClick,
+                isPersonalFm = isPersonalFm,
+                onTrashFm = onTrashFm,
                 onControlsVisibilityChange = onControlsVisibilityChange,
                 onNavigateToPrivateChat = onNavigateToPrivateChat,
                 pluginContent = pluginContent

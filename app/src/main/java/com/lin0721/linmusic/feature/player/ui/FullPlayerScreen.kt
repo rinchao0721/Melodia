@@ -90,6 +90,7 @@ import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -237,6 +238,8 @@ private fun FullPlayerScreenContent(
     val activeLyricIndices by viewModel.activeLyricIndices.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val playSource by viewModel.playerManager.playSource.collectAsStateWithLifecycle()
+    val personalFmMode by viewModel.personalFmMode.collectAsStateWithLifecycle()
+    val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
     val activeQuality by viewModel.activeQuality.collectAsStateWithLifecycle()
@@ -248,6 +251,7 @@ private fun FullPlayerScreenContent(
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showPersonalFmModeSheet by remember { mutableStateOf(false) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
     // 手机全屏歌词盖住状态栏且是有色底，浅色主题下状态栏图标切为浅色
     LightStatusBarIconsWhile(
@@ -382,6 +386,10 @@ private fun FullPlayerScreenContent(
 
     BackHandler(enabled = showDownloadQualitySheet) {
         showDownloadQualitySheet = false
+    }
+
+    BackHandler(enabled = showPersonalFmModeSheet) {
+        showPersonalFmModeSheet = false
     }
 
     var showLyricsSettingsSheet by remember { mutableStateOf(false) }
@@ -715,7 +723,10 @@ private fun FullPlayerScreenContent(
             lyricsCoverColors = lyricsCoverColors,
             sleepTimerActive = sleepTimerRemaining > 0L,
             onSleepTimerClick = { showTimerSheet = true },
-            onCommentsClick = { showCommentsSheet = true }
+            onCommentsClick = { showCommentsSheet = true },
+            personalFmMode = personalFmMode,
+            onPersonalFmModeClick = { showPersonalFmModeSheet = true },
+            onTrashFm = viewModel::trashCurrentFmSong
         )
     } else {
         null
@@ -864,6 +875,9 @@ private fun FullPlayerScreenContent(
                         onToggleRepeat = viewModel.playerManager::toggleRepeat,
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+                        personalFmMode = personalFmMode,
+                        onPersonalFmModeClick = { showPersonalFmModeSheet = true },
+                        onTrashFm = viewModel::trashCurrentFmSong,
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
@@ -986,7 +1000,10 @@ private fun FullPlayerScreenContent(
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         podcast = podcast,
-                        onToggleSubscribe = viewModel::toggleSubscribe
+                        onToggleSubscribe = viewModel::toggleSubscribe,
+                        isPersonalFm = isPersonalFm,
+                        personalFmMode = personalFmMode,
+                        onPersonalFmModeClick = { showPersonalFmModeSheet = true }
                     )
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
@@ -1006,6 +1023,8 @@ private fun FullPlayerScreenContent(
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         isIntelligence = playContext == "intelligence",
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+                        isPersonalFm = isPersonalFm,
+                        onTrashFm = viewModel::trashCurrentFmSong,
                         showModeButtons = !podcast.isPodcast
                     )
                     ActionButtons(
@@ -1103,6 +1122,8 @@ private fun FullPlayerScreenContent(
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
             onMoreClick = { showMoreOptionsSheet = true },
+            isPersonalFm = isPersonalFm,
+            onTrashFm = viewModel::trashCurrentFmSong,
             onNavigateToPrivateChat = { uid ->
                 isLyricsFullScreen = false
                 onNavigateToPrivateChat(uid)
@@ -1159,6 +1180,8 @@ private fun FullPlayerScreenContent(
             activeQuality = activeQuality,
             showMiniLyric = showMiniLyric,
             isPodcast = podcast.isPodcast,
+            personalFmMode = personalFmMode,
+            showPersonalFmModeSheet = showPersonalFmModeSheet,
             onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
             onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
@@ -1170,6 +1193,10 @@ private fun FullPlayerScreenContent(
             },
             onDisableRoaming = { viewModel.playerManager.disableRoaming() },
             onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+            onDisablePersonalFm = viewModel::disablePersonalFm,
+            onPersonalFmModeClick = { showPersonalFmModeSheet = true },
+            onSelectPersonalFmMode = viewModel::switchPersonalFmMode,
+            onPersonalFmModeDismiss = { showPersonalFmModeSheet = false },
             onQueueDismiss = { showQueueSheet = false },
             onToggleLike = viewModel::toggleLike,
             onAlbumClick = {

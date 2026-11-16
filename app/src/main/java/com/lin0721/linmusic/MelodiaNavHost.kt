@@ -69,6 +69,7 @@ fun MelodiaNavHost(
     onNavigateToLocalMusic: () -> Unit,
     onNavigateToScreen: (Screen) -> Unit,
     onOpenRecognition: () -> Unit,
+    onOpenPlayer: () -> Unit,
     onBack: () -> Unit
 ) {
     val motion = LocalUiMotion.current
@@ -156,6 +157,7 @@ fun MelodiaNavHost(
                         onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
                         onSearchClick = onNavigateToSearch,
                         onOpenSidebar = onOpenSidebar,
+                        onOpenPlayer = onOpenPlayer,
                         onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
                     )
                 }

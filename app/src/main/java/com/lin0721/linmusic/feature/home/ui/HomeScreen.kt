@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
@@ -61,6 +62,7 @@ fun HomeScreen(
     onStyleClick: (id: Long, name: String) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
     onOpenSidebar: () -> Unit = {},
+    onOpenPlayer: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -68,6 +70,31 @@ fun HomeScreen(
     val showRecentPlay by viewModel.showRecentPlay.collectAsStateWithLifecycle()
     val showForYou by viewModel.showForYou.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
+    val nowPlaying by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
+    val personalFmMode by viewModel.personalFmMode.collectAsStateWithLifecycle()
+    val recentFmTracks by viewModel.recentFmTracks.collectAsStateWithLifecycle()
+    val queue by viewModel.playerManager.queue.collectAsStateWithLifecycle()
+    val currentIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
+    val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
+    val isFmPlaying = isPersonalFm && isPlaying
+    val fmCoverUrls = remember(isPersonalFm, queue, currentIndex, recentFmTracks) {
+        if (isPersonalFm && queue.isNotEmpty()) {
+            queue.drop(currentIndex.coerceAtLeast(0))
+                .asSequence()
+                .distinctBy { it.songId }
+                .take(3)
+                .map { it.coverUrl }
+                .toList()
+        } else {
+            recentFmTracks.take(3).map { it.coverUrl }
+        }
+    }
+    // 漫游以当前曲目为起点，暂停时也显示它的封面
+    val isRoamingPlaying = nowPlaying != null
+    val roamingCoverUrl = nowPlaying?.artworkUri.orEmpty()
+    val hotTopCoverUrl by viewModel.hotlistTopCoverUrl.collectAsStateWithLifecycle()
     val musicUiState by musicViewModel.uiState.collectAsStateWithLifecycle()
     val podcastState by podcastViewModel.state.collectAsStateWithLifecycle()
     val newWorksUiState by newWorksViewModel.uiState.collectAsStateWithLifecycle()
@@ -77,14 +104,23 @@ fun HomeScreen(
 
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
+    var openPlayerOnFmStart by remember { mutableStateOf(false) }
 
     // 监听网页登录界面可见性变化，并通知上层以隐藏悬浮底栏
     LaunchedEffect(showWebViewLogin) {
         onLoginScreenVisibilityChanged(showWebViewLogin)
     }
 
+    LaunchedEffect(openPlayerOnFmStart, playContext, nowPlaying) {
+        if (openPlayerOnFmStart && playContext == PlaybackController.CONTEXT_PERSONAL_FM && nowPlaying != null) {
+            openPlayerOnFmStart = false
+            onOpenPlayer()
+        }
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { message ->
+            openPlayerOnFmStart = false
             ToastManager.showToast(message)
         }
     }
@@ -188,9 +224,20 @@ fun HomeScreen(
                         onVoiceClick = { shelfTitle, voices, voice -> viewModel.playShelfVoice(shelfTitle, voices, voice) },
                         onRetry = { viewModel.loadHomeData() },
                         onLoadMore = { viewModel.loadMoreShelves() },
-                        onIntelligenceClick = { viewModel.startIntelligenceMode() },
+                        onPersonalFmClick = {
+                            if (userProfile != null) {
+                                openPlayerOnFmStart = true
+                            }
+                            viewModel.startPersonalFm()
+                        },
                         onRoamingClick = { viewModel.startRoaming() },
                         onDailyPlay = { viewModel.playDailySong() },
+                        personalFmMode = personalFmMode,
+                        fmCoverUrls = fmCoverUrls,
+                        isFmPlaying = isFmPlaying,
+                        roamingCoverUrl = roamingCoverUrl,
+                        hotTopCoverUrl = hotTopCoverUrl,
+                        isRoamingPlaying = isRoamingPlaying,
                         showRecentPlay = showRecentPlay,
                         showForYou = showForYou
                     )

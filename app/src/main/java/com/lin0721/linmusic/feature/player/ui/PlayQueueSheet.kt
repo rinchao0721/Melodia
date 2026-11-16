@@ -41,7 +41,9 @@ import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -78,6 +80,9 @@ fun PlayQueueSheet(
     onClearQueue: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    onDisablePersonalFm: () -> Unit = {},
+    onPersonalFmModeClick: () -> Unit = {},
     onShowTimerClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -86,9 +91,10 @@ fun PlayQueueSheet(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val isRoaming = playContext == "similar_roaming"
+    val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
 
-    LaunchedEffect(currentIndex) {
-        if (isRoaming) {
+    LaunchedEffect(currentIndex, isPersonalFm) {
+        if (isRoaming || isPersonalFm) {
             listState.scrollToItem(0)
         } else if (currentIndex in queue.indices) {
             // 已播放占用的项数 = 1 (已播放头部) + currentIndex (已播放的歌曲数量)
@@ -120,7 +126,7 @@ fun PlayQueueSheet(
     }
 
     // 边缘检测和 composed range 都取自 layoutInfo，必须先换算
-    val playedBlockCount = if (!isRoaming && currentIndex > 0) 1 + currentIndex else 0
+    val playedBlockCount = if (!isRoaming && !isPersonalFm && currentIndex > 0) 1 + currentIndex else 0
     val currentBlockCount = if (currentIndex in queue.indices) 2 else 0
     val upcomingFirstLazyIndex = playedBlockCount + currentBlockCount + 1
     fun lazyIndexOf(queueIndex: Int): Int = upcomingFirstLazyIndex + (queueIndex - upcomingStart)
@@ -278,8 +284,14 @@ fun PlayQueueSheet(
                 .fillMaxWidth()
                 .fillMaxHeight(if (fillsHeight) 1f else 0.7f)
         ) {
+            val displayQueueSize = if (isPersonalFm) {
+                if (currentIndex in queue.indices) 1 else 0
+            } else {
+                queue.size
+            }
             QueueHeader(
-                queueSize = queue.size,
+                queueSize = displayQueueSize,
+                showClearButton = !isPersonalFm && displayQueueSize > 1,
                 compact = isShortScreen,
                 onClearClick = { showClearConfirmDialog = true },
                 onDismiss = onDismiss
@@ -288,10 +300,18 @@ fun PlayQueueSheet(
             PlayModeInfoRow(
                 playMode = playMode,
                 playContext = playContext,
+                personalFmMode = personalFmMode,
                 compact = isShortScreen,
                 onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
-                onDisableIntelligence = onDisableIntelligence
+                onDisableIntelligence = onDisableIntelligence,
+                onPersonalFmModeClick = {
+                    scope.launch {
+                        sheetState.hide()
+                        onDismiss()
+                        onPersonalFmModeClick()
+                    }
+                }
             )
 
             HorizontalDivider(
@@ -308,8 +328,8 @@ fun PlayQueueSheet(
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
-                // 1. "已播放" (仅在非漫游模式下显示)
-                if (!isRoaming && currentIndex > 0) {
+                // 1. "已播放" (仅在非漫游且非私人FM模式下显示)
+                if (!isRoaming && !isPersonalFm && currentIndex > 0) {
                     item(key = "header_played") {
                         SectionLabel("已播放")
                     }
@@ -358,8 +378,8 @@ fun PlayQueueSheet(
                         SectionLabel("正在播放")
                     }
                     item(key = "current_${queue[currentIndex].songId}") {
-                        if (isRoaming) {
-                            // 漫游模式下禁用侧滑删除
+                        if (isRoaming || isPersonalFm) {
+                            // 漫游及私人FM模式下禁用侧滑删除
                             DraggableSongRow(
                                 data = SongRowData(
                                     id = queue[currentIndex].songId,
@@ -419,8 +439,8 @@ fun PlayQueueSheet(
                     }
                 }
 
-                // 3. "接下来播放" (仅在非漫游模式下显示)
-                if (!isRoaming) {
+                // 3. "接下来播放" (仅在非漫游且非私人FM模式下显示)
+                if (!isRoaming && !isPersonalFm) {
                     if (upcomingStart < queue.size) {
                         item(key = "header_upcoming") {
                             SectionLabel(
@@ -523,6 +543,7 @@ fun PlayQueueSheet(
                 onToggleShuffle = onToggleShuffle,
                 onDisableRoaming = onDisableRoaming,
                 onDisableIntelligence = onDisableIntelligence,
+                onDisablePersonalFm = onDisablePersonalFm,
                 onShowTimerClick = {
                     scope.launch {
                         sheetState.hide()
@@ -538,6 +559,7 @@ fun PlayQueueSheet(
 @Composable
 private fun QueueHeader(
     queueSize: Int,
+    showClearButton: Boolean = queueSize > 1,
     compact: Boolean,
     onClearClick: () -> Unit,
     onDismiss: () -> Unit
@@ -555,7 +577,7 @@ private fun QueueHeader(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
-        if (queueSize > 1) {
+        if (showClearButton) {
             MelodiaIconButton(
                 onClick = onClearClick,
                 modifier = Modifier.size(32.dp)
@@ -585,10 +607,12 @@ private fun QueueHeader(
 private fun PlayModeInfoRow(
     playMode: PlayMode,
     playContext: String?,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     compact: Boolean,
     onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
-    onDisableIntelligence: () -> Unit
+    onDisableIntelligence: () -> Unit,
+    onPersonalFmModeClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -598,7 +622,9 @@ private fun PlayModeInfoRow(
     ) {
         val isRoaming = playContext == "similar_roaming"
         val isIntelligence = playContext == "intelligence"
+        val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
         val (icon, label) = when {
+            isPersonalFm -> Icons.Rounded.Radio to "私人FM · ${personalFmMode.displayName}"
             isRoaming -> Icons.Rounded.AllInclusive to "相似歌曲漫游"
             isIntelligence -> Icons.Rounded.AutoAwesome to "心动模式"
             playMode == PlayMode.LIST_LOOP -> Icons.Default.Repeat to "列表循环"
@@ -611,6 +637,7 @@ private fun PlayModeInfoRow(
                 .background(MelodiaColors.Surface)
                 .clickable {
                     when {
+                        isPersonalFm -> onPersonalFmModeClick()
                         isRoaming -> onDisableRoaming()
                         isIntelligence -> onDisableIntelligence()
                         else -> onToggleShuffle()
@@ -623,7 +650,7 @@ private fun PlayModeInfoRow(
             Spacer(Modifier.width(6.dp))
             Text(label, color = MelodiaColors.TextPrimary, fontSize = 12.sp)
         }
-        if (!playContext.isNullOrBlank() && !isRoaming && !isIntelligence) {
+        if (!playContext.isNullOrBlank() && !isRoaming && !isIntelligence && !isPersonalFm) {
             Spacer(Modifier.width(12.dp))
             Text(
                 "来自：$playContext",
@@ -655,6 +682,7 @@ private fun BottomActionRow(
     onToggleShuffle: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    onDisablePersonalFm: () -> Unit = {},
     onShowTimerClick: () -> Unit
 ) {
     Row(
@@ -665,11 +693,13 @@ private fun BottomActionRow(
     ) {
         val isRoaming = playContext == "similar_roaming"
         val isIntelligence = playContext == "intelligence"
-        val shuffleActive = isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE
+        val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
+        val shuffleActive = isRoaming || isIntelligence || isPersonalFm || playMode == PlayMode.SHUFFLE
         val shuffleContent = if (shuffleActive) MelodiaColors.OnAccent else MelodiaColors.TextPrimary
         MelodiaButton(
             onClick = {
                 when {
+                    isPersonalFm -> onDisablePersonalFm()
                     isRoaming -> onDisableRoaming()
                     isIntelligence -> onDisableIntelligence()
                     else -> onToggleShuffle()
@@ -685,6 +715,7 @@ private fun BottomActionRow(
         ) {
             Icon(
                 imageVector = when {
+                    isPersonalFm -> Icons.Rounded.Radio
                     isRoaming -> Icons.Rounded.AllInclusive
                     isIntelligence -> Icons.Rounded.AutoAwesome
                     else -> Icons.Default.Shuffle
@@ -696,6 +727,7 @@ private fun BottomActionRow(
             Spacer(Modifier.width(8.dp))
             Text(
                 when {
+                    isPersonalFm -> "退出私人FM"
                     isRoaming -> "关闭漫游"
                     isIntelligence -> "关闭心动模式"
                     else -> "随机播放"

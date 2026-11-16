@@ -65,6 +65,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -118,6 +119,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private var isShowLockscreenEnabled = true
     // 悬浮歌词开启且已锁定时，通知栏提供解锁按钮
     private var isFloatingLyricLocked = false
+    private var isPersonalFm = false
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
@@ -305,6 +307,17 @@ class MelodiaPlaybackService : MediaSessionService() {
             sessionPlayer.notifyMetadataChanged()
         }
         externalLyricCoordinator.onTickerChanged = { triggerNotificationUpdate() }
+
+        serviceScope.launch {
+            playerManager.playContext
+                .map { it == PlaybackController.CONTEXT_PERSONAL_FM }
+                .distinctUntilChanged()
+                .collect { fm ->
+                    isPersonalFm = fm
+                    updateMediaSessionButtons()
+                    triggerNotificationUpdate()
+                }
+        }
 
         externalInterruptionResumeController.start(
             scope = serviceScope,
@@ -538,11 +551,25 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     @OptIn(UnstableApi::class)
+    private fun buildAvailablePlayerCommands(): Player.Commands {
+        val base = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+        return if (isPersonalFm) {
+            base.buildUpon()
+                .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .build()
+        } else {
+            base
+        }
+    }
+
+    @OptIn(UnstableApi::class)
     private fun updateMediaSessionButtons() {
         val session = mediaSession ?: return
         val customLayout = buildCustomLayout()
         val mediaButtonPreferences = buildMediaButtonPreferences()
         val sessionCommands = buildAvailableSessionCommands()
+        val playerCommands = buildAvailablePlayerCommands()
 
         session.setCustomLayout(customLayout)
         session.setMediaButtonPreferences(mediaButtonPreferences)
@@ -550,7 +577,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             session.setAvailableCommands(
                 controller,
                 sessionCommands,
-                MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                playerCommands
             )
         }
     }
@@ -564,7 +591,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         ): MediaSession.ConnectionResult {
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(buildAvailableSessionCommands())
-                .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
+                .setAvailablePlayerCommands(buildAvailablePlayerCommands())
                 .setCustomLayout(buildCustomLayout())
                 .setMediaButtonPreferences(buildMediaButtonPreferences())
                 .setSessionActivity(sessionActivityPendingIntent)
@@ -613,6 +640,9 @@ class MelodiaPlaybackService : MediaSessionService() {
                 }
                 Player.COMMAND_SEEK_TO_PREVIOUS,
                 Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                    if (isPersonalFm) {
+                        return SessionResult.RESULT_ERROR_NOT_SUPPORTED
+                    }
                     externalInterruptionResumeController.onTrackTransition(null)
                     playerManager.playPrevious()
                     return SessionResult.RESULT_SUCCESS
@@ -698,12 +728,6 @@ class MelodiaPlaybackService : MediaSessionService() {
             val playPauseIconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
             val playPauseTitle = if (isPlaying) "暂停" else "播放"
 
-            val prevAction = actionFactory.createMediaAction(
-                session,
-                IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_previous),
-                "上一首",
-                Player.COMMAND_SEEK_TO_PREVIOUS
-            )
             val playPauseAction = actionFactory.createMediaAction(
                 session,
                 IconCompat.createWithResource(this@MelodiaPlaybackService, playPauseIconRes),
@@ -738,7 +762,16 @@ class MelodiaPlaybackService : MediaSessionService() {
                 .setOnlyAlertOnce(true)
                 .setOngoing(isPlaying)
                 .setShowWhen(false)
-                .addAction(prevAction)
+            if (!isPersonalFm) {
+                val prevAction = actionFactory.createMediaAction(
+                    session,
+                    IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_previous),
+                    "上一首",
+                    Player.COMMAND_SEEK_TO_PREVIOUS
+                )
+                builder.addAction(prevAction)
+            }
+            builder
                 .addAction(playPauseAction)
                 .addAction(nextAction)
                 .addAction(likeAction)
@@ -764,8 +797,9 @@ class MelodiaPlaybackService : MediaSessionService() {
                 builder.setLargeIcon(bitmap)
             }
 
+            val compactIndices = if (isPersonalFm) intArrayOf(0, 1) else intArrayOf(0, 1, 2)
             val mediaStyle = MediaNotificationCompat.MediaStyle()
-                .setShowActionsInCompactView(0, 1, 2)
+                .setShowActionsInCompactView(*compactIndices)
                 .setMediaSession(
                     android.support.v4.media.session.MediaSessionCompat.Token.fromToken(
                         session.platformToken

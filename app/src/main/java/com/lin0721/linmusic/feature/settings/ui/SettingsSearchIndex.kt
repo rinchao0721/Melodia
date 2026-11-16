@@ -75,7 +75,7 @@ object SettingsSearchIndex {
             entry(APPEARANCE, 2, "侧边播放页位置", "左侧 右侧"),
             entry(APPEARANCE, 2, "侧边播放页钉住", "返回键"),
             entry(APPEARANCE, 3, "首页最近播放", "主页 精简 隐藏"),
-            entry(APPEARANCE, 3, "首页为你定制", "主页 精简 隐藏 热歌榜 心动模式 私人雷达 音乐漫游"),
+            entry(APPEARANCE, 3, "首页为你定制", "主页 精简 隐藏 热歌榜 私人FM 私人雷达 音乐漫游"),
             entry(APPEARANCE, 3, "搜索框推荐词", "搜索 推荐 关键词 默认 精简"),
             entry(APPEARANCE, 3, "热搜榜", "搜索 热搜 排行 精简"),
             entry(APPEARANCE, 3, "歌单分类", "搜索 精品歌单 分类 标签 精简"),
