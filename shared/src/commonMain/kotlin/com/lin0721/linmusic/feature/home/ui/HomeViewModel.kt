@@ -2,7 +2,10 @@ package com.lin0721.linmusic.feature.home.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.AccountEvents
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepository
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.api.AccountInfoResponse
@@ -17,6 +20,8 @@ import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 import com.lin0721.linmusic.feature.home.domain.pickHotlist
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.mapNotNull
@@ -60,6 +65,7 @@ private const val TAG = "HomeViewModel"
 // 首页 ViewModel
 class HomeViewModel(
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
+    private val accountSwitcher: AccountSwitcher,
     private val playbackRepository: PlaybackRepository,
     private val homeRepository: HomeRepository,
     private val recentRepository: RecentRepository,
@@ -79,6 +85,8 @@ class HomeViewModel(
     private val settingsPreferences: SettingsPreferences,
     private val playbackPreferences: PlaybackPreferences
 ) : ViewModel() {
+
+    private var loadHomeJob: Job? = null
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -150,7 +158,7 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            userProfile.collect { profile ->
+            userProfile.collectLatest { profile ->
                 if (profile != null) {
                     loadLikedSongIdsUseCase()
                     userPlaylistRepository.getUserPlaylists(profile.uid).collect { result ->
@@ -161,6 +169,11 @@ class HomeViewModel(
                 } else {
                     _subscribedPlaylistIds.value = emptySet()
                 }
+            }
+        }
+        viewModelScope.launch {
+            AccountEvents.switched.collect {
+                loadHomeData(refresh = true)
             }
         }
     }
@@ -192,9 +205,10 @@ class HomeViewModel(
     }
 
     fun loadHomeData(refresh: Boolean = false) {
+        loadHomeJob?.cancel()
         _uiState.value = HomeUiState.Loading
 
-        viewModelScope.launch {
+        loadHomeJob = viewModelScope.launch {
             val result = fetchHomeFeedData(refresh)
             _uiState.value = result.fold(
                 onSuccess = { HomeUiState.Success(it) },
@@ -384,22 +398,24 @@ class HomeViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            val profile = syncProfileAfterLoginUseCase(cookies)
-            if (profile == null) {
-                _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
-                return@launch
+            when (val result = syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，欢迎回来，${result.profile.nickname}！")
+                }
+                LoginSyncResult.LimitReached -> {
+                    _toastEvent.emit("最多只能登录 5 个账户")
+                }
+                LoginSyncResult.Failed -> {
+                    _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+                }
             }
-            _toastEvent.emit("登录成功，欢迎回来，${profile.nickname}！")
-            loadHomeData()
         }
     }
 
     fun logout() {
         viewModelScope.launch {
-            authRepository.logout().collect { }
-            userPreferences.clearUserProfile()
-            _toastEvent.emit("已退出登录")
-            loadHomeData()
+            accountSwitcher.logoutCurrent()
+            _toastEvent.emit("已退出当前账户")
         }
     }
 

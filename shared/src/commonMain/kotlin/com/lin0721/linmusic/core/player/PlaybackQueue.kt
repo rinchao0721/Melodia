@@ -276,6 +276,21 @@ class PlaybackQueue {
         _items.value = playItems
     }
 
+    // 完全清空播放队列、上下文与漫游快照
+    fun clear() {
+        originalItems = emptyList()
+        playItems = emptyList()
+        _currentIndex.value = -1
+        _items.value = emptyList()
+        _playContext.value = null
+        _playSource.value = null
+        hasSnapshot = false
+        snapshotItems = emptyList()
+        snapshotIndex = -1
+        snapshotContext = null
+        snapshotSource = null
+    }
+
     // 备份当前队列与播放上下文，供退出漫游/心动模式时还原
     fun takeSnapshot() {
         hasSnapshot = true

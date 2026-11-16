@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
+import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.comment.data.CommentRepositoryImpl
@@ -68,9 +70,9 @@ class SharedModulesResolveTest {
         fun store(name: String) = PreferencesStores.get(File(dir, "$name.preferences_pb"))
         val platformModule = module {
             single { UserPreferences(store(PreferencesStores.USER)) }
-            single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+            single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
             single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
-            single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+            single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY), userPreferences = get()) }
             single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
             single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
             single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
@@ -90,7 +92,7 @@ class SharedModulesResolveTest {
         val koin = koinApplication { modules(platformModule, networkModule, repositoryModule) }.koin
         try {
             listOf(
-                AuthRepositoryImpl::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
+                AuthRepositoryImpl::class, AccountSwitcher::class, SessionMonitor::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
                 PodcastRepositoryImpl::class, SearchRepositoryImpl::class, LibraryRepositoryImpl::class,
                 RecentRepositoryImpl::class, CloudRepositoryImpl::class, ListenDataRepositoryImpl::class,
                 NewWorksRepositoryImpl::class, ArtistRepositoryImpl::class, CommentRepositoryImpl::class,

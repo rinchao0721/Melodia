@@ -86,6 +86,8 @@ interface PlaybackController {
     fun removeFromQueue(index: Int)
     fun moveInQueue(from: Int, to: Int)
     fun clearQueue()
+    // 切换或退出账户时停止播放并清空队列与播放上下文
+    fun stopAndClearQueue()
     fun toggleShuffle()
     fun toggleRepeat()
     fun rotatePlayMode()

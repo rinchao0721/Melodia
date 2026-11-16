@@ -13,6 +13,7 @@ import com.lin0721.linmusic.core.download.toToastMessage
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.offline.OfflinePlayability
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -628,9 +629,13 @@ class PlaylistViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            _toastEvent.emit("登录成功，正在同步数据...")
-            if (syncProfileAfterLoginUseCase(cookies) != null) {
-                loadLikedSongIds()
+            when (syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步数据...")
+                    loadLikedSongIds()
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
             }
         }
     }

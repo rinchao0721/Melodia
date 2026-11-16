@@ -272,7 +272,11 @@ class MutableFakePlaybackController : PlaybackController {
     override fun playAtIndex(index: Int) = Unit
     override fun removeFromQueue(index: Int) = Unit
     override fun moveInQueue(from: Int, to: Int) = Unit
+    var stopAndClearQueueCalls = 0
     override fun clearQueue() = Unit
+    override fun stopAndClearQueue() {
+        stopAndClearQueueCalls++
+    }
     override fun toggleShuffle() = Unit
     override fun toggleRepeat() = Unit
     override fun rotatePlayMode() = Unit

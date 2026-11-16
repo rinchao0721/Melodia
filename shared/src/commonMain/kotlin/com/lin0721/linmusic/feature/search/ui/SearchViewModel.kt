@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.search.ui
 import kotlinx.coroutines.flow.combine
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
@@ -255,9 +256,14 @@ class SearchViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            if (syncProfileAfterLoginUseCase(cookies) == null) return@launch
-            _toastEvent.emit("登录成功，正在同步数据...")
-            loadLikedSongIds()
+            when (syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步数据...")
+                    loadLikedSongIds()
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+            }
         }
     }
 

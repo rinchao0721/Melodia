@@ -3,8 +3,10 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.plugin.ExtensionRegistry
 import com.lin0721.linmusic.core.plugin.PluginContent
 import com.lin0721.linmusic.core.plugin.PluginAwarePlaylistRepository
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
+import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.cache.OfflineFallback
 import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
@@ -208,8 +210,33 @@ val repositoryModule = module {
     // 歌曲多选后的批量操作，歌单页与歌手页共用
     factoryOf(::TrackBatchActionsDelegate)
 
+    // 多账户会话监控与账户切换协调器（延迟取播放器，避免与平台播放器模块互相依赖）
+    single {
+        SessionMonitor(
+            userPreferences = get(),
+            authRepository = get(),
+            playbackControllerProvider = { getOrNull<PlaybackController>() },
+            metadataCache = getOrNull()
+        )
+    }
+    single {
+        AccountSwitcher(
+            userPreferences = get(),
+            authRepository = get(),
+            metadataCache = getOrNull(),
+            playbackControllerProvider = { getOrNull<PlaybackController>() },
+            sessionMonitorProvider = { getOrNull<SessionMonitor>() }
+        )
+    }
+
     // 登录成功后同步账号资料（跨 home/library/artist/playlist 域共用）
-    singleOf(::SyncProfileAfterLoginUseCase)
+    single {
+        SyncProfileAfterLoginUseCase(
+            userPreferences = get(),
+            authRepository = get(),
+            accountSwitcherProvider = { getOrNull<AccountSwitcher>() }
+        )
+    }
 
     // 拉取已红心歌曲 ID（跨 artist/player/playlist 域共用）
     singleOf(::LoadLikedSongIdsUseCase)

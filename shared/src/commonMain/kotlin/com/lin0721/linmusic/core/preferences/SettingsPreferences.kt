@@ -1,13 +1,15 @@
 package com.lin0721.linmusic.core.preferences
 
-import com.lin0721.linmusic.core.AppEnvironment
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.lin0721.linmusic.core.AppEnvironment
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.PersonalFmMode
@@ -23,9 +25,13 @@ import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
 import com.lin0721.linmusic.core.ui.theme.toRgbHex
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 private const val TAG = "SettingsPreferences"
@@ -33,7 +39,8 @@ private const val TAG = "SettingsPreferences"
 // 未设置时的默认值，由各平台决定
 class SettingsPreferences(
     private val dataStore: DataStore<Preferences>,
-    private val streamCacheDefault: Boolean = false
+    private val streamCacheDefault: Boolean = false,
+    private val userPreferences: UserPreferences? = null
 ) {
 
     companion object {
@@ -212,8 +219,11 @@ class SettingsPreferences(
         private val KEY_CLIPBOARD_LINK_ENABLED = booleanPreferencesKey("clipboard_link_enabled")
         // 上次已提示或应用内自己复制的剪贴板链接原文，避免反复打扰
         private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
-        // 上次选择的私人FM模式，默认 DEFAULT
+        // 上次选择的私人FM模式，默认 DEFAULT（未注入 UserPreferences 时使用旧全局键）
         private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
+
+        private fun personalFmModeKeyFor(uid: Long?) =
+            stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -1196,15 +1206,55 @@ class SettingsPreferences(
         }
     }
 
-    // 上次选择的私人FM模式 Flow，默认 DEFAULT
-    val personalFmMode: Flow<PersonalFmMode> = dataStore.data.map { prefs ->
-        PersonalFmMode.fromKey(prefs[KEY_PERSONAL_FM_MODE])
-    }.distinctUntilChanged()
+    // 上次选择的私人FM模式 Flow，默认 DEFAULT；注入 UserPreferences 后按账户 UID 隔离（未登录用独立匿名键）
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val personalFmMode: Flow<PersonalFmMode> = if (userPreferences == null) {
+        dataStore.data.map { prefs -> PersonalFmMode.fromKey(prefs[KEY_PERSONAL_FM_MODE]) }.distinctUntilChanged()
+    } else {
+        userPreferences.activeUid
+            .distinctUntilChanged()
+            .flatMapLatest { uid ->
+                flow {
+                    if (uid != null) migrateLegacyPersonalFmModeIfNeeded(uid)
+                    val key = personalFmModeKeyFor(uid)
+                    emitAll(dataStore.data.map { prefs -> PersonalFmMode.fromKey(prefs[key]) })
+                }
+            }
+            .distinctUntilChanged()
+    }
 
     suspend fun savePersonalFmMode(mode: PersonalFmMode) {
+        val uid = userPreferences?.activeUid?.first()
         dataStore.edit { prefs ->
-            prefs[KEY_PERSONAL_FM_MODE] = mode.key
+            val key = activePersonalFmKeyInTransaction(prefs, uid)
+            prefs[key] = mode.key
         }
+    }
+
+    private suspend fun migrateLegacyPersonalFmModeIfNeeded(uid: Long) {
+        val current = dataStore.data.first()
+        if (!current.contains(KEY_PERSONAL_FM_MODE)) return
+        dataStore.edit { prefs ->
+            migrateLegacyPersonalFmInTransaction(prefs, uid)
+        }
+    }
+
+    private fun activePersonalFmKeyInTransaction(
+        prefs: MutablePreferences,
+        uid: Long?
+    ): Preferences.Key<String> {
+        if (userPreferences == null) return KEY_PERSONAL_FM_MODE
+        if (uid != null) migrateLegacyPersonalFmInTransaction(prefs, uid)
+        return personalFmModeKeyFor(uid)
+    }
+
+    private fun migrateLegacyPersonalFmInTransaction(prefs: MutablePreferences, uid: Long) {
+        val legacy = prefs[KEY_PERSONAL_FM_MODE] ?: return
+        val targetKey = personalFmModeKeyFor(uid)
+        if (!prefs.contains(targetKey)) {
+            prefs[targetKey] = legacy
+        }
+        prefs.remove(KEY_PERSONAL_FM_MODE)
     }
 }
 

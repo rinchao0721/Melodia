@@ -4,6 +4,10 @@ import com.lin0721.linmusic.core.network.AppError
 import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,10 +27,10 @@ class SessionMonitorTest {
 
     @Before
     fun setUp() {
-        val (preferences, directory) = tempUserPreferences()
+        val (preferences, directory) = tempUserPreferences { now }
         prefs = preferences
         dir = directory
-        repo = FakeAuthRepository()
+        repo = FakeAuthRepository(prefs)
         expiredCount = 0
     }
 
@@ -35,7 +39,13 @@ class SessionMonitorTest {
         dir.deleteRecursively()
     }
 
-    private fun monitor() = SessionMonitor(prefs, repo) { now }
+    private fun monitor(player: RecordingPlaybackController? = null) = SessionMonitor(
+        userPreferences = prefs,
+        authRepository = repo,
+        playbackControllerProvider = { player },
+        metadataCache = null,
+        nowMs = { now }
+    )
 
     private suspend fun login() {
         prefs.saveCookies("MUSIC_U=old; os=pc")
@@ -133,5 +143,63 @@ class SessionMonitorTest {
     fun startupWhileLoggedOutDoesNothing() = runTest {
         monitor().verifyAtStartup(onExpired)
         assertEquals(0, repo.accountCalls)
+    }
+
+    @Test
+    fun expireRemovesOnlyCurrentAccountSwitchesToMostRecentAndEmitsNotice() = runTest {
+        now = 100L
+        prefs.upsertAccount(StoredAccount(uid = 1L, nickname = "Old", cookies = "MUSIC_U=1"))
+        now = 300L
+        prefs.upsertAccount(StoredAccount(uid = 2L, nickname = "Fallback", cookies = "MUSIC_U=2"))
+        now = 500L
+        prefs.upsertAccount(StoredAccount(uid = 3L, nickname = "Expired", cookies = "MUSIC_U=3"))
+
+        val player = RecordingPlaybackController()
+        val mon = monitor(player)
+        val notices = mutableListOf<ExpiredAccountNotice>()
+        val events = mutableListOf<AccountSwitchEvent>()
+        val noticeJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            mon.expiredNotices.take(1).toList(notices)
+        }
+        val eventJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            AccountEvents.switched.take(1).toList(events)
+        }
+
+        repo.accountResults = listOf(Result.success(anonymousAccount()))
+        mon.handleUnauthorized(onExpired)
+        noticeJob.join()
+        eventJob.join()
+
+        assertEquals(1, expiredCount)
+        assertEquals(1, player.stopAndClearCalls)
+        assertEquals(listOf<Long?>(3L), repo.logoutActiveUids)
+        assertEquals(2L, prefs.activeUid.first())
+        assertEquals(listOf(1L, 2L), prefs.accounts.first().map { it.uid })
+        assertEquals(3L, notices.single().expiredProfile.uid)
+        assertEquals(2L, notices.single().nextProfile?.uid)
+        assertEquals(
+            AccountSwitchEvent(previousUid = 3L, currentUid = 2L, reason = AccountSwitchReason.EXPIRED),
+            events.single()
+        )
+    }
+
+    @Test
+    fun startupFallsThroughExpiredAccountToValidSecondaryAccount() = runTest {
+        now = 100L
+        prefs.upsertAccount(StoredAccount(uid = 1L, nickname = "Valid", cookies = "MUSIC_U=1"))
+        now = 500L
+        prefs.upsertAccount(StoredAccount(uid = 2L, nickname = "Expired", cookies = "MUSIC_U=2"))
+
+        // 前两次确认 uid=2 失效，切回 uid=1 后第三次验证有效
+        repo.accountResults = listOf(
+            Result.success(anonymousAccount()),
+            Result.success(anonymousAccount()),
+            Result.success(loggedInAccount(uid = 1L, nickname = "Valid"))
+        )
+        monitor().verifyAtStartup(onExpired)
+
+        assertEquals(1, expiredCount)
+        assertEquals(1L, prefs.activeUid.first())
+        assertEquals(listOf(1L), prefs.accounts.first().map { it.uid })
     }
 }

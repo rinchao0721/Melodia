@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -454,12 +455,17 @@ class ArtistViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            if (syncProfileAfterLoginUseCase(cookies) == null) return@launch
-            _toastEvent.emit("登录成功，正在同步数据...")
-            // 同步红心列表并刷新歌手页，使关注态与红心态即时生效
-            loadLikedSongIds()
-            (uiState.value as? ArtistUiState.Success)?.let { successState ->
-                loadArtistData(successState.artist.id)
+            when (val result = syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步数据...")
+                    // 同步红心列表并刷新歌手页，使关注态与红心态即时生效
+                    loadLikedSongIds()
+                    (uiState.value as? ArtistUiState.Success)?.let { successState ->
+                        loadArtistData(successState.artist.id)
+                    }
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
             }
         }
     }

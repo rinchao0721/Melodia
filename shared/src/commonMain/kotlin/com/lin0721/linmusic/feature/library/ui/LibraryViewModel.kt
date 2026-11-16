@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
+import kotlinx.coroutines.Job
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
@@ -130,6 +132,8 @@ class LibraryViewModel(
                 if (profile != null) {
                     loadLibraryData(profile)
                 } else {
+                    libraryLoadJob?.cancel()
+                    lastLoadedUid = null
                     _uiState.value = LibraryUiState.Loading
                 }
             }
@@ -224,11 +228,17 @@ class LibraryViewModel(
         libraryPreferences.setGridView(isGrid)
     }
 
+    private var libraryLoadJob: Job? = null
+    private var lastLoadedUid: Long? = null
+
     fun loadLibraryData(profileOverride: UserProfile? = null) {
         val profile = profileOverride ?: userProfile.value ?: return
-        val isRefresh = _uiState.value is LibraryUiState.Success
+        val accountChanged = lastLoadedUid != null && lastLoadedUid != profile.uid
+        lastLoadedUid = profile.uid
+        val isRefresh = !accountChanged && _uiState.value is LibraryUiState.Success
 
-        viewModelScope.launch {
+        libraryLoadJob?.cancel()
+        libraryLoadJob = viewModelScope.launch {
             if (!isRefresh) {
                 _uiState.value = LibraryUiState.Loading
             }
@@ -590,9 +600,14 @@ class LibraryViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            _toastEvent.emit("登录成功，正在同步乐库...")
-            val profile = syncProfileAfterLoginUseCase(cookies) ?: return@launch
-            loadLibraryData(profile)
+            when (val result = syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步乐库...")
+                    loadLibraryData(result.profile)
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+            }
         }
     }
 
