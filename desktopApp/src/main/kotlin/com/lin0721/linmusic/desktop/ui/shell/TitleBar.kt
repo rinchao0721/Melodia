@@ -99,6 +99,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
+import com.lin0721.linmusic.desktop.ui.components.DefaultMenuWidth
+import com.lin0721.linmusic.core.auth.UserPreferences
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.foundation.layout.Column
 import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.download.DownloadTask
@@ -166,6 +171,9 @@ fun WindowScope.TitleBar(
     downloadsOpen: Boolean,
     onDownloadsClick: (() -> Unit)?,
     onLoginClick: () -> Unit,
+    accounts: List<UserProfile> = emptyList(),
+    onSwitchAccount: (uid: Long) -> Unit = {},
+    onAddAccount: () -> Unit = {},
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -234,7 +242,19 @@ fun WindowScope.TitleBar(
                 CloudUploadsButton(cloudMusic)
                 MessagesButton(privateUnreadCount, messagesOpen, onMessagesClick, onDismissUnread)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
-                AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
+                AvatarMenu(
+                    userProfile = userProfile,
+                    accounts = accounts,
+                    onLoginClick = onLoginClick,
+                    onSwitchAccount = onSwitchAccount,
+                    onAddAccount = onAddAccount,
+                    onProfileClick = onProfileClick,
+                    onRecentClick = onRecentClick,
+                    onCloudClick = onCloudClick,
+                    onSettingsClick = onSettingsClick,
+                    hasUpdate = hasUpdate,
+                    onLogoutClick = onLogoutClick
+                )
                 WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
                 WindowButton(
                     if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
@@ -435,7 +455,10 @@ private fun AttentionDot(modifier: Modifier = Modifier) {
 @Composable
 private fun AvatarMenu(
     userProfile: UserProfile?,
+    accounts: List<UserProfile>,
     onLoginClick: () -> Unit,
+    onSwitchAccount: (uid: Long) -> Unit,
+    onAddAccount: () -> Unit,
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -456,28 +479,38 @@ private fun AvatarMenu(
             }
         }
         if (hasUpdate) AttentionDot(Modifier.align(Alignment.TopEnd))
-        DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
+        DesktopMenu(
+            expanded = expanded,
+            onDismiss = { expanded = false },
+            width = if (userProfile != null) AccountMenuWidth else DefaultMenuWidth
+        ) {
             if (userProfile != null) {
-                Text(
-                    userProfile.nickname,
-                    color = DesktopColors.TextGray,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-                MenuDivider()
-            } else {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
-                    expanded = false
-                    onLoginClick()
-                }
-            }
-            if (userProfile != null) {
-                AvatarMenuItem(Icons.Rounded.Person, "个人主页") {
+                AvatarMenuHeader(userProfile) {
                     expanded = false
                     onProfileClick()
                 }
+                MenuDivider()
+                accounts.filter { it.uid != userProfile.uid }.forEach { account ->
+                    SimpleMenuItem(
+                        text = account.nickname,
+                        onClick = {
+                            expanded = false
+                            onSwitchAccount(account.uid)
+                        },
+                        leading = { Cover(account.avatarUrl, 20.dp, shape = CircleShape) }
+                    )
+                }
+                val canAddAccount = accounts.size < UserPreferences.MAX_ACCOUNTS
+                MenuItem(
+                    text = if (canAddAccount) "添加帐号" else "添加帐号（最多 ${UserPreferences.MAX_ACCOUNTS} 个）",
+                    onClick = {
+                        expanded = false
+                        onAddAccount()
+                    },
+                    icon = Icons.Rounded.PersonAdd,
+                    enabled = canAddAccount
+                )
+                MenuDivider()
                 AvatarMenuItem(Icons.Rounded.History, "最近播放") {
                     expanded = false
                     onRecentClick()
@@ -485,6 +518,11 @@ private fun AvatarMenu(
                 AvatarMenuItem(Icons.Rounded.Cloud, "我的云盘") {
                     expanded = false
                     onCloudClick()
+                }
+            } else {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
+                    expanded = false
+                    onLoginClick()
                 }
             }
             MenuItem(
@@ -506,6 +544,38 @@ private fun AvatarMenu(
                     onLogoutClick()
                 }
             }
+        }
+    }
+}
+
+private val AccountMenuWidth = 224.dp
+
+// 头像菜单头部：大头像 + 昵称，点击进个人主页
+@Composable
+private fun AvatarMenuHeader(userProfile: UserProfile, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val hovered by source.collectIsHoveredAsState()
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (hovered) DesktopColors.SurfaceLight else Color.Transparent)
+            .hoverable(source)
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Cover(userProfile.avatarUrl, 40.dp, shape = CircleShape)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                userProfile.nickname,
+                color = DesktopColors.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text("查看个人主页", color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1)
         }
     }
 }

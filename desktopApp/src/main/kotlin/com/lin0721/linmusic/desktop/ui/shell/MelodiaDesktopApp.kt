@@ -417,8 +417,13 @@ fun WindowScope.MelodiaDesktopApp(
             onLoginSuccess = { cookies ->
                 deps.homeViewModel.handleLoginSuccess(cookies)
                 state.showLogin = false
+                state.loginAddAccount = false
             },
-            onDismiss = { state.showLogin = false }
+            onDismiss = {
+                state.showLogin = false
+                state.loginAddAccount = false
+            },
+            addAccount = state.loginAddAccount
         )
     }
 }

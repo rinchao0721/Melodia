@@ -37,6 +37,8 @@ internal fun WindowScope.AppTitleBar(
     val downloadTasks by deps.downloader.tasks.collectAsState()
     val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
     val privateUnreadCount by deps.privateUnreadMonitor.unreadCount.collectAsState()
+    val accounts by deps.userPreferences.accounts.collectAsState(initial = emptyList())
+    val accountScope = rememberCoroutineScope()
     LaunchedEffect(Unit) { searchViewModel.songHitsEnabled = true }
     LaunchedEffect(Unit) {
         deps.cloudMusic.uploadRunner.batchFinished.collect { state.showMessage(uploadBatchMessage(it.succeeded, it.failed)) }
@@ -98,7 +100,23 @@ internal fun WindowScope.AppTitleBar(
         downloadTasks = downloadTasks,
         downloadsOpen = state.isOverlayOpen(DockOverlay.Downloads),
         onDownloadsClick = { state.toggleOverlay(DockOverlay.Downloads) },
-        onLoginClick = { state.showLogin = true },
+        onLoginClick = {
+            state.loginAddAccount = false
+            state.showLogin = true
+        },
+        accounts = accounts,
+        onSwitchAccount = { uid ->
+            accountScope.launch {
+                val target = accounts.firstOrNull { it.uid == uid }
+                if (deps.accountSwitcher.switchTo(uid) && target != null) {
+                    state.showMessage("已切换至 ${target.nickname}")
+                }
+            }
+        },
+        onAddAccount = {
+            state.loginAddAccount = true
+            state.showLogin = true
+        },
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
         onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },
         onCloudClick = state::openCloud,
