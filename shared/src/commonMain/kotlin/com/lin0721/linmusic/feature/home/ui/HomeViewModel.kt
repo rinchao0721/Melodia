@@ -2,7 +2,10 @@ package com.lin0721.linmusic.feature.home.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.AccountEvents
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepository
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.api.AccountInfoResponse
@@ -15,6 +18,13 @@ import com.lin0721.linmusic.feature.home.data.PersonalizedData
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
+import com.lin0721.linmusic.feature.home.domain.pickHotlist
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.mapNotNull
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -42,8 +52,11 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.RecentFmTrack
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 
@@ -52,6 +65,7 @@ private const val TAG = "HomeViewModel"
 // 首页 ViewModel
 class HomeViewModel(
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
+    private val accountSwitcher: AccountSwitcher,
     private val playbackRepository: PlaybackRepository,
     private val homeRepository: HomeRepository,
     private val recentRepository: RecentRepository,
@@ -68,8 +82,11 @@ class HomeViewModel(
     private val userPlaylistRepository: UserPlaylistRepository,
     private val songDownloadManager: SongDownloader,
     private val playlistMutationBus: PlaylistMutationBus,
-    settingsPreferences: SettingsPreferences
+    private val settingsPreferences: SettingsPreferences,
+    private val playbackPreferences: PlaybackPreferences
 ) : ViewModel() {
+
+    private var loadHomeJob: Job? = null
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -82,6 +99,25 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showForYou: StateFlow<Boolean> = settingsPreferences.homeForYouEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PersonalFmMode.DEFAULT)
+    val recentFmTracks: StateFlow<List<RecentFmTrack>> = playbackPreferences.recentFmTracks
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // 榜单接口只返回前几首的歌名，热歌榜卡片要的榜首封面借歌单详情补，拿不到时为空串
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val hotlistTopCoverUrl: StateFlow<String> = _uiState
+        .mapNotNull { (it as? HomeUiState.Success)?.data?.toplistItems?.pickHotlist()?.id }
+        .distinctUntilChanged()
+        .mapLatest { id ->
+            runCatching { playlistRepository.getPlaylistDetail(id).first() }
+                .getOrNull()?.getOrNull()
+                ?.tracks?.firstOrNull()?.al?.picUrl
+                ?.takeIf { it.isNotBlank() }
+                ?.let { if ('?' in it) it else "$it?param=300y300" }
+                .orEmpty()
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
@@ -122,7 +158,7 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            userProfile.collect { profile ->
+            userProfile.collectLatest { profile ->
                 if (profile != null) {
                     loadLikedSongIdsUseCase()
                     userPlaylistRepository.getUserPlaylists(profile.uid).collect { result ->
@@ -133,6 +169,11 @@ class HomeViewModel(
                 } else {
                     _subscribedPlaylistIds.value = emptySet()
                 }
+            }
+        }
+        viewModelScope.launch {
+            AccountEvents.switched.collect {
+                loadHomeData(refresh = true)
             }
         }
     }
@@ -164,9 +205,10 @@ class HomeViewModel(
     }
 
     fun loadHomeData(refresh: Boolean = false) {
+        loadHomeJob?.cancel()
         _uiState.value = HomeUiState.Loading
 
-        viewModelScope.launch {
+        loadHomeJob = viewModelScope.launch {
             val result = fetchHomeFeedData(refresh)
             _uiState.value = result.fold(
                 onSuccess = { HomeUiState.Success(it) },
@@ -356,22 +398,24 @@ class HomeViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            val profile = syncProfileAfterLoginUseCase(cookies)
-            if (profile == null) {
-                _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
-                return@launch
+            when (val result = syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，欢迎回来，${result.profile.nickname}！")
+                }
+                LoginSyncResult.LimitReached -> {
+                    _toastEvent.emit("最多只能登录 5 个账户")
+                }
+                LoginSyncResult.Failed -> {
+                    _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+                }
             }
-            _toastEvent.emit("登录成功，欢迎回来，${profile.nickname}！")
-            loadHomeData()
         }
     }
 
     fun logout() {
         viewModelScope.launch {
-            authRepository.logout().collect { }
-            userPreferences.clearUserProfile()
-            _toastEvent.emit("已退出登录")
-            loadHomeData()
+            accountSwitcher.logoutCurrent()
+            _toastEvent.emit("已退出当前账户")
         }
     }
 
@@ -482,5 +526,67 @@ class HomeViewModel(
                 viewModelScope.launch { _toastEvent.emit("请先播放一首歌曲") }
             }
         }
+    }
+
+    // 开启私人FM；未登录时仅提示，不修改播放队列
+    fun startPersonalFm(mode: PersonalFmMode? = null) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM && mode != null) {
+                playerManager.switchPersonalFmMode(mode)
+                return@launch
+            }
+            val targetMode = mode ?: settingsPreferences.personalFmMode.first()
+            playbackRepository.getPersonalFmSongs(targetMode).collect { result ->
+                result.onSuccess { tracks ->
+                    val items = tracks
+                        .filter { it.id > 0L }
+                        .distinctBy { it.id }
+                        .map { track ->
+                            QueueItem(
+                                songId = track.id,
+                                title = track.name,
+                                artist = track.ar.joinToString("/") { it.name },
+                                coverUrl = track.al.picUrl
+                            )
+                        }
+                    if (items.isNotEmpty()) {
+                        if (mode != null) {
+                            playerManager.switchPersonalFmMode(targetMode)
+                        }
+                        playerManager.startPersonalFm(items)
+                    } else {
+                        _toastEvent.emit("暂无可播放的私人FM歌曲")
+                    }
+                }.onFailure {
+                    _toastEvent.emit(it.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun switchPersonalFmMode(mode: PersonalFmMode) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+                playerManager.switchPersonalFmMode(mode)
+            } else {
+                startPersonalFm(mode)
+            }
+        }
+    }
+
+    fun trashCurrentFmSong() {
+        playerManager.trashCurrentFmSong()
+    }
+
+    fun disablePersonalFm() {
+        playerManager.disablePersonalFm()
     }
 }

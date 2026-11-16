@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
@@ -115,7 +116,8 @@ fun PlaylistContent(
     selectionUi: TrackSelectionUi = TrackSelectionUi(),
     selectionActions: List<SelectionAction> = emptyList(),
     onToggleSelectAll: (List<Long>) -> Unit = {},
-    onExitSelection: () -> Unit = {}
+    onExitSelection: () -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val density = LocalDensity.current
@@ -237,9 +239,12 @@ fun PlaylistContent(
     val searchFullyRevealed = searchBarRevealState.isOpen
 
     // 搜索展开中拦截系统返回：先关搜索，不直接退出歌单页
-    BackHandler(enabled = searchBarRevealState.isOpen) {
-        searchBarRevealState.close()
-    }
+    MelodiaBackHandler(
+        enabled = searchBarRevealState.isOpen,
+        onProgress = { searchBarRevealState.onBackProgress(it.progress) },
+        onCancel = { searchBarRevealState.onBackCancel() },
+        onBack = { searchBarRevealState.close() }
+    )
     BackHandler(enabled = selectionUi.active) {
         onExitSelection()
     }
@@ -505,6 +510,8 @@ fun PlaylistContent(
         )
     }
 
+    var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }
+
     if (activeSongMoreOptions != null) {
         val track = activeSongMoreOptions!!
         // 外部平台歌曲没有网易云歌手、专辑与下载
@@ -532,7 +539,19 @@ fun PlaylistContent(
                 { onReduceRecommend(it.id) }
             } else {
                 null
+            },
+            onShareClick = { clickedTrack ->
+                shareTarget = clickedTrack to (!isExternal && clickedTrack.id > 0L)
             }
+        )
+    }
+
+    shareTarget?.let { (targetTrack, isNetease) ->
+        com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
+            track = targetTrack,
+            isNetease = isNetease,
+            onDismiss = { shareTarget = null },
+            onNavigateToPrivateChat = onNavigateToPrivateChat
         )
     }
 

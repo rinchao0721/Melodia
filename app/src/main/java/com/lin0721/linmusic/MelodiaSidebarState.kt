@@ -22,10 +22,21 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.back.decelerateBackProgress
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+internal const val SIDEBAR_BACK_MAX_FRACTION = 0.12f
+
+// 根据手势进度计算侧边栏跟手回缩的目标偏移，相对完全展开位置最多回缩 12%
+internal fun computeSidebarBackOffset(progress: Float, widthPx: Float): Float {
+    if (widthPx <= 0f) return 0f
+    return (widthPx * (1f - SIDEBAR_BACK_MAX_FRACTION * decelerateBackProgress(progress)))
+        .coerceIn(0f, widthPx)
+}
 
 enum class AppSidebarState {
     Closed, Open
@@ -56,8 +67,14 @@ class MelodiaSidebarState(
     val offsetX: Float
         get() = draggableState.offset.let { if (it.isNaN()) 0f else it }
 
+    private var animationJob: Job? = null
+    private var isBackSeeking = false
+    private var isClosing = false
+
     // 侧边栏已打开时允许在任意位置向左滑动关闭；关闭时仅允许在左边缘向右拉出
     fun onPointerDown(positionX: Float, edgeWidthPx: Float) {
+        isBackSeeking = false
+        isClosing = false
         isTouchStartingAtEdge = isOpen || positionX < edgeWidthPx
         isHandoffRequested = false
         isHandoffActive = false
@@ -105,30 +122,79 @@ class MelodiaSidebarState(
             progress >= 0.5f -> AppSidebarState.Open
             else -> AppSidebarState.Closed
         }
-        scope.launch { draggableState.animateTo(target) }
+        isBackSeeking = false
+        isClosing = target == AppSidebarState.Closed
+        animationJob?.cancel()
+        animationJob = scope.launch {
+            try {
+                draggableState.animateTo(target)
+            } finally {
+                isClosing = false
+            }
+        }
     }
 
     fun open() {
-        scope.launch { draggableState.animateTo(AppSidebarState.Open) }
+        isBackSeeking = false
+        isClosing = false
+        animationJob?.cancel()
+        animationJob = scope.launch { draggableState.animateTo(AppSidebarState.Open) }
     }
 
     fun close() {
-        scope.launch { draggableState.animateTo(AppSidebarState.Closed) }
+        isBackSeeking = false
+        isClosing = true
+        animationJob?.cancel()
+        animationJob = scope.launch {
+            try {
+                draggableState.animateTo(AppSidebarState.Closed)
+            } finally {
+                isClosing = false
+            }
+        }
+    }
+
+    // 系统返回手势跟手：取消进行中的弹簧动画，按绝对目标偏移更新位置避免累积漂移
+    fun onBackProgress(progress: Float) {
+        if (!isOpen || isClosing || widthPx <= 0f) return
+        animationJob?.cancel()
+        animationJob = null
+        isBackSeeking = true
+        val currentOffset = draggableState.offset
+        if (!currentOffset.isNaN()) {
+            val targetOffset = computeSidebarBackOffset(progress, widthPx)
+            draggableState.dispatchRawDelta(targetOffset - currentOffset)
+        }
+    }
+
+    fun onBackCancel() {
+        if (!isBackSeeking) return
+        isBackSeeking = false
+        if (!isOpen || isClosing) return
+        animationJob?.cancel()
+        animationJob = scope.launch { draggableState.animateTo(AppSidebarState.Open) }
     }
 
     // 收起后再执行，避免与页面切换动画叠在一起；弹簧尾段较长，接近收起即执行。被手势打断时不执行
     fun closeThen(action: () -> Unit) {
-        scope.launch {
-            var done = false
-            val watcher = launch {
-                snapshotFlow { progress }.first { it <= ActionProgressThreshold }
-                done = true
-                action()
-            }
-            draggableState.animateTo(AppSidebarState.Closed)
-            if (!done) {
-                watcher.cancel()
-                action()
+        isBackSeeking = false
+        isClosing = true
+        animationJob?.cancel()
+        animationJob = scope.launch {
+            try {
+                var done = false
+                val watcher = launch {
+                    snapshotFlow { progress }.first { it <= ActionProgressThreshold }
+                    done = true
+                    action()
+                }
+                draggableState.animateTo(AppSidebarState.Closed)
+                if (!done) {
+                    watcher.cancel()
+                    action()
+                }
+            } finally {
+                isClosing = false
             }
         }
     }

@@ -26,7 +26,7 @@ sealed interface MessageListState<out T> {
     data class Error(val message: String) : MessageListState<Nothing>
 }
 
-// 单个 Tab 的游标分页状态机；scope 由 ViewModel 传入，不依赖 Android
+// 单个 Tab 的游标分页状态机；scope 由 ViewModel 传入，跨平台共用
 class MessagePager<T>(
     private val scope: CoroutineScope,
     private val initialCursor: Long,
@@ -59,6 +59,27 @@ class MessagePager<T>(
                     onPageLoaded(page.items)
                 }
                 .onFailure { _state.value = MessageListState.Error(errorMessage(it)) }
+        }
+    }
+
+    // 保留当前列表重拉首页，用于会话摘要/未读变化时无感更新；未加载过或正在加载时不动
+    fun refreshSilently() {
+        if (_state.value !is MessageListState.Success) return
+        job?.cancel()
+        job = scope.launch {
+            fetch(initialCursor).first()
+                .onSuccess { page ->
+                    _state.value = MessageListState.Success(
+                        items = page.items.distinctBy(keyOf),
+                        hasMore = page.hasMore,
+                        cursor = page.nextCursor
+                    )
+                    onPageLoaded(page.items)
+                }
+                .onFailure {
+                    val latest = _state.value as? MessageListState.Success ?: return@onFailure
+                    _state.value = latest.copy(isLoadingMore = false)
+                }
         }
     }
 

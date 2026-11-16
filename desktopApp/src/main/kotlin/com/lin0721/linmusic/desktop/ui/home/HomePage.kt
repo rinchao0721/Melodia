@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -87,6 +88,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
+import com.lin0721.linmusic.core.ui.theme.rememberCoverBase
 import com.lin0721.linmusic.core.ui.theme.styledCardRadius
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
@@ -106,6 +109,7 @@ import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTabActions
+import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.data.DailySong
@@ -119,8 +123,7 @@ import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import kotlinx.coroutines.launch
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.time.LocalDate
 
 internal val CardWidth = 168.dp
@@ -198,12 +201,13 @@ fun HomePage(
     var hoveredCoverUrl by remember { mutableStateOf<String?>(null) }
     val activeCoverUrl = hoveredCoverUrl ?: defaultCoverUrl
 
-    var heroBase by remember { mutableStateOf(FallbackCoverPalette.base) }
-    LaunchedEffect(activeCoverUrl) {
-        if (activeCoverUrl.isNotBlank()) {
-            heroBase = extractCoverPaletteFromUrl(activeCoverUrl).base
-        }
-    }
+    // 悬停临时切换的封面不记忆，冷启动只回放默认封面的颜色
+    val heroBase = rememberCoverBase(
+        memory = LocalCoverColorMemory.current,
+        slot = "desktop_home_hero",
+        coverUrl = activeCoverUrl,
+        persist = hoveredCoverUrl == null
+    ) { url -> extractCoverPaletteFromUrl(url).takeUnless { it === FallbackCoverPalette }?.base } ?: FallbackCoverPalette.base
     val gradientColor by animateColorAsState(
         targetValue = if (activeCoverUrl.isNotBlank()) {
             headerCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
@@ -499,11 +503,7 @@ private fun LazyListScope.homeItems(
     }
 }
 
-private fun copyLink(url: String): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(
-        StringSelection(url), null
-    )
-}.isSuccess
+private fun copyLink(url: String): Boolean = copyTextToClipboard(url)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -667,10 +667,9 @@ private fun RecentTile(
 @Composable
 private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: () -> Unit) {
     val coverUrl = songs.firstOrNull()?.al?.picUrl.orEmpty()
-    var baseColor by remember { mutableStateOf(FallbackCoverPalette.base) }
-    LaunchedEffect(coverUrl) {
-        if (coverUrl.isNotBlank()) baseColor = extractCoverPaletteFromUrl(coverUrl).base
-    }
+    val baseColor = rememberCoverBase(LocalCoverColorMemory.current, "desktop_home_daily", coverUrl) { url ->
+        extractCoverPaletteFromUrl(url).takeUnless { it === FallbackCoverPalette }?.base
+    } ?: FallbackCoverPalette.base
     val containerColor by animateColorAsState(
         cardCoverBackground(baseColor, SPOTLIGHT_DARKEN_FRACTION),
         uiSpring(),
@@ -829,6 +828,19 @@ private fun ServerShelf(
                         onDismiss()
                         viewModel.addShelfSongToPlayNext(card)
                     })
+                    if (card.id > 0L) {
+                        MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                            onDismiss()
+                            navigator.openSongShareCard(
+                                DesktopAppState.ShareSongInfo(
+                                    songId = card.id,
+                                    title = card.title,
+                                    artist = "",
+                                    coverUrl = card.coverUrl
+                                )
+                            )
+                        })
+                    }
                     MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/song?id=${card.id}")

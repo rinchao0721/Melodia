@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
+import kotlinx.coroutines.Job
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
@@ -93,7 +95,9 @@ class LibraryViewModel(
     private val externalStore: PlaylistExternalTrackStore
 ) : ViewModel() {
 
-    private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
+    // 置顶与自定义顺序按账户存，切换账户时重新读取
+    private var prefsUid: Long? = null
+    private val _pinnedIds = MutableStateFlow<Set<String>>(emptySet())
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -128,8 +132,16 @@ class LibraryViewModel(
         viewModelScope.launch {
             userPreferences.userProfile.collect { profile ->
                 if (profile != null) {
+                    if (prefsUid != profile.uid) {
+                        prefsUid = profile.uid
+                        _pinnedIds.value = getPinnedIdsFromPrefs()
+                    }
                     loadLibraryData(profile)
                 } else {
+                    libraryLoadJob?.cancel()
+                    prefsUid = null
+                    _pinnedIds.value = emptySet()
+                    lastLoadedUid = null
                     _uiState.value = LibraryUiState.Loading
                 }
             }
@@ -196,16 +208,18 @@ class LibraryViewModel(
         }
     }
 
-    private fun getPinnedIdsFromPrefs(): Set<String> = libraryPreferences.pinnedIds()
+    private fun getPinnedIdsFromPrefs(): Set<String> =
+        prefsUid?.let { libraryPreferences.pinnedIds(it) } ?: emptySet()
 
     private fun savePinnedIdsToPrefs(ids: Set<String>) {
-        libraryPreferences.setPinnedIds(ids)
+        prefsUid?.let { libraryPreferences.setPinnedIds(it, ids) }
     }
 
-    private fun getCustomPlaylistOrderFromPrefs(): List<String> = libraryPreferences.customPlaylistOrder()
+    private fun getCustomPlaylistOrderFromPrefs(): List<String> =
+        prefsUid?.let { libraryPreferences.customPlaylistOrder(it) } ?: emptyList()
 
     private fun saveCustomPlaylistOrderToPrefs(order: List<String>) {
-        libraryPreferences.setCustomPlaylistOrder(order)
+        prefsUid?.let { libraryPreferences.setCustomPlaylistOrder(it, order) }
     }
 
     private fun getSortOrderFromPrefs(): LibrarySortOrder {
@@ -224,11 +238,17 @@ class LibraryViewModel(
         libraryPreferences.setGridView(isGrid)
     }
 
+    private var libraryLoadJob: Job? = null
+    private var lastLoadedUid: Long? = null
+
     fun loadLibraryData(profileOverride: UserProfile? = null) {
         val profile = profileOverride ?: userProfile.value ?: return
-        val isRefresh = _uiState.value is LibraryUiState.Success
+        val accountChanged = lastLoadedUid != null && lastLoadedUid != profile.uid
+        lastLoadedUid = profile.uid
+        val isRefresh = !accountChanged && _uiState.value is LibraryUiState.Success
 
-        viewModelScope.launch {
+        libraryLoadJob?.cancel()
+        libraryLoadJob = viewModelScope.launch {
             if (!isRefresh) {
                 _uiState.value = LibraryUiState.Loading
             }
@@ -590,9 +610,14 @@ class LibraryViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            _toastEvent.emit("登录成功，正在同步乐库...")
-            val profile = syncProfileAfterLoginUseCase(cookies) ?: return@launch
-            loadLibraryData(profile)
+            when (val result = syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步乐库...")
+                    loadLibraryData(result.profile)
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+            }
         }
     }
 

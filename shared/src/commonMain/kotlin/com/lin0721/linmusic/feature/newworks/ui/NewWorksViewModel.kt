@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.newworks.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.AccountEvents
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -104,6 +105,15 @@ class NewWorksViewModel(
                 playbackController.playContext,
                 _uiState
             ) { _, _, _, _ -> }.collect { maybeExtendQueue() }
+        }
+        viewModelScope.launch {
+            AccountEvents.switched.collect {
+                if (loaded) {
+                    load()
+                } else {
+                    libraryAlbumIds.value = emptySet()
+                }
+            }
         }
     }
 

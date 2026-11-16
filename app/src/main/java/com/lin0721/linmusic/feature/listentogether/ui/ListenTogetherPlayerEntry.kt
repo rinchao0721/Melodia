@@ -30,7 +30,6 @@ fun ListenTogetherPlayerEntry(
     viewModel: ListenTogetherViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val roomOpen by viewModel.roomOpen.collectAsState()
     var showSetup by remember { mutableStateOf(false) }
 
     LaunchedEffect(requested) {
@@ -49,6 +48,15 @@ fun ListenTogetherPlayerEntry(
     if (showSetup) {
         ListenTogetherSheet(onDismiss = { showSetup = false }, viewModel = viewModel)
     }
+}
+
+// 顶层挂载房间弹窗，保证聊天页等非播放页也能通过 openRoom 展开房间
+@Composable
+fun ListenTogetherRoomHost(
+    viewModel: ListenTogetherViewModel = koinViewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    val roomOpen by viewModel.roomOpen.collectAsState()
     if (roomOpen && state.active) {
         ListenTogetherRoomScreen(viewModel = viewModel, onClose = viewModel::closeRoom)
     }

@@ -43,7 +43,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = koinViewModel(),
     onBack: () -> Unit,
     onNavigateToFollowList: (uid: Long, mode: FollowListMode) -> Unit,
-    onPlaylistClick: (id: Long) -> Unit
+    onPlaylistClick: (id: Long) -> Unit,
+    onMessageClick: (uid: Long) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -155,6 +156,7 @@ fun ProfileScreen(
                                     userInfo = state.userInfo,
                                     isSelf = state.isSelf,
                                     onFollowClick = { viewModel.toggleFollow() },
+                                    onMessageClick = { onMessageClick(uid) },
                                     onFollowsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWS) },
                                     onFollowedsClick = { onNavigateToFollowList(uid, FollowListMode.FOLLOWEDS) }
                                 )

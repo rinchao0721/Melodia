@@ -69,7 +69,8 @@ fun LoginDialog(
     viewModel: LoginViewModel,
     browserLocator: BrowserLocator,
     onLoginSuccess: (cookies: String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    addAccount: Boolean = false
 ) {
     var tab by remember { mutableStateOf(LoginTab.SCAN) }
 
@@ -95,7 +96,12 @@ fun LoginDialog(
                 Modifier.width(380.dp).padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("登录", color = DesktopColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (addAccount) "添加帐号" else "登录",
+                    color = DesktopColors.TextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 TabBar(
                     tabs = LoginTab.entries,
                     selected = tab,

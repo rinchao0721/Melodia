@@ -11,6 +11,9 @@ interface AuthRepository {
     // 获取当前登录账号信息
     fun getAccountInfo(): Flow<Result<AccountInfoResponse>>
 
+    // 使用指定 Cookie 获取账号信息（添加新账户校验时避免影响当前活跃会话）
+    fun getAccountInfo(overrideCookies: String): Flow<Result<AccountInfoResponse>> = getAccountInfo()
+
     // 退出登录并清理网络会话
     fun logout(): Flow<Result<Unit>>
 

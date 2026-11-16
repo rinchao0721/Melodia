@@ -266,6 +266,31 @@ class PlaybackQueue {
         return currentTrackItem
     }
 
+    // 清除当前曲目之后的未播曲目，保留已播与当前正在播放的曲目
+    fun clearUpcoming() {
+        val curIndex = _currentIndex.value
+        if (curIndex !in playItems.indices || curIndex >= playItems.lastIndex) return
+        val kept = playItems.subList(0, curIndex + 1).toList()
+        playItems = kept
+        originalItems = kept
+        _items.value = playItems
+    }
+
+    // 完全清空播放队列、上下文与漫游快照
+    fun clear() {
+        originalItems = emptyList()
+        playItems = emptyList()
+        _currentIndex.value = -1
+        _items.value = emptyList()
+        _playContext.value = null
+        _playSource.value = null
+        hasSnapshot = false
+        snapshotItems = emptyList()
+        snapshotIndex = -1
+        snapshotContext = null
+        snapshotSource = null
+    }
+
     // 备份当前队列与播放上下文，供退出漫游/心动模式时还原
     fun takeSnapshot() {
         hasSnapshot = true

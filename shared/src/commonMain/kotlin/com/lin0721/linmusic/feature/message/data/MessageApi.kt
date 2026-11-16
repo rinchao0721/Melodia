@@ -27,6 +27,24 @@ interface MessageApi {
     suspend fun getNotices(
         @Body body: MessageNoticesRequest
     ): MessageNoticesResponse
+
+    // 私信会话列表
+    @POST("/eapi/msg/private/users")
+    suspend fun getPrivateConversations(
+        @Body body: PrivateConversationsRequest
+    ): PrivateConversationsResponse
+
+    // 私信聊天历史
+    @POST("/eapi/msg/private/history")
+    suspend fun getPrivateHistory(
+        @Body body: PrivateHistoryRequest
+    ): PrivateHistoryResponse
+
+    // 发送私信：必须走 eapi，userIds 需传字符串化数组（如 "[123]"），走 weapi 会报 400
+    @POST("/eapi/msg/private/send")
+    suspend fun sendPrivateMessage(
+        @Body body: PrivateSendRequest
+    ): PrivateSendResponse
 }
 
 // ======================= 回复我的评论 DTO =======================
@@ -116,3 +134,61 @@ data class MessageNoticeDto(
     val time: Long = 0,
     val notice: String? = null
 )
+
+// ======================= 私信 DTO =======================
+
+@Serializable
+data class PrivateConversationsRequest(
+    val offset: Int = 0,
+    val limit: Int = 30,
+    val total: String = "true"
+)
+
+// lastMsg 为双层 JSON 字符串，会话节点结构随版本存在差异，以 JsonObject 宽松接收
+@Serializable
+data class PrivateConversationsResponse(
+    val code: Int = 0,
+    val more: Boolean = false,
+    val newMsgCount: Int = 0,
+    val msgs: List<JsonObject> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+// time 首页传 0，翻页传上一页末条消息的 time
+@Serializable
+data class PrivateHistoryRequest(
+    val userId: Long,
+    val limit: Int = 30,
+    val time: Long = 0,
+    val total: String = "true"
+)
+
+@Serializable
+data class PrivateHistoryResponse(
+    val code: Int = 0,
+    val more: Boolean = false,
+    val hint: String? = null,
+    val isArtist: Boolean = false,
+    val isSubed: Boolean = false,
+    val msgs: List<JsonObject> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+// userIds 必须是字符串化数组（如 "[123]"）；分享单曲时 type="song" 且 id 必须为数字，传字符串会被服务端存成「请升级 app」
+@Serializable
+data class PrivateSendRequest(
+    val type: String = "text",
+    val msg: String,
+    val userIds: String,
+    val id: Long? = null
+)
+
+@Serializable
+data class PrivateSendResponse(
+    val code: Int = 0,
+    val msg: String? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}

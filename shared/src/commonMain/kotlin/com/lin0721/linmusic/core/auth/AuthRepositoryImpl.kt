@@ -29,6 +29,13 @@ class AuthRepositoryImpl(
         transform = { it }
     )
 
+    override fun getAccountInfo(overrideCookies: String): Flow<Result<AccountInfoResponse>> = apiFlow(
+        request = { apiService.getAccountInfo(overrideCookie = overrideCookies) },
+        isSuccess = { it.code == 200 },
+        code = { it.code },
+        transform = { it }
+    )
+
     // 调用方无论服务端是否登出成功都会清除本地登录态，离线缓存同步清空
     override fun logout(): Flow<Result<Unit>> = apiFlow(
         request = { apiService.logoutApi() },

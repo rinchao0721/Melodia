@@ -1,15 +1,18 @@
 package com.lin0721.linmusic.core.preferences
 
-import com.lin0721.linmusic.core.AppEnvironment
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.lin0721.linmusic.core.AppEnvironment
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricBounds
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
@@ -22,9 +25,13 @@ import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
 import com.lin0721.linmusic.core.ui.theme.toRgbHex
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 private const val TAG = "SettingsPreferences"
@@ -32,7 +39,8 @@ private const val TAG = "SettingsPreferences"
 // 未设置时的默认值，由各平台决定
 class SettingsPreferences(
     private val dataStore: DataStore<Preferences>,
-    private val streamCacheDefault: Boolean = false
+    private val streamCacheDefault: Boolean = false,
+    private val userPreferences: UserPreferences? = null
 ) {
 
     companion object {
@@ -139,6 +147,8 @@ class SettingsPreferences(
         private val KEY_ALLOW_PRERELEASE_CHANNEL = booleanPreferencesKey("allow_prerelease_channel")
         // 界面过渡动画开关，默认 true；不影响歌词与音频淡入淡出
         private val KEY_UI_ANIMATIONS_ENABLED = booleanPreferencesKey("ui_animations_enabled")
+        // 预见式返回动画开关，默认 false
+        private val KEY_PREDICTIVE_BACK_ENABLED = booleanPreferencesKey("predictive_back_enabled")
         // 歌单与推荐歌曲显示序号，默认 false
         private val KEY_PLAYLIST_TRACK_INDEX_ENABLED = booleanPreferencesKey("playlist_track_index_enabled")
         // 用户主动忽略的更新版本 tag，默认空串表示未忽略任何版本
@@ -176,12 +186,16 @@ class SettingsPreferences(
         // 全屏歌词自动隐藏控制组件，默认 false
         private val KEY_FULL_SCREEN_LYRIC_AUTO_HIDE_CONTROLS = booleanPreferencesKey("full_screen_lyric_auto_hide_controls")
         private val KEY_FULL_SCREEN_LYRIC_CENTER_FIRST_LINE = booleanPreferencesKey("full_screen_lyric_center_first_line")
+        // 歌词界面播放时保持屏幕常亮，默认 false
+        private val KEY_FULL_SCREEN_LYRIC_KEEP_SCREEN_ON = booleanPreferencesKey("full_screen_lyric_keep_screen_on")
         // 全屏播放页信息卡片顺序与显隐，格式见 FullPlayerCardLayout
         private val KEY_FULL_PLAYER_CARD_LAYOUT = stringPreferencesKey("full_player_card_layout")
         // 底栏项目排序与显隐，格式见 BottomBarLayout
         private val KEY_BOTTOM_BAR_LAYOUT = stringPreferencesKey("bottom_bar_layout")
         // 底栏仅显示图标模式，默认 false
         private val KEY_BOTTOM_BAR_ICON_ONLY = booleanPreferencesKey("bottom_bar_icon_only")
+        // 通知栏自定义按钮排序与显隐，格式见 NotificationButtonLayout
+        private val KEY_NOTIFICATION_BUTTONS = stringPreferencesKey("notification_buttons")
         // 启动默认打开音乐库，默认 false
         private val KEY_START_IN_LIBRARY = booleanPreferencesKey("start_in_library")
         // 启用 SuperLyric 实时歌词，默认 false
@@ -201,6 +215,15 @@ class SettingsPreferences(
         private val KEY_SHOW_PLAYBACK_QUALITY = booleanPreferencesKey("show_playback_quality")
         // 歌曲列表显示最高音质徽标，默认 false
         private val KEY_SHOW_SONG_MAX_QUALITY = booleanPreferencesKey("show_song_max_quality")
+        // 自动识别剪贴板中的网易云链接，默认 true
+        private val KEY_CLIPBOARD_LINK_ENABLED = booleanPreferencesKey("clipboard_link_enabled")
+        // 上次已提示或应用内自己复制的剪贴板链接原文，避免反复打扰
+        private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
+        // 上次选择的私人FM模式，默认 DEFAULT（未注入 UserPreferences 时使用旧全局键）
+        private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
+
+        private fun personalFmModeKeyFor(uid: Long?) =
+            stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -519,6 +542,17 @@ class SettingsPreferences(
         }
     }
 
+    // 通知栏自定义按钮布局 Flow
+    val notificationButtons: Flow<List<NotificationButtonSetting>> = dataStore.data.map { prefs ->
+        NotificationButtonLayout.decode(prefs[KEY_NOTIFICATION_BUTTONS])
+    }
+
+    suspend fun saveNotificationButtons(layout: List<NotificationButtonSetting>) {
+        dataStore.edit { prefs ->
+            prefs[KEY_NOTIFICATION_BUTTONS] = NotificationButtonLayout.encode(layout)
+        }
+    }
+
     // 启动默认打开音乐库 Flow
     val startInLibrary: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_START_IN_LIBRARY] ?: false
@@ -741,6 +775,17 @@ class SettingsPreferences(
     suspend fun saveUiAnimationsEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_UI_ANIMATIONS_ENABLED] = enabled
+        }
+    }
+
+    // 预见式返回动画开关 Flow
+    val predictiveBackEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PREDICTIVE_BACK_ENABLED] ?: false
+    }
+
+    suspend fun savePredictiveBackEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PREDICTIVE_BACK_ENABLED] = enabled
         }
     }
 
@@ -1010,6 +1055,17 @@ class SettingsPreferences(
         }
     }
 
+    // 歌词界面播放时保持屏幕常亮 Flow（默认关闭）
+    val fullScreenLyricKeepScreenOn: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_KEEP_SCREEN_ON] ?: false
+    }
+
+    suspend fun saveFullScreenLyricKeepScreenOn(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_KEEP_SCREEN_ON] = enabled
+        }
+    }
+
     // 全屏播放页信息卡片顺序与显隐 Flow
     val fullPlayerCardLayout: Flow<List<FullPlayerCardSetting>> = dataStore.data.map { prefs ->
         FullPlayerCardLayout.decode(prefs[KEY_FULL_PLAYER_CARD_LAYOUT])
@@ -1126,6 +1182,79 @@ class SettingsPreferences(
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_SONG_MAX_QUALITY] = show
         }
+    }
+
+    // 自动识别剪贴板链接开关 Flow，默认开启
+    val clipboardLinkEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_CLIPBOARD_LINK_ENABLED] ?: true
+    }
+
+    suspend fun setClipboardLinkEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CLIPBOARD_LINK_ENABLED] = enabled
+        }
+    }
+
+    // 上次已提示或应用内自己复制的剪贴板链接原文 Flow
+    val lastHandledClipboardLink: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK].orEmpty()
+    }
+
+    suspend fun setLastHandledClipboardLink(text: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK] = text
+        }
+    }
+
+    // 上次选择的私人FM模式 Flow，默认 DEFAULT；注入 UserPreferences 后按账户 UID 隔离（未登录用独立匿名键）
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val personalFmMode: Flow<PersonalFmMode> = if (userPreferences == null) {
+        dataStore.data.map { prefs -> PersonalFmMode.fromKey(prefs[KEY_PERSONAL_FM_MODE]) }.distinctUntilChanged()
+    } else {
+        userPreferences.activeUid
+            .distinctUntilChanged()
+            .flatMapLatest { uid ->
+                flow {
+                    if (uid != null) migrateLegacyPersonalFmModeIfNeeded(uid)
+                    val key = personalFmModeKeyFor(uid)
+                    emitAll(dataStore.data.map { prefs -> PersonalFmMode.fromKey(prefs[key]) })
+                }
+            }
+            .distinctUntilChanged()
+    }
+
+    suspend fun savePersonalFmMode(mode: PersonalFmMode) {
+        val uid = userPreferences?.activeUid?.first()
+        dataStore.edit { prefs ->
+            val key = activePersonalFmKeyInTransaction(prefs, uid)
+            prefs[key] = mode.key
+        }
+    }
+
+    private suspend fun migrateLegacyPersonalFmModeIfNeeded(uid: Long) {
+        val current = dataStore.data.first()
+        if (!current.contains(KEY_PERSONAL_FM_MODE)) return
+        dataStore.edit { prefs ->
+            migrateLegacyPersonalFmInTransaction(prefs, uid)
+        }
+    }
+
+    private fun activePersonalFmKeyInTransaction(
+        prefs: MutablePreferences,
+        uid: Long?
+    ): Preferences.Key<String> {
+        if (userPreferences == null) return KEY_PERSONAL_FM_MODE
+        if (uid != null) migrateLegacyPersonalFmInTransaction(prefs, uid)
+        return personalFmModeKeyFor(uid)
+    }
+
+    private fun migrateLegacyPersonalFmInTransaction(prefs: MutablePreferences, uid: Long) {
+        val legacy = prefs[KEY_PERSONAL_FM_MODE] ?: return
+        val targetKey = personalFmModeKeyFor(uid)
+        if (!prefs.contains(targetKey)) {
+            prefs[targetKey] = legacy
+        }
+        prefs.remove(KEY_PERSONAL_FM_MODE)
     }
 }
 

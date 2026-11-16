@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
@@ -75,6 +77,7 @@ private val PanelGap = 4.dp
 private val PanelElevation = 8.dp
 private val PanelShadowMargin = 12.dp
 private val PanelVerticalPadding = 8.dp
+private val DefaultMenuPadding = PaddingValues(horizontal = 4.dp, vertical = PanelVerticalPadding)
 private val ScreenMargin = 8.dp
 
 // 二级菜单到窗口底部的可用高度
@@ -111,6 +114,8 @@ fun DesktopMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
     width: Dp = DefaultMenuWidth,
+    shape: Shape = MenuShape,
+    contentPadding: PaddingValues = DefaultMenuPadding,
     content: @Composable MenuScope.() -> Unit
 ) {
     if (!expanded) return
@@ -164,7 +169,7 @@ fun DesktopMenu(
             Column(
                 Modifier.onSizeChanged { scope.mainHeightPx = it.height }
                     .onGloballyPositioned { scope.mainTopPx = it.positionInWindow().y }
-                    .menuPanel(width, DesktopColors.PopupSurface)
+                    .menuPanel(width, DesktopColors.PopupSurface, shape, contentPadding)
             ) { scope.content() }
             if (!scope.subOnLeft) subPanel()
         }
@@ -172,9 +177,14 @@ fun DesktopMenu(
 }
 
 @Composable
-private fun Modifier.menuPanel(width: Dp, background: Color): Modifier =
-    this.width(width).themedShadow(PanelElevation, MenuShape).background(background, MenuShape).floatingOutline(MenuShape)
-        .padding(horizontal = 4.dp, vertical = PanelVerticalPadding)
+private fun Modifier.menuPanel(
+    width: Dp,
+    background: Color,
+    shape: Shape = MenuShape,
+    contentPadding: PaddingValues = DefaultMenuPadding
+): Modifier =
+    this.width(width).themedShadow(PanelElevation, shape).background(background, shape).floatingOutline(shape)
+        .padding(contentPadding)
 
 // 面板左上角落在 锚点左边缘 + offset.x、锚点下边缘 + offset.y，放不下时翻转；
 // 首次定位后锁定，二级菜单展开收起不再移动主菜单

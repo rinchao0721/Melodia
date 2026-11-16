@@ -8,7 +8,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,10 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
+import com.lin0721.linmusic.core.ui.back.backDismissPreview
+import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.WebLoginBackground
 import com.lin0721.linmusic.core.network.NeteaseEndpoints
@@ -59,9 +62,13 @@ private const val LOGIN_BUTTON_FIX_JS = """
 fun WebViewLoginScreen(
     onClose: () -> Unit,
     onLoginSuccess: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    addAccount: Boolean = false
 ) {
-    BackHandler { onClose() }
+    val dismissState = rememberBackDismissState()
+    MelodiaDismissBackHandler(enabled = true, state = dismissState) {
+        onClose()
+    }
 
     var isLoading by remember { mutableStateOf(true) }
 
@@ -95,7 +102,9 @@ fun WebViewLoginScreen(
     val readyToLoadWebView = resolvedHeaders != null && slideInFinished
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .backDismissPreview(dismissState, TransformOrigin(0.5f, 1f)),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -132,12 +141,17 @@ fun WebViewLoginScreen(
                 AndroidView(
                     factory = { context ->
                         WebView(context).apply {
-                            // 完全隔离容器：初始化前清空旧状态
-                            CookieManager.getInstance().let { manager ->
-                                manager.setAcceptCookie(true)
-                                manager.setAcceptThirdPartyCookies(this, true)
-                                manager.removeAllCookies(null)
-                                manager.flush()
+                            var cookiesCleared = false
+                            var loginDelivered = false
+
+                            fun maybeDeliverLogin() {
+                                if (!cookiesCleared || loginDelivered) return
+                                checkCookies { cookies ->
+                                    if (!loginDelivered) {
+                                        loginDelivered = true
+                                        onLoginSuccess(cookies)
+                                    }
+                                }
                             }
 
                             // 将 WebView 底色置为浅灰，防止 resize 布局重绘时闪烁
@@ -158,13 +172,13 @@ fun WebViewLoginScreen(
                             webViewClient = object : WebViewClient() {
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     // 实时提取 Token (MUSIC_U)
-                                    checkCookies(onLoginSuccess)
+                                    maybeDeliverLogin()
                                     isLoading = false // 页面完全加载渲染完成后，关闭加载指示器
                                     view?.evaluateJavascript(LOGIN_BUTTON_FIX_JS, null)
                                 }
 
                                 override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
-                                    checkCookies(onLoginSuccess)
+                                    maybeDeliverLogin()
                                 }
 
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -172,7 +186,18 @@ fun WebViewLoginScreen(
                                 }
                             }
 
-                            loadUrl(loginUrl, resolvedHeaders)
+                            // 先彻底清空上一个账号遗留 Cookie，再开始加载登录页
+                            CookieManager.getInstance().let { manager ->
+                                manager.setAcceptCookie(true)
+                                manager.setAcceptThirdPartyCookies(this, true)
+                                manager.removeAllCookies {
+                                    manager.flush()
+                                    post {
+                                        cookiesCleared = true
+                                        loadUrl(loginUrl, resolvedHeaders)
+                                    }
+                                }
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxSize()

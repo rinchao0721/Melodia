@@ -41,6 +41,9 @@ data class Track(
     val al: Album = Album(),
     val fee: Int = 0,
     val publishTime: Long = 0,
+    // 同时兼容 "dt" (常规接口) 和 "duration" (旧式接口)
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @JsonNames("dt", "duration")
     val dt: Long = 0,
     // 歌曲播放与下载权限信息
     val privilege: SongPrivilege? = null,

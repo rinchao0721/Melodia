@@ -30,6 +30,7 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerController
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
@@ -141,6 +142,12 @@ class PlayerViewModel(
 
     // 判断当前是否连接 WiFi
     fun isWifiConnected(): Boolean = networkStateProvider.isWifiConnected()
+
+    val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = PersonalFmMode.DEFAULT
+    )
 
     // 根据网络状态动态获取并组合成当前的活动播放音质 Flow
     val activeQuality: StateFlow<String> = settingsPreferences.wifiQuality
@@ -716,5 +723,67 @@ class PlayerViewModel(
     // 清空播放队列
     fun clearQueue() {
         playerManager.clearQueue()
+    }
+
+    // 开启私人FM；未登录时仅提示，不修改播放队列
+    fun startPersonalFm(mode: PersonalFmMode? = null) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM && mode != null) {
+                playerManager.switchPersonalFmMode(mode)
+                return@launch
+            }
+            val targetMode = mode ?: settingsPreferences.personalFmMode.first()
+            playbackRepository.getPersonalFmSongs(targetMode).collect { result ->
+                result.onSuccess { tracks ->
+                    val items = tracks
+                        .filter { it.id > 0L }
+                        .distinctBy { it.id }
+                        .map { track ->
+                            QueueItem(
+                                songId = track.id,
+                                title = track.name,
+                                artist = track.ar.joinToString("/") { it.name },
+                                coverUrl = track.al.picUrl
+                            )
+                        }
+                    if (items.isNotEmpty()) {
+                        if (mode != null) {
+                            playerManager.switchPersonalFmMode(targetMode)
+                        }
+                        playerManager.startPersonalFm(items)
+                    } else {
+                        _toastEvent.emit("暂无可播放的私人FM歌曲")
+                    }
+                }.onFailure {
+                    _toastEvent.emit(it.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun switchPersonalFmMode(mode: PersonalFmMode) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+                playerManager.switchPersonalFmMode(mode)
+            } else {
+                startPersonalFm(mode)
+            }
+        }
+    }
+
+    fun trashCurrentFmSong() {
+        playerManager.trashCurrentFmSong()
+    }
+
+    fun disablePersonalFm() {
+        playerManager.disablePersonalFm()
     }
 }

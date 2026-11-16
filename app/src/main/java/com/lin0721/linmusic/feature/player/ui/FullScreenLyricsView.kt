@@ -84,6 +84,7 @@ fun FullScreenLyricsView(
     artist: String,
     coverUrl: String = "",
     songLink: String? = null,
+    songId: Long? = null,
     base: Color,
     highlightColor: Color,
     onSeek: (Long) -> Unit,
@@ -107,6 +108,9 @@ fun FullScreenLyricsView(
     translationColor: Color? = null,
     romanizationColor: Color? = null,
     onControlsVisibilityChange: (Boolean) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     coverage: LyricsOverlayCoverage? = null,
     isFullyEntered: () -> Boolean = { true },
     // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
@@ -132,6 +136,7 @@ fun FullScreenLyricsView(
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
     val fullScreenLyricAutoHideControls by settingsPreferences.fullScreenLyricAutoHideControls.collectAsStateWithLifecycle(initialValue = false)
     val fullScreenLyricCenterFirstLine by settingsPreferences.fullScreenLyricCenterFirstLine.collectAsStateWithLifecycle(initialValue = false)
+    val fullScreenLyricKeepScreenOn by settingsPreferences.fullScreenLyricKeepScreenOn.collectAsStateWithLifecycle(initialValue = false)
     // 状态栏随控件隐藏时仍需避开挖孔摄像头
     val topSafeInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top)
     var areControlsVisible by remember { mutableStateOf(true) }
@@ -455,7 +460,9 @@ fun FullScreenLyricsView(
                         hasRoma = hasRoma,
                         onToggleSecondaryMode = handleToggleSecondaryMode,
                         onShareLyrics = handleShareLyrics,
-                        onLyricsSettingsClick = { showSettingsSheet = true }
+                        onLyricsSettingsClick = { showSettingsSheet = true },
+                        isPersonalFm = isPersonalFm,
+                        onTrashFm = onTrashFm
                     )
                 }
                 }
@@ -513,6 +520,10 @@ fun FullScreenLyricsView(
                 onCenterFirstLineChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenLyricCenterFirstLine(enabled) }
                 },
+                keepScreenOn = fullScreenLyricKeepScreenOn,
+                onKeepScreenOnChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricKeepScreenOn(enabled) }
+                },
                 onDismiss = { showSettingsSheet = false }
             )
         }
@@ -526,7 +537,9 @@ fun FullScreenLyricsView(
                 coverUrl = coverUrl,
                 durationMs = duration,
                 songLink = songLink,
-                onDismiss = { showShareSheet = false }
+                songId = songId,
+                onDismiss = { showShareSheet = false },
+                onNavigateToPrivateChat = onNavigateToPrivateChat
             )
         }
     }

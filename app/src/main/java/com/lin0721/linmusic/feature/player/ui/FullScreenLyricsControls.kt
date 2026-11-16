@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -389,6 +390,8 @@ fun FullScreenLyricsSettingsSheet(
     onAutoHideControlsChange: (Boolean) -> Unit = {},
     centerFirstLine: Boolean = false,
     onCenterFirstLineChange: (Boolean) -> Unit = {},
+    keepScreenOn: Boolean = false,
+    onKeepScreenOnChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val motion = LocalUiMotion.current
@@ -652,6 +655,13 @@ fun FullScreenLyricsSettingsSheet(
                                 onCheckedChange = onCenterFirstLineChange
                             )
 
+                            LyricCompactSwitchRow(
+                                title = "保持屏幕常亮",
+                                subtitle = "停留在歌词界面且正在播放时防止自动息屏",
+                                checked = keepScreenOn,
+                                onCheckedChange = onKeepScreenOnChange
+                            )
+
                         }
                     }
                   }
@@ -683,6 +693,8 @@ fun FullScreenControls(
     onToggleSecondaryMode: () -> Unit,
     onShareLyrics: () -> Unit,
     onLyricsSettingsClick: () -> Unit,
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
@@ -818,13 +830,19 @@ fun FullScreenControls(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .pressable(MelodiaPress.Icon) { onToggleShuffle() },
+                    .pressable(MelodiaPress.Icon) {
+                        if (isPersonalFm) onTrashFm() else onToggleShuffle()
+                    },
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
-                    imageVector = Icons.Default.Shuffle,
-                    contentDescription = null,
-                    tint = if (playMode == PlayMode.SHUFFLE) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    imageVector = if (isPersonalFm) Icons.Rounded.DeleteOutline else Icons.Default.Shuffle,
+                    contentDescription = if (isPersonalFm) "不喜欢" else null,
+                    tint = if (!isPersonalFm && playMode == PlayMode.SHUFFLE) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -833,11 +851,19 @@ fun FullScreenControls(
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MelodiaIconButton(onClick = onPlayPrevious, style = MelodiaPress.Transport) {
+                MelodiaIconButton(
+                    onClick = onPlayPrevious,
+                    enabled = !isPersonalFm,
+                    style = MelodiaPress.Transport
+                ) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = if (isPersonalFm) {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                         modifier = Modifier.size(46.dp)
                     )
                 }
@@ -893,19 +919,23 @@ fun FullScreenControls(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .pressable(MelodiaPress.Icon) { onToggleRepeat() },
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(
-                    imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                    contentDescription = null,
-                    tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(26.dp)
-                )
+            if (isPersonalFm) {
+                Spacer(modifier = Modifier.size(40.dp))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .pressable(MelodiaPress.Icon) { onToggleRepeat() },
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Icon(
+                        imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        contentDescription = null,
+                        tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
             }
         }
     }

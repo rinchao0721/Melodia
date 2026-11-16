@@ -433,4 +433,125 @@ class MelodiaNavigationStateTest {
         assertEquals(Screen.Home, nav.currentScreen)
         assertFalse(nav.canNavigateBack)
     }
+
+    private data class NavStateCheck(
+        val snapshot: NavigationSnapshot,
+        val defaultRootTab: Screen,
+        val showMusicNewWorks: Boolean,
+        val searchAutoFocus: Boolean,
+        val playerNavTargetStackDepth: Int,
+        val playerNavOriginMediaId: String?
+    )
+
+    private fun captureState(nav: MelodiaNavigationState) = NavStateCheck(
+        snapshot = nav.toSnapshot(),
+        defaultRootTab = nav.defaultRootTab,
+        showMusicNewWorks = nav.showMusicNewWorks,
+        searchAutoFocus = nav.searchAutoFocus,
+        playerNavTargetStackDepth = nav.playerNavTargetStackDepth,
+        playerNavOriginMediaId = nav.playerNavOriginMediaId
+    )
+
+    @Test
+    fun `peekBackTarget 在栈内返回时指向栈内上一帧且不改变状态`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openArtist(1L)
+        val expectedEntry = nav.currentEntry
+        nav.openPlaylist(2L, false)
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.Entry(expectedEntry), target)
+
+        nav.navigateBack()
+        assertEquals((target as BackTarget.Entry).entry, nav.currentEntry)
+    }
+
+    @Test
+    fun `peekBackTarget 在非首选 Tab 根页面跨 Tab 返回时指向首选根 Tab 的根页面`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        val homeRootEntry = nav.currentEntry
+        // 首选根 Tab 栈里原本有多级页面，跨 Tab 返回时应直达根页面
+        nav.openArtist(1L)
+        nav.openPlaylist(2L, true)
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
+        nav.openTab(Screen.Library)
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.Entry(homeRootEntry), target)
+
+        nav.navigateBack()
+        assertEquals((target as BackTarget.Entry).entry, nav.currentEntry)
+    }
+
+    @Test
+    fun `peekBackTarget 在主页展开最新时返回 HomeCollapse`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
+        nav.updateShowMusicNewWorks(true)
+        val entryBefore = nav.currentEntry
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.HomeCollapse, target)
+
+        nav.navigateBack()
+        assertEquals(entryBefore, nav.currentEntry)
+        assertFalse(nav.showMusicNewWorks)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC, nav.homeTab)
+    }
+
+    @Test
+    fun `peekBackTarget 在主页非全部分类时返回 HomeCollapse`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
+        val entryBefore = nav.currentEntry
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.HomeCollapse, target)
+
+        nav.navigateBack()
+        assertEquals(entryBefore, nav.currentEntry)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_ALL, nav.homeTab)
+    }
+
+    @Test
+    fun `peekBackTarget 已在首选根 Tab 根页面时返回 Exit`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        val entryBefore = nav.currentEntry
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.Exit, target)
+
+        nav.navigateBack()
+        assertEquals(entryBefore, nav.currentEntry)
+        assertEquals(before, captureState(nav))
+    }
+
+    @Test
+    fun `peekBackTarget 首选根 Tab 非主页且在其根页面时返回 Exit`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
+        nav.updateShowMusicNewWorks(true)
+        nav.updateDefaultRootTab(Screen.Library)
+        nav.openTab(Screen.Library)
+        val entryBefore = nav.currentEntry
+
+        val before = captureState(nav)
+        val target = nav.peekBackTarget()
+        assertEquals(before, captureState(nav))
+        assertEquals(BackTarget.Exit, target)
+
+        nav.navigateBack()
+        assertEquals(entryBefore, nav.currentEntry)
+        assertEquals(before, captureState(nav))
+    }
 }

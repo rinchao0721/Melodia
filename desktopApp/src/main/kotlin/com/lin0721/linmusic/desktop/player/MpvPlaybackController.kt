@@ -5,9 +5,12 @@ import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessPolicy
 import com.lin0721.linmusic.core.player.LoudnessStore
 import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PersonalFmController
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
+import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PERSONAL_FM
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackQueue
 import com.lin0721.linmusic.core.player.PlaybackState
@@ -94,6 +97,7 @@ class MpvPlaybackController(
     private val stateStore = PlaybackStateStore(scope, preferences)
     private val sleepTimer = SleepTimer(scope) { pause() }
     private val roaming = SimilarRoamingController(scope, repository, settingsPreferences, playbackQueue, stateStore)
+    private val personalFm = PersonalFmController(scope, repository, settingsPreferences, playbackQueue, stateStore)
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -121,8 +125,14 @@ class MpvPlaybackController(
         if (index in items.indices) items[index] else null
     }.stateIn(scope, SharingStarted.Eagerly, null)
 
-    override val previousQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
-        if (items.size > 1 && index in items.indices) items[(index - 1 + items.size) % items.size] else null
+    override val previousQueueItem: StateFlow<QueueItem?> = combine(
+        playbackQueue.items,
+        playbackQueue.currentIndex,
+        playbackQueue.playContext
+    ) { items, index, ctx ->
+        if (ctx != CONTEXT_PERSONAL_FM && items.size > 1 && index in items.indices) {
+            items[(index - 1 + items.size) % items.size]
+        } else null
     }.stateIn(scope, SharingStarted.Eagerly, null)
 
     override val nextQueueItem: StateFlow<QueueItem?> = combine(playbackQueue.items, playbackQueue.currentIndex) { items, index ->
@@ -309,11 +319,17 @@ class MpvPlaybackController(
     ) {
         if (items.isEmpty()) return
 
-        if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
-            roaming.prepare()
-        } else if (playContext == CONTEXT_INTELLIGENCE) {
-            // 备份进入心动模式前的队列，供关闭时还原
-            playbackQueue.takeSnapshot()
+        if (playContext != CONTEXT_PERSONAL_FM) {
+            personalFm.cancel()
+        }
+
+        when (playContext) {
+            SimilarRoamingController.CONTEXT_ROAMING -> roaming.prepare()
+            CONTEXT_PERSONAL_FM -> personalFm.prepare()
+            CONTEXT_INTELLIGENCE -> {
+                // 备份进入心动模式前的队列，供关闭时还原
+                playbackQueue.takeSnapshot()
+            }
         }
 
         val playingSongId = _nowPlaying.value?.songId
@@ -343,6 +359,9 @@ class MpvPlaybackController(
         startPosition: Long,
         playContext: String?
     ) {
+        if (playContext != CONTEXT_PERSONAL_FM) {
+            personalFm.cancel()
+        }
         playbackQueue.replaceWithSingle(QueueItem(songId, title, artist, coverUrl))
         playbackQueue.setPlayContext(playContext)
         playbackQueue.setPlaySource(null)
@@ -393,12 +412,13 @@ class MpvPlaybackController(
     }
 
     override fun playPrevious() {
-        if (playbackQueue.isEmpty) return
+        if (personalFm.isPersonalFm || playbackQueue.isEmpty) return
         consecutiveFailures = 0
         playIndex(playbackQueue.previousIndex())
     }
 
     override fun skipToPrevious() {
+        if (personalFm.isPersonalFm) return
         if (_currentPosition.value > RESTART_THRESHOLD_MS) seekTo(0) else playPrevious()
     }
 
@@ -441,15 +461,35 @@ class MpvPlaybackController(
         saveState()
     }
 
+    // 切换或退出账户时彻底停止播放并清空队列与持久化状态
+    override fun stopAndClearQueue() {
+        abortCrossfadePlan()
+        playJob?.cancel()
+        finishReporting()
+        playbackQueue.clear()
+        _playWhenReady.value = false
+        _isPlaying.value = false
+        engine.stop()
+        loadedSongId = null
+        _nowPlaying.value = null
+        _currentPosition.value = 0L
+        _duration.value = 0L
+        saveQueueState()
+        saveState()
+    }
+
     override fun toggleShuffle() {
+        if (personalFm.isPersonalFm) return
         applyMode(if (playbackQueue.playMode.value == PlayMode.SHUFFLE) PlayMode.LIST_LOOP else PlayMode.SHUFFLE)
     }
 
     override fun toggleRepeat() {
+        if (personalFm.isPersonalFm) return
         applyMode(if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP) PlayMode.LIST_LOOP else PlayMode.SINGLE_LOOP)
     }
 
     override fun rotatePlayMode() {
+        if (personalFm.isPersonalFm) return
         applyMode(
             when (playbackQueue.playMode.value) {
                 PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
@@ -517,6 +557,27 @@ class MpvPlaybackController(
         saveQueueState()
     }
 
+    override fun startPersonalFm(items: List<QueueItem>) {
+        if (items.isEmpty()) return
+        playQueue(items, 0, playContext = CONTEXT_PERSONAL_FM)
+    }
+
+    override fun disablePersonalFm() {
+        personalFm.disable()
+    }
+
+    override fun trashCurrentFmSong() {
+        if (!personalFm.isPersonalFm) return
+        personalFm.trashCurrent(currentPlayedSeconds()) { nextIndex ->
+            consecutiveFailures = 0
+            playIndex(nextIndex)
+        }
+    }
+
+    override fun switchPersonalFmMode(mode: PersonalFmMode) {
+        personalFm.switchMode(mode)
+    }
+
     override fun setVolume(percent: Int) {
         val clamped = percent.coerceIn(0, 100)
         volumeReady = true
@@ -540,6 +601,7 @@ class MpvPlaybackController(
         playJob?.cancel()
         sleepTimer.cancel()
         roaming.cancel()
+        personalFm.cancel()
         volumeSaveJob?.cancel()
         finishReporting()
         val state = currentPlaybackState()
@@ -636,12 +698,16 @@ class MpvPlaybackController(
         }
     }
 
-    // 漫游续接与定期存档，只在实际发声时推进
+    // 漫游/FM续接与定期存档，只在实际发声时推进
     private suspend fun onTick() {
         if (!_isPlaying.value) return
         val songId = loadedSongId ?: return
         val dur = _duration.value
-        if (dur > 0L && isOnlineSong(songId)) roaming.onProgressTick(songId, dur - _currentPosition.value)
+        if (dur > 0L && isOnlineSong(songId)) {
+            val remainingMs = dur - _currentPosition.value
+            roaming.onProgressTick(songId, remainingMs)
+            personalFm.onProgressTick(songId, remainingMs)
+        }
         maybePrepareCrossfade(songId)
         val now = System.currentTimeMillis()
         if (now - lastPeriodicSaveMs >= PERIODIC_STATE_SAVE_INTERVAL_MS) {
@@ -692,7 +758,10 @@ class MpvPlaybackController(
     private fun isOnlineSong(songId: Long): Boolean = songId > 0L
 
     private fun prefetchRoaming(songId: Long) {
-        if (isOnlineSong(songId)) roaming.prefetchOnPlay(songId)
+        if (isOnlineSong(songId)) {
+            roaming.prefetchOnPlay(songId)
+            personalFm.prefetchOnPlay(songId)
+        }
     }
 
     // 队列项自带直链时直接使用；外部平台歌曲轮到时经换源插件解析；否则按网易云歌曲 id 解析
@@ -908,5 +977,10 @@ class MpvPlaybackController(
                 result.onFailure { AppLogger.w(TAG, "打卡上报 play 失败 songId=$songId", it) }
             }
         }
+    }
+
+    private fun currentPlayedSeconds(): Long {
+        val ongoingMs = playingSince?.let { System.currentTimeMillis() - it } ?: 0L
+        return (playedMs + ongoingMs).coerceAtLeast(0L) / 1000L
     }
 }

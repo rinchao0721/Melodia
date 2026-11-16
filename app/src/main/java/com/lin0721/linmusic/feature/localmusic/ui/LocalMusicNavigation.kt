@@ -16,5 +16,6 @@ data class LocalMusicNavigation(
     val openOnlineArtist: (id: Long) -> Unit,
     val openOnlineAlbum: (id: Long) -> Unit,
     val openTagEditor: (uri: String) -> Unit,
-    val onLoginScreenVisibilityChanged: (Boolean) -> Unit
+    val onLoginScreenVisibilityChanged: (Boolean) -> Unit,
+    val openPrivateChat: (uid: Long) -> Unit = {}
 )

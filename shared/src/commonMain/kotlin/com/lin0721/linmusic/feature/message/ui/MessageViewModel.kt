@@ -8,10 +8,13 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.message.data.MessageRepository
+import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
+import com.lin0721.linmusic.feature.message.data.withLocalRead
 import com.lin0721.linmusic.feature.message.domain.CommentMessage
 import com.lin0721.linmusic.feature.message.domain.ForwardMessage
 import com.lin0721.linmusic.feature.message.domain.MessagePage
 import com.lin0721.linmusic.feature.message.domain.NoticeItem
+import com.lin0721.linmusic.feature.message.domain.PrivateConversation
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,7 +34,7 @@ import kotlinx.coroutines.sync.withPermit
 
 private const val PAGE_SIZE = 30
 
-// 通知与评论首页游标为 -1，@我 按 offset 翻页从 0 起
+// 通知与评论首页游标为 -1，@我 与私信会话按 offset 翻页从 0 起
 private const val TIME_CURSOR_START = -1L
 private const val OFFSET_CURSOR_START = 0L
 
@@ -39,6 +42,7 @@ private const val OFFSET_CURSOR_START = 0L
 private const val SONG_LOOKUP_CONCURRENCY = 4
 
 enum class MessageTab(val title: String) {
+    PRIVATE("私信"),
     NOTICE("通知"),
     FORWARD("@我"),
     COMMENT("评论")
@@ -48,15 +52,17 @@ class MessageViewModel(
     private val messageRepository: MessageRepository,
     private val playbackRepository: PlaybackRepository,
     private val userPreferences: UserPreferences,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val unreadMonitor: PrivateUnreadMonitor,
+    private val readPreferences: PrivateReadPreferences
 ) : ViewModel() {
 
-    // null 表示 DataStore 尚未读出，避免登录用户看到一闪而过的"未登录"
+    // null 表示偏好尚未读出，避免已登录用户看到一闪而过的"未登录"
     val isLoggedIn: StateFlow<Boolean?> = userPreferences.userProfile
         .map<_, Boolean?> { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _selectedTab = MutableStateFlow(MessageTab.NOTICE)
+    private val _selectedTab = MutableStateFlow(MessageTab.PRIVATE)
     val selectedTab: StateFlow<MessageTab> = _selectedTab.asStateFlow()
 
     private val _toastEvent = MutableSharedFlow<String>()
@@ -67,6 +73,15 @@ class MessageViewModel(
 
     private val requestedSongIds = mutableSetOf<Long>()
     private val songLookupPermits = Semaphore(SONG_LOOKUP_CONCURRENCY)
+
+    val privatePager = MessagePager<PrivateConversation>(
+        scope = viewModelScope,
+        initialCursor = OFFSET_CURSOR_START,
+        fetch = { cursor -> fetchPrivateConversations(cursor) },
+        keyOf = { it.user.uid },
+        errorMessage = ::toErrorMessage,
+        onToast = { _toastEvent.emit(it) }
+    )
 
     val noticePager = MessagePager<NoticeItem>(
         scope = viewModelScope,
@@ -96,6 +111,12 @@ class MessageViewModel(
         onToast = { _toastEvent.emit(it) }
     )
 
+    init {
+        viewModelScope.launch {
+            unreadMonitor.conversationsChanged.collect { privatePager.refreshSilently() }
+        }
+    }
+
     fun selectTab(tab: MessageTab) {
         _selectedTab.value = tab
     }
@@ -103,9 +124,24 @@ class MessageViewModel(
     // 页面可见且已登录时，由界面按当前 Tab 触发首次加载
     fun ensureLoaded(tab: MessageTab) {
         when (tab) {
+            MessageTab.PRIVATE -> privatePager.loadIfIdle()
             MessageTab.NOTICE -> noticePager.loadIfIdle()
             MessageTab.FORWARD -> forwardPager.loadIfIdle()
             MessageTab.COMMENT -> commentPager.loadIfIdle()
+        }
+    }
+
+    private fun fetchPrivateConversations(cursor: Long) = flow {
+        val uid = userPreferences.userProfile.first()?.uid
+        if (uid == null) {
+            emit(Result.failure<MessagePage<PrivateConversation>>(AppError.Unauthorized))
+        } else {
+            val readTimes = readPreferences.snapshot(uid)
+            emitAll(
+                messageRepository.getPrivateConversations(uid, cursor, PAGE_SIZE).map { result ->
+                    result.map { page -> page.copy(items = page.items.map { it.withLocalRead(readTimes) }) }
+                }
+            )
         }
     }
 

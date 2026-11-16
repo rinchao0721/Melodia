@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -35,9 +36,15 @@ fun HomeContent(
     onVoiceClick: (shelfTitle: String, List<HomeCard.Voice>, HomeCard.Voice) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onIntelligenceClick: () -> Unit,
+    onPersonalFmClick: () -> Unit,
     onRoamingClick: () -> Unit,
     onDailyPlay: () -> Unit,
+    personalFmMode: PersonalFmMode,
+    fmCoverUrls: List<String>,
+    isFmPlaying: Boolean,
+    roamingCoverUrl: String,
+    hotTopCoverUrl: String,
+    isRoamingPlaying: Boolean,
     showRecentPlay: Boolean,
     showForYou: Boolean
 ) {
@@ -83,10 +90,16 @@ fun HomeContent(
                                     dailySongs = data.dailySongs,
                                     toplists = data.toplistItems,
                                     recommendPlaylists = data.recommendPlaylists,
+                                    personalFmMode = personalFmMode,
+                                    fmCoverUrls = fmCoverUrls,
+                                    isFmPlaying = isFmPlaying,
+                                    roamingCoverUrl = roamingCoverUrl,
+                                    hotTopCoverUrl = hotTopCoverUrl,
+                                    isRoamingPlaying = isRoamingPlaying,
                                     onDailyOpen = { onPlaylistClick(-1L, false) },
                                     onDailyPlay = onDailyPlay,
                                     onHotlistClick = { onPlaylistClick(it, false) },
-                                    onIntelligenceClick = onIntelligenceClick,
+                                    onPersonalFmClick = onPersonalFmClick,
                                     onRadarClick = { onPlaylistClick(it, false) },
                                     onRoamingClick = onRoamingClick,
                                     showForYou = showForYou

@@ -52,6 +52,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -263,7 +264,7 @@ fun LyricFilterRulesSheet(
                         }
                     },
                     enabled = current.isNotEmpty()
-                ) { Text("清空", color = MaterialTheme.colorScheme.error) }
+                ) { Text("清空", color = if (current.isNotEmpty()) MelodiaColors.AccentText else MelodiaColors.TextDisabled) }
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = MelodiaSpacing.xs),

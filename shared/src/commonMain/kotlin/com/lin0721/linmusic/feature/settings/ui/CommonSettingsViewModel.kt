@@ -76,6 +76,7 @@ class CommonSettingsViewModel(
     val logLevel = settingsPreferences.logLevel.asState(AppLogger.LogLevel.WARN.name)
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
     val allowPrereleaseChannel = settingsPreferences.allowPrereleaseChannel.asState(false)
+    val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 
@@ -161,4 +162,6 @@ class CommonSettingsViewModel(
         AppLogger.setLevel(level)
         launchSave { settingsPreferences.saveLogLevel(level.name) }
     }
+
+    fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave { settingsPreferences.setClipboardLinkEnabled(enabled) }
 }

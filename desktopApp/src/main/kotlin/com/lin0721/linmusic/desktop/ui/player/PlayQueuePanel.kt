@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
@@ -67,6 +70,7 @@ import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
@@ -85,25 +89,27 @@ import com.lin0721.linmusic.desktop.ui.components.OverlayPanelHeader
 import com.lin0721.linmusic.desktop.ui.components.SubMenuItem
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import com.lin0721.linmusic.desktop.ui.components.songInfoText
+import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.shell.SongActionSources
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
+import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lin0721.linmusic.desktop.ui.components.songLink
 
 private val HeaderButtonSize = 32.dp
 private val RowButtonSize = 28.dp
 private val DragHandleWidth = 20.dp
 
 // 右侧栏的播放队列：已播放 / 正在播放 / 接下来播放，仅“接下来播放”段可拖动排序；
-// 相似歌曲漫游时队列由系统接管，只显示当前曲
+// 相似歌曲漫游与私人FM时队列由系统接管，只显示当前曲
 @Composable
 fun PlayQueuePanel(
     controller: PlaybackController,
+    playerViewModel: PlayerViewModel,
     songActions: SongActionSources,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
@@ -112,7 +118,10 @@ fun PlayQueuePanel(
     val currentIndex by controller.currentIndex.collectAsState()
     val playContext by controller.playContext.collectAsState()
     val playMode by controller.playMode.collectAsState()
+    val personalFmMode by playerViewModel.personalFmMode.collectAsState()
     val isRoaming = playContext == SimilarRoamingController.CONTEXT_ROAMING
+    val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
+    val singleTrackContext = isRoaming || isPersonalFm
     var showClearConfirm by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
@@ -120,7 +129,7 @@ fun PlayQueuePanel(
     val hasCurrent = currentIndex in queue.indices
     val upcomingStart = currentIndex + 1
     // 列表内部下标：已播放段 = 标题 + 已播放曲目，正在播放段 = 标题 + 当前曲，再加“接下来播放”标题
-    val playedBlockCount = if (!isRoaming && currentIndex > 0) 1 + currentIndex else 0
+    val playedBlockCount = if (!singleTrackContext && currentIndex > 0) 1 + currentIndex else 0
     val currentBlockCount = if (hasCurrent) 2 else 0
     val upcomingFirstLazyIndex = playedBlockCount + currentBlockCount + 1
     val reorder = rememberQueueReorderState(
@@ -141,8 +150,8 @@ fun PlayQueuePanel(
         }
     }
 
-    LaunchedEffect(currentIndex, isRoaming) {
-        if (isRoaming) {
+    LaunchedEffect(currentIndex, singleTrackContext) {
+        if (singleTrackContext) {
             listState.scrollToItem(0)
         } else if (hasCurrent) {
             listState.scrollToItem(if (currentIndex > 0) currentIndex + 1 else 0)
@@ -215,10 +224,19 @@ fun PlayQueuePanel(
     Column(modifier.fillMaxSize().padding(top = 16.dp)) {
         QueueHeader(
             queueSize = queue.size,
+            showCount = !isPersonalFm,
+            showClear = !isPersonalFm && queue.size > 1,
             onClear = { showClearConfirm = true },
             onClose = onClose,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
+        if (isPersonalFm) {
+            PersonalFmQueueBanner(
+                mode = personalFmMode,
+                onExitFm = playerViewModel::disablePersonalFm,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+            )
+        }
         HoverScrollbarBox(listState, Modifier.weight(1f).padding(top = 8.dp)) {
             LazyColumn(
                 state = listState,
@@ -227,7 +245,7 @@ fun PlayQueuePanel(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)
             ) {
-                if (!isRoaming && currentIndex > 0) {
+                if (!singleTrackContext && currentIndex > 0) {
                     item(key = "header_played") { SectionLabel("已播放") }
                     itemsIndexed(
                         items = queue.subList(0, currentIndex),
@@ -262,7 +280,7 @@ fun PlayQueuePanel(
                             isCurrent = true,
                             isPlayed = false,
                             canDrag = false,
-                            canRemove = !isRoaming && queue.size > 1,
+                            canRemove = !singleTrackContext && queue.size > 1,
                             dragging = false,
                             offsetY = 0f,
                             onPlay = { controller.playAtIndex(currentIndex) },
@@ -276,7 +294,7 @@ fun PlayQueuePanel(
                     }
                 }
 
-                if (!isRoaming && upcomingStart < queue.size) {
+                if (!singleTrackContext && upcomingStart < queue.size) {
                     item(key = "header_upcoming") {
                         SectionLabel(
                             if (playMode == PlayMode.SHUFFLE) "随机播放来源：${playContext.orEmpty()}" else "接下来播放"
@@ -320,13 +338,17 @@ fun PlayQueuePanel(
 @Composable
 private fun QueueHeader(
     queueSize: Int,
+    showCount: Boolean,
+    showClear: Boolean,
     onClear: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OverlayPanelHeader("播放队列", "关闭播放队列", onClose, modifier) {
-        Text("共 $queueSize 首", color = DesktopColors.TextGray, fontSize = 12.sp)
-        if (queueSize > 1) {
+        if (showCount) {
+            Text("共 $queueSize 首", color = DesktopColors.TextGray, fontSize = 12.sp)
+        }
+        if (showClear) {
             IconButton(onClick = onClear, modifier = Modifier.padding(start = 4.dp).size(HeaderButtonSize)) {
                 Icon(Icons.Rounded.DeleteOutline, "清空队列", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
@@ -335,15 +357,47 @@ private fun QueueHeader(
 }
 
 @Composable
+private fun PersonalFmQueueBanner(
+    mode: PersonalFmMode,
+    onExitFm: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DesktopColors.Fill)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Radio, null, tint = DesktopColors.AccentText, modifier = Modifier.size(16.dp))
+        Text(
+            "私人FM · ${mode.displayName}",
+            color = DesktopColors.TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+        )
+        Text(
+            "退出私人FM",
+            color = DesktopColors.AccentText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable(onClick = onExitFm)
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
 private fun SectionLabel(text: String) {
     Text(text, color = DesktopColors.TextGray, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
 }
 
-private fun copySongLink(songId: Long): Boolean = runCatching {
-    Toolkit.getDefaultToolkit().systemClipboard.setContents(
-        StringSelection("https://music.163.com/song?id=$songId"), null
-    )
-}.isSuccess
+private fun copySongLink(songId: Long): Boolean = copyTextToClipboard(songLink(songId))
 
 // 双击跳播；悬停时显示拖动把手与移除按钮，拖动中保持显示
 @OptIn(ExperimentalComposeUiApi::class)
@@ -506,7 +560,18 @@ private fun QueueItemMenu(
             }
         }
         // 外部平台歌曲的负数 id 没有对应的网易云链接
-        if (item.songId > 0) {
+        if (item.songId > 0L) {
+            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                onDismiss()
+                navigator.openSongShareCard(
+                    DesktopAppState.ShareSongInfo(
+                        songId = item.songId,
+                        title = item.title,
+                        artist = item.artist,
+                        coverUrl = item.coverUrl
+                    )
+                )
+            })
             MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
                 onDismiss()
                 val ok = copySongLink(item.songId)

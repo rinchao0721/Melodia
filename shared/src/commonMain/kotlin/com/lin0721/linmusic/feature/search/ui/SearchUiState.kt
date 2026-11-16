@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.search.ui
 
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
@@ -55,17 +57,28 @@ fun ExternalSearchUiState.tabBadge(): String? = when (this) {
 
 enum class SearchMode { Discovery, Typing, Results }
 
+// 搜索框中识别出的网易云链接直达卡片数据
+data class SearchLinkHit(
+    val query: String,
+    val target: SongLinkTarget,
+    val previewState: LinkPreviewState
+)
+
 // suggestionQuery 为联想所属关键词，防止旧联想套在新输入上；songHits 同理按 songHitsQuery 校验
 data class SearchInputState(
     val query: String = "",
     val suggestions: List<SearchSuggestion> = emptyList(),
     val suggestionQuery: String = "",
     val songHits: List<Track> = emptyList(),
-    val songHitsQuery: String = ""
+    val songHitsQuery: String = "",
+    val linkHit: SearchLinkHit? = null
 ) {
     val currentSuggestions: List<SearchSuggestion>
         get() = if (suggestionQuery == query) suggestions else emptyList()
 
     val currentSongHits: List<Track>
         get() = if (songHitsQuery == query) songHits else emptyList()
+
+    val currentLinkHit: SearchLinkHit?
+        get() = linkHit?.takeIf { it.query == query }
 }

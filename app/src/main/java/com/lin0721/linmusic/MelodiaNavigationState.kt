@@ -82,6 +82,8 @@ sealed class Screen {
     @Serializable
     data object Message : Screen()
     @Serializable
+    data class PrivateChat(val uid: Long) : Screen()
+    @Serializable
     data object MyProfile : Screen()
     // 个人主页与关注/粉丝列表
     @Serializable
@@ -92,6 +94,16 @@ sealed class Screen {
 
 // 回退栈栈帧：id 在整个应用生命周期内唯一，同一目标在栈里重复出现时仍可区分各自的页面现场
 data class NavEntry(val id: Long, val screen: Screen)
+
+// 返回手势会落到哪里，供预览使用；判定必须与 navigateBack() 保持一致
+sealed interface BackTarget {
+    // 换页：栈内上一页，或跨 tab 回到首选根 tab 的根页面
+    data class Entry(val entry: NavEntry) : BackTarget
+    // 主页内收起「最新」或回到「全部」，不换页
+    data object HomeCollapse : BackTarget
+    // 交还系统
+    data object Exit : BackTarget
+}
 
 // 应用级导航状态：主页/搜索/音乐库三个底栏 tab 各自持有一条独立回退栈，
 // 切 tab 只切换「当前激活栈」，不清空其余 tab 已经积累的浏览历史
@@ -243,6 +255,20 @@ class MelodiaNavigationState(
         }
     }
 
+    // 只读预测返回目标，分支顺序与 navigateBack() 保持一致
+    fun peekBackTarget(): BackTarget {
+        if (activeStack.size > 1) {
+            return BackTarget.Entry(activeStack[activeStack.size - 2])
+        }
+        if (activeTab != defaultRootTab) {
+            return BackTarget.Entry(stackFor(defaultRootTab).first())
+        }
+        if (defaultRootTab == Screen.Home && (showMusicNewWorks || homeTab != TAB_ALL)) {
+            return BackTarget.HomeCollapse
+        }
+        return BackTarget.Exit
+    }
+
     // true 表示这次返回顺带弹出了全屏播放器；false 表示已在当前 tab 根、切回了首选根 tab（或已在首选根 tab 根，交还系统处理）
     fun navigateBack(): Boolean {
         if (activeStack.size > 1) {
@@ -333,6 +359,10 @@ class MelodiaNavigationState(
 
     fun openMessage() {
         navigateTo(Screen.Message)
+    }
+
+    fun openPrivateChat(uid: Long) {
+        if (uid > 0L) navigateTo(Screen.PrivateChat(uid))
     }
 
     fun openMyProfile() {

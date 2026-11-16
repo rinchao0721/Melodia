@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
@@ -30,6 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.back.BackTransitionGestureState
+import com.lin0721.linmusic.core.ui.back.MelodiaTransitionBackHandler
+import com.lin0721.linmusic.core.ui.back.PredictiveBackTransitionContainer
+import com.lin0721.linmusic.core.ui.back.predictiveContentTransform
+import com.lin0721.linmusic.core.ui.back.rememberPredictiveBackTransition
 import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
@@ -79,7 +83,13 @@ fun SettingsScreen(
     }
 
     // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
-    BackHandler(enabled = activeSubMenu != null && !LocalGlobalOverlayOpen.current) {
+    val backGestureState = remember { BackTransitionGestureState<SettingsSubMenu?>() }
+    MelodiaTransitionBackHandler(
+        enabled = activeSubMenu != null && !LocalGlobalOverlayOpen.current,
+        currentState = activeSubMenu,
+        targetState = null,
+        gestureState = backGestureState
+    ) {
         activeSubMenu = null
     }
     
@@ -128,39 +138,51 @@ fun SettingsScreen(
         AdaptiveContentWidth(
             modifier = Modifier.padding(innerPadding)
         ) {
-            // 使用 AnimatedContent 实现主菜单和子菜单的平滑切换动画
+            // 使用 SeekableTransitionState 实现主菜单和子菜单的平滑切换及预见式跟手返回
             val motion = LocalUiMotion.current
-            AnimatedContent(
-                targetState = activeSubMenu,
-                transitionSpec = {
-                    motion.transform(
-                        if (targetState != null) {
-                            // 进入子菜单：从右往左滑入
-                            slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> -width } + fadeOut()
-                        } else {
-                            // 返回主菜单：从左向右滑入
-                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> width } + fadeOut()
-                        }
-                    )
-                },
+            val menuTransition = rememberPredictiveBackTransition(
+                currentState = activeSubMenu,
+                gestureState = backGestureState,
                 label = "SettingsMenuTransition"
+            )
+            menuTransition.AnimatedContent(
+                transitionSpec = {
+                    predictiveContentTransform(backGestureState) {
+                        motion.transform(
+                            if (targetState != null) {
+                                // 进入子菜单：从右往左滑入
+                                slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> -width } + fadeOut()
+                            } else {
+                                // 返回主菜单：从左向右滑入
+                                slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> width } + fadeOut()
+                            }
+                        )
+                    }
+                }
             ) { subMenu ->
-                if (subMenu == null) {
-                    // 主设置菜单
-                    MainSettingsMenu(
-                        onNavigate = { activeSubMenu = it },
-                        onBack = onBack,
-                        viewModel = viewModel
-                    )
-                } else {
-                    // 各分类子菜单内容
-                    SubMenuContent(
-                        subMenu = subMenu,
-                        viewModel = viewModel,
-                        context = context
-                    )
+                PredictiveBackTransitionContainer(
+                    parentTransition = menuTransition,
+                    itemState = subMenu,
+                    gestureState = backGestureState,
+                    containerColor = MelodiaColors.PageFill
+                ) {
+                    if (subMenu == null) {
+                        // 主设置菜单
+                        MainSettingsMenu(
+                            onNavigate = { activeSubMenu = it },
+                            onBack = onBack,
+                            viewModel = viewModel
+                        )
+                    } else {
+                        // 各分类子菜单内容
+                        SubMenuContent(
+                            subMenu = subMenu,
+                            viewModel = viewModel,
+                            context = context
+                        )
+                    }
                 }
             }
         }
@@ -258,7 +280,7 @@ private fun MainSettingsMenu(
                         .height(50.dp),
                     shape = RoundedCornerShape(PillRadiusLarge),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, MelodiaColors.Accent.copy(alpha = 0.6f))
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -267,13 +289,13 @@ private fun MainSettingsMenu(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = MelodiaColors.Accent,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "退出登录",
-                            color = MaterialTheme.colorScheme.error,
+                            text = "退出当前账户",
+                            color = MelodiaColors.AccentText,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )

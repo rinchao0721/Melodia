@@ -220,7 +220,7 @@ fun NowPlayingDock(
                         }
                     }
                     OverlayLayer(visible = open && overlay == DockOverlay.Queue) { modifier ->
-                        PlayQueuePanel(controller = controller, songActions = songActions, onClose = onCloseOverlay, modifier = modifier)
+                        PlayQueuePanel(controller = controller, playerViewModel = playerViewModel, songActions = songActions, onClose = onCloseOverlay, modifier = modifier)
                     }
                     if (audioOutput != null) {
                         OverlayLayer(visible = open && overlay == DockOverlay.Devices) { modifier ->
@@ -282,7 +282,7 @@ fun FloatingDockPanel(
         when (overlay) {
             DockOverlay.Comments -> CommentsPanel(host = playerCommentsHost, onClose = onClose)
             DockOverlay.PlaylistComments -> playlistComments?.let { CommentsPanel(host = it, onClose = onClose) }
-            DockOverlay.Queue -> PlayQueuePanel(controller = controller, songActions = songActions, onClose = onClose)
+            DockOverlay.Queue -> PlayQueuePanel(controller = controller, playerViewModel = playerViewModel, songActions = songActions, onClose = onClose)
             DockOverlay.Devices -> audioOutput?.let { AudioDevicePanel(control = it, onClose = onClose) }
             DockOverlay.Downloads -> DownloadsPanel(downloader = downloader, onClose = onClose)
         }

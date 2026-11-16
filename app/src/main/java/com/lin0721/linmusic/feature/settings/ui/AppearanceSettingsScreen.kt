@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import android.os.Build
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import org.koin.compose.koinInject
 import androidx.compose.foundation.clickable
@@ -55,6 +56,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val uiScalePercent by viewModel.uiScalePercent.collectAsStateWithLifecycle()
     val themeSettings by viewModel.themeSettings.collectAsStateWithLifecycle()
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
+    val predictiveBackEnabled by viewModel.predictiveBackEnabled.collectAsStateWithLifecycle()
     val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
@@ -132,6 +134,15 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         checked = uiAnimationsEnabled,
                         onCheckedChange = { viewModel.updateUiAnimationsEnabled(it) }
                     )
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        HorizontalDivider(color = MelodiaColors.Divider)
+                        SettingsSwitchRow(
+                            title = "预见式返回动画（测试）",
+                            subtitle = "返回手势跟手预览上一级",
+                            checked = predictiveBackEnabled,
+                            onCheckedChange = { viewModel.updatePredictiveBackEnabled(it) }
+                        )
+                    }
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "歌单显示序号",
@@ -198,7 +209,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "首页为你定制",
-                        subtitle = "热歌榜、心动模式、私人雷达、音乐漫游入口",
+                        subtitle = "热歌榜、私人FM、私人雷达、音乐漫游入口",
                         checked = homeForYouEnabled,
                         onCheckedChange = { viewModel.updateHomeForYouEnabled(it) }
                     )
@@ -269,6 +280,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
 fun SystemSettingsView(viewModel: SettingsViewModel) {
     val showLockscreen by viewModel.showLockscreen.collectAsStateWithLifecycle()
     val carMode by viewModel.carMode.collectAsStateWithLifecycle()
+    val clipboardLinkEnabled by viewModel.clipboardLinkEnabled.collectAsStateWithLifecycle()
     val tabletImmersiveMode by viewModel.tabletImmersiveMode.collectAsStateWithLifecycle()
     val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
     val pluginRepository = koinInject<PluginRepository>()
@@ -292,6 +304,13 @@ fun SystemSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "连接车载蓝牙设备时自动恢复媒体播放",
                         checked = carMode,
                         onCheckedChange = { viewModel.updateCarMode(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "自动识别剪贴板链接",
+                        subtitle = "切回应用时识别剪贴板中的网易云歌曲、歌单、专辑或歌手链接",
+                        checked = clipboardLinkEnabled,
+                        onCheckedChange = { viewModel.updateClipboardLinkEnabled(it) }
                     )
                 }
             }

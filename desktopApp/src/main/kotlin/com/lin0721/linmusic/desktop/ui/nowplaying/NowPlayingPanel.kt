@@ -18,6 +18,7 @@ import com.lin0721.linmusic.core.plugin.layoutShape
 import com.lin0721.linmusic.desktop.ui.player.PlayerBarParts
 import com.lin0721.linmusic.desktop.ui.player.rememberPlaybackParts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -35,8 +36,6 @@ import androidx.compose.material.icons.rounded.Bedtime
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherBadge
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -66,6 +65,8 @@ import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
+import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePill
+import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePopup
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
@@ -324,9 +325,14 @@ private fun PodcastPanelTitle(radioId: Long, radioName: String, modifier: Modifi
 
 private class TitleTarget(val isAlbum: Boolean, val id: Long, val name: String)
 
-// 优先显示播放来源的歌单/专辑；来源缺失时退回当前歌曲所属专辑，都没有则只显示“正在播放”
+// 优先显示私人FM；其次播放来源的歌单/专辑；来源缺失时退回当前歌曲所属专辑，都没有则只显示“正在播放”
 @Composable
 private fun PanelTitle(track: NowPlaying, controller: PlaybackController, playerViewModel: PlayerViewModel, modifier: Modifier) {
+    val playContext by controller.playContext.collectAsState()
+    if (playContext == PlaybackController.CONTEXT_PERSONAL_FM) {
+        PersonalFmPanelTitle(playerViewModel, modifier)
+        return
+    }
     val navigator = LocalDesktopNavigator.current
     val source by controller.playSource.collectAsState()
     val detailState by playerViewModel.songDetailState.collectAsState()
@@ -349,4 +355,40 @@ private fun PanelTitle(track: NowPlaying, controller: PlaybackController, player
             if (target.isAlbum) navigator.openAlbum(target.id, target.name) else navigator.openPlaylist(target.id, target.name)
         }
     )
+}
+
+@Composable
+private fun PersonalFmPanelTitle(playerViewModel: PlayerViewModel, modifier: Modifier) {
+    val personalFmMode by playerViewModel.personalFmMode.collectAsState()
+    var modeMenuOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            "播放自 私人FM",
+            color = DesktopColors.TextPrimary,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Box {
+            PersonalFmModePill(
+                mode = personalFmMode,
+                onClick = { modeMenuOpen = true }
+            )
+            PersonalFmModePopup(
+                expanded = modeMenuOpen,
+                onDismiss = { modeMenuOpen = false },
+                currentMode = personalFmMode,
+                onSelectMode = { mode ->
+                    if (mode != personalFmMode) playerViewModel.switchPersonalFmMode(mode)
+                }
+            )
+        }
+    }
 }

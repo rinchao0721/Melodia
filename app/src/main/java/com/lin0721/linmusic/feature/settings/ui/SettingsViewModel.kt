@@ -10,6 +10,8 @@ import com.lin0721.linmusic.core.player.domain.LyricFilterRules
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
+import com.lin0721.linmusic.core.preferences.NotificationButtonLayout
+import com.lin0721.linmusic.core.preferences.NotificationButtonSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
@@ -19,7 +21,7 @@ import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
 import com.lin0721.linmusic.feature.settings.data.VipInfoData
-import com.lin0721.linmusic.core.auth.AuthRepository
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.feature.settings.data.SettingsRepository
 import com.lin0721.linmusic.core.player.AudioCacheManager
 import com.lin0721.linmusic.core.log.AppLogger
@@ -47,7 +49,7 @@ class SettingsViewModel(
     private val sourcePreferences: SourcePreferences,
     private val lxPluginManager: LxPluginManager,
     private val userPreferences: UserPreferences,
-    private val authRepository: AuthRepository,
+    private val accountSwitcher: AccountSwitcher,
     private val resourceProvider: ResourceProvider,
     val skins: SkinRepository
 ) : ViewModel() {
@@ -140,11 +142,15 @@ class SettingsViewModel(
 
     val carMode = settingsPreferences.carMode.asState(false)
 
+    val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
+
     val showCreateEntry = settingsPreferences.showCreateEntry.asState(true)
 
     val bottomBarLayout = settingsPreferences.bottomBarLayout.asState(BottomBarLayout.DEFAULT)
 
     val bottomBarIconOnly = settingsPreferences.bottomBarIconOnly.asState(false)
+
+    val notificationButtons = settingsPreferences.notificationButtons.asState(NotificationButtonLayout.DEFAULT)
 
     // 启动默认打开音乐库
     val startInLibrary = settingsPreferences.startInLibrary.asState(false)
@@ -162,6 +168,8 @@ class SettingsViewModel(
 
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
 
+    val predictiveBackEnabled = settingsPreferences.predictiveBackEnabled.asState(false)
+
     val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
 
     val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
@@ -177,6 +185,8 @@ class SettingsViewModel(
     val fullScreenLyricSecondaryMode = settingsPreferences.fullScreenLyricSecondaryMode.asState("translation")
 
     val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
+
+    val fullScreenLyricKeepScreenOn = settingsPreferences.fullScreenLyricKeepScreenOn.asState(false)
 
     val superLyricEnabled = settingsPreferences.superLyricEnabled.asState(false)
 
@@ -424,6 +434,10 @@ class SettingsViewModel(
 
     fun updateCarMode(enabled: Boolean) = launchSave { settingsPreferences.saveCarMode(enabled) }
 
+    fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave {
+        settingsPreferences.setClipboardLinkEnabled(enabled)
+    }
+
     fun updateShowCreateEntry(enabled: Boolean) = launchSave { settingsPreferences.saveShowCreateEntry(enabled) }
 
     fun updateBottomBarLayout(layout: List<BottomBarItemSetting>) = launchSave {
@@ -432,6 +446,10 @@ class SettingsViewModel(
 
     fun updateBottomBarIconOnly(iconOnly: Boolean) = launchSave {
         settingsPreferences.saveBottomBarIconOnly(iconOnly)
+    }
+
+    fun updateNotificationButtons(layout: List<NotificationButtonSetting>) = launchSave {
+        settingsPreferences.saveNotificationButtons(layout)
     }
 
     fun updateStartInLibrary(enabled: Boolean) = launchSave { settingsPreferences.saveStartInLibrary(enabled) }
@@ -454,6 +472,8 @@ class SettingsViewModel(
 
     fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
 
+    fun updatePredictiveBackEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePredictiveBackEnabled(enabled) }
+
     fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
 
     fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
@@ -470,6 +490,8 @@ class SettingsViewModel(
     fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
     
     fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+
+    fun updateFullScreenLyricKeepScreenOn(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricKeepScreenOn(enabled) }
 
     fun updateSuperLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSuperLyricEnabled(enabled) }
 
@@ -589,12 +611,11 @@ class SettingsViewModel(
         }
     }
 
-    // 退出登录，注销远端会话并清空本地 preferences 缓存
+    // 退出当前账户：停播清队列、注销远端会话、移除本地账户并切换到最近剩余账户
     fun executeLogout(onFinished: () -> Unit) {
         viewModelScope.launch {
-            authRepository.logout().collect { }
-            userPreferences.clearUserProfile()
-            _toastEvent.emit("已成功退出登录")
+            accountSwitcher.logoutCurrent()
+            _toastEvent.emit("已退出当前账户")
             onFinished()
         }
     }

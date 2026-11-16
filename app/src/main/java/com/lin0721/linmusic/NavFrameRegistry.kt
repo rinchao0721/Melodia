@@ -39,7 +39,8 @@ class NavFrameStores : ViewModel() {
 private fun Screen.hasPageScopedViewModels(): Boolean = when (this) {
     is Screen.Playlist, is Screen.Artist, is Screen.Style, is Screen.Radio,
     is Screen.Profile, is Screen.FollowList, is Screen.PlaylistCategory,
-    is Screen.PodcastSubscribed, is Screen.PodcastToplist, is Screen.PodcastCategory -> true
+    is Screen.PodcastSubscribed, is Screen.PodcastToplist, is Screen.PodcastCategory,
+    is Screen.PrivateChat -> true
     else -> false
 }
 

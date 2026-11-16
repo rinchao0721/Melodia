@@ -12,6 +12,9 @@ import com.lin0721.linmusic.desktop.data.CacheUsage
 import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
+import com.lin0721.linmusic.desktop.data.LibraryShortcut
+import com.lin0721.linmusic.desktop.data.LibraryShortcutLayout
+import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
 import com.lin0721.linmusic.desktop.data.RelocationProgress
@@ -73,6 +76,7 @@ class DesktopSettingsViewModel(
     val miniPlayerStyle = desktopPreferences.miniPlayerStyle.asState(MiniPlayerStyle.DEFAULT)
     val miniPlayerAlwaysOnTop = desktopPreferences.miniPlayerAlwaysOnTop.asState(true)
     val miniLyricSettings = desktopPreferences.miniLyricSettings.asState(MiniLyricSettings())
+    val libraryShortcuts = desktopPreferences.libraryShortcuts.asState(LibraryShortcutLayout.DEFAULT)
 
     val hotkeysSupported: Boolean = hotkeys.isSupported
     val failedHotkeys: StateFlow<Set<HotkeyAction>> = hotkeys.failed
@@ -146,6 +150,17 @@ class DesktopSettingsViewModel(
 
     fun updateMiniLyricSettings(transform: (MiniLyricSettings) -> MiniLyricSettings) {
         viewModelScope.launch { desktopPreferences.saveMiniLyricSettings(transform(desktopPreferences.miniLyricSettings.first())) }
+    }
+
+    fun updateLibraryShortcuts(layout: List<LibraryShortcutSetting>) {
+        viewModelScope.launch { desktopPreferences.saveLibraryShortcuts(LibraryShortcutLayout.normalize(layout)) }
+    }
+
+    fun toggleLibraryShortcut(item: LibraryShortcut) {
+        viewModelScope.launch {
+            val updated = LibraryShortcutLayout.toggleVisible(desktopPreferences.libraryShortcuts.first(), item)
+            desktopPreferences.saveLibraryShortcuts(updated)
+        }
     }
 
     fun updateMediaKeysEnabled(enabled: Boolean) {

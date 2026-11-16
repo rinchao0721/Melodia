@@ -4,9 +4,16 @@ import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.plugin.PluginCommands
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginRepository
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import androidx.lifecycle.ViewModel
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.LoginViewModel
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
+import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.songquality.SongQualityCache
@@ -25,6 +32,7 @@ import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
@@ -62,6 +70,7 @@ class DesktopAppDependencies(
     val pluginCommands: PluginCommands,
     val playerCards: PlayerCardSource,
     val playbackController: DesktopPlaybackController,
+    val lyricsResolver: LyricsResolver,
     val downloader: DesktopSongDownloader,
     val downloadScanner: DesktopDownloadFolderScanner,
     val desktopPreferences: DesktopPreferences,
@@ -74,6 +83,13 @@ class DesktopAppDependencies(
     val cloudMusic: CloudMusicActions,
     val recognition: DesktopRecognition,
     val songQuality: SongQualityCache,
+    val playbackRepository: PlaybackRepository,
+    val songLinkRequests: SongLinkRequests,
+    val linkPreviewResolver: LinkPreviewResolver,
     val listenTogether: ListenTogetherViewModel,
+    val privateUnreadMonitor: PrivateUnreadMonitor,
+    val coverColorMemory: CoverColorMemory,
+    val userPreferences: UserPreferences,
+    val accountSwitcher: AccountSwitcher,
     val pageViewModels: PageViewModelFactory
 )

@@ -30,17 +30,21 @@ import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
-// 消息：通知、@我、评论回复。私信为只读，留待第二期
+// 消息：私信、通知、@我、评论回复
 @Composable
 fun MessageScreen(
     onBack: () -> Unit,
     onUserClick: (Long) -> Unit,
-    viewModel: MessageViewModel = koinViewModel()
+    onConversationClick: (Long) -> Unit,
+    viewModel: MessageViewModel = koinViewModel(),
+    unreadMonitor: PrivateUnreadMonitor = koinInject()
 ) {
     val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val songNames by viewModel.songNames.collectAsStateWithLifecycle()
+    val privateUnreadCount by unreadMonitor.unreadCount.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { ToastManager.showToast(it) }
@@ -58,7 +62,7 @@ fun MessageScreen(
                 EmptyState(
                     icon = Icons.Rounded.Notifications,
                     title = "请先登录",
-                    subtitle = "登录后查看通知、@我与评论回复"
+                    subtitle = "登录后查看私信、通知、@我与评论回复"
                 )
             }
 
@@ -67,10 +71,32 @@ fun MessageScreen(
                     items = MessageTab.entries.map { it.title },
                     selectedIndex = selectedTab.ordinal,
                     onSelected = { viewModel.selectTab(MessageTab.entries[it]) },
+                    badges = if (privateUnreadCount > 0) {
+                        mapOf(MessageTab.PRIVATE.ordinal to privateUnreadCount)
+                    } else {
+                        emptyMap()
+                    },
+                    onBadgeDismiss = { index ->
+                        if (index == MessageTab.PRIVATE.ordinal) {
+                            unreadMonitor.markAllRead()
+                        }
+                    },
                     modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
                 )
 
                 when (selectedTab) {
+                    MessageTab.PRIVATE -> MessageList(
+                        pager = viewModel.privatePager,
+                        emptyTitle = "还没有私信",
+                        itemKey = { it.user.uid }
+                    ) { item ->
+                        PrivateConversationRow(
+                            item = item,
+                            onClick = { onConversationClick(item.user.uid) },
+                            onDismissUnread = { unreadMonitor.markConversationRead(item) }
+                        )
+                    }
+
                     MessageTab.NOTICE -> MessageList(
                         pager = viewModel.noticePager,
                         emptyTitle = "还没有通知",

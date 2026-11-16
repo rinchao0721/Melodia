@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.FilterNone
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MailOutline
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
@@ -92,11 +93,18 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
+import com.lin0721.linmusic.desktop.ui.components.DefaultMenuWidth
+import com.lin0721.linmusic.core.auth.UserPreferences
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.foundation.layout.Column
+import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.data.download.DownloadTask
 import com.lin0721.linmusic.desktop.data.download.DownloadTaskStatus
@@ -155,10 +163,17 @@ fun WindowScope.TitleBar(
     recognitionOpen: Boolean,
     onRecognitionClick: () -> Unit,
     cloudMusic: CloudMusicActions,
+    privateUnreadCount: Int = 0,
+    onDismissUnread: () -> Unit = {},
+    messagesOpen: Boolean = false,
+    onMessagesClick: () -> Unit = {},
     downloadTasks: List<DownloadTask>,
     downloadsOpen: Boolean,
     onDownloadsClick: (() -> Unit)?,
     onLoginClick: () -> Unit,
+    accounts: List<UserProfile> = emptyList(),
+    onSwitchAccount: (uid: Long) -> Unit = {},
+    onAddAccount: () -> Unit = {},
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -225,8 +240,21 @@ fun WindowScope.TitleBar(
             Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
                 rememberPluginCommands(PluginMenuLocation.TOOLBAR).forEach { item -> PluginToolbarButton(item) }
                 CloudUploadsButton(cloudMusic)
+                MessagesButton(privateUnreadCount, messagesOpen, onMessagesClick, onDismissUnread)
                 if (onDownloadsClick != null) DownloadsButton(downloadTasks, downloadsOpen, onDownloadsClick)
-                AvatarMenu(userProfile, onLoginClick, onProfileClick, onRecentClick, onCloudClick, onSettingsClick, hasUpdate, onLogoutClick)
+                AvatarMenu(
+                    userProfile = userProfile,
+                    accounts = accounts,
+                    onLoginClick = onLoginClick,
+                    onSwitchAccount = onSwitchAccount,
+                    onAddAccount = onAddAccount,
+                    onProfileClick = onProfileClick,
+                    onRecentClick = onRecentClick,
+                    onCloudClick = onCloudClick,
+                    onSettingsClick = onSettingsClick,
+                    hasUpdate = hasUpdate,
+                    onLogoutClick = onLogoutClick
+                )
                 WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
                 WindowButton(
                     if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
@@ -312,6 +340,47 @@ private fun HomeButton(
     }
 }
 
+// 标题栏消息入口：风格同下载按钮，右上角展示私信未读数
+@Composable
+private fun MessagesButton(
+    unreadCount: Int,
+    open: Boolean,
+    onClick: () -> Unit,
+    onDismissUnread: () -> Unit
+) {
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val scale by animateFloatAsState(if (hovered) DOWNLOAD_HOVER_SCALE else 1f, uiTween(FILL_ANIMATION_MS), label = "messagesHover")
+    val tint = if (hovered || open) DesktopColors.TextPrimary else DesktopColors.TextGray
+    val tooltip = if (unreadCount > 0) "消息 · $unreadCount 条未读" else "消息"
+    DesktopTooltip(tooltip, side = TooltipSide.Bottom, modifier = Modifier.padding(end = 4.dp)) {
+        Box(contentAlignment = Alignment.Center) {
+            IconButton(
+                onClick = onClick,
+                interactionSource = hoverSource,
+                modifier = Modifier.size(DOWNLOAD_BUTTON_SIZE).graphicsLayer { scaleX = scale; scaleY = scale }
+            ) {
+                Icon(Icons.Rounded.MailOutline, "消息", tint = tint, modifier = Modifier.size(DOWNLOAD_ICON_SIZE))
+            }
+            if (unreadCount > 0) {
+                DraggableUnreadBadge(
+                    count = unreadCount,
+                    onDismiss = onDismissUnread,
+                    containerColor = DesktopColors.Accent,
+                    contentColor = DesktopColors.OnAccent,
+                    fontSize = 9.sp,
+                    minWidth = 15.dp,
+                    height = 15.dp,
+                    horizontalPadding = 4.dp,
+                    borderWidth = 1.dp,
+                    borderColor = DesktopColors.WindowBackground,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 1.dp)
+                )
+            }
+        }
+    }
+}
+
 // 头像左侧的下载入口，样式同底栏图标按钮
 // 图标按整轮进度染色，全部成功短暂变对勾；有暂停或失败的任务时亮红点
 @Composable
@@ -386,7 +455,10 @@ private fun AttentionDot(modifier: Modifier = Modifier) {
 @Composable
 private fun AvatarMenu(
     userProfile: UserProfile?,
+    accounts: List<UserProfile>,
     onLoginClick: () -> Unit,
+    onSwitchAccount: (uid: Long) -> Unit,
+    onAddAccount: () -> Unit,
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -407,28 +479,38 @@ private fun AvatarMenu(
             }
         }
         if (hasUpdate) AttentionDot(Modifier.align(Alignment.TopEnd))
-        DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
+        DesktopMenu(
+            expanded = expanded,
+            onDismiss = { expanded = false },
+            width = if (userProfile != null) AccountMenuWidth else DefaultMenuWidth
+        ) {
             if (userProfile != null) {
-                Text(
-                    userProfile.nickname,
-                    color = DesktopColors.TextGray,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-                MenuDivider()
-            } else {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
-                    expanded = false
-                    onLoginClick()
-                }
-            }
-            if (userProfile != null) {
-                AvatarMenuItem(Icons.Rounded.Person, "个人主页") {
+                AvatarMenuHeader(userProfile) {
                     expanded = false
                     onProfileClick()
                 }
+                MenuDivider()
+                accounts.filter { it.uid != userProfile.uid }.forEach { account ->
+                    SimpleMenuItem(
+                        text = account.nickname,
+                        onClick = {
+                            expanded = false
+                            onSwitchAccount(account.uid)
+                        },
+                        leading = { Cover(account.avatarUrl, 20.dp, shape = CircleShape) }
+                    )
+                }
+                val canAddAccount = accounts.size < UserPreferences.MAX_ACCOUNTS
+                MenuItem(
+                    text = if (canAddAccount) "添加帐号" else "添加帐号（最多 ${UserPreferences.MAX_ACCOUNTS} 个）",
+                    onClick = {
+                        expanded = false
+                        onAddAccount()
+                    },
+                    icon = Icons.Rounded.PersonAdd,
+                    enabled = canAddAccount
+                )
+                MenuDivider()
                 AvatarMenuItem(Icons.Rounded.History, "最近播放") {
                     expanded = false
                     onRecentClick()
@@ -436,6 +518,11 @@ private fun AvatarMenu(
                 AvatarMenuItem(Icons.Rounded.Cloud, "我的云盘") {
                     expanded = false
                     onCloudClick()
+                }
+            } else {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
+                    expanded = false
+                    onLoginClick()
                 }
             }
             MenuItem(
@@ -452,11 +539,43 @@ private fun AvatarMenu(
                 }
             )
             if (userProfile != null) {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出登录") {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出当前账户") {
                     expanded = false
                     onLogoutClick()
                 }
             }
+        }
+    }
+}
+
+private val AccountMenuWidth = 224.dp
+
+// 头像菜单头部：大头像 + 昵称，点击进个人主页
+@Composable
+private fun AvatarMenuHeader(userProfile: UserProfile, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val hovered by source.collectIsHoveredAsState()
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (hovered) DesktopColors.SurfaceLight else Color.Transparent)
+            .hoverable(source)
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Cover(userProfile.avatarUrl, 40.dp, shape = CircleShape)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                userProfile.nickname,
+                color = DesktopColors.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text("查看个人主页", color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1)
         }
     }
 }

@@ -10,11 +10,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
-// SwipeToDismissBox 左滑删除的统一底层：红底 + 右侧垃圾桶
+// SwipeToDismissBox 左滑删除的统一底层：主色底 + 右侧垃圾桶
 @Composable
 fun SwipeDeleteBackground() {
     Box(
@@ -24,6 +23,6 @@ fun SwipeDeleteBackground() {
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.CenterEnd
     ) {
-        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White)
+        Icon(Icons.Default.Delete, contentDescription = null, tint = MelodiaColors.OnAccent)
     }
 }

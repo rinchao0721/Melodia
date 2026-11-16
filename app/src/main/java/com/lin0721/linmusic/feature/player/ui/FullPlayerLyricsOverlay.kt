@@ -6,6 +6,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
@@ -45,6 +46,7 @@ fun FullPlayerLyricsOverlay(
     artist: String,
     coverUrl: String,
     songLink: String?,
+    songId: Long? = null,
     hazeState: HazeState,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
@@ -59,8 +61,12 @@ fun FullPlayerLyricsOverlay(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onMoreClick: () -> Unit,
+    isPersonalFm: Boolean = false,
+    onTrashFm: () -> Unit = {},
     onControlsVisibilityChange: (Boolean) -> Unit = {},
-    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
 
@@ -112,6 +118,7 @@ fun FullPlayerLyricsOverlay(
                 artist = artist,
                 coverUrl = coverUrl,
                 songLink = songLink,
+                songId = songId,
                 base = colors.base,
                 highlightColor = lyricColors.unsung ?: colors.textHighlight,
                 sungColor = lyricColors.sung,
@@ -137,10 +144,15 @@ fun FullPlayerLyricsOverlay(
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
                 onMoreClick = onMoreClick,
+                isPersonalFm = isPersonalFm,
+                onTrashFm = onTrashFm,
                 onControlsVisibilityChange = onControlsVisibilityChange,
+                onNavigateToPrivateChat = onNavigateToPrivateChat,
                 pluginContent = pluginContent
             )
         }
-        if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
+        Box(modifier = Modifier.fillMaxSize().then(modifier)) {
+            if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
+        }
     }
 }

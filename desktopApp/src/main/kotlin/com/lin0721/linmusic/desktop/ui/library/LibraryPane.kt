@@ -52,6 +52,7 @@ fun LibraryPane(
     onFilterToggle: (LibraryFilter) -> Unit,
     onSortOrderChange: (LibrarySortOrder) -> Unit,
     extras: LibraryExtrasEntry,
+    shortcutsState: LibraryShortcutsState,
     footer: @Composable () -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
@@ -86,14 +87,16 @@ fun LibraryPane(
                 ) {
                     Box(Modifier.fixedWidthAtStart(contentWidth)) {
                         when (current) {
-                            LibraryMode.RAIL -> LibraryRail(viewModel, isLoggedIn, onItemClick, onModeChange, extras)
+                            LibraryMode.RAIL -> LibraryRail(
+                                viewModel, isLoggedIn, onItemClick, onModeChange, extras, shortcutsState
+                            )
                             LibraryMode.DEFAULT -> LibrarySidebar(
                                 viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
-                                onFilterToggle, onSortOrderChange, extras, footer = footer
+                                onFilterToggle, onSortOrderChange, extras, shortcutsState, footer = footer
                             )
                             LibraryMode.EXPANDED -> LibraryExpanded(
                                 viewModel, isLoggedIn, onLoginClick, onItemClick, onModeChange, viewMode, onViewModeChange,
-                                onFilterToggle, onSortOrderChange, extras
+                                onFilterToggle, onSortOrderChange, extras, shortcutsState
                             )
                         }
                     }

@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.OpenInFull
@@ -181,7 +182,8 @@ class MiniPlayerActions(
     val onSeek: (Long) -> Unit,
     val onSwitchStyle: () -> Unit,
     val onOpenLyricSettings: () -> Unit,
-    val onRestore: () -> Unit
+    val onRestore: () -> Unit,
+    val onTrash: () -> Unit = {}
 )
 
 private class MiniTrackInfo(
@@ -191,7 +193,8 @@ private class MiniTrackInfo(
     val position: Long,
     val duration: Long,
     val liked: Boolean,
-    val isPodcast: Boolean
+    val isPodcast: Boolean,
+    val isPersonalFm: Boolean
 ) {
     val hasTrack: Boolean get() = track != null
     val showLike: Boolean get() = hasTrack && !isPodcast
@@ -213,6 +216,7 @@ fun WindowScope.MiniPlayerContent(
     val nowPlaying by controller.nowPlaying.collectAsState()
     val isPlaying by controller.playWhenReady.collectAsState()
     val playMode by controller.playMode.collectAsState()
+    val playContext by controller.playContext.collectAsState()
     val quantizedPosition = remember(controller) {
         controller.currentPosition.map { it / POSITION_STEP_MS * POSITION_STEP_MS }.distinctUntilChanged()
     }
@@ -220,7 +224,16 @@ fun WindowScope.MiniPlayerContent(
     val duration by controller.duration.collectAsState()
     val detail by playerViewModel.songDetailState.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
-    val info = MiniTrackInfo(nowPlaying, isPlaying, playMode, position, duration, detail.isLiked, podcast.isPodcast)
+    val info = MiniTrackInfo(
+        nowPlaying,
+        isPlaying,
+        playMode,
+        position,
+        duration,
+        detail.isLiked,
+        podcast.isPodcast,
+        playContext == PlaybackController.CONTEXT_PERSONAL_FM
+    )
 
     // 鼠标在窗口内即视为悬停，能点到按钮时按钮必然已显示
     var hovered by remember { mutableStateOf(false) }
@@ -676,7 +689,7 @@ private fun MiniProgress(info: MiniTrackInfo, actions: MiniPlayerActions, modifi
 @Composable
 private fun TransportControls(info: MiniTrackInfo, actions: MiniPlayerActions, playSize: Dp, spacing: Dp) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing)) {
-        MiniIconButton(Icons.Rounded.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack)
+        MiniIconButton(Icons.Rounded.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack && !info.isPersonalFm)
         PlayButton(info, playSize, actions.onTogglePlay)
         MiniIconButton(Icons.Rounded.SkipNext, "下一首", actions.onNext, enabled = info.hasTrack)
     }
@@ -708,6 +721,15 @@ private fun LikeButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
 
 @Composable
 private fun RepeatButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
+    if (info.isPersonalFm) {
+        MiniIconButton(
+            Icons.Rounded.DeleteOutline,
+            "不喜欢",
+            actions.onTrash,
+            iconSize = 18.dp
+        )
+        return
+    }
     val singleLoop = info.playMode == PlayMode.SINGLE_LOOP
     MiniIconButton(
         if (singleLoop) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,

@@ -68,7 +68,7 @@ internal fun PlatformTabRow(
                                 text = badge,
                                 fontSize = 11.sp,
                                 color = if (state is ExternalSearchUiState.Error) {
-                                    MaterialTheme.colorScheme.error
+                                    MelodiaColors.AccentText
                                 } else {
                                     MelodiaColors.HintText
                                 }

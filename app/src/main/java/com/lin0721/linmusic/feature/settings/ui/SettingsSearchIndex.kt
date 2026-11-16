@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import android.os.Build
 import com.lin0721.linmusic.core.player.external.FlymeStatusBarLyric
 import com.lin0721.linmusic.feature.settings.ui.SettingsSubMenu.*
 
@@ -25,6 +26,7 @@ object SettingsSearchIndex {
             entry(PLAYBACK, 0, "外部音视频停止后自动恢复", "打断 暂停 继续"),
             entry(PLAYBACK, 0, "音量平衡", "响度 均衡 replaygain"),
             entry(PLAYBACK, 0, "切歌淡入淡出", "crossfade 交叠 过渡时长 智能过渡 静音"),
+            entry(PLAYBACK, 0, "通知栏按钮", "媒体通知 控件 自定义 排序 喜欢 不喜欢 播放模式 悬浮歌词 定时关闭 关闭 快进 快退"),
 
             entry(QUALITY_SOURCES, 0, "Wi-Fi 环境播放音质", "wifi 无线 码率"),
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),
@@ -51,6 +53,7 @@ object SettingsSearchIndex {
             entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),
             entry(LYRICS, 0, "歌词对齐方式", "居中 左对齐"),
             entry(LYRICS, 0, "逐字歌词流光动效", "卡拉ok 渐变"),
+            entry(LYRICS, 0, "歌词界面保持屏幕常亮", "常亮 息屏 熄屏 屏幕 休眠 锁定"),
             entry(LYRICS, 1, "启用桌面悬浮歌词", "悬浮窗 桌面 锁定 阴影 粗体"),
             entry(LYRICS, 2, "SuperLyric 实时歌词", "状态栏 binder"),
             entry(LYRICS, 2, "LyricInfo 系统歌词", "锁屏岛 元数据"),
@@ -73,7 +76,7 @@ object SettingsSearchIndex {
             entry(APPEARANCE, 2, "侧边播放页位置", "左侧 右侧"),
             entry(APPEARANCE, 2, "侧边播放页钉住", "返回键"),
             entry(APPEARANCE, 3, "首页最近播放", "主页 精简 隐藏"),
-            entry(APPEARANCE, 3, "首页为你定制", "主页 精简 隐藏 热歌榜 心动模式 私人雷达 音乐漫游"),
+            entry(APPEARANCE, 3, "首页为你定制", "主页 精简 隐藏 热歌榜 私人FM 私人雷达 音乐漫游"),
             entry(APPEARANCE, 3, "搜索框推荐词", "搜索 推荐 关键词 默认 精简"),
             entry(APPEARANCE, 3, "热搜榜", "搜索 热搜 排行 精简"),
             entry(APPEARANCE, 3, "歌单分类", "搜索 精品歌单 分类 标签 精简"),
@@ -81,6 +84,7 @@ object SettingsSearchIndex {
 
             entry(SYSTEM, 0, "启用系统锁屏显示", "锁屏 控制器"),
             entry(SYSTEM, 1, "车载模式蓝牙自动启动", "蓝牙 车机 自动播放"),
+            entry(SYSTEM, 1, "自动识别剪贴板链接", "剪贴板 链接 外链 网易云 歌曲 歌单 专辑 歌手"),
             entry(SYSTEM, 2, "全局沉浸", "状态栏 导航栏 全屏 平板"),
             entry(SYSTEM, 3, "插件", "扩展 命令 插件页面 目录"),
 
@@ -92,6 +96,7 @@ object SettingsSearchIndex {
             entry(ABOUT, 2, "导出并分享日志", "反馈 故障"),
             entry(ABOUT, 3, "特别感谢", "致谢 开源项目")
         ) + listOfNotNull(
+            entry(APPEARANCE, 0, "预见式返回动画（测试）", "返回 手势 预览 动画 测试").takeIf { Build.VERSION.SDK_INT >= 34 },
             entry(LYRICS, 2, "魅族状态栏歌词", "flyme meizu 状态栏").takeIf { FlymeStatusBarLyric.isSupported }
         )
     }

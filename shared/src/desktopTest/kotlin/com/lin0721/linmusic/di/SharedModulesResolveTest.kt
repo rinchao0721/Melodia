@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepositoryImpl
+import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.comment.data.CommentRepositoryImpl
@@ -33,6 +35,9 @@ import com.lin0721.linmusic.feature.create.data.CreateRepositoryImpl
 import com.lin0721.linmusic.feature.home.data.HomeRepositoryImpl
 import com.lin0721.linmusic.feature.library.data.LibraryRepositoryImpl
 import com.lin0721.linmusic.feature.listendata.data.ListenDataRepositoryImpl
+import com.lin0721.linmusic.feature.message.data.MessageRepositoryImpl
+import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
+import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
 import com.lin0721.linmusic.feature.music.data.MusicRepositoryImpl
 import com.lin0721.linmusic.feature.newworks.data.NewWorksRepositoryImpl
 import com.lin0721.linmusic.feature.player.data.PlayerRepositoryImpl
@@ -65,11 +70,12 @@ class SharedModulesResolveTest {
         fun store(name: String) = PreferencesStores.get(File(dir, "$name.preferences_pb"))
         val platformModule = module {
             single { UserPreferences(store(PreferencesStores.USER)) }
-            single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+            single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
             single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
-            single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+            single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY), userPreferences = get()) }
             single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
             single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
+            single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
             single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
             single { ContentFilter(get()) }
@@ -86,7 +92,7 @@ class SharedModulesResolveTest {
         val koin = koinApplication { modules(platformModule, networkModule, repositoryModule) }.koin
         try {
             listOf(
-                AuthRepositoryImpl::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
+                AuthRepositoryImpl::class, AccountSwitcher::class, SessionMonitor::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
                 PodcastRepositoryImpl::class, SearchRepositoryImpl::class, LibraryRepositoryImpl::class,
                 RecentRepositoryImpl::class, CloudRepositoryImpl::class, ListenDataRepositoryImpl::class,
                 NewWorksRepositoryImpl::class, ArtistRepositoryImpl::class, CommentRepositoryImpl::class,
@@ -97,7 +103,9 @@ class SharedModulesResolveTest {
                 LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, ProfileRepositoryImpl::class,
                 PodcastProgressPreferences::class, PodcastSeenPreferences::class, OfflinePlayability::class,
                 CloudUploadManager::class, CloudUploadRunner::class, RecognitionRepository::class,
-                SongQualityCache::class,
+                SongQualityCache::class, MessageRepositoryImpl::class, PrivateUnreadMonitor::class,
+                com.lin0721.linmusic.core.deeplink.LinkPreviewResolver::class,
+                com.lin0721.linmusic.core.deeplink.SongLinkRequests::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

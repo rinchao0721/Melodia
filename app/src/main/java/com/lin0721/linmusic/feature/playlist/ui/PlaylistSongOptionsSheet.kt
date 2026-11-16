@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
@@ -72,6 +73,8 @@ fun PlaylistSongOptionsSheet(
     onDownloadClick: ((Track) -> Unit)? = null,
     // 仅今天的日推传入，菜单才出现“减少推荐”
     onReduceRecommend: ((Track) -> Unit)? = null,
+    // 统一分享入口（打开分享卡片页，非网易云歌曲不展示好友快发条）
+    onShareClick: ((Track) -> Unit)? = null,
     // 额外操作项
     extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -197,6 +200,17 @@ fun PlaylistSongOptionsSheet(
                         }
                     }
                 )
+
+                if (onShareClick != null) {
+                    OptionRow(
+                        icon = Icons.Default.Share,
+                        text = "分享",
+                        onClick = {
+                            onDismiss()
+                            onShareClick(track)
+                        }
+                    )
+                }
 
                 if (onDownloadClick != null) {
                     OptionRow(

@@ -12,13 +12,23 @@ class DesktopLibraryPreferences : LibraryPreferences {
 
     private val prefs: Preferences = Preferences.userRoot().node("melodia/library")
 
-    override fun pinnedIds(): Set<String> = splitList(prefs.get(KEY_PINNED_IDS, "")).toSet()
+    override fun pinnedIds(uid: Long): Set<String> {
+        val key = accountKey(KEY_PINNED_IDS, uid)
+        if (prefs.get(key, null) == null) claimLegacy(uid)
+        return splitList(prefs.get(key, "")).toSet()
+    }
 
-    override fun setPinnedIds(ids: Set<String>) = put(KEY_PINNED_IDS, ids.joinToString(SEPARATOR))
+    override fun setPinnedIds(uid: Long, ids: Set<String>) =
+        put(accountKey(KEY_PINNED_IDS, uid), ids.joinToString(SEPARATOR))
 
-    override fun customPlaylistOrder(): List<String> = splitList(prefs.get(KEY_CUSTOM_ORDER, ""))
+    override fun customPlaylistOrder(uid: Long): List<String> {
+        val key = accountKey(KEY_CUSTOM_ORDER, uid)
+        if (prefs.get(key, null) == null) claimLegacy(uid)
+        return splitList(prefs.get(key, ""))
+    }
 
-    override fun setCustomPlaylistOrder(order: List<String>) = put(KEY_CUSTOM_ORDER, order.joinToString(SEPARATOR))
+    override fun setCustomPlaylistOrder(uid: Long, order: List<String>) =
+        put(accountKey(KEY_CUSTOM_ORDER, uid), order.joinToString(SEPARATOR))
 
     override fun sortOrderName(): String? = prefs.get(KEY_SORT_ORDER, null)
 
@@ -30,6 +40,21 @@ class DesktopLibraryPreferences : LibraryPreferences {
         prefs.putBoolean(KEY_GRID_VIEW, isGrid)
         flush()
     }
+
+    // 旧版全局置顶与顺序归首个读取的账户（启动时即迁移出的那个账户），领取后删除旧键
+    @Synchronized
+    private fun claimLegacy(uid: Long) {
+        val legacyPinned = prefs.get(KEY_PINNED_IDS, null)
+        val legacyOrder = prefs.get(KEY_CUSTOM_ORDER, null)
+        if (legacyPinned == null && legacyOrder == null) return
+        legacyPinned?.let { prefs.put(accountKey(KEY_PINNED_IDS, uid), it) }
+        legacyOrder?.let { prefs.put(accountKey(KEY_CUSTOM_ORDER, uid), it) }
+        prefs.remove(KEY_PINNED_IDS)
+        prefs.remove(KEY_CUSTOM_ORDER)
+        flush()
+    }
+
+    private fun accountKey(base: String, uid: Long) = "${base}_$uid"
 
     private fun put(key: String, value: String) {
         prefs.put(key, value)

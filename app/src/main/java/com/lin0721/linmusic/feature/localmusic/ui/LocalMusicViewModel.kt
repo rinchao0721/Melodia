@@ -170,9 +170,18 @@ class LocalMusicViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            if (syncProfileAfterLoginUseCase(cookies) == null) return@launch
-            _toastEvent.emit("登录成功，正在同步数据...")
-            loadLikedSongIds()
+            when (syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is com.lin0721.linmusic.core.auth.LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步数据...")
+                    loadLikedSongIds()
+                }
+                com.lin0721.linmusic.core.auth.LoginSyncResult.LimitReached -> {
+                    _toastEvent.emit("最多只能登录 5 个账户")
+                }
+                com.lin0721.linmusic.core.auth.LoginSyncResult.Failed -> {
+                    _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+                }
+            }
         }
     }
 

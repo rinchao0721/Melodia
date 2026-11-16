@@ -44,6 +44,7 @@ fun ProfileHeaderInfo(
     userInfo: ProfileUserInfo,
     isSelf: Boolean,
     onFollowClick: () -> Unit,
+    onMessageClick: () -> Unit = {},
     onFollowsClick: () -> Unit,
     onFollowedsClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -174,30 +175,57 @@ fun ProfileHeaderInfo(
             }
         }
 
-        // 关注操作按钮（非本人时展示）
+        // 关注与发私信按钮（非本人时展示）
         if (!isSelf) {
             Spacer(modifier = Modifier.height(MelodiaSpacing.md))
-            Box(
-                modifier = Modifier
-                    .pressable(
-                        style = MelodiaPress.Action,
-                        shape = RoundedCornerShape(PillRadius),
-                        onClick = onFollowClick
-                    )
-                    .border(
-                        border = if (userInfo.isFollowedByMe) BorderStroke(1.dp, MelodiaColors.Overlay.copy(alpha = 0.4f))
-                        else BorderStroke(0.dp, Color.Transparent),
-                        shape = RoundedCornerShape(PillRadius)
-                    )
-                    .background(if (userInfo.isFollowedByMe) Color.Transparent else MaterialTheme.colorScheme.primary)
-                    .padding(horizontal = MelodiaSpacing.md, vertical = 6.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (userInfo.isFollowedByMe) "已关注" else "关注",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .pressable(
+                            style = MelodiaPress.Action,
+                            shape = RoundedCornerShape(PillRadius),
+                            onClick = onFollowClick
+                        )
+                        .border(
+                            border = if (userInfo.isFollowedByMe) BorderStroke(1.dp, MelodiaColors.Overlay.copy(alpha = 0.4f))
+                            else BorderStroke(0.dp, Color.Transparent),
+                            shape = RoundedCornerShape(PillRadius)
+                        )
+                        .background(if (userInfo.isFollowedByMe) Color.Transparent else MaterialTheme.colorScheme.primary)
+                        .padding(horizontal = MelodiaSpacing.md, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (userInfo.isFollowedByMe) "已关注" else "关注",
+                        color = if (userInfo.isFollowedByMe) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .pressable(
+                            style = MelodiaPress.Action,
+                            shape = RoundedCornerShape(PillRadius),
+                            onClick = onMessageClick
+                        )
+                        .border(
+                            border = BorderStroke(1.dp, MelodiaColors.Outline),
+                            shape = RoundedCornerShape(PillRadius)
+                        )
+                        .background(MelodiaColors.CardSurface)
+                        .padding(horizontal = MelodiaSpacing.md, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "发私信",
+                        color = MelodiaColors.TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 

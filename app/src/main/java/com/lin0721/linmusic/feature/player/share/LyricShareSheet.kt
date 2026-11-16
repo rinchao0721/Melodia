@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.player.share
 import android.Manifest
 import android.graphics.Bitmap
 import android.os.Build
+import android.util.LruCache
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -25,30 +26,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Velocity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.lin0721.linmusic.MelodiaToastHost
 import com.lin0721.linmusic.R
-import com.lin0721.linmusic.rememberGlobalToastMessage
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.share.LyricShareSelection
 import com.lin0721.linmusic.core.share.ShareCardBackground
 import com.lin0721.linmusic.core.share.ShareCardKind
+import com.lin0721.linmusic.core.share.ShareCardMessageCodec
 import com.lin0721.linmusic.core.share.ShareCardRatio
 import com.lin0721.linmusic.core.share.ShareCardStyle
 import com.lin0721.linmusic.core.share.ui.ShareCardArt
@@ -59,14 +62,94 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.extractShareColorsFromUrl
+import com.lin0721.linmusic.feature.message.domain.MessageUser
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendSheet
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
+import com.lin0721.linmusic.rememberGlobalToastMessage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.koin.androidx.compose.koinViewModel
 
 private const val TAG = "LyricShareSheet"
+private const val SENT_NOTICE_DURATION_MS = 2500L
 
 private enum class ShareStep { SELECT, PREVIEW }
 
 private enum class ExportAction { SAVE, SHARE }
+
+internal data class ShareSentNotice(
+    val id: Long,
+    val user: MessageUser
+)
+
+private object SharePaletteCache {
+    private val cache = LruCache<String, List<Color>>(64)
+    fun get(url: String): List<Color>? = cache.get(url)
+    fun put(url: String, colors: List<Color>) {
+        cache.put(url, colors)
+    }
+}
+
+// 统一加载分享卡片所需封面与取色板，聊天列表滚动复用时避免重复量化取色
+@Composable
+fun rememberShareCardArt(coverUrl: String?, coverSizePx: Int = 1080): ShareCardArt {
+    val context = LocalContext.current
+    val canonicalUrl = remember(coverUrl) {
+        coverUrl?.takeIf { it.isNotBlank() }?.substringBefore("?param=").orEmpty()
+    }
+    var cover by remember(canonicalUrl, coverSizePx) { mutableStateOf<Painter?>(null) }
+    var palette by remember(canonicalUrl) {
+        mutableStateOf(if (canonicalUrl.isNotEmpty()) SharePaletteCache.get(canonicalUrl) ?: emptyList() else emptyList())
+    }
+    LaunchedEffect(canonicalUrl, coverSizePx) {
+        if (canonicalUrl.isEmpty()) {
+            cover = null
+            palette = emptyList()
+            return@LaunchedEffect
+        }
+        cover = loadCoverPainter(context, canonicalUrl, coverSizePx)
+        val cached = SharePaletteCache.get(canonicalUrl)
+        if (cached != null) {
+            palette = cached
+        } else {
+            val extracted = withContext(Dispatchers.Default) {
+                extractShareColorsFromUrl(context, canonicalUrl)
+            }
+            SharePaletteCache.put(canonicalUrl, extracted)
+            palette = extracted
+        }
+    }
+    val iconBackground = painterResource(R.drawable.ic_launcher_background)
+    val iconForeground = painterResource(R.drawable.ic_launcher_foreground)
+    val logo = remember(iconBackground, iconForeground) { LayeredPainter(listOf(iconBackground, iconForeground)) }
+    return remember(cover, palette, logo) { ShareCardArt(cover, logo, palette) }
+}
+
+@Composable
+fun TrackShareCardSheet(
+    track: Track,
+    isNetease: Boolean = track.id > 0L,
+    onDismiss: () -> Unit,
+    onNavigateToPrivateChat: (Long) -> Unit = {}
+) {
+    val shareSongId = track.id.takeIf { isNetease && it > 0L }
+    LyricShareSheet(
+        lyrics = emptyList(),
+        currentIndex = 0,
+        title = track.name,
+        artist = track.ar.joinToString(" / ") { it.name },
+        coverUrl = track.al.picUrl,
+        durationMs = track.dt,
+        songLink = shareSongId?.let { "https://music.163.com/song?id=$it" },
+        songId = shareSongId,
+        initialKind = ShareCardKind.SONG,
+        onDismiss = onDismiss,
+        onNavigateToPrivateChat = onNavigateToPrivateChat
+    )
+}
 
 // 歌词分享：先选句，再挑样式导出；没有可选歌词时直接进歌曲卡
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,13 +162,49 @@ fun LyricShareSheet(
     coverUrl: String,
     durationMs: Long,
     songLink: String? = null,
+    songId: Long? = null,
     initialKind: ShareCardKind = ShareCardKind.LYRIC,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val hasLyrics = remember(lyrics) { lyrics.any { LyricShareSelection.isSelectable(it) } }
+    val validSongId = songId?.takeIf { it > 0L }
+    val shareToFriendViewModel: ShareToFriendViewModel = koinViewModel()
+    val friendUiState by shareToFriendViewModel.uiState.collectAsStateWithLifecycle()
+    var showFriendSheet by remember { mutableStateOf(false) }
+    var sentNotice by remember { mutableStateOf<ShareSentNotice?>(null) }
+    var nextSentNoticeId by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(validSongId) {
+        if (validSongId != null) {
+            shareToFriendViewModel.loadIfNeeded()
+        }
+    }
+
+    if (validSongId != null) {
+        LaunchedEffect(shareToFriendViewModel) {
+            shareToFriendViewModel.toastEvent.collect { ToastManager.showToast(it) }
+        }
+        LaunchedEffect(shareToFriendViewModel) {
+            shareToFriendViewModel.shareCompleted.collect { recipient ->
+                showFriendSheet = false
+                nextSentNoticeId += 1L
+                sentNotice = ShareSentNotice(id = nextSentNoticeId, user = recipient)
+            }
+        }
+    }
+
+    // 连续发送同一个好友也需重新计时，靠自增 id 驱动协程重启
+    LaunchedEffect(sentNotice?.id) {
+        val current = sentNotice ?: return@LaunchedEffect
+        delay(SENT_NOTICE_DURATION_MS)
+        if (sentNotice?.id == current.id) {
+            sentNotice = null
+        }
+    }
 
     // 歌曲卡入口直接进预览，切到歌词卡时沿用默认选中的当前句
     val startWithLyric = hasLyrics && initialKind == ShareCardKind.LYRIC
@@ -99,17 +218,7 @@ fun LyricShareSheet(
     var exporting by remember { mutableStateOf(false) }
     var pendingSave by remember { mutableStateOf(false) }
 
-    var cover by remember(coverUrl) { mutableStateOf<Painter?>(null) }
-    var palette by remember(coverUrl) { mutableStateOf<List<Color>>(emptyList()) }
-    LaunchedEffect(coverUrl) {
-        if (coverUrl.isBlank()) return@LaunchedEffect
-        cover = loadCoverPainter(context, coverUrl)
-        palette = extractShareColorsFromUrl(context, coverUrl)
-    }
-    val iconBackground = painterResource(R.drawable.ic_launcher_background)
-    val iconForeground = painterResource(R.drawable.ic_launcher_foreground)
-    val logo = remember(iconBackground, iconForeground) { LayeredPainter(listOf(iconBackground, iconForeground)) }
-    val art = remember(cover, palette, logo) { ShareCardArt(cover, logo, palette) }
+    val art = rememberShareCardArt(coverUrl)
 
     val styles = ShareCardStyle.of(kind)
     val style = styles[(styleByKind.value[kind] ?: 0).coerceIn(0, styles.lastIndex)]
@@ -117,6 +226,21 @@ fun LyricShareSheet(
         LyricShareSelection.content(title, artist, lyrics, pick, durationMs)
     }
     val capture = rememberShareCardCapture()
+
+    fun buildShareNote(): String {
+        val shareContent = if (kind == ShareCardKind.SONG) {
+            content.copy(lines = emptyList(), lineBefore = null, lineAfter = null)
+        } else {
+            content
+        }
+        return ShareCardMessageCodec.encode(
+            style = style,
+            background = background,
+            ratio = ratio,
+            typography = typography,
+            content = shareContent
+        )
+    }
 
     fun export(action: ExportAction) {
         if (exporting) return
@@ -192,7 +316,7 @@ fun LyricShareSheet(
                     ShareStep.SELECT -> LyricSelectPage(
                         lyrics = lyrics,
                         pick = pick,
-                        tint = palette.firstOrNull(),
+                        tint = art.palette.firstOrNull(),
                         onToggle = { index, translation ->
                             val next = if (translation) {
                                 LyricShareSelection.toggleTranslation(lyrics, pick, index)
@@ -219,9 +343,28 @@ fun LyricShareSheet(
                         background = background,
                         ratio = ratio,
                         typography = typography,
-                        blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && cover != null,
+                        blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && art.cover != null,
                         exporting = exporting,
                         songLink = songLink,
+                        showFriendBar = validSongId != null,
+                        friendUiState = friendUiState,
+                        sentNotice = sentNotice,
+                        onNavigateToPrivateChat = { uid ->
+                            sentNotice = null
+                            onDismiss()
+                            onNavigateToPrivateChat(uid)
+                        },
+                        onSendToFriend = { uid ->
+                            if (validSongId != null) {
+                                shareToFriendViewModel.shareSong(
+                                    userId = uid,
+                                    songId = validSongId,
+                                    songName = title,
+                                    note = buildShareNote()
+                                )
+                            }
+                        },
+                        onOpenMoreFriends = { showFriendSheet = true },
                         onKindChange = { kind = it },
                         onStyleIndexChange = { styleByKind.value = styleByKind.value + (kind to it) },
                         onBackgroundChange = { background = it },
@@ -237,12 +380,23 @@ fun LyricShareSheet(
             MelodiaToastHost(rememberGlobalToastMessage())
         }
     }
+
+    if (showFriendSheet && validSongId != null) {
+        ShareToFriendSheet(
+            songId = validSongId,
+            songName = title,
+            note = buildShareNote(),
+            handleToasts = false,
+            viewModel = shareToFriendViewModel,
+            onDismiss = { showFriendSheet = false }
+        )
+    }
 }
 
-private suspend fun loadCoverPainter(context: android.content.Context, url: String): Painter? = try {
+private suspend fun loadCoverPainter(context: android.content.Context, url: String, sizePx: Int = 1080): Painter? = try {
     val request = ImageRequest.Builder(context)
         .data(url.substringBefore("?param="))
-        .size(1080, 1080)
+        .size(sizePx, sizePx)
         .allowHardware(false)
         .build()
     context.imageLoader.execute(request).image?.toBitmap()?.let { BitmapPainter(it.asImageBitmap()) }

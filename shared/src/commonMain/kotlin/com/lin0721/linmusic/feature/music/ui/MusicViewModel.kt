@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.music.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.AccountEvents
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
@@ -28,6 +29,17 @@ class MusicViewModel(
     val uiState: StateFlow<MusicUiState> = _uiState.asStateFlow()
 
     private var loadJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            AccountEvents.switched.collect {
+                // 仅在用户已进入过音乐页后才随账户切换刷新，保持首屏懒加载
+                if (_uiState.value !is MusicUiState.Loading || loadJob != null) {
+                    loadStyles()
+                }
+            }
+        }
+    }
 
     // 刻意不在 init 里拉数据：曲风列表 140KB 起步，进首页就请求会拖慢「全部」的首屏。
     // 首次切到「音乐」tab 时由 UI 触发，已加载过则直接复用。

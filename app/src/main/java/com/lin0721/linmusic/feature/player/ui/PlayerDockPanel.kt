@@ -38,7 +38,9 @@ fun PlayerDockPanel(
     // 侧栏→全屏的铺开进度（0~1）与全屏卡片的最终宽度
     fullscreenProgress: () -> Float,
     fullscreenWidth: Dp,
-    onLyricsFullScreenChange: (Boolean) -> Unit = {}
+    isPlayerVisible: Boolean = true,
+    onLyricsFullScreenChange: (Boolean) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     if (currentTrack == null) return
 
@@ -60,10 +62,12 @@ fun PlayerDockPanel(
                 onSeek = onSeek,
                 onClose = onClose,
                 isPlayerOpen = true,
+                isPlayerVisible = isPlayerVisible,
                 onArtistClick = onArtistClick,
                 onAlbumClick = onAlbumClick,
                 onPlaylistClick = onPlaylistClick,
                 onNavigateToProfile = onNavigateToProfile,
+                onNavigateToPrivateChat = onNavigateToPrivateChat,
                 onDragClose = onDragClose,
                 fitCoverToViewport = true,
                 contentMaxWidth = panelWidth,

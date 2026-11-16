@@ -156,7 +156,8 @@ fun MiniPlayerWindow(
                     }
                 },
                 onOpenLyricSettings = onOpenLyricSettings,
-                onRestore = onRestore
+                onRestore = onRestore,
+                onTrash = playerViewModel::trashCurrentFmSong
             )
         }
         val currentLayoutSize by rememberUpdatedState(layoutSize)

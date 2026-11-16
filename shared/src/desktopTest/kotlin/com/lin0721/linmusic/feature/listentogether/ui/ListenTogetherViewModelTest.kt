@@ -5,12 +5,19 @@ import com.lin0721.linmusic.core.listentogether.FakeRepository
 import com.lin0721.linmusic.core.listentogether.ListenTogetherSession
 import com.lin0721.linmusic.core.listentogether.RoomTrackResolver
 import com.lin0721.linmusic.core.listentogether.TestController
+import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherInvite
+import com.lin0721.linmusic.core.listentogether.domain.ListenTogetherRoom
+import com.lin0721.linmusic.core.listentogether.domain.RoomCheck
 import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.feature.message.loginAs
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -20,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,11 +53,16 @@ class ListenTogetherViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun TestScope.build(repo: FakeRepository, controller: TestController, selfId: Long): Pair<ListenTogetherSession, ListenTogetherViewModel> {
+    private fun TestScope.build(
+        repo: FakeRepository,
+        controller: TestController,
+        selfId: Long,
+        userPreferences: UserPreferences = UserPreferences(InMemoryPreferencesStore())
+    ): Pair<ListenTogetherSession, ListenTogetherViewModel> {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         val session = ListenTogetherSession(repo, controller, resolver, { selfId }, backgroundScope, dispatcher) { testScheduler.currentTime }
-        val viewModel = ListenTogetherViewModel(session, controller, resolver, UserPreferences(InMemoryPreferencesStore()), testResourceProvider)
+        val viewModel = ListenTogetherViewModel(session, controller, resolver, userPreferences, testResourceProvider)
         return session to viewModel
     }
 
@@ -102,5 +115,108 @@ class ListenTogetherViewModelTest {
         hostVm.playRoomTrack(1)
         assertTrue(hostController.actions.contains("play:2"))
         host.stop()
+    }
+
+    @Test
+    fun `startRoom 与 currentInviteText 生成带当前播放歌名的邀请文本`() = runTest {
+        val repo = FakeRepository()
+        val controller = TestController().apply {
+            nowPlayingFlow.value = NowPlaying("100", "晴天", "周杰伦", null)
+        }
+        val prefs = UserPreferences(InMemoryPreferencesStore()).apply { loginAs(88L) }
+        val (session, viewModel) = build(repo, controller, selfId = 88L, userPreferences = prefs)
+
+        var createdText = ""
+        viewModel.startRoom { createdText = it }
+        runCurrent()
+        assertEquals("邀请你一起听「晴天」【Melodia 一起听】roomId=r1;inviterId=88", createdText)
+        assertEquals(createdText, viewModel.currentInviteText())
+
+        controller.nowPlayingFlow.value = null
+        assertEquals("邀请你一起听【Melodia 一起听】roomId=r1;inviterId=88", viewModel.currentInviteText())
+        session.stop()
+    }
+
+    @Test
+    fun `joinInvite 覆盖未入房成功失败、同房直接Joined、异房发NeedLeaveCurrent与leaveAndJoin`() = runTest {
+        val repo = FakeRepository()
+        val controller = TestController()
+        val (session, viewModel) = build(repo, controller, selfId = 2L)
+        val events = mutableListOf<JoinInviteEvent>()
+        val collectJob = backgroundScope.launch { viewModel.joinEvents.collect { events += it } }
+        runCurrent()
+
+        // 1. 不在房间：加入失败 -> Failed
+        repo.checkRoomHandler = { Result.success(RoomCheck(false, "房间已结束")) }
+        viewModel.joinInvite("r1", 10L)
+        runCurrent()
+        assertEquals(listOf<JoinInviteEvent>(JoinInviteEvent.Failed("房间已结束")), events)
+        assertFalse(session.state.value.active)
+
+        // 2. 不在房间：加入成功 -> Joined
+        repo.checkRoomHandler = { Result.success(RoomCheck(true, null)) }
+        viewModel.joinInvite("r1", 10L)
+        runCurrent()
+        assertEquals(JoinInviteEvent.Joined(10L), events.last())
+        assertEquals("r1", session.state.value.roomId)
+
+        // 3. 已在同一 roomId -> 直接 Joined，不再请求接口
+        val joinsBeforeSame = repo.joinCalls
+        viewModel.joinInvite("r1", 10L)
+        runCurrent()
+        assertEquals(JoinInviteEvent.Joined(10L), events.last())
+        assertEquals(joinsBeforeSame, repo.joinCalls)
+
+        // 4. 在别的房间 -> NeedLeaveCurrent
+        viewModel.joinInvite("r2", 20L)
+        runCurrent()
+        assertEquals(JoinInviteEvent.NeedLeaveCurrent("r2", 20L), events.last())
+        assertEquals("r1", session.state.value.roomId)
+
+        // 5. leaveAndJoin 先退出再加入新房间
+        viewModel.leaveAndJoin("r2", 20L)
+        runCurrent()
+        assertEquals(JoinInviteEvent.Joined(20L), events.last())
+        assertEquals("r2", session.state.value.roomId)
+
+        session.stop()
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `joinInvite 尊重 busy 防重入，joinByInvite 保持原有提示文案并触发事件`() = runTest {
+        val repo = FakeRepository()
+        val deferred = CompletableDeferred<Result<ListenTogetherRoom>>()
+        repo.acceptHandler = { _, _ -> deferred.await() }
+        val (session, viewModel) = build(repo, TestController(), selfId = 2L)
+        val events = mutableListOf<JoinInviteEvent>()
+        val messages = mutableListOf<String>()
+        val j1 = backgroundScope.launch { viewModel.joinEvents.collect { events += it } }
+        val j2 = backgroundScope.launch { viewModel.messages.collect { messages += it } }
+        runCurrent()
+
+        // 无效文案保持提示
+        viewModel.joinByInvite("无效邀请")
+        runCurrent()
+        assertEquals(listOf("未识别到邀请内容，请粘贴完整的邀请文案"), messages)
+
+        // 合法文案加入中时 busy 拦截第二次调用
+        val inviteText = ListenTogetherInvite.format("r9", 99L, "七里香")
+        viewModel.joinByInvite(inviteText)
+        runCurrent()
+        assertTrue(viewModel.busy.value)
+        viewModel.joinInvite("r10", 100L)
+        runCurrent()
+        assertEquals(1, repo.joinCalls)
+
+        deferred.complete(Result.success(ListenTogetherRoom("r9", 99L, emptyList())))
+        runCurrent()
+        assertFalse(viewModel.busy.value)
+        assertEquals(JoinInviteEvent.Joined(99L), events.single())
+        assertEquals("已加入，将跟随房主播放", messages.last())
+
+        session.stop()
+        j1.cancel()
+        j2.cancel()
     }
 }

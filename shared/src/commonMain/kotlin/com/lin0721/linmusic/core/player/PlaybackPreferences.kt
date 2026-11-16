@@ -41,6 +41,14 @@ data class LocalRecentPlaylist(
     val playTime: Long
 )
 
+// 最近播放过的私人FM曲目摘要，供非 FM 上下文时在首页卡片回显封面
+@Serializable
+data class RecentFmTrack(
+    val songId: Long,
+    val coverUrl: String = "",
+    val title: String = ""
+)
+
 class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
 
     companion object {
@@ -56,12 +64,18 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_PLAY_CONTEXT = stringPreferencesKey("play_context")
         private val KEY_PLAY_SOURCE = stringPreferencesKey("play_source")
         private val KEY_RECENT_PLAYLISTS = stringPreferencesKey("local_recent_playlists")
+        private val KEY_RECENT_FM_TRACKS = stringPreferencesKey("recent_fm_tracks")
         private const val MAX_LOCAL_RECENT_PLAYLISTS = 20
+        private const val MAX_RECENT_FM_TRACKS = 3
         private val json = Json { ignoreUnknownKeys = true }
     }
 
     val recentPlaylists: Flow<List<LocalRecentPlaylist>> = dataStore.data.map { prefs ->
         decodeRecentPlaylists(prefs[KEY_RECENT_PLAYLISTS])
+    }.distinctUntilChanged()
+
+    val recentFmTracks: Flow<List<RecentFmTrack>> = dataStore.data.map { prefs ->
+        decodeRecentFmTracks(prefs[KEY_RECENT_FM_TRACKS])
     }.distinctUntilChanged()
 
     // 同一歌单只留最新一条，按播放时间倒序保留最近 20 个
@@ -74,10 +88,32 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         }
     }
 
+    // 保留最近 3 首 FM 曲目，按 songId 去重并优先保留本批新顺序；不足 3 首时用已有记录补齐
+    suspend fun saveRecentFmTracks(tracks: List<RecentFmTrack>) {
+        val incoming = tracks
+            .filter { it.songId > 0L }
+            .distinctBy { it.songId }
+        if (incoming.isEmpty()) return
+        dataStore.edit { prefs ->
+            val existing = decodeRecentFmTracks(prefs[KEY_RECENT_FM_TRACKS])
+            val merged = (incoming + existing)
+                .distinctBy { it.songId }
+                .take(MAX_RECENT_FM_TRACKS)
+            prefs[KEY_RECENT_FM_TRACKS] = json.encodeToString(merged)
+        }
+    }
+
     private fun decodeRecentPlaylists(raw: String?): List<LocalRecentPlaylist> {
         if (raw.isNullOrBlank()) return emptyList()
         return runCatching { json.decodeFromString<List<LocalRecentPlaylist>>(raw) }
             .onFailure { AppLogger.w(TAG, "本地最近播放歌单反序列化失败", it) }
+            .getOrDefault(emptyList())
+    }
+
+    private fun decodeRecentFmTracks(raw: String?): List<RecentFmTrack> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { json.decodeFromString<List<RecentFmTrack>>(raw) }
+            .onFailure { AppLogger.w(TAG, "最近私人FM曲目反序列化失败", it) }
             .getOrDefault(emptyList())
     }
 

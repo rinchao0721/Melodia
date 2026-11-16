@@ -63,6 +63,8 @@ class AudioSourceRouterTest {
         override fun getRawLyrics(songId: Long): Flow<Result<String>> = emptyFlow()
         override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = emptyFlow()
         override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = emptyFlow()
+        override fun getPersonalFmSongs(mode: com.lin0721.linmusic.core.player.PersonalFmMode): Flow<Result<List<Track>>> = emptyFlow()
+        override fun trashFmSong(songId: Long, playedSeconds: Long): Flow<Result<Unit>> = emptyFlow()
         override fun reportStartPlay(songId: Long, source: PlaySource?): Flow<Result<Unit>> = emptyFlow()
         override fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?): Flow<Result<Unit>> = emptyFlow()
         override val playlistRecorded: SharedFlow<Long> = MutableSharedFlow()

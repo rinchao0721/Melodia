@@ -58,6 +58,22 @@ class SearchDropdownTest {
         assertEquals(listOf(0, 1, 2), rows.filterIsInstance<DropdownRow.Item>().map { it.index })
     }
 
+    @Test
+    fun `输入网易云链接时链接直达排在最前面`() {
+        val link = "https://music.163.com/song?id=2023954033"
+        val hit = com.lin0721.linmusic.feature.search.ui.SearchLinkHit(
+            query = link,
+            target = com.lin0721.linmusic.core.deeplink.SongLinkTarget.Song(2023954033L),
+            previewState = com.lin0721.linmusic.core.deeplink.LinkPreviewState.Loading
+        )
+        val rows = buildRows(link, emptyList(), emptyList(), emptyList(), linkHit = hit)
+        assertEquals(
+            listOf(DropdownEntry.LinkHit(hit), DropdownEntry.Literal(link)),
+            entriesOf(rows)
+        )
+        assertEquals(listOf(0, 1), rows.filterIsInstance<DropdownRow.Item>().map { it.index })
+    }
+
     private fun shown(count: Int, onActivate: (Int) -> Unit = {}, onRelease: () -> Unit = {}) =
         SearchDropdownState().apply {
             focused = true

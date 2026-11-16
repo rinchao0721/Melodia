@@ -76,6 +76,7 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_MINI_LYRIC_KARAOKE = booleanPreferencesKey("mini_lyric_karaoke")
         private val KEY_MINI_LYRIC_SIDE_LINES = booleanPreferencesKey("mini_lyric_side_lines")
         private val KEY_MINI_LYRIC_ALIGN = stringPreferencesKey("mini_lyric_align")
+        private val KEY_LIBRARY_SHORTCUTS = stringPreferencesKey("library_shortcuts")
 
         val DEFAULT_DESKTOP_LYRIC_STYLE = FloatingLyricStyle(fontSizeSp = 28)
     }
@@ -200,6 +201,13 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
     val libraryViewMode: Flow<LibraryViewMode> = dataStore.data.map { prefs ->
         prefs[KEY_LIBRARY_VIEW_MODE]?.let { name -> LibraryViewMode.entries.firstOrNull { it.name == name } } ?: LibraryViewMode.LIST
     }.distinctUntilChanged()
+
+    val libraryShortcuts: Flow<List<LibraryShortcutSetting>> =
+        dataStore.data.map { LibraryShortcutLayout.decode(it[KEY_LIBRARY_SHORTCUTS]) }.distinctUntilChanged()
+
+    suspend fun saveLibraryShortcuts(layout: List<LibraryShortcutSetting>) {
+        dataStore.edit { it[KEY_LIBRARY_SHORTCUTS] = LibraryShortcutLayout.encode(layout) }
+    }
 
     // 拖动调整过的栏宽（dp），未调整过为 null
     val libraryWidth: Flow<Float?> = dataStore.data.map { it[KEY_LIBRARY_WIDTH] }.distinctUntilChanged()

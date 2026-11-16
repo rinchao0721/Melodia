@@ -117,4 +117,10 @@ class MediaControllerHolder(private val context: Context) {
             Bundle().apply { putInt("device_id", deviceId) }
         )
     }
+
+    // 主动断开控制器连接，确保关闭服务时无残留绑定阻碍服务销毁
+    fun disconnect() {
+        controller?.release()
+        controller = null
+    }
 }

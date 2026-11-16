@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.feature.search.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,11 +19,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,10 +50,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.deeplink.LinkPreviewState
+import com.lin0721.linmusic.core.deeplink.SongLinkTarget
+import com.lin0721.linmusic.core.deeplink.typeLabel
+import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -57,10 +70,13 @@ private val LeadingSize = 40.dp
 @Composable
 internal fun SearchTypingPanel(
     query: String,
+    linkHit: SearchLinkHit?,
     suggestions: List<SearchSuggestion>,
     history: List<String>,
     onSubmitKeyword: (String) -> Unit,
     onFillQuery: (String) -> Unit,
+    onOpenLinkTarget: (SongLinkTarget, Track?) -> Unit,
+    onEnqueueLinkNext: (Long, Track?) -> Unit,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onRemoveHistory: (String) -> Unit,
@@ -118,6 +134,19 @@ internal fun SearchTypingPanel(
 
     val highlight = MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
+        if (linkHit != null) {
+            item(key = "link_hit_${linkHit.query}") {
+                val cachedTrack = (linkHit.previewState as? LinkPreviewState.Ready)?.preview?.track
+                SearchLinkHitCard(
+                    hit = linkHit,
+                    onPrimaryAction = { onOpenLinkTarget(linkHit.target, cachedTrack) },
+                    onEnqueueNext = {
+                        val songId = (linkHit.target as? SongLinkTarget.Song)?.id ?: return@SearchLinkHitCard
+                        onEnqueueLinkNext(songId, cachedTrack)
+                    }
+                )
+            }
+        }
         item(key = "submit_query") {
             PanelRow(
                 onClick = { onSubmitKeyword(query) },
@@ -162,6 +191,86 @@ internal fun SearchTypingPanel(
                     trailing = fillButton
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchLinkHitCard(
+    hit: SearchLinkHit,
+    onPrimaryAction: () -> Unit,
+    onEnqueueNext: () -> Unit
+) {
+    val preview = (hit.previewState as? LinkPreviewState.Ready)?.preview
+    val target = hit.target
+    val isSong = target is SongLinkTarget.Song
+    val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
+    val fallbackIcon = when (target) {
+        is SongLinkTarget.Song -> Icons.Rounded.MusicNote
+        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else Icons.AutoMirrored.Rounded.QueueMusic
+        is SongLinkTarget.Artist -> Icons.Rounded.Person
+    }
+    val titleText = when {
+        preview != null -> preview.title
+        hit.previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
+        else -> "网易云${target.typeLabel}"
+    }
+    val subtitleText = when {
+        preview != null && preview.subtitle.isNotBlank() -> preview.subtitle
+        hit.previewState is LinkPreviewState.Loading -> "正在解析…"
+        else -> if (isSong) "点击插播" else "点击打开${target.typeLabel}"
+    }
+    val cardShape = RoundedCornerShape(InfoCardRadius)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+            .clip(cardShape)
+            .background(MelodiaColors.CardSurface)
+            .border(0.5.dp, MelodiaColors.Divider, cardShape)
+            .pressable(MelodiaPress.Row, onClick = onPrimaryAction)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SuggestionCover(preview?.coverUrl, fallbackIcon, circle = isCircle)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = titleText,
+                color = MelodiaColors.TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitleText,
+                color = MelodiaColors.TextSecondary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (isSong) {
+            MelodiaIconButton(onClick = onEnqueueNext) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    contentDescription = "下一首播放",
+                    tint = MelodiaColors.TextPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        MelodiaIconButton(onClick = onPrimaryAction) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = if (isSong) "插播" else "打开",
+                tint = MelodiaColors.AccentText,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }

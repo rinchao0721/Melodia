@@ -118,10 +118,11 @@ class PodcastHomeViewModel(
         }
     }
 
-    // 登录态变化时订阅区块随之加载或清空
+    // 登录态或活跃账户变化时订阅区块随之加载或清空
     private fun observeLogin() {
         viewModelScope.launch {
-            userPreferences.userProfile.map { it != null }.distinctUntilChanged().collect { loggedIn ->
+            userPreferences.userProfile.map { it?.uid }.distinctUntilChanged().collect { uid ->
+                val loggedIn = uid != null
                 _state.update { it.copy(isLoggedIn = loggedIn) }
                 if (loggedIn) {
                     loadSubscribed()

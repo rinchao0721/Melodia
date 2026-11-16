@@ -62,7 +62,8 @@ private fun LoginMode.depth(): Int = if (this == LoginMode.CHOICE) 0 else 1
 fun LoginBottomSheet(
     onDismiss: () -> Unit,
     onWebLogin: () -> Unit,
-    onLoginSuccess: (String) -> Unit
+    onLoginSuccess: (String) -> Unit,
+    addAccount: Boolean = false
 ) {
     val motion = LocalUiMotion.current
     val viewModel: LoginViewModel = koinViewModel()
@@ -138,6 +139,7 @@ fun LoginBottomSheet(
                 ) {
                     when (targetMode) {
                         LoginMode.CHOICE -> LoginChoiceContent(
+                            addAccount = addAccount,
                             onWebLogin = onWebLogin,
                             onQrLogin = {
                                 mode = LoginMode.QR
@@ -161,20 +163,21 @@ fun LoginBottomSheet(
  */
 @Composable
 private fun LoginChoiceContent(
+    addAccount: Boolean,
     onWebLogin: () -> Unit,
     onQrLogin: () -> Unit,
     onCookieLogin: () -> Unit
 ) {
     // 大标题
     Text(
-        text = "登录",
+        text = if (addAccount) "添加帐号" else "登录",
         fontSize = 28.sp,
         fontWeight = FontWeight.ExtraBold,
         color = MelodiaColors.TextPrimary,
         modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
     )
     Text(
-        text = "登录后享受完整体验",
+        text = if (addAccount) "登录另一个网易云账号，可在侧边栏随时切换" else "登录后享受完整体验",
         fontSize = 13.sp,
         color = MelodiaColors.HintText,
         modifier = Modifier.padding(bottom = MelodiaSpacing.xl)

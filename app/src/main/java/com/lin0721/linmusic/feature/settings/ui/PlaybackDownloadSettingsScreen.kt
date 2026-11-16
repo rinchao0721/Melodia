@@ -82,11 +82,23 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
     val crossfadeDurationMs by viewModel.crossfadeDurationMs.collectAsStateWithLifecycle()
     val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
     val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
+    val notificationButtons by viewModel.notificationButtons.collectAsStateWithLifecycle()
+    var showNotificationButtonsSheet by remember { mutableStateOf(false) }
 
     // 渲染播放的子设置项
     SettingsPageColumn {
         item {
             SettingsGroupCard(SettingsSubMenu.PLAYBACK.sectionTitles[0]) {
+                val enabledButtonsSummary = remember(notificationButtons) {
+                    val titles = notificationButtons.filter { it.visible }.map { it.item.title }
+                    if (titles.isEmpty()) "仅显示固定播控按钮" else "当前启用：${titles.joinToString("、")}"
+                }
+                SettingsRow(
+                    title = "通知栏按钮",
+                    subtitle = enabledButtonsSummary,
+                    onClick = { showNotificationButtonsSheet = true }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
                     title = "自动播放推荐新歌",
                     subtitle = "当前曲目播放完毕后自动接入相似推荐",
@@ -172,6 +184,14 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
                 }
             }
         }
+    }
+
+    if (showNotificationButtonsSheet) {
+        NotificationButtonsSheet(
+            layout = notificationButtons,
+            onLayoutChange = { viewModel.updateNotificationButtons(it) },
+            onDismiss = { showNotificationButtonsSheet = false }
+        )
     }
 }
 

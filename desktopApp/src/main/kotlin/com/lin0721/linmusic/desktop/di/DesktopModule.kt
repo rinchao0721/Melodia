@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.di
 
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.auth.LoginViewModel
-import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
@@ -40,6 +39,7 @@ import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -78,10 +78,14 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
+import com.lin0721.linmusic.feature.message.ui.MessageViewModel
+import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
+import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
 import com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedViewModel
@@ -156,7 +160,7 @@ object DesktopLaunchOptions {
 
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
-    single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+    single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { DesktopSkinImageCodec() }
     single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }
     single { SkinRepository(get(), get()) }
@@ -169,11 +173,13 @@ val desktopPlatformModule = module {
     }
     single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
-    single { SessionMonitor(get(), get()) }
-    single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+    single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY), userPreferences = get()) }
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
+    single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
+    // 启动即预读，首页首帧前备好封面卡颜色
+    single(createdAtStart = true) { CoverColorMemory(store(PreferencesStores.COVER_COLOR), CoroutineScope(SupervisorJob() + Dispatchers.IO)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }
@@ -251,7 +257,7 @@ val desktopPlatformModule = module {
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列
     single(createdAtStart = true) { CloudLibrary(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     single { CloudMusicActions(get(), get(), get(), get(), get<PlaybackController>()) }
-    single { RecognitionHistoryPreferences(store(PreferencesStores.RECOGNITION_HISTORY)) }
+    single { RecognitionHistoryPreferences(store(PreferencesStores.RECOGNITION_HISTORY), userPreferences = get()) }
     single { RecognitionPreferences(store(PreferencesStores.RECOGNITION)) }
     single { GraalAfpFingerprintEngine() }
     single {
@@ -323,7 +329,8 @@ val desktopViewModelModule = module {
             sourcePreferences = getOrNull(),
             collectionActions = get(),
             artistRepository = get(),
-            podcastRepository = get()
+            podcastRepository = get(),
+            linkPreviewResolver = getOrNull()
         )
     }
     factoryOf(::PlaylistCategoryViewModel)
@@ -331,6 +338,9 @@ val desktopViewModelModule = module {
     singleOf(::PlayerViewModel)
     singleOf(::ListenTogetherViewModel)
     factoryOf(::RoomSongPickerViewModel)
+    factoryOf(::MessageViewModel)
+    factoryOf(::PrivateChatViewModel)
+    factoryOf(::ShareToFriendViewModel)
     factoryOf(::ArtistViewModel)
     singleOf(::CommonSettingsViewModel)
     singleOf(::LxPluginSettingsViewModel)

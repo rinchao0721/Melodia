@@ -862,14 +862,14 @@ fun MelodiaNavigationBar(
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
-                            tint = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                            tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
                             modifier = Modifier.size(if (iconOnly) 24.dp else 22.dp)
                         )
                     }
                     if (!iconOnly) {
                         Text(
                             text = label,
-                            color = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                            color = if (isSelected) MelodiaColors.AccentText else MelodiaColors.TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

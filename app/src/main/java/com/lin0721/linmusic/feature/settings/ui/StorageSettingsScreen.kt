@@ -27,18 +27,18 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.EntryHotGradient
-import com.lin0721.linmusic.core.ui.theme.EntryRadarGradient
-import com.lin0721.linmusic.core.ui.theme.EntryRoamingGradient
+import com.lin0721.linmusic.core.ui.theme.ForYouHotColor
+import com.lin0721.linmusic.core.ui.theme.ForYouRadarColor
+import com.lin0721.linmusic.core.ui.theme.ForYouRoamingColor
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 
 // 5 个分类的图例色，复用首页功能入口卡片已有的策展色，不新造颜色
 private val CacheAudioColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Accent
-private val CacheImageColor = EntryHotGradient.first()
-private val CacheLogColor = EntryRadarGradient.first()
-private val CacheUpdateColor = EntryRoamingGradient.first()
+private val CacheImageColor = ForYouHotColor
+private val CacheLogColor = ForYouRadarColor
+private val CacheUpdateColor = ForYouRoamingColor
 private val CacheOtherColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextSecondary
 
 // 待确认的清理操作带二次确认
@@ -106,7 +106,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MelodiaColors.AccentText
                         )
                     }
 
@@ -407,7 +407,7 @@ private fun CacheCategoryRow(
             Icon(
                 imageVector = Icons.Default.DeleteOutline,
                 contentDescription = "清理$title",
-                tint = MaterialTheme.colorScheme.error,
+                tint = MelodiaColors.AccentText,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -428,7 +428,7 @@ private fun ClearConfirmDialog(
         text = { Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
         confirmButton = {
             MelodiaTextButton(onClick = onConfirm) {
-                Text("清空", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text("清空", color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

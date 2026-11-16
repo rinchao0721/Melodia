@@ -24,7 +24,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.LyricsSource
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
@@ -104,7 +106,10 @@ class FullPlayerLayoutParts(
     private val lyricsCoverColors: LayoutCoverColors,
     val sleepTimerActive: Boolean,
     val onSleepTimerClick: () -> Unit,
-    val onCommentsClick: () -> Unit
+    val onCommentsClick: () -> Unit,
+    val personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    val onPersonalFmModeClick: (() -> Unit)? = null,
+    val onTrashFm: () -> Unit = {}
 ) {
     // $player 绑定的取值；本对象每次重组都重建，算一次即可
     val binding: PlayerBindingState by lazy {
@@ -195,9 +200,27 @@ class FullPlayerLayoutParts(
                     queueTarget = queueTarget
                 )
             }
-            LayoutNodeType.SONG_TITLE -> SongTitleText(title, onAlbumClick, modifier, (22 * scale).sp, node.maxLines)
+            LayoutNodeType.SONG_TITLE -> if (playContext == PlaybackController.CONTEXT_PERSONAL_FM && onPersonalFmModeClick != null) {
+                Column(modifier) {
+                    PersonalFmModePill(
+                        mode = personalFmMode,
+                        onClick = onPersonalFmModeClick,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    SongTitleText(title, onAlbumClick, Modifier, (22 * scale).sp, node.maxLines)
+                }
+            } else {
+                SongTitleText(title, onAlbumClick, modifier, (22 * scale).sp, node.maxLines)
+            }
             LayoutNodeType.ARTIST -> SongArtistText(artist, onArtistClick, modifier, (15 * scale).sp)
             LayoutNodeType.SONG_INFO -> Column(modifier) {
+                if (playContext == PlaybackController.CONTEXT_PERSONAL_FM && onPersonalFmModeClick != null) {
+                    PersonalFmModePill(
+                        mode = personalFmMode,
+                        onClick = onPersonalFmModeClick,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
                 SongTitleText(title, onAlbumClick, Modifier, (22 * scale).sp, node.maxLines)
                 SongArtistText(artist, onArtistClick, Modifier, (15 * scale).sp)
             }
@@ -232,6 +255,8 @@ class FullPlayerLayoutParts(
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
                 playMode = playMode,
+                isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+                onTrashFm = onTrashFm,
                 showModeButtons = !podcast.isPodcast,
                 modifier = modifier,
                 scale = scale,
@@ -285,7 +310,12 @@ class FullPlayerLayoutParts(
                 FullPlayerCollapseButtons(slots.onClose, null, false, modifier)
             } ?: FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
             LayoutNodeType.MORE_BUTTON -> FullPlayerMoreButton(onMoreClick, modifier)
-            LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, modifier)
+            LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(
+                playContext = playContext,
+                podcastRadioName = podcastRadioName,
+                onPlaylistClick = onPlaylistClick,
+                modifier = modifier
+            )
             else -> Unit
         }
     }

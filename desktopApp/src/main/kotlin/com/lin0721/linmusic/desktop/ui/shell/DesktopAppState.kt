@@ -36,10 +36,21 @@ class DesktopAppState(
     var showNewWorks by mutableStateOf(false)
         private set
     var showLogin by mutableStateOf(false)
+    // 登录弹窗以「添加帐号」模式打开
+    var loginAddAccount by mutableStateOf(false)
 
-    // 非空时显示分享卡片对话框，值为初始类型
-    var shareCardKind by mutableStateOf<ShareCardKind?>(null)
+    // 非空时显示分享卡片对话框；song 为 null 时分享当前正在播放的歌曲
+    var shareCardTarget by mutableStateOf<ShareCardTarget?>(null)
     var showRecognition by mutableStateOf(false)
+
+    data class ShareCardTarget(val kind: ShareCardKind, val song: ShareSongInfo? = null)
+    data class ShareSongInfo(
+        val songId: Long,
+        val title: String,
+        val artist: String,
+        val coverUrl: String?,
+        val durationMs: Long = 0L
+    )
 
     // 打开设置页后要滚动到的分区（SettingsCategory.name），滚动完即清空
     var settingsFocus by mutableStateOf<String?>(null)
@@ -207,6 +218,15 @@ class DesktopAppState(
     }
 
     fun openCloud() = record(DesktopRoute.Cloud) {
+        if (pane.libraryMode == LibraryMode.EXPANDED) applyLibraryMode(LibraryMode.DEFAULT)
+    }
+
+    fun openDailyRecommend() = record(
+        DesktopRoute.Playlist(
+            com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID,
+            com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
+        )
+    ) {
         if (pane.libraryMode == LibraryMode.EXPANDED) applyLibraryMode(LibraryMode.DEFAULT)
     }
 

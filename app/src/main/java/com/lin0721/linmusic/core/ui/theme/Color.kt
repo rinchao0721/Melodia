@@ -73,8 +73,6 @@ fun Color.saturateIfChromatic(amount: Float): Color {
     return saturate(amount * weight)
 }
 
-val GradientStart = Color(0xFF3a1515)
-
 // 全局 Toast 底色
 val ToastBackground = Color(0xFF2E2E2E)
 
@@ -114,9 +112,7 @@ val LibraryLikedCoverDark = LikedCoverColors(
     bottomCircle = Color(0xFFB85A64)
 )
 
-// 首页功能入口的策展渐变。心动模式、音乐漫游这类功能本就没有对应封面，
-// 用固定色块表达
-val EntryHotGradient = listOf(Color(0xFFF08C1A), Color(0xFF9C4A05))
-val EntryHeartGradient = listOf(Color(0xFFA33FC4), Color(0xFF4B1268))
-val EntryRadarGradient = listOf(Color(0xFF2F7FD6), Color(0xFF123F70))
-val EntryRoamingGradient = listOf(Color(0xFF3FAE5C), Color(0xFF175C2C))
+// 首页「为你定制」卡片底色（中低饱和实色）
+val ForYouHotColor = Color(0xFFA8642C)
+val ForYouRadarColor = Color(0xFF2F7D73)
+val ForYouRoamingColor = Color(0xFF6A55A3)

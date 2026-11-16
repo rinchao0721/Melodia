@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui.shell
 
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 
 // 把应用状态与下载能力包装成页面使用的跳转与提示入口
@@ -39,8 +40,17 @@ internal fun desktopNavigator(
         goBack = state::popBack,
         toggleCommentsPanel = state::toggleCommentsPanel,
         isCommentsPanelOpen = state::isCommentsPanelOpen,
-        openShareCard = { kind -> state.shareCardKind = kind },
+        openShareCard = { kind -> state.shareCardTarget = DesktopAppState.ShareCardTarget(kind) },
+        openSongShareCard = { song -> state.shareCardTarget = DesktopAppState.ShareCardTarget(ShareCardKind.SONG, song) },
         openListenTogether = { state.navigate(DesktopRoute.ListenTogether) },
-        isListenTogetherOpen = state.backStack.current == DesktopRoute.ListenTogether
+        isListenTogetherOpen = state.backStack.current == DesktopRoute.ListenTogether,
+        openMessages = { peerUid, peerName, peerAvatar ->
+            if (isLoggedIn) {
+                state.navigate(DesktopRoute.Messages(peerUid, peerName, peerAvatar))
+            } else {
+                state.showMessage("请先登录账号")
+                state.showLogin = true
+            }
+        }
     )
 }
