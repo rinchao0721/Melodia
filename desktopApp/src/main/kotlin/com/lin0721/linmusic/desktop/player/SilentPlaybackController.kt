@@ -185,6 +185,12 @@ class SilentPlaybackController : DesktopPlaybackController {
         refreshNeighbours()
     }
 
+    override fun stopAndClearQueue() {
+        clearQueue()
+        _playContext.value = null
+        _playSource.value = null
+    }
+
     override fun toggleShuffle() {
         _playMode.value = if (_playMode.value == PlayMode.SHUFFLE) PlayMode.LIST_LOOP else PlayMode.SHUFFLE
     }

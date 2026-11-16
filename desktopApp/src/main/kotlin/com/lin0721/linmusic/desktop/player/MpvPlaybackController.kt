@@ -461,6 +461,23 @@ class MpvPlaybackController(
         saveState()
     }
 
+    // 切换或退出账户时彻底停止播放并清空队列与持久化状态
+    override fun stopAndClearQueue() {
+        abortCrossfadePlan()
+        playJob?.cancel()
+        finishReporting()
+        playbackQueue.clear()
+        _playWhenReady.value = false
+        _isPlaying.value = false
+        engine.stop()
+        loadedSongId = null
+        _nowPlaying.value = null
+        _currentPosition.value = 0L
+        _duration.value = 0L
+        saveQueueState()
+        saveState()
+    }
+
     override fun toggleShuffle() {
         if (personalFm.isPersonalFm) return
         applyMode(if (playbackQueue.playMode.value == PlayMode.SHUFFLE) PlayMode.LIST_LOOP else PlayMode.SHUFFLE)

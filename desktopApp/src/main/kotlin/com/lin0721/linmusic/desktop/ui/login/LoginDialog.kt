@@ -69,7 +69,8 @@ fun LoginDialog(
     viewModel: LoginViewModel,
     browserLocator: BrowserLocator,
     onLoginSuccess: (cookies: String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    addAccount: Boolean = false
 ) {
     var tab by remember { mutableStateOf(LoginTab.SCAN) }
 

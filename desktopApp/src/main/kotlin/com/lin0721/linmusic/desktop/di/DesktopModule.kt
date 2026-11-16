@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.di
 
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.auth.LoginViewModel
-import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
@@ -161,7 +160,7 @@ object DesktopLaunchOptions {
 
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
-    single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+    single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { DesktopSkinImageCodec() }
     single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }
     single { SkinRepository(get(), get()) }
@@ -174,8 +173,7 @@ val desktopPlatformModule = module {
     }
     single { GraalLxPluginRuntime(factory = get()) } bind LxPluginRuntime::class
     single<AudioSourceProvider>(named("lx")) { LxAudioSourceProvider(get<LxPluginRuntime>(), get(), getAll<PlatformSearchProvider>()) }
-    single { SessionMonitor(get(), get()) }
-    single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+    single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY), userPreferences = get()) }
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
@@ -259,7 +257,7 @@ val desktopPlatformModule = module {
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列
     single(createdAtStart = true) { CloudLibrary(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     single { CloudMusicActions(get(), get(), get(), get(), get<PlaybackController>()) }
-    single { RecognitionHistoryPreferences(store(PreferencesStores.RECOGNITION_HISTORY)) }
+    single { RecognitionHistoryPreferences(store(PreferencesStores.RECOGNITION_HISTORY), userPreferences = get()) }
     single { RecognitionPreferences(store(PreferencesStores.RECOGNITION)) }
     single { GraalAfpFingerprintEngine() }
     single {

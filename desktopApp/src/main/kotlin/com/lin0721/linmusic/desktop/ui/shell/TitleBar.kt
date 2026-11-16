@@ -501,7 +501,7 @@ private fun AvatarMenu(
                 }
             )
             if (userProfile != null) {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出登录") {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出当前账户") {
                     expanded = false
                     onLogoutClick()
                 }

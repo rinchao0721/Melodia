@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import com.lin0721.linmusic.core.auth.AccountEvents
+import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.deeplink.ClipboardLink
 import com.lin0721.linmusic.core.deeplink.LinkPreviewState
 import com.lin0721.linmusic.core.deeplink.NeteaseLink
@@ -132,11 +134,26 @@ fun WindowScope.MelodiaDesktopApp(
         ) { _, _, _ -> }.collect { state.absorbUiChange() }
     }
     LaunchedEffect(state) { deps.desktopPreferences.nowPlayingPanelOpen.collect(state::syncSavedDockOpen) }
-    // 登录失效时本地登录态已被清掉，这里提示并直接打开登录框
+    // 监听会话过期并按剩余账户状态提示或打开登录框；账户切换/退出/过期时回到主页
     LaunchedEffect(state) {
-        deps.sessionMonitor.watch {
-            state.showMessage("登录已过期，请重新登录")
-            state.showLogin = true
+        deps.sessionMonitor.watch {}
+    }
+    LaunchedEffect(state) {
+        deps.sessionMonitor.expiredNotices.collect { notice ->
+            val nextProfile = notice.nextProfile
+            if (nextProfile != null) {
+                state.showMessage("当前账户登录已过期，已切换至 ${nextProfile.nickname}")
+            } else {
+                state.showMessage("登录已过期，请重新登录")
+                state.showLogin = true
+            }
+        }
+    }
+    LaunchedEffect(state) {
+        AccountEvents.switched.collect { event ->
+            if (event.reason != AccountSwitchReason.ADDED || event.previousUid != null) {
+                state.goHomeAll()
+            }
         }
     }
     // 播放组件加载失败时启动就提示一次，之后每次尝试播放再提示
