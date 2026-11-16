@@ -95,7 +95,9 @@ class LibraryViewModel(
     private val externalStore: PlaylistExternalTrackStore
 ) : ViewModel() {
 
-    private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
+    // 置顶与自定义顺序按账户存，切换账户时重新读取
+    private var prefsUid: Long? = null
+    private val _pinnedIds = MutableStateFlow<Set<String>>(emptySet())
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -130,9 +132,15 @@ class LibraryViewModel(
         viewModelScope.launch {
             userPreferences.userProfile.collect { profile ->
                 if (profile != null) {
+                    if (prefsUid != profile.uid) {
+                        prefsUid = profile.uid
+                        _pinnedIds.value = getPinnedIdsFromPrefs()
+                    }
                     loadLibraryData(profile)
                 } else {
                     libraryLoadJob?.cancel()
+                    prefsUid = null
+                    _pinnedIds.value = emptySet()
                     lastLoadedUid = null
                     _uiState.value = LibraryUiState.Loading
                 }
@@ -200,16 +208,18 @@ class LibraryViewModel(
         }
     }
 
-    private fun getPinnedIdsFromPrefs(): Set<String> = libraryPreferences.pinnedIds()
+    private fun getPinnedIdsFromPrefs(): Set<String> =
+        prefsUid?.let { libraryPreferences.pinnedIds(it) } ?: emptySet()
 
     private fun savePinnedIdsToPrefs(ids: Set<String>) {
-        libraryPreferences.setPinnedIds(ids)
+        prefsUid?.let { libraryPreferences.setPinnedIds(it, ids) }
     }
 
-    private fun getCustomPlaylistOrderFromPrefs(): List<String> = libraryPreferences.customPlaylistOrder()
+    private fun getCustomPlaylistOrderFromPrefs(): List<String> =
+        prefsUid?.let { libraryPreferences.customPlaylistOrder(it) } ?: emptyList()
 
     private fun saveCustomPlaylistOrderToPrefs(order: List<String>) {
-        libraryPreferences.setCustomPlaylistOrder(order)
+        prefsUid?.let { libraryPreferences.setCustomPlaylistOrder(it, order) }
     }
 
     private fun getSortOrderFromPrefs(): LibrarySortOrder {
