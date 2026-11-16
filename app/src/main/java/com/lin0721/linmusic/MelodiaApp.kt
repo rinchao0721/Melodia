@@ -122,6 +122,9 @@ import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.auth.AccountEvents
+import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.player.PlayerManager
@@ -331,6 +334,14 @@ fun MelodiaApp() {
     // 侧边栏未登录入口触发的登录，侧栏可从任意页面拉出，登录界面挂在全局层
     var showSidebarLoginSheet by remember { mutableStateOf(false) }
     var showSidebarWebLogin by remember { mutableStateOf(false) }
+    // 侧边栏「添加帐号」打开的登录
+    var sidebarLoginAddAccount by remember { mutableStateOf(false) }
+    val userPreferences: UserPreferences = koinInject()
+    val accountSwitcher: AccountSwitcher = koinInject()
+    val conversationPreviewStore: PrivateConversationPreviewStore = koinInject()
+    val accounts by userPreferences.accounts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val conversationPreview by conversationPreviewStore.state.collectAsStateWithLifecycle()
+    val accountScope = rememberCoroutineScope()
     val sessionMonitor: SessionMonitor = koinInject()
     LaunchedEffect(sessionMonitor) {
         sessionMonitor.watch {}
@@ -342,9 +353,14 @@ fun MelodiaApp() {
                 ToastManager.showToast("当前账户登录已过期，已切换至 ${nextProfile.nickname}")
             } else {
                 ToastManager.showToast("登录已过期，请重新登录")
+                sidebarLoginAddAccount = false
                 showSidebarLoginSheet = true
             }
         }
+    }
+    // 打开侧边栏先显示缓存，再后台刷新私信预览
+    LaunchedEffect(sidebar.isOpen, userProfile?.uid) {
+        if (sidebar.isOpen && userProfile != null) conversationPreviewStore.refresh()
     }
     LaunchedEffect(navigation, sidebar) {
         AccountEvents.switched.collect { event ->
@@ -879,12 +895,26 @@ fun MelodiaApp() {
         ) {
             ProfileSidebar(
                 userProfile = userProfile,
+                accounts = accounts,
                 privateUnreadCount = privateUnreadCount,
+                conversationPreview = conversationPreview,
                 onDismissUnread = { privateUnreadMonitor.markAllRead() },
-                onLogin = { showSidebarLoginSheet = true },
-                onLogout = {
-                    viewModel.logout()
-                    sidebar.close()
+                onDismissConversationUnread = conversationPreviewStore::markRead,
+                onLogin = {
+                    sidebarLoginAddAccount = false
+                    showSidebarLoginSheet = true
+                },
+                onAddAccount = {
+                    sidebarLoginAddAccount = true
+                    showSidebarLoginSheet = true
+                },
+                onSwitchAccount = { uid ->
+                    accountScope.launch {
+                        val target = accounts.firstOrNull { it.uid == uid }
+                        if (accountSwitcher.switchTo(uid) && target != null) {
+                            ToastManager.showToast("已切换至 ${target.nickname}")
+                        }
+                    }
                 },
                 onDismiss = { sidebar.close() },
                 // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
@@ -894,6 +924,7 @@ fun MelodiaApp() {
                 onNavigateToCloud = { sidebar.closeThen { navigation.openCloud() } },
                 onNavigateToDownloads = { sidebar.closeThen { navigation.openDownloads() } },
                 onNavigateToMessage = { sidebar.closeThen { navigation.openMessage() } },
+                onOpenPrivateChat = { uid -> sidebar.closeThen { navigation.openPrivateChat(uid) } },
                 onNavigateToSettings = { sidebar.closeThen { navigation.navigateTo(Screen.Settings) } }
             )
         }
@@ -1279,7 +1310,8 @@ fun MelodiaApp() {
                 onLoginSuccess = { cookies ->
                     showSidebarLoginSheet = false
                     viewModel.handleLoginSuccess(cookies)
-                }
+                },
+                addAccount = sidebarLoginAddAccount
             )
         }
 
@@ -1293,7 +1325,8 @@ fun MelodiaApp() {
                 onLoginSuccess = { cookies ->
                     showSidebarWebLogin = false
                     viewModel.handleLoginSuccess(cookies)
-                }
+                },
+                addAccount = sidebarLoginAddAccount
             )
         }
 

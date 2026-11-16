@@ -34,6 +34,7 @@ import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepositoryImpl
 import com.lin0721.linmusic.feature.message.data.MessageRepository
 import com.lin0721.linmusic.feature.message.data.MessageRepositoryImpl
+import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
 import com.lin0721.linmusic.feature.profile.data.ProfileRepositoryImpl
@@ -152,6 +153,15 @@ val repositoryModule = module {
             get(),
             get(),
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        )
+    }
+    single {
+        PrivateConversationPreviewStore(
+            messageRepository = get(),
+            userPreferences = get(),
+            readPreferences = get(),
+            unreadMonitor = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         )
     }
 
