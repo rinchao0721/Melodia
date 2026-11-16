@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -688,6 +689,61 @@ class PlayerManager(
                     durationMs = 0L
                 )
             }
+        }
+    }
+
+    // 切换或退出账户时彻底停止播放并清空队列、进度与持久化状态
+    override fun stopAndClearQueue() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            performStopAndClearQueue()
+        } else {
+            scope.launch { performStopAndClearQueue() }
+        }
+    }
+
+    private fun performStopAndClearQueue() {
+        activePlayJob?.cancel()
+        prefetchJob?.cancel()
+        autoCrossfadeJob?.cancel()
+        roaming.cancel()
+        personalFm.cancel()
+        networkGuard.cancelRecoveryWait()
+        MelodiaPlaybackService.stopPendingForeground(context)
+
+        reportPlayedTrack()
+        resetTrackTiming(startPlaying = false)
+
+        pendingSkipFromIndex = null
+        pausedForPendingPlay = false
+        clearPendingTrack(restorePlayWhenReady = false)
+        prefetchedNextUrl = null
+        prefetchTriggeredForSongId = -1L
+        autoCrossfadeTriggeredSongId = -1L
+        autoCrossfadeScheduledSongId = -1L
+        pendingAutoFadeMs = 0L
+        requestedSource = null
+        pendingStartOffset = null
+        pendingStartPosition = 0L
+        _playbackLevel.value = null
+
+        playbackQueue.clear()
+        setCurrentTrack(null)
+        _isPlaying.value = false
+        _playWhenReady.value = false
+        progress.setPosition(0L)
+        progress.setDuration(0L)
+        controllerHolder.stopAndClear()
+
+        saveQueueState()
+        stateStore.savePlaybackState {
+            PlaybackState(
+                songId = -1L,
+                title = "",
+                artist = "",
+                coverUrl = "",
+                lastPositionMs = 0L,
+                durationMs = 0L
+            )
         }
     }
 

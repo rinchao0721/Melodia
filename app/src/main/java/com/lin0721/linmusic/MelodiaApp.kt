@@ -121,6 +121,9 @@ import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.auth.AccountEvents
+import com.lin0721.linmusic.core.auth.AccountSwitchReason
+import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -328,6 +331,29 @@ fun MelodiaApp() {
     // 侧边栏未登录入口触发的登录，侧栏可从任意页面拉出，登录界面挂在全局层
     var showSidebarLoginSheet by remember { mutableStateOf(false) }
     var showSidebarWebLogin by remember { mutableStateOf(false) }
+    val sessionMonitor: SessionMonitor = koinInject()
+    LaunchedEffect(sessionMonitor) {
+        sessionMonitor.watch {}
+    }
+    LaunchedEffect(sessionMonitor) {
+        sessionMonitor.expiredNotices.collect { notice ->
+            val nextProfile = notice.nextProfile
+            if (nextProfile != null) {
+                ToastManager.showToast("当前账户登录已过期，已切换至 ${nextProfile.nickname}")
+            } else {
+                ToastManager.showToast("登录已过期，请重新登录")
+                showSidebarLoginSheet = true
+            }
+        }
+    }
+    LaunchedEffect(navigation, sidebar) {
+        AccountEvents.switched.collect { event ->
+            if (sidebar.isOpen) sidebar.close()
+            if (event.reason != AccountSwitchReason.ADDED || event.previousUid != null) {
+                navigation.openTab(Screen.Home)
+            }
+        }
+    }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     val miniPlayerSuppressor = remember { MiniPlayerSuppressor() }

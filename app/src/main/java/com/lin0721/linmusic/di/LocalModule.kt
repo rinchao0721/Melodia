@@ -40,7 +40,7 @@ import java.io.File
 val localModule = module {
     single { PlaybackPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PLAYBACK)) }
     single { UserPreferences(PreferencesStores.get(androidContext(), PreferencesStores.USER)) }
-    single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS)) }
+    single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { AndroidSkinImageCodec() }
     single { SkinStore(File(androidContext().filesDir, "skins"), get()) }
     single { SkinRepository(get(), get()) }
@@ -55,7 +55,7 @@ val localModule = module {
         MetadataCache(File(androidContext().filesDir, "meta_cache")) { userPreferences.userProfile.first()?.uid ?: 0L }
     }
     single<LibraryPreferences> { AndroidLibraryPreferences(androidContext()) }
-    single { SearchHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SEARCH_HISTORY)) }
+    single { SearchHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SEARCH_HISTORY), userPreferences = get()) }
     single { PodcastProgressPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
     single { PrivateReadPreferences(PreferencesStores.get(androidContext(), PreferencesStores.MESSAGE)) }

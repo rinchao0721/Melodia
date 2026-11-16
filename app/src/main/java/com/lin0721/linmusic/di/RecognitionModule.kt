@@ -19,7 +19,7 @@ import org.koin.dsl.module
 
 // 听歌识曲（feature/recognition）自成一组，日后独立成应用时整块迁出
 val recognitionModule = module {
-    single { RecognitionHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.RECOGNITION_HISTORY)) }
+    single { RecognitionHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.RECOGNITION_HISTORY), userPreferences = get()) }
     single { RecognitionPreferences(PreferencesStores.get(androidContext(), PreferencesStores.RECOGNITION)) }
     single { PlaybackRecognitionState() }
     single { PlaybackRecognitionLauncher(context = get(), state = get()) }

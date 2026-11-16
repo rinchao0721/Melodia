@@ -294,7 +294,7 @@ private fun MainSettingsMenu(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "退出登录",
+                            text = "退出当前账户",
                             color = MelodiaColors.AccentText,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold

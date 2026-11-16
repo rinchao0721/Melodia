@@ -21,7 +21,7 @@ import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
 import com.lin0721.linmusic.feature.settings.data.VipInfoData
-import com.lin0721.linmusic.core.auth.AuthRepository
+import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.feature.settings.data.SettingsRepository
 import com.lin0721.linmusic.core.player.AudioCacheManager
 import com.lin0721.linmusic.core.log.AppLogger
@@ -49,7 +49,7 @@ class SettingsViewModel(
     private val sourcePreferences: SourcePreferences,
     private val lxPluginManager: LxPluginManager,
     private val userPreferences: UserPreferences,
-    private val authRepository: AuthRepository,
+    private val accountSwitcher: AccountSwitcher,
     private val resourceProvider: ResourceProvider,
     val skins: SkinRepository
 ) : ViewModel() {
@@ -611,12 +611,11 @@ class SettingsViewModel(
         }
     }
 
-    // 退出登录，注销远端会话并清空本地 preferences 缓存
+    // 退出当前账户：停播清队列、注销远端会话、移除本地账户并切换到最近剩余账户
     fun executeLogout(onFinished: () -> Unit) {
         viewModelScope.launch {
-            authRepository.logout().collect { }
-            userPreferences.clearUserProfile()
-            _toastEvent.emit("已成功退出登录")
+            accountSwitcher.logoutCurrent()
+            _toastEvent.emit("已退出当前账户")
             onFinished()
         }
     }

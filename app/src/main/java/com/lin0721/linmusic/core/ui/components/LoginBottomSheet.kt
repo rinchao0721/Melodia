@@ -62,7 +62,8 @@ private fun LoginMode.depth(): Int = if (this == LoginMode.CHOICE) 0 else 1
 fun LoginBottomSheet(
     onDismiss: () -> Unit,
     onWebLogin: () -> Unit,
-    onLoginSuccess: (String) -> Unit
+    onLoginSuccess: (String) -> Unit,
+    addAccount: Boolean = false
 ) {
     val motion = LocalUiMotion.current
     val viewModel: LoginViewModel = koinViewModel()
