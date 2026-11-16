@@ -70,24 +70,32 @@
 ---
 ## 项目架构
 
-项目由三个 Gradle 模块组成，网易云接口、加密、数据仓储与大部分 ViewModel 只在 `shared` 中维护一份，Android 与桌面端各自负责界面和平台能力：
+项目以三个主模块为核心：网易云接口、加密、数据仓储与大部分 ViewModel 只在 `shared` 中维护一份，Android 与桌面端各自负责界面和平台能力；另有插件接口与基线配置文件两个辅助模块：
 
 | 模块 | 类型 | 职责 |
 |---|---|---|
-| `shared` | Kotlin Multiplatform（Android + 桌面 JVM） | 数据模型、网络与原生加密、各业务域 `data` / `domain`、跨平台 ViewModel 与展示逻辑、播放器抽象 `PlaybackController` |
-| `app` | Android 应用 | Jetpack Compose 界面、Media3 播放、下载、本地音乐、识曲、悬浮与系统歌词等 Android 专属能力 |
-| `desktopApp` | Compose Desktop 应用（Windows） | 桌面窗口与界面、libmpv 播放、托盘、系统媒体控制（SMTC）与全局快捷键、桌面歌词；系统能力经平台接口接入 |
+| `shared` | Kotlin Multiplatform（Android + 桌面 JVM） | 数据模型、网络与原生加密、各业务域 `data` / `domain`、跨平台 ViewModel 与展示逻辑、播放器抽象 `PlaybackController` 及心动模式 / 漫游 / 私人FM 等特殊播放控制 |
+| `app` | Android 应用 | Jetpack Compose 界面、Media3 播放、下载、本地音乐、识曲、悬浮与系统歌词、预见式返回等 Android 专属能力 |
+| `desktopApp` | Compose Desktop 应用（Windows） | 桌面窗口与界面、libmpv 播放、托盘、系统媒体控制（SMTC）与全局快捷键、桌面歌词、插件运行时；系统能力经平台接口接入 |
+| `plugin-api` / `plugin-sample` | Kotlin JVM 库 / 示例插件 | 插件对外接口与数据模型，以及一个可直接参考的示例插件 |
+| `baselineprofile` | Android 测试模块 | 生成 Baseline Profile，优化 Android 冷启动与滚动性能 |
 
 代码按**业务域 (Feature-Driven)** 组织：`core` 承载全局共享基础设施与通用能力，`feature` 下每个业务域自持 `data` / `domain` / `ui` 结构。依赖方向单向收敛——`feature` 依赖 `core`，`core` 不反向依赖 `feature`，各业务域之间解耦无循环依赖；`app` 与 `desktopApp` 都依赖 `shared`，两者互不依赖。
 
 ```text
 shared/src/
 ├── commonMain/kotlin/com/lin0721/linmusic/
-│   ├── core/                    # api、auth、network、model、preferences、player 抽象、format 格式化等共享基础能力
+│   ├── core/                    # 共享基础能力
+│   │   ├── api · auth · network · model · preferences · format   # 接口、鉴权、加密网络、模型、偏好与格式化
+│   │   ├── player/              # PlaybackController 抽象、播放队列，心动模式 / 漫游 / 私人FM 控制器
+│   │   ├── source/ · offline/ · cache/   # 音源路由与外部音源、离线可播判断、元数据缓存与离线回退
+│   │   ├── plugin/              # 插件扩展点注册与宿主接口
+│   │   └── listentogether/ · deeplink/ · share/ · …   # 一起听、链接解析、分享卡片等跨端通用能力
 │   ├── feature/                 # 各业务域的 data / domain、跨平台 ViewModel（ui）与展示逻辑（presentation）
 │   └── di/                      # 网络与仓储的 Koin 模块，两端共用
 ├── androidMain/                 # Context 相关实现（DataStore 落盘、网络状态、音乐库偏好等）
-└── desktopMain/                 # 桌面 JVM 平台实现（日志、设备信息等）
+├── desktopMain/                 # 桌面 JVM 平台实现（日志、设备信息等）
+└── desktopTest/                 # shared 的单元测试（在 JVM 上运行）
 
 app/src/main/java/com/lin0721/linmusic/
 ├── MelodiaApplication.kt        # 应用程序入口：Koin 依赖注入初始化与 Coil 预热
@@ -96,29 +104,34 @@ app/src/main/java/com/lin0721/linmusic/
 ├── MelodiaNavHost.kt            # 核心路由分发与平滑转场动画配置
 ├── MelodiaOverlays.kt           # 全屏播放器底栏、底部弹窗与全局反馈浮层
 ├── MelodiaNavigationState.kt    # 自定义导航回退栈管理与参数上下文恢复
+├── NavFrameRegistry.kt          # 按栈帧持有页面 ViewModel，返回时恢复页面现场
 ├── MelodiaPlayerSheetState.kt   # 全屏播放器展开/收起手势状态机
 ├── MelodiaSidebarState.kt       # 侧边栏抽屉滑动状态机
-├── core/                        # Android 专属基础能力（Media3 播放引擎、下载、Material 3 主题与组件、应用内更新等）
+├── core/                        # Android 专属基础能力（Media3 播放引擎、下载、本地音乐扫描、Material 3 主题与组件、预见式返回、车机适配等）
 ├── di/                          # Android 侧 Koin 模块（Local, Player, Download, Update, ViewModel 等）
-└── feature/                     # 各业务域的 Compose 界面与 Android 专属 ViewModel（本地音乐、云盘、识曲等）
+└── feature/                     # 各业务域的 Compose 界面与 Android 专属 ViewModel（本地音乐、云盘、识曲、下载管理等）
 
 desktopApp/src/main/kotlin/com/lin0721/linmusic/desktop/
 ├── Main.kt                      # 应用入口：Koin 初始化、主窗口、托盘、全局快捷键与桌面歌词窗口
 ├── di/                          # Koin 模块、按系统选择平台实现、构造界面所需的依赖集合
 ├── app/                         # 启动基础设施：日志、崩溃处理、单实例、数据目录、缓存迁移、窗口位置
-├── data/                        # 桌面偏好、音乐库偏好、下载、图片加载等数据层实现
-├── platform/                    # 系统能力接口（媒体会话、全局热键、开机自启、窗口效果、浏览器查找）
+├── data/                        # 桌面偏好（含音乐库快捷入口）、音乐库偏好、下载、图片加载等数据层实现
+├── platform/                    # 系统能力接口（媒体会话、全局热键、开机自启、窗口效果、网页登录、系统对话框）
 │   ├── windows/                 # Windows 实现：Win32 热键、SMTC 桥接、DWM 窗口样式、注册表
 │   └── fallback/                # 尚未适配系统的空实现，界面据此隐藏对应入口
 ├── player/                      # libmpv 的 JNA 绑定与 PlaybackController 实现
+├── plugin/                      # 原生插件宿主与 LX 脚本插件运行时
 └── ui/
     ├── shell/                   # 应用壳：界面状态、两侧栏布局、路由到页面的注册表、标题栏与播放栏接线
     ├── navigation/              # 浏览器式返回栈与按栈帧保存页面现场
     ├── components/ · track/     # 通用组件与歌曲行、歌曲操作
-    ├── home/ · playlist/ · …    # 按功能分包的页面（歌手、搜索、播客、个人主页、音乐库、设置等）
-    └── player/ · nowplaying/ · lyricsview/  # 播放条与队列、正在播放侧栏、全屏歌词
+    ├── library/                 # 音乐库侧栏（收起 / 默认 / 放大三态）与快捷入口
+    ├── home/ · playlist/ · …    # 按功能分包的页面（歌手、搜索、播客、个人主页、私信、一起听、设置等）
+    └── player/ · nowplaying/ · lyricsview/ · miniplayer/  # 播放条与队列、正在播放侧栏、全屏歌词、迷你播放器
 
-desktopApp/native-src/smtc/      # SMTC 桥接 DLL 源码（C++/WinRT，CMake 构建）
+desktopApp/native-src/
+├── smtc/                        # SMTC 桥接 DLL 源码（C++/WinRT，CMake 构建）
+└── installer/                   # 安装与卸载程序源码（CMake 构建）
 ```
 
 桌面端界面只依赖平台接口与 `shared` 中的 ViewModel：依赖在 `Main.kt` 构造一次后显式向下传递，界面层不直接访问 Koin；接入新的桌面系统时，只需在 `platform/` 下补一套接口实现并在 `di/PlatformModule.kt` 中按系统选择。
