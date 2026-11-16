@@ -88,6 +88,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
+import com.lin0721.linmusic.core.ui.theme.rememberCoverBase
 import com.lin0721.linmusic.core.ui.theme.styledCardRadius
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
@@ -199,12 +201,13 @@ fun HomePage(
     var hoveredCoverUrl by remember { mutableStateOf<String?>(null) }
     val activeCoverUrl = hoveredCoverUrl ?: defaultCoverUrl
 
-    var heroBase by remember { mutableStateOf(FallbackCoverPalette.base) }
-    LaunchedEffect(activeCoverUrl) {
-        if (activeCoverUrl.isNotBlank()) {
-            heroBase = extractCoverPaletteFromUrl(activeCoverUrl).base
-        }
-    }
+    // 悬停临时切换的封面不记忆，冷启动只回放默认封面的颜色
+    val heroBase = rememberCoverBase(
+        memory = LocalCoverColorMemory.current,
+        slot = "desktop_home_hero",
+        coverUrl = activeCoverUrl,
+        persist = hoveredCoverUrl == null
+    ) { url -> extractCoverPaletteFromUrl(url).takeUnless { it === FallbackCoverPalette }?.base } ?: FallbackCoverPalette.base
     val gradientColor by animateColorAsState(
         targetValue = if (activeCoverUrl.isNotBlank()) {
             headerCoverBackground(heroBase, HOME_GRADIENT_DARKEN_FRACTION)
@@ -664,10 +667,9 @@ private fun RecentTile(
 @Composable
 private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: () -> Unit) {
     val coverUrl = songs.firstOrNull()?.al?.picUrl.orEmpty()
-    var baseColor by remember { mutableStateOf(FallbackCoverPalette.base) }
-    LaunchedEffect(coverUrl) {
-        if (coverUrl.isNotBlank()) baseColor = extractCoverPaletteFromUrl(coverUrl).base
-    }
+    val baseColor = rememberCoverBase(LocalCoverColorMemory.current, "desktop_home_daily", coverUrl) { url ->
+        extractCoverPaletteFromUrl(url).takeUnless { it === FallbackCoverPalette }?.base
+    } ?: FallbackCoverPalette.base
     val containerColor by animateColorAsState(
         cardCoverBackground(baseColor, SPOTLIGHT_DARKEN_FRACTION),
         uiSpring(),

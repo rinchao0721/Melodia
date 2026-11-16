@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.plugin.PluginCommands
 import com.lin0721.linmusic.core.plugin.PluginPageHost
 import com.lin0721.linmusic.core.plugin.PluginRepository
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.SessionMonitor
@@ -85,5 +86,6 @@ class DesktopAppDependencies(
     val linkPreviewResolver: LinkPreviewResolver,
     val listenTogether: ListenTogetherViewModel,
     val privateUnreadMonitor: PrivateUnreadMonitor,
+    val coverColorMemory: CoverColorMemory,
     val pageViewModels: PageViewModelFactory
 )

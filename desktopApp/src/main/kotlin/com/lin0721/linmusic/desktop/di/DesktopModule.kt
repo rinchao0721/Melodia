@@ -40,6 +40,7 @@ import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -179,6 +180,8 @@ val desktopPlatformModule = module {
     single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
     single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
     single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
+    // 启动即预读，首页首帧前备好封面卡颜色
+    single(createdAtStart = true) { CoverColorMemory(store(PreferencesStores.COVER_COLOR), CoroutineScope(SupervisorJob() + Dispatchers.IO)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }

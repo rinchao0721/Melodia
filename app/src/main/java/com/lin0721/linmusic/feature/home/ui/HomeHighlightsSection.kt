@@ -18,11 +18,8 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,12 +51,15 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.rememberCoverBase
 import com.lin0721.linmusic.core.ui.theme.immersiveMidFill
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
+import org.koin.compose.koinInject
 import java.time.LocalDate
 
 // 封面取色后再压暗，保证白字在任意封面色上都看得清
@@ -176,25 +176,20 @@ private fun DailySpotlightSection(
 }
 
 // 首页封面卡统一取色：浅色用与播放页一致的浓色中调（避免向黑混色在白底上发脏），深色向黑压暗。
-// initialBase 为取色完成前的底；取色失败（得到 FallbackBase）且 initialBase 为空时用 fallback
+// slot 为卡位，取色完成前先用该卡位上次的颜色；都没有或取色失败时用 initialBase，为空则用 fallback
 @Composable
 internal fun rememberCoverCardColor(
+    slot: String,
     coverUrl: String,
     initialBase: Color?,
     fallback: Color,
     label: String
 ): Color {
     val context = LocalContext.current
-    var baseColor by remember { mutableStateOf(initialBase) }
-    LaunchedEffect(coverUrl) {
-        baseColor = if (coverUrl.isBlank()) {
-            initialBase
-        } else {
-            extractBaseColorFromUrl(context, coverUrl)
-                .takeUnless { initialBase == null && it == FallbackBase }
-                ?: initialBase
-        }
-    }
+    val memory: CoverColorMemory = koinInject()
+    val baseColor = rememberCoverBase(memory, slot, coverUrl) { url ->
+        extractBaseColorFromUrl(context, url).takeUnless { it == FallbackBase }
+    } ?: initialBase
     val isDark = MelodiaColors.IsDark
     val color by animateColorAsState(
         targetValue = baseColor
@@ -217,6 +212,7 @@ private fun DailySpotlightCard(
 ) {
     val coverUrl = songs.firstOrNull()?.al?.picUrl.orEmpty()
     val containerColor = rememberCoverCardColor(
+        slot = "home_daily",
         coverUrl = coverUrl,
         initialBase = FallbackBase,
         fallback = MelodiaColors.ShellFill,

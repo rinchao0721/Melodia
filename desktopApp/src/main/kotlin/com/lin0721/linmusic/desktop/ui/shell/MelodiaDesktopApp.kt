@@ -56,6 +56,7 @@ import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
 import com.lin0721.linmusic.core.deeplink.playLinkTrack
 import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
+import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
@@ -173,7 +174,8 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCards provides pluginCards,
         LocalPluginCommands provides deps.pluginCommands,
         LocalSongQualityCache provides deps.songQuality,
-        LocalListenTogetherViewModel provides deps.listenTogether
+        LocalListenTogetherViewModel provides deps.listenTogether,
+        LocalCoverColorMemory provides deps.coverColorMemory
     ) {
         val scope = rememberCoroutineScope()
         var clipboardCheckJob by remember { mutableStateOf<Job?>(null) }

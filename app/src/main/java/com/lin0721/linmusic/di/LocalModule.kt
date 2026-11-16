@@ -13,6 +13,7 @@ import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.core.ui.theme.AndroidSkinImageCodec
+import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import com.lin0721.linmusic.feature.library.data.AndroidLibraryPreferences
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -28,6 +29,9 @@ import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
 import com.lin0721.linmusic.feature.message.data.PrivateReadPreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -57,4 +61,11 @@ val localModule = module {
     single { PrivateReadPreferences(PreferencesStores.get(androidContext(), PreferencesStores.MESSAGE)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(PreferencesStores.get(androidContext(), PreferencesStores.XEAPI_KEY)) }
     single { DownloadPreferences(androidContext()) }
+    // 启动即预读，首页首帧前备好封面卡颜色
+    single(createdAtStart = true) {
+        CoverColorMemory(
+            PreferencesStores.get(androidContext(), PreferencesStores.COVER_COLOR),
+            CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        )
+    }
 }

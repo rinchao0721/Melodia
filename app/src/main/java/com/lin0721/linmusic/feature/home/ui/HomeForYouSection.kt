@@ -266,6 +266,7 @@ private fun ForYouCard(
     var isOnScreen by remember { mutableStateOf(true) }
     val shouldAnimate = canAnimate && isOnScreen
     val cardColor = rememberCoverCardColor(
+        slot = "home_for_you_${entry.key}",
         coverUrl = entry.artwork.colorSourceUrl(),
         initialBase = null,
         fallback = entry.backgroundColor,
