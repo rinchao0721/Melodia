@@ -84,22 +84,23 @@ class LyriconAdapter(private val context: Context) {
 
     private fun createProvider(): LyriconProvider? = try {
         LyriconFactory.createProvider(context.applicationContext).apply {
+            // 回调可能来自 Binder 线程，统一切回主线程再改重连状态
             service.addConnectionListener {
                 onConnected {
                     AppLogger.i(TAG, "Lyricon 已连接")
-                    onConnectedInternal()
+                    scope.launch { onConnectedInternal() }
                 }
                 onReconnected {
                     AppLogger.i(TAG, "Lyricon 已重连")
-                    onConnectedInternal()
+                    scope.launch { onConnectedInternal() }
                 }
                 onDisconnected {
                     AppLogger.w(TAG, "Lyricon 连接断开，安排重连")
-                    scheduleReconnect("连接断开")
+                    scope.launch { scheduleReconnect("连接断开") }
                 }
                 onConnectTimeout {
                     AppLogger.w(TAG, "Lyricon 连接超时，安排重连")
-                    scheduleReconnect("连接超时")
+                    scope.launch { scheduleReconnect("连接超时") }
                 }
             }
         }
@@ -280,12 +281,16 @@ class LyriconAdapter(private val context: Context) {
         if (!released) return
         released = false
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        val target = createProvider() ?: return
+        val target = createProvider()
         provider = target
         if (!isEnabled) return
+        startWatchdog()
+        if (target == null) {
+            scheduleReconnect("Provider 创建失败")
+            return
+        }
         try {
             target.register()
-            startWatchdog()
         } catch (e: Exception) {
             AppLogger.w(TAG, "Lyricon 恢复注册失败", e)
             scheduleReconnect("恢复注册失败")
