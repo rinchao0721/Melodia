@@ -67,6 +67,24 @@ class ExternalLyricCoordinator(
     var onTickerChanged: (() -> Unit)? = null
 
     init {
+        // 断线重连后词幕那边已经丢了状态，把当前歌曲与播放位置整份补发
+        lyriconAdapter.onReconnected = {
+            if (isLyriconEnabled && currentSongId != -1L) {
+                lyriconAdapter.updateSong(
+                    songId = currentSongId.toString(),
+                    title = originalTitle,
+                    artist = originalArtist,
+                    durationMs = originalDurationMs,
+                    lines = currentLines,
+                    showTranslation = isShowTranslation
+                )
+                lyriconAdapter.syncPlaybackState(
+                    isPlaying = playerManager.isPlaying.value,
+                    positionMs = playerManager.currentPositionExact(),
+                    force = true
+                )
+            }
+        }
         observeSettings()
         observePlayback()
     }
@@ -108,6 +126,7 @@ class ExternalLyricCoordinator(
             settingsPreferences.lyriconEnabled.collectLatest { enabled ->
                 isLyriconEnabled = enabled
                 lyriconAdapter.setEnabled(enabled)
+                lyriconAdapter.invalidatePositionBase()
                 if (enabled && currentSongId != -1L) {
                     lyriconAdapter.updateSong(
                         songId = currentSongId.toString(),
@@ -117,9 +136,10 @@ class ExternalLyricCoordinator(
                         lines = currentLines,
                         showTranslation = isShowTranslation
                     )
-                    lyriconAdapter.updatePlaybackState(
+                    lyriconAdapter.syncPlaybackState(
                         playerManager.isPlaying.value,
-                        playerManager.currentPosition.value
+                        playerManager.currentPositionExact(),
+                        force = true
                     )
                 }
             }
@@ -181,6 +201,29 @@ class ExternalLyricCoordinator(
                         rebuildLyricInfo()
                         onMetadataChanged?.invoke()
                     }
+                    // 时长到位后重推一次，末行 end 才不会停在兜底时长上
+                    if (isLyriconEnabled && currentSongId != -1L && currentLines.isNotEmpty()) {
+                        lyriconAdapter.updateSong(
+                            songId = currentSongId.toString(),
+                            title = originalTitle,
+                            artist = originalArtist,
+                            durationMs = originalDurationMs,
+                            lines = currentLines,
+                            showTranslation = isShowTranslation
+                        )
+                    }
+                }
+            }
+        }
+
+        scope.launch {
+            playerManager.seekEvents.collect { positionMs ->
+                if (isLyriconEnabled) {
+                    lyriconAdapter.syncPlaybackState(
+                        isPlaying = playerManager.isPlaying.value,
+                        positionMs = positionMs,
+                        force = true
+                    )
                 }
             }
         }
@@ -203,6 +246,8 @@ class ExternalLyricCoordinator(
             currentLyricIndex = -1
             currentLyricInfoJson = ""
             lyricFetchJob?.cancel()
+            // 换歌后词幕的时基作废，下一次同步必须强制重发
+            lyriconAdapter.invalidatePositionBase()
 
             // 先推无歌词占位，避免新歌加载期间或加载失败时残留上一首歌词
             if (isLyriconEnabled && songId != -1L) {
@@ -271,7 +316,12 @@ class ExternalLyricCoordinator(
             }
         }
         if (isLyriconEnabled) {
-            lyriconAdapter.updatePlaybackState(isPlaying, playerManager.currentPosition.value)
+            // 起停必须带准确时基，否则暂停后词幕还按旧速度继续跑
+            lyriconAdapter.syncPlaybackState(
+                isPlaying = isPlaying,
+                positionMs = playerManager.currentPositionExact(),
+                force = true
+            )
         }
         refreshStatusBarLyrics()
     }
@@ -292,7 +342,10 @@ class ExternalLyricCoordinator(
             }
         }
         if (isLyriconEnabled) {
-            lyriconAdapter.updatePlaybackState(playerManager.isPlaying.value, positionMs)
+            lyriconAdapter.syncPlaybackState(
+                isPlaying = playerManager.isPlaying.value,
+                positionMs = playerManager.currentPositionExact()
+            )
         }
     }
 
@@ -453,8 +506,7 @@ class ExternalLyricCoordinator(
         lyriconAdapter.release()
         fluidCloudNotifier.dismiss()
         lyricFetchJob?.cancel()
-        scope.cancel()
-        onMetadataChanged = null
-        onTickerChanged = null
+        // 不取消 scope、不清回调：本类是 Application 级单例，服务被划掉后还会被重新拉起，
+        // 观察链留着，重连后才能把当前歌曲与位置补回去
     }
 }
