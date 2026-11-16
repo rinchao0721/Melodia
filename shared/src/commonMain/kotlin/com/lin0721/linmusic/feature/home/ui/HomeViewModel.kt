@@ -15,6 +15,11 @@ import com.lin0721.linmusic.feature.home.data.PersonalizedData
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
+import com.lin0721.linmusic.feature.home.domain.pickHotlist
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.mapNotNull
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -42,8 +47,11 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.RecentFmTrack
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 
@@ -68,7 +76,8 @@ class HomeViewModel(
     private val userPlaylistRepository: UserPlaylistRepository,
     private val songDownloadManager: SongDownloader,
     private val playlistMutationBus: PlaylistMutationBus,
-    settingsPreferences: SettingsPreferences
+    private val settingsPreferences: SettingsPreferences,
+    private val playbackPreferences: PlaybackPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -82,6 +91,25 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showForYou: StateFlow<Boolean> = settingsPreferences.homeForYouEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PersonalFmMode.DEFAULT)
+    val recentFmTracks: StateFlow<List<RecentFmTrack>> = playbackPreferences.recentFmTracks
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // 榜单接口只返回前几首的歌名，热歌榜卡片要的榜首封面借歌单详情补，拿不到时为空串
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val hotlistTopCoverUrl: StateFlow<String> = _uiState
+        .mapNotNull { (it as? HomeUiState.Success)?.data?.toplistItems?.pickHotlist()?.id }
+        .distinctUntilChanged()
+        .mapLatest { id ->
+            runCatching { playlistRepository.getPlaylistDetail(id).first() }
+                .getOrNull()?.getOrNull()
+                ?.tracks?.firstOrNull()?.al?.picUrl
+                ?.takeIf { it.isNotBlank() }
+                ?.let { if ('?' in it) it else "$it?param=300y300" }
+                .orEmpty()
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
@@ -482,5 +510,67 @@ class HomeViewModel(
                 viewModelScope.launch { _toastEvent.emit("请先播放一首歌曲") }
             }
         }
+    }
+
+    // 开启私人FM；未登录时仅提示，不修改播放队列
+    fun startPersonalFm(mode: PersonalFmMode? = null) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM && mode != null) {
+                playerManager.switchPersonalFmMode(mode)
+                return@launch
+            }
+            val targetMode = mode ?: settingsPreferences.personalFmMode.first()
+            playbackRepository.getPersonalFmSongs(targetMode).collect { result ->
+                result.onSuccess { tracks ->
+                    val items = tracks
+                        .filter { it.id > 0L }
+                        .distinctBy { it.id }
+                        .map { track ->
+                            QueueItem(
+                                songId = track.id,
+                                title = track.name,
+                                artist = track.ar.joinToString("/") { it.name },
+                                coverUrl = track.al.picUrl
+                            )
+                        }
+                    if (items.isNotEmpty()) {
+                        if (mode != null) {
+                            playerManager.switchPersonalFmMode(targetMode)
+                        }
+                        playerManager.startPersonalFm(items)
+                    } else {
+                        _toastEvent.emit("暂无可播放的私人FM歌曲")
+                    }
+                }.onFailure {
+                    _toastEvent.emit(it.toUserMessage(resourceProvider))
+                }
+            }
+        }
+    }
+
+    fun switchPersonalFmMode(mode: PersonalFmMode) {
+        viewModelScope.launch {
+            if (userPreferences.userProfile.first() == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+                playerManager.switchPersonalFmMode(mode)
+            } else {
+                startPersonalFm(mode)
+            }
+        }
+    }
+
+    fun trashCurrentFmSong() {
+        playerManager.trashCurrentFmSong()
+    }
+
+    fun disablePersonalFm() {
+        playerManager.disablePersonalFm()
     }
 }

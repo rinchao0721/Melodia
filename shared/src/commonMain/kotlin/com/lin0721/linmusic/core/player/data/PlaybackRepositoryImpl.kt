@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
 import com.lin0721.linmusic.core.player.LocalRecentPlaylist
 import com.lin0721.linmusic.core.player.LoudnessPolicy
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
@@ -191,6 +192,30 @@ class PlaybackRepositoryImpl(
         transform = { response ->
             contentFilter.filterBlockedArtists(response.data.mapNotNull { it.songInfo }) { it.ar.map { a -> a.id } }
         }
+    )
+
+    override fun getPersonalFmSongs(mode: PersonalFmMode): Flow<Result<List<Track>>> = apiFlow(
+        request = {
+            apiService.getPersonalFmSongs(
+                PersonalFmRequest(mode = mode.mode, subMode = mode.subMode)
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { response ->
+            contentFilter.filterBlockedArtists(response.data) { song -> song.ar.map { it.id } }
+        }
+    )
+
+    override fun trashFmSong(songId: Long, playedSeconds: Long): Flow<Result<Unit>> = apiFlow(
+        request = {
+            apiService.trashFmSong(
+                FmTrashRequest(songId = songId, time = playedSeconds.coerceAtLeast(0L))
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = {}
     )
 
     private val _playlistRecorded = MutableSharedFlow<Long>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)

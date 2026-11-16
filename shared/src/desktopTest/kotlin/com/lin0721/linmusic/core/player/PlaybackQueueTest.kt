@@ -455,4 +455,22 @@ class PlaybackQueueTest {
         assertEquals(0, queue.currentIndex.value)
         assertEquals(2L, queue.currentItem()?.songId)
     }
+
+    @Test
+    fun `清除未播曲目保留已播与当前曲目`() {
+        val queue = queueOf(1, 2, 3, 4, startIndex = 1)
+        queue.clearUpcoming()
+        assertEquals(listOf(1L, 2L), queue.ids())
+        assertEquals(listOf(1L, 2L), queue.original.map { it.songId })
+        assertEquals(1, queue.currentIndex.value)
+        assertEquals(0, queue.upcomingCount)
+    }
+
+    @Test
+    fun `位于队尾时清除未播曲目不产生变化`() {
+        val queue = queueOf(1, 2, startIndex = 1)
+        queue.clearUpcoming()
+        assertEquals(listOf(1L, 2L), queue.ids())
+        assertEquals(1, queue.currentIndex.value)
+    }
 }

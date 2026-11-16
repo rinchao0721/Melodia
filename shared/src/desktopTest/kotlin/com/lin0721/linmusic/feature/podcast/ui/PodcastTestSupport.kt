@@ -124,6 +124,10 @@ class FakePlaybackController : PlaybackController {
     override fun cancelPendingSkip(): Boolean = false
     override fun disableRoaming() = Unit
     override fun disableIntelligence() = Unit
+    override fun startPersonalFm(items: List<QueueItem>) = Unit
+    override fun disablePersonalFm() = Unit
+    override fun trashCurrentFmSong() = Unit
+    override fun switchPersonalFmMode(mode: com.lin0721.linmusic.core.player.PersonalFmMode) = Unit
 }
 
 // 各接口的结果都可替换，且可在结果里挂起以模拟慢响应；calls 记录调用顺序供断言

@@ -12,3 +12,7 @@ data class ToplistInfo(
     // 前三首格式："歌名 - 歌手"
     val topSongs: List<String>
 )
+
+// 首页「热歌榜」入口对应的榜单：名字带「热」的优先，没有则取第一个
+fun List<ToplistInfo>.pickHotlist(): ToplistInfo? =
+    firstOrNull { it.name.contains("热") } ?: firstOrNull()

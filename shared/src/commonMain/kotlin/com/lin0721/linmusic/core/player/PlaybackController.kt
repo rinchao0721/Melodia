@@ -24,6 +24,7 @@ interface PlaybackController {
     companion object {
         const val CONTEXT_INTELLIGENCE = "intelligence"
         const val CONTEXT_PODCAST = "podcast"
+        const val CONTEXT_PERSONAL_FM = "personal_fm"
     }
 
     val isPlaying: StateFlow<Boolean>
@@ -100,4 +101,8 @@ interface PlaybackController {
     fun cancelPendingSkip(): Boolean
     fun disableRoaming()
     fun disableIntelligence()
+    fun startPersonalFm(items: List<QueueItem>)
+    fun disablePersonalFm()
+    fun trashCurrentFmSong()
+    fun switchPersonalFmMode(mode: PersonalFmMode)
 }

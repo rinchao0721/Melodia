@@ -44,4 +44,9 @@ class PlaybackStateStore(
     fun savePlaybackState(provider: () -> PlaybackState) {
         scope.launch { preferences.savePlaybackState(provider()) }
     }
+
+    fun saveRecentFmTracks(tracks: List<RecentFmTrack>) {
+        if (tracks.isEmpty()) return
+        scope.launch { preferences.saveRecentFmTracks(tracks) }
+    }
 }

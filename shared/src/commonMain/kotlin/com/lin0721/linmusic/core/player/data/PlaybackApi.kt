@@ -37,6 +37,18 @@ interface PlaybackApi {
         @Body body: IntelligenceSongsRequest
     ): IntelligenceSongsResponse
 
+    // ================== 私人FM ==================
+    // 前缀暂按 /eapi/v1/radio/get，待真机抓包确认
+    @POST("/eapi/v1/radio/get")
+    suspend fun getPersonalFmSongs(
+        @Body body: PersonalFmRequest
+    ): PersonalFmResponse
+
+    @POST("/weapi/radio/trash/add")
+    suspend fun trashFmSong(
+        @Body body: FmTrashRequest
+    ): FmTrashResponse
+
     // ================== 播放行为上报（打卡） ==================
     // 走 /eapi/feedback/weblog，需分别上报 startplay/play 两条日志
     @POST("/eapi/feedback/weblog")
@@ -197,6 +209,39 @@ data class IntelligenceItem(
     val recommended: Boolean = false,
     val songInfo: Track? = null
 )
+
+// ======================= 私人FM DTO =======================
+
+@Serializable
+data class PersonalFmRequest(
+    val mode: String,
+    val subMode: String? = null,
+    val limit: Int = 3
+)
+
+// 响应字段待真机抓包确认
+@Serializable
+data class PersonalFmResponse(
+    val code: Int = 0,
+    val data: List<Track> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class FmTrashRequest(
+    val songId: Long,
+    val alg: String = "RT",
+    val time: Long = 25
+)
+
+// 响应字段待真机抓包确认
+@Serializable
+data class FmTrashResponse(
+    val code: Int = 0
+) {
+    val isSuccess: Boolean get() = code == 200
+}
 
 // ======================= 播放打卡上报 DTO =======================
 

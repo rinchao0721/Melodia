@@ -199,6 +199,12 @@ class FakePlaybackRepository : PlaybackRepository {
     override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> =
         flowOf(Result.success(emptyList()))
 
+    override fun getPersonalFmSongs(mode: com.lin0721.linmusic.core.player.PersonalFmMode): Flow<Result<List<Track>>> =
+        flowOf(Result.success(emptyList()))
+
+    override fun trashFmSong(songId: Long, playedSeconds: Long): Flow<Result<Unit>> =
+        flowOf(Result.success(Unit))
+
     override fun reportStartPlay(songId: Long, source: PlaySource?): Flow<Result<Unit>> = flowOf(Result.success(Unit))
 
     override fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?): Flow<Result<Unit>> =
@@ -280,6 +286,10 @@ class MutableFakePlaybackController : PlaybackController {
     override fun cancelPendingSkip(): Boolean = false
     override fun disableRoaming() = Unit
     override fun disableIntelligence() = Unit
+    override fun startPersonalFm(items: List<QueueItem>) = Unit
+    override fun disablePersonalFm() = Unit
+    override fun trashCurrentFmSong() = Unit
+    override fun switchPersonalFmMode(mode: com.lin0721.linmusic.core.player.PersonalFmMode) = Unit
 }
 
 fun testMessageUser(uid: Long, nickname: String = "好友$uid") = MessageUser(

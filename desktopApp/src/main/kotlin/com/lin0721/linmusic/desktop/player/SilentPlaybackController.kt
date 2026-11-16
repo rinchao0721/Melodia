@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.desktop.player
 
 import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -228,6 +230,21 @@ class SilentPlaybackController : DesktopPlaybackController {
     override fun disableRoaming() = Unit
 
     override fun disableIntelligence() = Unit
+
+    override fun startPersonalFm(items: List<QueueItem>) {
+        if (items.isEmpty()) return
+        playQueue(items, 0, PlaybackController.CONTEXT_PERSONAL_FM, null)
+    }
+
+    override fun disablePersonalFm() {
+        if (_playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+            _playContext.value = null
+        }
+    }
+
+    override fun trashCurrentFmSong() = Unit
+
+    override fun switchPersonalFmMode(mode: PersonalFmMode) = Unit
 
     private fun step(delta: Int) {
         val size = _queue.value.size

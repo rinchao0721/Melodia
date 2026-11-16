@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.preferences
 
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -35,5 +36,16 @@ class SettingsPreferencesTest {
 
         settings.saveFullScreenLyricKeepScreenOn(false)
         assertEquals(false, settings.fullScreenLyricKeepScreenOn.first())
+    }
+
+    @Test
+    fun personalFmModeDefaultsToDefaultAndPersists() = runBlocking {
+        assertEquals(PersonalFmMode.DEFAULT, settings.personalFmMode.first())
+
+        settings.savePersonalFmMode(PersonalFmMode.NIGHT_EMO)
+        assertEquals(PersonalFmMode.NIGHT_EMO, settings.personalFmMode.first())
+
+        settings.savePersonalFmMode(PersonalFmMode.EXPLORE)
+        assertEquals(PersonalFmMode.EXPLORE, settings.personalFmMode.first())
     }
 }

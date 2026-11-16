@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricAlign
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricBounds
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
@@ -209,6 +210,8 @@ class SettingsPreferences(
         private val KEY_CLIPBOARD_LINK_ENABLED = booleanPreferencesKey("clipboard_link_enabled")
         // 上次已提示或应用内自己复制的剪贴板链接原文，避免反复打扰
         private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
+        // 上次选择的私人FM模式，默认 DEFAULT
+        private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -1177,6 +1180,17 @@ class SettingsPreferences(
     suspend fun setLastHandledClipboardLink(text: String) {
         dataStore.edit { prefs ->
             prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK] = text
+        }
+    }
+
+    // 上次选择的私人FM模式 Flow，默认 DEFAULT
+    val personalFmMode: Flow<PersonalFmMode> = dataStore.data.map { prefs ->
+        PersonalFmMode.fromKey(prefs[KEY_PERSONAL_FM_MODE])
+    }.distinctUntilChanged()
+
+    suspend fun savePersonalFmMode(mode: PersonalFmMode) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PERSONAL_FM_MODE] = mode.key
         }
     }
 }

@@ -7,6 +7,7 @@ fun playSourceText(playContext: String?, podcastRadioName: String): Pair<String,
     "每日推荐" -> "播放自" to "每日推荐"
     "历史日推" -> "播放自" to "历史日推"
     "intelligence" -> "播放自" to "心动模式"
+    PlaybackController.CONTEXT_PERSONAL_FM -> "播放自" to "私人FM"
     PlaybackController.CONTEXT_PODCAST -> "播放自播客" to podcastRadioName.ifBlank { "播客" }
     else -> "播放自歌单" to playContext
 }
