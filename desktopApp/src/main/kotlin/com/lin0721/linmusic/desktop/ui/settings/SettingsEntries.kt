@@ -63,6 +63,8 @@ import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
+import com.lin0721.linmusic.desktop.data.TitleBarButton
+import com.lin0721.linmusic.desktop.data.TitleBarLayout
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
@@ -426,6 +428,7 @@ internal fun settingsEntries(
     val miniPlayerOnTop by desktop.miniPlayerAlwaysOnTop.collectAsState()
     val miniLyric by desktop.miniLyricSettings.collectAsState()
     val libraryShortcuts by desktop.libraryShortcuts.collectAsState()
+    val titleBarLayout by desktop.titleBarLayout.collectAsState()
     val mediaKeysEnabled by desktop.mediaKeysEnabled.collectAsState()
     val hotkeyMap by desktop.hotkeyMap.collectAsState()
     val failedHotkeys by desktop.failedHotkeys.collectAsState()
@@ -441,6 +444,7 @@ internal fun settingsEntries(
         "歌词 ${formatFileSize(cacheUsage.lyrics)} · 离线数据 ${formatFileSize(cacheUsage.metadata)}）"
     val unmServerSubtitle = unmServerUrl.ifBlank { "未配置" }
     val cardLayoutSubtitle = "拖动调整信息卡片的顺序，关闭开关可隐藏对应卡片"
+    val titleBarButtonsSubtitle = "拖动调整同区域顺序，下拉切换位置，开关控制显隐（也可在标题栏右键自定义）"
     val libraryShortcutsSubtitle = "拖动调整快捷入口顺序，开关控制侧栏显示（也可右键侧栏快捷入口区快速勾选）"
 
     return buildList {
@@ -915,6 +919,17 @@ internal fun settingsEntries(
         addAll(miniLyricEntries(miniLyric, desktop))
         add(
             SettingsEntry(
+                key = "titleBarButtons",
+                category = SettingsCategory.Interface,
+                title = "标题栏按钮",
+                subtitle = titleBarButtonsSubtitle,
+                keywords = TitleBarButton.entries.map { it.title } + listOf("标题栏", "顶部", "按钮", "排序", "显示", "隐藏", "编辑")
+            ) {
+                TitleBarButtonsSettingRow(titleBarLayout, titleBarButtonsSubtitle, desktop::updateTitleBarLayout)
+            }
+        )
+        add(
+            SettingsEntry(
                 key = "libraryShortcuts",
                 category = SettingsCategory.Interface,
                 title = "音乐库快捷入口",
@@ -1320,6 +1335,52 @@ private fun LibraryShortcutSettingRow(
             Column {
                 Spacer(Modifier.height(8.dp))
                 LibraryShortcutEditor(layout, onChange)
+            }
+        }
+    }
+}
+
+// 标题栏按钮列表：默认收起，展开可调整顺序、位置与显隐
+@Composable
+private fun TitleBarButtonsSettingRow(
+    layout: TitleBarLayout,
+    expandedSubtitle: String,
+    onChange: (TitleBarLayout) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val visibleCount = TitleBarButton.entries.count { layout.isVisible(it) }
+    val subtitle = if (expanded) {
+        expandedSubtitle
+    } else {
+        "已显示 $visibleCount/${TitleBarButton.entries.size} 项，展开可调整位置与显隐"
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("标题栏按钮", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+                Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = if (expanded) "收起" else "展开",
+                tint = DesktopColors.TextGray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(uiTween(CARD_LAYOUT_EXPAND_MS)) + expandVertically(uiTween(CARD_LAYOUT_EXPAND_MS)),
+            exit = fadeOut(uiTween(CARD_LAYOUT_EXPAND_MS)) + shrinkVertically(uiTween(CARD_LAYOUT_EXPAND_MS))
+        ) {
+            Column {
+                Spacer(Modifier.height(8.dp))
+                TitleBarButtonEditor(layout, onChange)
             }
         }
     }

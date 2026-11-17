@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.awtEventOrNull
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -43,6 +44,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
@@ -277,13 +279,21 @@ fun WindowScope.MelodiaDesktopApp(
             deps.pluginCommands.links.opens.collect { if (!openInBrowser(it)) navigator.showMessage("无法打开浏览器") }
         }
         PluginConfirmDialog(deps.pluginCommands.confirmations)
+        var titleBarBounds by remember { mutableStateOf(Rect.Zero) }
+        LaunchedEffect(isFullscreen, lyricsView.isImmersive) {
+            if (isFullscreen || lyricsView.isImmersive) state.titleBarEditMode = false
+        }
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }
                 .onPointerEvent(PointerEventType.Exit) { lyricsView.pointerInWindow = false }
                 // 点到搜索下拉之外就收起它；鼠标侧键与浏览器一致：后退键返回，前进键前进；不消费事件，子组件照常响应
                 .onPointerEvent(PointerEventType.Press, PointerEventPass.Initial) { event ->
-                    event.changes.firstOrNull()?.position?.let(searchDropdown::onWindowPress)
+                    val pos = event.changes.firstOrNull()?.position
+                    pos?.let(searchDropdown::onWindowPress)
+                    if (state.titleBarEditMode && !event.buttons.isSecondaryPressed && pos != null && !titleBarBounds.contains(pos)) {
+                        state.titleBarEditMode = false
+                    }
                     when (event.awtEventOrNull?.button) {
                         MOUSE_BUTTON_BACK -> state.navigateBack()
                         MOUSE_BUTTON_FORWARD -> state.navigateForward()
@@ -292,6 +302,10 @@ fun WindowScope.MelodiaDesktopApp(
                 // Esc 先让输入框放弃焦点，窗口级快捷键随即恢复；同时收起剪贴板浮动条
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                        if (state.titleBarEditMode) {
+                            state.titleBarEditMode = false
+                            return@onPreviewKeyEvent true
+                        }
                         searchDropdown.close()
                         focusManager.clearFocus()
                         deps.songLinkRequests.dismissClipboard()
@@ -307,7 +321,16 @@ fun WindowScope.MelodiaDesktopApp(
                         enter = uiEnter(ChromeEnter),
                         exit = uiExit(ChromeExit)
                     ) {
-                        AppTitleBar(state, deps, windowState, userProfile, searchFocusRequests, searchDropdown, onClose)
+                        AppTitleBar(
+                            state = state,
+                            deps = deps,
+                            windowState = windowState,
+                            userProfile = userProfile,
+                            searchFocusRequests = searchFocusRequests,
+                            dropdown = searchDropdown,
+                            onTitleBarBoundsChange = { titleBarBounds = it },
+                            onClose = onClose
+                        )
                     }
                     Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
                     AnimatedVisibility(

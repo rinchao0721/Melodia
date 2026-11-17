@@ -87,6 +87,13 @@ class QueueReorderState internal constructor(
         }
     }
 
+    // 分组切换或外部列表重排时强制复位，防止残留偏移落到新位置
+    fun cancel() {
+        draggedIndex = -1
+        dragOffset = 0f
+        settlingIndex = -1
+    }
+
     // 拖到列表边缘时自动滚屏并逐渐加速，按帧驱动，速度以 px/秒 表达再乘真实帧间隔
     suspend fun runEdgeScroll() {
         var edgeDurationMs = 0f

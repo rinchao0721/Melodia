@@ -332,4 +332,25 @@ class DesktopSettingsViewModelTest {
         )
         preferences.libraryShortcuts.awaitValue(expected)
     }
+
+    @Test
+    fun titleBarLayoutIsPersistedAndToggled() {
+        val vm = viewModel()
+        vm.toggleTitleBarButton(com.lin0721.linmusic.desktop.data.TitleBarButton.SETTINGS)
+
+        val expectedAfterToggle = com.lin0721.linmusic.desktop.data.TitleBarLayoutCodec.toggleVisible(
+            com.lin0721.linmusic.desktop.data.TitleBarLayout.DEFAULT,
+            com.lin0721.linmusic.desktop.data.TitleBarButton.SETTINGS
+        )
+        preferences.titleBarLayout.awaitValue(expectedAfterToggle)
+
+        val custom = com.lin0721.linmusic.desktop.data.TitleBarLayoutCodec.move(
+            expectedAfterToggle,
+            com.lin0721.linmusic.desktop.data.TitleBarButton.SETTINGS,
+            com.lin0721.linmusic.desktop.data.TitleBarSlot.CENTER_START,
+            0
+        )
+        vm.updateTitleBarLayout(custom)
+        preferences.titleBarLayout.awaitValue(custom)
+    }
 }

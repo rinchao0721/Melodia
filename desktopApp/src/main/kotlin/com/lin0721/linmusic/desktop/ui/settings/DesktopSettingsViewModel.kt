@@ -19,6 +19,9 @@ import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
 import com.lin0721.linmusic.desktop.data.RelocationProgress
 import com.lin0721.linmusic.desktop.data.RelocationResult
+import com.lin0721.linmusic.desktop.data.TitleBarButton
+import com.lin0721.linmusic.desktop.data.TitleBarLayout
+import com.lin0721.linmusic.desktop.data.TitleBarLayoutCodec
 import com.lin0721.linmusic.desktop.platform.AutoStartService
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeyService
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
@@ -77,6 +80,7 @@ class DesktopSettingsViewModel(
     val miniPlayerAlwaysOnTop = desktopPreferences.miniPlayerAlwaysOnTop.asState(true)
     val miniLyricSettings = desktopPreferences.miniLyricSettings.asState(MiniLyricSettings())
     val libraryShortcuts = desktopPreferences.libraryShortcuts.asState(LibraryShortcutLayout.DEFAULT)
+    val titleBarLayout = desktopPreferences.titleBarLayout.asState(TitleBarLayout.DEFAULT)
 
     val hotkeysSupported: Boolean = hotkeys.isSupported
     val failedHotkeys: StateFlow<Set<HotkeyAction>> = hotkeys.failed
@@ -160,6 +164,17 @@ class DesktopSettingsViewModel(
         viewModelScope.launch {
             val updated = LibraryShortcutLayout.toggleVisible(desktopPreferences.libraryShortcuts.first(), item)
             desktopPreferences.saveLibraryShortcuts(updated)
+        }
+    }
+
+    fun updateTitleBarLayout(layout: TitleBarLayout) {
+        viewModelScope.launch { desktopPreferences.saveTitleBarLayout(TitleBarLayoutCodec.normalize(layout)) }
+    }
+
+    fun toggleTitleBarButton(button: TitleBarButton) {
+        viewModelScope.launch {
+            val updated = TitleBarLayoutCodec.toggleVisible(desktopPreferences.titleBarLayout.first(), button)
+            desktopPreferences.saveTitleBarLayout(updated)
         }
     }
 

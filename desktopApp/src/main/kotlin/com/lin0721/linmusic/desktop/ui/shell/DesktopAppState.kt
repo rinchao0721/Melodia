@@ -42,6 +42,7 @@ class DesktopAppState(
     // 非空时显示分享卡片对话框；song 为 null 时分享当前正在播放的歌曲
     var shareCardTarget by mutableStateOf<ShareCardTarget?>(null)
     var showRecognition by mutableStateOf(false)
+    var titleBarEditMode by mutableStateOf(false)
 
     data class ShareCardTarget(val kind: ShareCardKind, val song: ShareSongInfo? = null)
     data class ShareSongInfo(

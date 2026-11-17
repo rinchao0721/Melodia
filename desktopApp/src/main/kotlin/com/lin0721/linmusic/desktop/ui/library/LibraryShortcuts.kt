@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
@@ -184,79 +185,100 @@ internal fun rememberLibraryShortcutsState(
             activeShortcuts = active,
             roamingEnabled = roamingEnabled,
             onClick = { item ->
-                when (resolveShortcutClickAction(item, isActive = item in active)) {
-                    LibraryShortcutClickAction.DISABLE_PERSONAL_FM -> deps.playerViewModel.disablePersonalFm()
-                    LibraryShortcutClickAction.DISABLE_INTELLIGENCE -> deps.playbackController.disableIntelligence()
-                    LibraryShortcutClickAction.DISABLE_SIMILAR_ROAMING -> deps.playbackController.disableRoaming()
-                    LibraryShortcutClickAction.NAVIGATE_BACK -> appState.popBack()
-                    LibraryShortcutClickAction.START_PERSONAL_FM -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            deps.playerViewModel.startPersonalFm()
-                        }
-                    }
-                    LibraryShortcutClickAction.START_INTELLIGENCE -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            val track = nowPlaying
-                            if (track == null) {
-                                deps.homeViewModel.startIntelligenceMode()
-                            } else if (cloudSongId != null) {
-                                deps.playerViewModel.startIntelligenceMode(
-                                    songId = cloudSongId,
-                                    currentTitle = track.title,
-                                    currentArtist = track.artist,
-                                    currentCoverUrl = track.artworkUri.orEmpty()
-                                )
-                            } else {
-                                appState.showMessage("当前歌曲暂无云端信息，无法开启心动模式")
-                            }
-                        }
-                    }
-                    LibraryShortcutClickAction.START_SIMILAR_ROAMING -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            val track = nowPlaying
-                            if (track == null || cloudSongId == null) {
-                                appState.showMessage("请先播放一首云端歌曲")
-                            } else {
-                                deps.playerViewModel.startSimilarSongsRoaming(
-                                    songId = cloudSongId,
-                                    currentTitle = track.title,
-                                    currentArtist = track.artist,
-                                    currentCoverUrl = track.artworkUri.orEmpty()
-                                )
-                            }
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_DAILY_RECOMMEND -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            appState.openDailyRecommend()
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_CLOUD -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            appState.openCloud()
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_LOCAL_MUSIC ->
-                        appState.openLocalPlaylist(LOCAL_ALL_TRACKS_ID, LOCAL_ALL_TRACKS_NAME)
-                }
+                performLibraryShortcutClick(
+                    item = item,
+                    isActive = item in active,
+                    appState = appState,
+                    deps = deps,
+                    isLoggedIn = isLoggedIn,
+                    nowPlaying = nowPlaying,
+                    cloudSongId = cloudSongId
+                )
             },
             onToggleVisible = deps.desktopSettingsViewModel::toggleLibraryShortcut
         )
+    }
+}
+
+// 侧栏与标题栏共用的快捷入口点击行为，保证开启/退出/返回逻辑一致
+internal fun performLibraryShortcutClick(
+    item: LibraryShortcut,
+    isActive: Boolean,
+    appState: DesktopAppState,
+    deps: DesktopAppDependencies,
+    isLoggedIn: Boolean,
+    nowPlaying: NowPlaying? = null,
+    cloudSongId: Long? = null
+) {
+    when (resolveShortcutClickAction(item, isActive = isActive)) {
+        LibraryShortcutClickAction.DISABLE_PERSONAL_FM -> deps.playerViewModel.disablePersonalFm()
+        LibraryShortcutClickAction.DISABLE_INTELLIGENCE -> deps.playbackController.disableIntelligence()
+        LibraryShortcutClickAction.DISABLE_SIMILAR_ROAMING -> deps.playbackController.disableRoaming()
+        LibraryShortcutClickAction.NAVIGATE_BACK -> appState.popBack()
+        LibraryShortcutClickAction.START_PERSONAL_FM -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                deps.playerViewModel.startPersonalFm()
+            }
+        }
+        LibraryShortcutClickAction.START_INTELLIGENCE -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                val track = nowPlaying
+                if (track == null) {
+                    deps.homeViewModel.startIntelligenceMode()
+                } else if (cloudSongId != null) {
+                    deps.playerViewModel.startIntelligenceMode(
+                        songId = cloudSongId,
+                        currentTitle = track.title,
+                        currentArtist = track.artist,
+                        currentCoverUrl = track.artworkUri.orEmpty()
+                    )
+                } else {
+                    appState.showMessage("当前歌曲暂无云端信息，无法开启心动模式")
+                }
+            }
+        }
+        LibraryShortcutClickAction.START_SIMILAR_ROAMING -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                val track = nowPlaying
+                if (track == null || cloudSongId == null) {
+                    appState.showMessage("请先播放一首云端歌曲")
+                } else {
+                    deps.playerViewModel.startSimilarSongsRoaming(
+                        songId = cloudSongId,
+                        currentTitle = track.title,
+                        currentArtist = track.artist,
+                        currentCoverUrl = track.artworkUri.orEmpty()
+                    )
+                }
+            }
+        }
+        LibraryShortcutClickAction.OPEN_DAILY_RECOMMEND -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                appState.openDailyRecommend()
+            }
+        }
+        LibraryShortcutClickAction.OPEN_CLOUD -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                appState.openCloud()
+            }
+        }
+        LibraryShortcutClickAction.OPEN_LOCAL_MUSIC ->
+            appState.openLocalPlaylist(LOCAL_ALL_TRACKS_ID, LOCAL_ALL_TRACKS_NAME)
     }
 }
 
