@@ -1,13 +1,11 @@
 package com.lin0721.linmusic.desktop.ui.library
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Badge
@@ -44,6 +42,9 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.text.Collator
 import java.util.Locale
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 internal const val LOCAL_ITEM_PREFIX = "local:"
 internal const val LOCAL_FILTER_LABEL = "本地音乐"
@@ -156,11 +157,11 @@ internal fun LocalLibraryItemMenu(
     val repository = extras.local.repository
     val isUserPlaylist = id > 0L
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             extras.local.playPlaylist(id, shuffle = false) { navigator.showMessage("歌单里还没有歌曲") }
         })
-        MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             extras.local.addPlaylistToPlayNext(id) { count ->
                 navigator.showMessage(if (count > 0) "已添加至下一首播放" else "歌单里还没有歌曲")

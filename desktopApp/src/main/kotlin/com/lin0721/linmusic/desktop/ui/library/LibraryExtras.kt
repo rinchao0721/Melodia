@@ -1,10 +1,8 @@
 package com.lin0721.linmusic.desktop.ui.library
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.DriveFolderUpload
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -22,6 +20,9 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 // 桌面端独有的音乐库胶囊，选中时共享筛选为空
 enum class LibraryExtraFilter { LOCAL, CLOUD }
@@ -79,11 +80,11 @@ internal fun CloudLibraryItemMenu(
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             if (state.songs.isEmpty()) navigator.showMessage("云盘里还没有歌曲") else cloud.play(state.songs, 0)
         })
-        MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             cloud.addToPlayNext(state.songs)
             navigator.showMessage(if (state.songs.isEmpty()) "云盘里还没有歌曲" else "已添加至下一首播放")

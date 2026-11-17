@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -52,6 +51,8 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Subtitles
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
@@ -59,7 +60,7 @@ enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, v
     QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.Outlined.HighQuality),
     DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), Icons.Outlined.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
-    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词", "歌词过滤"), Icons.Outlined.Subtitles),
+    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词", "歌词过滤"), MelodiaIcons.Subtitles),
     APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局", "界面精简"), Icons.Outlined.Palette),
     SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), Icons.Outlined.Extension),
     ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);

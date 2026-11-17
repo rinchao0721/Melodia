@@ -21,8 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -68,6 +66,8 @@ import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 import com.lin0721.linmusic.feature.profile.ui.ProfileUiState
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 
@@ -352,7 +352,7 @@ private fun RankRow(index: Int, item: ProfileListenRankItem, isCurrent: Boolean,
                     Modifier.fillMaxSize().pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onPlay),
                     contentAlignment = Alignment.CenterEnd
                 ) {
-                    Icon(Icons.Rounded.PlayArrow, "播放${item.songName}", tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
+                    Icon(MelodiaIcons.Play, "播放${item.songName}", tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
                 }
             } else {
                 Text(

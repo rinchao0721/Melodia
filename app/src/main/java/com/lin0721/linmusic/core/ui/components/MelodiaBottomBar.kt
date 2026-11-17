@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.SkipNext
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
@@ -125,6 +124,11 @@ import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherCoverBadge
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 
 //悬浮播放控制卡片
 
@@ -393,13 +397,13 @@ fun MiniPlayerCard(
                                 node.buttons.forEach { button ->
                                     when (button) {
                                         "previous" -> MelodiaIconButton(onClick = onPrevious) {
-                                            Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                            Icon(MelodiaIcons.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
                                         }
                                         "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
                                             PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
                                         }
                                         "next" -> MelodiaIconButton(onClick = onNext) {
-                                            Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                            Icon(MelodiaIcons.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
                                         }
                                     }
                                 }
@@ -458,7 +462,7 @@ fun MiniPlayerCard(
                         // 下一首按钮
                         MelodiaIconButton(onClick = onNext) {
                             Icon(
-                                imageVector = Icons.Rounded.SkipNext,
+                                imageVector = MelodiaIcons.SkipNext,
                                 contentDescription = "下一首",
                                 tint = MelodiaColors.OnPlayer,
                                 modifier = Modifier.size(28.dp)
@@ -515,7 +519,7 @@ private fun MiniLikeButton(
     MelodiaIconButton(onClick = onLikeClick, modifier = modifier) {
         Icon(
             imageVector = when {
-                subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
+                subscribe -> if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
                 isLiked -> Icons.Rounded.CheckCircle
                 else -> Icons.Rounded.AddCircleOutline
             },

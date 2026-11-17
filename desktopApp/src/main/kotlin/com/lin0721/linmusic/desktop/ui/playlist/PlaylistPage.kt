@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Checklist
@@ -48,11 +47,9 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
@@ -147,6 +144,13 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.util.Collections
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val TRACK_LOAD_MORE_THRESHOLD = 10
@@ -866,7 +870,7 @@ internal fun PlayCircleButton(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                if (isPlaying) MelodiaIcons.Pause else MelodiaIcons.Play,
                 if (isPlaying) "暂停" else "播放全部",
                 tint = DesktopColors.TextPrimary,
                 modifier = Modifier.size(iconSize)
@@ -914,14 +918,14 @@ private fun PlaylistActionBar(
     ) {
         PlayCircleButton(PlayButtonSize, 32.dp, isPlaying, onPlay)
         ActionIcon(
-            Icons.Rounded.Shuffle,
+            MelodiaIcons.Shuffle,
             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
             tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
             onClick = onToggleShuffle
         )
         if (canSubscribe) {
             ActionIcon(
-                if (isSubscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (isSubscribed) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                 if (isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel",
                 tint = if (isSubscribed) DesktopColors.Accent else DesktopColors.TextGray,
                 onClick = onToggleSubscribe
@@ -981,7 +985,7 @@ private fun PlaylistMoreMenu(
     Box {
         ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
-            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })

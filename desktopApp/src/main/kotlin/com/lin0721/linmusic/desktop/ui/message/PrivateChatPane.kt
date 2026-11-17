@@ -47,7 +47,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -121,6 +120,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private val ChatAvatarSize = 36.dp
 private val OuterBubbleRadius = 16.dp
@@ -957,7 +958,7 @@ private fun ShareCardBubble(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Rounded.PlayArrow,
+                                MelodiaIcons.Play,
                                 "播放",
                                 tint = Color(0xFF141416),
                                 modifier = Modifier.size(16.dp)

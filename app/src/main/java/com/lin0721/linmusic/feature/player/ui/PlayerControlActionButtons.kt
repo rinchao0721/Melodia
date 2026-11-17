@@ -10,7 +10,6 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.SpeakerGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +31,9 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Devices
+import com.lin0721.linmusic.core.ui.icons.Subtitles
 
 // 插件布局用的操作行：按给定按钮与顺序排布
 @Composable
@@ -59,7 +61,7 @@ fun PlayerActionRow(
             when (button) {
                 "device" -> MelodiaIconButton(onClick = onOutputDeviceClick) {
                     Icon(
-                        connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup,
+                        connectedDevice?.let { deviceIcon(it.type) } ?: MelodiaIcons.Devices,
                         contentDescription = "连接设备",
                         tint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
                         modifier = Modifier.size(24.dp)
@@ -89,7 +91,7 @@ fun PlayerActionRow(
                     Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
-                    Icon(Icons.Rounded.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "lyricsSettings" -> MelodiaIconButton(onClick = onLyricsSettingsClick) {
                     Icon(Icons.Rounded.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
@@ -116,7 +118,7 @@ fun ActionButtons(
     onToggleSecondaryMode: (() -> Unit)? = null,
     onLyricsSettingsClick: (() -> Unit)? = null
 ) {
-    val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup
+    val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: MelodiaIcons.Devices
     val outputDeviceTint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
 
     // 依次排入设备、音质、按钮三个槽位，见 ActionRowLayout

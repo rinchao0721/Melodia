@@ -31,6 +31,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 // 操作控制行：粉丝数、关注状态、更多菜单与随机/全部播放
 @Composable
@@ -136,7 +139,7 @@ fun ArtistActionBar(
                 onClick = onPlayAll,
                 modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.Default.Shuffle, "Shuffle", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                Icon(MelodiaIcons.Shuffle, "Shuffle", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -152,7 +155,7 @@ fun ArtistActionBar(
                     .pressScale(MelodiaPress.Transport, playInteraction)
                     .size(56.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, "Play All", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+                Icon(MelodiaIcons.Play, "Play All", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
             }
         }
     }

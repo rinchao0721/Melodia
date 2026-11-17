@@ -122,6 +122,10 @@ import com.lin0721.linmusic.feature.player.presentation.lyricsPlaceholder
 import com.lin0721.linmusic.feature.player.presentation.secondaryText
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
+import com.lin0721.linmusic.core.ui.icons.Fullscreen
+import com.lin0721.linmusic.core.ui.icons.FullscreenExit
 
 private const val FADE_MS = 150
 private const val OPEN_MS = 220
@@ -412,11 +416,11 @@ private fun Header(
             }
         }
         HeaderButton(
-            if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+            if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
             if (isFullscreen) "退出全屏" else "全屏",
             onToggleFullscreen
         )
-        HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose)
+        HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose)
     }
 }
 
@@ -691,7 +695,7 @@ private fun PluginLyricsContent(
             PlayerLayoutView(root, Modifier.fillMaxSize(), binding::prepare) { node, modifier ->
                 when (node.type) {
                     LayoutNodeType.LYRICS_VIEW -> lyricsArea(modifier)
-                    LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
+                    LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose) }
                     LayoutNodeType.ACTIONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
                         node.buttons.forEach { button ->
                             when (button) {
@@ -707,7 +711,7 @@ private fun PluginLyricsContent(
                                     }
                                 }
                                 "fullscreen" -> HeaderButton(
-                                    if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                    if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
                                     if (isFullscreen) "退出全屏" else "全屏",
                                     onToggleFullscreen
                                 )
@@ -721,7 +725,7 @@ private fun PluginLyricsContent(
         }
         // 布局里没有一定看得见的收起按钮时由宿主补上，保证随时能关闭歌词页
         if (!root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
-            Box(Modifier.align(Alignment.TopStart).padding(8.dp)) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
+            Box(Modifier.align(Alignment.TopStart).padding(8.dp)) { HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose) }
         }
     }
 }

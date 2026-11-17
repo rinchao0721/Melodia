@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +47,8 @@ import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import com.lin0721.linmusic.feature.podcast.ui.PodcastSection
 import com.lin0721.linmusic.feature.podcast.ui.RadioDetailUiState
 import com.lin0721.linmusic.feature.podcast.ui.RadioDetailViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 距离列表底部还剩几项时加载下一页节目
 private const val PROGRAM_LOAD_MORE_THRESHOLD = 6
@@ -208,7 +208,7 @@ private fun RadioActions(
                 contentColor = DesktopColors.TextPrimary
             )
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Play, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(playLabel, modifier = Modifier.padding(start = 6.dp), fontWeight = FontWeight.SemiBold)
         }
         OutlinedButton(

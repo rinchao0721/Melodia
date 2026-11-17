@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -44,6 +43,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.cloud.domain.CloudSong
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 
 // 云盘歌曲的「更多操作」面板
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,7 +129,7 @@ fun CloudSongOptionsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    imageVector = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                     contentDescription = null,
                     tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.TextPrimary.copy(alpha = 0.7f)
                 )

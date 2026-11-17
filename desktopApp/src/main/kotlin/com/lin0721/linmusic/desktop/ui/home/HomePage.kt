@@ -40,10 +40,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -125,6 +123,9 @@ import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.time.LocalDate
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 internal val CardWidth = 168.dp
 
@@ -458,11 +459,11 @@ private fun LazyListScope.homeItems(
                         typeLabel = "歌单",
                         onPlay = { viewModel.playCollection(playlist.id, isAlbum = false) },
                         contextMenuContent = { onDismiss ->
-                            MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                            MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                                 onDismiss()
                                 viewModel.playCollection(playlist.id, isAlbum = false)
                             })
-                            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                                 onDismiss()
                                 viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
                             })
@@ -631,11 +632,11 @@ private fun RecentTile(
                 offset = contextMenuOffset ?: DpOffset.Zero,
                 onDismiss = { contextMenuOffset = null }
             ) {
-                MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                     contextMenuOffset = null
                     onPlay()
                 })
-                MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                     contextMenuOffset = null
                     viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
                 })
@@ -738,7 +739,7 @@ private fun HomePlayButton(
         Modifier.size(size).clip(CircleShape).background(containerColor).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Rounded.PlayArrow, description, tint = iconTint, modifier = Modifier.size(size * 0.6f))
+        Icon(MelodiaIcons.Play, description, tint = iconTint, modifier = Modifier.size(size * 0.6f))
     }
 }
 
@@ -772,11 +773,11 @@ private fun ServerShelf(
             when (card) {
                 is HomeCard.Playlist -> {
                     val isSubscribed = card.id in subscribedPlaylistIds
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addCollectionToPlayNext(card.id, isAlbum = false)
                     })
@@ -801,11 +802,11 @@ private fun ServerShelf(
                     })
                 }
                 is HomeCard.Album -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addCollectionToPlayNext(card.id, isAlbum = true)
                     })
@@ -820,11 +821,11 @@ private fun ServerShelf(
                     })
                 }
                 is HomeCard.Song -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addShelfSongToPlayNext(card)
                     })
@@ -848,11 +849,11 @@ private fun ServerShelf(
                     })
                 }
                 is HomeCard.Voice -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addShelfVoiceToPlayNext(card)
                     })

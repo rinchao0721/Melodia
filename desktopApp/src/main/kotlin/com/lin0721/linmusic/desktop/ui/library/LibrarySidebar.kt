@@ -40,7 +40,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloseFullscreen
 import androidx.compose.material.icons.rounded.Delete
@@ -49,7 +48,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -132,6 +130,10 @@ import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryUiState
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
+import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private const val VIEW_SWITCH_MS = 150
 private val SearchHeight = FilterChipDefaults.Height
@@ -183,7 +185,7 @@ fun LibrarySidebar(
                 LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
                 LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
                 Spacer(Modifier.width(4.dp))
-                LibraryIconButton(Icons.Rounded.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
+                LibraryIconButton(MelodiaIcons.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
             }
         }
         Column(Modifier.weight(1f)) {
@@ -242,7 +244,7 @@ fun LibraryExpanded(
                 LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
                 LibraryCreateButton(viewModel, extras, isLoggedIn, pill = true)
                 Spacer(Modifier.width(8.dp))
-                LibraryIconButton(Icons.Rounded.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
+                LibraryIconButton(MelodiaIcons.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
             }
         }
         LibraryBody(
@@ -762,11 +764,11 @@ private fun LibraryItemMenu(
 ) {
     val navigator = LocalDesktopNavigator.current
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             viewModel.playLibraryItem(item)
         })
-        MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             viewModel.addLibraryItemToPlayNext(item)
         })

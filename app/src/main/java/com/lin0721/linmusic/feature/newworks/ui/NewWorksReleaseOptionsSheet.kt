@@ -13,10 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +43,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
 import com.lin0721.linmusic.feature.newworks.domain.typeLabel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private const val DISABLED_ALPHA = 0.38f
 
@@ -112,13 +114,13 @@ fun NewWorksReleaseOptionsSheet(
             )
 
             OptionRow(
-                if (inLibrary) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (inLibrary) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                 if (inLibrary) "从音乐库移除" else "添加到音乐库"
             ) {
                 onDismiss()
                 onAddToLibrary()
             }
-            OptionRow(Icons.AutoMirrored.Rounded.QueueMusic, "加入播放队列") {
+            OptionRow(MelodiaIcons.Queue, "加入播放队列") {
                 onDismiss()
                 onAddToPlayNext()
             }

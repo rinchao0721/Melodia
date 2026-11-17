@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,10 +37,8 @@ import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
@@ -127,14 +126,31 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Devices
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Fullscreen
+import com.lin0721.linmusic.core.ui.icons.FullscreenExit
+import com.lin0721.linmusic.core.ui.icons.MiniPlayer
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.VolumeDown
+import com.lin0721.linmusic.core.ui.icons.VolumeOff
+import com.lin0721.linmusic.core.ui.icons.VolumeUp
 
 private const val HOVER_SCALE = 1.1f
 private const val HOVER_SCALE_MS = 150
 private val TransportButtonSize = 36.dp
 private val SideButtonSize = 32.dp
 
-// 右侧与红心按钮的图标比切歌按钮的字形占格更满，缩小图标才能看起来一样大
+// 自绘图标字形占满格子，切歌与右侧统一 20dp 才与圆形播放键比例协调
 private val SideIconSize = 20.dp
+private val PlayIconSize = 18.dp
 private val VolumeSliderWidth = 120.dp
 private val DeviceNameMaxWidth = 160.dp
 private const val DEVICE_ANIM_MS = 220
@@ -225,7 +241,12 @@ fun PlayerBar(
                 parts.LikeButton(Modifier.padding(start = 4.dp))
             }
         }
-        Column(Modifier.weight(0.4f), horizontalAlignment = Alignment.CenterHorizontally) {
+        // 进度条位置不变，播放组上移，使栏顶与进度轨道到播放键的留白相等
+        Column(
+            Modifier.weight(0.4f).fillMaxHeight().padding(top = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             parts.Controls(CONTROL_BUTTONS)
             parts.Progress(showTime = true)
         }
@@ -413,7 +434,7 @@ internal class PlayerBarParts(
         if (podcast.isPodcast) {
             if (podcast.canSubscribe) {
                 BarIconButton(
-                    icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    icon = if (podcast.subscribed) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                     description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
                     active = podcast.subscribed,
                     size = SideButtonSize, iconSize = SideIconSize,
@@ -477,7 +498,7 @@ internal class PlayerBarParts(
                         FmModeButton(size = transportSize)
                     } else if (!isPodcast) {
                         BarIconButton(
-                            Icons.Rounded.Shuffle,
+                            MelodiaIcons.Shuffle,
                             "随机播放",
                             enabled = hasTrack,
                             active = playMode == PlayMode.SHUFFLE,
@@ -487,7 +508,7 @@ internal class PlayerBarParts(
                         )
                     }
                     "previous" -> BarIconButton(
-                        Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack && !isPersonalFm, size = transportSize,
+                        MelodiaIcons.SkipPrevious, "上一首", enabled = hasTrack && !isPersonalFm, size = transportSize,
                         onClick = controller::skipToPrevious, modifier = transportOutline
                     )
                     CONTROL_PLAY_PAUSE -> if (variant == ControlVariant.PLAIN) {
@@ -511,9 +532,9 @@ internal class PlayerBarParts(
                     } else if (!isPodcast) {
                         BarIconButton(
                             when (playMode) {
-                                PlayMode.LIST_LOOP -> Icons.Rounded.Repeat
-                                PlayMode.SINGLE_LOOP -> Icons.Rounded.RepeatOne
-                                PlayMode.SHUFFLE -> Icons.Rounded.Shuffle
+                                PlayMode.LIST_LOOP -> MelodiaIcons.Repeat
+                                PlayMode.SINGLE_LOOP -> MelodiaIcons.RepeatOne
+                                PlayMode.SHUFFLE -> MelodiaIcons.Shuffle
                             },
                             when (playMode) {
                                 PlayMode.LIST_LOOP -> "列表循环"
@@ -526,7 +547,7 @@ internal class PlayerBarParts(
                         )
                     }
                     "next" -> BarIconButton(
-                        Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
+                        MelodiaIcons.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
                         onClick = controller::playNext, modifier = transportOutline
                     )
                     "repeat" -> if (isPersonalFm) {
@@ -539,7 +560,7 @@ internal class PlayerBarParts(
                         )
                     } else if (!isPodcast) {
                         BarIconButton(
-                            if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            if (playMode == PlayMode.SINGLE_LOOP) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
                             "循环模式",
                             enabled = hasTrack,
                             active = playMode == PlayMode.SINGLE_LOOP,
@@ -591,7 +612,7 @@ internal class PlayerBarParts(
             contentAlignment = Alignment.Center
         ) {
             IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
-                PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
+                PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, size = PlayIconSize, contentDescription = if (isPlaying) "暂停" else "播放")
             }
         }
     }
@@ -624,7 +645,7 @@ internal class PlayerBarParts(
                         onClick = onToggleLyricsView
                     )
                     "queue" -> BarIconButton(
-                        PlayerBarIcons.Queue,
+                        MelodiaIcons.Queue,
                         "播放队列",
                         enabled = hasTrack,
                         active = queueOpen,
@@ -639,11 +660,11 @@ internal class PlayerBarParts(
                     // 占位播放器没有音量能力时不显示
                     "volume" -> if (volume != null) VolumeControl(volume, lastAudibleVolume, onVolumeChange)
                     "miniPlayer" -> BarIconButton(
-                        Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize,
+                        MelodiaIcons.MiniPlayer, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize,
                         onClick = onEnterMiniPlayer
                     )
                     "fullscreen" -> BarIconButton(
-                        if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
                         if (isFullscreen) "退出全屏" else "全屏",
                         size = SideButtonSize, iconSize = SideIconSize,
                         onClick = onToggleFullscreen
@@ -713,9 +734,9 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
         Row(verticalAlignment = Alignment.CenterVertically) {
             BarIconButton(
                 icon = when {
-                    volume == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
-                    volume < 50 -> Icons.AutoMirrored.Rounded.VolumeDown
-                    else -> Icons.AutoMirrored.Rounded.VolumeUp
+                    volume == 0 -> MelodiaIcons.VolumeOff
+                    volume < 50 -> MelodiaIcons.VolumeDown
+                    else -> MelodiaIcons.VolumeUp
                 },
                 description = if (volume == 0) "取消静音" else "静音",
                 size = SideButtonSize, iconSize = SideIconSize,
@@ -764,7 +785,7 @@ private fun OutputDeviceButton(device: AudioDevice?, open: Boolean, onClick: () 
     val name = device?.let { it.subtitle ?: it.title }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         BarIconButton(
-            device?.icon() ?: PlayerBarIcons.Devices,
+            device?.icon() ?: MelodiaIcons.Devices,
             tooltip,
             active = open,
             highlighted = device != null,
@@ -854,7 +875,7 @@ private fun BarIconButton(
     showDot: Boolean = false,
     animateIcon: Boolean = false,
     size: Dp = TransportButtonSize,
-    iconSize: Dp = 24.dp
+    iconSize: Dp = SideIconSize
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()

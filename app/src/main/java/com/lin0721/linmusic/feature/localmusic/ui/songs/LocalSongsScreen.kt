@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SwapVert
@@ -69,6 +68,9 @@ import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
 import com.lin0721.linmusic.feature.localmusic.ui.LocalTrackActionsHost
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 private val DividerColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Divider
 
@@ -246,14 +248,14 @@ private fun PlayAllRow(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Play, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(MelodiaSpacing.sm))
             Text("播放全部", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(" ($count)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         MelodiaIconButton(onClick = onShuffle) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = "随机播放", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Shuffle, contentDescription = "随机播放", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
         Box {
             Row(

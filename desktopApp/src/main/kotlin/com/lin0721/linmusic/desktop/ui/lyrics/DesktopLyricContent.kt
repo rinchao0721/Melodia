@@ -77,6 +77,10 @@ import com.lin0721.linmusic.desktop.ui.lyricsview.KaraokeText
 import com.lin0721.linmusic.desktop.ui.shell.WindowDragArea
 import kotlinx.coroutines.delay
 import java.awt.Cursor
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 
 private const val TAG = "DesktopLyricContent"
 
@@ -240,7 +244,7 @@ private fun CornerHandle(resize: DesktopLyricResizeCallbacks, modifier: Modifier
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Rounded.OpenInFull,
+            MelodiaIcons.OpenInFull,
             contentDescription = "缩放歌词",
             tint = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.size(12.dp).rotate(90f)
@@ -277,11 +281,11 @@ private fun ControlBar(isPlaying: Boolean, actions: DesktopLyricActions) {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        BarButton(Icons.Rounded.SkipPrevious, "上一首", actions.onPrevious)
+        BarButton(MelodiaIcons.SkipPrevious, "上一首", actions.onPrevious)
         BarButton("播放/暂停", actions.onTogglePlay) { tint ->
             PlayPauseIcon(isPlaying, tint, size = 20.dp)
         }
-        BarButton(Icons.Rounded.SkipNext, "下一首", actions.onNext)
+        BarButton(MelodiaIcons.SkipNext, "下一首", actions.onNext)
         Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.25f)))
         BarButton(Icons.Rounded.Lock, "锁定歌词", actions.onToggleLock)
         BarButton(Icons.Rounded.Settings, "歌词设置", actions.onOpenSettings)

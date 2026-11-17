@@ -41,6 +41,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherTitleLabel
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Fullscreen
 
 private val SidebarToggleGap = 4.dp
 
@@ -143,7 +145,7 @@ fun FullPlayerSourceBar(
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.Fullscreen,
+                        MelodiaIcons.Fullscreen,
                         contentDescription = "全屏歌词",
                         tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(24.dp)

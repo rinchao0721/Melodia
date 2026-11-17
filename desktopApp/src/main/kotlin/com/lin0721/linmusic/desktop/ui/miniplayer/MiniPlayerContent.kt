@@ -34,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
@@ -125,6 +124,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.awt.Cursor
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 
 // mpv 每秒上报几十次播放位置，迷你窗无需这么密
 private const val POSITION_STEP_MS = 250L
@@ -689,9 +696,9 @@ private fun MiniProgress(info: MiniTrackInfo, actions: MiniPlayerActions, modifi
 @Composable
 private fun TransportControls(info: MiniTrackInfo, actions: MiniPlayerActions, playSize: Dp, spacing: Dp) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing)) {
-        MiniIconButton(Icons.Rounded.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack && !info.isPersonalFm)
+        MiniIconButton(MelodiaIcons.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack && !info.isPersonalFm)
         PlayButton(info, playSize, actions.onTogglePlay)
-        MiniIconButton(Icons.Rounded.SkipNext, "下一首", actions.onNext, enabled = info.hasTrack)
+        MiniIconButton(MelodiaIcons.SkipNext, "下一首", actions.onNext, enabled = info.hasTrack)
     }
 }
 
@@ -712,7 +719,7 @@ private fun PlayButton(info: MiniTrackInfo, size: Dp, onClick: () -> Unit) {
 @Composable
 private fun LikeButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
     MiniIconButton(
-        if (info.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+        if (info.liked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
         if (info.liked) "取消喜欢" else "喜欢",
         actions.onToggleLike,
         tint = if (info.liked) DesktopColors.Accent else null
@@ -732,7 +739,7 @@ private fun RepeatButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
     }
     val singleLoop = info.playMode == PlayMode.SINGLE_LOOP
     MiniIconButton(
-        if (singleLoop) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+        if (singleLoop) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
         "循环模式",
         actions.onToggleRepeat,
         iconSize = 18.dp,
@@ -754,7 +761,7 @@ private fun WindowButtons(
                 MiniIconButton(Icons.Rounded.Tune, "歌词设置", onOpenLyricSettings, size = 20.dp, iconSize = 14.dp)
             }
             MiniIconButton(Icons.Rounded.SwapHoriz, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
-            MiniIconButton(Icons.Rounded.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
+            MiniIconButton(MelodiaIcons.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
             MiniIconButton(Icons.Rounded.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
         }
         if (vertical) Column { buttons() } else Row { buttons() }

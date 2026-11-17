@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,6 +52,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.music.domain.StyleSort
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val SONG_LOAD_MORE_THRESHOLD = 8
@@ -260,7 +261,7 @@ private fun ActionRow(data: StyleDetailData, onPlayAll: () -> Unit, onPlayFavour
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = MelodiaIcons.Play,
                 contentDescription = "播放全部",
                 tint = MelodiaColors.OnAccent,
                 modifier = Modifier.size(26.dp)

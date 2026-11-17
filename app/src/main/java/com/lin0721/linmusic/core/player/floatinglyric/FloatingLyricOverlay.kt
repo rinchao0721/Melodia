@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -61,6 +60,12 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.player.ui.KaraokeLyricRow
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 
 private const val TAG = "FloatingLyricOverlay"
 
@@ -228,7 +233,7 @@ private fun ResizeHandle(handle: LyricResizeHandle, actions: FloatingLyricAction
     ) {
         if (corner) {
             Icon(
-                Icons.Rounded.OpenInFull,
+                MelodiaIcons.OpenInFull,
                 contentDescription = "缩放歌词",
                 tint = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.size(14.dp).rotate(90f)
@@ -246,15 +251,15 @@ private fun ControlBar(isPlaying: Boolean, actions: FloatingLyricActions, touche
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        BarButton(Icons.Rounded.SkipPrevious, "上一首") {
+        BarButton(MelodiaIcons.SkipPrevious, "上一首") {
             touched()
             actions.onPrevious()
         }
-        BarButton(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (isPlaying) "暂停" else "播放") {
+        BarButton(if (isPlaying) MelodiaIcons.Pause else MelodiaIcons.Play, if (isPlaying) "暂停" else "播放") {
             touched()
             actions.onTogglePlay()
         }
-        BarButton(Icons.Rounded.SkipNext, "下一首") {
+        BarButton(MelodiaIcons.SkipNext, "下一首") {
             touched()
             actions.onNext()
         }

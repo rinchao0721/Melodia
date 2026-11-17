@@ -26,10 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Share
@@ -84,6 +82,10 @@ import com.lin0721.linmusic.feature.newworks.ui.NewWorksReleaseStatus
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 // 距离末尾还剩几项时提前拉下一页
 private const val LOAD_MORE_THRESHOLD = 2
@@ -324,7 +326,7 @@ private fun ReleaseCard(
                     }) {
                         StateIcon(inLibrary) { added ->
                             Icon(
-                                imageVector = if (added) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                imageVector = if (added) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                                 contentDescription = if (added) "取消收藏" else "收藏",
                                 tint = if (added) DesktopColors.Accent else Color.White,
                                 modifier = Modifier.size(28.dp)
@@ -381,12 +383,12 @@ private fun ReleaseMenu(
     ) {
         MenuEntry(
             if (inLibrary) "从音乐库移除" else "添加到音乐库",
-            if (inLibrary) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
+            if (inLibrary) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
         ) {
             closeAll()
             actions.onToggleLibrary(release)
         }
-        MenuEntry("加入播放队列", Icons.AutoMirrored.Rounded.QueueMusic) {
+        MenuEntry("加入播放队列", MelodiaIcons.Queue) {
             closeAll()
             actions.onAddToPlayNext(release)
         }

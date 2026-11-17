@@ -52,7 +52,6 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WifiOff
@@ -129,6 +128,9 @@ import com.lin0721.linmusic.feature.recognition.ui.RecognitionUiState
 import com.lin0721.linmusic.feature.recognition.ui.groupRecognitionHistory
 import kotlinx.coroutines.launch
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.VolumeOff
 
 private val DialogWidth = 780.dp
 private val BodyHeight = 440.dp
@@ -677,7 +679,7 @@ private fun StageIcon(icon: ImageVector, modifier: Modifier = Modifier) {
 
 private fun failureIcon(reason: RecognitionFailedReason, mode: RecognitionMode): ImageVector = when (reason) {
     RecognitionFailedReason.NOT_FOUND -> Icons.Rounded.MusicOff
-    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.MicOff
+    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.VolumeOff else Icons.Rounded.MicOff
     RecognitionFailedReason.NETWORK -> Icons.Rounded.WifiOff
     RecognitionFailedReason.RECORDER_UNAVAILABLE -> Icons.Rounded.MicOff
     RecognitionFailedReason.STOPPED -> Icons.Rounded.StopCircle
@@ -826,7 +828,7 @@ private fun SongLine(
             HoverReveal(revealed = hovered || menuOpen) {
                 DesktopTooltip("播放") {
                     IconButton(onClick = onPlay, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.PlayArrow, "播放", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
+                        Icon(MelodiaIcons.Play, "播放", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
                     }
                 }
             }

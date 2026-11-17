@@ -35,7 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +86,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 歌曲行的轻量 UI 数据模型，各调用方把自己的领域模型（Track/QueueItem 等）映射到这里
 data class SongRowData(
@@ -479,7 +480,7 @@ fun DraggableSongRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        if (isPlaying) Icons.Rounded.GraphicEq else Icons.Rounded.PlayArrow,
+                        if (isPlaying) Icons.Rounded.GraphicEq else MelodiaIcons.Play,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)

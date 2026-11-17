@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.ButtonDefaults
@@ -72,6 +71,9 @@ import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 @Composable
 fun rememberLocalCoverUrl(sourceUri: Uri?): String? {
@@ -181,7 +183,7 @@ fun LocalPlayShuffleButtons(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             modifier = Modifier.weight(1f)
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Play, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(MelodiaSpacing.xs))
             Text("播放", fontWeight = FontWeight.Bold)
         }
@@ -193,7 +195,7 @@ fun LocalPlayShuffleButtons(
             ),
             modifier = Modifier.weight(1f)
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(MelodiaSpacing.xs))
             Text("随机", fontWeight = FontWeight.Bold)
         }

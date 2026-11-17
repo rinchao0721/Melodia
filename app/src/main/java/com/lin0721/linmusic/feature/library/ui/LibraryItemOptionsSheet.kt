@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
@@ -32,6 +31,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 
 // 菜单单项数据模型
 private data class LibraryOptionsMenuItem(
@@ -227,7 +228,7 @@ fun LibraryItemOptionsSheet(
                             } else {
                                 add(
                                     LibraryOptionsMenuItem(
-                                        icon = Icons.Default.Favorite,
+                                        icon = MelodiaIcons.FavoriteFilled,
                                         title = "取消收藏歌单",
                                         isDestructive = true,
                                         onClick = {
@@ -254,7 +255,7 @@ fun LibraryItemOptionsSheet(
                         )
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.Favorite,
+                                icon = MelodiaIcons.FavoriteFilled,
                                 title = "取消收藏专辑",
                                 isDestructive = true,
                                 onClick = {

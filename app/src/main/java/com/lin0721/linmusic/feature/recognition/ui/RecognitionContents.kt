@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -73,6 +72,8 @@ import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionNowPlaying
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionProgress
 import com.lin0721.linmusic.feature.recognition.engine.RecognitionSession
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private val WaveformHeight = 160.dp
 private val PillShape = RoundedCornerShape(PillRadius)
@@ -282,7 +283,7 @@ internal fun RecognitionFoundContent(
                             modifier = Modifier.padding(start = MelodiaSpacing.sm).size(44.dp)
                         ) {
                             Icon(
-                                Icons.Rounded.PlayArrow,
+                                MelodiaIcons.Play,
                                 contentDescription = "从 ${formatTime(candidate.startTimeMs)} 播放 ${candidate.title}",
                                 tint = MelodiaColors.TextPrimary
                             )
@@ -400,7 +401,7 @@ private fun BestMatchCard(
                     fontWeight = FontWeight.Bold
                 )
             } else {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
+                Icon(MelodiaIcons.Play, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(MelodiaSpacing.sm))
                 Text(text = "从 $positionText 开始播放", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }

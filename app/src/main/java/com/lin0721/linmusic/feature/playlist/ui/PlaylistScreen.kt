@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -94,6 +93,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -677,7 +679,7 @@ fun PlaylistScreen(
                         onToggle = viewModel::toggleSelected
                     ),
                     selectionActions = buildList {
-                        add(SelectionAction("下一首播放", Icons.AutoMirrored.Filled.QueueMusic) { viewModel.batchPlayNext() })
+                        add(SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() })
                         add(SelectionAction("添加到歌单", Icons.AutoMirrored.Filled.PlaylistAdd) {
                             if (userProfile == null) {
                                 showLoginSheet = true
@@ -686,7 +688,7 @@ fun PlaylistScreen(
                                 showBatchTargetSheet = true
                             }
                         })
-                        add(SelectionAction("喜欢", Icons.Default.FavoriteBorder) {
+                        add(SelectionAction("喜欢", MelodiaIcons.Favorite) {
                             if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
                         })
                         add(SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true })
@@ -1023,7 +1025,7 @@ fun PlaylistScreen(
                         )
                         add(
                             PlaylistMenuItem(
-                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                icon = MelodiaIcons.Queue,
                                 title = "加入播放队列"
                             ) {
                                 showMoreMenuSheet = false

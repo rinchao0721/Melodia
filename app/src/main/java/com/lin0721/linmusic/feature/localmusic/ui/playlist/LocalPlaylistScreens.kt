@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
@@ -77,6 +76,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalHeroHeader
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalPlayShuffleButtons
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private val PlaylistHeroCoverSize = 132.dp
 
@@ -103,7 +104,7 @@ fun LocalPlaylistsScreen(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             EmptyState(
-                                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                                icon = MelodiaIcons.Queue,
                                 title = "建一个自己的歌单",
                                 subtitle = "在歌曲的更多菜单里也能直接加入歌单。"
                             )
@@ -230,7 +231,7 @@ fun LocalPlaylistScreen(
                     if (playlist.tracks.isEmpty()) {
                         item(key = "empty") {
                             EmptyState(
-                                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                                icon = MelodiaIcons.Queue,
                                 title = "歌单里还没有歌",
                                 subtitle = "在歌曲的更多菜单里选择「加入本地歌单」。",
                                 modifier = Modifier.padding(top = MelodiaSpacing.xl)
@@ -413,7 +414,7 @@ private fun MissingPlaylist(onBack: () -> Unit) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(icon = Icons.AutoMirrored.Rounded.QueueMusic, title = "歌单不存在或已删除")
+            EmptyState(icon = MelodiaIcons.Queue, title = "歌单不存在或已删除")
         }
     }
 }

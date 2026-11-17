@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
@@ -85,6 +84,9 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistCover
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.NewPlaylistTile
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 private const val RECENT_TRACK_COUNT = 5
 private const val SHELF_ITEM_COUNT = 10
@@ -339,11 +341,11 @@ private fun StatsCard(library: LocalLibraryIndex, onPlay: () -> Unit, onShuffle:
             )
         }
         MelodiaIconButton(onClick = onShuffle, containerColor = MelodiaColors.Overlay.copy(alpha = 0.12f), modifier = Modifier.size(44.dp)) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = "随机播放", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(22.dp))
+            Icon(MelodiaIcons.Shuffle, contentDescription = "随机播放", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(MelodiaSpacing.sm))
         MelodiaIconButton(onClick = onPlay, containerColor = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp)) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = "播放全部", tint = MelodiaColors.OnAccent, modifier = Modifier.size(26.dp))
+            Icon(MelodiaIcons.Play, contentDescription = "播放全部", tint = MelodiaColors.OnAccent, modifier = Modifier.size(26.dp))
         }
     }
 }

@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -44,6 +43,9 @@ import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.OverlayPanelHeader
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private val CoverSize = 44.dp
 private val RowButtonSize = 28.dp
@@ -164,8 +166,8 @@ private fun DownloadTaskRow(task: DownloadTask, onPause: () -> Unit, onResume: (
             TaskStatusLine(task)
         }
         when (task.status) {
-            DownloadTaskStatus.DOWNLOADING, DownloadTaskStatus.QUEUED -> RowAction(Icons.Rounded.Pause, "暂停", onPause)
-            DownloadTaskStatus.PAUSED -> RowAction(Icons.Rounded.PlayArrow, "继续", onResume)
+            DownloadTaskStatus.DOWNLOADING, DownloadTaskStatus.QUEUED -> RowAction(MelodiaIcons.Pause, "暂停", onPause)
+            DownloadTaskStatus.PAUSED -> RowAction(MelodiaIcons.Play, "继续", onResume)
             DownloadTaskStatus.FAILED -> RowAction(Icons.Rounded.Refresh, "重试", onResume)
             DownloadTaskStatus.SUCCEEDED -> Unit
         }

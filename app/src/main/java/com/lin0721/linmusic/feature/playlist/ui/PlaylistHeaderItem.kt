@@ -55,6 +55,8 @@ import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全出血 Hero（LazyColumn Item 1）
@@ -316,7 +318,7 @@ fun PlaylistHeaderItem(
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Shuffle,
+                                    MelodiaIcons.Shuffle,
                                     "随机播放",
                                     tint = if (isShuffleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(28.dp)

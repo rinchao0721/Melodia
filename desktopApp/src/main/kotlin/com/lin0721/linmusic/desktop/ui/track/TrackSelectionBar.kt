@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +35,9 @@ import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 // 多选态工具条：歌单页与歌手页共用，吸顶显示在列表表头上方
 @Composable
@@ -72,7 +73,7 @@ fun TrackSelectionBar(
             Text(if (allSelected) "取消全选" else "全选", color = DesktopColors.TextGray, fontSize = 13.sp)
         }
         Box(Modifier.weight(1f))
-        SelectionActionButton(Icons.AutoMirrored.Rounded.QueueMusic, "下一首播放", hasSelection, onClick = onPlayNext)
+        SelectionActionButton(MelodiaIcons.Queue, "下一首播放", hasSelection, onClick = onPlayNext)
         Box {
             SelectionActionButton(Icons.AutoMirrored.Rounded.PlaylistAdd, "添加到歌单", hasSelection) {
                 if (navigator.isLoggedIn) {
@@ -92,7 +93,7 @@ fun TrackSelectionBar(
                 })
             }
         }
-        SelectionActionButton(Icons.Rounded.FavoriteBorder, "喜欢", hasSelection) {
+        SelectionActionButton(MelodiaIcons.Favorite, "喜欢", hasSelection) {
             if (navigator.isLoggedIn) onLike() else navigator.showMessage("请先登录账号")
         }
         SelectionActionButton(Icons.Rounded.Download, "下载", hasSelection, onClick = onDownload)

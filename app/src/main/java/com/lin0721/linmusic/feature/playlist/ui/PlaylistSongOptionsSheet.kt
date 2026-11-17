@@ -5,14 +5,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.Person
@@ -43,6 +41,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -147,7 +149,7 @@ fun PlaylistSongOptionsSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OptionRow(
-                    icon = Icons.AutoMirrored.Filled.QueueMusic,
+                    icon = MelodiaIcons.Queue,
                     text = "下一首播放",
                     onClick = {
                         onDismiss()
@@ -168,7 +170,7 @@ fun PlaylistSongOptionsSheet(
                     )
                 }
 
-                val likeIcon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+                val likeIcon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
                 val likeIconTint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 val likeText = if (isLiked) "取消喜欢" else "喜欢"
 

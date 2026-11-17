@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.AllInclusive
@@ -59,6 +58,11 @@ import kotlin.math.min
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Timer
 
 // 有效屏幕高度低于该值（dp）视为低高度屏幕
 private const val SHORT_SCREEN_HEIGHT_DP = 480
@@ -626,9 +630,9 @@ private fun PlayModeInfoRow(
             isPersonalFm -> Icons.Rounded.Radio to "私人FM · ${personalFmMode.displayName}"
             isRoaming -> Icons.Rounded.AllInclusive to "相似歌曲漫游"
             isIntelligence -> Icons.Rounded.AutoAwesome to "心动模式"
-            playMode == PlayMode.LIST_LOOP -> Icons.Default.Repeat to "列表循环"
-            playMode == PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne to "单曲循环"
-            else -> Icons.Default.Shuffle to "随机播放"
+            playMode == PlayMode.LIST_LOOP -> MelodiaIcons.Repeat to "列表循环"
+            playMode == PlayMode.SINGLE_LOOP -> MelodiaIcons.RepeatOne to "单曲循环"
+            else -> MelodiaIcons.Shuffle to "随机播放"
         }
         Row(
             modifier = Modifier
@@ -717,7 +721,7 @@ private fun BottomActionRow(
                     isPersonalFm -> Icons.Rounded.Radio
                     isRoaming -> Icons.Rounded.AllInclusive
                     isIntelligence -> Icons.Rounded.AutoAwesome
-                    else -> Icons.Default.Shuffle
+                    else -> MelodiaIcons.Shuffle
                 },
                 contentDescription = null,
                 tint = shuffleContent,
@@ -748,7 +752,7 @@ private fun BottomActionRow(
                 .weight(1f)
                 .height(44.dp)
         ) {
-            Icon(Icons.Outlined.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(timerText, color = MelodiaColors.TextPrimary, fontSize = 13.sp)
         }

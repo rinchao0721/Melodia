@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +32,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +62,7 @@ fun CreatePopupMenu(
             .padding(vertical = MelodiaSpacing.sm)
     ) {
         CreateMenuItem(
-            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            icon = MelodiaIcons.Queue,
             title = "歌单",
             subtitle = "创建包含歌曲或合集的歌单",
             onClick = {

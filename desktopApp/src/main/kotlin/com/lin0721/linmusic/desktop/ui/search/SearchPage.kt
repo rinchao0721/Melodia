@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -50,6 +48,8 @@ import com.lin0721.linmusic.feature.search.ui.ExternalSearchUiState
 import com.lin0721.linmusic.feature.search.ui.SearchMode
 import com.lin0721.linmusic.feature.search.ui.SearchResultsUiState
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private const val RESULT_LOAD_MORE_THRESHOLD = 5
 
@@ -240,7 +240,7 @@ private fun ExternalResultEntry(
                     modifier = Modifier.size(18.dp)
                 )
                 hovered -> Icon(
-                    Icons.Rounded.PlayArrow,
+                    MelodiaIcons.Play,
                     "播放${track.name}",
                     tint = DesktopColors.TextPrimary,
                     modifier = Modifier.size(22.dp).clickable(onClick = onPlay)

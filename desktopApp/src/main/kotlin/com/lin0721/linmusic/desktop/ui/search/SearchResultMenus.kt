@@ -2,7 +2,6 @@ package com.lin0721.linmusic.desktop.ui.search
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Link
@@ -10,7 +9,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PersonRemove
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +29,9 @@ import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private const val NETEASE_WEB = "https://music.163.com"
 
@@ -52,11 +53,11 @@ internal fun MenuScope.CollectionMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         viewModel.playCollection(id, isAlbum)
     })
-    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addCollectionToPlayNext(id, isAlbum)
     })
@@ -154,11 +155,11 @@ internal fun MenuScope.ProgramMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         onPlay()
     })
-    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addProgramToPlayNext(program)
     })
@@ -184,11 +185,11 @@ internal fun MenuScope.ExternalTrackMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         onPlay()
     })
-    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addExternalToPlayNext(track)
     })

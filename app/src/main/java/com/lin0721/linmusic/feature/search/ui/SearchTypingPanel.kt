@@ -20,14 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +62,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private val LeadingSize = 40.dp
 
@@ -207,7 +208,7 @@ private fun SearchLinkHitCard(
     val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
     val fallbackIcon = when (target) {
         is SongLinkTarget.Song -> Icons.Rounded.MusicNote
-        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else Icons.AutoMirrored.Rounded.QueueMusic
+        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else MelodiaIcons.Queue
         is SongLinkTarget.Artist -> Icons.Rounded.Person
     }
     val titleText = when {
@@ -266,7 +267,7 @@ private fun SearchLinkHitCard(
         }
         MelodiaIconButton(onClick = onPrimaryAction) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = MelodiaIcons.Play,
                 contentDescription = if (isSong) "插播" else "打开",
                 tint = MelodiaColors.AccentText,
                 modifier = Modifier.size(22.dp)

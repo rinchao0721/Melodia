@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -68,6 +67,8 @@ import com.lin0721.linmusic.feature.podcast.domain.formatProgramDuration
 import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 电台详情页：封面居中大图 + 主播 + 订阅数，下面是带期号的节目列表
 @Composable
@@ -311,7 +312,7 @@ private fun RadioDetailHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = MelodiaIcons.Play,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)

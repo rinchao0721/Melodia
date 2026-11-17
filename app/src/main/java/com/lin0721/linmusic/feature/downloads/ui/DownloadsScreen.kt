@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,6 +51,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private val CoverSize = 52.dp
 private val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
@@ -218,7 +219,7 @@ private fun DownloadedHeader(records: List<DownloadRecord>, onPlayAll: () -> Uni
                 .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Play, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
             Text(text = "播放全部", color = MelodiaColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }

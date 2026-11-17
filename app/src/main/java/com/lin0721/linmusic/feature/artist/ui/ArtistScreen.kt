@@ -9,9 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +35,9 @@ import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 @Composable
 fun ArtistScreen(
@@ -150,7 +151,7 @@ fun ArtistScreen(
                         onToggle = viewModel::toggleSelected
                     ),
                     selectionActions = listOf(
-                        SelectionAction("下一首播放", Icons.AutoMirrored.Filled.QueueMusic) { viewModel.batchPlayNext() },
+                        SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() },
                         SelectionAction("添加到歌单", Icons.AutoMirrored.Filled.PlaylistAdd) {
                             if (userProfile == null) {
                                 showLoginSheet = true
@@ -159,7 +160,7 @@ fun ArtistScreen(
                                 showBatchTargetSheet = true
                             }
                         },
-                        SelectionAction("喜欢", Icons.Default.FavoriteBorder) {
+                        SelectionAction("喜欢", MelodiaIcons.Favorite) {
                             if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
                         },
                         SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true }

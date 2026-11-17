@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.CloudUpload
@@ -34,11 +33,9 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shuffle
@@ -114,6 +111,12 @@ import com.lin0721.linmusic.feature.playlist.presentation.formatTotalDuration
 import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import kotlinx.coroutines.launch
 import java.io.File
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 private const val STICKY_BAR_ANIMATION_MS = 200
@@ -254,7 +257,7 @@ fun LocalPlaylistPage(
                     ) {
                         PlayCircleButton(PlayButtonSize, 32.dp, isThisContext && playWhenReady, onPlayClick)
                         ActionIcon(
-                            Icons.Rounded.Shuffle,
+                            MelodiaIcons.Shuffle,
                             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
                             tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
                             onClick = controller::toggleShuffle
@@ -453,7 +456,7 @@ private fun LocalPlaylistMoreMenu(
     Box {
         ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
-            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })
@@ -518,18 +521,18 @@ private fun MenuScope.LocalTrackMenuItems(
     onRemove: (() -> Unit)?
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         onPlay()
     })
-    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         onPlayNext()
     })
     onToggleLike?.let { toggle ->
         MenuItem(
             if (isLiked) "取消喜欢" else "喜欢",
-            icon = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            icon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
             onClick = {
                 dismiss()
                 toggle()

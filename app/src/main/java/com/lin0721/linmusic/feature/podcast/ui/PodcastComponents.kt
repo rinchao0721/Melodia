@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +68,8 @@ import com.lin0721.linmusic.feature.podcast.domain.formatRemaining
 import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 internal val PodcastEdgePadding = 20.dp
 
@@ -514,7 +515,7 @@ fun PlayCircle(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.PlayArrow,
+            imageVector = MelodiaIcons.Play,
             contentDescription = "播放",
             tint = MelodiaColors.OnAccent,
             modifier = Modifier.size(16.dp)

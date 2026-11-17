@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -47,6 +46,8 @@ import com.lin0721.linmusic.feature.recognition.data.MAX_RECOGNITION_HISTORY
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionHistoryEntry
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionNowPlaying
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 @Composable
 internal fun RecognitionHistoryPage(
@@ -198,7 +199,7 @@ private fun HistoryRow(
                     modifier = Modifier.padding(start = MelodiaSpacing.sm).height(32.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.PlayArrow,
+                        MelodiaIcons.Play,
                         contentDescription = "从 $positionText 播放 ${entry.title}",
                         modifier = Modifier.size(16.dp)
                     )

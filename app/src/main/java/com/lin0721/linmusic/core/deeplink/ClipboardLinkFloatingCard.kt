@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MusicNote
@@ -73,6 +72,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private const val AUTO_DISMISS_DELAY_MS = 12_000L
 
@@ -253,7 +254,7 @@ private fun FloatingLinkCover(url: String?, target: SongLinkTarget, circle: Bool
     }
     val fallbackIcon = when (target) {
         is SongLinkTarget.Song -> Icons.Rounded.MusicNote
-        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else Icons.AutoMirrored.Rounded.QueueMusic
+        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else MelodiaIcons.Queue
         is SongLinkTarget.Artist -> Icons.Rounded.Person
     }
     val fallback = @Composable {

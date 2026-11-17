@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Delete
@@ -101,6 +100,9 @@ import com.lin0721.linmusic.feature.playlist.presentation.filterTracks
 import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import kotlinx.coroutines.launch
 import java.util.IdentityHashMap
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Shuffle
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 private const val STICKY_BAR_ANIMATION_MS = 200
@@ -313,7 +315,7 @@ private fun CloudSongList(
                     ) {
                         PlayCircleButton(PlayButtonSize, 32.dp, isThisContext && playWhenReady, onPlayClick)
                         ActionIcon(
-                            Icons.Rounded.Shuffle,
+                            MelodiaIcons.Shuffle,
                             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
                             tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
                             onClick = controller::toggleShuffle
@@ -478,7 +480,7 @@ private fun CloudMoreMenu(onPlayNextAll: () -> Unit, onRefresh: () -> Unit) {
     Box {
         ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
-            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })

@@ -33,10 +33,43 @@ class MelodiaIconsTest {
             MelodiaIcons.Explore,
             MelodiaIcons.Calendar,
             MelodiaIcons.LocalMusic,
-            MelodiaIcons.Plus
+            MelodiaIcons.Plus,
+            MelodiaIcons.Shuffle,
+            MelodiaIcons.Repeat,
+            MelodiaIcons.RepeatOne,
+            MelodiaIcons.Favorite,
+            MelodiaIcons.VolumeUp,
+            MelodiaIcons.VolumeDown,
+            MelodiaIcons.VolumeOff,
+            MelodiaIcons.Fullscreen,
+            MelodiaIcons.FullscreenExit,
+            MelodiaIcons.OpenInFull,
+            MelodiaIcons.CloseFullscreen,
+            MelodiaIcons.Subtitles,
+            MelodiaIcons.Timer,
+            MelodiaIcons.Devices
         )
 
         icons.forEach { assertIconSpec(it, 2f) }
+    }
+
+    @Test
+    fun solidIconsHaveFillAndStroke() {
+        val icons = listOf(
+            MelodiaIcons.Play,
+            MelodiaIcons.Pause,
+            MelodiaIcons.SkipNext,
+            MelodiaIcons.SkipPrevious,
+            MelodiaIcons.Queue,
+            MelodiaIcons.FavoriteFilled,
+            MelodiaIcons.MiniPlayer
+        )
+
+        icons.forEach { icon ->
+            val paths = collectPaths(icon.root)
+            assertTrue("${icon.name} should have fill", paths.any { it.fill != null })
+            paths.forEach { assertEquals("${icon.name} strokeLineWidth", 2f, it.strokeLineWidth) }
+        }
     }
 
     private fun assertIconSpec(icon: ImageVector, expectedStrokeWidth: Float) {

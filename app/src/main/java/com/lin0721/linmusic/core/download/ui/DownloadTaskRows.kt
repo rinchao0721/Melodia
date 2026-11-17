@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.VerticalAlignTop
@@ -47,6 +46,9 @@ import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
 
 internal val TrackGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.SurfaceLight
 internal val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
@@ -91,11 +93,11 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                     )
                     if (task.status == DownloadTaskStatus.PAUSED) {
                         IconButton(onClick = { actions.onResume(listOf(task)) }) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
+                            Icon(MelodiaIcons.Play, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     } else {
                         IconButton(onClick = { actions.onPause(listOf(task)) }) {
-                            Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
+                            Icon(MelodiaIcons.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                     IconButton(onClick = { actions.onCancel(listOf(task)) }, modifier = Modifier.size(36.dp)) {
@@ -153,9 +155,9 @@ private fun menuItemsFor(task: DownloadTask, actions: TaskActions, normal: Color
             MenuItem("优先下载", Icons.Rounded.VerticalAlignTop, normal) { actions.onPrioritize(single) }
                 .takeIf { task.status != DownloadTaskStatus.RUNNING },
             if (task.status == DownloadTaskStatus.PAUSED) {
-                MenuItem("继续", Icons.Rounded.PlayArrow, normal) { actions.onResume(single) }
+                MenuItem("继续", MelodiaIcons.Play, normal) { actions.onResume(single) }
             } else {
-                MenuItem("暂停", Icons.Rounded.Pause, normal) { actions.onPause(single) }
+                MenuItem("暂停", MelodiaIcons.Pause, normal) { actions.onPause(single) }
             },
             MenuItem("取消下载", Icons.Rounded.Close, danger) { actions.onCancel(single) }
         )
@@ -236,8 +238,8 @@ internal fun EditActionBar(tab: DownloadManagerTab, selectedTasks: List<Download
         when (tab) {
             DownloadManagerTab.ACTIVE -> {
                 EditAction("优先下载", Icons.Rounded.VerticalAlignTop, enabled) { actions.onPrioritize(selectedTasks) }
-                EditAction("暂停", Icons.Rounded.Pause, enabled) { actions.onPause(selectedTasks) }
-                EditAction("继续", Icons.Rounded.PlayArrow, enabled) { actions.onResume(selectedTasks) }
+                EditAction("暂停", MelodiaIcons.Pause, enabled) { actions.onPause(selectedTasks) }
+                EditAction("继续", MelodiaIcons.Play, enabled) { actions.onResume(selectedTasks) }
                 EditAction("取消下载", Icons.Rounded.Close, enabled, MelodiaColors.Error) { actions.onCancel(selectedTasks) }
             }
             DownloadManagerTab.FAILED -> {

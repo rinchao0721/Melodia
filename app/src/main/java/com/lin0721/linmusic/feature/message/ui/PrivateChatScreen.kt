@@ -51,8 +51,6 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
@@ -136,6 +134,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private val BubbleBigRadius = 16.dp
 private val BubbleSmallRadius = 5.dp
@@ -1178,7 +1179,7 @@ private fun PrivateCardBubble(
                         }
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
+                            imageVector = MelodiaIcons.Play,
                             contentDescription = "播放",
                             tint = MelodiaColors.OnPlayer,
                             modifier = Modifier.size(15.dp)
@@ -1224,7 +1225,7 @@ private fun PrivateCardBubble(
 private fun CardFallbackCover(kind: PrivateCardKind) {
     val icon = when (kind) {
         PrivateCardKind.Song -> Icons.Rounded.MusicNote
-        PrivateCardKind.Playlist -> Icons.Rounded.QueueMusic
+        PrivateCardKind.Playlist -> MelodiaIcons.Queue
         PrivateCardKind.Album -> Icons.Rounded.Album
         PrivateCardKind.Mv -> Icons.Rounded.Videocam
         PrivateCardKind.General -> Icons.Rounded.Share

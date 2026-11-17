@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -47,6 +46,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 本地曲目操作面板
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,7 +129,7 @@ fun LocalTrackOptionsSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
-            SheetOptionRow(icon = Icons.Rounded.PlayArrow, label = "播放") {
+            SheetOptionRow(icon = MelodiaIcons.Play, label = "播放") {
                 runThenHide(onPlayClick)
             }
             SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistPlay, label = "下一首播放") {

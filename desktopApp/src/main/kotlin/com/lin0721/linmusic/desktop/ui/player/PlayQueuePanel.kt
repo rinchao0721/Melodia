@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -99,6 +98,8 @@ import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.desktop.ui.components.songLink
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private val HeaderButtonSize = 32.dp
 private val RowButtonSize = 28.dp
@@ -543,7 +544,7 @@ private fun QueueItemMenu(
         )
     }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             onPlayNext()
         })

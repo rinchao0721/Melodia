@@ -23,9 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -75,6 +73,9 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailUiState
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Play
 
 private val EdgePadding = 24.dp
 private val HeroHeight = 280.dp
@@ -315,7 +316,7 @@ private fun ActionRow(favourite: Track?, canPlay: Boolean, onPlayAll: () -> Unit
                 .pointerHoverIcon(PointerIcon.Hand).clickable(enabled = canPlay, onClick = onPlayAll),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.PlayArrow, "播放全部", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
+            Icon(MelodiaIcons.Play, "播放全部", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
         }
         favourite?.let { FavouriteChip(it, onPlayFavourite) }
     }
@@ -332,7 +333,7 @@ private fun FavouriteChip(track: Track, onPlay: () -> Unit) {
         Cover(track.al.picUrl, 40.dp)
         Column(Modifier.padding(start = 10.dp).width(220.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Favorite, null, tint = DesktopColors.Accent, modifier = Modifier.size(12.dp))
+                Icon(MelodiaIcons.FavoriteFilled, null, tint = DesktopColors.Accent, modifier = Modifier.size(12.dp))
                 Text(
                     "你在此曲风最爱",
                     color = DesktopColors.AccentText,

@@ -81,6 +81,12 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全屏歌词操作工具栏（翻译/罗马音切换、分享、快捷歌词设置）
@@ -836,7 +842,7 @@ fun FullScreenControls(
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
-                    imageVector = if (isPersonalFm) Icons.Rounded.DeleteOutline else Icons.Default.Shuffle,
+                    imageVector = if (isPersonalFm) Icons.Rounded.DeleteOutline else MelodiaIcons.Shuffle,
                     contentDescription = if (isPersonalFm) "不喜欢" else null,
                     tint = if (!isPersonalFm && playMode == PlayMode.SHUFFLE) {
                         MaterialTheme.colorScheme.onSurface
@@ -857,7 +863,7 @@ fun FullScreenControls(
                     style = MelodiaPress.Transport
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
+                        imageVector = MelodiaIcons.SkipPrevious,
                         contentDescription = null,
                         tint = if (isPersonalFm) {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
@@ -911,7 +917,7 @@ fun FullScreenControls(
 
                 MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipNext,
+                        imageVector = MelodiaIcons.SkipNext,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(46.dp)
@@ -930,7 +936,7 @@ fun FullScreenControls(
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Icon(
-                        imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        imageVector = if (playMode == PlayMode.SINGLE_LOOP) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
                         contentDescription = null,
                         tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(26.dp)

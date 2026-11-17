@@ -4,8 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +23,8 @@ import com.lin0721.linmusic.core.ui.theme.LikedCoverColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.RankCoverColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 
 enum class SpecialCoverKind { Liked, Rank }
 
@@ -45,7 +45,7 @@ fun LibrarySpecialCover(kind: SpecialCoverKind, modifier: Modifier = Modifier) {
                 val colors = if (isDark) LibraryLikedCoverDark else LibraryLikedCoverLight
                 Canvas(Modifier.matchParentSize()) { drawLikedCover(colors) }
                 Icon(
-                    imageVector = Icons.Default.Favorite,
+                    imageVector = MelodiaIcons.FavoriteFilled,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.fillMaxSize(LIKED_HEART_FRACTION)

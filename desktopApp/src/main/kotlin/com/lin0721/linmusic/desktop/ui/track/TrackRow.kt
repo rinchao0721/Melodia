@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Group
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
@@ -29,12 +28,10 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -107,6 +104,11 @@ import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.components.songLink
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -251,7 +253,7 @@ fun TrackRow(
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Icon(
-                        Icons.Rounded.PlayArrow,
+                        MelodiaIcons.Play,
                         "播放${track.name}",
                         tint = DesktopColors.TextPrimary,
                         modifier = Modifier.size(22.dp)
@@ -324,7 +326,7 @@ fun TrackRow(
                 ) {
                     if (showLike) {
                         Icon(
-                            if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                             if (isLiked) "取消喜欢" else "喜欢",
                             tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
                             modifier = Modifier.size(18.dp)
@@ -397,11 +399,11 @@ internal fun TrackMenu(
     val isLiked = track.id in actions.likedSongIds
     val artists = track.ar.filter { it.id > 0 }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             onPlay()
         })
-        MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             actions.onPlayNext(track)
         })
@@ -424,7 +426,7 @@ internal fun TrackMenu(
         }
         MenuItem(
             if (isLiked) "取消喜欢" else "喜欢",
-            icon = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            icon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
             onClick = {
                 onDismiss()
                 actions.onToggleLike(track)

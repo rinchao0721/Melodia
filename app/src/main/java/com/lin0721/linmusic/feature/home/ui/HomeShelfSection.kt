@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +52,8 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 每屏可见卡片数，带小数是为了让最右一张露出一截，提示还能横滑
 private const val VISIBLE_CARDS_COMPACT = 2.3f
@@ -192,7 +192,7 @@ private fun HomeShelfCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
+                        imageVector = MelodiaIcons.Play,
                         contentDescription = null,
                         tint = MelodiaColors.OnAccent,
                         modifier = Modifier.size(18.dp)

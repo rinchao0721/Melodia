@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -49,6 +48,8 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 
 private const val MOSAIC_SIZE = 4
 
@@ -62,7 +63,7 @@ fun LocalPlaylistCover(tracks: List<LocalTrack>, size: Dp, modifier: Modifier = 
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.AutoMirrored.Rounded.QueueMusic,
+                MelodiaIcons.Queue,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(size * 0.4f)

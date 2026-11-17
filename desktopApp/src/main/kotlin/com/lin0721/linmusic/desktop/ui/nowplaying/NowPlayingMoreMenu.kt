@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
@@ -18,7 +17,6 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Person
@@ -73,6 +71,11 @@ import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Timer
 
 private val SleepTimerOptions = listOf(15, 30, 60, 90)
 private val QualityKeys = listOf("standard", "exhigh", "lossless", "hires", "jymaster")
@@ -216,7 +219,7 @@ internal fun NowPlayingMoreMenu(
             }
             MenuItem(
                 if (detailState.isLiked) "取消喜欢" else "喜欢",
-                icon = if (detailState.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                icon = if (detailState.isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                 onClick = {
                     onDismiss()
                     if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
@@ -227,7 +230,7 @@ internal fun NowPlayingMoreMenu(
 
         if (modes) {
             if (isIntelligence || cloudSongId != null) {
-                MenuItem(if (isIntelligence) "退出心动模式" else "心动模式", icon = Icons.Rounded.Favorite, onClick = {
+                MenuItem(if (isIntelligence) "退出心动模式" else "心动模式", icon = MelodiaIcons.Heart, onClick = {
                     onDismiss()
                     if (isIntelligence) {
                         controller.disableIntelligence()
@@ -247,7 +250,7 @@ internal fun NowPlayingMoreMenu(
                 })
             }
             if (cloud && cloudSongId != null) {
-                MenuItem("插播相似歌曲", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                MenuItem("插播相似歌曲", icon = MelodiaIcons.Queue, onClick = {
                     onDismiss()
                     playerViewModel.insertSimilarSongs(cloudSongId)
                 })
@@ -322,7 +325,7 @@ internal fun NowPlayingMoreMenu(
             icon = Icons.Rounded.Bedtime
         ) {
             SleepTimerOptions.forEach { minutes ->
-                SimpleMenuItem("$minutes 分钟", icon = Icons.Rounded.Timer, onClick = {
+                SimpleMenuItem("$minutes 分钟", icon = MelodiaIcons.Timer, onClick = {
                     onDismiss()
                     playerViewModel.setSleepTimer(minutes)
                 })

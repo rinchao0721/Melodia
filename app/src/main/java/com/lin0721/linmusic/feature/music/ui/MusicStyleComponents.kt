@@ -17,8 +17,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,6 +43,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.music.domain.MusicStyle
 import com.lin0721.linmusic.feature.music.domain.StyleHead
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 
 internal val MusicEdgePadding = 20.dp
 
@@ -214,7 +214,7 @@ fun MusicFavouriteSongCard(track: Track, onClick: () -> Unit, modifier: Modifier
         Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Favorite,
+                    imageVector = MelodiaIcons.FavoriteFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(11.dp)
