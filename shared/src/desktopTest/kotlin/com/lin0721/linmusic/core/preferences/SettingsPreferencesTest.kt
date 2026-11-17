@@ -39,6 +39,17 @@ class SettingsPreferencesTest {
     }
 
     @Test
+    fun bottomBarGradientDefaultsToFalseAndPersists() = runBlocking {
+        assertFalse(settings.bottomBarGradient.first())
+
+        settings.saveBottomBarGradient(true)
+        assertEquals(true, settings.bottomBarGradient.first())
+
+        settings.saveBottomBarGradient(false)
+        assertEquals(false, settings.bottomBarGradient.first())
+    }
+
+    @Test
     fun personalFmModeDefaultsToDefaultAndPersists() = runBlocking {
         assertEquals(PersonalFmMode.DEFAULT, settings.personalFmMode.first())
 

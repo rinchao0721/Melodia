@@ -149,6 +149,7 @@ class SettingsViewModel(
     val bottomBarLayout = settingsPreferences.bottomBarLayout.asState(BottomBarLayout.DEFAULT)
 
     val bottomBarIconOnly = settingsPreferences.bottomBarIconOnly.asState(false)
+    val bottomBarGradient = settingsPreferences.bottomBarGradient.asState(false)
 
     val notificationButtons = settingsPreferences.notificationButtons.asState(NotificationButtonLayout.DEFAULT)
 
@@ -447,6 +448,10 @@ class SettingsViewModel(
 
     fun updateBottomBarIconOnly(iconOnly: Boolean) = launchSave {
         settingsPreferences.saveBottomBarIconOnly(iconOnly)
+    }
+
+    fun updateBottomBarGradient(enabled: Boolean) = launchSave {
+        settingsPreferences.saveBottomBarGradient(enabled)
     }
 
     fun updateNotificationButtons(layout: List<NotificationButtonSetting>) = launchSave {

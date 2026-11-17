@@ -23,6 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -48,6 +53,7 @@ import com.lin0721.linmusic.feature.settings.ui.UpdateBanner
 import dev.chrisbanes.haze.HazeState
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
@@ -135,6 +141,7 @@ fun MelodiaBottomOverlay(
     showCreateEntry: Boolean = true,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     bottomBarIconOnly: Boolean = false,
+    bottomBarGradient: Boolean = false,
     activeTab: Screen? = null,
     onOverlayHeightChanged: (Dp) -> Unit = {}
 ) {
@@ -298,54 +305,63 @@ fun MelodiaBottomOverlay(
                         }
                     }
                 } else {
-                    // 手机：迷你播放卡在上、导航栏在下，垂直堆叠（现状不变）
-                    AnimatedVisibility(
-                        visible = currentTrack != null && !isLoginScreenVisible && !isMiniPlayerHidden,
-                        // 同时伸缩高度：底栏占用高度随之平滑变化，悬浮在其上的多选操作栏才不会在动画结束时突然掉落
-                        enter = uiEnter(slideInVertically(initialOffsetY = { it }) + expandVertically() + fadeIn()),
-                        exit = uiExit(slideOutVertically(targetOffsetY = { it }) + shrinkVertically() + fadeOut()),
-                        modifier = Modifier.fillMaxWidth()
+                    // 手机：迷你播放卡在上、导航栏在下，垂直堆叠；渐变垫在整个堆叠后面，高度随伸缩动画跟随
+                    // 皮肤背景图下底栏本就透明，不再叠渐变
+                    val gradientActive = bottomBarGradient && !MelodiaColors.HasBackdrop
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (gradientActive) Modifier.bottomBarGradient(MelodiaColors.NavigationBar) else Modifier)
                     ) {
-                        MiniPlayerCard(
-                            hazeState = hazeState,
-                            currentTrack = currentTrack,
-                            isPlaying = isPlaying,
-                            currentPositionProvider = currentPositionProvider,
-                            duration = duration,
-                            onTogglePlay = onTogglePlay,
-                            onNext = onNext,
-                            onClick = onMiniPlayerClick,
-                            onDrag = onMiniPlayerDrag,
-                            onDragEnd = onMiniPlayerDragEnd,
-                            previousQueueItem = previousQueueItem,
-                            nextQueueItem = nextQueueItem,
-                            queueTarget = queueTarget,
-                            onPrevious = onMiniPlayerPrevious,
-                            onCancelPendingSkip = onCancelPendingSkip,
-                            isLiked = isMiniPlayerLiked,
-                            onLikeClick = onMiniPlayerLikeClick,
-                            likeMode = miniPlayerLikeMode,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MelodiaSpacing.sm)
-                        )
-                    }
+                        AnimatedVisibility(
+                            visible = currentTrack != null && !isLoginScreenVisible && !isMiniPlayerHidden,
+                            // 同时伸缩高度：底栏占用高度随之平滑变化，悬浮在其上的多选操作栏才不会在动画结束时突然掉落
+                            enter = uiEnter(slideInVertically(initialOffsetY = { it }) + expandVertically() + fadeIn()),
+                            exit = uiExit(slideOutVertically(targetOffsetY = { it }) + shrinkVertically() + fadeOut()),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            MiniPlayerCard(
+                                hazeState = hazeState,
+                                currentTrack = currentTrack,
+                                isPlaying = isPlaying,
+                                currentPositionProvider = currentPositionProvider,
+                                duration = duration,
+                                onTogglePlay = onTogglePlay,
+                                onNext = onNext,
+                                onClick = onMiniPlayerClick,
+                                onDrag = onMiniPlayerDrag,
+                                onDragEnd = onMiniPlayerDragEnd,
+                                previousQueueItem = previousQueueItem,
+                                nextQueueItem = nextQueueItem,
+                                queueTarget = queueTarget,
+                                onPrevious = onMiniPlayerPrevious,
+                                onCancelPendingSkip = onCancelPendingSkip,
+                                isLiked = isMiniPlayerLiked,
+                                onLikeClick = onMiniPlayerLikeClick,
+                                likeMode = miniPlayerLikeMode,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MelodiaSpacing.sm)
+                            )
+                        }
 
-                    AnimatedVisibility(
-                        visible = !isLoginScreenVisible,
-                        enter = uiEnter(expandVertically() + fadeIn()),
-                        exit = uiExit(shrinkVertically() + fadeOut())
-                    ) {
-                        MelodiaNavigationBar(
-                            currentScreen = currentScreen,
-                            onNavigate = onNavigate,
-                            onCreateClick = onCreateClick,
-                            isCreateMenuOpen = showCreateSheet,
-                            showCreateEntry = showCreateEntry,
-                            bottomBarLayout = bottomBarLayout,
-                            iconOnly = bottomBarIconOnly,
-                            activeTab = activeTab
-                        )
+                        AnimatedVisibility(
+                            visible = !isLoginScreenVisible,
+                            enter = uiEnter(expandVertically() + fadeIn()),
+                            exit = uiExit(shrinkVertically() + fadeOut())
+                        ) {
+                            MelodiaNavigationBar(
+                                currentScreen = currentScreen,
+                                onNavigate = onNavigate,
+                                onCreateClick = onCreateClick,
+                                isCreateMenuOpen = showCreateSheet,
+                                showCreateEntry = showCreateEntry,
+                                bottomBarLayout = bottomBarLayout,
+                                iconOnly = bottomBarIconOnly,
+                                activeTab = activeTab,
+                                transparentBackground = gradientActive
+                            )
+                        }
                     }
                 }
             }
@@ -353,6 +369,24 @@ fun MelodiaBottomOverlay(
     }
 }
 
+private val BottomBarGradientExtra = 28.dp
+
+// 向上越出自身边界 BottomBarGradientExtra，中段适度加深，底部不透明
+private fun Modifier.bottomBarGradient(color: Color): Modifier = drawBehind {
+    if (size.height <= 0f) return@drawBehind
+    val extra = BottomBarGradientExtra.toPx()
+    drawRect(
+        brush = Brush.verticalGradient(
+            0f to color.copy(alpha = 0f),
+            0.5f to color.copy(alpha = 0.7f),
+            0.85f to color,
+            startY = -extra,
+            endY = size.height
+        ),
+        topLeft = Offset(0f, -extra),
+        size = Size(size.width, size.height + extra)
+    )
+}
 private val PlayerDragTopCornerShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 private val PlayerBackTransformOrigin = TransformOrigin(0.5f, 1f)
 private const val PlayerBackMinScale = 0.94f

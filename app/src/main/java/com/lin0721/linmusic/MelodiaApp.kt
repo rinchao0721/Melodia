@@ -216,6 +216,7 @@ fun MelodiaApp() {
     val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
     val bottomBarLayout by settingsPreferences.bottomBarLayout.collectAsStateWithLifecycle(initialValue = BottomBarLayout.DEFAULT)
     val bottomBarIconOnly by settingsPreferences.bottomBarIconOnly.collectAsStateWithLifecycle(initialValue = false)
+    val bottomBarGradient by settingsPreferences.bottomBarGradient.collectAsStateWithLifecycle(initialValue = false)
     val playerPageMode by settingsPreferences.playerPageMode
         .collectAsStateWithLifecycle(initialValue = SettingsPreferences.PLAYER_PAGE_MODE_AUTO)
     val sidePlayerPinned by settingsPreferences.sidePlayerPinned.collectAsStateWithLifecycle(initialValue = true)
@@ -1082,6 +1083,7 @@ fun MelodiaApp() {
                             showCreateEntry = showCreateEntry,
                             bottomBarLayout = bottomBarLayout,
                             bottomBarIconOnly = bottomBarIconOnly,
+                            bottomBarGradient = bottomBarGradient,
                             activeTab = navigation.activeTab,
                             onOverlayHeightChanged = { bottomOverlayHeight = it }
                         )

@@ -761,6 +761,7 @@ fun MelodiaNavigationBar(
     iconOnly: Boolean = false,
     activeTab: Screen? = null,
     expanded: Boolean = false,
+    transparentBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
@@ -768,7 +769,7 @@ fun MelodiaNavigationBar(
     Surface(
         color = when {
             expanded -> MelodiaColors.Surface
-            hasBackdrop -> Color.Transparent
+            hasBackdrop || transparentBackground -> Color.Transparent
             else -> MelodiaColors.NavigationBar
         },
         shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,

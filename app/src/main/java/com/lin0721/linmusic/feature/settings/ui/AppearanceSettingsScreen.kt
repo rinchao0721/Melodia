@@ -49,6 +49,7 @@ private val SidePlayerPositions = listOf(
 fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val bottomBarLayout by viewModel.bottomBarLayout.collectAsStateWithLifecycle()
     val bottomBarIconOnly by viewModel.bottomBarIconOnly.collectAsStateWithLifecycle()
+    val bottomBarGradient by viewModel.bottomBarGradient.collectAsStateWithLifecycle()
     val startInLibrary by viewModel.startInLibrary.collectAsStateWithLifecycle()
     val playerPageMode by viewModel.playerPageMode.collectAsStateWithLifecycle()
     val sidePlayerPinned by viewModel.sidePlayerPinned.collectAsStateWithLifecycle()
@@ -170,6 +171,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         title = "底栏自定义",
                         subtitle = "当前启用：$enabledItemsSummary",
                         onClick = { showBottomBarSheet = true }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "底栏渐变透明",
+                        subtitle = "底栏背景由透明向下渐变到主题背景色（仅手机布局）",
+                        checked = bottomBarGradient,
+                        onCheckedChange = { viewModel.updateBottomBarGradient(it) }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
