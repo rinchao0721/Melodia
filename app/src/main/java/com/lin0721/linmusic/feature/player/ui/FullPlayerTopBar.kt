@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.CollectToggleIcon
 import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
@@ -44,6 +45,8 @@ fun FullPlayerTopBar(
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {},
     isLiked: Boolean = false,
+    // 电台节目显示订阅红心，歌曲显示 ⊕/✓
+    isPodcast: Boolean = false,
     onToggleLike: () -> Unit = {},
     backgroundColor: Color = Color.Transparent,
     currentPositionProvider: () -> Long = { 0L },
@@ -106,12 +109,21 @@ fun FullPlayerTopBar(
                     horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
                 ) {
                     MelodiaIconButton(onClick = onToggleLike) {
-                        Icon(
-                            if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
-                            contentDescription = null,
-                            tint = MelodiaColors.TextPrimary,
-                            modifier = Modifier.size(26.dp)
-                        )
+                        if (isPodcast) {
+                            Icon(
+                                if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                                contentDescription = null,
+                                tint = MelodiaColors.TextPrimary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        } else {
+                            CollectToggleIcon(
+                                collected = isLiked,
+                                size = 26.dp,
+                                tint = MelodiaColors.TextPrimary,
+                                collectedTint = MelodiaColors.OnCoverAccent
+                            )
+                        }
                     }
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
                         PlayPauseIcon(isPlaying, MelodiaColors.TextPrimary)

@@ -33,6 +33,8 @@ import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.rememberShowLikedBadge
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -83,6 +85,11 @@ fun SearchScreen(
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
     var externalOptionsTrack by remember { mutableStateOf<ExternalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    CollectPromptEffect(viewModel.collectPromptEvent) { songId ->
+        collectSongId = songId
+        viewModel.prepareCollectDialog(songId)
+    }
+    val showLikedBadge = rememberShowLikedBadge()
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
 
@@ -218,6 +225,8 @@ fun SearchScreen(
                             collectSongId = songId
                             viewModel.prepareCollectDialog(songId)
                         },
+                        onQuickLike = viewModel::quickLike,
+                        showLikedBadge = showLikedBadge,
                         onOpenMoreOptions = { track ->
                             if (userProfile == null) showLoginSheet = true else optionsTrack = track
                         }
@@ -293,7 +302,7 @@ fun SearchScreen(
                 songId = songId,
                 collectState = collectState,
                 onDismiss = { collectSongId = null },
-                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
                 onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }

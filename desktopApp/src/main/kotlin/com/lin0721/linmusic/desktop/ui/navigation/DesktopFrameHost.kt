@@ -9,9 +9,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lin0721.linmusic.core.navigation.FrameRetention
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 
@@ -24,7 +26,8 @@ class DesktopFrameHost(
     private val saveableStateHolder: SaveableStateHolder,
     private val liveEntryIds: () -> Set<Long>,
     private val scope: CoroutineScope,
-    private val onToast: (String) -> Unit
+    private val onToast: (String) -> Unit,
+    private val onCollectPrompt: (CollectPromptEvent) -> Unit = {}
 ) {
     private val retention = FrameRetention(MAX_RETAINED_FRAMES)
     private val stores = HashMap<Long, ViewModelStore>()
@@ -43,19 +46,21 @@ class DesktopFrameHost(
         saveableStateHolder.SaveableStateProvider(entry.id, content)
     }
 
-    // 取该栈帧自己的 ViewModel；toast 在栈帧存活期间持续转发，页面离开组合后异步结果的提示不丢
+    // 取该栈帧自己的 ViewModel；toast 与收藏提示在栈帧存活期间持续转发，页面离开组合后异步结果不丢
     fun <T : ViewModel> viewModelFor(
         entryId: Long,
         modelClass: KClass<T>,
         toasts: (T) -> Flow<String>,
+        collectPrompts: (T) -> Flow<CollectPromptEvent> = { emptyFlow() },
         create: () -> T
     ): T {
         val store = stores.getOrPut(entryId) { ViewModelStore() }
         val factory = viewModelFactory {
             addInitializer(modelClass) {
                 create().also { viewModel ->
-                    toastJobs.getOrPut(entryId) { mutableListOf() } +=
-                        scope.launch { toasts(viewModel).collect(onToast) }
+                    val jobs = toastJobs.getOrPut(entryId) { mutableListOf() }
+                    jobs += scope.launch { toasts(viewModel).collect(onToast) }
+                    jobs += scope.launch { collectPrompts(viewModel).collect(onCollectPrompt) }
                 }
             }
         }

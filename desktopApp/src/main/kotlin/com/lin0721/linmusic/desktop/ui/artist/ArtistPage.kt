@@ -190,6 +190,7 @@ private fun ArtistContent(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = viewModel::quickLike,
         onToggleLike = viewModel::toggleLikeSong,
         onPlayNext = viewModel::addTrackToPlayNext,
         onPrepareCollect = viewModel::prepareCollectDialog,
@@ -460,7 +461,7 @@ private fun ArtistStickyBar(
             enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
             exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
-            PlayCircleButton(StickyPlayButtonSize, 28.dp, onPlay, Modifier.padding(end = 12.dp))
+            PlayCircleButton(StickyPlayButtonSize, 21.dp, onPlay, Modifier.padding(end = 12.dp))
         }
         Text(
             name,

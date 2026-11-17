@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.lin0721.linmusic.core.share.ShareCardKind
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
@@ -78,6 +79,13 @@ class DesktopAppState(
 
     fun showMessage(text: String) {
         _messages.tryEmit(text)
+    }
+
+    private val _collectPromptEvents = MutableSharedFlow<CollectPromptEvent>(extraBufferCapacity = 8)
+    val collectPromptEvents: SharedFlow<CollectPromptEvent> = _collectPromptEvents.asSharedFlow()
+
+    fun showCollectPrompt(event: CollectPromptEvent) {
+        _collectPromptEvents.tryEmit(event)
     }
 
     // ─── 历史 ───

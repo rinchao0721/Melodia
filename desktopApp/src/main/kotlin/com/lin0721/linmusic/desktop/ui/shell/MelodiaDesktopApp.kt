@@ -14,6 +14,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,8 +78,11 @@ import com.lin0721.linmusic.desktop.ui.search.SearchDropdown
 import com.lin0721.linmusic.desktop.ui.share.ShareCardDialog
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.CollectPromptHost
+import com.lin0721.linmusic.desktop.ui.track.LocalAlwaysShowLikedBadge
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import com.lin0721.linmusic.feature.library.ui.LibraryUiState
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import kotlinx.coroutines.Dispatchers
@@ -88,6 +92,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -186,6 +191,24 @@ fun WindowScope.MelodiaDesktopApp(
     val isFullscreen = fullscreen.isFullscreen
 
     val pluginLayouts by deps.plugins.layouts.collectAsState()
+    val alwaysShowLikedBadge by deps.commonSettingsViewModel.alwaysShowLikedBadge.collectAsState()
+    val libraryUiState by deps.libraryViewModel.uiState.collectAsState()
+    val likedCoverUrl = (libraryUiState as? LibraryUiState.Success)
+        ?.allItems
+        ?.firstOrNull { it.isLikedSongs }
+        ?.coverUrl
+        .orEmpty()
+    val collectState by deps.songActions.collect.state.collectAsState()
+    val collectPromptEvents = remember(deps, state) {
+        merge(
+            deps.playerViewModel.collectPromptEvent,
+            deps.homeViewModel.collectPromptEvent,
+            deps.searchViewModel.collectPromptEvent,
+            deps.newWorksViewModel.collectPromptEvent,
+            deps.songActions.collect.collectPromptEvent,
+            state.collectPromptEvents
+        )
+    }
     val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
     CompositionLocalProvider(
         LocalDesktopNavigator provides navigator,
@@ -194,7 +217,8 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCommands provides deps.pluginCommands,
         LocalSongQualityCache provides deps.songQuality,
         LocalListenTogetherViewModel provides deps.listenTogether,
-        LocalCoverColorMemory provides deps.coverColorMemory
+        LocalCoverColorMemory provides deps.coverColorMemory,
+        LocalAlwaysShowLikedBadge provides alwaysShowLikedBadge
     ) {
         val scope = rememberCoroutineScope()
         var clipboardCheckJob by remember { mutableStateOf<Job?>(null) }
@@ -346,56 +370,96 @@ fun WindowScope.MelodiaDesktopApp(
                     deps.searchViewModel.searchWithKeyword(keyword)
                 }
             }
-            ClipboardLinkBanner(
-                link = clipboardLink,
-                previewState = clipboardPreviewState,
-                onPrimaryAction = {
-                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
-                    val readyPreview = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview
-                    when (val target = current.target) {
-                        is SongLinkTarget.Song -> {
-                            val readyTrack = readyPreview?.track
-                            if (readyTrack != null) {
-                                controller.playLinkTrack(readyTrack, "链接")
-                            } else {
-                                deps.songLinkRequests.request(target)
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ClipboardLinkBanner(
+                    link = clipboardLink,
+                    previewState = clipboardPreviewState,
+                    onPrimaryAction = {
+                        val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                        val readyPreview = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview
+                        when (val target = current.target) {
+                            is SongLinkTarget.Song -> {
+                                val readyTrack = readyPreview?.track
+                                if (readyTrack != null) {
+                                    controller.playLinkTrack(readyTrack, "链接")
+                                } else {
+                                    deps.songLinkRequests.request(target)
+                                }
+                            }
+                            is SongLinkTarget.Playlist -> {
+                                lyricsView.close()
+                                val title = readyPreview?.title.orEmpty()
+                                if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                            }
+                            is SongLinkTarget.Artist -> {
+                                lyricsView.close()
+                                navigator.openArtist(target.id, readyPreview?.title.orEmpty())
                             }
                         }
-                        is SongLinkTarget.Playlist -> {
-                            lyricsView.close()
-                            val title = readyPreview?.title.orEmpty()
-                            if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                    },
+                    onEnqueueNext = {
+                        val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                        val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkBanner
+                        val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
+                        if (readyTrack != null) {
+                            controller.enqueueLinkTrackNext(readyTrack)
+                            state.showMessage("已添加至下一首播放")
+                        } else {
+                            scope.launch {
+                                val track = deps.playbackRepository.getSongDetail(songTarget.id).firstOrNull()?.getOrNull()
+                                if (track != null) {
+                                    controller.enqueueLinkTrackNext(track)
+                                    state.showMessage("已添加至下一首播放")
+                                } else {
+                                    state.showMessage("这首歌打不开，可能已下架")
+                                }
+                            }
                         }
-                        is SongLinkTarget.Artist -> {
-                            lyricsView.close()
-                            navigator.openArtist(target.id, readyPreview?.title.orEmpty())
-                        }
-                    }
-                },
-                onEnqueueNext = {
-                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
-                    val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkBanner
-                    val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
-                    if (readyTrack != null) {
-                        controller.enqueueLinkTrackNext(readyTrack)
-                        state.showMessage("已添加至下一首播放")
-                    } else {
+                    },
+                    onDismiss = { deps.songLinkRequests.dismissClipboard() }
+                )
+                CollectPromptHost(
+                    promptEvents = collectPromptEvents,
+                    likedCoverUrl = likedCoverUrl,
+                    collectState = collectState,
+                    onPrepareCollect = { songId ->
                         scope.launch {
-                            val track = deps.playbackRepository.getSongDetail(songTarget.id).firstOrNull()?.getOrNull()
-                            if (track != null) {
-                                controller.enqueueLinkTrackNext(track)
-                                state.showMessage("已添加至下一首播放")
-                            } else {
-                                state.showMessage("这首歌打不开，可能已下架")
-                            }
+                            deps.songActions.collect.prepare(
+                                songId = songId,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) }
+                            )
+                        }
+                    },
+                    onSaveCollect = { songId, items ->
+                        scope.launch {
+                            deps.songActions.collect.save(
+                                songId = songId,
+                                items = items,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) },
+                                onLikedChanged = { deps.songActions.likes.syncLikedSongIds(it) }
+                            )
+                        }
+                    },
+                    onCreateAndAdd = { name, songId ->
+                        scope.launch {
+                            deps.songActions.collect.createAndAdd(
+                                name = name,
+                                songId = songId,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) }
+                            )
                         }
                     }
-                },
-                onDismiss = { deps.songLinkRequests.dismissClipboard() },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)
-            )
-            SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)) { data ->
-                Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
+                )
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
+                }
             }
             WindowResizeHandles(enabled = !isMaximized && !isFullscreen)
         }

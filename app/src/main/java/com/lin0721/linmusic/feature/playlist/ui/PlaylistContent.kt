@@ -45,6 +45,10 @@ import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
+import com.lin0721.linmusic.core.ui.components.rememberShowLikedBadge
 import kotlin.math.max
 
 // TopBar 操作区高度（不含状态栏）
@@ -80,6 +84,8 @@ fun PlaylistContent(
     isShuffleActive: Boolean,
     isCurrentlyPlayingThis: Boolean,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    collectPromptEvents: Flow<CollectPromptEvent>,
     onSaveCollection: (Long, List<PlaylistCollectItem>) -> Unit,
     onSaveNewCollection: (String, Long) -> Unit,
     onRequireLogin: () -> Unit,
@@ -230,6 +236,11 @@ fun PlaylistContent(
     var playButtonBaselineYPx by remember { mutableFloatStateOf(Float.MAX_VALUE) }
 
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    CollectPromptEffect(collectPromptEvents) { songId ->
+        collectSongId = songId
+        onLikeClick(songId)
+    }
+    val showLikedBadge = rememberShowLikedBadge()
     var activeSongMoreOptions by remember { mutableStateOf<Track?>(null) }
 
     val searchBarRevealState = rememberSearchBarRevealState(
@@ -367,6 +378,8 @@ fun PlaylistContent(
                     isLoggedIn         = isLoggedIn,
                     onPlaySong         = onPlaySong,
                     onLikeClick        = onLikeClick,
+                    onQuickLike        = onQuickLike,
+                    showLikedBadge     = showLikedBadge,
                     onOpenCollectSheet = { collectSongId = it },
                     onToggleLike       = onToggleLike,
                     onMoreClick        = { activeSongMoreOptions = it },

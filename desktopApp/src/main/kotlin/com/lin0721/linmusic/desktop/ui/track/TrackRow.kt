@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,7 @@ import com.lin0721.linmusic.core.ui.theme.densityScaled
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
+import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.MenuScope
@@ -91,6 +93,8 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.components.songLink
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
@@ -105,6 +109,9 @@ import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Album
 import com.lin0721.linmusic.core.ui.icons.Group
 import com.lin0721.linmusic.core.ui.icons.HeartBroken
+
+// 控制列表行已喜欢歌曲是否常驻显示 ✓（关闭时仅悬停显示）
+val LocalAlwaysShowLikedBadge = compositionLocalOf { true }
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -313,19 +320,47 @@ fun TrackRow(
                 )
             }
             if (activeActions != null) {
-                // 已喜欢的红心常亮，其余仅悬停时出现
-                val showLike = hovered || isLiked
-                IconButton(
-                    onClick = { activeActions.onToggleLike(track) },
-                    enabled = showLike,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    if (showLike) {
-                        Icon(
-                            if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
-                            if (isLiked) "取消喜欢" else "喜欢",
-                            tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
-                            modifier = Modifier.size(18.dp)
+                val alwaysShowLiked = LocalAlwaysShowLikedBadge.current
+                var collectPopupOpen by remember(track.id) { mutableStateOf(false) }
+                // 开启“常驻显示已喜欢标记”时已喜欢常亮，关闭后仅悬停（或弹窗展开中）出现
+                val showLike = hovered || collectPopupOpen || (alwaysShowLiked && isLiked)
+                Box {
+                    HoverReveal(revealed = showLike, reserveSpace = true) {
+                        IconButton(
+                            onClick = {
+                                if (!navigator.isLoggedIn) {
+                                    navigator.showMessage("请先登录账号")
+                                } else if (isLiked) {
+                                    activeActions.onPrepareCollect(track)
+                                    collectPopupOpen = true
+                                } else {
+                                    activeActions.onQuickLike(track)
+                                }
+                            },
+                            enabled = showLike,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                if (isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                                if (isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
+                                tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (collectPopupOpen) {
+                        CollectToPlaylistPopup(
+                            songId = track.id,
+                            state = activeActions.collectState,
+                            onSave = { items ->
+                                activeActions.onSaveCollect(track, items)
+                                collectPopupOpen = false
+                            },
+                            onCreate = { name ->
+                                activeActions.onCreateAndAdd(track, name)
+                                collectPopupOpen = false
+                            },
+                            onDismiss = { collectPopupOpen = false }
                         )
                     }
                 }

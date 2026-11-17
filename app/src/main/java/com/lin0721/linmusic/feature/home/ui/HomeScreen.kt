@@ -176,7 +176,7 @@ fun HomeScreen(
                                 onToggleLibrary = newWorksViewModel::toggleInLibrary,
                                 onAddToPlayNext = newWorksViewModel::addToPlayNext,
                                 onPrepareCollect = newWorksViewModel::prepareCollectDialog,
-                                onSaveCollection = newWorksViewModel::savePlaylistCollection,
+                                onSaveCollection = { id, items -> newWorksViewModel.savePlaylistCollection(id, items, silent = true) },
                                 onSaveNewCollection = newWorksViewModel::createPlaylistAndAddSong,
                                 onPrepareImportTargets = newWorksViewModel::prepareImportTargets,
                                 onAddToPlaylist = newWorksViewModel::addToPlaylist,

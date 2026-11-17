@@ -48,4 +48,15 @@ class SettingsPreferencesTest {
         settings.savePersonalFmMode(PersonalFmMode.EXPLORE)
         assertEquals(PersonalFmMode.EXPLORE, settings.personalFmMode.first())
     }
+
+    @Test
+    fun alwaysShowLikedBadgeDefaultsToTrueAndPersists() = runBlocking {
+        assertEquals(true, settings.alwaysShowLikedBadge.first())
+
+        settings.saveAlwaysShowLikedBadge(false)
+        assertFalse(settings.alwaysShowLikedBadge.first())
+
+        settings.saveAlwaysShowLikedBadge(true)
+        assertEquals(true, settings.alwaysShowLikedBadge.first())
+    }
 }

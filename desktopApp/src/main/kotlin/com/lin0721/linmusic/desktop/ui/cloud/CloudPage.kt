@@ -227,6 +227,11 @@ private fun CloudSongList(
     val trackActions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = { songId ->
+            scope.launch {
+                songActions.collect.quickLike(songId) { navigator.showMessage(it) }
+            }
+        },
         onToggleLike = { songId, like ->
             scope.launch {
                 songActions.likes.likeSong(songId, like).collect { result ->
@@ -311,7 +316,7 @@ private fun CloudSongList(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        PlayCircleButton(PlayButtonSize, 32.dp, isThisContext && playWhenReady, onPlayClick)
+                        PlayCircleButton(PlayButtonSize, 24.dp, isThisContext && playWhenReady, onPlayClick)
                         ActionIcon(
                             MelodiaIcons.Shuffle,
                             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",

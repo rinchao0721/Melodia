@@ -383,11 +383,12 @@ class CloudViewModel(
         }
     }
 
-    fun saveAddToPlaylist(songId: Long, items: List<PlaylistCollectItem>) {
+    fun saveAddToPlaylist(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->

@@ -70,6 +70,7 @@ import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
@@ -287,6 +288,17 @@ private fun FullPlayerScreenContent(
     val floorState by viewModel.floorState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    // 未收藏一键喜欢，已收藏打开加入歌单弹窗
+    val openCollectSheet: (Long) -> Unit = { songId ->
+        collectSongId = songId
+        viewModel.prepareCollectDialog(songId)
+    }
+    val onCollectButtonClick: () -> Unit = {
+        currentTrack.mediaId.toLongOrNull()?.let { songId ->
+            if (songDetailState.isLiked) openCollectSheet(songId) else viewModel.quickLike(songId)
+        }
+    }
+    CollectPromptEffect(viewModel.collectPromptEvent, openCollectSheet)
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
     var showCardEditorSheet by remember { mutableStateOf(false) }
@@ -701,7 +713,7 @@ private fun FullPlayerScreenContent(
             animateLyricsMesh = isPlaying && !isLyricsFullScreen,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel,
-            onToggleLike = viewModel::toggleLike,
+            onToggleLike = onCollectButtonClick,
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
@@ -869,7 +881,7 @@ private fun FullPlayerScreenContent(
                         playMode = playMode,
                         onClose = onClose,
                         onMoreClick = { showMoreOptionsSheet = true },
-                        onToggleLike = viewModel::toggleLike,
+                        onToggleLike = onCollectButtonClick,
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         onPlaylistClick = openPlaylistSource,
@@ -930,7 +942,8 @@ private fun FullPlayerScreenContent(
                     isPlaying = isPlaying,
                     onTogglePlay = onTogglePlay,
                     isLiked = if (podcast.isPodcast) podcast.subscribed else songDetailState.isLiked,
-                    onToggleLike = if (podcast.isPodcast) viewModel::toggleSubscribe else viewModel::toggleLike,
+                    isPodcast = podcast.isPodcast,
+                    onToggleLike = if (podcast.isPodcast) viewModel::toggleSubscribe else onCollectButtonClick,
                     backgroundColor = themedCoverBase(colors.base),
                     currentPositionProvider = currentPositionProvider,
                     duration = duration,
@@ -1003,7 +1016,7 @@ private fun FullPlayerScreenContent(
                         title = displayedTitle,
                         artist = displayedArtist,
                         isLiked = songDetailState.isLiked,
-                        onToggleLike = viewModel::toggleLike,
+                        onToggleLike = onCollectButtonClick,
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         podcast = podcast,
@@ -1252,7 +1265,7 @@ private fun FullPlayerScreenContent(
             },
             onShareClick = { shareCurrentSong() },
             onDownloadClick = { showDownloadQualitySheet = true },
-            onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items) },
+            onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items, silent = true) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
             onCollectDismiss = { collectSongId = null },
             onMoreOptionsDismiss = { showMoreOptionsSheet = false },

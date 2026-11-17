@@ -35,6 +35,7 @@ import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.UiMotion
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
+import com.lin0721.linmusic.desktop.ui.track.CollectToPlaylistPopup
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -142,7 +143,29 @@ fun MiniPlayerWindow(
                 onTogglePlay = controller::togglePlayPause,
                 onNext = controller::playNext,
                 onToggleRepeat = controller::toggleRepeat,
-                onToggleLike = { if (isLoggedIn) playerViewModel.toggleLike() else onRequireLogin() },
+                onQuickLike = { songId, liked ->
+                    when {
+                        !isLoggedIn -> { onRequireLogin(); false }
+                        liked -> { playerViewModel.prepareCollectDialog(songId); true }
+                        else -> { playerViewModel.quickLike(songId); false }
+                    }
+                },
+                collectPopup = { songId, onDismiss ->
+                    val collectState by playerViewModel.collectState.collectAsState()
+                    CollectToPlaylistPopup(
+                        songId = songId,
+                        state = collectState,
+                        onSave = { items ->
+                            playerViewModel.savePlaylistCollection(songId, items)
+                            onDismiss()
+                        },
+                        onCreate = { name ->
+                            playerViewModel.createPlaylistAndAddSong(name, songId)
+                            onDismiss()
+                        },
+                        onDismiss = onDismiss
+                    )
+                },
                 onSeek = controller::seekTo,
                 onSwitchStyle = {
                     scope.launch {

@@ -7,11 +7,18 @@ data class PlaylistCollectItem(
     val playlistName: String,
     val coverUrl: String,
     val isInitiallyContains: Boolean,
-    var isContains: Boolean
+    var isContains: Boolean,
+    // 歌单内歌曲数，来自网易歌单 trackCount
+    val trackCount: Int = 0
 )
 
 data class PlaylistCollectState(
     val songId: Long = -1L,
     val collectItems: List<PlaylistCollectItem> = emptyList(),
     val isLoading: Boolean = false
+)
+
+// 一键收藏到“已点赞的歌曲”成功事件
+data class CollectPromptEvent(
+    val songId: Long
 )

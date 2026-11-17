@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
@@ -62,6 +63,7 @@ class NewWorksViewModel(
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     private val _importState = MutableStateFlow(PlaylistImportState())
     val importState: StateFlow<PlaylistImportState> = _importState.asStateFlow()
@@ -259,6 +261,13 @@ class NewWorksViewModel(
         }
     }
 
+    // 一键收藏到“已点赞的歌曲”
+    fun quickLike(songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     // 已登录才回调 onReady（由界面据此打开弹层），未登录只提示
     fun prepareCollectDialog(songId: Long, onReady: () -> Unit) {
         viewModelScope.launch {
@@ -268,11 +277,12 @@ class NewWorksViewModel(
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { songLikeRepository.syncLikedSongIds(it) }

@@ -55,10 +55,10 @@ import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddToQueue
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.TimerOff
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
-import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Timer
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.Close
@@ -99,6 +99,7 @@ internal fun NowPlayingMoreMenu(
     val collectActions = rememberTrackActions(
         likedSongIds = emptySet(),
         collectState = collectState,
+        onQuickLike = {},
         onToggleLike = { _, _ -> },
         onPlayNext = {},
         onPrepareCollect = playerViewModel::prepareCollectDialog,
@@ -245,7 +246,7 @@ internal fun NowPlayingMoreMenu(
                 })
             }
             if (cloud && cloudSongId != null) {
-                MenuItem("插播相似歌曲", icon = MelodiaIcons.Queue, onClick = {
+                MenuItem("插播相似歌曲", icon = MelodiaIcons.AddToQueue, onClick = {
                     onDismiss()
                     playerViewModel.insertSimilarSongs(cloudSongId)
                 })

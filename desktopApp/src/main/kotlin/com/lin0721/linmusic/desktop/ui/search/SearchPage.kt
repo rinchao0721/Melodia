@@ -87,6 +87,7 @@ private fun ResultsContent(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = viewModel::quickLike,
         onToggleLike = viewModel::toggleLikeSong,
         onPlayNext = viewModel::addTrackToPlayNext,
         onPrepareCollect = viewModel::prepareCollectDialog,

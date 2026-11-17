@@ -389,6 +389,7 @@ internal fun settingsEntries(
     val searchSuggestionEnabled by common.searchSuggestionEnabled.collectAsState()
     val homeRecentPlayEnabled by common.homeRecentPlayEnabled.collectAsState()
     val showSongMaxQuality by common.showSongMaxQuality.collectAsState()
+    val alwaysShowLikedBadge by common.alwaysShowLikedBadge.collectAsState()
     val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()

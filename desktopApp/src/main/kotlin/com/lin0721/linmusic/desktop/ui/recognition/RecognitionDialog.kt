@@ -298,6 +298,11 @@ private fun rememberRecognitionTrackActions(
     return rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = { songId ->
+            scope.launch {
+                songActions.collect.quickLike(songId) { navigator.showMessage(it) }
+            }
+        },
         onToggleLike = { songId, like ->
             scope.launch {
                 songActions.likes.likeSong(songId, like).collect { result ->

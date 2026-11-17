@@ -90,7 +90,6 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
-import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
@@ -114,9 +113,7 @@ import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
-import com.lin0721.linmusic.core.ui.icons.AddCircle
 import com.lin0721.linmusic.core.ui.icons.AddSquare
-import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Download
 
@@ -390,7 +387,8 @@ fun MiniPlayerCard(
                                             Icon(MelodiaIcons.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
                                         }
                                         "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                            // 参照 SP：播放三角略高于圆圈，切歌最轻
+                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, size = 31.dp, contentDescription = "播放/暂停")
                                         }
                                         "next" -> MelodiaIconButton(onClick = onNext) {
                                             Icon(MelodiaIcons.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
@@ -455,7 +453,7 @@ fun MiniPlayerCard(
                                 imageVector = MelodiaIcons.SkipNext,
                                 contentDescription = "下一首",
                                 tint = MelodiaColors.OnPlayer,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -507,16 +505,21 @@ private fun MiniLikeButton(
     if (likeMode == MiniPlayerLikeMode.Hidden) return
     val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
     MelodiaIconButton(onClick = onLikeClick, modifier = modifier) {
-        Icon(
-            imageVector = when {
-                subscribe -> if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
-                isLiked -> MelodiaIcons.CheckCircle
-                else -> MelodiaIcons.AddCircle
-            },
-            contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-            tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
-            modifier = Modifier.size(24.dp)
-        )
+        if (subscribe) {
+            Icon(
+                imageVector = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                contentDescription = "订阅电台",
+                tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
+                modifier = Modifier.size(25.dp)
+            )
+        } else {
+            CollectToggleIcon(
+                collected = isLiked,
+                size = 25.dp,
+                tint = MelodiaColors.OnPlayer,
+                collectedTint = MelodiaColors.OnCoverAccent
+            )
+        }
     }
 }
 
@@ -800,8 +803,8 @@ fun MelodiaNavigationBar(
                     }
                 )
                 .padding(
-                    top = if (iconOnly) 4.dp else 12.dp,
-                    bottom = if (iconOnly) 4.dp else 2.dp
+                    top = if (iconOnly) 4.dp else 6.dp,
+                    bottom = if (iconOnly) 4.dp else 4.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -842,24 +845,14 @@ fun MelodiaNavigationBar(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // 药丸形状背景
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) MelodiaColors.NavPillSelected else Color.Transparent)
-                            .padding(
-                                horizontal = MelodiaSpacing.md,
-                                vertical = if (iconOnly) 6.dp else 1.dp
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
-                            modifier = Modifier.size(if (iconOnly) 24.dp else 22.dp)
-                        )
-                    }
+                    // 参照 SP：无药丸底，主页选中切实心
+                    Icon(
+                        imageVector = if (isSelected && targetScreen == Screen.Home) MelodiaIcons.HomeFilled else icon,
+                        contentDescription = label,
+                        tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                    if (!iconOnly) Spacer(modifier = Modifier.height(2.dp))
                     if (!iconOnly) {
                         Text(
                             text = label,

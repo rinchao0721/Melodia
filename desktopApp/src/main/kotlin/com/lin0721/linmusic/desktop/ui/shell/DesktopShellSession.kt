@@ -44,7 +44,8 @@ fun rememberDesktopShellSession(deps: DesktopAppDependencies, lyricsView: Lyrics
             saveableStateHolder = saveableStateHolder,
             liveEntryIds = { state.backStack.liveEntryIds },
             scope = scope,
-            onToast = state::showMessage
+            onToast = state::showMessage,
+            onCollectPrompt = state::showCollectPrompt
         )
         DesktopShellSession(scope, pane, state, frameHost, saveableStateHolder)
     }

@@ -111,6 +111,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
@@ -437,8 +438,8 @@ internal class PlayerBarParts(
 
         Box {
             BarIconButton(
-                icon = if (songDetail.isLiked) MelodiaIcons.CheckCircle else MelodiaIcons.AddCircle,
-                description = "收藏到歌单",
+                icon = if (songDetail.isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                description = if (songDetail.isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
                 active = songDetail.isLiked,
                 size = SideButtonSize, iconSize = SideIconSize,
                 modifier = modifier,
@@ -447,8 +448,12 @@ internal class PlayerBarParts(
                         navigator.showMessage("请先登录账号")
                     } else {
                         track.songId?.let { songId ->
-                            playerViewModel.prepareCollectDialog(songId)
-                            showCollectPopup = true
+                            if (songDetail.isLiked) {
+                                playerViewModel.prepareCollectDialog(songId)
+                                showCollectPopup = true
+                            } else {
+                                playerViewModel.quickLike(songId)
+                            }
                         }
                     }
                 }

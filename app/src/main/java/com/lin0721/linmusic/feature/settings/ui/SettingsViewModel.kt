@@ -171,6 +171,7 @@ class SettingsViewModel(
     val predictiveBackEnabled = settingsPreferences.predictiveBackEnabled.asState(false)
 
     val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
+    val alwaysShowLikedBadge = settingsPreferences.alwaysShowLikedBadge.asState(true)
 
     val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
 
@@ -475,6 +476,7 @@ class SettingsViewModel(
     fun updatePredictiveBackEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePredictiveBackEnabled(enabled) }
 
     fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
+    fun updateAlwaysShowLikedBadge(enabled: Boolean) = launchSave { settingsPreferences.saveAlwaysShowLikedBadge(enabled) }
 
     fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
         launchSave { settingsPreferences.saveFloatingLyricStyle(transform(settingsPreferences.floatingLyricStyle.first())) }

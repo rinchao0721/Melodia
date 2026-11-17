@@ -127,8 +127,8 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.util.Collections
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.Favorite
-import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Pause
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
@@ -418,6 +418,7 @@ private fun PlaylistContent(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = viewModel::quickLike,
         onToggleLike = viewModel::toggleLikeSong,
         onPlayNext = viewModel::addTrackToPlayNext,
         onPrepareCollect = viewModel::prepareCollectDialog,
@@ -836,7 +837,7 @@ internal fun PlaylistStickyBar(
             enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
             exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
-            PlayCircleButton(StickyPlayButtonSize, 28.dp, isPlaying, onPlay, Modifier.padding(end = 12.dp))
+            PlayCircleButton(StickyPlayButtonSize, 21.dp, isPlaying, onPlay, Modifier.padding(end = 12.dp))
         }
         Text(
             name,
@@ -910,7 +911,7 @@ private fun PlaylistActionBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PlayCircleButton(PlayButtonSize, 32.dp, isPlaying, onPlay)
+        PlayCircleButton(PlayButtonSize, 24.dp, isPlaying, onPlay)
         ActionIcon(
             MelodiaIcons.Shuffle,
             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
@@ -919,7 +920,7 @@ private fun PlaylistActionBar(
         )
         if (canSubscribe) {
             ActionIcon(
-                if (isSubscribed) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                if (isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                 if (isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel",
                 tint = if (isSubscribed) DesktopColors.Accent else DesktopColors.TextGray,
                 onClick = onToggleSubscribe
@@ -939,7 +940,7 @@ private fun PlaylistActionBar(
             importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete
         )
         Spacer(Modifier.weight(1f))
-        ActionIcon(MelodiaIcons.Checklist, "多选", onClick = onEnterSelection)
+        ActionIcon(MelodiaIcons.Checklist, "多选", iconSize = 20.dp, onClick = onEnterSelection)
         PlaylistSearchBox(query, onQueryChange)
         PlaylistSortMenu(order, showAdded) { key ->
             onOrderChange(if (key == PlaylistSortKey.CUSTOM) PlaylistSortOrder() else PlaylistSortOrder(key, true))
@@ -952,11 +953,12 @@ internal fun ActionIcon(
     icon: ImageVector,
     description: String,
     tint: Color = DesktopColors.TextGray,
+    iconSize: Dp = 28.dp,
     onClick: () -> Unit
 ) {
     DesktopTooltip(description) {
         IconButton(onClick = onClick) {
-            Icon(icon, description, tint = tint, modifier = Modifier.size(28.dp))
+            Icon(icon, description, tint = tint, modifier = Modifier.size(iconSize))
         }
     }
 }

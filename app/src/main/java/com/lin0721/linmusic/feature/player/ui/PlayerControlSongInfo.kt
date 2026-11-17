@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.CollectToggleIcon
 import com.lin0721.linmusic.core.ui.components.PersonalFmModeOrb
 import com.lin0721.linmusic.core.ui.interaction.copyOnLongClick
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -164,11 +165,11 @@ fun SongLikeButton(
             }
         }
     } else MelodiaIconButton(onClick = onToggleLike, modifier = modifier) {
-        Icon(
-            if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
-            contentDescription = null,
+        CollectToggleIcon(
+            collected = isLiked,
+            size = 28.dp,
             tint = MelodiaColors.TextPrimary,
-            modifier = Modifier.size(28.dp)
+            collectedTint = MelodiaColors.OnCoverAccent
         )
     }
 }

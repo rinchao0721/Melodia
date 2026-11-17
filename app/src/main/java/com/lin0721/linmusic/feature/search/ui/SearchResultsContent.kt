@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.ui.components.CollectToggleButton
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.EntityCoverShape
 import com.lin0721.linmusic.core.ui.components.EntityRow
@@ -92,6 +93,8 @@ internal fun SearchResultsContent(
     onRetry: () -> Unit,
     onRetryExternal: (MusicPlatform) -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    showLikedBadge: Boolean,
     onOpenMoreOptions: (Track) -> Unit
 ) {
     val motion = LocalUiMotion.current
@@ -148,6 +151,8 @@ internal fun SearchResultsContent(
                             onLoadMore = onLoadMore,
                             onRetry = onRetry,
                             onLikeClick = onLikeClick,
+                            onQuickLike = onQuickLike,
+                            showLikedBadge = showLikedBadge,
                             onOpenMoreOptions = onOpenMoreOptions
                         )
                     }
@@ -294,6 +299,8 @@ private fun SearchResultsList(
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    showLikedBadge: Boolean,
     onOpenMoreOptions: (Track) -> Unit
 ) {
     when (state) {
@@ -360,18 +367,15 @@ private fun SearchResultsList(
                                 copyable = true,
                                 onClick = { onSongClick(track) },
                                 trailingSlot = {
-                                    if (isLoggedIn && track.id in likedSongIds) {
-                                        MelodiaIconButton(
-                                            onClick = { onLikeClick(track.id) },
+                                    if (isLoggedIn && showLikedBadge) {
+                                        val isLiked = track.id in likedSongIds
+                                        CollectToggleButton(
+                                            collected = isLiked,
+                                            onClick = {
+                                                if (isLiked) onLikeClick(track.id) else onQuickLike(track.id)
+                                            },
                                             modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = MelodiaIcons.Plus,
-                                                contentDescription = "收藏到歌单",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                        )
                                     }
                                     MelodiaIconButton(
                                         onClick = { onOpenMoreOptions(track) },

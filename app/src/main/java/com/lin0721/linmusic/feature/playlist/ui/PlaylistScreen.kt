@@ -89,10 +89,10 @@ import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.AddCircle
-import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.Edit
@@ -630,8 +630,10 @@ fun PlaylistScreen(
                     onLikeClick = { songId ->
                         viewModel.prepareCollectDialog(songId)
                     },
+                    onQuickLike = viewModel::quickLike,
+                    collectPromptEvents = viewModel.collectPromptEvent,
                     onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items)
+                        viewModel.savePlaylistCollection(songId, items, silent = true)
                     },
                     onSaveNewCollection = { name, songId ->
                         viewModel.createPlaylistAndAddSong(name, songId)
@@ -995,7 +997,7 @@ fun PlaylistScreen(
                     val menuItems = buildList {
                         add(
                             PlaylistMenuItem(
-                                icon = if (successState.isSubscribed) MelodiaIcons.CheckCircle else MelodiaIcons.AddCircle,
+                                icon = if (successState.isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                                 title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel"
                             ) {
                                 showMoreMenuSheet = false

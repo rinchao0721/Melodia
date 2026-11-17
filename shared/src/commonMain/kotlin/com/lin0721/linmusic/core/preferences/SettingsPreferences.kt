@@ -221,6 +221,8 @@ class SettingsPreferences(
         private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
         // 上次选择的私人FM模式，默认 DEFAULT（未注入 UserPreferences 时使用旧全局键）
         private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
+        // 歌曲列表是否常驻显示已喜欢标记，默认 true
+        val KEY_ALWAYS_SHOW_LIKED_BADGE = booleanPreferencesKey("always_show_liked_badge")
 
         private fun personalFmModeKeyFor(uid: Long?) =
             stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
@@ -1203,6 +1205,17 @@ class SettingsPreferences(
     suspend fun setLastHandledClipboardLink(text: String) {
         dataStore.edit { prefs ->
             prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK] = text
+        }
+    }
+
+    // 歌曲列表是否常驻显示已喜欢标记 Flow，默认开启
+    val alwaysShowLikedBadge: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_ALWAYS_SHOW_LIKED_BADGE] ?: true
+    }
+
+    suspend fun saveAlwaysShowLikedBadge(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_ALWAYS_SHOW_LIKED_BADGE] = enabled
         }
     }
 

@@ -73,6 +73,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
@@ -272,10 +273,18 @@ fun MelodiaApp() {
             viewModel.toggleSubscribe()
         } else {
             currentTrack?.mediaId?.toLongOrNull()?.let { songId ->
-                miniCollectSongId = songId
-                viewModel.prepareCollectDialog(songId)
+                if (isMiniPlayerLiked) {
+                    miniCollectSongId = songId
+                    viewModel.prepareCollectDialog(songId)
+                } else {
+                    viewModel.quickLike(songId)
+                }
             }
         }
+    }
+    CollectPromptEffect(viewModel.collectPromptEvent) { songId ->
+        miniCollectSongId = songId
+        viewModel.prepareCollectDialog(songId)
     }
 
     val playerSheet = rememberMelodiaPlayerSheetState()
@@ -1405,7 +1414,7 @@ fun MelodiaApp() {
                 songId = songId,
                 collectState = collectState,
                 onDismiss = { miniCollectSongId = null },
-                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
                 onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }

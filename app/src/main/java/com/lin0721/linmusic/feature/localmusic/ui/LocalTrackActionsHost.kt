@@ -168,7 +168,7 @@ fun LocalTrackActionsHost(
             songId = songId,
             collectState = collectState,
             onDismiss = { collectSongId = null },
-            onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+            onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
             onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
         )
     }

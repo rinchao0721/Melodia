@@ -20,6 +20,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
@@ -86,6 +87,7 @@ class SearchViewModel(
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     val history: StateFlow<List<String>> = historyPreferences.history
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -212,6 +214,14 @@ class SearchViewModel(
         viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
+    // 一键收藏到“已点赞的歌曲”，外部搜索结果写入本机外部库
+    fun quickLike(songId: Long) {
+        searchedExternal(songId)?.let { return quickLikeExternal(it) }
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareCollectDialog(songId: Long) {
         searchedExternal(songId)?.let { return prepareExternalCollectDialog(it) }
         viewModelScope.launch {
@@ -219,12 +229,13 @@ class SearchViewModel(
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
-        searchedExternal(songId)?.let { return saveExternalCollection(it, items) }
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
+        searchedExternal(songId)?.let { return saveExternalCollection(it, items, silent) }
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
@@ -636,15 +647,21 @@ class SearchViewModel(
         external = this
     )
 
+    fun quickLikeExternal(track: ExternalTrack) {
+        viewModelScope.launch {
+            songCollectDelegate.quickLikeExternal(track) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareExternalCollectDialog(track: ExternalTrack) {
         viewModelScope.launch {
             songCollectDelegate.prepareExternal(track) { _toastEvent.emit(it) }
         }
     }
 
-    fun saveExternalCollection(track: ExternalTrack, items: List<PlaylistCollectItem>) {
+    fun saveExternalCollection(track: ExternalTrack, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
-            songCollectDelegate.saveExternal(track, items) { _toastEvent.emit(it) }
+            songCollectDelegate.saveExternal(track, items, silent) { _toastEvent.emit(it) }
         }
     }
 

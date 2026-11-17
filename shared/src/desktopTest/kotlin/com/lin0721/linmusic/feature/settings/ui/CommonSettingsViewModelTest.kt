@@ -131,13 +131,17 @@ class CommonSettingsViewModelTest {
     @Test
     fun displaySettingsArePersisted() {
         val reversed = FullPlayerCardLayout.DEFAULT.reversed()
+        settings.alwaysShowLikedBadge.awaitValue(true)
+
         vm.updateDefaultPlaylistPrivate(true)
         vm.updateShowDesktopLrc(true)
         vm.updateFullPlayerCardLayout(reversed)
+        vm.updateAlwaysShowLikedBadge(false)
 
         settings.defaultPlaylistPrivate.awaitValue(true)
         settings.showDesktopLrc.awaitValue(true)
         settings.fullPlayerCardLayout.awaitValue(reversed)
+        settings.alwaysShowLikedBadge.awaitValue(false)
     }
 
     @Test

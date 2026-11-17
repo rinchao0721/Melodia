@@ -58,6 +58,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val predictiveBackEnabled by viewModel.predictiveBackEnabled.collectAsStateWithLifecycle()
     val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
+    val alwaysShowLikedBadge by viewModel.alwaysShowLikedBadge.collectAsStateWithLifecycle()
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
     val searchDefaultKeywordEnabled by viewModel.searchDefaultKeywordEnabled.collectAsStateWithLifecycle()
@@ -149,6 +150,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "在歌单和推荐歌曲的每首歌前显示序号",
                         checked = playlistTrackIndexEnabled,
                         onCheckedChange = { viewModel.updatePlaylistTrackIndexEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "常驻显示已喜欢标记",
+                        subtitle = "关闭后歌曲列表不再显示收藏按钮，播放页与迷你播放条不受影响",
+                        checked = alwaysShowLikedBadge,
+                        onCheckedChange = { viewModel.updateAlwaysShowLikedBadge(it) }
                     )
                 }
             }

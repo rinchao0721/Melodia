@@ -124,6 +124,8 @@ fun ArtistScreen(
                     onLikeClick = { songId ->
                         viewModel.prepareCollectDialog(songId)
                     },
+                    onQuickLike = { songId -> viewModel.quickLike(songId) },
+                    collectPromptEvents = viewModel.collectPromptEvent,
                     onToggleLike = { songId, like ->
                         viewModel.toggleLikeSong(songId, like)
                     },
@@ -131,7 +133,7 @@ fun ArtistScreen(
                         viewModel.addTrackToPlayNext(track)
                     },
                     onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items)
+                        viewModel.savePlaylistCollection(songId, items, silent = true)
                     },
                     onSaveNewCollection = { name, songId ->
                         viewModel.createPlaylistAndAddSong(name, songId)

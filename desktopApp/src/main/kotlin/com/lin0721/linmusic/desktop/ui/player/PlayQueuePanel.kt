@@ -168,6 +168,11 @@ fun PlayQueuePanel(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = { songId ->
+            scope.launch {
+                songCollectDelegate.quickLike(songId) { navigator.showMessage(it) }
+            }
+        },
         onToggleLike = { songId, like ->
             scope.launch {
                 songLikeRepository.likeSong(songId, like).collect { result ->

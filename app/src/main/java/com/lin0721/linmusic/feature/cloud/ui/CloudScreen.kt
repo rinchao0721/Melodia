@@ -303,7 +303,7 @@ fun CloudScreen(
                 songId = current.song.playSongId,
                 collectState = collectState,
                 onDismiss = { viewModel.dismissOverlay() },
-                onSaveCollection = { songId, items -> viewModel.saveAddToPlaylist(songId, items) },
+                onSaveCollection = { songId, items -> viewModel.saveAddToPlaylist(songId, items, silent = true) },
                 onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) }
             )
         }

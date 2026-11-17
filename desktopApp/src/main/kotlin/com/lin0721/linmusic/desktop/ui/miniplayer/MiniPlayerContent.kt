@@ -114,8 +114,8 @@ import kotlinx.coroutines.flow.map
 import java.awt.Cursor
 import kotlin.math.roundToInt
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.Favorite
-import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.OpenInFull
 import com.lin0721.linmusic.core.ui.icons.Repeat
 import com.lin0721.linmusic.core.ui.icons.RepeatOne
@@ -178,7 +178,9 @@ class MiniPlayerActions(
     val onTogglePlay: () -> Unit,
     val onNext: () -> Unit,
     val onToggleRepeat: () -> Unit,
-    val onToggleLike: () -> Unit,
+    // 未喜欢一键收藏，已喜欢返回 true 表示需打开收藏弹窗
+    val onQuickLike: (songId: Long, liked: Boolean) -> Boolean,
+    val collectPopup: @Composable (songId: Long, onDismiss: () -> Unit) -> Unit = { _, _ -> },
     val onSeek: (Long) -> Unit,
     val onSwitchStyle: () -> Unit,
     val onOpenLyricSettings: () -> Unit,
@@ -711,12 +713,17 @@ private fun PlayButton(info: MiniTrackInfo, size: Dp, onClick: () -> Unit) {
 
 @Composable
 private fun LikeButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
-    MiniIconButton(
-        if (info.liked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
-        if (info.liked) "取消喜欢" else "喜欢",
-        actions.onToggleLike,
-        tint = if (info.liked) DesktopColors.Accent else null
-    )
+    val songId = info.track?.songId
+    var showCollectPopup by remember(songId) { mutableStateOf(false) }
+    Box {
+        MiniIconButton(
+            if (info.liked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+            if (info.liked) "收藏到歌单" else "添加到“已点赞的歌曲”",
+            { if (songId != null && actions.onQuickLike(songId, info.liked)) showCollectPopup = true },
+            tint = if (info.liked) DesktopColors.Accent else null
+        )
+        if (showCollectPopup && songId != null) actions.collectPopup(songId) { showCollectPopup = false }
+    }
 }
 
 @Composable

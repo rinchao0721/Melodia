@@ -25,7 +25,7 @@ import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiSpec
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.components.CollectToggleButton
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 // 切歌单排序方式时的行位移动画：与 Library 筛选胶囊的增删动效同一套规格
@@ -47,6 +47,8 @@ fun LazyListScope.playlistTrackItems(
     isLoggedIn: Boolean = false,
     onPlaySong: (Track) -> Unit,
     onLikeClick: (Long) -> Unit = {},
+    onQuickLike: (Long) -> Unit = {},
+    showLikedBadge: Boolean = true,
     onOpenCollectSheet: (Long) -> Unit = {},
     onToggleLike: (Long, Boolean) -> Unit = { _, _ -> },
     onMoreClick: (Track) -> Unit,
@@ -101,20 +103,20 @@ fun LazyListScope.playlistTrackItems(
                             fontSize = 12.sp,
                             modifier = Modifier.padding(end = MelodiaSpacing.xs)
                         )
-                    } else if (isLoggedIn && track.id in likedSongIds) {
-                        MelodiaIconButton(
+                    } else if (isLoggedIn && showLikedBadge) {
+                        val isLiked = track.id in likedSongIds
+                        CollectToggleButton(
+                            collected = isLiked,
                             onClick = {
-                                onToggleLike(track.id, false)
+                                if (isLiked) {
+                                    onOpenCollectSheet(track.id)
+                                    onLikeClick(track.id)
+                                } else {
+                                    onQuickLike(track.id)
+                                }
                             },
                             modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = MelodiaIcons.FavoriteFilled,
-                                contentDescription = "取消喜欢",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        )
                     }
                     MelodiaIconButton(
                         onClick = { onMoreClick(track) },
