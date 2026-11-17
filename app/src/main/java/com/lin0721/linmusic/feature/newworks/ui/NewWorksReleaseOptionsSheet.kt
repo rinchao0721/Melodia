@@ -11,11 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +42,9 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 private const val DISABLED_ALPHA = 0.38f
 
@@ -124,12 +122,12 @@ fun NewWorksReleaseOptionsSheet(
                 onDismiss()
                 onAddToPlayNext()
             }
-            OptionRow(Icons.AutoMirrored.Rounded.PlaylistAdd, "加入歌单") {
+            OptionRow(MelodiaIcons.PlaylistAdd, "加入歌单") {
                 onDismiss()
                 onAddToPlaylist()
             }
-            OptionRow(Icons.Rounded.FileDownload, "下载", enabled = false) {}
-            OptionRow(Icons.Rounded.Share, "分享") {
+            OptionRow(MelodiaIcons.Download, "下载", enabled = false) {}
+            OptionRow(MelodiaIcons.Share, "分享") {
                 onDismiss()
                 shareRelease(context, release)
             }

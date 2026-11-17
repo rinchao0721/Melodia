@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -46,6 +43,8 @@ import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private val ListHeight = 420.dp
 
@@ -118,7 +117,7 @@ private fun PickerRow(track: QueueItem, added: Boolean, onAdd: () -> Unit) {
             Text(track.artist, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Icon(
-            if (added) Icons.Rounded.Check else Icons.Rounded.Add,
+            if (added) MelodiaIcons.Check else MelodiaIcons.Plus,
             if (added) "已添加" else "添加到一起听队列",
             tint = if (added) DesktopColors.Success else DesktopColors.TextGray,
             modifier = Modifier.size(20.dp)

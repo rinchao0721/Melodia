@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -112,6 +111,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 
 private const val TAG = "ShareCardDialog"
 private val RowShape = RoundedCornerShape(10.dp)
@@ -684,7 +685,7 @@ private fun ShareFriendBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
-                Icons.Rounded.MoreHoriz,
+                MelodiaIcons.MoreHoriz,
                 contentDescription = null,
                 tint = DesktopColors.TextPrimary,
                 modifier = Modifier.size(15.dp)

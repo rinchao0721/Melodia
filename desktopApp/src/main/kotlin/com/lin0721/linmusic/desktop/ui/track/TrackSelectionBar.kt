@@ -8,11 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +33,10 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 // 多选态工具条：歌单页与歌手页共用，吸顶显示在列表表头上方
 @Composable
@@ -75,7 +74,7 @@ fun TrackSelectionBar(
         Box(Modifier.weight(1f))
         SelectionActionButton(MelodiaIcons.Queue, "下一首播放", hasSelection, onClick = onPlayNext)
         Box {
-            SelectionActionButton(Icons.AutoMirrored.Rounded.PlaylistAdd, "添加到歌单", hasSelection) {
+            SelectionActionButton(MelodiaIcons.PlaylistAdd, "添加到歌单", hasSelection) {
                 if (navigator.isLoggedIn) {
                     onPrepareImport()
                     importMenuOpen = true
@@ -96,13 +95,13 @@ fun TrackSelectionBar(
         SelectionActionButton(MelodiaIcons.Favorite, "喜欢", hasSelection) {
             if (navigator.isLoggedIn) onLike() else navigator.showMessage("请先登录账号")
         }
-        SelectionActionButton(Icons.Rounded.Download, "下载", hasSelection, onClick = onDownload)
+        SelectionActionButton(MelodiaIcons.Download, "下载", hasSelection, onClick = onDownload)
         if (canRemove) {
-            SelectionActionButton(Icons.Rounded.Delete, "删除", hasSelection, onClick = onRemove, tint = DangerColor)
+            SelectionActionButton(MelodiaIcons.Delete, "删除", hasSelection, onClick = onRemove, tint = DangerColor)
         }
         DesktopTooltip("退出多选") {
             TextButton(onClick = onExit) {
-                Icon(Icons.Rounded.Close, "退出多选", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                Icon(MelodiaIcons.Close, "退出多选", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
             }
         }
     }

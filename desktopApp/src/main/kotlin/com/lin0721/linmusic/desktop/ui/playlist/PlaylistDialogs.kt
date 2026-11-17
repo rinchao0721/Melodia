@@ -16,10 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,6 +64,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image as SkiaImage
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Edit
 
 private const val MAX_NAME_LENGTH = 40
 private const val MAX_DESC_LENGTH = 1000
@@ -139,7 +138,7 @@ internal fun EditPlaylistDialog(
                     Cover(coverUrl, 120.dp, shape = RoundedCornerShape(6.dp))
                 }
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Edit, "更换封面", tint = DesktopColors.TextPrimary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.Edit, "更换封面", tint = DesktopColors.TextPrimary, modifier = Modifier.size(24.dp))
                 }
             }
             Column(Modifier.weight(1f)) {
@@ -237,7 +236,7 @@ internal fun ImportToPlaylistDialog(
                                 Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)).background(DesktopColors.Surface),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.Add, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
+                                Icon(MelodiaIcons.Plus, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
                             }
                             Text(
                                 "新建歌单",
@@ -309,9 +308,9 @@ private fun AddSongRow(track: Track, added: Boolean, busy: Boolean, onAdd: () ->
         }
         IconButton(onClick = onAdd, enabled = !added && !busy, modifier = Modifier.size(36.dp)) {
             when {
-                added -> Icon(Icons.Rounded.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(20.dp))
+                added -> Icon(MelodiaIcons.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(20.dp))
                 busy -> CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.TextGray, strokeWidth = 2.dp)
-                else -> Icon(Icons.Rounded.Add, "添加到歌单", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
+                else -> Icon(MelodiaIcons.Plus, "添加到歌单", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
             }
         }
     }

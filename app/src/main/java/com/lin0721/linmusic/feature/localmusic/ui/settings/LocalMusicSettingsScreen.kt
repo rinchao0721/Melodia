@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +48,8 @@ import com.lin0721.linmusic.feature.settings.ui.SettingsRow
 import com.lin0721.linmusic.feature.settings.ui.SettingsSwitchRow
 import org.koin.androidx.compose.koinViewModel
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private const val MAX_MIN_DURATION_SEC = 180
 private const val MIN_DURATION_STEP_SEC = 10
@@ -224,7 +224,7 @@ private fun AuthorizedFolderRow(folder: AuthorizedFolder, onRemove: () -> Unit) 
         }
         MelodiaIconButton(onClick = onRemove) {
             Icon(
-                Icons.Rounded.Close,
+                MelodiaIcons.Close,
                 contentDescription = "移除 ${folder.name}",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)

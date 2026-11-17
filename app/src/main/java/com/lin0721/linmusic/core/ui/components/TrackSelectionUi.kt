@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +47,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 // 歌曲多选在列表行上的状态与回调，歌单页与歌手页共用
 @Immutable
@@ -95,7 +95,7 @@ fun SelectionHeader(
             onClick = onExit,
             modifier = Modifier.align(Alignment.CenterStart).padding(start = MelodiaSpacing.xs)
         ) {
-            Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = MaterialTheme.colorScheme.onSurface)
+            Icon(MelodiaIcons.Close, contentDescription = "退出多选", tint = MaterialTheme.colorScheme.onSurface)
         }
         Text(
             text = "已选 $count 首",

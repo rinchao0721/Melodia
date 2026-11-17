@@ -1,10 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.search
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
@@ -32,6 +28,10 @@ import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 private const val NETEASE_WEB = "https://music.163.com"
 
@@ -62,12 +62,12 @@ internal fun MenuScope.CollectionMenuItems(
         viewModel.addCollectionToPlayNext(id, isAlbum)
     })
     if (!isAlbum) {
-        MenuItem("收藏歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+        MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
             dismiss()
             navigator.requireLogin { viewModel.subscribePlaylist(id) }
         })
     }
-    MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
         dismiss()
         viewModel.downloadCollection(id, isAlbum, navigator.downloadLevel)
     })
@@ -90,7 +90,7 @@ internal fun MenuScope.CollectionMenuItems(
             })
         }
     }
-    MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/${if (isAlbum) "album" else "playlist"}?id=$id")
     })
@@ -116,7 +116,7 @@ internal fun MenuScope.ArtistMenuItems(artist: Artist, viewModel: SearchViewMode
             navigator.requireLogin { viewModel.setArtistFollowed(artist.id, followed != true) }
         }
     )
-    MenuItem("复制歌手链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制歌手链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/artist?id=${artist.id}")
     })
@@ -141,7 +141,7 @@ internal fun MenuScope.RadioMenuItems(radioId: Long, viewModel: SearchViewModel,
             navigator.requireLogin { viewModel.setRadioSubscribed(radioId, subscribed != true) }
         }
     )
-    MenuItem("复制电台链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制电台链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/djradio?id=$radioId")
     })
@@ -169,7 +169,7 @@ internal fun MenuScope.ProgramMenuItems(
             navigator.openRadio(program.radioId)
         })
     }
-    MenuItem("复制节目链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制节目链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/program?id=${program.id}")
     })
@@ -195,11 +195,11 @@ internal fun MenuScope.ExternalTrackMenuItems(
     })
     val asTrack = track.toPlaylistTrack()
     if (navigator.isLoggedIn) {
-        SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(asTrack) }) {
+        SubMenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(asTrack) }) {
             CollectSubmenuContent(asTrack, actions, dismiss)
         }
     } else {
-        MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+        MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
             dismiss()
             navigator.showMessage("请先登录账号")
         })
@@ -209,7 +209,7 @@ internal fun MenuScope.ExternalTrackMenuItems(
         dismiss()
         viewModel.searchOnNetease(track)
     })
-    MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+    MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
         dismiss()
         val ok = copyTextToClipboard(songInfoText(track.name, track.artists))
         navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")

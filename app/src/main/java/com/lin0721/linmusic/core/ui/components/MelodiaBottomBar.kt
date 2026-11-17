@@ -20,7 +20,6 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutFrame
 import com.lin0721.linmusic.core.plugin.toShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
-import androidx.compose.material.icons.rounded.SkipPrevious
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -37,12 +36,6 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CloudQueue
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.SkipNext
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -129,6 +122,10 @@ import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Download
 
 //悬浮播放控制卡片
 
@@ -520,8 +517,8 @@ private fun MiniLikeButton(
         Icon(
             imageVector = when {
                 subscribe -> if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
-                isLiked -> Icons.Rounded.CheckCircle
-                else -> Icons.Rounded.AddCircleOutline
+                isLiked -> MelodiaIcons.CheckCircle
+                else -> MelodiaIcons.AddCircle
             },
             contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
             tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
@@ -828,9 +825,9 @@ fun MelodiaNavigationBar(
                     BottomBarItem.HOME -> Triple("主页", Icons.Default.Home, Screen.Home)
                     BottomBarItem.SEARCH -> Triple("搜索", Icons.Default.Search, Screen.Search)
                     BottomBarItem.LIBRARY -> Triple("音乐库", Icons.Default.LibraryMusic, Screen.Library)
-                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) Icons.Rounded.Close else Icons.Default.AddBox, null)
+                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) MelodiaIcons.Close else Icons.Default.AddBox, null)
                     BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", Icons.Default.Folder, Screen.LocalMusic)
-                    BottomBarItem.DOWNLOADS -> Triple("下载管理", Icons.Outlined.FileDownload, Screen.Downloads)
+                    BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
                     BottomBarItem.CLOUD -> Triple("我的云盘", Icons.Outlined.CloudQueue, Screen.Cloud)
                     BottomBarItem.PROFILE -> Triple("个人主页", Icons.Default.Person, Screen.MyProfile)
                 }

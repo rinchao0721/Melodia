@@ -31,10 +31,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloseFullscreen
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -126,6 +122,7 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
 import com.lin0721.linmusic.core.ui.icons.Fullscreen
 import com.lin0721.linmusic.core.ui.icons.FullscreenExit
+import com.lin0721.linmusic.core.ui.icons.Share
 
 private const val FADE_MS = 150
 private const val OPEN_MS = 220
@@ -403,7 +400,7 @@ private fun Header(
                 )
             }
         }
-        HeaderButton(Icons.Rounded.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
+        HeaderButton(MelodiaIcons.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
         Box {
             HeaderButton(Icons.Rounded.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
             if (settingsOpen) {
@@ -715,7 +712,7 @@ private fun PluginLyricsContent(
                                     if (isFullscreen) "退出全屏" else "全屏",
                                     onToggleFullscreen
                                 )
-                                "share" -> HeaderButton(Icons.Rounded.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
+                                "share" -> HeaderButton(MelodiaIcons.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
                             }
                         }
                     }

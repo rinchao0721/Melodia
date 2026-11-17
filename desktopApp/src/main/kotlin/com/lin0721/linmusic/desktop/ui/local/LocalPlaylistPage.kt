@@ -26,19 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DriveFileRenameOutline
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -117,6 +107,13 @@ import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 private const val STICKY_BAR_ANIMATION_MS = 200
@@ -454,13 +451,13 @@ private fun LocalPlaylistMoreMenu(
     var expanded by remember { mutableStateOf(false) }
     val isUserPlaylist = !summary.isBuiltin
     Box {
-        ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
+        ActionIcon(MelodiaIcons.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
             MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })
-            MenuItem("全部上传到云盘", icon = Icons.Rounded.CloudUpload, onClick = {
+            MenuItem("全部上传到云盘", icon = MelodiaIcons.Upload, onClick = {
                 expanded = false
                 onUploadAll()
             })
@@ -483,22 +480,22 @@ private fun LocalPlaylistMoreMenu(
                         }
                     }
                 }
-                MenuItem("重命名", icon = Icons.Rounded.DriveFileRenameOutline, onClick = {
+                MenuItem("重命名", icon = MelodiaIcons.Edit, onClick = {
                     expanded = false
                     onRename()
                 })
             }
-            MenuItem(if (summary.isPinned) "取消置顶" else "置顶歌单", icon = Icons.Rounded.PushPin, onClick = {
+            MenuItem(if (summary.isPinned) "取消置顶" else "置顶歌单", icon = MelodiaIcons.PushPin, onClick = {
                 expanded = false
                 onTogglePin()
             })
-            MenuItem("重新扫描", icon = Icons.Rounded.Refresh, onClick = {
+            MenuItem("重新扫描", icon = MelodiaIcons.Refresh, onClick = {
                 expanded = false
                 onRescan()
             })
             if (isUserPlaylist) {
                 MenuDivider()
-                MenuItem("移除歌单", icon = Icons.Rounded.Delete, danger = true, onClick = {
+                MenuItem("移除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                     expanded = false
                     onRemove()
                 })
@@ -540,7 +537,7 @@ private fun MenuScope.LocalTrackMenuItems(
         )
     }
     MenuDivider()
-    MenuItem("编辑歌曲信息", icon = Icons.Rounded.Edit, onClick = {
+    MenuItem("编辑歌曲信息", icon = MelodiaIcons.Edit, onClick = {
         dismiss()
         onEditTags()
     })
@@ -550,7 +547,7 @@ private fun MenuScope.LocalTrackMenuItems(
             match()
         })
     }
-    MenuItem("上传到云盘", icon = Icons.Rounded.CloudUpload, onClick = {
+    MenuItem("上传到云盘", icon = MelodiaIcons.Upload, onClick = {
         dismiss()
         onUpload()
     })
@@ -558,14 +555,14 @@ private fun MenuScope.LocalTrackMenuItems(
         dismiss()
         if (!revealInFileManager(File(track.path))) navigator.showMessage("文件不存在或无法打开")
     })
-    MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+    MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
         dismiss()
         val ok = copyTextToClipboard(songInfoText(track.title, track.artist))
         navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")
     })
     onRemove?.let { remove ->
         MenuDivider()
-        MenuItem("从歌单中移除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+        MenuItem("从歌单中移除", icon = MelodiaIcons.Delete, danger = true, onClick = {
             dismiss()
             remove()
         })

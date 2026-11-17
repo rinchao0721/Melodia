@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.MailOutline
 import androidx.compose.material.icons.rounded.NotificationsNone
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -79,6 +78,8 @@ import com.lin0721.linmusic.feature.message.ui.MessageTab
 import com.lin0721.linmusic.feature.message.ui.MessageViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 private val LeftPaneWidth = 260.dp
 private val ConversationAvatarSize = 40.dp
@@ -536,7 +537,7 @@ private fun <T> ChannelOverviewPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(Icons.Rounded.Refresh, null, tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
+            Icon(MelodiaIcons.Refresh, null, tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
             Text("刷新", color = DesktopColors.TextPrimary, fontSize = 12.sp)
         }
     }
@@ -580,7 +581,7 @@ private fun <T> MessageFeedPane(
             )
             DesktopTooltip("刷新", side = TooltipSide.Bottom) {
                 IconButton(onClick = pager::refresh, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Rounded.Refresh, "刷新", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                    Icon(MelodiaIcons.Refresh, "刷新", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                 }
             }
         }

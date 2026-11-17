@@ -15,19 +15,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,6 +72,10 @@ import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Sort
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -211,7 +206,7 @@ fun LibraryScreen(
                             isSearchActive = false
                             viewModel.updateSearchQuery("")
                         }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         Box(
@@ -238,7 +233,7 @@ fun LibraryScreen(
 
                         if (searchQuery.isNotEmpty()) {
                             MelodiaIconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "清除", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(MelodiaIcons.Close, contentDescription = "清除", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -302,7 +297,7 @@ fun LibraryScreen(
                                 showLoginSheet = true
                             }
                         }) {
-                            Icon(Icons.Default.Add, contentDescription = "创建歌单", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.Plus, contentDescription = "创建歌单", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -737,7 +732,7 @@ private fun LibraryReorderView(
         ) {
             MelodiaIconButton(onClick = onCancel) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    imageVector = MelodiaIcons.ArrowBack,
                     contentDescription = "取消",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
@@ -844,7 +839,7 @@ private fun LibrarySortAndFilterBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.SwapVert,
+                imageVector = MelodiaIcons.Sort,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(18.dp)

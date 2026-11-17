@@ -35,8 +35,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -103,6 +101,7 @@ import java.time.Instant
 import java.time.ZoneId
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Checklist
 
 // 距离列表底部还剩几项时加载下一页
 private const val LOAD_MORE_THRESHOLD = 6
@@ -414,7 +413,7 @@ private fun SongsToolbar(query: String, onQueryChange: (String) -> Unit, onEnter
         Spacer(Modifier.weight(1f))
         DesktopTooltip("多选") {
             IconButton(onClick = onEnterSelection) {
-                Icon(Icons.Rounded.Checklist, "多选", tint = DesktopColors.TextGray, modifier = Modifier.size(24.dp))
+                Icon(MelodiaIcons.Checklist, "多选", tint = DesktopColors.TextGray, modifier = Modifier.size(24.dp))
             }
         }
     }

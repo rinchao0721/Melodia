@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.Composable
@@ -33,6 +30,9 @@ import com.lin0721.linmusic.core.ui.theme.ForYouRoamingColor
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Delete
 
 // 5 个分类的图例色，复用首页功能入口卡片已有的策展色，不新造颜色
 private val CacheAudioColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Accent
@@ -104,7 +104,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                             Text("一键清空以下所有缓存", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         Icon(
-                            imageVector = Icons.Default.DeleteOutline,
+                            imageVector = MelodiaIcons.Delete,
                             contentDescription = null,
                             tint = MelodiaColors.AccentText
                         )
@@ -250,7 +250,7 @@ fun StorageSettingsView(viewModel: SettingsViewModel, context: Context) {
                                 fontSize = 15.sp
                             )
                             if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(MelodiaIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -405,7 +405,7 @@ private fun CacheCategoryRow(
         if (sizeBytes > 0) {
             Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
             Icon(
-                imageVector = Icons.Default.DeleteOutline,
+                imageVector = MelodiaIcons.Delete,
                 contentDescription = "清理$title",
                 tint = MelodiaColors.AccentText,
                 modifier = Modifier.size(20.dp)

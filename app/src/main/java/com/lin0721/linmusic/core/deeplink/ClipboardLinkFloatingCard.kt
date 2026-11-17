@@ -31,9 +31,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.ButtonDefaults
@@ -74,6 +72,8 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 private const val AUTO_DISMISS_DELAY_MS = 12_000L
 
@@ -198,7 +198,7 @@ fun ClipboardLinkFloatingCard(
                             modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                imageVector = MelodiaIcons.PlaylistAdd,
                                 contentDescription = "下一首播放",
                                 tint = MelodiaColors.TextPrimary,
                                 modifier = Modifier.size(20.dp)
@@ -230,7 +230,7 @@ fun ClipboardLinkFloatingCard(
                         modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Close,
+                            imageVector = MelodiaIcons.Close,
                             contentDescription = "关闭",
                             tint = MelodiaColors.TextSecondary,
                             modifier = Modifier.size(16.dp)

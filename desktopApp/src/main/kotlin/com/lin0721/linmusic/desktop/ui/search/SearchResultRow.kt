@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -44,6 +42,8 @@ import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.MenuScope
 import com.lin0721.linmusic.desktop.ui.components.onDoubleClick
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 
 private val MoreButtonSize = 32.dp
 
@@ -122,7 +122,7 @@ internal fun SearchResultRow(
                             enabled = hovered || moreMenuOpen,
                             modifier = Modifier.size(MoreButtonSize)
                         ) {
-                            Icon(Icons.Rounded.MoreHoriz, "更多有关《$title》的选项", tint = DesktopColors.TextGray)
+                            Icon(MelodiaIcons.MoreHoriz, "更多有关《$title》的选项", tint = DesktopColors.TextGray)
                         }
                     }
                     DesktopMenu(expanded = moreMenuOpen, onDismiss = { moreMenuOpen = false }) {

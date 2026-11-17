@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
@@ -48,6 +46,8 @@ import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import com.lin0721.linmusic.feature.player.presentation.DetailAction
 import com.lin0721.linmusic.feature.player.presentation.DetailRow
 import com.lin0721.linmusic.feature.player.presentation.songDetailRows
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 private val LabelWidth = 70.dp
 private val LabelColor: Color @Composable @ReadOnlyComposable get() = DesktopColors.TextTertiary
@@ -105,7 +105,7 @@ private fun DetailRowView(row: DetailRow, onClick: (() -> Unit)?) {
         }
         if (row.action == DetailAction.ShowCreators) {
             Icon(
-                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                MelodiaIcons.ChevronRight,
                 null,
                 tint = DesktopColors.TextGray.copy(alpha = 0.5f),
                 modifier = Modifier.padding(start = 4.dp).size(20.dp)

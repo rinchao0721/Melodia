@@ -13,13 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.PlaylistRemove
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +42,12 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
+import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // 本地曲目操作面板
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,27 +132,27 @@ fun LocalTrackOptionsSheet(
             SheetOptionRow(icon = MelodiaIcons.Play, label = "播放") {
                 runThenHide(onPlayClick)
             }
-            SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistPlay, label = "下一首播放") {
+            SheetOptionRow(icon = MelodiaIcons.PlaylistPlay, label = "下一首播放") {
                 runThenHide(onPlayNextClick)
             }
-            SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, label = "加入本地歌单") {
+            SheetOptionRow(icon = MelodiaIcons.PlaylistAdd, label = "加入本地歌单") {
                 runThenHide(onAddToPlaylistClick)
             }
             if (onRemoveFromPlaylistClick != null) {
-                SheetOptionRow(icon = Icons.Rounded.PlaylistRemove, label = "从歌单移除") {
+                SheetOptionRow(icon = MelodiaIcons.PlaylistRemove, label = "从歌单移除") {
                     runThenHide(onRemoveFromPlaylistClick)
                 }
             }
-            SheetOptionRow(icon = Icons.Rounded.Share, label = "分享文件") {
+            SheetOptionRow(icon = MelodiaIcons.Share, label = "分享文件") {
                 runThenHide(onShareClick)
             }
-            SheetOptionRow(icon = Icons.Rounded.Edit, label = "编辑标签") {
+            SheetOptionRow(icon = MelodiaIcons.Edit, label = "编辑标签") {
                 runThenHide(onEditTagsClick)
             }
             SheetOptionRow(icon = Icons.Rounded.Info, label = "查看详情") {
                 runThenHide(onDetailClick)
             }
-            SheetOptionRow(icon = Icons.Rounded.DeleteOutline, label = "删除", tint = MelodiaColors.Accent) {
+            SheetOptionRow(icon = MelodiaIcons.Delete, label = "删除", tint = MelodiaColors.Accent) {
                 runThenHide(onDeleteClick)
             }
         }

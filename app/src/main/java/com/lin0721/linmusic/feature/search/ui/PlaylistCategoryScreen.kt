@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -49,6 +48,7 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
 
 // 精品歌单播放量简易格式化，与 feature/playlist 的同名函数逻辑一致但不跨域引用，保持模块边界干净
 private fun formatPlayCount(count: Long): String = when {
@@ -171,7 +171,7 @@ fun PlaylistCategoryScreen(
                 .background(Color.Black.copy(alpha = 0.3f))
         ) {
             Icon(
-                Icons.AutoMirrored.Rounded.ArrowBack,
+                MelodiaIcons.ArrowBack,
                 contentDescription = "返回",
                 tint = Color.White
             )

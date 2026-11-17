@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.cloud
 
 import androidx.compose.animation.AnimatedVisibility
+import com.lin0721.linmusic.core.ui.icons.Edit
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,12 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DriveFolderUpload
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -103,6 +98,10 @@ import java.util.IdentityHashMap
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 private const val STICKY_BAR_ANIMATION_MS = 200
@@ -269,7 +268,7 @@ private fun CloudSongList(
                     dismiss()
                     matching = song
                 })
-                MenuItem("从云盘删除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+                MenuItem("从云盘删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
                     dismiss()
                     deleting = song
                 })
@@ -338,8 +337,8 @@ private fun CloudSongList(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        PlaylistPill(Icons.Rounded.CloudUpload, "上传歌曲") { uploadFilesFromPicker(scope, actions, navigator) }
-                        PlaylistPill(Icons.Rounded.DriveFolderUpload, "上传文件夹") { uploadFolderFromPicker(scope, actions, navigator) }
+                        PlaylistPill(MelodiaIcons.Upload, "上传歌曲") { uploadFilesFromPicker(scope, actions, navigator) }
+                        PlaylistPill(MelodiaIcons.Upload, "上传文件夹") { uploadFolderFromPicker(scope, actions, navigator) }
                         if (state.loading) {
                             Spacer(Modifier.width(4.dp))
                             CircularProgressIndicator(Modifier.size(14.dp), color = DesktopColors.TextGray, strokeWidth = 2.dp)
@@ -478,13 +477,13 @@ private fun CloudHero(state: CloudLibraryState, cover: String?) {
 private fun CloudMoreMenu(onPlayNextAll: () -> Unit, onRefresh: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
+        ActionIcon(MelodiaIcons.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
             MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })
-            MenuItem("刷新", icon = Icons.Rounded.Refresh, onClick = {
+            MenuItem("刷新", icon = MelodiaIcons.Refresh, onClick = {
                 expanded = false
                 onRefresh()
             })

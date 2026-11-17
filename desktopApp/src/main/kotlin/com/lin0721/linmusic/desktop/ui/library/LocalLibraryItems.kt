@@ -1,13 +1,9 @@
 package com.lin0721.linmusic.desktop.ui.library
 
 import androidx.compose.material.icons.Icons
+import com.lin0721.linmusic.core.ui.icons.Edit
 import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.CreateNewFolder
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DriveFileRenameOutline
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +41,10 @@ import java.util.Locale
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 internal const val LOCAL_ITEM_PREFIX = "local:"
 internal const val LOCAL_FILTER_LABEL = "本地音乐"
@@ -167,7 +167,7 @@ internal fun LocalLibraryItemMenu(
                 navigator.showMessage(if (count > 0) "已添加至下一首播放" else "歌单里还没有歌曲")
             }
         })
-        MenuItem("全部上传到云盘", icon = Icons.Rounded.CloudUpload, onClick = {
+        MenuItem("全部上传到云盘", icon = MelodiaIcons.Upload, onClick = {
             onDismiss()
             scope.launch {
                 val files = repository.tracksOf(id).first().map { File(it.path) }
@@ -183,22 +183,22 @@ internal fun LocalLibraryItemMenu(
                 onDismiss()
                 scope.launch { pickAudioFiles().takeIf { it.isNotEmpty() }?.let { repository.addFiles(id, it) } }
             })
-            MenuItem("重命名", icon = Icons.Rounded.DriveFileRenameOutline, onClick = {
+            MenuItem("重命名", icon = MelodiaIcons.Edit, onClick = {
                 onDismiss()
                 onRename()
             })
         }
-        MenuItem(if (item.isPinned) "取消置顶" else "置顶歌单", icon = Icons.Rounded.PushPin, onClick = {
+        MenuItem(if (item.isPinned) "取消置顶" else "置顶歌单", icon = MelodiaIcons.PushPin, onClick = {
             onDismiss()
             repository.setPinned(id, !item.isPinned)
         })
-        MenuItem("重新扫描", icon = Icons.Rounded.Refresh, onClick = {
+        MenuItem("重新扫描", icon = MelodiaIcons.Refresh, onClick = {
             onDismiss()
             repository.rescan()
         })
         if (isUserPlaylist) {
             MenuDivider()
-            MenuItem("移除歌单", icon = Icons.Rounded.Delete, danger = true, onClick = {
+            MenuItem("移除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                 onDismiss()
                 onRemove()
             })

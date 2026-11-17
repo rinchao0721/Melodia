@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +47,9 @@ import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.max
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private val PopupWidth = 292.dp
 private val PopupShape = RoundedCornerShape(10.dp)
@@ -131,7 +131,7 @@ fun PersonalFmModePill(
             softWrap = false
         )
         Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
+            imageVector = MelodiaIcons.ChevronDown,
             contentDescription = "切换FM模式",
             tint = DesktopColors.TextPrimary.copy(alpha = 0.8f),
             modifier = Modifier.size(14.dp)
@@ -286,7 +286,7 @@ private fun PersonalFmModeAuroraCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Check,
+                        imageVector = MelodiaIcons.Check,
                         contentDescription = "当前模式",
                         tint = base,
                         modifier = Modifier.size(CheckIconSize)

@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +36,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 // 一起听点歌面板：未输入时列出我喜欢的音乐，输入后搜索，点右侧按钮加入房间队列
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +119,7 @@ fun RoomSongPickerSheet(
                                 trailingSlot = {
                                     MelodiaIconButton(onClick = { viewModel.add(track) }, enabled = !added) {
                                         Icon(
-                                            imageVector = if (added) Icons.Rounded.Check else Icons.Rounded.Add,
+                                            imageVector = if (added) MelodiaIcons.Check else MelodiaIcons.Plus,
                                             contentDescription = if (added) "已添加" else "添加到一起听队列",
                                             tint = if (added) MelodiaColors.Success else MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(22.dp)

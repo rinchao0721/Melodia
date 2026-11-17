@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -69,6 +66,9 @@ import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.SystemDarkTheme
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private val SkinCardWidth = 136.dp
 private val SkinThumbHeight = 76.dp
@@ -234,7 +234,7 @@ private fun SkinCard(
                         Text(name, color = DesktopColors.TextPrimary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(subtitle, color = DesktopColors.TextTertiary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (selected) Icon(Icons.Rounded.Check, null, tint = DesktopColors.AccentText, modifier = Modifier.size(16.dp))
+                    if (selected) Icon(MelodiaIcons.Check, null, tint = DesktopColors.AccentText, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -249,7 +249,7 @@ private fun SkinCard(
                         modifier = Modifier.size(22.dp).hoverable(hoverSource).pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Close, "删除皮肤", tint = DesktopColors.TextPrimary, modifier = Modifier.size(14.dp))
+                            Icon(MelodiaIcons.Close, "删除皮肤", tint = DesktopColors.TextPrimary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }

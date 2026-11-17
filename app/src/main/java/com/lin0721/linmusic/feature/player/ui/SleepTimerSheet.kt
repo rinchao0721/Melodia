@@ -7,10 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +28,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 // ────────────────────────────────────────────────────────────────────────────
 // "定时关闭"睡眠定时器弹层（预设选项 + 自定义时间滚轮）
@@ -102,7 +102,7 @@ fun SleepTimerSheet(
                         }
                         if (isSelected) {
                             Icon(
-                                imageVector = Icons.Rounded.Check,
+                                imageVector = MelodiaIcons.Check,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
@@ -133,7 +133,7 @@ fun SleepTimerSheet(
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
+                        imageVector = MelodiaIcons.ChevronRight,
                         contentDescription = null,
                         tint = MelodiaColors.TextDisabled,
                         modifier = Modifier.size(20.dp)
@@ -155,7 +155,7 @@ fun SleepTimerSheet(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.ChevronLeft,
+                            imageVector = MelodiaIcons.ChevronLeft,
                             contentDescription = "返回",
                             tint = MaterialTheme.colorScheme.onSurface
                         )

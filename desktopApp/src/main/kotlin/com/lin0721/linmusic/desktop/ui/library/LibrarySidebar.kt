@@ -40,15 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CloseFullscreen
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -134,6 +126,12 @@ import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
 import com.lin0721.linmusic.core.ui.icons.OpenInFull
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PushPin
 
 private const val VIEW_SWITCH_MS = 150
 private val SearchHeight = FilterChipDefaults.Height
@@ -422,7 +420,7 @@ internal fun LibrarySearchInput(
         }
         if (showClear) {
             Icon(
-                Icons.Rounded.Close,
+                MelodiaIcons.Close,
                 "清除搜索",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.padding(horizontal = 8.dp).size(16.dp).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClear)
@@ -773,20 +771,20 @@ private fun LibraryItemMenu(
             viewModel.addLibraryItemToPlayNext(item)
         })
         if (item.type != LibraryItemType.ARTIST) {
-            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                 onDismiss()
                 viewModel.downloadLibraryItem(item, navigator.downloadLevel)
             })
         }
         if (item.isOwnedByMe && !item.isLikedSongs && item.type == LibraryItemType.PLAYLIST) {
-            MenuItem("编辑歌单信息", icon = Icons.Rounded.Edit, onClick = {
+            MenuItem("编辑歌单信息", icon = MelodiaIcons.Edit, onClick = {
                 onDismiss()
                 onEdit()
             })
         }
         MenuItem(
             if (item.isPinned) "取消置顶" else "置顶歌单",
-            icon = Icons.Rounded.PushPin,
+            icon = MelodiaIcons.PushPin,
             onClick = {
                 onDismiss()
                 viewModel.togglePin(item.id)
@@ -798,7 +796,7 @@ private fun LibraryItemMenu(
                 LibraryItemType.ALBUM -> "复制专辑链接"
                 LibraryItemType.ARTIST -> "复制歌手链接"
             },
-            icon = Icons.Rounded.Link,
+            icon = MelodiaIcons.Link,
             onClick = {
                 onDismiss()
                 val ok = copyLibraryItemLink(item)
@@ -810,7 +808,7 @@ private fun LibraryItemMenu(
             val isOwned = item.isOwnedByMe && item.type == LibraryItemType.PLAYLIST
             MenuItem(
                 if (isOwned) "删除歌单" else "从音乐库移除",
-                icon = Icons.Rounded.Delete,
+                icon = MelodiaIcons.Delete,
                 danger = true,
                 onClick = {
                     onDismiss()
@@ -912,7 +910,7 @@ private fun LibraryCompactRow(item: LibraryItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (item.isPinned) {
-            Icon(Icons.Rounded.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
+            Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(6.dp))
         }
         Text(
@@ -1005,7 +1003,7 @@ internal fun LibraryItemTooltipCard(item: LibraryItem) {
 internal fun LibrarySubtitle(item: LibraryItem, lineHeight: TextUnit = TextUnit.Unspecified) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (item.isPinned) {
-            Icon(Icons.Rounded.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
+            Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(4.dp))
         }
         if (item.isLocal) {

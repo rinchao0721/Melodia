@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -76,6 +74,8 @@ import java.time.ZoneId
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private val EdgePadding = 24.dp
 private val HeroHeight = 280.dp
@@ -363,7 +363,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(sort.label(), color = DesktopColors.TextGray, fontSize = 13.sp)
-            Icon(Icons.Rounded.KeyboardArrowDown, "排序方式", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ChevronDown, "排序方式", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }, offset = DpOffset(0.dp, 4.dp)) {
             StyleSort.entries.forEach { option ->
@@ -371,7 +371,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit) {
                     text = option.label(),
                     selected = option == sort,
                     trailing = if (option == sort) {
-                        { Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+                        { Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
                     } else {
                         null
                     },

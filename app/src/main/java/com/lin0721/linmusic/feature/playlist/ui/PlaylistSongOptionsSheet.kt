@@ -4,13 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.Person
@@ -45,6 +40,10 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -191,7 +190,7 @@ fun PlaylistSongOptionsSheet(
                 }
 
                 OptionRow(
-                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
                         onDismiss()
@@ -205,7 +204,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onShareClick != null) {
                     OptionRow(
-                        icon = Icons.Default.Share,
+                        icon = MelodiaIcons.Share,
                         text = "分享",
                         onClick = {
                             onDismiss()
@@ -216,7 +215,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onDownloadClick != null) {
                     OptionRow(
-                        icon = Icons.Default.Download,
+                        icon = MelodiaIcons.Download,
                         text = "下载",
                         onClick = {
                             onDismiss()
@@ -270,7 +269,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (canRemoveFromPlaylist) {
                     OptionRow(
-                        icon = Icons.Default.Delete,
+                        icon = MelodiaIcons.Delete,
                         text = "从歌单中删除",
                         onClick = {
                             onDismiss()

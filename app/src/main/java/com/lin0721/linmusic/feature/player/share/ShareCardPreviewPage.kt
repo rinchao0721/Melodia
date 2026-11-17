@@ -38,10 +38,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -100,6 +96,11 @@ import com.lin0721.linmusic.feature.message.ui.FriendAvatarCircle
 import com.lin0721.linmusic.feature.message.ui.ShareSentCapsule
 import com.lin0721.linmusic.feature.message.ui.ShareToFriendUiState
 import kotlin.math.absoluteValue
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Share
 
 private val PillShape = RoundedCornerShape(PillRadius)
 
@@ -205,7 +206,7 @@ internal fun ShareCardPreviewPage(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 songLink?.let { link ->
-                    OptionChip("复制链接", Icons.Rounded.Link, false) {
+                    OptionChip("复制链接", MelodiaIcons.Link, false) {
                         clipboard.setText(AnnotatedString(link))
                         // 自己复制出去的链接不要下次开应用再弹一次
                         songLinkRequests.markSelfHandled(link)
@@ -218,7 +219,7 @@ internal fun ShareCardPreviewPage(
                 }
                 if (kind == ShareCardKind.LYRIC) {
                     OptionChip("歌词字体", Icons.Rounded.TextFields, typography != ShareCardTypography()) { fontSheetOpen = true }
-                    onEditLyrics?.let { OptionChip("编辑歌词", Icons.Rounded.Edit, false, it) }
+                    onEditLyrics?.let { OptionChip("编辑歌词", MelodiaIcons.Edit, false, it) }
                 }
             }
             Row(
@@ -246,7 +247,7 @@ internal fun ShareCardPreviewPage(
                     if (exporting) {
                         CircularProgressIndicator(Modifier.size(18.dp), color = MelodiaColors.InverseText, strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Rounded.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(MelodiaIcons.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("分享", fontWeight = FontWeight.Bold)
                     }
@@ -560,7 +561,7 @@ private fun FriendMoreItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.MoreHoriz,
+                imageVector = MelodiaIcons.MoreHoriz,
                 contentDescription = "更多好友",
                 tint = MelodiaColors.TextPrimary,
                 modifier = Modifier.size(20.dp)

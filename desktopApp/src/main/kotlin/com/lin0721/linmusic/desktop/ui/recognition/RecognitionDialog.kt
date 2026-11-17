@@ -44,15 +44,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
@@ -131,6 +127,9 @@ import java.time.ZoneId
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.VolumeOff
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 private val DialogWidth = 780.dp
 private val BodyHeight = 440.dp
@@ -167,7 +166,7 @@ internal fun RecognitionDialog(
     val trackActions = rememberRecognitionTrackActions(controller, songActions) { track, dismiss ->
         val entry = menuEntry?.takeIf { it.songId == track.id } ?: return@rememberRecognitionTrackActions
         MenuDivider()
-        MenuItem("从识别历史删除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+        MenuItem("从识别历史删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
             dismiss()
             recognition.removeHistory(entry.id)
         })
@@ -469,7 +468,7 @@ private fun ListeningContent(progress: RecognitionProgress, mode: RecognitionMod
         Spacer(Modifier.height(12.dp))
         AttemptChips(progress.attempts)
         Spacer(Modifier.weight(1f))
-        PlaylistPill(Icons.Rounded.Close, "取消", onCancel)
+        PlaylistPill(MelodiaIcons.Close, "取消", onCancel)
     }
 }
 
@@ -583,7 +582,7 @@ private fun FoundContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         DialogButton("从 ${formatDuration(best.startTimeMs)} 播放", { onPlay(best) }, primary = true)
-                        PlaylistPill(Icons.Rounded.Refresh, "再识别", onRetry)
+                        PlaylistPill(MelodiaIcons.Refresh, "再识别", onRetry)
                     }
                 }
             }

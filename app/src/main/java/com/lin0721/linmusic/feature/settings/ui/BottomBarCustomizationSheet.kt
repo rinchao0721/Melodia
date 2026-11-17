@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CloudQueue
-import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +46,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Download
 
 // 底部导航栏自定义弹层：支持拖拽排序、显隐切换、数量限制拦截及仅图标模式
 @OptIn(ExperimentalMaterial3Api::class)
@@ -312,7 +313,7 @@ fun bottomBarItemIcon(item: BottomBarItem): ImageVector = when (item) {
     BottomBarItem.LIBRARY -> Icons.Default.LibraryMusic
     BottomBarItem.CREATE -> Icons.Default.AddBox
     BottomBarItem.LOCAL_MUSIC -> Icons.Default.Folder
-    BottomBarItem.DOWNLOADS -> Icons.Outlined.FileDownload
+    BottomBarItem.DOWNLOADS -> MelodiaIcons.Download
     BottomBarItem.CLOUD -> Icons.Outlined.CloudQueue
     BottomBarItem.PROFILE -> Icons.Default.Person
 }

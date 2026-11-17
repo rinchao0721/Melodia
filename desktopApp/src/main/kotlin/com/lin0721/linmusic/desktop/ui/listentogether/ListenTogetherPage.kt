@@ -26,8 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Star
@@ -76,6 +74,8 @@ import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import com.lin0721.linmusic.feature.listentogether.ui.RoomSongPickerViewModel
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Copy
 
 private val CoverSize = 280.dp
 private val AvatarSize = 44.dp
@@ -210,7 +210,7 @@ fun ListenTogetherPage(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.ContentCopy, "复制邀请文案", tint = content, modifier = Modifier.size(16.dp))
+                                Icon(MelodiaIcons.Copy, "复制邀请文案", tint = content, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -226,7 +226,7 @@ fun ListenTogetherPage(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
                     )
-                    PillButton("添加歌曲", background, content, icon = { Icon(Icons.Rounded.Add, null, tint = background, modifier = Modifier.size(16.dp)) }) {
+                    PillButton("添加歌曲", background, content, icon = { Icon(MelodiaIcons.Plus, null, tint = background, modifier = Modifier.size(16.dp)) }) {
                         showPicker = true
                     }
                 }

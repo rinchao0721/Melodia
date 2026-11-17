@@ -14,9 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +38,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import com.lin0721.linmusic.feature.cloud.upload.UploadTask
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 
 // 上传进度弹窗：只读展示 CloudUploadManager 的队列状态，不持有状态。
@@ -122,7 +123,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
     ) {
         when (task.status) {
             UploadStatus.SUCCESS -> Icon(
-                Icons.Rounded.CheckCircle,
+                MelodiaIcons.CheckCircle,
                 contentDescription = null,
                 tint = MelodiaColors.Success,
                 modifier = Modifier.size(18.dp)
@@ -184,7 +185,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Rounded.Refresh,
+                    MelodiaIcons.Refresh,
                     contentDescription = "重试",
                     tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(18.dp)

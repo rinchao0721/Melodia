@@ -23,9 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +67,8 @@ import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 internal val PodcastEdgePadding = 20.dp
 
@@ -133,7 +132,7 @@ fun PodcastSectionTitle(
                 Text(text = it, color = MelodiaColors.TextSecondary, fontSize = 11.5.sp)
                 if (onTrailingClick != null) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        imageVector = MelodiaIcons.ChevronRight,
                         contentDescription = null,
                         tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.size(16.dp)
@@ -481,7 +480,7 @@ private fun EpisodeMetaRow(program: PodcastProgram, progress: PodcastProgressEnt
         when {
             finished -> {
                 Icon(
-                    imageVector = Icons.Rounded.Check,
+                    imageVector = MelodiaIcons.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 8.dp).size(13.dp)

@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.PauseCircleOutline
 import androidx.compose.runtime.Composable
@@ -32,6 +30,9 @@ import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Download
 
 private const val SUMMARY_DISPLAY_MS = 2500L
 
@@ -136,7 +137,7 @@ private fun buildBannerContent(
     if (counts.active == 0) {
         val hasFailure = counts.failed > 0
         return DownloadBannerContent(
-            icon = if (hasFailure) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle,
+            icon = if (hasFailure) Icons.Rounded.ErrorOutline else MelodiaIcons.CheckCircle,
             iconTint = if (hasFailure) error else success,
             title = if (hasFailure) "下载结束" else "下载完成",
             subtitle = when {
@@ -155,7 +156,7 @@ private fun buildBannerContent(
     if (counts.total == 1) {
         val task = tasks.first()
         return DownloadBannerContent(
-            icon = Icons.Rounded.Download,
+            icon = MelodiaIcons.Download,
             iconTint = accent,
             title = if (running == null) "等待下载 ${task.meta.songName}" else "正在下载 ${task.meta.songName}",
             subtitle = task.meta.artistName.ifBlank { null },
@@ -172,7 +173,7 @@ private fun buildBannerContent(
         if (counts.failed > 0) append(" · 失败 ${counts.failed}")
     }
     return DownloadBannerContent(
-        icon = Icons.Rounded.Download,
+        icon = MelodiaIcons.Download,
         iconTint = accent,
         title = running?.let { "正在下载 ${it.meta.songName}" } ?: "等待下载 ${counts.active} 首歌曲",
         subtitle = subtitle,

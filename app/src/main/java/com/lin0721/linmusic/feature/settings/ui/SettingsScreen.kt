@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -53,6 +52,9 @@ import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Subtitles
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Link
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
@@ -123,7 +125,7 @@ fun SettingsScreen(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = MelodiaIcons.ArrowBack,
                             contentDescription = "返回",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -396,7 +398,7 @@ private fun SettingsMainMenuRow(
             }
         }
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -425,7 +427,7 @@ fun SettingsRow(
             }
         }
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -465,6 +467,6 @@ fun getBindingIcon(type: Int): androidx.compose.ui.graphics.vector.ImageVector {
         1 -> Icons.Default.PhoneAndroid
         10 -> Icons.Default.ChatBubbleOutline
         20 -> Icons.Default.AccountCircle
-        else -> Icons.Default.Link
+        else -> MelodiaIcons.Link
     }
 }

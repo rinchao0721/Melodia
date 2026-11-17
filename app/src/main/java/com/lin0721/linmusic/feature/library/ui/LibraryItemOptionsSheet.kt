@@ -7,12 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,6 +28,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Sort
 
 // 菜单单项数据模型
 private data class LibraryOptionsMenuItem(
@@ -109,7 +109,7 @@ fun LibraryItemOptionsSheet(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (item.isPinned) {
                             Icon(
-                                imageVector = Icons.Default.PushPin,
+                                imageVector = MelodiaIcons.PushPin,
                                 contentDescription = "已置顶",
                                 tint = MelodiaColors.Success,
                                 modifier = Modifier
@@ -143,7 +143,7 @@ fun LibraryItemOptionsSheet(
                             // "我喜欢的音乐"：不提供删除，支持置顶、分享与下载
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.PushPin,
+                                    icon = MelodiaIcons.PushPin,
                                     title = pinTitle,
                                     onClick = {
                                         onDismiss()
@@ -153,7 +153,7 @@ fun LibraryItemOptionsSheet(
                             )
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.Share,
+                                    icon = MelodiaIcons.Share,
                                     title = "分享歌单",
                                     onClick = {
                                         onDismiss()
@@ -163,7 +163,7 @@ fun LibraryItemOptionsSheet(
                             )
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.Download,
+                                    icon = MelodiaIcons.Download,
                                     title = "下载歌单",
                                     onClick = {
                                         onDismiss()
@@ -175,7 +175,7 @@ fun LibraryItemOptionsSheet(
                             // 普通歌单：置顶、修改位置、分享、下载、删除/取消收藏
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.PushPin,
+                                    icon = MelodiaIcons.PushPin,
                                     title = pinTitle,
                                     onClick = {
                                         onDismiss()
@@ -185,7 +185,7 @@ fun LibraryItemOptionsSheet(
                             )
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Rounded.SwapVert,
+                                    icon = MelodiaIcons.Sort,
                                     title = "修改位置",
                                     onClick = {
                                         onDismiss()
@@ -195,7 +195,7 @@ fun LibraryItemOptionsSheet(
                             )
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.Share,
+                                    icon = MelodiaIcons.Share,
                                     title = "分享歌单",
                                     onClick = {
                                         onDismiss()
@@ -205,7 +205,7 @@ fun LibraryItemOptionsSheet(
                             )
                             add(
                                 LibraryOptionsMenuItem(
-                                    icon = Icons.Default.Download,
+                                    icon = MelodiaIcons.Download,
                                     title = "下载歌单",
                                     onClick = {
                                         onDismiss()
@@ -216,7 +216,7 @@ fun LibraryItemOptionsSheet(
                             if (item.isOwnedByMe) {
                                 add(
                                     LibraryOptionsMenuItem(
-                                        icon = Icons.Default.Delete,
+                                        icon = MelodiaIcons.Delete,
                                         title = "删除歌单",
                                         isDestructive = true,
                                         onClick = {
@@ -245,7 +245,7 @@ fun LibraryItemOptionsSheet(
                         // 专辑：置顶、取消收藏、分享、下载
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.PushPin,
+                                icon = MelodiaIcons.PushPin,
                                 title = pinTitle,
                                 onClick = {
                                     onDismiss()
@@ -266,7 +266,7 @@ fun LibraryItemOptionsSheet(
                         )
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.Share,
+                                icon = MelodiaIcons.Share,
                                 title = "分享专辑",
                                 onClick = {
                                     onDismiss()
@@ -276,7 +276,7 @@ fun LibraryItemOptionsSheet(
                         )
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.Download,
+                                icon = MelodiaIcons.Download,
                                 title = "下载专辑",
                                 onClick = {
                                     onDismiss()
@@ -290,7 +290,7 @@ fun LibraryItemOptionsSheet(
                         // 歌手：置顶、取消关注、分享
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.PushPin,
+                                icon = MelodiaIcons.PushPin,
                                 title = pinTitle,
                                 onClick = {
                                     onDismiss()
@@ -311,7 +311,7 @@ fun LibraryItemOptionsSheet(
                         )
                         add(
                             LibraryOptionsMenuItem(
-                                icon = Icons.Default.Share,
+                                icon = MelodiaIcons.Share,
                                 title = "分享歌手",
                                 onClick = {
                                     onDismiss()

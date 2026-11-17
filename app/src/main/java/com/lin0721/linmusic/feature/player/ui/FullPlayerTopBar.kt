@@ -10,9 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -35,6 +32,7 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 // 播放页顶栏，仅在封面滚出视野后显示歌名与快捷操作
 @Composable
@@ -75,7 +73,7 @@ fun FullPlayerTopBar(
             ) {
                 MelodiaIconButton(onClick = onClose) {
                     Icon(
-                        Icons.Rounded.KeyboardArrowDown,
+                        MelodiaIcons.ChevronDown,
                         contentDescription = null,
                         tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(32.dp)

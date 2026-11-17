@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,6 +63,8 @@ import com.lin0721.linmusic.core.ui.theme.themedShadow
 import kotlin.math.roundToInt
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 private val MenuItemHeight = 34.dp
 private val MenuShape = RoundedCornerShape(6.dp)
@@ -297,7 +297,7 @@ fun MenuScope.SubMenuItem(
         onClick = open,
         modifier = modifier.onGloballyPositioned { itemTop[0] = it.positionInWindow().y },
         trailing = {
-            Icon(Icons.Rounded.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
+            Icon(MelodiaIcons.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
         }
     )
 }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,6 +50,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Subtitles
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -205,7 +209,7 @@ fun SongMoreOptionsSheet(
 
                 // 3. 收藏到歌单
                 if (!isPodcast) OptionRow(
-                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
                         scope.launch {
@@ -246,7 +250,7 @@ fun SongMoreOptionsSheet(
                     }
                 )
                 OptionRow(
-                    icon = Icons.Rounded.Close,
+                    icon = MelodiaIcons.Close,
                     text = "退出私人FM",
                     onClick = {
                         scope.launch {
@@ -306,7 +310,7 @@ fun SongMoreOptionsSheet(
 
                 // 6. 分享
                 OptionRow(
-                    icon = Icons.Rounded.Share,
+                    icon = MelodiaIcons.Share,
                     text = "分享",
                     onClick = {
                         scope.launch {
@@ -320,7 +324,7 @@ fun SongMoreOptionsSheet(
                 if (!isPodcast) {
                     // 下载
                     OptionRow(
-                        icon = Icons.Rounded.Download,
+                        icon = MelodiaIcons.Download,
                         text = "下载",
                         onClick = {
                             scope.launch {
@@ -427,7 +431,7 @@ fun SongMoreOptionsSheet(
                                         )
                                         if (isSelected) {
                                             Icon(
-                                                imageVector = Icons.Rounded.Check,
+                                                imageVector = MelodiaIcons.Check,
                                                 contentDescription = null,
                                                 tint = MelodiaColors.Accent,
                                                 modifier = Modifier.size(20.dp)

@@ -33,9 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SyncAlt
@@ -97,6 +94,9 @@ import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.Copy
 
 private val CoverSize = 220.dp
 private val AvatarSize = 44.dp
@@ -364,7 +364,7 @@ private fun RoomTopBar(state: ListenTogetherState, content: Color, secondary: Co
         verticalAlignment = Alignment.CenterVertically
     ) {
         MelodiaIconButton(onClick = onClose) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起房间", tint = content)
+            Icon(MelodiaIcons.ChevronDown, contentDescription = "收起房间", tint = content)
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(text = "一起听", color = content, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -575,7 +575,7 @@ private fun RoomActionBar(
             contentPadding = PaddingValues(horizontal = 10.dp),
             modifier = Modifier.weight(1f)
         ) {
-            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(MelodiaIcons.Plus, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("添加歌曲", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -595,7 +595,7 @@ private fun RoomActionBar(
                 containerColor = cardFill
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ContentCopy,
+                    imageVector = MelodiaIcons.Copy,
                     contentDescription = "复制邀请文案",
                     tint = content,
                     modifier = Modifier.size(18.dp)

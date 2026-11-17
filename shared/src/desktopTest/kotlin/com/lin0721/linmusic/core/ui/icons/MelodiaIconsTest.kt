@@ -47,7 +47,36 @@ class MelodiaIconsTest {
             MelodiaIcons.CloseFullscreen,
             MelodiaIcons.Subtitles,
             MelodiaIcons.Timer,
-            MelodiaIcons.Devices
+            MelodiaIcons.Devices,
+            MelodiaIcons.Close,
+            MelodiaIcons.Check,
+            MelodiaIcons.CheckCircle,
+            MelodiaIcons.Unchecked,
+            MelodiaIcons.Checklist,
+            MelodiaIcons.AddCircle,
+            MelodiaIcons.Remove,
+            MelodiaIcons.PlaylistAdd,
+            MelodiaIcons.PlaylistRemove,
+            MelodiaIcons.PlaylistPlay,
+            MelodiaIcons.Delete,
+            MelodiaIcons.Share,
+            MelodiaIcons.Download,
+            MelodiaIcons.Upload,
+            MelodiaIcons.Refresh,
+            MelodiaIcons.Restore,
+            MelodiaIcons.Link,
+            MelodiaIcons.Copy,
+            MelodiaIcons.Edit,
+            MelodiaIcons.PushPin,
+            MelodiaIcons.ToTop,
+            MelodiaIcons.Sort,
+            MelodiaIcons.ArrowBack,
+            MelodiaIcons.ArrowUp,
+            MelodiaIcons.ArrowDown,
+            MelodiaIcons.ChevronDown,
+            MelodiaIcons.ChevronUp,
+            MelodiaIcons.ChevronRight,
+            MelodiaIcons.ChevronLeft
         )
 
         icons.forEach { assertIconSpec(it, 2f) }
@@ -62,7 +91,10 @@ class MelodiaIconsTest {
             MelodiaIcons.SkipPrevious,
             MelodiaIcons.Queue,
             MelodiaIcons.FavoriteFilled,
-            MelodiaIcons.MiniPlayer
+            MelodiaIcons.MiniPlayer,
+            MelodiaIcons.MoreHoriz,
+            MelodiaIcons.MoreVert,
+            MelodiaIcons.Drag
         )
 
         icons.forEach { icon ->

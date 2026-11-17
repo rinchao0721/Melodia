@@ -7,9 +7,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +35,8 @@ import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 @Composable
 fun ArtistScreen(
@@ -152,7 +151,7 @@ fun ArtistScreen(
                     ),
                     selectionActions = listOf(
                         SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() },
-                        SelectionAction("添加到歌单", Icons.AutoMirrored.Filled.PlaylistAdd) {
+                        SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
                             if (userProfile == null) {
                                 showLoginSheet = true
                             } else {
@@ -163,7 +162,7 @@ fun ArtistScreen(
                         SelectionAction("喜欢", MelodiaIcons.Favorite) {
                             if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
                         },
-                        SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true }
+                        SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true }
                     ),
                     onToggleSelectAll = viewModel::toggleSelectAll,
                     onExitSelection = viewModel::exitSelection,

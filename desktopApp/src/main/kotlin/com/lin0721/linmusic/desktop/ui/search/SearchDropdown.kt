@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
@@ -78,6 +77,8 @@ import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
 import com.lin0721.linmusic.feature.search.ui.SearchLinkHit
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private val PanelMaxHeight = 460.dp
 private val PanelGap = 6.dp
@@ -357,7 +358,7 @@ private fun EntryRow(
         if (onRemove != null) {
             HoverReveal(revealed = hovered || selected) {
                 IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Close, "删除", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                    Icon(MelodiaIcons.Close, "删除", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                 }
             }
         }

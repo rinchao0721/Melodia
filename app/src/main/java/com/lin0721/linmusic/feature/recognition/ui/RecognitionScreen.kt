@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,6 +75,8 @@ import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private const val TAG = "RecognitionScreen"
 
@@ -383,7 +384,7 @@ private fun RecognitionTopBar(
             .padding(horizontal = 4.dp)
     ) {
         MelodiaIconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart).size(48.dp)) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "收起", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(28.dp))
+            Icon(MelodiaIcons.ChevronDown, contentDescription = "收起", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(28.dp))
         }
         Text(
             text = title,

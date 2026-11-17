@@ -4,9 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -30,6 +27,7 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 // 私人FM 模式胶囊入口：左侧展示当前模式极光圆点，点击打开模式选择弹层
 @Composable
@@ -59,7 +57,7 @@ fun PersonalFmModePill(
             maxLines = 1
         )
         Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
+            imageVector = MelodiaIcons.ChevronDown,
             contentDescription = "切换FM模式",
             tint = MelodiaColors.TextPrimary.copy(alpha = 0.75f),
             modifier = Modifier.size(14.dp)

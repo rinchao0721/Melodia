@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -37,6 +34,8 @@ import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.library.LibrarySearchInput
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private val ListMaxHeight = 272.dp
 private val ListMinHeight = 102.dp
@@ -56,7 +55,7 @@ internal fun CollectSubmenuContent(track: Track, actions: TrackActions, onDismis
 
     Column(Modifier.padding(vertical = 2.dp)) {
         SubmenuSearchBox(query) { query = it }
-        SimpleMenuItem("新建歌单", icon = Icons.Rounded.Add, onClick = {
+        SimpleMenuItem("新建歌单", icon = MelodiaIcons.Plus, onClick = {
             onDismissMenu()
             actions.onCreateCollect(track)
         })
@@ -78,7 +77,7 @@ internal fun CollectSubmenuContent(track: Track, actions: TrackActions, onDismis
                             actions.onToggleCollect(track, item.copy(isInitiallyContains = contains, isContains = !contains))
                         },
                         trailing = if (contains) {
-                            { Icon(Icons.Rounded.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+                            { Icon(MelodiaIcons.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
                         } else {
                             null
                         }
@@ -96,7 +95,7 @@ internal fun ImportSubmenuContent(state: PlaylistImportState, onImportTo: (UserP
     val visible = state.items.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
     Column(Modifier.padding(vertical = 2.dp)) {
         SubmenuSearchBox(query) { query = it }
-        SimpleMenuItem("新建歌单", icon = Icons.Rounded.Add, onClick = onCreate)
+        SimpleMenuItem("新建歌单", icon = MelodiaIcons.Plus, onClick = onCreate)
         MenuDivider()
         when {
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {

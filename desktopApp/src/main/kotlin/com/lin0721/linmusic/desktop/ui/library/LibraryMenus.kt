@@ -22,13 +22,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.DropdownMenu
@@ -214,7 +214,7 @@ internal fun MenuOption(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier.padding(horizontal = 4.dp),
         selected = selected,
         trailing = if (selected) {
-            { Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+            { Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
         } else {
             null
         }
@@ -274,7 +274,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             if (isLoggedIn) {
                 SimpleMenuItem(
                     text = "创建歌单",
-                    icon = Icons.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     modifier = Modifier.padding(horizontal = 4.dp),
                     onClick = {
                         menuOpen = false

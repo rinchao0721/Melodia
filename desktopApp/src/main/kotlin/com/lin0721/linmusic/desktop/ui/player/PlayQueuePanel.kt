@@ -19,15 +19,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.DragIndicator
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
@@ -100,6 +92,13 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.desktop.ui.components.songLink
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Drag
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 private val HeaderButtonSize = 32.dp
 private val RowButtonSize = 28.dp
@@ -351,7 +350,7 @@ private fun QueueHeader(
         }
         if (showClear) {
             IconButton(onClick = onClear, modifier = Modifier.padding(start = 4.dp).size(HeaderButtonSize)) {
-                Icon(Icons.Rounded.DeleteOutline, "清空队列", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                Icon(MelodiaIcons.Delete, "清空队列", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -471,7 +470,7 @@ private fun QueueRow(
                 if (canDrag) {
                     HoverReveal(revealed = revealed) {
                         Icon(
-                            Icons.Rounded.DragIndicator,
+                            MelodiaIcons.Drag,
                             "拖动排序",
                             tint = DesktopColors.TextGray,
                             modifier = Modifier.size(20.dp).pointerHoverIcon(PointerIcon.Hand).pointerInput(Unit) {
@@ -503,7 +502,7 @@ private fun QueueRow(
             if (canRemove) {
                 HoverReveal(revealed = revealed && !dragging) {
                     IconButton(onClick = onRemove, modifier = Modifier.size(RowButtonSize)) {
-                        Icon(Icons.Rounded.Close, "从队列中移除", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                        Icon(MelodiaIcons.Close, "从队列中移除", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -550,11 +549,11 @@ private fun QueueItemMenu(
         })
         if (actions != null) {
             if (navigator.isLoggedIn) {
-                SubMenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
+                SubMenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                     CollectSubmenuContent(track, actions, onDismiss)
                 }
             } else {
-                MenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                MenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                     onDismiss()
                     navigator.showMessage("请先登录账号")
                 })
@@ -562,7 +561,7 @@ private fun QueueItemMenu(
         }
         // 外部平台歌曲的负数 id 没有对应的网易云链接
         if (item.songId > 0L) {
-            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+            MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
                 onDismiss()
                 navigator.openSongShareCard(
                     DesktopAppState.ShareSongInfo(
@@ -573,20 +572,20 @@ private fun QueueItemMenu(
                     )
                 )
             })
-            MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+            MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
                 onDismiss()
                 val ok = copySongLink(item.songId)
                 navigator.showMessage(if (ok) "已复制链接" else "复制失败")
             })
         }
-        MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+        MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
             onDismiss()
             val ok = copyTextToClipboard(songInfoText(item.title, item.artist))
             navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")
         })
         if (canRemove) {
             MenuDivider()
-            MenuItem("从队列中移除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+            MenuItem("从队列中移除", icon = MelodiaIcons.Delete, danger = true, onClick = {
                 onDismiss()
                 onRemove()
             })

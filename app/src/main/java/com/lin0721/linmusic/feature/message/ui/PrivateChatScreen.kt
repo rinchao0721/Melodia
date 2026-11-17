@@ -44,14 +44,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -137,6 +134,9 @@ import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Share
 
 private val BubbleBigRadius = 16.dp
 private val BubbleSmallRadius = 5.dp
@@ -560,7 +560,7 @@ private fun PrivateChatTopBar(
             navigationIcon = {
                 MelodiaIconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = MelodiaIcons.ArrowBack,
                         contentDescription = "返回",
                         tint = MelodiaColors.TextPrimary
                     )
@@ -569,7 +569,7 @@ private fun PrivateChatTopBar(
             actions = {
                 MelodiaIconButton(onClick = onPeerClick) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        imageVector = MelodiaIcons.MoreVert,
                         contentDescription = "对方主页",
                         tint = MelodiaColors.TextPrimary
                     )
@@ -1228,7 +1228,7 @@ private fun CardFallbackCover(kind: PrivateCardKind) {
         PrivateCardKind.Playlist -> MelodiaIcons.Queue
         PrivateCardKind.Album -> Icons.Rounded.Album
         PrivateCardKind.Mv -> Icons.Rounded.Videocam
-        PrivateCardKind.General -> Icons.Rounded.Share
+        PrivateCardKind.General -> MelodiaIcons.Share
     }
     Box(
         modifier = Modifier

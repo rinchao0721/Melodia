@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,6 +48,9 @@ import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
 import com.lin0721.linmusic.feature.music.domain.MusicStyle
 import com.lin0721.linmusic.feature.music.domain.StylePortrait
 import com.lin0721.linmusic.feature.music.domain.StylePreference
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronUp
 
 private val TileGap = 10.dp
 // 偏好与全部曲风共用同一比例，随列宽等比缩放
@@ -149,7 +149,7 @@ private fun MusicPortraitSummary(portrait: StylePortrait) {
             }
         }
         Icon(
-            imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+            imageVector = if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
             contentDescription = if (expanded) "收起画像" else "展开画像",
             tint = MelodiaColors.TextSecondary,
             modifier = Modifier.padding(start = 6.dp).size(18.dp)

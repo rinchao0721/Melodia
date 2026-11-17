@@ -19,13 +19,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +69,10 @@ import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Unchecked
 
 @Composable
 fun rememberLocalCoverUrl(sourceUri: Uri?): String? {
@@ -153,7 +152,7 @@ fun LocalTrackRow(
         trailingSlot = {
             if (selectionMode) {
                 Icon(
-                    imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    imageVector = if (selected) MelodiaIcons.CheckCircle else MelodiaIcons.Unchecked,
                     contentDescription = if (selected) "已选中" else "未选中",
                     tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = MelodiaSpacing.sm, end = MelodiaSpacing.md).size(20.dp)
@@ -161,7 +160,7 @@ fun LocalTrackRow(
             } else {
                 MelodiaIconButton(onClick = { onMoreClick(coverUrl) }) {
                     Icon(
-                        Icons.Rounded.MoreVert,
+                        MelodiaIcons.MoreVert,
                         contentDescription = "更多",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -230,7 +229,7 @@ fun LocalHeroHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+                Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
             }
             Spacer(Modifier.weight(1f))
             actions()

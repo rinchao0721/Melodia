@@ -16,9 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BluetoothAudio
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Headset
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.*
@@ -43,6 +41,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 // 只展示物理输出类型，蓝牙 LE/USB/有线各算一类
 internal val RELEVANT_DEVICE_TYPES = setOf(
@@ -264,7 +264,7 @@ fun OutputDeviceSheet(
                         }
                         if (isSelected) {
                             Icon(
-                                imageVector = Icons.Rounded.Check,
+                                imageVector = MelodiaIcons.Check,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
@@ -289,7 +289,7 @@ fun OutputDeviceSheet(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Add,
+                            imageVector = MelodiaIcons.Plus,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)

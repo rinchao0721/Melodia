@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +45,8 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.skia.FontMgr
 import java.text.Collator
 import java.util.Locale
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private const val TAG = "ShareFontPicker"
 
@@ -81,7 +81,7 @@ internal fun ShareFontPicker(current: ShareFontOption, onSelect: (ShareFontOptio
                 modifier = Modifier.widthIn(max = 180.dp)
             )
             Spacer(Modifier.width(4.dp))
-            Icon(Icons.Rounded.ExpandMore, contentDescription = null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ChevronDown, contentDescription = null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         DesktopMenu(expanded = open, onDismiss = close, width = 280.dp) {
             DialogTextField(

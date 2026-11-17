@@ -21,16 +21,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -87,6 +84,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 private const val RECENT_TRACK_COUNT = 5
 private const val SHELF_ITEM_COUNT = 10
@@ -129,7 +127,7 @@ fun LocalMusicHomeScreen(
             }
             Box {
                 MelodiaIconButton(onClick = { showOverflowMenu = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
+                    Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
                 }
                 DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
                     DropdownMenuItem(text = { Text("导入歌曲") }, onClick = {
@@ -391,7 +389,7 @@ private fun EmptyLibrary(onImport: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(MelodiaSpacing.md))
             MelodiaButton(onClick = onImport) {
-                Icon(imageVector = Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(imageVector = MelodiaIcons.Plus, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(MelodiaSpacing.xs))
                 Text("导入歌曲", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
             }

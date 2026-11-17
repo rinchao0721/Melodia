@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,11 +25,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.desktop.data.TitleBarButton
 import com.lin0721.linmusic.desktop.data.TitleBarLayout
 import com.lin0721.linmusic.desktop.data.TitleBarLayoutCodec
 import com.lin0721.linmusic.desktop.data.TitleBarSlot
-import com.lin0721.linmusic.desktop.ui.icons.DownloadIcons
 import com.lin0721.linmusic.desktop.ui.player.rememberQueueReorderState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
@@ -38,7 +37,7 @@ internal fun TitleBarButton.icon(): ImageVector = when (this) {
     TitleBarButton.HOME -> MelodiaIcons.Home
     TitleBarButton.RECOGNITION -> MelodiaIcons.Recognition
     TitleBarButton.MESSAGES -> MelodiaIcons.Messages
-    TitleBarButton.DOWNLOADS -> DownloadIcons.Download
+    TitleBarButton.DOWNLOADS -> MelodiaIcons.Download
     TitleBarButton.PERSONAL_FM -> MelodiaIcons.Radio
     TitleBarButton.DAILY_RECOMMEND -> MelodiaIcons.Calendar
     TitleBarButton.SETTINGS -> MelodiaIcons.Settings

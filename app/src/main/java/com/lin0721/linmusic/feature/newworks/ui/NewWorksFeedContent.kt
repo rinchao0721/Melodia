@@ -23,8 +23,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -75,6 +73,9 @@ import com.lin0721.linmusic.feature.newworks.domain.formatRelativeTime
 import com.lin0721.linmusic.feature.newworks.domain.trackSummary
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportTargetSheet
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 private val CardShape = RoundedCornerShape(12.dp)
 private val CoverSize = 88.dp
@@ -312,7 +313,7 @@ private fun ReleaseFeedCard(
                 )
             }
             MelodiaIconButton(onClick = onMore) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.OnCoverCard)
+                Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.OnCoverCard)
             }
         }
 
@@ -333,7 +334,7 @@ private fun ReleaseFeedCard(
         ) {
             MelodiaIconButton(onClick = onAdd) {
                 Icon(
-                    imageVector = Icons.Rounded.AddCircleOutline,
+                    imageVector = MelodiaIcons.AddCircle,
                     contentDescription = "添加到歌单",
                     tint = MelodiaColors.OnCoverCard,
                     modifier = Modifier.size(28.dp)

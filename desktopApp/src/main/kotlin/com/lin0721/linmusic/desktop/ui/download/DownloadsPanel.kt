@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -46,6 +42,8 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Pause
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 private val CoverSize = 44.dp
 private val RowButtonSize = 28.dp
@@ -168,10 +166,10 @@ private fun DownloadTaskRow(task: DownloadTask, onPause: () -> Unit, onResume: (
         when (task.status) {
             DownloadTaskStatus.DOWNLOADING, DownloadTaskStatus.QUEUED -> RowAction(MelodiaIcons.Pause, "暂停", onPause)
             DownloadTaskStatus.PAUSED -> RowAction(MelodiaIcons.Play, "继续", onResume)
-            DownloadTaskStatus.FAILED -> RowAction(Icons.Rounded.Refresh, "重试", onResume)
+            DownloadTaskStatus.FAILED -> RowAction(MelodiaIcons.Refresh, "重试", onResume)
             DownloadTaskStatus.SUCCEEDED -> Unit
         }
-        RowAction(Icons.Rounded.Close, if (task.status == DownloadTaskStatus.SUCCEEDED) "移除" else "取消下载", onCancel)
+        RowAction(MelodiaIcons.Close, if (task.status == DownloadTaskStatus.SUCCEEDED) "移除" else "取消下载", onCancel)
     }
 }
 

@@ -18,10 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
@@ -65,6 +61,9 @@ import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.SystemDarkTheme
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Edit
 
 private val ModeCardWidth = 136.dp
 private val ModeThumbHeight = 76.dp
@@ -158,7 +157,7 @@ private fun ModeCard(mode: ThemeMode, darkAccent: Color, lightAccent: Color, sel
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ModeLabels.getValue(mode), color = DesktopColors.TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                if (selected) Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
+                if (selected) Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -223,7 +222,7 @@ private fun AccentSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
     ) {
         if (selected) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Check, "已选中", tint = contentColorOn(color), modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Check, "已选中", tint = contentColorOn(color), modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -239,7 +238,7 @@ private fun AddCustomSwatch(onClick: () -> Unit) {
         modifier = Modifier.size(SwatchSize).pointerHoverIcon(PointerIcon.Hand)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Add, "添加自定义主色", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Plus, "添加自定义主色", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -254,7 +253,7 @@ private fun EditBadge(onClick: () -> Unit, modifier: Modifier) {
         modifier = modifier.size(16.dp).pointerHoverIcon(PointerIcon.Hand)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Edit, "修改自定义主色", tint = DesktopColors.TextPrimary, modifier = Modifier.size(10.dp))
+            Icon(MelodiaIcons.Edit, "修改自定义主色", tint = DesktopColors.TextPrimary, modifier = Modifier.size(10.dp))
         }
     }
 }

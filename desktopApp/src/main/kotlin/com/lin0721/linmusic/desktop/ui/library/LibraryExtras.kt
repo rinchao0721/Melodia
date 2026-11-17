@@ -1,9 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.library
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.DriveFolderUpload
-import androidx.compose.material.icons.rounded.Refresh
+import com.lin0721.linmusic.core.ui.icons.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,6 +21,8 @@ import com.lin0721.linmusic.feature.library.ui.LibraryItemType
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 // 桌面端独有的音乐库胶囊，选中时共享筛选为空
 enum class LibraryExtraFilter { LOCAL, CLOUD }
@@ -90,15 +90,15 @@ internal fun CloudLibraryItemMenu(
             navigator.showMessage(if (state.songs.isEmpty()) "云盘里还没有歌曲" else "已添加至下一首播放")
         })
         MenuDivider()
-        MenuItem("上传歌曲", icon = Icons.Rounded.CloudUpload, onClick = {
+        MenuItem("上传歌曲", icon = MelodiaIcons.Upload, onClick = {
             onDismiss()
             uploadFilesFromPicker(scope, cloud, navigator)
         })
-        MenuItem("上传文件夹", icon = Icons.Rounded.DriveFolderUpload, onClick = {
+        MenuItem("上传文件夹", icon = MelodiaIcons.Upload, onClick = {
             onDismiss()
             uploadFolderFromPicker(scope, cloud, navigator)
         })
-        MenuItem("刷新", icon = Icons.Rounded.Refresh, onClick = {
+        MenuItem("刷新", icon = MelodiaIcons.Refresh, onClick = {
             onDismiss()
             cloud.library.refresh()
         })

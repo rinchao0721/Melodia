@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,6 +62,8 @@ import com.lin0721.linmusic.core.ui.icons.Repeat
 import com.lin0721.linmusic.core.ui.icons.RepeatOne
 import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.Timer
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
 
 // 有效屏幕高度低于该值（dp）视为低高度屏幕
 private const val SHORT_SCREEN_HEIGHT_DP = 480
@@ -586,7 +587,7 @@ private fun QueueHeader(
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
+                    imageVector = MelodiaIcons.Delete,
                     contentDescription = "清空队列",
                     tint = MelodiaColors.TextSecondary,
                     modifier = Modifier.size(20.dp)
@@ -601,7 +602,7 @@ private fun QueueHeader(
             modifier = Modifier.padding(end = MelodiaSpacing.sm)
         )
         MelodiaIconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Rounded.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
         }
     }
 }

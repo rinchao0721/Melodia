@@ -44,13 +44,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CropSquare
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.FilterNone
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -124,6 +119,11 @@ import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Drag
+import com.lin0721.linmusic.core.ui.icons.Remove
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.data.TitleBarButton
@@ -147,7 +147,6 @@ import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.download.DownloadRoundTracker
-import com.lin0721.linmusic.desktop.ui.icons.DownloadIcons
 import com.lin0721.linmusic.desktop.ui.library.MenuHeader
 import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.ui.settings.icon
@@ -431,13 +430,13 @@ fun WindowScope.TitleBar(
                     hasUpdate = hasUpdate,
                     onLogoutClick = onLogoutClick
                 )
-                WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
+                WindowButton(MelodiaIcons.Remove, "最小化", onClick = onMinimize)
                 WindowButton(
                     if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
                     if (isMaximized) "还原" else "最大化",
                     onClick = onToggleMaximize
                 )
-                WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
+                WindowButton(MelodiaIcons.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
             }
         }
 
@@ -497,7 +496,7 @@ fun WindowScope.TitleBar(
             MenuDivider()
             MenuItem(
                 text = if (editMode) "退出编辑" else "编辑排序",
-                icon = if (editMode) Icons.Rounded.Check else Icons.Rounded.DragIndicator,
+                icon = if (editMode) MelodiaIcons.Check else MelodiaIcons.Drag,
                 onClick = {
                     contextMenuOffset = null
                     onEditModeChange(!editMode)
@@ -815,7 +814,7 @@ private fun DownloadProgressIcon(
 ) {
     Crossfade(showCheck, animationSpec = uiTween(FILL_ANIMATION_MS), label = "downloadIcon") { check ->
         Box(Modifier.size(size)) {
-            val icon = if (check) DownloadIcons.Check else DownloadIcons.Download
+            val icon = if (check) MelodiaIcons.Check else MelodiaIcons.Download
             Icon(icon, "下载管理", tint = if (check) DesktopColors.TextPrimary else tint, modifier = Modifier.fillMaxSize())
             if (!check && fill > 0f) {
                 Icon(
@@ -1165,7 +1164,7 @@ private fun SearchBox(
         }
         if (query.isNotEmpty() && enabled) {
             Icon(
-                Icons.Rounded.Close,
+                MelodiaIcons.Close,
                 "清空",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier

@@ -30,20 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeDown
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -142,6 +128,9 @@ import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.VolumeDown
 import com.lin0721.linmusic.core.ui.icons.VolumeOff
 import com.lin0721.linmusic.core.ui.icons.VolumeUp
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Delete
 
 private const val HOVER_SCALE = 1.1f
 private const val HOVER_SCALE_MS = 150
@@ -449,7 +438,7 @@ internal class PlayerBarParts(
 
         Box {
             BarIconButton(
-                icon = if (songDetail.isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
+                icon = if (songDetail.isLiked) MelodiaIcons.CheckCircle else MelodiaIcons.AddCircle,
                 description = "收藏到歌单",
                 active = songDetail.isLiked,
                 size = SideButtonSize, iconSize = SideIconSize,
@@ -523,7 +512,7 @@ internal class PlayerBarParts(
                     // 列表循环 → 单曲循环 → 随机 → 列表循环
                     CONTROL_PLAY_MODE -> if (isPersonalFm) {
                         BarIconButton(
-                            Icons.Rounded.DeleteOutline,
+                            MelodiaIcons.Delete,
                             "不喜欢",
                             enabled = hasTrack,
                             size = transportSize,
@@ -552,7 +541,7 @@ internal class PlayerBarParts(
                     )
                     "repeat" -> if (isPersonalFm) {
                         BarIconButton(
-                            Icons.Rounded.DeleteOutline,
+                            MelodiaIcons.Delete,
                             "不喜欢",
                             enabled = hasTrack,
                             size = transportSize,

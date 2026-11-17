@@ -6,8 +6,6 @@ import org.koin.compose.koinInject
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +30,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private val PlayerPageModes = listOf(
     SettingsPreferences.PLAYER_PAGE_MODE_AUTO to "自动",
@@ -385,7 +385,7 @@ internal fun OptionPickerSheet(
                         fontSize = 15.sp
                     )
                     if (isSelected) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(MelodiaIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

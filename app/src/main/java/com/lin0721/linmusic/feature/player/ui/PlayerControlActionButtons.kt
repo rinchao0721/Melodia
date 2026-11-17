@@ -1,15 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import androidx.compose.material.icons.rounded.MoreVert
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Subtitles
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.Subtitles
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // 插件布局用的操作行：按给定按钮与顺序排布
 @Composable
@@ -68,16 +67,16 @@ fun PlayerActionRow(
                     )
                 }
                 "queue" -> MelodiaIconButton(onClick = onQueueClick) {
-                    Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = "播放队列", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
+                    Icon(MelodiaIcons.PlaylistPlay, contentDescription = "播放队列", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
                 }
                 "share" -> MelodiaIconButton(onClick = onShareClick) {
-                    Icon(Icons.Rounded.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "quality" -> if (qualityLabel != null) {
                     Text(qualityLabel, color = MelodiaColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
                 "more" -> MelodiaIconButton(onClick = onMoreClick) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "sleepTimer" -> MelodiaIconButton(onClick = onSleepTimerClick) {
                     Icon(
@@ -222,7 +221,7 @@ fun ActionButtons(
 
                 MelodiaIconButton(onClick = onShareClick) {
                     Icon(
-                        imageVector = Icons.Rounded.Share,
+                        imageVector = MelodiaIcons.Share,
                         contentDescription = "分享",
                         tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.size(24.dp)
@@ -232,7 +231,7 @@ fun ActionButtons(
                     onClick = onQueueClick,
                     modifier = if (showLyricsControls) Modifier else Modifier.offset(x = 12.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
+                    Icon(MelodiaIcons.PlaylistPlay, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
                 }
             }
         }

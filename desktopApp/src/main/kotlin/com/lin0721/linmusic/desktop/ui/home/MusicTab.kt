@@ -22,9 +22,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -57,6 +54,9 @@ import com.lin0721.linmusic.feature.music.domain.StylePortrait
 import com.lin0721.linmusic.feature.music.domain.StylePreference
 import com.lin0721.linmusic.feature.music.ui.MusicBrowseData
 import com.lin0721.linmusic.feature.music.ui.MusicUiState
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronUp
 
 private val EdgePadding = 24.dp
 private val TileGap = 16.dp
@@ -173,7 +173,7 @@ private fun PortraitSummary(portrait: StylePortrait) {
             }
         }
         Icon(
-            if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+            if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
             if (expanded) "收起画像" else "展开画像",
             tint = DesktopColors.TextGray,
             modifier = Modifier.padding(start = 8.dp).size(20.dp)

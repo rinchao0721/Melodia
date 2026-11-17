@@ -19,9 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.NorthWest
@@ -65,6 +63,8 @@ import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 private val LeadingSize = 40.dp
 
@@ -120,7 +120,7 @@ internal fun SearchTypingPanel(
                     trailing = {
                         MelodiaIconButton(onClick = { onRemoveHistory(keyword) }) {
                             Icon(
-                                Icons.Rounded.Close,
+                                MelodiaIcons.Close,
                                 contentDescription = "删除搜索记录 $keyword",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
@@ -258,7 +258,7 @@ private fun SearchLinkHitCard(
         if (isSong) {
             MelodiaIconButton(onClick = onEnqueueNext) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    imageVector = MelodiaIcons.PlaylistAdd,
                     contentDescription = "下一首播放",
                     tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(20.dp)

@@ -20,14 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.RemoveCircleOutline
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -78,6 +70,12 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Drag
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Remove
 
 private val PlaylistHeroCoverSize = 132.dp
 
@@ -94,7 +92,7 @@ fun LocalPlaylistsScreen(
         onBack = navigation.onBack,
         actions = {
             MelodiaIconButton(onClick = { showCreate = true }) {
-                Icon(Icons.Rounded.Add, contentDescription = "新建歌单", tint = MelodiaColors.TextPrimary)
+                Icon(MelodiaIcons.Plus, contentDescription = "新建歌单", tint = MelodiaColors.TextPrimary)
             }
         }
     ) {
@@ -198,12 +196,12 @@ fun LocalPlaylistScreen(
                             actions = {
                                 if (playlist.tracks.isNotEmpty()) {
                                     MelodiaIconButton(onClick = { editing = true }) {
-                                        Icon(Icons.Rounded.Edit, contentDescription = "编辑歌单", tint = MelodiaColors.TextPrimary)
+                                        Icon(MelodiaIcons.Edit, contentDescription = "编辑歌单", tint = MelodiaColors.TextPrimary)
                                     }
                                 }
                                 Box {
                                     MelodiaIconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
+                                        Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextPrimary)
                                     }
                                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                         DropdownMenuItem(text = { Text("重命名") }, onClick = {
@@ -333,7 +331,7 @@ private fun EditPlaylistContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             MelodiaIconButton(onClick = onCancel) {
-                Icon(Icons.Rounded.Close, contentDescription = "放弃修改", tint = MelodiaColors.TextPrimary)
+                Icon(MelodiaIcons.Close, contentDescription = "放弃修改", tint = MelodiaColors.TextPrimary)
             }
             Text(
                 text = "编辑歌单",
@@ -371,7 +369,7 @@ private fun EditPlaylistContent(
                 ) {
                     MelodiaIconButton(onClick = { working = working.filterNot { it.uri == track.uri } }) {
                         Icon(
-                            Icons.Rounded.RemoveCircleOutline,
+                            MelodiaIcons.Remove,
                             contentDescription = "移出 ${track.title}",
                             tint = MaterialTheme.colorScheme.error
                         )
@@ -399,7 +397,7 @@ private fun EditPlaylistContent(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.DragHandle, contentDescription = "拖动排序", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(MelodiaIcons.Drag, contentDescription = "拖动排序", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -411,7 +409,7 @@ private fun EditPlaylistContent(
 private fun MissingPlaylist(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         MelodiaIconButton(onClick = onBack, modifier = Modifier.padding(MelodiaSpacing.xs)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(icon = MelodiaIcons.Queue, title = "歌单不存在或已删除")

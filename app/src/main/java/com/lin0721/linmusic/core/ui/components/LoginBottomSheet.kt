@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.QrCode
@@ -47,6 +46,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
 
 private enum class LoginMode { CHOICE, QR, COOKIE }
 
@@ -107,7 +108,7 @@ fun LoginBottomSheet(
                         viewModel.resetQrState()
                         mode = LoginMode.CHOICE
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+                        Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
                     }
                 }
             }

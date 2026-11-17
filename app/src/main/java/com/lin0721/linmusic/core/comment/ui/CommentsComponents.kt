@@ -13,9 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -49,6 +46,10 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Share
 
 @Composable
 fun CommentsPreviewCard(
@@ -391,7 +392,7 @@ fun CommentRowItem(
                             horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.lg)
                         ) {
                             CommentActionMenuItem(
-                                icon = Icons.Rounded.ContentCopy,
+                                icon = MelodiaIcons.Copy,
                                 label = "复制",
                                 onClick = {
                                     showActionMenu = false
@@ -409,7 +410,7 @@ fun CommentRowItem(
                                 )
                             }
                             CommentActionMenuItem(
-                                icon = Icons.Rounded.Share,
+                                icon = MelodiaIcons.Share,
                                 label = "分享",
                                 onClick = {
                                     showActionMenu = false
@@ -422,7 +423,7 @@ fun CommentRowItem(
                             )
                             if (onDeleteClick != null) {
                                 CommentActionMenuItem(
-                                    icon = Icons.Rounded.Delete,
+                                    icon = MelodiaIcons.Delete,
                                     label = "删除",
                                     tint = MelodiaColors.Accent,
                                     onClick = {

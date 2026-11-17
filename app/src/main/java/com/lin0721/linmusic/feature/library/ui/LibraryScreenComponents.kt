@@ -16,9 +16,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -55,6 +53,9 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PushPin
 
 // ────────────────────────────────────────────────────────────────────────────
 // 分类筛选胶囊行：默认（未筛选）展示全部胶囊；选中某个胶囊后仅保留该胶囊，
@@ -115,7 +116,7 @@ fun LibraryFilterPillsRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = MelodiaIcons.Close,
                         contentDescription = "清除筛选",
                         tint = MelodiaColors.PillContent,
                         modifier = Modifier.size(18.dp)
@@ -332,7 +333,7 @@ fun LibraryItemRow(
                 // 如果是置顶条目，显示绿色的置顶图标
                 if (item.isPinned) {
                     Icon(
-                        imageVector = Icons.Default.PushPin,
+                        imageVector = MelodiaIcons.PushPin,
                         contentDescription = "已置顶",
                         tint = MelodiaColors.Success,
                         modifier = Modifier
@@ -413,7 +414,7 @@ fun LibraryGridItem(
         ) {
             if (item.isPinned) {
                 Icon(
-                    imageVector = Icons.Default.PushPin,
+                    imageVector = MelodiaIcons.PushPin,
                     contentDescription = "已置顶",
                     tint = MelodiaColors.Success,
                     modifier = Modifier
@@ -502,7 +503,7 @@ fun DraggablePlaylistRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (item.isPinned) {
                     Icon(
-                        imageVector = Icons.Default.PushPin,
+                        imageVector = MelodiaIcons.PushPin,
                         contentDescription = "已置顶",
                         tint = MelodiaColors.Success,
                         modifier = Modifier

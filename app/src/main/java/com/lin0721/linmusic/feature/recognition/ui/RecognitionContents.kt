@@ -22,9 +22,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -74,6 +71,8 @@ import com.lin0721.linmusic.feature.recognition.domain.RecognitionProgress
 import com.lin0721.linmusic.feature.recognition.engine.RecognitionSession
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 private val WaveformHeight = 160.dp
 private val PillShape = RoundedCornerShape(PillRadius)
@@ -156,7 +155,7 @@ internal fun RecognitionListeningContent(
                 containerColor = MelodiaColors.Surface,
                 modifier = Modifier.size(64.dp)
             ) {
-                Icon(Icons.Rounded.Close, contentDescription = "取消识别", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(26.dp))
+                Icon(MelodiaIcons.Close, contentDescription = "取消识别", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(26.dp))
             }
             Text(text = "取消", color = MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
@@ -200,7 +199,7 @@ private fun AttemptChip(attempt: MatchAttempt) {
             if (active) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(TimerWarningRed))
             } else {
-                Icon(Icons.Rounded.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(14.dp))
+                Icon(MelodiaIcons.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(14.dp))
             }
             Text(text = label, color = if (active) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
@@ -301,7 +300,7 @@ internal fun RecognitionFoundContent(
                 .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.md)
                 .height(48.dp)
         ) {
-            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(MelodiaSpacing.sm))
             Text(text = "再识别一次", fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
@@ -490,7 +489,7 @@ internal fun RecognitionFailedContent(
                 shape = RoundedCornerShape(26.dp),
                 modifier = Modifier.weight(1f).height(52.dp)
             ) {
-                Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(MelodiaIcons.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(MelodiaSpacing.sm))
                 Text(text = "重试", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }

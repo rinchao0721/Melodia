@@ -34,8 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherBadge
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -73,6 +71,9 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.desktop.ui.track.artistLinks
 import com.lin0721.linmusic.feature.player.presentation.visibleInfoCards
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 
 private val HeaderButtonSize = 32.dp
 private val HeaderButtonOffset = 4.dp
@@ -271,7 +272,7 @@ private fun PanelHeader(
         HoverReveal(revealed = hovered, modifier = Modifier.offset(x = (-HeaderButtonOffset)), reserveSpace = false) {
             IconButton(onClick = onClose, modifier = Modifier.size(HeaderButtonSize)) {
                 Icon(
-                    Icons.Rounded.KeyboardArrowRight,
+                    MelodiaIcons.ChevronRight,
                     "关闭正在播放",
                     tint = DesktopColors.TextGray,
                     modifier = Modifier.size(32.dp)
@@ -296,7 +297,7 @@ private fun PanelHeader(
         HoverReveal(revealed = hovered || menuOpen, modifier = Modifier.offset(x = HeaderButtonOffset)) {
             Box {
                 IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(HeaderButtonSize)) {
-                    Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
+                    Icon(MelodiaIcons.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
                 }
                 NowPlayingMoreMenu(track, controller, playerViewModel, expanded = menuOpen, onDismiss = { menuOpen = false })
             }

@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +56,8 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
 
 private const val PEEK_DELAY_MS = 120L
 private const val OVERLAY_FADE_MS = 150
@@ -251,7 +251,7 @@ fun NowPlayingDock(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Rounded.ChevronLeft,
+                                MelodiaIcons.ChevronLeft,
                                 null,
                                 tint = if (hovered) DesktopColors.TextPrimary else DesktopColors.TextGray
                             )

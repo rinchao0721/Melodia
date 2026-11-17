@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
@@ -95,6 +92,9 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronUp
 
 internal enum class SettingsCategory(val label: String) {
     Playback("播放"),
@@ -1276,7 +1276,7 @@ private fun CardLayoutSetting(
                 Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
             }
             Icon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.size(20.dp)
@@ -1321,7 +1321,7 @@ private fun LibraryShortcutSettingRow(
                 Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
             }
             Icon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.size(20.dp)
@@ -1367,7 +1367,7 @@ private fun TitleBarButtonsSettingRow(
                 Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
             }
             Icon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.size(20.dp)

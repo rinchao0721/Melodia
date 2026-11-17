@@ -11,11 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.outlined.ViewSidebar
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -43,6 +40,8 @@ import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Fullscreen
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 private val SidebarToggleGap = 4.dp
 
@@ -197,7 +196,7 @@ fun FullPlayerCollapseButtons(
                 .offset(x = (-4).dp)
         ) {
             Icon(
-                Icons.Rounded.KeyboardArrowDown,
+                MelodiaIcons.ChevronDown,
                 contentDescription = null,
                 tint = MelodiaColors.TextPrimary,
                 modifier = Modifier.size(32.dp)
@@ -283,7 +282,7 @@ fun FullPlayerMoreButton(onMoreClick: () -> Unit, modifier: Modifier = Modifier)
             .offset(x = 4.dp)
     ) {
         Icon(
-            Icons.Default.MoreVert,
+            MelodiaIcons.MoreVert,
             contentDescription = null,
             tint = MelodiaColors.TextPrimary,
             modifier = Modifier.size(24.dp)

@@ -31,14 +31,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -132,6 +124,8 @@ import com.lin0721.linmusic.core.ui.icons.Repeat
 import com.lin0721.linmusic.core.ui.icons.RepeatOne
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
 
 // mpv 每秒上报几十次播放位置，迷你窗无需这么密
 private const val POSITION_STEP_MS = 250L
@@ -730,7 +724,7 @@ private fun LikeButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
 private fun RepeatButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
     if (info.isPersonalFm) {
         MiniIconButton(
-            Icons.Rounded.DeleteOutline,
+            MelodiaIcons.Delete,
             "不喜欢",
             actions.onTrash,
             iconSize = 18.dp
@@ -762,7 +756,7 @@ private fun WindowButtons(
             }
             MiniIconButton(Icons.Rounded.SwapHoriz, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
             MiniIconButton(MelodiaIcons.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
-            MiniIconButton(Icons.Rounded.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
+            MiniIconButton(MelodiaIcons.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
         }
         if (vertical) Column { buttons() } else Row { buttons() }
     }

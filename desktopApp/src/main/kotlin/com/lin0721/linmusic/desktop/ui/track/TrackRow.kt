@@ -20,19 +20,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Group
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.HeartBroken
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -109,6 +101,13 @@ import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -352,7 +351,7 @@ fun TrackRow(
                         modifier = Modifier.padding(start = 4.dp).size(32.dp)
                     ) {
                         if (hovered || moreMenuOpen) {
-                            Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
+                            Icon(MelodiaIcons.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
                         }
                     }
                     RowMenu(moreMenuOpen, DpOffset.Zero, track, activeActions, activeMenu, onPlay) { moreMenuOpen = false }
@@ -415,11 +414,11 @@ internal fun TrackMenu(
             })
         }
         if (navigator.isLoggedIn) {
-            SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
+            SubMenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                 CollectSubmenuContent(track, actions, onDismiss)
             }
         } else {
-            MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+            MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                 onDismiss()
                 navigator.showMessage("请先登录账号")
             })
@@ -456,7 +455,7 @@ internal fun TrackMenu(
         // 外部平台歌曲没有网易云 id，不能下载与分享网易云链接
         val isExternal = track.id < 0L
         if (!isExternal) {
-            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                 onDismiss()
                 actions.onDownload(track)
             })
@@ -468,7 +467,7 @@ internal fun TrackMenu(
             })
         }
         if (track.id > 0L) {
-            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+            MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
                 onDismiss()
                 navigator.openSongShareCard(
                     DesktopAppState.ShareSongInfo(
@@ -482,20 +481,20 @@ internal fun TrackMenu(
             })
         }
         if (!isExternal) {
-            MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+            MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
                 onDismiss()
                 val ok = copySongLink(track.id)
                 navigator.showMessage(if (ok) "已复制链接" else "复制失败")
             })
         }
-        MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+        MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
             onDismiss()
             val ok = copyTextToClipboard(songInfoText(track.name, track.ar.joinToString(" / ") { it.name }))
             navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")
         })
         actions.onRemove?.let { remove ->
             MenuDivider()
-            MenuItem("从歌单中删除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+            MenuItem("从歌单中删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
                 onDismiss()
                 remove(track)
             })

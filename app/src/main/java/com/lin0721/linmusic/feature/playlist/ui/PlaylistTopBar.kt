@@ -7,8 +7,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -37,6 +35,8 @@ import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
 
 // ────────────────────────────────────────────────────────────────────────────
 // 固定 Overlay 顶栏
@@ -101,7 +101,7 @@ fun PlaylistTopBar(
                 .align(Alignment.CenterStart)
                 .padding(start = 12.dp)
         ) {
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Back",
+            Icon(MelodiaIcons.ChevronLeft, "Back",
                 tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
         }
         // 歌单名称：随着滚动淡入及向上微移

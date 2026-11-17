@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Person
@@ -68,6 +67,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalPlayShuffleBut
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalSectionHeader
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
 
 private val ArtistAvatarSize = 96.dp
 private val AlbumCoverSize = 132.dp
@@ -394,7 +395,7 @@ private fun LocalSelectionLifecycle(viewModel: LocalMusicViewModel, selecting: B
 private fun MissingContent(title: String, onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         MelodiaIconButton(onClick = onBack, modifier = Modifier.padding(MelodiaSpacing.xs)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(icon = Icons.Rounded.LibraryMusic, title = title)

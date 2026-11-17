@@ -36,22 +36,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -151,6 +138,15 @@ import com.lin0721.linmusic.core.ui.icons.Pause
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.ArrowDown
+import com.lin0721.linmusic.core.ui.icons.ArrowUp
+import com.lin0721.linmusic.core.ui.icons.Checklist
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val TRACK_LOAD_MORE_THRESHOLD = 10
@@ -597,8 +593,8 @@ private fun PlaylistContent(
                             Modifier.padding(start = HeaderPadding, end = HeaderPadding, bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaylistPill(Icons.Rounded.Add, "添加") { dialogState.showAddSongs = true }
-                            PlaylistPill(Icons.Rounded.Edit, "名称和详情") { dialogState.showEdit = true }
+                            PlaylistPill(MelodiaIcons.Plus, "添加") { dialogState.showAddSongs = true }
+                            PlaylistPill(MelodiaIcons.Edit, "名称和详情") { dialogState.showEdit = true }
                         }
                     }
                 }
@@ -714,7 +710,7 @@ private fun PlaylistContent(
                                     onClick = { viewModel.addRecommendSongToPlaylist(playlist.id, track) },
                                     modifier = Modifier.padding(start = 4.dp).size(32.dp)
                                 ) {
-                                    Icon(Icons.Rounded.Add, "添加到歌单", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                                    Icon(MelodiaIcons.Plus, "添加到歌单", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -939,13 +935,13 @@ private fun PlaylistActionBar(
                 onClick = onToggleComments
             )
         }
-        if (canDownload) ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
+        if (canDownload) ActionIcon(MelodiaIcons.Download, "下载$resourceLabel", onClick = onDownload)
         PlaylistMoreMenu(
             resourceLabel, canDelete, canCopyLink, onPlayNextAll,
             importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete
         )
         Spacer(Modifier.weight(1f))
-        ActionIcon(Icons.Rounded.Checklist, "多选", onClick = onEnterSelection)
+        ActionIcon(MelodiaIcons.Checklist, "多选", onClick = onEnterSelection)
         PlaylistSearchBox(query, onQueryChange)
         PlaylistSortMenu(order, showAdded) { key ->
             onOrderChange(if (key == PlaylistSortKey.CUSTOM) PlaylistSortOrder() else PlaylistSortOrder(key, true))
@@ -983,14 +979,14 @@ private fun PlaylistMoreMenu(
     val navigator = LocalDesktopNavigator.current
     var expanded by remember { mutableStateOf(false) }
     Box {
-        ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
+        ActionIcon(MelodiaIcons.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
             MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })
             if (navigator.isLoggedIn) {
-                SubMenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = onPrepareImport) {
+                SubMenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = onPrepareImport) {
                     ImportSubmenuContent(importState, onImportTo = {
                         expanded = false
                         onImportTo(it)
@@ -1000,20 +996,20 @@ private fun PlaylistMoreMenu(
                     })
                 }
             } else {
-                MenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                MenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                     expanded = false
                     navigator.showMessage("请先登录账号")
                 })
             }
             if (canCopyLink) {
-                MenuItem("复制${resourceLabel}链接", icon = Icons.Rounded.Link, onClick = {
+                MenuItem("复制${resourceLabel}链接", icon = MelodiaIcons.Link, onClick = {
                     expanded = false
                     onCopyLink()
                 })
             }
             if (canDelete) {
                 MenuDivider()
-                MenuItem("删除歌单", icon = Icons.Rounded.Delete, danger = true, onClick = {
+                MenuItem("删除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                     expanded = false
                     onDelete()
                 })
@@ -1189,7 +1185,7 @@ private fun HeaderCell(
 private fun SortArrow(order: PlaylistSortOrder, key: PlaylistSortKey) {
     if (order.key != key) return
     Icon(
-        if (order.ascending) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+        if (order.ascending) MelodiaIcons.ArrowUp else MelodiaIcons.ArrowDown,
         if (order.ascending) "升序" else "降序",
         tint = DesktopColors.TextPrimary,
         modifier = Modifier.padding(horizontal = 2.dp).size(14.dp)

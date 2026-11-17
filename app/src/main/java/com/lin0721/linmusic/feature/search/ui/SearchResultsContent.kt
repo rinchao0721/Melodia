@@ -17,8 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -55,6 +53,8 @@ import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import kotlinx.coroutines.flow.StateFlow
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 private const val TAB_ENTER_DURATION = 300
 private const val TAB_EXIT_DURATION = 150
@@ -248,7 +248,7 @@ private fun ExternalSearchResultsList(
                                 modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
+                                    imageVector = MelodiaIcons.MoreVert,
                                     contentDescription = "更多操作",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
@@ -367,7 +367,7 @@ private fun SearchResultsList(
                                             modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Add,
+                                                imageVector = MelodiaIcons.Plus,
                                                 contentDescription = "收藏到歌单",
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(20.dp)
@@ -379,7 +379,7 @@ private fun SearchResultsList(
                                         modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.MoreVert,
+                                            imageVector = MelodiaIcons.MoreVert,
                                             contentDescription = "更多操作",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +43,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 private data class ModeOption(
     val mode: RecognitionMode,
@@ -161,6 +162,6 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
             }
             Text(text = option.description, color = MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = MelodiaColors.TextSecondary)
+        Icon(MelodiaIcons.ChevronRight, contentDescription = null, tint = MelodiaColors.TextSecondary)
     }
 }
