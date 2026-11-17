@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,6 +37,7 @@ import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
+import com.lin0721.linmusic.core.ui.icons.Info
 
 // 同时负责投递 toast，每个本地页挂一个即可
 @Composable
@@ -112,7 +111,7 @@ fun LocalTrackActionsHost(
                         viewModel.closeTrackMenu()
                         navigation.openTagEditor(track.uri.toString())
                     }
-                    OptionRow(icon = Icons.Rounded.Info, text = "查看详情") {
+                    OptionRow(icon = MelodiaIcons.Info, text = "查看详情") {
                         viewModel.openDetail(track)
                     }
                     OptionRow(

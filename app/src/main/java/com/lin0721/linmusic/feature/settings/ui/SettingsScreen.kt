@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -55,17 +54,20 @@ import com.lin0721.linmusic.core.ui.icons.Subtitles
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.Info
+import com.lin0721.linmusic.core.ui.icons.PlayCircle
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
-    PLAYBACK("播放", listOf("播放参数"), Icons.Outlined.PlayCircleOutline),
+    PLAYBACK("播放", listOf("播放参数"), MelodiaIcons.PlayCircle),
     QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.Outlined.HighQuality),
     DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), Icons.Outlined.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
     LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词", "歌词过滤"), MelodiaIcons.Subtitles),
     APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局", "界面精简"), Icons.Outlined.Palette),
-    SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), Icons.Outlined.Extension),
-    ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
+    SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), MelodiaIcons.Plugin),
+    ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), MelodiaIcons.Info);
 
     val subtitle: String get() = sectionTitles.take(2).joinToString("、")
 }
@@ -290,7 +292,7 @@ private fun MainSettingsMenu(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            imageVector = MelodiaIcons.Logout,
                             contentDescription = null,
                             tint = MelodiaColors.Accent,
                             modifier = Modifier.size(20.dp)
@@ -465,8 +467,8 @@ fun SettingsSwitchRow(
 fun getBindingIcon(type: Int): androidx.compose.ui.graphics.vector.ImageVector {
     return when (type) {
         1 -> Icons.Default.PhoneAndroid
-        10 -> Icons.Default.ChatBubbleOutline
-        20 -> Icons.Default.AccountCircle
+        10 -> MelodiaIcons.Comment
+        20 -> MelodiaIcons.Person
         else -> MelodiaIcons.Link
     }
 }

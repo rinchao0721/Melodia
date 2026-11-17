@@ -6,9 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.PauseCircleOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +30,8 @@ import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
+import com.lin0721.linmusic.core.ui.icons.PauseCircle
 
 private const val SUMMARY_DISPLAY_MS = 2500L
 
@@ -120,7 +119,7 @@ private fun buildBannerContent(
 ): DownloadBannerContent {
     if (counts.active == 0 && counts.paused > 0) {
         return DownloadBannerContent(
-            icon = Icons.Rounded.PauseCircleOutline,
+            icon = MelodiaIcons.PauseCircle,
             iconTint = secondary,
             title = "下载已暂停",
             subtitle = buildString {
@@ -137,7 +136,7 @@ private fun buildBannerContent(
     if (counts.active == 0) {
         val hasFailure = counts.failed > 0
         return DownloadBannerContent(
-            icon = if (hasFailure) Icons.Rounded.ErrorOutline else MelodiaIcons.CheckCircle,
+            icon = if (hasFailure) MelodiaIcons.ErrorIcon else MelodiaIcons.CheckCircle,
             iconTint = if (hasFailure) error else success,
             title = if (hasFailure) "下载结束" else "下载完成",
             subtitle = when {

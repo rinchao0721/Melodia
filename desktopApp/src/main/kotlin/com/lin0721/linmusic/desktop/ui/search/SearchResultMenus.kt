@@ -1,11 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.search
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.PersonRemove
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -32,6 +26,8 @@ import com.lin0721.linmusic.core.ui.icons.Copy
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.Link
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.PersonRemove
 
 private const val NETEASE_WEB = "https://music.163.com"
 
@@ -75,7 +71,7 @@ internal fun MenuScope.CollectionMenuItems(
     if (isAlbum && artists.isNotEmpty()) {
         MenuDivider()
         if (artists.size > 1) {
-            SubMenuItem("查看歌手", icon = Icons.Rounded.Person) {
+            SubMenuItem("查看歌手", icon = MelodiaIcons.Person) {
                 artists.forEach { artist ->
                     SimpleMenuItem(artist.name, onClick = {
                         dismiss()
@@ -84,7 +80,7 @@ internal fun MenuScope.CollectionMenuItems(
                 }
             }
         } else {
-            MenuItem("查看歌手", icon = Icons.Rounded.Person, onClick = {
+            MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 dismiss()
                 navigator.openArtist(artists[0].id, artists[0].name)
             })
@@ -103,13 +99,13 @@ internal fun MenuScope.ArtistMenuItems(artist: Artist, viewModel: SearchViewMode
     val followed by produceState<Boolean?>(null, artist.id, navigator.isLoggedIn) {
         value = if (navigator.isLoggedIn) viewModel.isArtistFollowed(artist.id) else false
     }
-    MenuItem("打开歌手", icon = Icons.Rounded.Person, onClick = {
+    MenuItem("打开歌手", icon = MelodiaIcons.Person, onClick = {
         dismiss()
         navigator.openArtist(artist.id, artist.name)
     })
     MenuItem(
         if (followed == true) "取消关注" else "关注",
-        icon = if (followed == true) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
+        icon = if (followed == true) MelodiaIcons.PersonRemove else MelodiaIcons.PersonAdd,
         enabled = followed != null,
         onClick = {
             dismiss()
@@ -128,13 +124,13 @@ internal fun MenuScope.RadioMenuItems(radioId: Long, viewModel: SearchViewModel,
     val subscribed by produceState<Boolean?>(null, radioId, navigator.isLoggedIn) {
         value = if (navigator.isLoggedIn) viewModel.isRadioSubscribed(radioId) else false
     }
-    MenuItem("打开电台", icon = Icons.Rounded.Mic, onClick = {
+    MenuItem("打开电台", icon = MelodiaIcons.Mic, onClick = {
         dismiss()
         navigator.openRadio(radioId)
     })
     MenuItem(
         if (subscribed == true) "取消订阅" else "订阅",
-        icon = if (subscribed == true) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
+        icon = if (subscribed == true) MelodiaIcons.PersonRemove else MelodiaIcons.PersonAdd,
         enabled = subscribed != null,
         onClick = {
             dismiss()
@@ -164,7 +160,7 @@ internal fun MenuScope.ProgramMenuItems(
         viewModel.addProgramToPlayNext(program)
     })
     if (program.radioId > 0) {
-        MenuItem("打开电台", icon = Icons.Rounded.Mic, onClick = {
+        MenuItem("打开电台", icon = MelodiaIcons.Mic, onClick = {
             dismiss()
             navigator.openRadio(program.radioId)
         })
@@ -205,7 +201,7 @@ internal fun MenuScope.ExternalTrackMenuItems(
         })
     }
     MenuDivider()
-    MenuItem("在网易云中搜索", icon = Icons.Rounded.Search, onClick = {
+    MenuItem("在网易云中搜索", icon = MelodiaIcons.Search, onClick = {
         dismiss()
         viewModel.searchOnNetease(track)
     })

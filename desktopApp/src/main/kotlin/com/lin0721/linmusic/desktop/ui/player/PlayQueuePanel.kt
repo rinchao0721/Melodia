@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
@@ -369,7 +367,7 @@ private fun PersonalFmQueueBanner(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Rounded.Radio, null, tint = DesktopColors.AccentText, modifier = Modifier.size(16.dp))
+        Icon(MelodiaIcons.Radio, null, tint = DesktopColors.AccentText, modifier = Modifier.size(16.dp))
         Text(
             "私人FM · ${mode.displayName}",
             color = DesktopColors.TextPrimary,

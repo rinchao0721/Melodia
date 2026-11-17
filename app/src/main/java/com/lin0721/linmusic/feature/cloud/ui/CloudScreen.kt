@@ -28,8 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -120,7 +118,7 @@ fun CloudScreen(
                         label = "cloud_search_icon"
                     ) { isSearching ->
                         Icon(
-                            if (isSearching) MelodiaIcons.Close else Icons.Rounded.Search,
+                            if (isSearching) MelodiaIcons.Close else MelodiaIcons.Search,
                             contentDescription = if (isSearching) "关闭搜索" else "搜索",
                             tint = MelodiaColors.TextPrimary
                         )

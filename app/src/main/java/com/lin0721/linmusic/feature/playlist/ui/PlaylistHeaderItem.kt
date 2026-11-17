@@ -8,8 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +54,7 @@ import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Comment
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全出血 Hero（LazyColumn Item 1）
@@ -273,7 +272,7 @@ fun PlaylistHeaderItem(
                             if (!isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onCommentsClick) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        imageVector = MelodiaIcons.Comment,
                                         contentDescription = "评论",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)

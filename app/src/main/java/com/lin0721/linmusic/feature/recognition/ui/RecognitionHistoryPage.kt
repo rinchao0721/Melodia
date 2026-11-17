@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -76,7 +74,7 @@ internal fun RecognitionHistoryPage(
     ) {
         if (sections.isEmpty()) {
             EmptyState(
-                icon = Icons.Rounded.History,
+                icon = MelodiaIcons.History,
                 title = "还没有识别记录",
                 subtitle = "识别成功的歌曲会保存在这里"
             )

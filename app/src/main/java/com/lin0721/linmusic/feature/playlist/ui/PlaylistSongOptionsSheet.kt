@@ -4,11 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HeartBroken
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -44,6 +40,8 @@ import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Group
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -160,7 +158,7 @@ fun PlaylistSongOptionsSheet(
                 val roomState by listenTogether.state.collectAsState()
                 if (roomState.active && track.id > 0L) {
                     OptionRow(
-                        icon = Icons.Default.Group,
+                        icon = MelodiaIcons.Group,
                         text = "添加到一起听队列",
                         onClick = {
                             onDismiss()
@@ -241,7 +239,7 @@ fun PlaylistSongOptionsSheet(
                         // 多歌手逐个列出，避免只能进入第一位歌手主页
                         linkedArtists.forEach { artist ->
                             OptionRow(
-                                icon = Icons.Default.Person,
+                                icon = MelodiaIcons.Person,
                                 text = "歌手: ${artist.name}",
                                 onClick = {
                                     onDismiss()
@@ -252,7 +250,7 @@ fun PlaylistSongOptionsSheet(
                     } else {
                         val artistsText = track.ar.joinToString(" • ") { it.name }
                         OptionRow(
-                            icon = Icons.Default.Person,
+                            icon = MelodiaIcons.Person,
                             text = "歌手: $artistsText",
                             onClick = {
                                 onDismiss()
@@ -280,7 +278,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (showAlbumOption) {
                     OptionRow(
-                        icon = Icons.Default.Album,
+                        icon = MelodiaIcons.Album,
                         text = "专辑: ${track.al.name}",
                         onClick = {
                             onDismiss()
@@ -298,7 +296,7 @@ fun PlaylistSongOptionsSheet(
                 val pluginCommands = LocalPluginCommands.current
                 rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
                     OptionRow(
-                        icon = Icons.Default.Extension,
+                        icon = MelodiaIcons.Plugin,
                         text = item.title,
                         onClick = {
                             onDismiss()

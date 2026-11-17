@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +43,7 @@ import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private const val ANIM_DURATION = 250
 private const val ANIM_EXIT_DURATION = 150
@@ -269,7 +268,7 @@ fun SearchScreen(
                 onShareClick = { shareTarget = it to false },
                 extraOptions = {
                     OptionRow(
-                        icon = Icons.Default.Search,
+                        icon = MelodiaIcons.Search,
                         text = "在网易云中搜索",
                         onClick = {
                             externalOptionsTrack = null

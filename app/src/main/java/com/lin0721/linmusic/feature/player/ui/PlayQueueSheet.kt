@@ -13,9 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,6 +61,8 @@ import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.Timer
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Infinity
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 // 有效屏幕高度低于该值（dp）视为低高度屏幕
 private const val SHORT_SCREEN_HEIGHT_DP = 480
@@ -628,9 +627,9 @@ private fun PlayModeInfoRow(
         val isIntelligence = playContext == "intelligence"
         val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
         val (icon, label) = when {
-            isPersonalFm -> Icons.Rounded.Radio to "私人FM · ${personalFmMode.displayName}"
-            isRoaming -> Icons.Rounded.AllInclusive to "相似歌曲漫游"
-            isIntelligence -> Icons.Rounded.AutoAwesome to "心动模式"
+            isPersonalFm -> MelodiaIcons.Radio to "私人FM · ${personalFmMode.displayName}"
+            isRoaming -> MelodiaIcons.Infinity to "相似歌曲漫游"
+            isIntelligence -> MelodiaIcons.Sparkle to "心动模式"
             playMode == PlayMode.LIST_LOOP -> MelodiaIcons.Repeat to "列表循环"
             playMode == PlayMode.SINGLE_LOOP -> MelodiaIcons.RepeatOne to "单曲循环"
             else -> MelodiaIcons.Shuffle to "随机播放"
@@ -719,9 +718,9 @@ private fun BottomActionRow(
         ) {
             Icon(
                 imageVector = when {
-                    isPersonalFm -> Icons.Rounded.Radio
-                    isRoaming -> Icons.Rounded.AllInclusive
-                    isIntelligence -> Icons.Rounded.AutoAwesome
+                    isPersonalFm -> MelodiaIcons.Radio
+                    isRoaming -> MelodiaIcons.Infinity
+                    isIntelligence -> MelodiaIcons.Sparkle
                     else -> MelodiaIcons.Shuffle
                 },
                 contentDescription = null,

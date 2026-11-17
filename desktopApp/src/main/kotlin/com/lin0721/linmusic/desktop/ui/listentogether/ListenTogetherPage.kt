@@ -25,10 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -76,6 +72,7 @@ import com.lin0721.linmusic.feature.message.domain.MessageUser
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Star
 
 private val CoverSize = 280.dp
 private val AvatarSize = 44.dp
@@ -191,7 +188,7 @@ fun ListenTogetherPage(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (state.isHost) {
-                        PillButton("邀请好友", background, content, icon = { Icon(Icons.Rounded.PersonAdd, null, tint = background, modifier = Modifier.size(16.dp)) }) {
+                        PillButton("邀请好友", background, content, icon = { Icon(MelodiaIcons.PersonAdd, null, tint = background, modifier = Modifier.size(16.dp)) }) {
                             showInviteDialog = true
                         }
                         DesktopTooltip("复制邀请文案", side = TooltipSide.Top) {
@@ -323,7 +320,7 @@ private fun MemberAvatar(member: ListenTogetherMember, isHost: Boolean, content:
                     Modifier.align(Alignment.BottomEnd).size(16.dp).clip(CircleShape).background(content),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Star, "房主", tint = DesktopColors.Vip, modifier = Modifier.size(12.dp))
+                    Icon(MelodiaIcons.Star, "房主", tint = DesktopColors.Vip, modifier = Modifier.size(12.dp))
                 }
             }
         }
@@ -360,7 +357,7 @@ private fun RoomTrackRow(
     ) {
         Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
             if (active) {
-                Icon(Icons.Rounded.GraphicEq, "正在播放", tint = content, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Recognition, "正在播放", tint = content, modifier = Modifier.size(16.dp))
             } else {
                 Text("${index + 1}", color = secondary, fontSize = 12.sp)
             }

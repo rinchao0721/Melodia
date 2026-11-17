@@ -3,8 +3,6 @@ package com.lin0721.linmusic.feature.artist.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -90,7 +88,7 @@ fun ArtistTopBarOverlay(
                     .padding(end = MelodiaSpacing.xs)
             ) {
                 Icon(
-                    imageVector = if (searchOpen) MelodiaIcons.Close else Icons.Rounded.Search,
+                    imageVector = if (searchOpen) MelodiaIcons.Close else MelodiaIcons.Search,
                     contentDescription = if (searchOpen) "关闭搜索" else "搜索歌曲",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)

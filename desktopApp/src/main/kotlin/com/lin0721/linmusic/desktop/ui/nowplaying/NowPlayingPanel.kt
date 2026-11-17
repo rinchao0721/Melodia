@@ -31,8 +31,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bedtime
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherBadge
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +72,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Moon
 
 private val HeaderButtonSize = 32.dp
 private val HeaderButtonOffset = 4.dp
@@ -286,7 +285,7 @@ private fun PanelHeader(
         }
         ListenTogetherBadge(Modifier.padding(end = 6.dp))
         if (sleepActive) {
-            Icon(Icons.Rounded.Bedtime, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
+            Icon(MelodiaIcons.Moon, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             Text(
                 formatSleepTimerRemaining(sleepRemaining),
                 color = DesktopColors.TextGray,

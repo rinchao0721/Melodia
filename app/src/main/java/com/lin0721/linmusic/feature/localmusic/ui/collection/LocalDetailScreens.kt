@@ -20,10 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,6 +65,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Album
 
 private val ArtistAvatarSize = 96.dp
 private val AlbumCoverSize = 132.dp
@@ -110,7 +107,7 @@ fun LocalArtistScreen(
                                 sourceUri = artist.tracks.first().uri,
                                 size = ArtistAvatarSize,
                                 shape = CircleShape,
-                                fallbackIcon = Icons.Rounded.Person
+                                fallbackIcon = MelodiaIcons.Person
                             )
                             Spacer(Modifier.width(MelodiaSpacing.md))
                             Column {
@@ -215,7 +212,7 @@ fun LocalAlbumScreen(
                                 sourceUri = album.coverSourceUri,
                                 size = AlbumCoverSize,
                                 shape = RoundedCornerShape(8.dp),
-                                fallbackIcon = Icons.Rounded.Album
+                                fallbackIcon = MelodiaIcons.Album
                             )
                             Spacer(Modifier.width(MelodiaSpacing.md))
                             Column {
@@ -309,7 +306,7 @@ fun LocalFolderScreen(
             LocalLibraryStateGate(viewModel) { state ->
                 if (folder == null) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        EmptyState(icon = Icons.Rounded.LibraryMusic, title = "该文件夹已没有本地歌曲")
+                        EmptyState(icon = MelodiaIcons.Library, title = "该文件夹已没有本地歌曲")
                     }
                     return@LocalLibraryStateGate
                 }
@@ -398,7 +395,7 @@ private fun MissingContent(title: String, onBack: () -> Unit) {
             Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(icon = Icons.Rounded.LibraryMusic, title = title)
+            EmptyState(icon = MelodiaIcons.Library, title = title)
         }
     }
 }

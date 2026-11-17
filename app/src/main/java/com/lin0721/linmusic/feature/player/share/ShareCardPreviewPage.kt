@@ -37,7 +37,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -101,6 +100,7 @@ import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.Link
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 private val PillShape = RoundedCornerShape(PillRadius)
 
@@ -334,7 +334,7 @@ private fun BackgroundRow(
     ) {
         Swatch(current == ShareCardBackground.Auto, { onChange(ShareCardBackground.Auto) }) {
             Box(Modifier.fillMaxSize().background(lerp(base, Color.Black, 0.25f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = "自动", tint = Color.White, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Sparkle, contentDescription = "自动", tint = Color.White, modifier = Modifier.size(16.dp))
             }
         }
         repeat(ShareCardBackground.PALETTE_SIZE) { i ->

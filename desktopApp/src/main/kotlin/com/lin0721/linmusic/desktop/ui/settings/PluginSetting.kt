@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -338,7 +336,7 @@ private fun PluginRow(
         HoverReveal(hovered) {
             Row {
                 plugin.previousVersion?.let { RowIconButton(MelodiaIcons.Restore, "回退到 v$it", hoverSource, onRollback) }
-                if (hasSettings) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
+                if (hasSettings) RowIconButton(MelodiaIcons.Settings, "设置", hoverSource, onSettings)
                 if (manifest != null) RowIconButton(MelodiaIcons.Upload, "导出", hoverSource, onExport)
                 RowIconButton(MelodiaIcons.Delete, "删除", hoverSource, onDelete)
             }

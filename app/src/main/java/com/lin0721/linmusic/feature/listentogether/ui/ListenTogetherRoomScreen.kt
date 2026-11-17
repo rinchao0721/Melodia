@@ -33,8 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -97,6 +95,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Star
 
 private val CoverSize = 220.dp
 private val AvatarSize = 44.dp
@@ -492,7 +491,7 @@ private fun MemberAvatar(member: ListenTogetherMember, isHost: Boolean, content:
                         .background(content),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Star, contentDescription = "房主", tint = MelodiaColors.Vip, modifier = Modifier.size(12.dp))
+                    Icon(MelodiaIcons.Star, contentDescription = "房主", tint = MelodiaColors.Vip, modifier = Modifier.size(12.dp))
                 }
             }
         }
@@ -586,7 +585,7 @@ private fun RoomActionBar(
                 contentPadding = PaddingValues(horizontal = 10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(Icons.Rounded.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("邀请好友", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }

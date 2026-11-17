@@ -14,11 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,6 +71,8 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Sort
+import com.lin0721.linmusic.core.ui.icons.Grid
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -267,7 +264,7 @@ fun LibraryScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.LibraryMusic,
+                                    imageVector = MelodiaIcons.Library,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
@@ -286,7 +283,7 @@ fun LibraryScreen(
                         )
 
                         MelodiaIconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         MelodiaIconButton(onClick = {
@@ -862,7 +859,7 @@ private fun LibrarySortAndFilterBar(
             modifier = Modifier.size(32.dp)
         ) {
             Icon(
-                imageVector = if (isGridView) Icons.AutoMirrored.Rounded.List else Icons.Rounded.GridView,
+                imageVector = if (isGridView) MelodiaIcons.ListIcon else MelodiaIcons.Grid,
                 contentDescription = "切换视图",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)

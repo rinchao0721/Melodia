@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +32,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 // 小封面列表行样式
 fun LazyListScope.profilePlaylistItems(
@@ -48,7 +47,7 @@ fun LazyListScope.profilePlaylistItems(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 }
             } else {
-                EmptyState(icon = Icons.Rounded.LibraryMusic, title = "暂无歌单")
+                EmptyState(icon = MelodiaIcons.Library, title = "暂无歌单")
             }
         }
         return

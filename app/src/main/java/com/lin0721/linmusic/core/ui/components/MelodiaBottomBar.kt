@@ -30,12 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.CloudQueue
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -822,14 +816,14 @@ fun MelodiaNavigationBar(
 
             val navItems = effectiveLayout.filter { it.visible }.map { setting ->
                 when (setting.item) {
-                    BottomBarItem.HOME -> Triple("主页", Icons.Default.Home, Screen.Home)
-                    BottomBarItem.SEARCH -> Triple("搜索", Icons.Default.Search, Screen.Search)
-                    BottomBarItem.LIBRARY -> Triple("音乐库", Icons.Default.LibraryMusic, Screen.Library)
+                    BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
+                    BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
+                    BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
                     BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) MelodiaIcons.Close else Icons.Default.AddBox, null)
-                    BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", Icons.Default.Folder, Screen.LocalMusic)
+                    BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
                     BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
-                    BottomBarItem.CLOUD -> Triple("我的云盘", Icons.Outlined.CloudQueue, Screen.Cloud)
-                    BottomBarItem.PROFILE -> Triple("个人主页", Icons.Default.Person, Screen.MyProfile)
+                    BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)
+                    BottomBarItem.PROFILE -> Triple("个人主页", MelodiaIcons.Person, Screen.MyProfile)
                 }
             }
 

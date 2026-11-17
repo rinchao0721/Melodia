@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -43,6 +41,8 @@ import coil3.request.ImageRequest
 import coil3.toBitmap
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 // 扫光骨架屏背景：surfaceVariant/surface 之间无限循环平移渐变，贴合项目深色低调基调
 @Composable
@@ -78,7 +78,7 @@ fun CoverPlaceholder(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Rounded.MusicNote,
+            MelodiaIcons.MusicNote,
             contentDescription = null,
             tint = MelodiaColors.TextDisabled,
             modifier = Modifier.fillMaxSize(0.34f)

@@ -15,9 +15,6 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +53,8 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.Lock
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 // ────────────────────────────────────────────────────────────────────────────
 // 分类筛选胶囊行：默认（未筛选）展示全部胶囊；选中某个胶囊后仅保留该胶囊，
@@ -230,7 +229,7 @@ fun NotLoggedInView(onLoginClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Lock,
+                imageVector = MelodiaIcons.Lock,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp)
@@ -522,7 +521,7 @@ fun DraggablePlaylistRow(
         }
 
         Icon(
-            imageVector = Icons.Default.Menu,
+            imageVector = MelodiaIcons.Menu,
             contentDescription = "拖拽调整顺序",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

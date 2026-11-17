@@ -34,11 +34,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
-import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -147,6 +142,9 @@ import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.Link
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val TRACK_LOAD_MORE_THRESHOLD = 10
@@ -929,7 +927,7 @@ private fun PlaylistActionBar(
         }
         if (showComments) {
             ActionIcon(
-                Icons.Rounded.ChatBubbleOutline,
+                MelodiaIcons.Comment,
                 "${resourceLabel}评论",
                 tint = if (commentsOpen) DesktopColors.TextPrimary else DesktopColors.TextGray,
                 onClick = onToggleComments
@@ -1082,7 +1080,7 @@ internal fun PlaylistSearchBox(query: String, onQueryChange: (String) -> Unit) {
         } else {
             DesktopTooltip("在歌单内搜索", modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -1102,7 +1100,7 @@ internal fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSe
         ) {
             Text(order.key.label, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, softWrap = false)
             Spacer(Modifier.width(6.dp))
-            Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ListIcon, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         LibraryPopupMenu(expanded, { expanded = false }, anchorWidth, SortMenuWidth) {
             MenuHeader("排序依据")
@@ -1143,7 +1141,7 @@ internal fun TrackColumnHeader(order: PlaylistSortOrder, showAdded: Boolean, onS
             ) {
                 SortArrow(order, PlaylistSortKey.DURATION)
                 Icon(
-                    Icons.Rounded.AccessTime,
+                    MelodiaIcons.Clock,
                     "时长",
                     tint = if (order.key == PlaylistSortKey.DURATION) DesktopColors.TextPrimary else DesktopColors.TextGray,
                     modifier = Modifier.size(16.dp)

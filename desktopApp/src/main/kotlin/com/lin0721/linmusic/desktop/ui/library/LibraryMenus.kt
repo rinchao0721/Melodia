@@ -22,10 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.FormatListBulleted
-import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LibraryAdd
-import androidx.compose.material.icons.rounded.Menu
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
@@ -83,6 +80,9 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.Grid
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 private const val PLAYLIST_NAME_MAX_LENGTH = 40
 internal const val EMPTY_NAME_MESSAGE = "名字不能为空哦！"
@@ -100,10 +100,10 @@ internal fun sortLabel(order: LibrarySortOrder): String = when (order) {
 }
 
 internal fun viewModeIcon(mode: LibraryViewMode): ImageVector = when (mode) {
-    LibraryViewMode.COMPACT_LIST -> Icons.Rounded.Menu
-    LibraryViewMode.LIST -> Icons.Rounded.FormatListBulleted
+    LibraryViewMode.COMPACT_LIST -> MelodiaIcons.Menu
+    LibraryViewMode.LIST -> MelodiaIcons.ListIcon
     LibraryViewMode.SMALL_GRID -> Icons.Rounded.Apps
-    LibraryViewMode.LARGE_GRID -> Icons.Rounded.GridView
+    LibraryViewMode.LARGE_GRID -> MelodiaIcons.Grid
 }
 
 private fun viewModeLabel(mode: LibraryViewMode): String = when (mode) {

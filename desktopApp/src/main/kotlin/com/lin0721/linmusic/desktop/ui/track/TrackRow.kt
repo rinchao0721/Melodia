@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.track
 
-import androidx.compose.material.icons.rounded.Extension
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
@@ -20,11 +19,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Group
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
 import androidx.compose.material.icons.rounded.HeartBroken
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -108,6 +104,8 @@ import com.lin0721.linmusic.core.ui.icons.Link
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Group
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -408,7 +406,7 @@ internal fun TrackMenu(
         })
         val listenTogether = LocalListenTogetherViewModel.current
         if (listenTogether != null && listenTogether.state.value.active && track.id > 0L) {
-            MenuItem("添加到一起听队列", icon = Icons.Rounded.Group, onClick = {
+            MenuItem("添加到一起听队列", icon = MelodiaIcons.Group, onClick = {
                 onDismiss()
                 listenTogether.addToRoomQueue(listOf(track.id)) { navigator.showMessage(it) }
             })
@@ -433,7 +431,7 @@ internal fun TrackMenu(
         )
         MenuDivider()
         when {
-            artists.size > 1 -> SubMenuItem("查看歌手", icon = Icons.Rounded.Person) {
+            artists.size > 1 -> SubMenuItem("查看歌手", icon = MelodiaIcons.Person) {
                 artists.forEach { artist ->
                     SimpleMenuItem(artist.name, onClick = {
                         onDismiss()
@@ -441,13 +439,13 @@ internal fun TrackMenu(
                     })
                 }
             }
-            artists.size == 1 -> MenuItem("查看歌手", icon = Icons.Rounded.Person, onClick = {
+            artists.size == 1 -> MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 onDismiss()
                 navigator.openArtist(artists[0].id, artists[0].name)
             })
         }
         if (track.al.id > 0) {
-            MenuItem("查看专辑", icon = Icons.Rounded.Album, onClick = {
+            MenuItem("查看专辑", icon = MelodiaIcons.Album, onClick = {
                 onDismiss()
                 navigator.openAlbum(track.al.id, track.al.name)
             })
@@ -503,7 +501,7 @@ internal fun TrackMenu(
         val pluginItems = rememberPluginCommands(PluginMenuLocation.SONG)
         if (pluginItems.isNotEmpty()) MenuDivider()
         pluginItems.forEach { item ->
-            MenuItem(item.title, icon = Icons.Rounded.Extension, onClick = {
+            MenuItem(item.title, icon = MelodiaIcons.Plugin, onClick = {
                 onDismiss()
                 pluginCommands?.run(item, track.toPluginArgs())
             })

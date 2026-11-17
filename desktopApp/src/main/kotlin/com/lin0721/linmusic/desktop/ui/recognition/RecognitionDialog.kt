@@ -44,12 +44,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -130,6 +125,10 @@ import com.lin0721.linmusic.core.ui.icons.VolumeOff
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
+import com.lin0721.linmusic.core.ui.icons.Info
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.MicOff
 
 private val DialogWidth = 780.dp
 private val BodyHeight = 440.dp
@@ -270,14 +269,14 @@ private fun StageContent(
             )
             is RecognitionUiState.Failed -> FailedContent(current.reason, current.progress, mode, onRetry = { recognition.start() })
             is RecognitionUiState.PermissionRequired -> MessageContent(
-                icon = Icons.Rounded.MicOff,
+                icon = MelodiaIcons.MicOff,
                 title = "无法使用麦克风",
                 subtitle = "请在系统设置的隐私设置中允许应用访问麦克风",
                 buttonText = "重试",
                 onClick = { recognition.start() }
             )
             RecognitionUiState.Idle, is RecognitionUiState.ChoosingMode -> MessageContent(
-                icon = if (mode == RecognitionMode.PLAYBACK) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
+                icon = if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.Recognition else MelodiaIcons.Mic,
                 title = "听歌识曲",
                 subtitle = if (mode == RecognitionMode.PLAYBACK) "识别电脑正在播放的声音" else "让麦克风听一段正在播放的音乐",
                 buttonText = "开始识别",
@@ -433,7 +432,7 @@ private fun ListeningOrb(mode: RecognitionMode) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                if (mode == RecognitionMode.PLAYBACK) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
+                if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.Recognition else MelodiaIcons.Mic,
                 null,
                 tint = DesktopColors.TextPrimary,
                 modifier = Modifier.size(30.dp)
@@ -678,11 +677,11 @@ private fun StageIcon(icon: ImageVector, modifier: Modifier = Modifier) {
 
 private fun failureIcon(reason: RecognitionFailedReason, mode: RecognitionMode): ImageVector = when (reason) {
     RecognitionFailedReason.NOT_FOUND -> Icons.Rounded.MusicOff
-    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.VolumeOff else Icons.Rounded.MicOff
+    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.VolumeOff else MelodiaIcons.MicOff
     RecognitionFailedReason.NETWORK -> Icons.Rounded.WifiOff
-    RecognitionFailedReason.RECORDER_UNAVAILABLE -> Icons.Rounded.MicOff
-    RecognitionFailedReason.STOPPED -> Icons.Rounded.StopCircle
-    RecognitionFailedReason.ENGINE_UNAVAILABLE, RecognitionFailedReason.UNKNOWN -> Icons.Rounded.ErrorOutline
+    RecognitionFailedReason.RECORDER_UNAVAILABLE -> MelodiaIcons.MicOff
+    RecognitionFailedReason.STOPPED -> MelodiaIcons.Info
+    RecognitionFailedReason.ENGINE_UNAVAILABLE, RecognitionFailedReason.UNKNOWN -> MelodiaIcons.ErrorIcon
 }
 
 private fun failureCopy(reason: RecognitionFailedReason, progress: RecognitionProgress, mode: RecognitionMode): Pair<String, String> =

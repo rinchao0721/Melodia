@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaStyle
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 // 网易封面按显示尺寸请求缩略图，避免桌面端拉原图
 fun sizedCoverUrl(url: String?, px: Int): String? {
@@ -66,6 +66,6 @@ fun Cover(
 @Composable
 private fun CoverFallback(size: Dp) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.MusicNote, null, tint = DesktopColors.TextGray, modifier = Modifier.size(size * 0.4f))
+        Icon(MelodiaIcons.MusicNote, null, tint = DesktopColors.TextGray, modifier = Modifier.size(size * 0.4f))
     }
 }

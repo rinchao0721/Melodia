@@ -44,11 +44,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -137,6 +132,11 @@ import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.Headphones
+import com.lin0721.linmusic.core.ui.icons.MusicNote
+import com.lin0721.linmusic.core.ui.icons.Send
 
 private val BubbleBigRadius = 16.dp
 private val BubbleSmallRadius = 5.dp
@@ -335,7 +335,7 @@ fun PrivateChatScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     EmptyState(
-                                        icon = Icons.Rounded.ChatBubbleOutline,
+                                        icon = MelodiaIcons.Comment,
                                         title = "还没有私信消息",
                                         subtitle = "发送一条消息开始聊天吧"
                                     )
@@ -1042,7 +1042,7 @@ private fun PrivateListenInviteBubble(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Headphones,
+                imageVector = MelodiaIcons.Headphones,
                 contentDescription = null,
                 tint = if (isEnded) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
                 modifier = Modifier.size(20.dp)
@@ -1224,9 +1224,9 @@ private fun PrivateCardBubble(
 @Composable
 private fun CardFallbackCover(kind: PrivateCardKind) {
     val icon = when (kind) {
-        PrivateCardKind.Song -> Icons.Rounded.MusicNote
+        PrivateCardKind.Song -> MelodiaIcons.MusicNote
         PrivateCardKind.Playlist -> MelodiaIcons.Queue
-        PrivateCardKind.Album -> Icons.Rounded.Album
+        PrivateCardKind.Album -> MelodiaIcons.Album
         PrivateCardKind.Mv -> Icons.Rounded.Videocam
         PrivateCardKind.General -> MelodiaIcons.Share
     }
@@ -1390,7 +1390,7 @@ private fun PrivateChatComposer(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Send,
+                        imageVector = MelodiaIcons.Send,
                         contentDescription = "发送",
                         tint = sendIconTint,
                         modifier = Modifier.size(18.dp)

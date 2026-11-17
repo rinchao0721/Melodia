@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Comment
-import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +46,9 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Copy
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.Reply
+import com.lin0721.linmusic.core.ui.icons.ThumbUp
 
 @Composable
 fun CommentsPreviewCard(
@@ -77,7 +76,7 @@ fun CommentsPreviewCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                        imageVector = MelodiaIcons.Comment,
                         contentDescription = null,
                         tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
@@ -326,7 +325,7 @@ fun CommentRowItem(
                         fontSize = 12.sp
                     )
                     Icon(
-                        imageVector = Icons.Rounded.ThumbUp,
+                        imageVector = MelodiaIcons.ThumbUp,
                         contentDescription = null,
                         tint = if (comment.liked) MelodiaColors.Accent else MelodiaColors.TextTertiary,
                         modifier = Modifier.size(14.dp)
@@ -401,7 +400,7 @@ fun CommentRowItem(
                             )
                             if (allowReply) {
                                 CommentActionMenuItem(
-                                    icon = Icons.AutoMirrored.Rounded.Reply,
+                                    icon = MelodiaIcons.Reply,
                                     label = "回复",
                                     onClick = {
                                         showActionMenu = false

@@ -22,8 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,6 +74,7 @@ import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 private val ModeThumbHeight = 72.dp
 private val SwatchSize = 36.dp
@@ -311,7 +310,7 @@ private fun DynamicSwatch(color: Color, selected: Boolean, onClick: () -> Unit) 
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (selected) MelodiaIcons.Check else Icons.Rounded.AutoAwesome,
+                imageVector = if (selected) MelodiaIcons.Check else MelodiaIcons.Sparkle,
                 contentDescription = if (selected) "系统动态色，已选中" else "系统动态色",
                 tint = contentColorOn(color),
                 modifier = Modifier.size(if (selected) 18.dp else 16.dp)

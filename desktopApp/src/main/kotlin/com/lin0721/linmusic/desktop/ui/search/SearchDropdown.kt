@@ -25,9 +25,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -345,9 +342,9 @@ private fun EntryRow(
     ) {
         when (entry) {
             is DropdownEntry.LinkHit -> LinkHitRow(entry.hit)
-            is DropdownEntry.Recent -> Line(Icons.Rounded.History, entry.keyword)
-            is DropdownEntry.Literal -> Line(Icons.Rounded.Search, "搜索“${entry.query}”")
-            is DropdownEntry.Keyword -> Line(Icons.Rounded.Search, entry.text)
+            is DropdownEntry.Recent -> Line(MelodiaIcons.History, entry.keyword)
+            is DropdownEntry.Literal -> Line(MelodiaIcons.Search, "搜索“${entry.query}”")
+            is DropdownEntry.Keyword -> Line(MelodiaIcons.Search, entry.text)
             is DropdownEntry.SongHit -> Card(
                 entry.track.al.picUrl, entry.track.name,
                 "歌曲 · ${entry.track.ar.joinToString(" / ") { it.name }}", circle = false

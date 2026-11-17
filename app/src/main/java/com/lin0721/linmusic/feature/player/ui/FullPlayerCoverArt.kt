@@ -10,9 +10,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ViewSidebar
-import androidx.compose.material.icons.outlined.ViewSidebar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -42,6 +39,7 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Fullscreen
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Sidebar
 
 private val SidebarToggleGap = 4.dp
 
@@ -179,7 +177,7 @@ fun FullPlayerCollapseButtons(
             ) {
                 // 图标里的侧栏画在右侧，面板停靠左侧时水平翻转
                 Icon(
-                    if (isSidebarFullscreen) Icons.Filled.ViewSidebar else Icons.Outlined.ViewSidebar,
+                    if (isSidebarFullscreen) MelodiaIcons.Sidebar else MelodiaIcons.Sidebar,
                     contentDescription = if (isSidebarFullscreen) "收回侧栏" else "展开全屏",
                     tint = MelodiaColors.TextPrimary,
                     modifier = Modifier

@@ -11,13 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +41,7 @@ import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 // 底部导航栏自定义弹层：支持拖拽排序、显隐切换、数量限制拦截及仅图标模式
 @OptIn(ExperimentalMaterial3Api::class)
@@ -277,7 +271,7 @@ private fun BottomBarItemEditorRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.Menu,
+            imageVector = MelodiaIcons.Menu,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
@@ -308,12 +302,12 @@ private fun BottomBarItemEditorRow(
 
 // 候选项目对应图标映射
 fun bottomBarItemIcon(item: BottomBarItem): ImageVector = when (item) {
-    BottomBarItem.HOME -> Icons.Default.Home
-    BottomBarItem.SEARCH -> Icons.Default.Search
-    BottomBarItem.LIBRARY -> Icons.Default.LibraryMusic
+    BottomBarItem.HOME -> MelodiaIcons.Home
+    BottomBarItem.SEARCH -> MelodiaIcons.Search
+    BottomBarItem.LIBRARY -> MelodiaIcons.Library
     BottomBarItem.CREATE -> Icons.Default.AddBox
-    BottomBarItem.LOCAL_MUSIC -> Icons.Default.Folder
+    BottomBarItem.LOCAL_MUSIC -> MelodiaIcons.LocalMusic
     BottomBarItem.DOWNLOADS -> MelodiaIcons.Download
-    BottomBarItem.CLOUD -> Icons.Outlined.CloudQueue
-    BottomBarItem.PROFILE -> Icons.Default.Person
+    BottomBarItem.CLOUD -> MelodiaIcons.Cloud
+    BottomBarItem.PROFILE -> MelodiaIcons.Person
 }

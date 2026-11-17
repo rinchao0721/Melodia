@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -73,6 +70,8 @@ import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.Unchecked
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 @Composable
 fun rememberLocalCoverUrl(sourceUri: Uri?): String? {
@@ -89,7 +88,7 @@ fun LocalCover(
     size: Dp,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(RadiusCompact),
-    fallbackIcon: ImageVector = Icons.Rounded.MusicNote
+    fallbackIcon: ImageVector = MelodiaIcons.MusicNote
 ) {
     val coverUrl = rememberLocalCoverUrl(sourceUri)
     val placeholder = @Composable {
@@ -276,7 +275,7 @@ fun LocalAlbumCard(
             .width(width)
             .pressable(MelodiaPress.Card, onClick = onClick)
     ) {
-        LocalCover(sourceUri = coverSourceUri, size = width, shape = RoundedCornerShape(8.dp), fallbackIcon = Icons.Rounded.Album)
+        LocalCover(sourceUri = coverSourceUri, size = width, shape = RoundedCornerShape(8.dp), fallbackIcon = MelodiaIcons.Album)
         Spacer(Modifier.height(6.dp))
         Text(
             text = title,

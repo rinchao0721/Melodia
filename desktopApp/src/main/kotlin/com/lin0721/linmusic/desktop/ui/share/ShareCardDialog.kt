@@ -30,8 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -113,6 +111,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 private const val TAG = "ShareCardDialog"
 private val RowShape = RoundedCornerShape(10.dp)
@@ -497,7 +496,7 @@ private fun BackgroundSwatches(
     val base = art.palette.firstOrNull() ?: FallbackBase
     Swatch(current == ShareCardBackground.Auto, "自动", { onChange(ShareCardBackground.Auto) }) {
         Box(Modifier.fillMaxSize().background(lerp(base, Color.Black, 0.25f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+            Icon(MelodiaIcons.Sparkle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
         }
     }
     art.palette.take(ShareCardBackground.PALETTE_SIZE).forEachIndexed { i, color ->

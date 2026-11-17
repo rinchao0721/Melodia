@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +46,7 @@ import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
 import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Info
 
 // 本地曲目操作面板
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,7 +148,7 @@ fun LocalTrackOptionsSheet(
             SheetOptionRow(icon = MelodiaIcons.Edit, label = "编辑标签") {
                 runThenHide(onEditTagsClick)
             }
-            SheetOptionRow(icon = Icons.Rounded.Info, label = "查看详情") {
+            SheetOptionRow(icon = MelodiaIcons.Info, label = "查看详情") {
                 runThenHide(onDetailClick)
             }
             SheetOptionRow(icon = MelodiaIcons.Delete, label = "删除", tint = MelodiaColors.Accent) {

@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,7 +62,7 @@ fun FriendAvatarCircle(
                 contentScale = ContentScale.Crop,
                 error = {
                     Icon(
-                        imageVector = Icons.Rounded.Person,
+                        imageVector = MelodiaIcons.Person,
                         contentDescription = null,
                         tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.size(fallbackIconSize)
@@ -74,7 +72,7 @@ fun FriendAvatarCircle(
             )
         } else {
             Icon(
-                imageVector = Icons.Rounded.Person,
+                imageVector = MelodiaIcons.Person,
                 contentDescription = null,
                 tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(fallbackIconSize)

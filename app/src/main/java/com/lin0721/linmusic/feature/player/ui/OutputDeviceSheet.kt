@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BluetoothAudio
-import androidx.compose.material.icons.rounded.Headset
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +42,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Headphones
 
 // 只展示物理输出类型，蓝牙 LE/USB/有线各算一类
 internal val RELEVANT_DEVICE_TYPES = setOf(
@@ -117,7 +117,7 @@ internal fun rememberCurrentOutputDevice(): AudioDeviceInfo? {
 internal fun deviceIcon(type: Int): ImageVector = when (type) {
     AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> Icons.Rounded.Smartphone
     AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET -> Icons.Rounded.BluetoothAudio
-    else -> Icons.Rounded.Headset
+    else -> MelodiaIcons.Headphones
 }
 
 // 未授予 BLUETOOTH_CONNECT 时系统只返回占位名，兜底成按类型区分的通用名称

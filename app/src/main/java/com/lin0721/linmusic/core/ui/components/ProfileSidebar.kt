@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -48,6 +45,7 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Insights
 
 private val SidebarHorizontalPadding = 20.dp
 private val AccountCardShape = RoundedCornerShape(20.dp)
@@ -114,17 +112,17 @@ fun ProfileSidebar(
 
         // 菜单区。每项跳二级页，收起抽屉由调用方负责
         SidebarMenuItem(
-            icon = Icons.Outlined.History,
+            icon = MelodiaIcons.History,
             title = "最近播放",
             onClick = withLogin(onNavigateToRecentPlay)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.Insights,
+            icon = MelodiaIcons.Insights,
             title = "听歌数据",
             onClick = withLogin(onNavigateToListenData)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.CloudQueue,
+            icon = MelodiaIcons.Cloud,
             title = "我的云盘",
             onClick = withLogin(onNavigateToCloud)
         )
@@ -134,7 +132,7 @@ fun ProfileSidebar(
             onClick = withLogin(onNavigateToDownloads)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.Settings,
+            icon = MelodiaIcons.Settings,
             title = "设置和隐私",
             onClick = onNavigateToSettings
         )
@@ -316,7 +314,7 @@ private fun AccountAvatar(avatarUrl: String?, size: Dp) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Person,
+                imageVector = MelodiaIcons.Person,
                 contentDescription = null,
                 tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(size * 0.55f)

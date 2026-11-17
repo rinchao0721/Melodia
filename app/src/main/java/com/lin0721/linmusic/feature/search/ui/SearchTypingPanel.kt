@@ -19,12 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.NorthWest
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,6 +60,8 @@ import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 private val LeadingSize = 40.dp
 
@@ -88,7 +85,7 @@ internal fun SearchTypingPanel(
     if (query.isBlank()) {
         if (history.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(top = 96.dp), contentAlignment = Alignment.TopCenter) {
-                EmptyState(icon = Icons.Rounded.Search, title = "搜索歌曲、歌手、专辑或歌单")
+                EmptyState(icon = MelodiaIcons.Search, title = "搜索歌曲、歌手、专辑或歌单")
             }
             return
         }
@@ -115,7 +112,7 @@ internal fun SearchTypingPanel(
             items(history, key = { "history_$it" }) { keyword ->
                 PanelRow(
                     onClick = { onSubmitKeyword(keyword) },
-                    leading = { LeadingIcon(Icons.Rounded.History) },
+                    leading = { LeadingIcon(MelodiaIcons.History) },
                     title = AnnotatedString(keyword),
                     trailing = {
                         MelodiaIconButton(onClick = { onRemoveHistory(keyword) }) {
@@ -151,7 +148,7 @@ internal fun SearchTypingPanel(
         item(key = "submit_query") {
             PanelRow(
                 onClick = { onSubmitKeyword(query) },
-                leading = { LeadingIcon(Icons.Rounded.Search, tint = MaterialTheme.colorScheme.onSurface) },
+                leading = { LeadingIcon(MelodiaIcons.Search, tint = MaterialTheme.colorScheme.onSurface) },
                 title = AnnotatedString("搜索“$query”"),
                 titleWeight = FontWeight.Bold
             )
@@ -173,21 +170,21 @@ internal fun SearchTypingPanel(
             when (suggestion) {
                 is SearchSuggestion.ArtistMatch -> PanelRow(
                     onClick = { onArtistClick(suggestion.id) },
-                    leading = { SuggestionCover(suggestion.avatarUrl, Icons.Rounded.Person, circle = true) },
+                    leading = { SuggestionCover(suggestion.avatarUrl, MelodiaIcons.Person, circle = true) },
                     title = title,
                     subtitle = "歌手",
                     trailing = fillButton
                 )
                 is SearchSuggestion.AlbumMatch -> PanelRow(
                     onClick = { onAlbumClick(suggestion.id) },
-                    leading = { SuggestionCover(null, Icons.Rounded.Album, circle = false) },
+                    leading = { SuggestionCover(null, MelodiaIcons.Album, circle = false) },
                     title = title,
                     subtitle = listOf("专辑", suggestion.artistName).filter { it.isNotBlank() }.joinToString(" · "),
                     trailing = fillButton
                 )
                 is SearchSuggestion.Keyword -> PanelRow(
                     onClick = { onSubmitKeyword(suggestion.text) },
-                    leading = { LeadingIcon(Icons.Rounded.Search) },
+                    leading = { LeadingIcon(MelodiaIcons.Search) },
                     title = title,
                     trailing = fillButton
                 )
@@ -207,9 +204,9 @@ private fun SearchLinkHitCard(
     val isSong = target is SongLinkTarget.Song
     val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
     val fallbackIcon = when (target) {
-        is SongLinkTarget.Song -> Icons.Rounded.MusicNote
-        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else MelodiaIcons.Queue
-        is SongLinkTarget.Artist -> Icons.Rounded.Person
+        is SongLinkTarget.Song -> MelodiaIcons.MusicNote
+        is SongLinkTarget.Playlist -> if (target.isAlbum) MelodiaIcons.Album else MelodiaIcons.Queue
+        is SongLinkTarget.Artist -> MelodiaIcons.Person
     }
     val titleText = when {
         preview != null -> preview.title

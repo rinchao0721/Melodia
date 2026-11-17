@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +19,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Group
 
 // 全屏播放页里的一起听入口：未入房弹发起/加入弹层，入房后展开房间页
 @Composable
@@ -78,6 +78,6 @@ fun ListenTogetherCoverBadge(
             .background(if (state.message != null) MelodiaColors.TextTertiary else MelodiaColors.Success),
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Rounded.Group, contentDescription = "一起听中", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(size * 0.65f))
+        Icon(MelodiaIcons.Group, contentDescription = "一起听中", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(size * 0.65f))
     }
 }

@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -1010,7 +1008,7 @@ fun PlaylistScreen(
                         )
                         add(
                             PlaylistMenuItem(
-                                icon = Icons.Default.Person,
+                                icon = MelodiaIcons.Person,
                                 title = "跳转至艺人"
                             ) {
                                 showMoreMenuSheet = false

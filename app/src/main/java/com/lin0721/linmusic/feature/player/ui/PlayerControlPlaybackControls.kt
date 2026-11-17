@@ -10,10 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import com.lin0721.linmusic.core.plugin.ControlVariant
-import androidx.compose.material.icons.rounded.AllInclusive
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
@@ -38,6 +35,8 @@ import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Infinity
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 // 主控件行：随机/漫游、上一曲、播放暂停、下一曲、循环模式
 @Composable
@@ -80,8 +79,8 @@ fun PlaybackControls(
             Icon(
                 imageVector = when {
                     isPersonalFm -> MelodiaIcons.Delete
-                    isRoaming -> Icons.Rounded.AllInclusive
-                    isIntelligence -> Icons.Rounded.AutoAwesome
+                    isRoaming -> MelodiaIcons.Infinity
+                    isIntelligence -> MelodiaIcons.Sparkle
                     else -> MelodiaIcons.Shuffle
                 },
                 contentDescription = if (isPersonalFm) "不喜欢" else null,

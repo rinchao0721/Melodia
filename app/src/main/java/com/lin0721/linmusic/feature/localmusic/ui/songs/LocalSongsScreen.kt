@@ -18,9 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -114,7 +111,7 @@ fun LocalSongsScreen(
             } else {
                 MelodiaIconButton(onClick = { viewModel.toggleSearch() }) {
                     Icon(
-                        if (success.isSearchActive) MelodiaIcons.Close else Icons.Rounded.Search,
+                        if (success.isSearchActive) MelodiaIcons.Close else MelodiaIcons.Search,
                         contentDescription = if (success.isSearchActive) "关闭搜索" else "搜索",
                         tint = MelodiaColors.TextPrimary
                     )
@@ -135,7 +132,7 @@ fun LocalSongsScreen(
                     if (list.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
-                                icon = Icons.Rounded.LibraryMusic,
+                                icon = MelodiaIcons.Library,
                                 title = if (state.tracks.isEmpty()) "还没有本地音频文件" else "没有匹配的结果"
                             )
                         }

@@ -76,7 +76,37 @@ class MelodiaIconsTest {
             MelodiaIcons.ChevronDown,
             MelodiaIcons.ChevronUp,
             MelodiaIcons.ChevronRight,
-            MelodiaIcons.ChevronLeft
+            MelodiaIcons.ChevronLeft,
+            MelodiaIcons.Album,
+            MelodiaIcons.MusicNote,
+            MelodiaIcons.Mic,
+            MelodiaIcons.MicOff,
+            MelodiaIcons.Headphones,
+            MelodiaIcons.Group,
+            MelodiaIcons.GroupAdd,
+            MelodiaIcons.PersonRemove,
+            MelodiaIcons.Menu,
+            MelodiaIcons.Comment,
+            MelodiaIcons.Send,
+            MelodiaIcons.Reply,
+            MelodiaIcons.ThumbUp,
+            MelodiaIcons.Star,
+            MelodiaIcons.Clock,
+            MelodiaIcons.Sparkle,
+            MelodiaIcons.Insights,
+            MelodiaIcons.Tune,
+            MelodiaIcons.Moon,
+            MelodiaIcons.Infinity,
+            MelodiaIcons.FolderOpen,
+            MelodiaIcons.NewFolder,
+            MelodiaIcons.Grid,
+            MelodiaIcons.Sidebar,
+            MelodiaIcons.Lock,
+            MelodiaIcons.Info,
+            MelodiaIcons.Error,
+            MelodiaIcons.Warning,
+            MelodiaIcons.Leaderboard,
+            MelodiaIcons.Fire
         )
 
         icons.forEach { assertIconSpec(it, 2f) }
@@ -94,7 +124,10 @@ class MelodiaIconsTest {
             MelodiaIcons.MiniPlayer,
             MelodiaIcons.MoreHoriz,
             MelodiaIcons.MoreVert,
-            MelodiaIcons.Drag
+            MelodiaIcons.Drag,
+            MelodiaIcons.PlayCircle,
+            MelodiaIcons.PauseCircle,
+            MelodiaIcons.List
         )
 
         icons.forEach { icon ->

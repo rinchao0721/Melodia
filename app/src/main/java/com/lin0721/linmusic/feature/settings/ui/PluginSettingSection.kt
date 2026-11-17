@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -324,7 +322,7 @@ private fun PluginRow(
             }
             if (hasSettings) {
                 IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             if (manifest != null) {

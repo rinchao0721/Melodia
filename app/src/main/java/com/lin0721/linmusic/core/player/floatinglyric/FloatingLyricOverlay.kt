@@ -20,9 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -62,6 +59,7 @@ import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Lock
 
 private const val TAG = "FloatingLyricOverlay"
 
@@ -260,8 +258,8 @@ private fun ControlBar(isPlaying: Boolean, actions: FloatingLyricActions, touche
             actions.onNext()
         }
         Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(18.dp).background(Color.White.copy(alpha = 0.25f)))
-        BarButton(Icons.Rounded.Lock, "锁定歌词", actions.onToggleLock)
-        BarButton(Icons.Rounded.Settings, "歌词设置", actions.onOpenSettings)
+        BarButton(MelodiaIcons.Lock, "锁定歌词", actions.onToggleLock)
+        BarButton(MelodiaIcons.Settings, "歌词设置", actions.onOpenSettings)
         BarButton(MelodiaIcons.Close, "关闭悬浮歌词", actions.onClose)
     }
 }

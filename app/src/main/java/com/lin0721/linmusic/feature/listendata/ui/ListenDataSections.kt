@@ -22,13 +22,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.NightsStay
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.WorkspacePremium
@@ -66,6 +62,10 @@ import com.lin0721.linmusic.feature.listendata.domain.TopArtist
 import com.lin0721.linmusic.feature.listendata.domain.YearStat
 import com.lin0721.linmusic.feature.listendata.domain.toHours
 import com.lin0721.linmusic.feature.listendata.domain.toHoursText
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.Moon
 
 private val CardShape = RoundedCornerShape(10.dp)
 private val CardColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Overlay.copy(alpha = 0.06f)
@@ -473,13 +473,13 @@ fun DailyChartSection(
 
 // 六个时段各自的意象图标，未知 key 退回通用时钟
 private fun periodIcon(key: String): ImageVector = when (key) {
-    "early_morning" -> Icons.Rounded.Bedtime
+    "early_morning" -> MelodiaIcons.Moon
     "morning" -> Icons.Rounded.WbSunny
     "noon" -> Icons.Rounded.LightMode
     "afternoon" -> Icons.Rounded.WbTwilight
-    "night" -> Icons.Rounded.NightsStay
+    "night" -> MelodiaIcons.Moon
     "deep_night" -> Icons.Rounded.DarkMode
-    else -> Icons.Rounded.Schedule
+    else -> MelodiaIcons.Clock
 }
 
 @Composable
@@ -679,7 +679,7 @@ fun PodcastVipSection(
                 caption = "$podcastEpisodes 期节目",
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.Mic,
+                        imageVector = MelodiaIcons.Mic,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(13.dp)

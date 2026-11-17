@@ -24,11 +24,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.FolderOff
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -102,6 +99,7 @@ import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import kotlinx.coroutines.launch
 import java.io.File
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
@@ -114,6 +112,8 @@ import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PushPin
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Upload
+import com.lin0721.linmusic.core.ui.icons.FolderOpen
+import com.lin0721.linmusic.core.ui.icons.NewFolder
 
 private const val HERO_DARKEN_FRACTION = 0.35f
 private const val STICKY_BAR_ANIMATION_MS = 200
@@ -286,8 +286,8 @@ fun LocalPlaylistPage(
                             Modifier.padding(start = HeaderPadding, end = HeaderPadding, bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaylistPill(Icons.Rounded.CreateNewFolder, "添加文件夹", addFolder)
-                            PlaylistPill(Icons.Rounded.AudioFile, "添加歌曲", addFiles)
+                            PlaylistPill(MelodiaIcons.NewFolder, "添加文件夹", addFolder)
+                            PlaylistPill(MelodiaIcons.MusicNote, "添加歌曲", addFiles)
                         }
                     }
                     (scanState as? LocalScanState.Scanning)?.let { scanning ->
@@ -462,11 +462,11 @@ private fun LocalPlaylistMoreMenu(
                 onUploadAll()
             })
             if (isUserPlaylist) {
-                MenuItem("添加文件夹", icon = Icons.Rounded.CreateNewFolder, onClick = {
+                MenuItem("添加文件夹", icon = MelodiaIcons.NewFolder, onClick = {
                     expanded = false
                     onAddFolder()
                 })
-                MenuItem("添加歌曲文件", icon = Icons.Rounded.AudioFile, onClick = {
+                MenuItem("添加歌曲文件", icon = MelodiaIcons.MusicNote, onClick = {
                     expanded = false
                     onAddFiles()
                 })
@@ -551,7 +551,7 @@ private fun MenuScope.LocalTrackMenuItems(
         dismiss()
         onUpload()
     })
-    MenuItem("在文件夹中显示", icon = Icons.Rounded.FolderOpen, onClick = {
+    MenuItem("在文件夹中显示", icon = MelodiaIcons.FolderOpen, onClick = {
         dismiss()
         if (!revealInFileManager(File(track.path))) navigator.showMessage("文件不存在或无法打开")
     })

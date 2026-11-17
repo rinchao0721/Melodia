@@ -23,8 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -176,7 +174,7 @@ private fun CollectPanel(
             value = query,
             onValueChange = { query = it },
             placeholder = "查找歌单",
-            leading = { Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
+            leading = { Icon(MelodiaIcons.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
             trailing = if (query.isNotEmpty()) {
                 {
                     Icon(

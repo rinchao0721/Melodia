@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,6 +44,7 @@ import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Mic
 
 private data class ModeOption(
     val mode: RecognitionMode,
@@ -54,7 +54,7 @@ private data class ModeOption(
 )
 
 private val ModeOptions = listOf(
-    ModeOption(RecognitionMode.MICROPHONE, "麦克风", "识别身边外放的声音", Icons.Rounded.Mic),
+    ModeOption(RecognitionMode.MICROPHONE, "麦克风", "识别身边外放的声音", MelodiaIcons.Mic),
     ModeOption(RecognitionMode.PLAYBACK, "内录", "识别手机里其他 App 正在放的歌", Icons.Rounded.PhoneAndroid)
 )
 

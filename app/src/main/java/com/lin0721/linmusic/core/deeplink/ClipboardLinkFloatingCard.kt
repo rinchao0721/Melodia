@@ -30,10 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -74,6 +70,8 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 private const val AUTO_DISMISS_DELAY_MS = 12_000L
 
@@ -253,9 +251,9 @@ private fun FloatingLinkCover(url: String?, target: SongLinkTarget, circle: Bool
         }
     }
     val fallbackIcon = when (target) {
-        is SongLinkTarget.Song -> Icons.Rounded.MusicNote
-        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else MelodiaIcons.Queue
-        is SongLinkTarget.Artist -> Icons.Rounded.Person
+        is SongLinkTarget.Song -> MelodiaIcons.MusicNote
+        is SongLinkTarget.Playlist -> if (target.isAlbum) MelodiaIcons.Album else MelodiaIcons.Queue
+        is SongLinkTarget.Artist -> MelodiaIcons.Person
     }
     val fallback = @Composable {
         Box(

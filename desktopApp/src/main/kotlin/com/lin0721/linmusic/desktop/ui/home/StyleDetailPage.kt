@@ -21,8 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -76,6 +74,7 @@ import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.Clock
 
 private val EdgePadding = 24.dp
 private val HeroHeight = 280.dp
@@ -400,7 +399,7 @@ private fun SongTableHeader() {
             Text("标题", color = DesktopColors.TextGray, fontSize = 13.sp, modifier = Modifier.weight(0.45f).padding(start = 12.dp))
             Text("专辑", color = DesktopColors.TextGray, fontSize = 13.sp, modifier = Modifier.weight(0.35f).padding(horizontal = 12.dp))
             Box(Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
-                Icon(Icons.Rounded.Schedule, "时长", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Clock, "时长", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
             }
         }
         HorizontalDivider(color = DesktopColors.SurfaceLight, modifier = Modifier.padding(bottom = 8.dp))

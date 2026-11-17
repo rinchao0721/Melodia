@@ -20,14 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -85,6 +77,9 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 private const val RECENT_TRACK_COUNT = 5
 private const val SHELF_ITEM_COUNT = 10
@@ -122,7 +117,7 @@ fun LocalMusicHomeScreen(
                     viewModel.openSearch()
                     navigation.openSongs()
                 }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "搜索", tint = MelodiaColors.TextPrimary)
+                    Icon(MelodiaIcons.Search, contentDescription = "搜索", tint = MelodiaColors.TextPrimary)
                 }
             }
             Box {
@@ -277,7 +272,7 @@ private fun HomeContent(
                                 sourceUri = artist.tracks.first().uri,
                                 size = ArtistAvatarSize,
                                 shape = CircleShape,
-                                fallbackIcon = Icons.Rounded.Person
+                                fallbackIcon = MelodiaIcons.Person
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
@@ -354,10 +349,10 @@ private fun QuickEntries(library: LocalLibraryIndex, navigation: LocalMusicNavig
         modifier = Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.md),
         horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
     ) {
-        QuickEntry(Icons.Rounded.MusicNote, "全部歌曲", "${library.tracks.size}", navigation.openSongs, Modifier.weight(1f))
-        QuickEntry(Icons.Rounded.Mic, "歌手", "${library.artists.size}", navigation.openArtists, Modifier.weight(1f))
-        QuickEntry(Icons.Rounded.Album, "专辑", "${library.knownAlbums.size}", navigation.openAlbums, Modifier.weight(1f))
-        QuickEntry(Icons.Rounded.Folder, "文件夹", "${library.folders.size}", navigation.openFolders, Modifier.weight(1f))
+        QuickEntry(MelodiaIcons.MusicNote, "全部歌曲", "${library.tracks.size}", navigation.openSongs, Modifier.weight(1f))
+        QuickEntry(MelodiaIcons.Mic, "歌手", "${library.artists.size}", navigation.openArtists, Modifier.weight(1f))
+        QuickEntry(MelodiaIcons.Album, "专辑", "${library.knownAlbums.size}", navigation.openAlbums, Modifier.weight(1f))
+        QuickEntry(MelodiaIcons.LocalMusic, "文件夹", "${library.folders.size}", navigation.openFolders, Modifier.weight(1f))
     }
 }
 
@@ -383,7 +378,7 @@ private fun EmptyLibrary(onImport: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             EmptyState(
-                icon = Icons.Rounded.LibraryMusic,
+                icon = MelodiaIcons.Library,
                 title = "还没有本地音频文件",
                 subtitle = "下载的歌曲和手机里已有的音频文件都会出现在这里"
             )
@@ -421,9 +416,9 @@ private fun ImportSheet(onDismiss: () -> Unit, onPickFiles: () -> Unit, onPickFo
                 modifier = Modifier.padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.sm)
             )
             Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
-            ImportOption(Icons.Rounded.LibraryMusic, "选择音频文件", "从系统存储中批量多选音频文件导入", onPickFiles)
+            ImportOption(MelodiaIcons.Library, "选择音频文件", "从系统存储中批量多选音频文件导入", onPickFiles)
             Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
-            ImportOption(Icons.Rounded.Folder, "选择文件夹", "自动递归扫描并导入文件夹内的全部音频", onPickFolder)
+            ImportOption(MelodiaIcons.LocalMusic, "选择文件夹", "自动递归扫描并导入文件夹内的全部音频", onPickFolder)
         }
     }
 }

@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +37,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentSong
 import com.lin0721.linmusic.feature.recent.domain.groupByPlayDay
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private const val SKELETON_ROW_COUNT = 8
 
@@ -109,7 +108,7 @@ private fun RecentPlayList(
     if (isEmpty) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(
-                icon = Icons.Rounded.History,
+                icon = MelodiaIcons.History,
                 title = "还没有${tab.label}播放记录"
             )
         }

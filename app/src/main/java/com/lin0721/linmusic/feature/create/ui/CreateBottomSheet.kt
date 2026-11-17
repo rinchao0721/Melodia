@@ -34,6 +34,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.GroupAdd
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,7 +78,7 @@ fun CreatePopupMenu(
         )
 
         CreateMenuItem(
-            icon = Icons.Rounded.GroupAdd,
+            icon = MelodiaIcons.GroupAdd,
             title = "共建歌单",
             subtitle = "与好友一起创建歌单",
             onClick = {

@@ -1,9 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.library
 
-import androidx.compose.material.icons.Icons
 import com.lin0721.linmusic.core.ui.icons.Edit
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,12 +36,14 @@ import java.io.File
 import java.text.Collator
 import java.util.Locale
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.PushPin
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Upload
+import com.lin0721.linmusic.core.ui.icons.NewFolder
 
 internal const val LOCAL_ITEM_PREFIX = "local:"
 internal const val LOCAL_FILTER_LABEL = "本地音乐"
@@ -175,11 +174,11 @@ internal fun LocalLibraryItemMenu(
             }
         })
         if (isUserPlaylist) {
-            MenuItem("添加文件夹", icon = Icons.Rounded.CreateNewFolder, onClick = {
+            MenuItem("添加文件夹", icon = MelodiaIcons.NewFolder, onClick = {
                 onDismiss()
                 scope.launch { pickMusicFolder()?.let { repository.addFolder(id, it) } }
             })
-            MenuItem("添加歌曲文件", icon = Icons.Rounded.AudioFile, onClick = {
+            MenuItem("添加歌曲文件", icon = MelodiaIcons.MusicNote, onClick = {
                 onDismiss()
                 scope.launch { pickAudioFiles().takeIf { it.isNotEmpty() }?.let { repository.addFiles(id, it) } }
             })

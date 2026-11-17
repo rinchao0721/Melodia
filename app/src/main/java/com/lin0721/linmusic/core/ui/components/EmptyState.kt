@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
 
 // 通用空态：图标 + 标题 + 可选副文案，颜色统一走 colorScheme
 @Composable
@@ -79,7 +79,7 @@ fun ErrorState(
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.ErrorOutline,
+            imageVector = MelodiaIcons.ErrorIcon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
             modifier = Modifier.size(48.dp)

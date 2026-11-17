@@ -3,9 +3,6 @@ package com.lin0721.linmusic.feature.player.ui
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Comment
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,7 +20,6 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +29,9 @@ import com.lin0721.linmusic.core.ui.icons.Subtitles
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
 import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.Moon
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 // 插件布局用的操作行：按给定按钮与顺序排布
 @Composable
@@ -80,20 +79,20 @@ fun PlayerActionRow(
                 }
                 "sleepTimer" -> MelodiaIconButton(onClick = onSleepTimerClick) {
                     Icon(
-                        Icons.Rounded.Bedtime,
+                        MelodiaIcons.Moon,
                         contentDescription = "定时停止",
                         tint = if (sleepTimerActive) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 "comments" -> MelodiaIconButton(onClick = onCommentsClick) {
-                    Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
                     Icon(MelodiaIcons.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "lyricsSettings" -> MelodiaIconButton(onClick = onLyricsSettingsClick) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -210,7 +209,7 @@ fun ActionButtons(
                     if (onLyricsSettingsClick != null) {
                         MelodiaIconButton(onClick = onLyricsSettingsClick) {
                             Icon(
-                                imageVector = Icons.Rounded.Tune,
+                                imageVector = MelodiaIcons.Tune,
                                 contentDescription = "歌词设置",
                                 tint = MelodiaColors.TextSecondary,
                                 modifier = Modifier.size(22.dp)

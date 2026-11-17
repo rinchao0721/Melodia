@@ -43,10 +43,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -122,6 +118,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Headphones
+import com.lin0721.linmusic.core.ui.icons.Send
 
 private val ChatAvatarSize = 36.dp
 private val OuterBubbleRadius = 16.dp
@@ -429,7 +427,7 @@ private fun ChatHeaderBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(Icons.Rounded.Person, null, tint = DesktopColors.TextGray, modifier = Modifier.size(15.dp))
+            Icon(MelodiaIcons.Person, null, tint = DesktopColors.TextGray, modifier = Modifier.size(15.dp))
             Text("查看主页", color = DesktopColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
     }
@@ -841,7 +839,7 @@ private fun ListenInviteCardBubble(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Rounded.Headphones,
+                MelodiaIcons.Headphones,
                 contentDescription = null,
                 tint = if (isEnded) DesktopColors.TextTertiary else DesktopColors.AccentText,
                 modifier = Modifier.size(22.dp)
@@ -1215,7 +1213,7 @@ private fun ChatComposerBar(
                     )
                 } else {
                     Icon(
-                        Icons.AutoMirrored.Rounded.Send,
+                        MelodiaIcons.Send,
                         "发送",
                         tint = if (canSend) DesktopColors.OnAccent else DesktopColors.TextTertiary,
                         modifier = Modifier.size(17.dp)

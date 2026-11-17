@@ -9,8 +9,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +93,7 @@ fun PlaylistCategoryScreen(
                 PlaylistCategoryUiState.Empty -> {
                     SimpleHeader(category)
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        EmptyState(icon = Icons.Rounded.LibraryMusic, title = "该分类下暂时没有歌单")
+                        EmptyState(icon = MelodiaIcons.Library, title = "该分类下暂时没有歌单")
                     }
                 }
                 is PlaylistCategoryUiState.Error -> {

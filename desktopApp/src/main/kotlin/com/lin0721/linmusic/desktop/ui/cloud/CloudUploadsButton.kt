@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +47,8 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Upload
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
 
 private val ButtonSize = 32.dp
 private val PanelWidth = 340.dp
@@ -147,8 +146,8 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         val (icon, iconTint) = when (task.status) {
             UploadStatus.SUCCESS -> MelodiaIcons.CheckCircle to DesktopColors.Accent
-            UploadStatus.FAILED -> Icons.Rounded.ErrorOutline to DesktopColors.Accent
-            UploadStatus.QUEUED -> Icons.Rounded.Schedule to DesktopColors.TextGray
+            UploadStatus.FAILED -> MelodiaIcons.ErrorIcon to DesktopColors.Accent
+            UploadStatus.QUEUED -> MelodiaIcons.Clock to DesktopColors.TextGray
             else -> MelodiaIcons.Upload to DesktopColors.TextPrimary
         }
         Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))

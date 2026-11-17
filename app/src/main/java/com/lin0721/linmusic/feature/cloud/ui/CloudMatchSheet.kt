@@ -21,9 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +50,7 @@ import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private val ResultsMaxHeight = 360.dp
 
@@ -121,7 +119,7 @@ fun CloudMatchSheet(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            EmptyState(icon = Icons.Rounded.Search, title = "输入歌曲名或歌手开始搜索")
+                            EmptyState(icon = MelodiaIcons.Search, title = "输入歌曲名或歌手开始搜索")
                         }
                     }
 
@@ -139,7 +137,7 @@ fun CloudMatchSheet(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            EmptyState(icon = Icons.Rounded.LibraryMusic, title = "没有找到匹配的曲目")
+                            EmptyState(icon = MelodiaIcons.Library, title = "没有找到匹配的曲目")
                         }
                     }
 

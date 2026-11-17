@@ -32,8 +32,6 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -394,7 +392,7 @@ private fun RecognitionTopBar(
             modifier = Modifier.align(Alignment.Center)
         )
         MelodiaIconButton(onClick = onOpenHistory, modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)) {
-            Icon(Icons.Rounded.History, contentDescription = "识别历史", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.History, contentDescription = "识别历史", tint = MelodiaColors.TextPrimary)
         }
     }
 }

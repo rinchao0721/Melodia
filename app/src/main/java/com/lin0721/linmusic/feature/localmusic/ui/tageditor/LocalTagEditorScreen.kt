@@ -23,8 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +65,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import com.lin0721.linmusic.feature.localmusic.data.tags.LocalTagCoverChange
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Info
 
 @Composable
 fun LocalTagEditorScreen(
@@ -192,7 +192,7 @@ fun LocalTagEditorScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is LocalTagEditorUiState.Error -> {
-                    EmptyState(icon = Icons.Rounded.Info, title = state.message, modifier = Modifier.align(Alignment.Center))
+                    EmptyState(icon = MelodiaIcons.Info, title = state.message, modifier = Modifier.align(Alignment.Center))
                 }
                 is LocalTagEditorUiState.Editing -> {
                     if (showDiscardDialog) {

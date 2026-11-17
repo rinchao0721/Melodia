@@ -29,8 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -131,6 +129,7 @@ import com.lin0721.linmusic.core.ui.icons.VolumeUp
 import com.lin0721.linmusic.core.ui.icons.AddCircle
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 private const val HOVER_SCALE = 1.1f
 private const val HOVER_SCALE_MS = 150
@@ -568,7 +567,7 @@ internal class PlayerBarParts(
         var menuOpen by remember { mutableStateOf(false) }
         Box {
             BarIconButton(
-                Icons.Rounded.Tune,
+                MelodiaIcons.Tune,
                 "私人FM模式：${personalFmMode.displayName}",
                 enabled = hasTrack,
                 highlighted = true,
