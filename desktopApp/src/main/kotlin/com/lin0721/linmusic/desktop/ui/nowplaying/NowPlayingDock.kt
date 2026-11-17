@@ -57,6 +57,7 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.PanelExpand
 import com.lin0721.linmusic.core.ui.icons.ChevronLeft
 
 private const val PEEK_DELAY_MS = 120L
@@ -251,7 +252,7 @@ fun NowPlayingDock(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                MelodiaIcons.ChevronLeft,
+                                MelodiaIcons.PanelExpand,
                                 null,
                                 tint = if (hovered) DesktopColors.TextPrimary else DesktopColors.TextGray
                             )

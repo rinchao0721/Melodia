@@ -915,7 +915,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             val artist = metadata?.artist?.toString() ?: ""
 
             val isPlaying = session.player.isPlaying
-            val playPauseIconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            val playPauseIconRes = if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play
             val playPauseTitle = if (isPlaying) "暂停" else "播放"
 
             val playPauseAction = actionFactory.createMediaAction(
@@ -926,7 +926,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             )
             val nextAction = actionFactory.createMediaAction(
                 session,
-                IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_next),
+                IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_media_next),
                 "下一首",
                 Player.COMMAND_SEEK_TO_NEXT
             )
@@ -943,7 +943,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             if (!isPersonalFm) {
                 val prevAction = actionFactory.createMediaAction(
                     session,
-                    IconCompat.createWithResource(this@MelodiaPlaybackService, android.R.drawable.ic_media_previous),
+                    IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_media_previous),
                     "上一首",
                     Player.COMMAND_SEEK_TO_PREVIOUS
                 )

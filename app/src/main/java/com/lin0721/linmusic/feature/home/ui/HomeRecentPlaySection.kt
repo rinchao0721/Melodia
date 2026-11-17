@@ -33,7 +33,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
-import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 
@@ -41,7 +40,7 @@ import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 // 手机竖排 4 行，压低行高，避免首屏被这一块占满
 private val RowHeightCompact = 48.dp
 private val RowHeightExpanded = 56.dp
-private val ItemGapCompact = 7.dp
+private val ItemGapCompact = 8.dp
 private val ItemGapExpanded = 9.dp
 
 @Composable
@@ -106,7 +105,7 @@ private fun RecentPlayRow(
         modifier = modifier
             .height(rowHeight)
             .pressable(MelodiaPress.Card) { onClick() }
-            .clip(RoundedCornerShape(RadiusCompact))
+            .clip(RoundedCornerShape(4.dp))
             .background(MelodiaColors.Overlay.copy(alpha = 0.1f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -121,12 +120,12 @@ private fun RecentPlayRow(
         Text(
             text = item.name,
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
             lineHeight = 15.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 9.dp, end = 8.dp)
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp)
         )
     }
 }

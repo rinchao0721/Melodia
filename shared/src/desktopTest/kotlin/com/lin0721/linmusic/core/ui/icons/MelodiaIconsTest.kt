@@ -48,6 +48,8 @@ class MelodiaIconsTest {
             MelodiaIcons.Subtitles,
             MelodiaIcons.Timer,
             MelodiaIcons.Devices,
+            MelodiaIcons.Queue,
+            MelodiaIcons.AddToQueue,
             MelodiaIcons.Close,
             MelodiaIcons.Check,
             MelodiaIcons.CheckCircle,
@@ -153,13 +155,17 @@ class MelodiaIconsTest {
     }
 
     @Test
+    fun fillIconsHaveFillOnly() {
+        listOf(MelodiaIcons.Play, MelodiaIcons.Pause, MelodiaIcons.SkipNext, MelodiaIcons.SkipPrevious, MelodiaIcons.CheckCircleFilled).forEach { icon ->
+            val paths = collectPaths(icon.root)
+            assertTrue("${icon.name} should have paths", paths.isNotEmpty())
+            paths.forEach { assertNull("${icon.name} should not stroke", it.stroke) }
+        }
+    }
+
+    @Test
     fun solidIconsHaveFillAndStroke() {
         val icons = listOf(
-            MelodiaIcons.Play,
-            MelodiaIcons.Pause,
-            MelodiaIcons.SkipNext,
-            MelodiaIcons.SkipPrevious,
-            MelodiaIcons.Queue,
             MelodiaIcons.FavoriteFilled,
             MelodiaIcons.MiniPlayer,
             MelodiaIcons.MoreHoriz,

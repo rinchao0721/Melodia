@@ -59,6 +59,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePill
@@ -66,10 +67,14 @@ import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePopup
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
+import com.lin0721.linmusic.desktop.ui.track.CollectToPlaylistPopup
 import com.lin0721.linmusic.desktop.ui.track.artistLinks
 import com.lin0721.linmusic.feature.player.presentation.visibleInfoCards
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.PanelCollapse
 import com.lin0721.linmusic.core.ui.icons.ChevronRight
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.Moon
@@ -271,10 +276,10 @@ private fun PanelHeader(
         HoverReveal(revealed = hovered, modifier = Modifier.offset(x = (-HeaderButtonOffset)), reserveSpace = false) {
             IconButton(onClick = onClose, modifier = Modifier.size(HeaderButtonSize)) {
                 Icon(
-                    MelodiaIcons.ChevronRight,
+                    MelodiaIcons.PanelCollapse,
                     "关闭正在播放",
                     tint = DesktopColors.TextGray,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }

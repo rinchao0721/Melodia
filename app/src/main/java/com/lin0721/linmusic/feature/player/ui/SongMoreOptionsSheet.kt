@@ -46,7 +46,7 @@ import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.AddToQueue
 import com.lin0721.linmusic.core.ui.icons.Subtitles
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.Close
@@ -282,7 +282,7 @@ fun SongMoreOptionsSheet(
 
                     // 5. 插播相似歌曲
                     OptionRow(
-                        icon = MelodiaIcons.Queue,
+                        icon = MelodiaIcons.AddToQueue,
                         text = "插播相似歌曲",
                         onClick = {
                             scope.launch {

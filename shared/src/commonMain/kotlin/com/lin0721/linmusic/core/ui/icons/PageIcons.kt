@@ -320,3 +320,10 @@ val MelodiaIcons.Error: ImageVector get() = error
 val MelodiaIcons.Warning: ImageVector get() = warning
 val MelodiaIcons.Leaderboard: ImageVector get() = leaderboard
 val MelodiaIcons.Fire: ImageVector get() = fire
+
+// 播放·空心：线条圆圈加线条三角
+private val playCircleOutline by lazy {
+    lineIcon("PlayCircleOutline", "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0 -18z", "M10 8.6v6.8l5.3 -3.4z")
+}
+
+val MelodiaIcons.PlayCircleOutline: ImageVector get() = playCircleOutline

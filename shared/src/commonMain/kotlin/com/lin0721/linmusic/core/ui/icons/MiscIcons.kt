@@ -279,11 +279,9 @@ private val addSquare by lazy {
 private val libraryAdd by lazy {
     lineIcon(
         "LibraryAdd",
-        "M4 3.5v17",
-        "M8.5 3.5v17",
-        "M16.5 7v8",
-        "M12.5 11h8",
-        "M13 20.5h7"
+        "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0 -18z",
+        "M12 8v8",
+        "M8 12h8"
     )
 }
 // 共享文件夹
@@ -384,17 +382,14 @@ private val downloaded by lazy {
 }
 // 窗口最大化
 private val maximize by lazy {
-    lineIcon(
-        "Maximize",
-        "M5.5 4.5h13a1 1 0 0 1 1 1v13a1 1 0 0 1 -1 1h-13a1 1 0 0 1 -1 -1v-13a1 1 0 0 1 1 -1z"
-    )
+    lineIcon("Maximize", "M7 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1H7a1 1 0 0 1 -1 -1V7a1 1 0 0 1 1 -1z")
 }
 // 窗口还原
 private val restoreWindow by lazy {
     lineIcon(
         "RestoreWindow",
-        "M5.5 8h10a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1V9a1 1 0 0 1 1 -1z",
-        "M8 4.5h10.5a1 1 0 0 1 1 1V16"
+        "M6.5 9h8a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-8a1 1 0 0 1 1 -1z",
+        "M8.5 6h9a1 1 0 0 1 1 1v9"
     )
 }
 
@@ -440,3 +435,21 @@ val MelodiaIcons.At: ImageVector get() = at
 val MelodiaIcons.Downloaded: ImageVector get() = downloaded
 val MelodiaIcons.Maximize: ImageVector get() = maximize
 val MelodiaIcons.RestoreWindow: ImageVector get() = restoreWindow
+
+// 右侧面板收起：右分栏加右尖括号
+private val panelCollapse by lazy {
+    lineIcon("PanelCollapse", "M6 4.5h12a2 2 0 0 1 2 2v11a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2z", "M15 4.5v15", "M8.5 9.5L11 12l-2.5 2.5")
+}
+// 右侧面板展开：右分栏加左尖括号
+private val panelExpand by lazy {
+    lineIcon("PanelExpand", "M6 4.5h12a2 2 0 0 1 2 2v11a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2z", "M15 4.5v15", "M11 9.5L8.5 12l2.5 2.5")
+}
+// 窗口最小化：短横线
+private val minimize by lazy { lineIcon("Minimize", "M6 12h12") }
+// 窗口关闭：细叉
+private val closeWindow by lazy { lineIcon("CloseWindow", "M6.5 6.5l11 11", "M17.5 6.5l-11 11") }
+
+val MelodiaIcons.PanelCollapse: ImageVector get() = panelCollapse
+val MelodiaIcons.PanelExpand: ImageVector get() = panelExpand
+val MelodiaIcons.Minimize: ImageVector get() = minimize
+val MelodiaIcons.CloseWindow: ImageVector get() = closeWindow

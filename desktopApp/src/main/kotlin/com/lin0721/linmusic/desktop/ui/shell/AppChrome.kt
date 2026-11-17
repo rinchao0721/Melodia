@@ -163,7 +163,10 @@ internal fun WindowScope.AppTitleBar(
             }
         },
         isBrowseActive = currentRoute == DesktopRoute.Browse,
-        onBrowseClick = { state.navigate(DesktopRoute.Browse) },
+        // 已在浏览页再点即返回上一页，按钮作开关用
+        onBrowseClick = {
+            if (currentRoute == DesktopRoute.Browse && state.canGoBack) state.navigateBack() else state.navigate(DesktopRoute.Browse)
+        },
         cloudMusic = deps.cloudMusic,
         privateUnreadCount = privateUnreadCount,
         onDismissUnread = deps.privateUnreadMonitor::markAllRead,

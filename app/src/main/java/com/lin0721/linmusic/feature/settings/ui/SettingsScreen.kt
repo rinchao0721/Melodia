@@ -56,13 +56,13 @@ import com.lin0721.linmusic.core.ui.icons.Comment
 import com.lin0721.linmusic.core.ui.icons.Info
 import com.lin0721.linmusic.core.ui.icons.Palette
 import com.lin0721.linmusic.core.ui.icons.Phone
-import com.lin0721.linmusic.core.ui.icons.PlayCircle
+import com.lin0721.linmusic.core.ui.icons.PlayCircleOutline
 import com.lin0721.linmusic.core.ui.icons.Storage
 import com.lin0721.linmusic.core.ui.icons.Wifi
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
-    PLAYBACK("播放", listOf("播放参数"), MelodiaIcons.PlayCircle),
+    PLAYBACK("播放", listOf("播放参数"), MelodiaIcons.PlayCircleOutline),
     QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), MelodiaIcons.HighQuality),
     DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), MelodiaIcons.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), MelodiaIcons.Wifi),

@@ -251,7 +251,7 @@ fun LocalPlaylistPage(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        PlayCircleButton(PlayButtonSize, 32.dp, isThisContext && playWhenReady, onPlayClick)
+                        PlayCircleButton(PlayButtonSize, 24.dp, isThisContext && playWhenReady, onPlayClick)
                         ActionIcon(
                             MelodiaIcons.Shuffle,
                             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",

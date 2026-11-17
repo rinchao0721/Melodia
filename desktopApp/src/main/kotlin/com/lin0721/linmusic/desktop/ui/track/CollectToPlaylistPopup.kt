@@ -78,7 +78,7 @@ import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.max
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Unchecked
 
@@ -390,7 +390,7 @@ private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: ()
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
         )
         Icon(
-            if (checked) MelodiaIcons.CheckCircle else MelodiaIcons.Unchecked,
+            if (checked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.Unchecked,
             if (checked) "已加入" else "未加入",
             tint = if (checked) DesktopColors.Accent else DesktopColors.TextGray,
             modifier = Modifier.size(22.dp)

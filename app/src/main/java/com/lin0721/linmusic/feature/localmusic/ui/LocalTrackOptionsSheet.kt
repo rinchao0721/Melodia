@@ -39,11 +39,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddToQueue
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
-import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
 import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Info
@@ -131,7 +131,7 @@ fun LocalTrackOptionsSheet(
             SheetOptionRow(icon = MelodiaIcons.Play, label = "播放") {
                 runThenHide(onPlayClick)
             }
-            SheetOptionRow(icon = MelodiaIcons.PlaylistPlay, label = "下一首播放") {
+            SheetOptionRow(icon = MelodiaIcons.AddToQueue, label = "下一首播放") {
                 runThenHide(onPlayNextClick)
             }
             SheetOptionRow(icon = MelodiaIcons.PlaylistAdd, label = "加入本地歌单") {

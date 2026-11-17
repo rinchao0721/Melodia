@@ -63,29 +63,20 @@ private val remove by lazy {
         "M8 12h8"
     )
 }
-// 加入歌单：双音符加号
+// 加入歌单：加号
 private val playlistAdd by lazy {
     lineIcon(
         "PlaylistAdd",
-        "M5.5 3v6",
-        "M2.5 6h6",
-        "M11.5 5h8",
-        "M19.5 5v11",
-        "M8 11v8",
-        "M17.5 14a2 2 0 1 0 0 4 2 2 0 0 0 0 -4z",
-        "M6 17a2 2 0 1 0 0 4 2 2 0 0 0 0 -4z"
+        "M12 4v16",
+        "M4 12h16"
     )
 }
-// 移出歌单：双音符减号
+// 移出歌单：圆内减号
 private val playlistRemove by lazy {
     lineIcon(
         "PlaylistRemove",
-        "M2.5 6h6",
-        "M11.5 5h8",
-        "M19.5 5v11",
-        "M8 11v8",
-        "M17.5 14a2 2 0 1 0 0 4 2 2 0 0 0 0 -4z",
-        "M6 17a2 2 0 1 0 0 4 2 2 0 0 0 0 -4z"
+        "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0 -18z",
+        "M8 12h8"
     )
 }
 // 播放歌单：横梁双音符
@@ -311,3 +302,13 @@ val MelodiaIcons.ChevronDown: ImageVector get() = chevronDown
 val MelodiaIcons.ChevronUp: ImageVector get() = chevronUp
 val MelodiaIcons.ChevronRight: ImageVector get() = chevronRight
 val MelodiaIcons.ChevronLeft: ImageVector get() = chevronLeft
+
+// 已加入：实心圆镂空对勾
+private val checkCircleFilled by lazy {
+    fillIcon(
+        "CheckCircleFilled",
+        "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0 -20zM6.8 12.6l1.6 -1.6 2.4 2.4 5 -5 1.6 1.6 -6.6 6.6z"
+    )
+}
+
+val MelodiaIcons.CheckCircleFilled: ImageVector get() = checkCircleFilled

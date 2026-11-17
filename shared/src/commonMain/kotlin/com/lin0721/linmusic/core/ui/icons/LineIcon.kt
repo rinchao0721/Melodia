@@ -62,3 +62,17 @@ fun solidIcon(name: String, fillPaths: List<String>, linePaths: List<String> = e
             )
         }
     }.build()
+
+// 纯填充构建器：无描边，镂空细节不被描边吃掉
+fun fillIcon(name: String, vararg paths: String): ImageVector =
+    ImageVector.Builder(
+        name = name,
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        paths.forEach { data ->
+            addPath(pathData = addPathNodes(data), pathFillType = PathFillType.EvenOdd, fill = SolidColor(Color.Black))
+        }
+    }.build()

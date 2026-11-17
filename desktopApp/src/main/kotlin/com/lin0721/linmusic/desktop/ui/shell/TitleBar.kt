@@ -114,6 +114,8 @@ import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CloseWindow
+import com.lin0721.linmusic.core.ui.icons.Minimize
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Download
@@ -429,13 +431,13 @@ fun WindowScope.TitleBar(
                     hasUpdate = hasUpdate,
                     onLogoutClick = onLogoutClick
                 )
-                WindowButton(MelodiaIcons.Remove, "最小化", onClick = onMinimize)
+                WindowButton(MelodiaIcons.Minimize, "最小化", onClick = onMinimize)
                 WindowButton(
                     if (isMaximized) MelodiaIcons.RestoreWindow else MelodiaIcons.Maximize,
                     if (isMaximized) "还原" else "最大化",
                     onClick = onToggleMaximize
                 )
-                WindowButton(MelodiaIcons.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
+                WindowButton(MelodiaIcons.CloseWindow, "关闭", hoverColor = CloseHover, onClick = onClose)
             }
         }
 

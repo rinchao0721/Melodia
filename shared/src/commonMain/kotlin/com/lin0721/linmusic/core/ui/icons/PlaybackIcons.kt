@@ -4,36 +4,38 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 // 播放控制类图标，挂在 MelodiaIcons 下按类别分文件
 
-private const val SPEAKER = "M3.5 9.8v4.4a1 1 0 0 0 1 1h2.8L12 19.5v-15L7.3 8.8H4.5a1 1 0 0 0 -1 1z"
+private const val SPEAKER = "M4 10v4a1 1 0 0 0 1 1h2.5l4.5 4V5L7.5 9H5a1 1 0 0 0 -1 1z"
 private const val HEART = "M12 20C8 17.4 3 13.5 3 8.9A4.9 4.9 0 0 1 12 6.2 4.9 4.9 0 0 1 21 8.9c0 4.6 -5 8.5 -9 11.1z"
 private const val REPEAT_TOP = "M3.5 11.5V10a3.5 3.5 0 0 1 3.5 -3.5h13.5"
 private const val REPEAT_BOTTOM = "M20.5 12.5V14a3.5 3.5 0 0 1 -3.5 3.5H3.5"
-private const val SCREEN = "M5 4.5h14a2 2 0 0 1 2 2v11a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2z"
+private const val SCREEN = "M6 5h12a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2V7a2 2 0 0 1 2 -2z"
 
+// 播放：纯填充小圆角三角，参照 SP 的轻重
 private val play by lazy {
-    solidIcon("Play", listOf("M8 6.2v11.6a1.8 1.8 0 0 0 2.7 1.55l8.9 -5.8a1.8 1.8 0 0 0 0 -3.1L10.7 4.65A1.8 1.8 0 0 0 8 6.2z"))
+    fillIcon("Play", "M7.4 4.2l12.1 7a.9 .9 0 0 1 0 1.6l-12.1 7A.9 .9 0 0 1 6 19V5a.9 .9 0 0 1 1.4 -.8z")
 }
+// 暂停：纯填充双竖条
 private val pause by lazy {
-    solidIcon(
+    fillIcon(
         "Pause",
-        listOf(
-            "M6.5 4h2.5a.5 .5 0 0 1 .5 .5v15a.5 .5 0 0 1 -.5 .5H6.5a.5 .5 0 0 1 -.5 -.5v-15a.5 .5 0 0 1 .5 -.5z",
-            "M15 4h2.5a.5 .5 0 0 1 .5 .5v15a.5 .5 0 0 1 -.5 .5H15a.5 .5 0 0 1 -.5 -.5v-15a.5 .5 0 0 1 .5 -.5z"
-        )
+        "M6 3.5h2.6a.8 .8 0 0 1 .8 .8v15.4a.8 .8 0 0 1 -.8 .8H6a.8 .8 0 0 1 -.8 -.8V4.3A.8 .8 0 0 1 6 3.5z",
+        "M15.4 3.5h2.6a.8 .8 0 0 1 .8 .8v15.4a.8 .8 0 0 1 -.8 .8h-2.6a.8 .8 0 0 1 -.8 -.8V4.3a.8 .8 0 0 1 .8 -.8z"
     )
 }
+// 下一首：纯填充三角加竖条
 private val skipNext by lazy {
-    solidIcon(
+    fillIcon(
         "SkipNext",
-        listOf("M4.5 5.2v13.6a1 1 0 0 0 1.6 .8l8.8 -6.8a1 1 0 0 0 0 -1.6L6.1 4.4a1 1 0 0 0 -1.6 .8z"),
-        listOf("M19.5 4v16")
+        "M5.4 4.3l10.3 6.9a1 1 0 0 1 0 1.6L5.4 19.7A.9 .9 0 0 1 4 19V5a.9 .9 0 0 1 1.4 -.7z",
+        "M17.6 3.5h1.6a.8 .8 0 0 1 .8 .8v15.4a.8 .8 0 0 1 -.8 .8h-1.6a.8 .8 0 0 1 -.8 -.8V4.3a.8 .8 0 0 1 .8 -.8z"
     )
 }
+// 上一首：下一首的镜像
 private val skipPrevious by lazy {
-    solidIcon(
+    fillIcon(
         "SkipPrevious",
-        listOf("M19.5 5.2v13.6a1 1 0 0 1 -1.6 .8l-8.8 -6.8a1 1 0 0 1 0 -1.6l8.8 -6.8a1 1 0 0 1 1.6 .8z"),
-        listOf("M4.5 4v16")
+        "M18.6 4.3l-10.3 6.9a1 1 0 0 0 0 1.6l10.3 6.9A.9 .9 0 0 0 20 19V5a.9 .9 0 0 0 -1.4 -.7z",
+        "M6.4 3.5H4.8a.8 .8 0 0 0 -.8 .8v15.4a.8 .8 0 0 0 .8 .8h1.6a.8 .8 0 0 0 .8 -.8V4.3a.8 .8 0 0 0 -.8 -.8z"
     )
 }
 private val shuffle by lazy {
@@ -53,36 +55,29 @@ private val repeatOne by lazy {
     lineIcon("RepeatOne", REPEAT_TOP, "M17.5 3.5l3 3 -3 3", REPEAT_BOTTOM, "M6.5 20.5l-3 -3 3 -3", "M11 10.8l1.3 -.8v4")
 }
 private val queue by lazy {
-    solidIcon(
-        "Queue",
-        listOf("M10.6 12.5v5l4.2 -2.5z"),
-        listOf(
-            "M6.5 4h11",
-            "M5.5 9h13a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z"
-        )
-    )
+    lineIcon("Queue", "M7 4.5h10a2.5 2.5 0 0 1 0 5H7a2.5 2.5 0 0 1 0 -5z", "M4 14.5h16", "M4 19.5h16")
 }
 private val favorite by lazy { lineIcon("Favorite", HEART) }
 private val favoriteFilled by lazy { solidIcon("FavoriteFilled", listOf(HEART)) }
-private val volumeUp by lazy { lineIcon("VolumeUp", SPEAKER, "M15.5 9a4.2 4.2 0 0 1 0 6", "M18.5 6a8.5 8.5 0 0 1 0 12") }
-private val volumeDown by lazy { lineIcon("VolumeDown", SPEAKER, "M15.5 9a4.2 4.2 0 0 1 0 6") }
+private val volumeUp by lazy { lineIcon("VolumeUp", SPEAKER, "M15.5 9.2a4 4 0 0 1 0 5.6", "M18.3 6.5a7.8 7.8 0 0 1 0 11") }
+private val volumeDown by lazy { lineIcon("VolumeDown", SPEAKER, "M15.5 9.2a4 4 0 0 1 0 5.6") }
 private val volumeOff by lazy { lineIcon("VolumeOff", SPEAKER, "M16 9.5l5 5", "M21 9.5l-5 5") }
 private val fullscreen by lazy {
     lineIcon(
         "Fullscreen",
-        "M3.5 8.5V5a1.5 1.5 0 0 1 1.5 -1.5h3.5",
-        "M15.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5v3.5",
-        "M20.5 15.5V19a1.5 1.5 0 0 1 -1.5 1.5h-3.5",
-        "M8.5 20.5H5A1.5 1.5 0 0 1 3.5 19v-3.5"
+        "M4.5 9V6a1.5 1.5 0 0 1 1.5 -1.5h3",
+        "M15 4.5h3A1.5 1.5 0 0 1 19.5 6v3",
+        "M19.5 15v3a1.5 1.5 0 0 1 -1.5 1.5h-3",
+        "M9 19.5H6A1.5 1.5 0 0 1 4.5 18v-3"
     )
 }
 private val fullscreenExit by lazy {
     lineIcon(
         "FullscreenExit",
-        "M3.5 8.5H7A1.5 1.5 0 0 0 8.5 7V3.5",
-        "M15.5 3.5V7A1.5 1.5 0 0 0 17 8.5h3.5",
-        "M20.5 15.5H17a1.5 1.5 0 0 0 -1.5 1.5v3.5",
-        "M8.5 20.5V17A1.5 1.5 0 0 0 7 15.5H3.5"
+        "M4.5 9H7.5A1.5 1.5 0 0 0 9 7.5V4.5",
+        "M15 4.5v3A1.5 1.5 0 0 0 16.5 9h3",
+        "M19.5 15h-3a1.5 1.5 0 0 0 -1.5 1.5v3",
+        "M9 19.5v-3A1.5 1.5 0 0 0 7.5 15h-3"
     )
 }
 private val openInFull by lazy {
@@ -100,13 +95,13 @@ private val timer by lazy {
 private val devices by lazy {
     lineIcon(
         "Devices",
-        "M7.5 8H5a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2.5",
-        "M12.5 4h6A2.5 2.5 0 0 1 21 6.5v11A2.5 2.5 0 0 1 18.5 20h-6A2.5 2.5 0 0 1 10 17.5v-11A2.5 2.5 0 0 1 12.5 4z",
-        "M15.5 11.9a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0 -5.2z",
-        "M15.5 8.3v.01"
+        "M7.5 8.5H6a2 2 0 0 0 -2 2v7a2 2 0 0 0 2 2h1.5",
+        "M12.5 4.5h5.5a2 2 0 0 1 2 2v11a2 2 0 0 1 -2 2h-5.5a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2z",
+        "M15.25 12.3a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0 -4.4z",
+        "M15.25 8.5v.01"
     )
 }
-private val miniPlayer by lazy { solidIcon("MiniPlayer", listOf("M13.5 12.5h4v3.5h-4z"), listOf(SCREEN)) }
+private val miniPlayer by lazy { solidIcon("MiniPlayer", listOf("M13 12.5h4v3.5h-4z"), listOf(SCREEN)) }
 
 val MelodiaIcons.Play: ImageVector get() = play
 val MelodiaIcons.Pause: ImageVector get() = pause
@@ -129,3 +124,10 @@ val MelodiaIcons.Subtitles: ImageVector get() = subtitles
 val MelodiaIcons.Timer: ImageVector get() = timer
 val MelodiaIcons.Devices: ImageVector get() = devices
 val MelodiaIcons.MiniPlayer: ImageVector get() = miniPlayer
+
+// 插播：左上加号接正在播放胶囊，下接两行待播
+private val addToQueue by lazy {
+    lineIcon("AddToQueue", "M5 3.5v5", "M2.5 6h5", "M10.5 4h7.5a2.5 2.5 0 0 1 0 5h-8", "M4 14.5h16", "M4 19.5h16")
+}
+
+val MelodiaIcons.AddToQueue: ImageVector get() = addToQueue

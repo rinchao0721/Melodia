@@ -24,10 +24,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.Subtitles
 import com.lin0721.linmusic.core.ui.icons.MoreVert
-import com.lin0721.linmusic.core.ui.icons.PlaylistPlay
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Comment
 import com.lin0721.linmusic.core.ui.icons.Moon
@@ -66,7 +66,7 @@ fun PlayerActionRow(
                     )
                 }
                 "queue" -> MelodiaIconButton(onClick = onQueueClick) {
-                    Icon(MelodiaIcons.PlaylistPlay, contentDescription = "播放队列", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
+                    Icon(MelodiaIcons.Queue, contentDescription = "播放队列", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "share" -> MelodiaIconButton(onClick = onShareClick) {
                     Icon(MelodiaIcons.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
@@ -230,7 +230,7 @@ fun ActionButtons(
                     onClick = onQueueClick,
                     modifier = if (showLyricsControls) Modifier else Modifier.offset(x = 12.dp)
                 ) {
-                    Icon(MelodiaIcons.PlaylistPlay, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
+                    Icon(MelodiaIcons.Queue, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
             }
         }

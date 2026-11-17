@@ -1,9 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自绘线性图标，与 MelodiaIcons 同规格 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24.0"
-    android:viewportHeight="24.0">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10.59,9.17L5.41,4L4,5.41l5.17,5.17l1.42,-1.41zM14.5,4l2.04,2.04L4,18.59L5.41,20l12.55,-12.54L20,9.5V4h-5.5zm0.33,9.41l-1.41,1.41l3.13,3.13L14.5,20H20v-5.5l-2.04,2.04l-3.13,-3.13z"/>
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M3 7h3.2c2 0 3.3 1 4.2 2.6l2.6 4.8c.9 1.6 2.2 2.6 4.2 2.6H21"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2"/>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M3 17h3.2c1.4 0 2.5 -.5 3.3 -1.4"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2"/>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M14.5 8.4c.8 -.9 1.9 -1.4 3.3 -1.4H21"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2"/>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M18 4l3 3 -3 3"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2"/>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M18 14l3 3 -3 3"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2"/>
+    </group>
 </vector>

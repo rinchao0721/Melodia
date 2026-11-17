@@ -64,3 +64,8 @@ gradle/gradle-daemon-jvm.properties
 
 # 桌面端播放引擎动态库，本地放置
 desktopApp/native/
+
+#其他
+
+spotify_desktop_extracted/
+spotify_extracted/

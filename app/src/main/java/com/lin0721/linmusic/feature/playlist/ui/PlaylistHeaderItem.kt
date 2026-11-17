@@ -47,6 +47,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
 import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.AddCircle
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
@@ -262,7 +263,7 @@ fun PlaylistHeaderItem(
                             if (!isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
-                                        imageVector = if (isSubscribed) MelodiaIcons.CheckCircle else MelodiaIcons.AddCircle,
+                                        imageVector = if (isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                                         contentDescription = if (isSubscribed) "取消收藏" else "收藏",
                                         tint = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
