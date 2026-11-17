@@ -1,12 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.icons
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
-import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.icons.lineIcon
 
 // 播放栏右侧自绘图标：24 格内统一占 y=3~21，2px 圆角描边，保证视觉高度一致
 object PlayerBarIcons {
@@ -48,22 +43,3 @@ object PlayerBarIcons {
         )
     }
 }
-
-internal fun lineIcon(name: String, vararg paths: String): ImageVector =
-    ImageVector.Builder(
-        name = name,
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).apply {
-        paths.forEach { data ->
-            addPath(
-                pathData = addPathNodes(data),
-                stroke = SolidColor(Color.Black),
-                strokeLineWidth = 2f,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
-            )
-        }
-    }.build()

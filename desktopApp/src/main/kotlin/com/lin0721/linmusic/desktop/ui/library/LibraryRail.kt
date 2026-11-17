@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowRight
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -24,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
@@ -52,7 +52,7 @@ fun LibraryRail(
         LibraryShortcutsContextBox(shortcutsState) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 LibraryTitleToggle(
-                    baseIcon = Icons.Rounded.LibraryMusic,
+                    baseIcon = MelodiaIcons.Library,
                     hoverIcon = Icons.Rounded.KeyboardDoubleArrowRight,
                     hint = "展开音乐库",
                     showTitle = false

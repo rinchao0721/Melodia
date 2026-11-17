@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.icons
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.lin0721.linmusic.core.ui.icons.lineIcon
 
 // 下载按钮自绘图标，规格同 PlayerBarIcons：24 格、2px 圆角描边
 object DownloadIcons {

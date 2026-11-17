@@ -13,7 +13,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,23 +44,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.rounded.Login
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.CropSquare
 import androidx.compose.material.icons.rounded.DragIndicator
-import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FilterNone
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Remove
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -86,7 +75,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -135,6 +123,7 @@ import com.lin0721.linmusic.core.plugin.PluginCommandItem
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.data.TitleBarButton
@@ -691,7 +680,7 @@ private fun CenterTitleBarButton(
         uiTween(150)
     )
     val iconTint = if (active && button in AccentActiveButtons) DesktopColors.Accent else DesktopColors.TextPrimary
-    val iconSize = if (button == TitleBarButton.HOME) 24.dp else 22.dp
+    val iconSize = 24.dp
 
     Box(contentAlignment = Alignment.Center) {
         Box(
@@ -716,8 +705,7 @@ private fun CenterTitleBarButton(
                     size = iconSize
                 )
             } else {
-                val icon = if (button == TitleBarButton.HOME && active) Icons.Outlined.Home else button.icon()
-                Icon(icon, button.title, tint = iconTint, modifier = Modifier.size(iconSize))
+                Icon(button.icon(active), button.title, tint = iconTint, modifier = Modifier.size(iconSize))
             }
         }
         if (button == TitleBarButton.MESSAGES && unreadCount > 0) {
@@ -793,8 +781,7 @@ private fun TrailingTitleBarButton(
                     size = DOWNLOAD_ICON_SIZE
                 )
             } else {
-                val icon = if (button == TitleBarButton.HOME && active) Icons.Outlined.Home else button.icon()
-                Icon(icon, button.title, tint = tint, modifier = Modifier.size(DOWNLOAD_ICON_SIZE))
+                Icon(button.icon(active), button.title, tint = tint, modifier = Modifier.size(DOWNLOAD_ICON_SIZE))
             }
         }
         if (button == TitleBarButton.MESSAGES && unreadCount > 0) {
@@ -909,7 +896,7 @@ private fun PluginToolbarButton(item: PluginCommandItem) {
     val commands = LocalPluginCommands.current
     DesktopTooltip(item.title, side = TooltipSide.Bottom, modifier = Modifier.padding(end = 8.dp)) {
         IconButton(onClick = { commands?.run(item) }, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Rounded.Extension, item.title, tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Plugin, item.title, tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -950,7 +937,7 @@ private fun AvatarMenu(
             if (userProfile != null) {
                 Cover(userProfile.avatarUrl, 32.dp, shape = CircleShape)
             } else {
-                Icon(Icons.Rounded.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                Icon(MelodiaIcons.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
         }
         if (hasUpdate) AttentionDot(Modifier.align(Alignment.TopEnd))
@@ -982,20 +969,20 @@ private fun AvatarMenu(
                         expanded = false
                         onAddAccount()
                     },
-                    icon = Icons.Rounded.PersonAdd,
+                    icon = MelodiaIcons.PersonAdd,
                     enabled = canAddAccount
                 )
                 MenuDivider()
-                AvatarMenuItem(Icons.Rounded.History, "最近播放") {
+                AvatarMenuItem(MelodiaIcons.History, "最近播放") {
                     expanded = false
                     onRecentClick()
                 }
-                AvatarMenuItem(Icons.Rounded.Cloud, "我的云盘") {
+                AvatarMenuItem(MelodiaIcons.Cloud, "我的云盘") {
                     expanded = false
                     onCloudClick()
                 }
             } else {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
+                AvatarMenuItem(MelodiaIcons.Login, "登录") {
                     expanded = false
                     onLoginClick()
                 }
@@ -1006,7 +993,7 @@ private fun AvatarMenu(
                     expanded = false
                     onSettingsClick()
                 },
-                icon = Icons.Rounded.Settings,
+                icon = MelodiaIcons.Settings,
                 trailing = if (hasUpdate) {
                     { Box(Modifier.size(6.dp).clip(CircleShape).background(DesktopColors.Accent)) }
                 } else {
@@ -1014,7 +1001,7 @@ private fun AvatarMenu(
                 }
             )
             if (userProfile != null) {
-                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出当前账户") {
+                AvatarMenuItem(MelodiaIcons.Logout, "退出当前账户") {
                     expanded = false
                     onLogoutClick()
                 }
@@ -1122,10 +1109,10 @@ private fun SearchBox(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            Icons.Rounded.Search,
+            MelodiaIcons.Search,
             null,
             tint = if (isFocused || (isHovered && enabled)) DesktopColors.TextPrimary else DesktopColors.TextGray,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -1225,7 +1212,7 @@ private fun SearchShortcutKey(label: String) {
     }
 }
 
-// 包含独立悬停动效与自绘柜子/抽屉图标的浏览按钮
+// 浏览按钮：独立悬停缩放，激活切实心
 @Composable
 private fun BrowseCabinetButton(
     isActive: Boolean,
@@ -1259,49 +1246,11 @@ private fun BrowseCabinetButton(
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        BrowseCabinetIcon(
-            color = iconColor,
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
-
-// 自绘热搜榜与歌单分类“收纳箱/抽屉”图标
-@Composable
-private fun BrowseCabinetIcon(
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val strokeWidth = 1.6f * density
-
-        // 顶部小把手/弧线盖
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(w * 0.28f, h * 0.12f),
-            size = Size(w * 0.44f, h * 0.16f),
-            cornerRadius = CornerRadius(2f * density, 2f * density),
-            style = Stroke(width = strokeWidth)
-        )
-
-        // 主体箱体外框
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(w * 0.12f, h * 0.28f),
-            size = Size(w * 0.76f, h * 0.60f),
-            cornerRadius = CornerRadius(3f * density, 3f * density),
-            style = Stroke(width = strokeWidth)
-        )
-
-        // 抽屉把手/中间扣手
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(w * 0.38f, h * 0.52f),
-            size = Size(w * 0.24f, h * 0.12f),
-            cornerRadius = CornerRadius(2f * density, 2f * density),
-            style = Stroke(width = strokeWidth)
+        Icon(
+            if (isActive) MelodiaIcons.BrowseFilled else MelodiaIcons.Browse,
+            null,
+            tint = iconColor,
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -1313,7 +1262,7 @@ private fun NavArrow(icon: ImageVector, description: String, enabled: Boolean, o
             icon,
             description,
             tint = if (enabled) DesktopColors.TextPrimary else DesktopColors.SurfaceLight,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }

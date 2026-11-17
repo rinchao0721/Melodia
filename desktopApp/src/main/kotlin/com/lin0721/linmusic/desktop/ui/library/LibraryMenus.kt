@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatListBulleted
@@ -29,6 +28,7 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.DropdownMenu
@@ -258,7 +258,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Add, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(18.dp))
+                Icon(MelodiaIcons.Plus, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(18.dp))
                 Text(
                     "创建",
                     color = DesktopColors.TextPrimary,
@@ -268,7 +268,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
                 )
             }
         } else {
-            LibraryIconButton(Icons.Rounded.Add, "创建", filled = true) { menuOpen = true }
+            LibraryIconButton(MelodiaIcons.Plus, "创建", filled = true) { menuOpen = true }
         }
         LibraryPopupMenu(menuOpen, { menuOpen = false }, anchorWidth, CreateMenuWidth) {
             if (isLoggedIn) {

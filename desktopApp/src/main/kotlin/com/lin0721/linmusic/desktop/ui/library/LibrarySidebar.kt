@@ -51,7 +51,6 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -106,6 +105,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -368,7 +368,7 @@ private fun LibraryCompactToolbar(
                     )
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                        Icon(MelodiaIcons.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -392,7 +392,7 @@ internal fun LibrarySearchInput(
     placeholder: String = "在音乐库中搜索"
 ) {
     Row(modifier.fillMaxSize().padding(start = startPadding), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+        Icon(MelodiaIcons.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (query.isEmpty()) {

@@ -12,14 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.MailOutline
-import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.TitleBarButton
 import com.lin0721.linmusic.desktop.data.TitleBarLayout
 import com.lin0721.linmusic.desktop.data.TitleBarLayoutCodec
@@ -42,15 +35,23 @@ import com.lin0721.linmusic.desktop.ui.player.rememberQueueReorderState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 
 internal fun TitleBarButton.icon(): ImageVector = when (this) {
-    TitleBarButton.HOME -> Icons.Rounded.Home
-    TitleBarButton.RECOGNITION -> Icons.Rounded.GraphicEq
-    TitleBarButton.MESSAGES -> Icons.Rounded.MailOutline
+    TitleBarButton.HOME -> MelodiaIcons.Home
+    TitleBarButton.RECOGNITION -> MelodiaIcons.Recognition
+    TitleBarButton.MESSAGES -> MelodiaIcons.Messages
     TitleBarButton.DOWNLOADS -> DownloadIcons.Download
-    TitleBarButton.PERSONAL_FM -> Icons.Rounded.Radio
-    TitleBarButton.DAILY_RECOMMEND -> Icons.Rounded.Today
-    TitleBarButton.SETTINGS -> Icons.Rounded.Settings
-    TitleBarButton.LOCAL_MUSIC -> Icons.Rounded.AudioFile
-    TitleBarButton.RECENT_PLAY -> Icons.Rounded.History
+    TitleBarButton.PERSONAL_FM -> MelodiaIcons.Radio
+    TitleBarButton.DAILY_RECOMMEND -> MelodiaIcons.Calendar
+    TitleBarButton.SETTINGS -> MelodiaIcons.Settings
+    TitleBarButton.LOCAL_MUSIC -> MelodiaIcons.LocalMusic
+    TitleBarButton.RECENT_PLAY -> MelodiaIcons.History
+}
+
+// 激活态图标：主页与听歌识曲切实心，其余沿用线性
+internal fun TitleBarButton.icon(active: Boolean): ImageVector = when {
+    !active -> icon()
+    this == TitleBarButton.HOME -> MelodiaIcons.HomeFilled
+    this == TitleBarButton.RECOGNITION -> MelodiaIcons.RecognitionFilled
+    else -> icon()
 }
 
 // 标题栏按钮编辑器：按中左/中右/右侧分组拖动排序，用下拉切换所在槽，开关控制显隐
