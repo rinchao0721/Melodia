@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +74,7 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportTargetSheet
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.AddCircle
 import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.NewBadge
 
 private val CardShape = RoundedCornerShape(12.dp)
 private val CoverSize = 88.dp
@@ -120,7 +119,7 @@ fun NewWorksFeedContent(
             if (uiState.releases.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState(
-                        icon = Icons.Rounded.NewReleases,
+                        icon = MelodiaIcons.NewBadge,
                         title = "还没有关注歌手的新作",
                         subtitle = "多关注几位歌手，新歌会出现在这里"
                     )

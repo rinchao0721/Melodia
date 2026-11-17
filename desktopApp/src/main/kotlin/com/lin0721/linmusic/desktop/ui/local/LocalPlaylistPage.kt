@@ -23,9 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -112,6 +109,8 @@ import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.PushPin
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Upload
+import com.lin0721.linmusic.core.ui.icons.CloudSync
+import com.lin0721.linmusic.core.ui.icons.FolderOff
 import com.lin0721.linmusic.core.ui.icons.FolderOpen
 import com.lin0721.linmusic.core.ui.icons.NewFolder
 
@@ -471,7 +470,7 @@ private fun LocalPlaylistMoreMenu(
                     onAddFiles()
                 })
                 if (folders.isNotEmpty()) {
-                    SubMenuItem("移除文件夹", icon = Icons.Rounded.FolderOff) {
+                    SubMenuItem("移除文件夹", icon = MelodiaIcons.FolderOff) {
                         folders.forEach { folder ->
                             SimpleMenuItem(File(folder).name.ifBlank { folder }, onClick = {
                                 expanded = false
@@ -542,7 +541,7 @@ private fun MenuScope.LocalTrackMenuItems(
         onEditTags()
     })
     onMatch?.let { match ->
-        MenuItem(if (track.songId != null) "更改网易云匹配" else "匹配网易云歌曲", icon = Icons.Rounded.CloudSync, onClick = {
+        MenuItem(if (track.songId != null) "更改网易云匹配" else "匹配网易云歌曲", icon = MelodiaIcons.CloudSync, onClick = {
             dismiss()
             match()
         })

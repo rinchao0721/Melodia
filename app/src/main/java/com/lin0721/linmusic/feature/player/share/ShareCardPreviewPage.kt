@@ -36,8 +36,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -98,6 +96,7 @@ import kotlin.math.absoluteValue
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.Text as TextIcon
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Sparkle
@@ -218,7 +217,7 @@ internal fun ShareCardPreviewPage(
                     OptionChip(option.label, null, option == ratio) { onRatioChange(option) }
                 }
                 if (kind == ShareCardKind.LYRIC) {
-                    OptionChip("歌词字体", Icons.Rounded.TextFields, typography != ShareCardTypography()) { fontSheetOpen = true }
+                    OptionChip("歌词字体", MelodiaIcons.TextIcon, typography != ShareCardTypography()) { fontSheetOpen = true }
                     onEditLyrics?.let { OptionChip("编辑歌词", MelodiaIcons.Edit, false, it) }
                 }
             }

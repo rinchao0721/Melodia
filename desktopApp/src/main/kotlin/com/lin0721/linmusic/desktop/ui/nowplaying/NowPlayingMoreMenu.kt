@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.TimerOff
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -58,6 +56,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.TimerOff
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Timer
@@ -327,7 +326,7 @@ internal fun NowPlayingMoreMenu(
                 })
             }
             if (sleepActive) {
-                SimpleMenuItem("取消定时", icon = Icons.Rounded.TimerOff, onClick = {
+                SimpleMenuItem("取消定时", icon = MelodiaIcons.TimerOff, onClick = {
                     onDismiss()
                     playerViewModel.setSleepTimer(0)
                 })

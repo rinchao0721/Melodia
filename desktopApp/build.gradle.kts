@@ -28,7 +28,6 @@ dependencies {
     implementation(project(":plugin-api"))
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
-    implementation(compose.materialIconsExtended)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.swing)

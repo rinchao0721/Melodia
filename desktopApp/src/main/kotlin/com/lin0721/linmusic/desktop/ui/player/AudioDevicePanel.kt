@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Computer
-import androidx.compose.material.icons.rounded.Speaker
-import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +39,10 @@ import com.lin0721.linmusic.desktop.ui.components.TooltipSide
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.delay
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Computer
 import com.lin0721.linmusic.core.ui.icons.Headphones
+import com.lin0721.linmusic.core.ui.icons.Speaker
+import com.lin0721.linmusic.core.ui.icons.Tv
 
 private const val REFRESH_INTERVAL_MS = 2_000L
 
@@ -156,8 +155,8 @@ fun collectSelectedAudioDevice(control: AudioOutputControl): AudioDevice? {
 }
 
 internal fun AudioDevice.icon(): ImageVector = when (kind) {
-    AudioDeviceKind.SYSTEM_DEFAULT -> Icons.Rounded.Computer
-    AudioDeviceKind.SPEAKER -> Icons.Rounded.Speaker
+    AudioDeviceKind.SYSTEM_DEFAULT -> MelodiaIcons.Computer
+    AudioDeviceKind.SPEAKER -> MelodiaIcons.Speaker
     AudioDeviceKind.HEADPHONES -> MelodiaIcons.Headphones
-    AudioDeviceKind.DISPLAY -> Icons.Rounded.Tv
+    AudioDeviceKind.DISPLAY -> MelodiaIcons.Tv
 }

@@ -20,11 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.LibraryAdd
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Apps
 import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.LibraryAdd
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
@@ -102,7 +101,7 @@ internal fun sortLabel(order: LibrarySortOrder): String = when (order) {
 internal fun viewModeIcon(mode: LibraryViewMode): ImageVector = when (mode) {
     LibraryViewMode.COMPACT_LIST -> MelodiaIcons.Menu
     LibraryViewMode.LIST -> MelodiaIcons.ListIcon
-    LibraryViewMode.SMALL_GRID -> Icons.Rounded.Apps
+    LibraryViewMode.SMALL_GRID -> MelodiaIcons.Apps
     LibraryViewMode.LARGE_GRID -> MelodiaIcons.Grid
 }
 
@@ -284,7 +283,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             }
             SimpleMenuItem(
                 text = "添加歌单",
-                icon = Icons.Rounded.LibraryAdd,
+                icon = MelodiaIcons.LibraryAdd,
                 modifier = Modifier.padding(horizontal = 4.dp),
                 onClick = {
                     menuOpen = false

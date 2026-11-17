@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.library
 
-import androidx.compose.material.icons.Icons
 import com.lin0721.linmusic.core.ui.icons.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable

@@ -30,8 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -125,6 +123,7 @@ import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Swap
 import com.lin0721.linmusic.core.ui.icons.Tune
 
 // mpv 每秒上报几十次播放位置，迷你窗无需这么密
@@ -754,7 +753,7 @@ private fun WindowButtons(
             if (onOpenLyricSettings != null) {
                 MiniIconButton(MelodiaIcons.Tune, "歌词设置", onOpenLyricSettings, size = 20.dp, iconSize = 14.dp)
             }
-            MiniIconButton(Icons.Rounded.SwapHoriz, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
+            MiniIconButton(MelodiaIcons.Swap, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
             MiniIconButton(MelodiaIcons.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
             MiniIconButton(MelodiaIcons.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
         }

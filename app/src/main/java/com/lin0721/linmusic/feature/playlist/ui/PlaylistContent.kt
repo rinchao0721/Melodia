@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material3.*
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Locate
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -491,7 +491,7 @@ fun PlaylistContent(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.CenterFocusStrong,
+                        imageVector = MelodiaIcons.Locate,
                         contentDescription = "定位到正在播放的歌曲",
                         tint = MaterialTheme.colorScheme.onPrimary
                     )

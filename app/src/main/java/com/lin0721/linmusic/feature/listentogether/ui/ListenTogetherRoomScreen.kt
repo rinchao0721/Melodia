@@ -32,8 +32,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -96,6 +94,7 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.Copy
 import com.lin0721.linmusic.core.ui.icons.Star
+import com.lin0721.linmusic.core.ui.icons.Swap
 
 private val CoverSize = 220.dp
 private val AvatarSize = 44.dp
@@ -460,7 +459,7 @@ private fun MembersSection(state: ListenTogetherState, content: Color, secondary
                 }
                 if (state.members.size == 2) {
                     item {
-                        Icon(Icons.Rounded.SyncAlt, contentDescription = null, tint = secondary, modifier = Modifier.size(20.dp))
+                        Icon(MelodiaIcons.Swap, contentDescription = null, tint = secondary, modifier = Modifier.size(20.dp))
                     }
                 }
             }

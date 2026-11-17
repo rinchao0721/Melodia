@@ -18,9 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
-import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -106,6 +104,7 @@ import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Album
 import com.lin0721.linmusic.core.ui.icons.Group
+import com.lin0721.linmusic.core.ui.icons.HeartBroken
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -459,7 +458,7 @@ internal fun TrackMenu(
             })
         }
         actions.onReduceRecommend?.let { reduce ->
-            MenuItem("减少推荐", icon = Icons.Rounded.HeartBroken, onClick = {
+            MenuItem("减少推荐", icon = MelodiaIcons.HeartBroken, onClick = {
                 onDismiss()
                 reduce(track)
             })

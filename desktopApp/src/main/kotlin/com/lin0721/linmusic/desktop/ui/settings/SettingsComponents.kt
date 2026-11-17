@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -43,6 +41,7 @@ import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private val RowMinHeight = 56.dp
 
@@ -121,7 +120,7 @@ internal fun <T> SettingsDropdown(
                 Spacer(Modifier.width(8.dp))
             }
             Text(label(current), color = DesktopColors.TextPrimary, fontSize = 12.sp)
-            Icon(Icons.Rounded.ArrowDropDown, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ChevronDown, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }, width = menuWidth) {
             options.forEach { option ->

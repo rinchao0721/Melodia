@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,6 +59,7 @@ import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.ArrowUpLeft
 import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 private val LeadingSize = 40.dp
@@ -160,7 +159,7 @@ internal fun SearchTypingPanel(
             val fillButton: @Composable () -> Unit = {
                 MelodiaIconButton(onClick = { onFillQuery(suggestion.text) }) {
                     Icon(
-                        Icons.Rounded.NorthWest,
+                        MelodiaIcons.ArrowUpLeft,
                         contentDescription = "填入 ${suggestion.text}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)

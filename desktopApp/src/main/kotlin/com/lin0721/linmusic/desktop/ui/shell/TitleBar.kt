@@ -41,11 +41,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
-import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
-import androidx.compose.material.icons.rounded.CropSquare
-import androidx.compose.material.icons.rounded.FilterNone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -124,6 +119,10 @@ import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.Drag
 import com.lin0721.linmusic.core.ui.icons.Remove
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Maximize
+import com.lin0721.linmusic.core.ui.icons.RestoreWindow
 import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.data.TitleBarButton
@@ -338,8 +337,8 @@ fun WindowScope.TitleBar(
                 Modifier.padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NavArrow(Icons.AutoMirrored.Rounded.ArrowBackIos, "后退", canGoBack, onBack)
-                NavArrow(Icons.AutoMirrored.Rounded.ArrowForwardIos, "前进", canGoForward, onForward)
+                NavArrow(MelodiaIcons.ChevronLeft, "后退", canGoBack, onBack)
+                NavArrow(MelodiaIcons.ChevronRight, "前进", canGoForward, onForward)
             }
             Box(
                 Modifier.weight(1f).fillMaxHeight().padding(horizontal = 12.dp),
@@ -432,7 +431,7 @@ fun WindowScope.TitleBar(
                 )
                 WindowButton(MelodiaIcons.Remove, "最小化", onClick = onMinimize)
                 WindowButton(
-                    if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
+                    if (isMaximized) MelodiaIcons.RestoreWindow else MelodiaIcons.Maximize,
                     if (isMaximized) "还原" else "最大化",
                     onClick = onToggleMaximize
                 )

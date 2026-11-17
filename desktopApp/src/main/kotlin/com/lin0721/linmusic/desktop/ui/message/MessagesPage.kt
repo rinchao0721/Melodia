@@ -25,8 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -76,6 +74,7 @@ import com.lin0721.linmusic.feature.message.ui.MessageViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.At
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Comment
 
@@ -508,7 +507,7 @@ private fun <T> ChannelOverviewPanel(
     val state by pager.state.collectAsState()
     val icon = when (tab) {
         MessageTab.NOTICE -> MelodiaIcons.Messages
-        MessageTab.FORWARD -> Icons.Rounded.AlternateEmail
+        MessageTab.FORWARD -> MelodiaIcons.At
         MessageTab.COMMENT -> MelodiaIcons.Comment
         MessageTab.PRIVATE -> MelodiaIcons.Messages
     }

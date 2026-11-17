@@ -106,7 +106,47 @@ class MelodiaIconsTest {
             MelodiaIcons.Error,
             MelodiaIcons.Warning,
             MelodiaIcons.Leaderboard,
-            MelodiaIcons.Fire
+            MelodiaIcons.Fire,
+            MelodiaIcons.Phone,
+            MelodiaIcons.Computer,
+            MelodiaIcons.Tv,
+            MelodiaIcons.Speaker,
+            MelodiaIcons.Bluetooth,
+            MelodiaIcons.Wifi,
+            MelodiaIcons.WifiOff,
+            MelodiaIcons.Sun,
+            MelodiaIcons.Sunset,
+            MelodiaIcons.Globe,
+            MelodiaIcons.Text,
+            MelodiaIcons.Storage,
+            MelodiaIcons.SystemUpdate,
+            MelodiaIcons.Swap,
+            MelodiaIcons.CloudSync,
+            MelodiaIcons.QrCode,
+            MelodiaIcons.Code,
+            MelodiaIcons.Video,
+            MelodiaIcons.HighQuality,
+            MelodiaIcons.NewBadge,
+            MelodiaIcons.Medal,
+            MelodiaIcons.Trophy,
+            MelodiaIcons.TimerOff,
+            MelodiaIcons.SearchOff,
+            MelodiaIcons.MusicOff,
+            MelodiaIcons.HeartBroken,
+            MelodiaIcons.AddSquare,
+            MelodiaIcons.LibraryAdd,
+            MelodiaIcons.FolderShared,
+            MelodiaIcons.FolderOff,
+            MelodiaIcons.Filter,
+            MelodiaIcons.Paste,
+            MelodiaIcons.Locate,
+            MelodiaIcons.ArrowUpLeft,
+            MelodiaIcons.SidebarCollapse,
+            MelodiaIcons.SidebarExpand,
+            MelodiaIcons.At,
+            MelodiaIcons.Downloaded,
+            MelodiaIcons.Maximize,
+            MelodiaIcons.RestoreWindow
         )
 
         icons.forEach { assertIconSpec(it, 2f) }
@@ -127,7 +167,9 @@ class MelodiaIconsTest {
             MelodiaIcons.Drag,
             MelodiaIcons.PlayCircle,
             MelodiaIcons.PauseCircle,
-            MelodiaIcons.List
+            MelodiaIcons.List,
+            MelodiaIcons.Palette,
+            MelodiaIcons.Apps
         )
 
         icons.forEach { icon ->

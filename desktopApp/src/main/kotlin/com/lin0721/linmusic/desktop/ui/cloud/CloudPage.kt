@@ -26,8 +26,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -96,6 +94,7 @@ import com.lin0721.linmusic.feature.playlist.presentation.sortTracks
 import kotlinx.coroutines.launch
 import java.util.IdentityHashMap
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CloudSync
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Shuffle
 import com.lin0721.linmusic.core.ui.icons.Delete
@@ -264,7 +263,7 @@ private fun CloudSongList(
             val song = songsByTrack[track]
             if (song != null) {
                 MenuDivider()
-                MenuItem(if (song.isUnmatched) "匹配网易云歌曲" else "纠正匹配", icon = Icons.Rounded.CloudSync, onClick = {
+                MenuItem(if (song.isUnmatched) "匹配网易云歌曲" else "纠正匹配", icon = MelodiaIcons.CloudSync, onClick = {
                     dismiss()
                     matching = song
                 })

@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +53,7 @@ import com.lin0721.linmusic.feature.search.domain.SearchType
 import kotlinx.coroutines.flow.StateFlow
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.SearchOff
 
 private const val TAB_ENTER_DURATION = 300
 private const val TAB_EXIT_DURATION = 150
@@ -192,7 +191,7 @@ private fun ExternalSearchResultsList(
         ExternalSearchUiState.Empty -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Rounded.SearchOff,
+                    icon = MelodiaIcons.SearchOff,
                     title = "在${platform.displayName}未找到相关歌曲"
                 )
             }
@@ -306,7 +305,7 @@ private fun SearchResultsList(
         SearchResultsUiState.Empty -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Rounded.SearchOff,
+                    icon = MelodiaIcons.SearchOff,
                     title = "没有找到相关${type.label}"
                 )
             }

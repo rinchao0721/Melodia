@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +30,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Filter
 import com.lin0721.linmusic.core.ui.icons.Sort
 
 // 歌单详情页自建歌单快捷操作小胶囊行
@@ -77,7 +76,7 @@ fun PlaylistActionPillsRow(
 
         // 3. 切换排序
         ActionPill(
-            icon = Icons.Rounded.FilterList,
+            icon = MelodiaIcons.Filter,
             label = currentSortOption.label,
             enabled = !isTracksEmpty,
             onClick = onSortClick

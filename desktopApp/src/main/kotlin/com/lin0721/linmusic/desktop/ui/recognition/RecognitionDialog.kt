@@ -43,9 +43,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -129,6 +126,8 @@ import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
 import com.lin0721.linmusic.core.ui.icons.Info
 import com.lin0721.linmusic.core.ui.icons.Mic
 import com.lin0721.linmusic.core.ui.icons.MicOff
+import com.lin0721.linmusic.core.ui.icons.MusicOff
+import com.lin0721.linmusic.core.ui.icons.WifiOff
 
 private val DialogWidth = 780.dp
 private val BodyHeight = 440.dp
@@ -676,9 +675,9 @@ private fun StageIcon(icon: ImageVector, modifier: Modifier = Modifier) {
 }
 
 private fun failureIcon(reason: RecognitionFailedReason, mode: RecognitionMode): ImageVector = when (reason) {
-    RecognitionFailedReason.NOT_FOUND -> Icons.Rounded.MusicOff
+    RecognitionFailedReason.NOT_FOUND -> MelodiaIcons.MusicOff
     RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.VolumeOff else MelodiaIcons.MicOff
-    RecognitionFailedReason.NETWORK -> Icons.Rounded.WifiOff
+    RecognitionFailedReason.NETWORK -> MelodiaIcons.WifiOff
     RecognitionFailedReason.RECORDER_UNAVAILABLE -> MelodiaIcons.MicOff
     RecognitionFailedReason.STOPPED -> MelodiaIcons.Info
     RecognitionFailedReason.ENGINE_UNAVAILABLE, RecognitionFailedReason.UNKNOWN -> MelodiaIcons.ErrorIcon

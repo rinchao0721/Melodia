@@ -3,8 +3,6 @@ package com.lin0721.linmusic.feature.playlist.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -35,6 +33,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.HeartBroken
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Download
@@ -224,7 +223,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onReduceRecommend != null) {
                     OptionRow(
-                        icon = Icons.Default.HeartBroken,
+                        icon = MelodiaIcons.HeartBroken,
                         text = "减少推荐",
                         onClick = {
                             onDismiss()

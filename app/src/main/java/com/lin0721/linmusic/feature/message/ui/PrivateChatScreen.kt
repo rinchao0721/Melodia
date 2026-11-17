@@ -43,8 +43,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -128,6 +126,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Video
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.MoreVert
@@ -1227,7 +1226,7 @@ private fun CardFallbackCover(kind: PrivateCardKind) {
         PrivateCardKind.Song -> MelodiaIcons.MusicNote
         PrivateCardKind.Playlist -> MelodiaIcons.Queue
         PrivateCardKind.Album -> MelodiaIcons.Album
-        PrivateCardKind.Mv -> Icons.Rounded.Videocam
+        PrivateCardKind.Mv -> MelodiaIcons.Video
         PrivateCardKind.General -> MelodiaIcons.Share
     }
     Box(

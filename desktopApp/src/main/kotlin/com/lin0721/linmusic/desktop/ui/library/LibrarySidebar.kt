@@ -39,8 +39,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -132,6 +130,7 @@ import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.Edit
 import com.lin0721.linmusic.core.ui.icons.Link
 import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.SidebarCollapse
 
 private const val VIEW_SWITCH_MS = 150
 private val SearchHeight = FilterChipDefaults.Height
@@ -174,7 +173,7 @@ fun LibrarySidebar(
             Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 LibraryTitleToggle(
                     baseIcon = null,
-                    hoverIcon = Icons.Rounded.KeyboardDoubleArrowLeft,
+                    hoverIcon = MelodiaIcons.SidebarCollapse,
                     hint = "收起音乐库",
                     showTitle = true,
                     iconRevealed = paneHovered,

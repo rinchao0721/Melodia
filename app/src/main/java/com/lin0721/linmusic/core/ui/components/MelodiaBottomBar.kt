@@ -28,8 +28,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddBox
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -117,6 +115,7 @@ import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
 import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.AddSquare
 import com.lin0721.linmusic.core.ui.icons.CheckCircle
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Download
@@ -819,7 +818,7 @@ fun MelodiaNavigationBar(
                     BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
                     BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
                     BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
-                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) MelodiaIcons.Close else Icons.Default.AddBox, null)
+                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) MelodiaIcons.Close else MelodiaIcons.AddSquare, null)
                     BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
                     BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
                     BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)

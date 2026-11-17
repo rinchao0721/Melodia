@@ -8,8 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +31,7 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FolderShared
 import com.lin0721.linmusic.core.ui.icons.Queue
 import com.lin0721.linmusic.core.ui.icons.GroupAdd
 
@@ -87,7 +86,7 @@ fun CreatePopupMenu(
         )
 
         CreateMenuItem(
-            icon = Icons.Rounded.FolderShared,
+            icon = MelodiaIcons.FolderShared,
             title = "共享合辑",
             subtitle = "将好友的音乐喜好合并为一个歌单",
             onClick = {
