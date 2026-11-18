@@ -1,6 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import android.media.AudioDeviceInfo
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
@@ -14,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
@@ -46,7 +52,6 @@ fun PlayerActionRow(
     connectedDevice: AudioDeviceInfo?,
     qualityLabel: String?,
     modifier: Modifier = Modifier,
-    qualityColor: Color? = null,
     onQualityClick: (() -> Unit)? = null,
     onSleepTimerClick: () -> Unit = {},
     sleepTimerActive: Boolean = false,
@@ -75,9 +80,7 @@ fun PlayerActionRow(
                 "share" -> MelodiaIconButton(onClick = onShareClick) {
                     Icon(MelodiaIcons.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
-                "quality" -> if (qualityLabel != null) {
-                    QualityBadgeText(label = qualityLabel, color = qualityColor, onClick = onQualityClick)
-                }
+                "quality" -> QualityBadgeText(label = qualityLabel, onClick = onQualityClick)
                 "more" -> MelodiaIconButton(onClick = onMoreClick) {
                     Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
@@ -103,28 +106,44 @@ fun PlayerActionRow(
     }
 }
 
-// 音质短标签：随判定档位着色，点击弹出详情
+// 音质短标签：跟随主题色，文案变化与出现/消失淡入淡出，点击弹出详情
 @Composable
 private fun QualityBadgeText(
-    label: String,
-    color: Color?,
+    label: String?,
     onClick: (() -> Unit)?
 ) {
-    Text(
-        text = label,
-        color = color ?: MelodiaColors.TextSecondary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        modifier = if (onClick != null) {
-            Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .pressable(MelodiaPress.Pill, onClick = onClick)
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-        } else {
-            Modifier
+    val motion = LocalUiMotion.current
+    AnimatedContent(
+        targetState = label,
+        transitionSpec = {
+            motion.transform(
+                ContentTransform(
+                    targetContentEnter = fadeIn(tween(220, delayMillis = 60)),
+                    initialContentExit = fadeOut(tween(160)),
+                    sizeTransform = null
+                )
+            )
+        },
+        label = "playbackQualityBadge"
+    ) { text ->
+        if (text != null) {
+            Text(
+                text = text,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = if (onClick != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .pressable(MelodiaPress.Pill, onClick = onClick)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                } else {
+                    Modifier
+                }
+            )
         }
-    )
+    }
 }
 
 // 控件区底部次级入口：输出设备、分享、播放队列，平板横屏下支持整合歌词控制（文A/音A切换、歌词设置）
@@ -137,7 +156,6 @@ fun ActionButtons(
     connectedDevice: AudioDeviceInfo? = null,
     // 实际音质短标签，为空时不显示
     qualityLabel: String? = null,
-    qualityColor: Color? = null,
     onQualityClick: (() -> Unit)? = null,
     showLyricsControls: Boolean = false,
     secondaryMode: String = "translation",
@@ -184,9 +202,7 @@ fun ActionButtons(
             }
         }
         Box {
-            if (qualityLabel != null) {
-                QualityBadgeText(label = qualityLabel, color = qualityColor, onClick = onQualityClick)
-            }
+            QualityBadgeText(label = qualityLabel, onClick = onQualityClick)
         }
         Box {
             Row(

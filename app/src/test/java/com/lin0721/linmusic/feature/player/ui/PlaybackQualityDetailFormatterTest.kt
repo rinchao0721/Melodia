@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.model.OutputAudioInfo
 import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.model.QualityBadge
 import com.lin0721.linmusic.core.model.StreamAudioInfo
+import com.lin0721.linmusic.core.model.playbackQualityLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -89,5 +90,19 @@ class PlaybackQualityDetailFormatterTest {
         assertEquals("192 kbps", items.getValue("码率").value)
         assertEquals("—", items.getValue("声道").value)
         assertEquals("—", items.getValue("输出设备").value)
+    }
+
+    @Test
+    fun `display label switches from declared tier to stream params`() {
+        val declared = PlaybackQuality(mediaId = "1", declaredLevel = "lossless")
+        val withStream = declared.copy(
+            stream = StreamAudioInfo(codec = "audio/flac", sampleRateHz = 44_100, bitDepth = 16, channels = 2)
+        )
+        assertEquals("Lossless", playbackQualityLabel(declared))
+        assertEquals("16bit/44.1kHz", playbackQualityLabel(withStream))
+        assertEquals(
+            "16bit/44.1kHz",
+            playbackQualityLabel(withStream.copy(stream = withStream.stream?.copy(bitrateBps = 900_000)))
+        )
     }
 }

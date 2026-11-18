@@ -45,11 +45,10 @@ import kotlin.math.roundToInt
 
 private const val QUALITY_MISSING_TEXT = "—"
 
-// 播放页音质徽标展示快照：文案、着色与完整音质详情
+// 播放页音质徽标展示快照：文案与完整音质详情
 data class PlaybackQualityDisplay(
     val quality: PlaybackQuality,
-    val label: String,
-    val colorArgb: Long?
+    val label: String
 )
 
 // 音质详情弹窗中的单条参数行

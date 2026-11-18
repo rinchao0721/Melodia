@@ -83,7 +83,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onShareClick: () -> Unit,
     connectedDevice: AudioDeviceInfo? = null,
     qualityLabel: String? = null,
-    qualityColor: Color? = null,
     onQualityClick: (() -> Unit)? = null,
     showMiniLyric: Boolean = true,
     baseCoverPadding: Dp = MelodiaSpacing.lg,
@@ -208,7 +207,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onShareClick = onShareClick,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel,
-            qualityColor = qualityColor,
             onQualityClick = onQualityClick
         )
     }

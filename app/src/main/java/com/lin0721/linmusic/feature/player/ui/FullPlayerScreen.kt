@@ -67,8 +67,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.model.playbackQualityLabel
-import com.lin0721.linmusic.core.model.qualityBadgeOf
-import com.lin0721.linmusic.core.model.resolveQualityLevel
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -497,7 +495,6 @@ private fun FullPlayerScreenContent(
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
     val qualityDisplay = rememberPlaybackQualityDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
     val qualityLabel = qualityDisplay?.label
-    val qualityColor = qualityDisplay?.colorArgb?.let(::Color)
     LaunchedEffect(qualityDisplay == null) {
         if (qualityDisplay == null) showQualityDetailSheet = false
     }
@@ -726,7 +723,6 @@ private fun FullPlayerScreenContent(
             animateLyricsMesh = isPlaying && !isLyricsFullScreen,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel,
-            qualityColor = qualityColor,
             onQualityClick = { showQualityDetailSheet = true },
             onToggleLike = onCollectButtonClick,
             onToggleSubscribe = viewModel::toggleSubscribe,
@@ -917,7 +913,6 @@ private fun FullPlayerScreenContent(
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
-                        qualityColor = qualityColor,
                         onQualityClick = { showQualityDetailSheet = true },
                         showMiniLyric = showMiniLyric,
                         baseCoverPadding = animatedCoverPadding,
@@ -1070,7 +1065,6 @@ private fun FullPlayerScreenContent(
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
-                        qualityColor = qualityColor,
                         onQualityClick = { showQualityDetailSheet = true },
                         showLyricsControls = !podcast.isPodcast,
                         secondaryMode = fullScreenLyricSecondaryMode,
@@ -1466,9 +1460,7 @@ fun rememberPlaybackQualityDisplay(
     if (!showPlaybackQuality || isPodcast) return null
     val quality = playbackQuality?.takeIf { it.mediaId == mediaId } ?: return null
     val label = playbackQualityLabel(quality) ?: return null
-    val colorArgb = resolveQualityLevel(quality.declaredLevel, quality.stream)
-        ?.let { qualityBadgeOf(it)?.colorArgb }
-    return PlaybackQualityDisplay(quality = quality, label = label, colorArgb = colorArgb)
+    return PlaybackQualityDisplay(quality = quality, label = label)
 }
 
 // 当前歌曲的实际音质短标签；供迷你条等仅需文案的入口复用
