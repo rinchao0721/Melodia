@@ -10,6 +10,7 @@ fun getQualityDisplayName(quality: String): String {
         "hires" -> "Hi-Res"
         "jyeffect" -> "高清环绕声"
         "sky" -> "沉浸环绕声"
+        "dolby" -> "杜比全景声"
         "jymaster" -> "超清母带"
         else -> quality
     }
@@ -25,6 +26,7 @@ fun getQualityBadgeLabel(quality: String): String? {
         "hires" -> "Hi-Res"
         "jyeffect" -> "Surround"
         "sky" -> "Immersive"
+        "dolby" -> "Dolby"
         "jymaster" -> "Master"
         else -> null
     }
