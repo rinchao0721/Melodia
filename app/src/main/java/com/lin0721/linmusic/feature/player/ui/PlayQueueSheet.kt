@@ -78,8 +78,7 @@ fun PlayQueueSheet(
     isPlaying: Boolean,
     sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
-    // 按 songId 删除：快速连续滑动时，回调里的下标可能已经被前一次删除弄失效，
-    // 用下标删会删错歌，或者删不掉却让这一行停在已划走的状态
+    // 按 songId 删，连划时下标会过期；返回 false 则回弹
     onRemoveSong: (Long) -> Boolean,
     onMoveItem: (from: Int, to: Int) -> Unit,
     onToggleShuffle: () -> Unit,
