@@ -62,6 +62,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val alwaysShowLikedBadge by viewModel.alwaysShowLikedBadge.collectAsStateWithLifecycle()
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
+    val homeSearchButtonEnabled by viewModel.homeSearchButtonEnabled.collectAsStateWithLifecycle()
     val searchDefaultKeywordEnabled by viewModel.searchDefaultKeywordEnabled.collectAsStateWithLifecycle()
     val hotSearchEnabled by viewModel.hotSearchEnabled.collectAsStateWithLifecycle()
     val playlistTagsEnabled by viewModel.playlistTagsEnabled.collectAsStateWithLifecycle()
@@ -228,6 +229,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "热歌榜、私人FM、私人雷达、音乐漫游入口",
                         checked = homeForYouEnabled,
                         onCheckedChange = { viewModel.updateHomeForYouEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "首页显示搜索按钮",
+                        subtitle = "在首页顶栏右上角显示快捷搜索入口",
+                        checked = homeSearchButtonEnabled,
+                        onCheckedChange = { viewModel.updateHomeSearchButtonEnabled(it) }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(

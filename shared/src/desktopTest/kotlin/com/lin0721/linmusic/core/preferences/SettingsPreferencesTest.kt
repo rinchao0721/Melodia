@@ -70,4 +70,22 @@ class SettingsPreferencesTest {
         settings.saveAlwaysShowLikedBadge(true)
         assertEquals(true, settings.alwaysShowLikedBadge.first())
     }
+
+    @Test
+    fun homeSearchButtonAndDiscoveryTogglesDefaultToTrueAndPersist() = runBlocking {
+        assertEquals(true, settings.homeSearchButtonEnabled.first())
+        assertEquals(true, settings.hotSearchEnabled.first())
+        assertEquals(true, settings.playlistTagsEnabled.first())
+
+        settings.saveHomeSearchButtonEnabled(false)
+        settings.saveHotSearchEnabled(false)
+        settings.savePlaylistTagsEnabled(false)
+
+        assertFalse(settings.homeSearchButtonEnabled.first())
+        assertFalse(settings.hotSearchEnabled.first())
+        assertFalse(settings.playlistTagsEnabled.first())
+
+        settings.saveHomeSearchButtonEnabled(true)
+        assertEquals(true, settings.homeSearchButtonEnabled.first())
+    }
 }

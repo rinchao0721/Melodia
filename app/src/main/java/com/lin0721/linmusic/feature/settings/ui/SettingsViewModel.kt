@@ -74,6 +74,7 @@ class SettingsViewModel(
     val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
     val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
     val homeForYouEnabled = settingsPreferences.homeForYouEnabled.asState(true)
+    val homeSearchButtonEnabled = settingsPreferences.homeSearchButtonEnabled.asState(true)
     val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
@@ -295,6 +296,8 @@ class SettingsViewModel(
     fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
 
     fun updateHomeForYouEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeForYouEnabled(enabled) }
+
+    fun updateHomeSearchButtonEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeSearchButtonEnabled(enabled) }
 
     fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }
 

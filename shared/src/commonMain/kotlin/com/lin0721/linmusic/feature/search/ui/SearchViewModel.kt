@@ -290,8 +290,19 @@ class SearchViewModel(
         this.playlistTagsEnabled = tagsEnabled
         discoveryJob?.cancel()
         discoveryJob = viewModelScope.launch {
-            _discoveryState.value = DiscoveryUiState.Loading
             if (!hotEnabled) _featuredTrack.value = null
+            // 热搜与歌单分类均关闭时，发现页正文保持空白，不展示骨架屏或错误态
+            val showAnyDiscoveryBody = hotEnabled || tagsEnabled
+            if (showAnyDiscoveryBody) {
+                _discoveryState.value = DiscoveryUiState.Loading
+            } else {
+                val currentKeyword = (_discoveryState.value as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
+                _discoveryState.value = DiscoveryUiState.Success(
+                    defaultKeyword = if (keywordEnabled) currentKeyword else "",
+                    hotSearches = emptyList(),
+                    playlistTags = emptyList()
+                )
+            }
 
             val keywordDeferred = async { if (keywordEnabled) repository.getDefaultSearchKeyword().firstOrNull() else null }
             val hotSearchDeferred = async { if (hotEnabled) repository.getHotSearches().firstOrNull() else null }
@@ -300,6 +311,15 @@ class SearchViewModel(
             val keywordResult = keywordDeferred.await()
             val hotSearchResult = hotSearchDeferred.await()
             val tagsResult = tagsDeferred.await()
+
+            if (!showAnyDiscoveryBody) {
+                _discoveryState.value = DiscoveryUiState.Success(
+                    defaultKeyword = keywordResult?.getOrNull().orEmpty(),
+                    hotSearches = emptyList(),
+                    playlistTags = emptyList()
+                )
+                return@launch
+            }
 
             val failures = listOfNotNull(keywordResult, hotSearchResult, tagsResult).mapNotNull { it.exceptionOrNull() }
             val allFailed = keywordResult?.getOrNull() == null &&

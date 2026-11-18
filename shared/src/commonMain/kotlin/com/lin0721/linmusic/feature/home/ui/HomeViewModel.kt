@@ -100,6 +100,8 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showForYou: StateFlow<Boolean> = settingsPreferences.homeForYouEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val showSearchButton: StateFlow<Boolean> = settingsPreferences.homeSearchButtonEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, PersonalFmMode.DEFAULT)
     val recentFmTracks: StateFlow<List<RecentFmTrack>> = playbackPreferences.recentFmTracks
