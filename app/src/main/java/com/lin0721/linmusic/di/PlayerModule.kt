@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
 import com.lin0721.linmusic.core.player.ExternalInterruptionResumeController
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.player.data.AmllLyricsClient
 import com.lin0721.linmusic.core.player.data.LyricsCache
 import com.lin0721.linmusic.core.player.data.QqLyricsClient
@@ -26,9 +27,10 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val playerModule = module {
+    single { FfmpegComponentManager(androidContext()) }
     single { ExternalInterruptionResumeController(androidContext(), get()) }
     single {
-        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
+        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
             // 随播放器一同创建，进程内常驻记录播客收听进度
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }

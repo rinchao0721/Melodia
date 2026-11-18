@@ -38,6 +38,10 @@ import com.lin0721.linmusic.core.source.LxPluginItem
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.source.LxPluginManager
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentState
+import kotlinx.coroutines.Job
 import java.io.File
 
 private const val TAG = "SettingsViewModel"
@@ -51,7 +55,8 @@ class SettingsViewModel(
     private val userPreferences: UserPreferences,
     private val accountSwitcher: AccountSwitcher,
     private val resourceProvider: ResourceProvider,
-    val skins: SkinRepository
+    val skins: SkinRepository,
+    private val ffmpegComponentManager: FfmpegComponentManager
 ) : ViewModel() {
 
     // DataStore 的偏好流统一以相同策略转为 StateFlow，避免每项重复五行样板
@@ -748,6 +753,50 @@ class SettingsViewModel(
             }.onFailure { AppLogger.e(TAG, "清理其他临时文件失败", it) }
             _otherCacheSize.value = 0L
             _toastEvent.emit("其他临时文件已清理")
+        }
+    }
+
+    // ─── ffmpeg 解码组件管理 ───
+
+    val ffmpegComponentState: StateFlow<FfmpegComponentState> = ffmpegComponentManager.state
+    val ffmpegCatalogInfo: StateFlow<FfmpegCatalogInfo> = ffmpegComponentManager.catalogInfo
+    private var ffmpegInstallJob: Job? = null
+
+    fun hasFfmpegUpdate(state: FfmpegComponentState, catalog: FfmpegCatalogInfo): Boolean =
+        ffmpegComponentManager.hasUpdate(state, catalog)
+
+    fun refreshFfmpegCatalog() {
+        viewModelScope.launch {
+            ffmpegComponentManager.refreshCatalog()
+        }
+    }
+
+    fun installOrUpdateFfmpegComponent() {
+        if (ffmpegInstallJob?.isActive == true) return
+        val hadInstalled = ffmpegComponentManager.isInstalled
+        ffmpegInstallJob = viewModelScope.launch {
+            try {
+                if (ffmpegComponentManager.installOrUpdate()) {
+                    _toastEvent.emit(if (hadInstalled) "ffmpeg 解码组件已更新" else "ffmpeg 解码组件已安装")
+                }
+            } finally {
+                ffmpegInstallJob = null
+            }
+        }
+    }
+
+    fun cancelFfmpegInstallOrRestore() {
+        ffmpegInstallJob?.cancel()
+        ffmpegInstallJob = null
+        ffmpegComponentManager.restoreLocalStateIfIdle()
+    }
+
+    fun deleteFfmpegComponent() {
+        ffmpegInstallJob?.cancel()
+        ffmpegInstallJob = null
+        viewModelScope.launch {
+            ffmpegComponentManager.deleteComponent()
+            _toastEvent.emit("已删除 ffmpeg 解码组件")
         }
     }
 }

@@ -29,6 +29,35 @@ fun extractSelectedAudioFormat(tracks: Tracks): Format? {
     return null
 }
 
+// 报错时选轨可能失败导致 isTrackSelected 为 false，遍历所有音轨作为 MIME 兜底来源
+@OptIn(UnstableApi::class)
+fun extractAudioMimeForError(tracks: Tracks): String? {
+    var fallback: String? = null
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_AUDIO) continue
+        for (index in 0 until group.length) {
+            val mime = group.getTrackFormat(index).sampleMimeType?.takeIf { it.isNotBlank() } ?: continue
+            if (group.isTrackSelected(index)) return mime
+            if (fallback == null) fallback = mime
+        }
+    }
+    return fallback
+}
+
+// 有音轨但一条都没选中、且全部不受支持时返回其 MIME；选中或任一受支持都视为可播
+@OptIn(UnstableApi::class)
+fun findUnplayableAudioMime(tracks: Tracks): String? {
+    var mime: String? = null
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_AUDIO) continue
+        for (index in 0 until group.length) {
+            if (group.isTrackSelected(index) || group.isTrackSupported(index)) return null
+            if (mime == null) mime = group.getTrackFormat(index).sampleMimeType?.takeIf { it.isNotBlank() }
+        }
+    }
+    return mime
+}
+
 // 从 Tracks 提取当前选中音轨的流参数，没有任何有效字段时返回 null
 @OptIn(UnstableApi::class)
 fun extractStreamAudioInfo(tracks: Tracks): StreamAudioInfo? {

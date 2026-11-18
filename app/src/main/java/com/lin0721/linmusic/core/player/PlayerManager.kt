@@ -18,6 +18,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlaybackException
 import java.io.File
 import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
@@ -32,6 +33,10 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.OutputAudioInfo
 import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.model.StreamAudioInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
+import com.lin0721.linmusic.core.player.ffmpeg.PlaybackErrorAction
+import com.lin0721.linmusic.core.player.ffmpeg.classifyPlaybackErrorForFfmpeg
+import com.lin0721.linmusic.core.player.ffmpeg.formatPlayerErrorMessage
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -73,6 +78,15 @@ private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
 // 预取到的下一首播放链接，按 songId 校验有效性
 private data class PrefetchedUrl(val songId: Long, val url: String, val level: String? = null)
 
+// 播放遇系统不支持格式时弹窗引导下载 ffmpeg 组件的上下文
+data class FfmpegInstallPrompt(
+    val failedIndex: Int,
+    val errorCode: Int,
+    val mediaId: String,
+    val mimeType: String,
+    val codecLabel: String
+)
+
 // 播放门面：对外暴露播放状态与控制入口，队列、控制器、进度、持久化等职责交由协作者承担
 class PlayerManager(
     private val context: Context,
@@ -85,7 +99,8 @@ class PlayerManager(
     private val externalInterruptionResumeController: ExternalInterruptionResumeController,
     private val onlineState: OnlineStateProvider,
     private val externalResolver: ExternalTrackResolver,
-    private val downloadRecognizer: DownloadRecognizer
+    private val downloadRecognizer: DownloadRecognizer,
+    private val ffmpegComponentManager: FfmpegComponentManager
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -128,6 +143,28 @@ class PlayerManager(
     // 用户在"连接设备"弹层里手动选过的输出设备 id；null 表示本次会话还没手动选过，交给启发式猜测
     private val _preferredOutputDeviceId = MutableStateFlow<Int?>(null)
     val preferredOutputDeviceId: StateFlow<Int?> = _preferredOutputDeviceId.asStateFlow()
+
+    private val _ffmpegInstallPrompt = MutableStateFlow<FfmpegInstallPrompt?>(null)
+    val ffmpegInstallPrompt: StateFlow<FfmpegInstallPrompt?> = _ffmpegInstallPrompt.asStateFlow()
+
+    // 服务端本地 ExoPlayer 报错时先缓存底层 Format MIME（MediaController IPC 会丢失 ExoPlaybackException 字段）
+    @Volatile
+    private var lastRendererErrorMime: Pair<String?, String>? = null
+
+    // 同一首只按"音轨均不受支持"处理一次，避免轨道重复回调反复弹窗或连跳
+    private var unplayableAudioHandledMediaId: String? = null
+
+    fun recordRendererErrorMime(mediaId: String?, mimeType: String?) {
+        if (mimeType.isNullOrBlank()) return
+        lastRendererErrorMime = mediaId to mimeType
+    }
+
+    private fun consumeRendererErrorMime(mediaId: String?): String? {
+        val recorded = lastRendererErrorMime ?: return null
+        lastRendererErrorMime = null
+        if (recorded.first != null && mediaId != null && recorded.first != mediaId) return null
+        return recorded.second
+    }
 
     private val controllerHolder = MediaControllerHolder(context)
     private val playbackQueue = PlaybackQueue()
@@ -439,6 +476,9 @@ class PlayerManager(
         declaredQualityLevel = null
         previousDeclaredQualityLevel = null
         _playbackQuality.value = null
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
 
         externalInterruptionResumeController.onExplicitUserPlay()
         controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
@@ -752,6 +792,9 @@ class PlayerManager(
         declaredQualityLevel = null
         previousDeclaredQualityLevel = null
         _playbackQuality.value = null
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
 
         playbackQueue.clear()
         setCurrentTrack(null)
@@ -792,6 +835,9 @@ class PlayerManager(
         activePlayJob?.cancel()
         roaming.cancel()
         networkGuard.cancelRecoveryWait()
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
         pendingStartPosition = startPosition
 
         val fromIndex = playbackQueue.currentIndex.value
@@ -1542,6 +1588,17 @@ class PlayerManager(
 
     override fun onTracksChanged(tracks: Tracks) {
         refreshPlaybackQuality(_currentTrack.value, tracks)
+        checkUnplayableAudio(tracks)
+    }
+
+    // 系统解不了的音轨（如 ALAC）不会被选中，ExoPlayer 照常推进进度但没有声音且不报错，需主动按解码失败处理
+    private fun checkUnplayableAudio(tracks: Tracks) {
+        val mime = findUnplayableAudioMime(tracks) ?: return
+        val mediaId = _currentTrack.value?.mediaId ?: return
+        if (unplayableAudioHandledMediaId == mediaId) return
+        unplayableAudioHandledMediaId = mediaId
+        AppLogger.w(TAG, "音轨均不受支持，按解码失败处理 songId=$mediaId mime=$mime")
+        handleDecodeFailure(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED, mime, mediaId)
     }
 
     // 交叉淡化接管时状态始终为 READY，不会再触发 onPlaybackStateChanged，时长需随时间线补取
@@ -1566,22 +1623,93 @@ class PlayerManager(
         }
     }
 
+    @OptIn(UnstableApi::class)
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
-        AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=${_currentTrack.value?.mediaId}", error)
+        val currentMediaId = _currentTrack.value?.mediaId
+        AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=$currentMediaId", error)
         if (tryRecoverStreamError(error)) return
+
+        val failedMime = (error as? ExoPlaybackException)?.rendererFormat?.sampleMimeType
+            ?: consumeRendererErrorMime(currentMediaId)
+            ?: extractAudioMimeForError(controllerHolder.currentTracks)
+        handleDecodeFailure(error.errorCode, failedMime, currentMediaId)
+    }
+
+    // 组件未装且格式可由 ffmpeg 解时暂停并弹窗引导下载，其余提示后跳下一首
+    private fun handleDecodeFailure(errorCode: Int, failedMime: String?, currentMediaId: String?) {
+        when (val action = classifyPlaybackErrorForFfmpeg(errorCode, failedMime, ffmpegComponentManager.isInstalled)) {
+            is PlaybackErrorAction.PromptFfmpegInstall -> {
+                AppLogger.i(TAG, "检测到可由 ffmpeg 解码的格式，提示安装组件 mime=${action.mimeType}")
+                _playWhenReady.value = false
+                _isPlaying.value = false
+                pausedForPendingPlay = false
+                pendingSkipFromIndex = null
+                clearPendingTrack(restorePlayWhenReady = false)
+                controllerHolder.pause()
+                MelodiaPlaybackService.stopPendingForeground(context)
+                _ffmpegInstallPrompt.value = FfmpegInstallPrompt(
+                    failedIndex = playbackQueue.currentIndex.value,
+                    errorCode = errorCode,
+                    mediaId = currentMediaId.orEmpty(),
+                    mimeType = action.mimeType,
+                    codecLabel = action.codecLabel
+                )
+                if (ffmpegComponentManager.catalogInfo.value.remoteSizeBytes == null) {
+                    scope.launch { ffmpegComponentManager.refreshCatalog() }
+                }
+                return
+            }
+            PlaybackErrorAction.Skip -> Unit
+        }
+
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
-        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(error))
+        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(errorCode))
+    }
+
+    // 组件安装完成后原地重播当前失败曲目，FfmpegLibrary.isAvailable() 动态生效
+    fun replayAfterFfmpegInstall() {
+        val prompt = _ffmpegInstallPrompt.value
+        _ffmpegInstallPrompt.value = null
+        ffmpegComponentManager.restoreLocalStateIfIdle()
+        consecutiveErrors = 0
+        val targetIndex = prompt?.failedIndex
+            ?.takeIf { it in 0 until playbackQueue.size }
+            ?: playbackQueue.currentIndex.value
+        if (targetIndex in 0 until playbackQueue.size) {
+            fetchUrlAndPlay(targetIndex, startPosition = 0L, playWhenReady = true)
+        }
+    }
+
+    // 用户取消安装弹窗后恢复原有跳过/报错逻辑
+    fun dismissFfmpegInstallPromptAndSkip() {
+        val prompt = _ffmpegInstallPrompt.value ?: return
+        _ffmpegInstallPrompt.value = null
+        ffmpegComponentManager.restoreLocalStateIfIdle()
+        scope.launch {
+            Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
+        }
+        val index = prompt.failedIndex.takeIf { it in 0 until playbackQueue.size }
+            ?: playbackQueue.currentIndex.value
+        skipToNextOnError(index, playerErrorMessage(prompt.errorCode))
+    }
+
+    private fun isCurrentTrackCloudOrLocal(): Boolean {
+        val item = playbackQueue.currentItem()
+        if (item?.localUri != null) return true
+        val ctx = playbackQueue.playContext.value
+            ?: _currentTrack.value?.mediaMetadata?.extras?.getString("playContext")
+        if (ctx == "我的云盘") return true
+        val uri = requestedSource?.takeIf { it.first == item?.songId }?.second
+            ?: _currentTrack.value?.localConfiguration?.uri?.toString()
+        return uri != null && !uri.startsWith("http") && !uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX)
     }
 
     // 链接已拿到、是播放器本身出错，不能沿用取链接失败的提示（#172 硬解 FLAC 失败被误报为取链接失败）
-    private fun playerErrorMessage(error: PlaybackException): String = when (error.errorCode) {
-        in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED ->
-            "设备无法解码当前音质，可尝试调低播放音质"
-        else -> "连续多首歌曲无法播放"
-    }
+    private fun playerErrorMessage(errorCode: Int): String =
+        formatPlayerErrorMessage(errorCode, isCurrentTrackCloudOrLocal())
 
     // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；
     // 此时先原地换新链接、从断点位置续播当前曲目，同一首只尝试一次，仍失败才走跳过下一首的兜底

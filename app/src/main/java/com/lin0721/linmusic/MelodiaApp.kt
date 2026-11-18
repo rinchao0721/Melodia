@@ -11,7 +11,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -28,7 +31,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.activity.ComponentActivity
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -143,6 +149,15 @@ import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.FfmpegInstallPrompt
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentState
+import com.lin0721.linmusic.core.player.ffmpeg.formatComponentSize
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
+import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
 private val SidebarWidth = 310.dp
@@ -223,6 +238,7 @@ fun MelodiaApp() {
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
     // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
     val playerManager: PlayerManager = koinInject()
+    val ffmpegComponentManager: FfmpegComponentManager = koinInject()
     val currentTrack by playerManager.currentTrack.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
@@ -1383,8 +1399,127 @@ fun MelodiaApp() {
 
         // 8. 一起听房间全局弹窗，聊天页与播放页共用
         ListenTogetherRoomHost()
+
+        // 9. 系统不支持音频格式时弹窗引导下载 ffmpeg 解码组件
+        val ffmpegPrompt by playerManager.ffmpegInstallPrompt.collectAsStateWithLifecycle()
+        val ffmpegState by ffmpegComponentManager.state.collectAsStateWithLifecycle()
+        val ffmpegCatalogInfo by ffmpegComponentManager.catalogInfo.collectAsStateWithLifecycle()
+        var ffmpegDownloadJob by remember { mutableStateOf<Job?>(null) }
+        ffmpegPrompt?.let { prompt ->
+            FfmpegInstallPromptDialog(
+                prompt = prompt,
+                componentState = ffmpegState,
+                catalogInfo = ffmpegCatalogInfo,
+                onDownloadOrRetry = {
+                    if (ffmpegState !is FfmpegComponentState.Downloading) {
+                        ffmpegDownloadJob = scope.launch {
+                            try {
+                                if (ffmpegComponentManager.installOrUpdate()) {
+                                    playerManager.replayAfterFfmpegInstall()
+                                }
+                            } finally {
+                                ffmpegDownloadJob = null
+                            }
+                        }
+                    }
+                },
+                onCancel = {
+                    ffmpegDownloadJob?.cancel()
+                    ffmpegDownloadJob = null
+                    playerManager.dismissFfmpegInstallPromptAndSkip()
+                }
+            )
+        }
     }
     }
+}
+
+@Composable
+private fun FfmpegInstallPromptDialog(
+    prompt: FfmpegInstallPrompt,
+    componentState: FfmpegComponentState,
+    catalogInfo: FfmpegCatalogInfo,
+    onDownloadOrRetry: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isDownloading = componentState is FfmpegComponentState.Downloading
+    val sizeSuffix = catalogInfo.remoteSizeBytes?.let { "（约 ${formatComponentSize(it)}）" }.orEmpty()
+
+    AlertDialog(
+        onDismissRequest = { if (!isDownloading) onCancel() },
+        title = {
+            Text(
+                text = "需要下载解码组件",
+                color = MelodiaColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "这首歌是 ${prompt.codecLabel} 编码，需要下载 ffmpeg 解码组件${sizeSuffix}才能播放",
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+                when (componentState) {
+                    is FfmpegComponentState.Downloading -> {
+                        val progress = componentState.progress
+                        if (progress != null) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "正在下载… ${(progress * 100).toInt()}%（${formatComponentSize(componentState.downloadedBytes)} / ${formatComponentSize(componentState.totalBytes)}）",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                text = "正在连接下载服务器…",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    is FfmpegComponentState.Failed -> {
+                        Text(
+                            text = componentState.reason,
+                            color = MelodiaColors.Error,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                    else -> Unit
+                }
+            }
+        },
+        confirmButton = {
+            MelodiaTextButton(
+                enabled = !isDownloading,
+                onClick = onDownloadOrRetry
+            ) {
+                val actionText = when (componentState) {
+                    is FfmpegComponentState.Downloading -> "下载中…"
+                    is FfmpegComponentState.Failed -> "重试"
+                    else -> "下载"
+                }
+                Text(
+                    text = actionText,
+                    color = if (isDownloading) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            MelodiaTextButton(onClick = onCancel) {
+                Text("取消", color = MelodiaColors.TextPrimary)
+            }
+        },
+        containerColor = MelodiaColors.Surface
+    )
 }
 
 // 订阅全局 Toast 事件，展示 2 秒后自动清空

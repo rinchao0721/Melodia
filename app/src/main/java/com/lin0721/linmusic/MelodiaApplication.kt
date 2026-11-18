@@ -16,6 +16,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.update.UpdateChecker
@@ -64,6 +65,9 @@ class MelodiaApplication : Application() {
         AppEnvironment.isDebug = BuildConfig.DEBUG
         AppLogger.init(this)
         CrashHandler.init(this)
+        androidx.media3.decoder.ffmpeg.FfmpegLibrary.setLibraryPath(
+            FfmpegComponentManager.defaultLibraryFile(this).absolutePath
+        )
 
         val imageLoader = ImageLoader.Builder(this)
             .memoryCache {

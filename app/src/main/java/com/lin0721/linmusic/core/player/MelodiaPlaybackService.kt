@@ -23,6 +23,7 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences
 import androidx.media3.common.util.UnstableApi
@@ -30,6 +31,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
@@ -370,6 +372,13 @@ class MelodiaPlaybackService : MediaSessionService() {
 
         // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态，并监听焦点变化
         sessionPlayer.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                super.onPlayerError(error)
+                val mime = (error as? ExoPlaybackException)?.rendererFormat?.sampleMimeType
+                    ?: extractAudioMimeForError(sessionPlayer.currentTracks)
+                playerManager.recordRendererErrorMime(sessionPlayer.currentMediaItem?.mediaId, mime)
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 externalInterruptionResumeController.onIsPlayingChanged(isPlaying)
@@ -1069,6 +1078,10 @@ private class MelodiaRenderersFactory(
     context: Context,
     private val usbAudio: UsbAudioDeviceManager
 ) : DefaultRenderersFactory(context) {
+
+    init {
+        setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
+    }
 
     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink =
         DefaultAudioSink.Builder(context)

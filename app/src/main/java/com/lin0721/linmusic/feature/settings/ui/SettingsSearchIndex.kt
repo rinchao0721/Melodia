@@ -27,6 +27,7 @@ object SettingsSearchIndex {
             entry(PLAYBACK, 0, "音量平衡", "响度 均衡 replaygain"),
             entry(PLAYBACK, 0, "切歌淡入淡出", "crossfade 交叠 过渡时长 智能过渡 静音"),
             entry(PLAYBACK, 0, "通知栏按钮", "媒体通知 控件 自定义 排序 喜欢 不喜欢 播放模式 悬浮歌词 定时关闭 关闭 快进 快退"),
+            entry(PLAYBACK, 0, "ffmpeg 解码组件", "alac flac ac3 dts 解码 音频格式 组件"),
 
             entry(QUALITY_SOURCES, 0, "Wi-Fi 环境播放音质", "wifi 无线 码率"),
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),

@@ -139,6 +139,38 @@ class PlaybackQualityExtractorTest {
         assertNull(extractStreamAudioInfo(Tracks.EMPTY))
     }
 
+    @Test
+    fun `extractAudioMimeForError falls back to unselected audio track on decoder error`() {
+        val unselectedAlac = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_ALAC)
+            .build()
+        val tracks = Tracks(
+            listOf(
+                Tracks.Group(
+                    TrackGroup(unselectedAlac),
+                    false,
+                    intArrayOf(C.FORMAT_UNSUPPORTED_SUBTYPE),
+                    booleanArrayOf(false)
+                )
+            )
+        )
+        assertEquals(MimeTypes.AUDIO_ALAC, extractAudioMimeForError(tracks))
+        assertNull(extractAudioMimeForError(Tracks.EMPTY))
+    }
+
+    @Test
+    fun `findUnplayableAudioMime only reports when every audio track is unsupported and unselected`() {
+        val alac = Format.Builder().setSampleMimeType(MimeTypes.AUDIO_ALAC).build()
+        fun tracksOf(support: Int, selected: Boolean) = Tracks(
+            listOf(Tracks.Group(TrackGroup(alac), false, intArrayOf(support), booleanArrayOf(selected)))
+        )
+        assertEquals(MimeTypes.AUDIO_ALAC, findUnplayableAudioMime(tracksOf(C.FORMAT_UNSUPPORTED_SUBTYPE, false)))
+        assertNull(findUnplayableAudioMime(tracksOf(C.FORMAT_HANDLED, true)))
+        assertNull(findUnplayableAudioMime(tracksOf(C.FORMAT_EXCEEDS_CAPABILITIES, true)))
+        assertNull(findUnplayableAudioMime(tracksOf(C.FORMAT_HANDLED, false)))
+        assertNull(findUnplayableAudioMime(Tracks.EMPTY))
+    }
+
     private fun buildFlacCsd(
         sampleRateHz: Int,
         channels: Int,
