@@ -66,6 +66,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.lin0721.linmusic.core.download.DownloadPreferences
+import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
 import com.lin0721.linmusic.core.ui.interaction.copyOnLongClick
@@ -100,12 +101,14 @@ data class SongRowData(
     val platformTagColorArgb: Long? = null,
     // 长按复制的歌手文本，为空时复制展示的 artist（artist 掺了专辑等附加信息时单独指定）
     val copyArtist: String? = null,
-    // 网易云歌曲 id，非空时按开关显示最高音质徽标；本地、外部平台、播客留空
+    // 网易云歌曲 id，非空时按开关显示最高音质徽标；外部平台、播客留空
     val qualitySongId: Long? = null,
     // 接口自带的最高音质等级，有值时不再补查
     val maxBrLevel: String? = null,
     // 由档位文件推断的等级，除 Hi-Res 外直接采用不再补查
-    val inferredLevel: String? = null
+    val inferredLevel: String? = null,
+    // 本地未匹配歌曲的推断音质等级
+    val localQualityLevel: String? = null
 )
 
 // 离线不可播放的歌曲行置灰程度
@@ -212,6 +215,15 @@ fun SongRow(
         )
         Spacer(Modifier.width(coverSpacing))
 
+        val downloadPreferences: DownloadPreferences = koinInject()
+        val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platformTag.isNullOrBlank() }
+        val downloadBadgeRecord = if (showDownloadBadge) rememberVerifiedDownloadRecord(downloadPreferences, data.id) else null
+        val qualityDownloadRecord = when {
+            qualitySongId == null -> null
+            showDownloadBadge && qualitySongId == data.id -> downloadBadgeRecord
+            else -> rememberVerifiedDownloadRecord(downloadPreferences, qualitySongId)
+        }
+
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isActive) {
@@ -260,7 +272,15 @@ fun SongRow(
                 }
             }
             Spacer(Modifier.height(MelodiaSpacing.xxs))
-            val qualityBadge = rememberSongQualityBadge(koinInject<SongQualityCache>(), data.qualitySongId, data.maxBrLevel, data.inferredLevel)
+            val effectiveLocalLevel = if (data.platformTag.isNullOrBlank()) data.localQualityLevel else null
+            val qualityBadge = rememberSongQualityBadge(
+                cache = koinInject<SongQualityCache>(),
+                songId = qualitySongId,
+                exactLevel = data.maxBrLevel,
+                inferredLevel = data.inferredLevel,
+                downloadedLevel = qualityDownloadRecord?.quality,
+                localLevel = effectiveLocalLevel
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (qualityBadge != null) {
                     SongQualityBadgeTag(qualityBadge)
@@ -290,33 +310,39 @@ fun SongRow(
             )
         }
 
-        if (showDownloadBadge) {
-            val downloadPreferences: DownloadPreferences = koinInject()
-            val record by remember(downloadPreferences, data.id) {
-                derivedStateOf { downloadPreferences.recordsByIdSnapshot[data.id] }
-            }
-            var isDownloaded by remember(data.id, record?.mediaStoreUri) {
-                mutableStateOf(record != null && downloadPreferences.isUriVerifiedCached(record!!.mediaStoreUri))
-            }
-            if (record != null && !isDownloaded) {
-                LaunchedEffect(data.id, record?.mediaStoreUri) {
-                    isDownloaded = downloadPreferences.findVerifiedRecord(data.id) != null
-                }
-            }
-            if (isDownloaded) {
-                Icon(
-                    MelodiaIcons.Downloaded,
-                    contentDescription = "已下载",
-                    tint = MelodiaColors.Success,
-                    modifier = Modifier
-                        .padding(start = MelodiaSpacing.xs)
-                        .size(16.dp)
-                )
-            }
+        if (downloadBadgeRecord != null) {
+            Icon(
+                MelodiaIcons.Downloaded,
+                contentDescription = "已下载",
+                tint = MelodiaColors.Success,
+                modifier = Modifier
+                    .padding(start = MelodiaSpacing.xs)
+                    .size(16.dp)
+            )
         }
 
         trailingSlot()
     }
+}
+
+@Composable
+private fun rememberVerifiedDownloadRecord(
+    downloadPreferences: DownloadPreferences,
+    songId: Long?
+): DownloadRecord? {
+    val id = songId ?: return null
+    val record by remember(downloadPreferences, id) {
+        derivedStateOf { downloadPreferences.recordsByIdSnapshot[id] }
+    }
+    var verified by remember(id, record?.mediaStoreUri) {
+        mutableStateOf(record != null && downloadPreferences.isUriVerifiedCached(record!!.mediaStoreUri))
+    }
+    if (record != null && !verified) {
+        LaunchedEffect(id, record?.mediaStoreUri) {
+            verified = downloadPreferences.findVerifiedRecord(id) != null
+        }
+    }
+    return if (verified) record else null
 }
 
 private fun normalizeRowCoverUrl(url: String?): String? {
@@ -499,7 +525,18 @@ fun DraggableSongRow(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
-            val qualityBadge = rememberSongQualityBadge(koinInject<SongQualityCache>(), data.qualitySongId, data.maxBrLevel, data.inferredLevel)
+            val downloadPreferences: DownloadPreferences = koinInject()
+            val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platformTag.isNullOrBlank() }
+            val qualityDownloadRecord = rememberVerifiedDownloadRecord(downloadPreferences, qualitySongId)
+            val effectiveLocalLevel = if (data.platformTag.isNullOrBlank()) data.localQualityLevel else null
+            val qualityBadge = rememberSongQualityBadge(
+                cache = koinInject<SongQualityCache>(),
+                songId = qualitySongId,
+                exactLevel = data.maxBrLevel,
+                inferredLevel = data.inferredLevel,
+                downloadedLevel = qualityDownloadRecord?.quality,
+                localLevel = effectiveLocalLevel
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (qualityBadge != null) {
                     SongQualityBadgeTag(qualityBadge)

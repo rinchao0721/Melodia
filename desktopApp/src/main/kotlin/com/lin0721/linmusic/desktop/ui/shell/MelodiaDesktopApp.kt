@@ -5,6 +5,7 @@ import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginCardContext
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.songquality.LocalDownloadedQualities
 import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
 import com.lin0721.linmusic.desktop.ui.plugin.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
@@ -216,6 +217,7 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCards provides pluginCards,
         LocalPluginCommands provides deps.pluginCommands,
         LocalSongQualityCache provides deps.songQuality,
+        LocalDownloadedQualities provides deps.downloadedQualities,
         LocalListenTogetherViewModel provides deps.listenTogether,
         LocalCoverColorMemory provides deps.coverColorMemory,
         LocalAlwaysShowLikedBadge provides alwaysShowLikedBadge

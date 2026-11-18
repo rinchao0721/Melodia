@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.lin0721.linmusic.feature.localmusic.data.scan.fallbackLocalQualityLevel
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 
@@ -28,7 +29,9 @@ data class LocalTrackEntity(
     val albumArtist: String? = null,
     val year: Int? = null,
     // MediaStore 编码：碟号 * 1000 + 音轨号
-    val trackNumber: Int? = null
+    val trackNumber: Int? = null,
+    // 由文件音频属性或扩展名推断的音质等级（standard/higher/exhigh/lossless/hires）
+    val qualityLevel: String? = null
 )
 
 // 导入条目没有 MediaStore id，用 uri 哈希生成稳定的非零占位 id，播放队列靠它的相反数区分本地曲目
@@ -49,5 +52,7 @@ fun LocalTrackEntity.toDomain(): LocalTrack = LocalTrack(
     source = LocalTrackSource.entries.firstOrNull { it.name == source } ?: LocalTrackSource.EXTERNAL,
     albumArtist = albumArtist,
     year = year,
-    trackNumber = trackNumber
+    trackNumber = trackNumber,
+    qualityLevel = qualityLevel?.takeIf { it.isNotBlank() }
+        ?: fallbackLocalQualityLevel(path, uri, sizeBytes, durationMs)
 )

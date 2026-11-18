@@ -19,7 +19,8 @@ data class LocalTrack(
     val source: LocalTrackSource,
     val albumArtist: String? = null,
     val year: Int? = null,
-    val trackNumber: Int? = null
+    val trackNumber: Int? = null,
+    val qualityLevel: String? = null
 )
 
 // 播放队列里的歌曲 id：已匹配网易歌曲用真实 id，其余用 MediaStore id 的相反数占位

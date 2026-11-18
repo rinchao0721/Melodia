@@ -8,6 +8,10 @@ private const val HIRES_MIN_KBPS = 1600
 private const val CD_SAMPLE_RATE_MAX = 48_000
 private const val CD_BIT_DEPTH = 16
 
+// 判断扩展名是否为常见无损音频格式
+fun isLosslessAudioExtension(extension: String): Boolean =
+    extension.trim().trimStart('.').lowercase() in LOSSLESS_EXTENSIONS
+
 // 由文件扩展名与音频属性推断对应的网易下载档位；环绕声、母带无法从文件区分，最高只认 hires
 fun guessAudioQuality(extension: String, bitrateKbps: Int, sampleRateHz: Int = 0, bitDepth: Int = 0): String {
     val ext = extension.trim().trimStart('.').lowercase()

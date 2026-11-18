@@ -117,6 +117,9 @@ class LocalMusicImporter(private val context: Context) {
         var year: Int? = null
         var albumArtist: String? = null
         var trackNumber: Int? = null
+        var bitrateKbps = 0
+        var sampleRateHz = 0
+        var bitDepth = 0
 
         try {
             retriever.setDataSource(context, uri)
@@ -130,22 +133,39 @@ class LocalMusicImporter(private val context: Context) {
                 track = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
                 disc = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
             )
+            bitrateKbps = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toIntOrNull()?.takeIf { it > 0 }?.let { it / 1000 } ?: 0
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                sampleRateHz = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull()?.takeIf { it > 0 } ?: 0
+                bitDepth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull()?.takeIf { it > 0 } ?: 0
+            }
         } catch (e: Exception) {
             AppLogger.w(TAG, "解析音频元数据失败 uri=$uri", e)
         } finally {
             runCatching { retriever.release() }
         }
 
+        val mimeType = runCatching { context.contentResolver.getType(uri) }
+            .onFailure { if (it is CancellationException) throw it }.getOrNull()
         val metadata = mergeWavMetadata(
             system = WavMetadata(title, artist, album, albumArtist, year, trackNumber),
-            embedded = readWavTags(context, uri, displayName ?: Uri.decode(uri.lastPathSegment),
-                runCatching { context.contentResolver.getType(uri) }
-                    .onFailure { if (it is CancellationException) throw it }.getOrNull())
+            embedded = readWavTags(context, uri, displayName ?: Uri.decode(uri.lastPathSegment), mimeType)
         )
         val finalTitle = metadata.title?.trim()?.takeIf { it.isNotBlank() }
             ?: displayName?.substringBeforeLast('.')?.trim()?.takeIf { it.isNotBlank() }
             ?: "未知曲目"
         val finalArtist = metadata.artist?.trim()?.takeIf { it.isNotBlank() } ?: "未知艺术家"
+        val qualityLevel = resolveImportedQualityLevel(
+            context = context,
+            uri = uri,
+            displayName = displayName,
+            mimeType = mimeType,
+            retrieverBitrateKbps = bitrateKbps,
+            retrieverSampleRateHz = sampleRateHz,
+            retrieverBitDepth = bitDepth,
+            sizeBytes = fileSize,
+            durationMs = durationMs
+        )
 
         val now = System.currentTimeMillis()
         return LocalTrackEntity(
@@ -163,17 +183,41 @@ class LocalMusicImporter(private val context: Context) {
             source = LocalTrackSource.IMPORTED.name,
             year = metadata.year,
             trackNumber = metadata.trackNumber,
-            albumArtist = metadata.albumArtist
+            albumArtist = metadata.albumArtist,
+            qualityLevel = qualityLevel
         )
     }
 
-    // 已导入文件不会再次经过 MediaStore，升级后同步时只更新成功补读到的 WAV 标签。
-    internal fun refreshWavTags(existing: LocalTrackEntity): LocalTrackEntity? {
+    // 已导入文件不会再次经过 MediaStore，升级后同步时补读 WAV 标签与缺失的音质等级
+    internal fun refreshImportedMetadata(existing: LocalTrackEntity): LocalTrackEntity? {
         if (existing.source != LocalTrackSource.IMPORTED.name) return null
         val uri = Uri.parse(existing.uri)
-        if (canSkipWavRefresh(Uri.decode(uri.lastPathSegment))) return null
-        val tags = readWavTags(context, uri) ?: return null
-        return mergeImportedWavTags(existing, tags).takeIf { it != existing }
+        var updated = existing
+        if (!canSkipWavRefresh(Uri.decode(uri.lastPathSegment))) {
+            readWavTags(context, uri)?.let { tags ->
+                updated = mergeImportedWavTags(updated, tags)
+            }
+        }
+        if (updated.qualityLevel.isNullOrBlank()) {
+            val mimeType = runCatching { context.contentResolver.getType(uri) }
+                .onFailure { if (it is CancellationException) throw it }.getOrNull()
+            val mmr = readRetrieverAudioMetrics(context, uri)
+            val resolved = resolveImportedQualityLevel(
+                context = context,
+                uri = uri,
+                displayName = null,
+                mimeType = mimeType,
+                retrieverBitrateKbps = mmr.bitrateKbps,
+                retrieverSampleRateHz = mmr.sampleRateHz,
+                retrieverBitDepth = mmr.bitDepth,
+                sizeBytes = updated.sizeBytes,
+                durationMs = updated.durationMs
+            )
+            if (!resolved.isNullOrBlank()) {
+                updated = updated.copy(qualityLevel = resolved)
+            }
+        }
+        return updated.takeIf { it != existing }
     }
 }
 

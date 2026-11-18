@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.log.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -29,6 +30,11 @@ class DesktopDownloadPreferences(private val dataStore: DataStore<Preferences>) 
     }
 
     val records: Flow<List<DownloadRecord>> = dataStore.data.map { decodeRecords(it[KEY_RECORDS]) }
+
+    // 按歌曲 id 映射已下载音质，供列表行覆盖线上最高音质徽标
+    val downloadedQualities: Flow<Map<Long, String>> = records
+        .map { list -> list.associate { it.songId to it.quality } }
+        .distinctUntilChanged()
 
     suspend fun findVerifiedRecord(songId: Long): DownloadRecord? =
         findVerifiedRecords(listOf(songId)).firstOrNull()

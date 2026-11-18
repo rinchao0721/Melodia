@@ -22,7 +22,7 @@ class MediaStoreScanner(private val context: Context) {
     private val albumReader = MediaStoreAlbumReader(context)
 
     // 失败返回 null 而非空列表，否则同步会误删整库
-    fun scan(): List<LocalTrackEntity>? {
+    fun scan(existingByUri: Map<String, LocalTrackEntity> = emptyMap()): List<LocalTrackEntity>? {
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.DISPLAY_NAME,
@@ -37,7 +37,11 @@ class MediaStoreScanner(private val context: Context) {
             MediaStore.Audio.Media.DATE_MODIFIED,
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.TRACK
-        ) + if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) arrayOf(MediaStore.Audio.Media.ALBUM_ARTIST) else emptyArray()
+        ) + if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            arrayOf(MediaStore.Audio.Media.ALBUM_ARTIST, MediaStore.Audio.Media.BITRATE)
+        } else {
+            emptyArray()
+        }
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val results = mutableListOf<LocalTrackEntity>()
         return runCatching {
@@ -65,14 +69,25 @@ class MediaStoreScanner(private val context: Context) {
                 } else {
                     -1
                 }
+                val bitrateCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    cursor.getColumnIndex(MediaStore.Audio.Media.BITRATE)
+                } else {
+                    -1
+                }
                 val yearCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
                 val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
                     val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                    val uriString = uri.toString()
                     val path = cursor.getString(dataCol)
+                    val displayName = cursor.getString(nameCol)
+                    val mimeType = cursor.getString(mimeCol)
+                    val durationMs = cursor.getLong(durationCol)
+                    val sizeBytes = cursor.getLong(sizeCol)
+                    val dateModifiedMs = cursor.getLong(dateModifiedCol) * 1000
                     val systemAlbum = cursor.getString(albumCol)
-                    val embedded = readWavTags(context, uri, cursor.getString(nameCol), cursor.getString(mimeCol))
+                    val embedded = readWavTags(context, uri, displayName, mimeType)
                     val metadata = mergeWavMetadata(
                         system = WavMetadata(
                             title = cursor.getString(titleCol),
@@ -92,22 +107,42 @@ class MediaStoreScanner(private val context: Context) {
                         rawArtist = metadata.artist.orEmpty(),
                         rawTitle = metadata.title ?: UNKNOWN_TITLE
                     )
+                    val cachedQuality = existingByUri[uriString]?.takeIf {
+                        !it.qualityLevel.isNullOrBlank() &&
+                            it.dateModifiedMs == dateModifiedMs &&
+                            it.sizeBytes == sizeBytes
+                    }?.qualityLevel
+                    val mediaStoreBitrateKbps = bitrateCol.takeIf { it >= 0 }
+                        ?.let { cursor.getIntOrNull(it) }
+                        ?.takeIf { it > 0 }
+                        ?.let { it / 1000 } ?: 0
+                    val qualityLevel = cachedQuality ?: resolveMediaStoreQualityLevel(
+                        context = context,
+                        uri = uri,
+                        path = path,
+                        displayName = displayName,
+                        mimeType = mimeType,
+                        sizeBytes = sizeBytes,
+                        durationMs = durationMs,
+                        mediaStoreBitrateKbps = mediaStoreBitrateKbps
+                    )
                     results += LocalTrackEntity(
-                        uri = uri.toString(),
+                        uri = uriString,
                         mediaStoreId = id,
                         songId = null,
                         title = title,
                         artist = artist,
                         album = album,
-                        durationMs = cursor.getLong(durationCol),
-                        sizeBytes = cursor.getLong(sizeCol),
+                        durationMs = durationMs,
+                        sizeBytes = sizeBytes,
                         path = path,
                         dateAddedMs = cursor.getLong(dateAddedCol) * 1000,
-                        dateModifiedMs = cursor.getLong(dateModifiedCol) * 1000,
+                        dateModifiedMs = dateModifiedMs,
                         source = LocalTrackSource.EXTERNAL.name,
                         albumArtist = metadata.albumArtist,
                         year = metadata.year,
-                        trackNumber = metadata.trackNumber
+                        trackNumber = metadata.trackNumber,
+                        qualityLevel = qualityLevel
                     )
                 }
             }

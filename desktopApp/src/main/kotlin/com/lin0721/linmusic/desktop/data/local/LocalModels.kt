@@ -28,12 +28,21 @@ data class LocalTrack(
     val lastModified: Long = 0,
     val hasCover: Boolean = false,
     val songId: Long? = null,
-    val matchState: LocalMatchState = LocalMatchState.PENDING
+    val matchState: LocalMatchState = LocalMatchState.PENDING,
+    // null 表示旧索引尚未补扫音质；空串表示已扫但无法推断（如无损以外且无码率）
+    val quality: String? = null
 ) {
     // 未匹配时的播放队列占位 id
     val placeholderId: Long by lazy { localPlaceholderId(path) }
 
     val queueSongId: Long get() = songId ?: placeholderId
+
+    // 列表展示音质：已有结果直接取；旧数据缺字段时按扩展名 + 大小/时长临时兜底
+    fun resolvedQuality(): String? = when {
+        quality == null -> inferDesktopAudioQuality(File(path).extension, 0, 0, 0, size, durationMs).takeIf { it.isNotEmpty() }
+        quality.isNotEmpty() -> quality
+        else -> null
+    }
 }
 
 @Serializable

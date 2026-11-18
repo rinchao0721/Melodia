@@ -39,11 +39,11 @@ class SongQualityCacheTest {
         SongQualityCache(enabled, fetcher::fetch, backgroundScope, batchDelayMs = 300).also { runCurrent() }
 
     @Test
-    fun badgeDowngradesUnplayableLevels() {
+    fun badgeMapsDolbyImmersiveAndSurroundIndependently() {
         assertEquals(QualityBadge.Master, qualityBadgeOf("jymaster"))
-        assertEquals(QualityBadge.Lossless, qualityBadgeOf("dolby"))
-        assertEquals(QualityBadge.Lossless, qualityBadgeOf("sky"))
-        assertEquals(QualityBadge.Lossless, qualityBadgeOf("jyeffect"))
+        assertEquals(QualityBadge.Dolby, qualityBadgeOf("dolby"))
+        assertEquals(QualityBadge.Immersive, qualityBadgeOf("sky"))
+        assertEquals(QualityBadge.Surround, qualityBadgeOf("jyeffect"))
         assertEquals(QualityBadge.HiRes, qualityBadgeOf("hires"))
         assertEquals(QualityBadge.Lossless, qualityBadgeOf("lossless"))
         assertEquals(QualityBadge.ExHigh, qualityBadgeOf("exhigh"))
@@ -51,6 +51,77 @@ class SongQualityCacheTest {
         assertEquals(QualityBadge.Standard, qualityBadgeOf("standard"))
         assertNull(qualityBadgeOf(null))
         assertNull(qualityBadgeOf("unknown"))
+    }
+
+    @Test
+    fun downloadedQualityOverridesOnlineAndUnknownFallsBack() {
+        assertEquals(
+            QualityBadge.ExHigh,
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 10L,
+                exactLevel = "jymaster",
+                downloadedLevel = "exhigh"
+            )
+        )
+        assertFalse(
+            needsSongQualityLookup(
+                songId = 10L,
+                exactLevel = null,
+                inferredLevel = "hires",
+                downloadedLevel = "lossless"
+            )
+        )
+        // 下载记录 quality 为未知值时回退线上逻辑与补查
+        assertEquals(
+            QualityBadge.Master,
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 10L,
+                exactLevel = null,
+                inferredLevel = "hires",
+                downloadedLevel = "unexpected",
+                cachedLevel = "jymaster"
+            )
+        )
+        assertTrue(
+            needsSongQualityLookup(
+                songId = 10L,
+                exactLevel = null,
+                inferredLevel = "hires",
+                downloadedLevel = "unexpected"
+            )
+        )
+    }
+
+    @Test
+    fun localQualityDisplaysWithoutNeteaseIdAndRespectsSwitch() {
+        assertEquals(
+            QualityBadge.HiRes,
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = null,
+                exactLevel = null,
+                localLevel = "hires"
+            )
+        )
+        assertNull(
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 0L,
+                exactLevel = null,
+                localLevel = null
+            )
+        )
+        assertNull(
+            resolveSongQualityBadge(
+                enabled = false,
+                songId = null,
+                exactLevel = null,
+                localLevel = "lossless"
+            )
+        )
+        assertFalse(needsSongQualityLookup(songId = null, exactLevel = null))
     }
 
     @Test

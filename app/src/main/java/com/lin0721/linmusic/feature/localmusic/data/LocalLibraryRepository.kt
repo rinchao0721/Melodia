@@ -97,10 +97,10 @@ class LocalLibraryRepository(
             val snapshot = dao.getAll()
             val refreshedImports = snapshot.mapNotNull {
                 ensureActive()
-                importer.refreshWavTags(it)
+                importer.refreshImportedMetadata(it)
             }
             // SAF 的授权不依赖全库权限；全库扫描失败也不能丢失已成功读取的导入标签。
-            val rawScanned = if (hasPermission()) scanner.scan() else null
+            val rawScanned = if (hasPermission()) scanner.scan(snapshot.associateBy { it.uri }) else null
             if (rawScanned == null) {
                 val updates = stableImportUpdates(snapshot, dao.getAll(), refreshedImports)
                 if (updates.isNotEmpty()) dao.upsert(updates)

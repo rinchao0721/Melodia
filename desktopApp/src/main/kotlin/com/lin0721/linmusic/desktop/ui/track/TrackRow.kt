@@ -161,8 +161,10 @@ fun TrackRow(
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
     sourcePlatform: MusicPlatform? = null,
-    // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；本地、插件歌曲留空
-    qualitySongId: Long? = null
+    // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；插件歌曲留空
+    qualitySongId: Long? = null,
+    // 本地未匹配歌曲的推断音质等级
+    localQualityLevel: String? = null
 ) {
     val activeActions = actions.takeIf { selection == null }
     val activeMenu = menuContent.takeIf { selection == null }
@@ -285,10 +287,11 @@ fun TrackRow(
                     if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
                 }
                 val qualityBadge = rememberSongQualityBadge(
-                    LocalSongQualityCache.current,
-                    qualitySongId.takeIf { sourcePlatform == null },
-                    track.privilege?.maxBrLevel,
-                    track.inferredMaxBrLevel()
+                    cache = LocalSongQualityCache.current,
+                    songId = qualitySongId.takeIf { sourcePlatform == null },
+                    exactLevel = track.privilege?.maxBrLevel,
+                    inferredLevel = track.inferredMaxBrLevel(),
+                    localLevel = localQualityLevel.takeIf { sourcePlatform == null }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (qualityBadge != null) SongQualityBadgeTag(qualityBadge, Modifier.padding(end = 6.dp))
@@ -559,6 +562,7 @@ private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifi
         fontSize = 10.sp,
         lineHeight = 12.sp,
         maxLines = 1,
+        softWrap = false,
         modifier = modifier
             .background(color.copy(alpha = 0.1f), shape)
             .border(0.5.dp, color, shape)

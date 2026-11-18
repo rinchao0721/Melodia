@@ -34,7 +34,8 @@ fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifier) {
             fontSize = 9.sp,
             fontWeight = FontWeight.Medium,
             lineHeight = 11.sp,
-            maxLines = 1
+            maxLines = 1,
+            softWrap = false
         )
     }
 }

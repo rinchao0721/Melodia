@@ -319,6 +319,7 @@ fun LocalPlaylistPage(
                     index = index,
                     track = row.display,
                     qualitySongId = row.track.songId,
+                    localQualityLevel = row.track.resolvedQuality(),
                     isCurrent = nowPlaying?.songId == row.track.queueSongId,
                     onPlay = { playFrom(row) },
                     modifier = Modifier.padding(horizontal = 16.dp)

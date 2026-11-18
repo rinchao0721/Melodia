@@ -298,9 +298,23 @@ class DesktopSongDownloader(
     private fun persistSoon() {
         scope.launch {
             persistMutex.withLock {
-                downloadPreferences.saveTasks(_tasks.value.filter { it.status != DownloadTaskStatus.SUCCEEDED })
+                try {
+                    downloadPreferences.saveTasks(_tasks.value.filter { it.status != DownloadTaskStatus.SUCCEEDED })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "保存下载任务失败", e)
+                }
             }
         }
+    }
+
+    // 供测试清理时先终止下载任务并等待持久化协程结束
+    internal suspend fun shutdown() {
+        jobs.values.toList().forEach { it.cancelAndJoin() }
+        val scopeJob = scope.coroutineContext[Job] ?: return
+        scopeJob.children.toList().forEach { it.join() }
+        scopeJob.cancel()
     }
 
     // 未完成的任务恢复为暂停

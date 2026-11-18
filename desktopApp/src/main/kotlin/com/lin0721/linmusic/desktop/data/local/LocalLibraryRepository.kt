@@ -132,7 +132,8 @@ class LocalLibraryRepository(
                 artist = track.artist,
                 durationMs = track.durationMs,
                 sizeBytes = track.size,
-                quality = guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
+                quality = track.resolvedQuality()
+                    ?: guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
                 songIdTag = track.songId
             )
         }
@@ -455,7 +456,8 @@ internal class LibraryView(
                 artist = record.artistName.ifBlank { UNKNOWN_ARTIST },
                 size = record.fileSize,
                 songId = record.songId,
-                matchState = LocalMatchState.MANUAL
+                matchState = LocalMatchState.MANUAL,
+                quality = record.quality.ifBlank { null }
             )
             else -> null
         }

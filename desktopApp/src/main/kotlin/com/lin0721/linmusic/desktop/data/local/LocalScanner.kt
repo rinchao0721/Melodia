@@ -28,13 +28,13 @@ class LocalScanner(private val coverDirProvider: () -> File) {
             .toList()
     }
 
-    // 文件不存在返回 null；大小与修改时间都没变时沿用旧记录
+    // 文件不存在返回 null；大小、修改时间与音质都没缺时沿用旧记录
     fun refresh(path: String, previous: LocalTrack?): LocalTrack? {
         val file = File(path)
         if (!file.isFile) return null
         val size = file.length()
         val modified = file.lastModified()
-        if (previous != null && previous.size == size && previous.lastModified == modified) {
+        if (previous != null && previous.size == size && previous.lastModified == modified && previous.quality != null) {
             if (previous.hasCover && !coverFile(previous).isFile) {
                 val restored = LocalTagIo.readArtwork(file)?.let { writeCover(path, modified, it) } ?: false
                 return previous.copy(hasCover = restored)
@@ -61,7 +61,8 @@ class LocalScanner(private val coverDirProvider: () -> File) {
             lastModified = modified,
             hasCover = hasCover,
             songId = songId,
-            matchState = state
+            matchState = state,
+            quality = tags.quality
         )
     }
 
