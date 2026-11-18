@@ -30,6 +30,23 @@ class RecognitionHelpersTest {
     }
 
     @Test
+    fun inferAudioQualityHandlesAlacAacAndContainerFallback() {
+        // ALAC m4a 按无损编码判档：24bit 按既有规则升 Hi-Res，16bit 或位深缺失判无损
+        assertEquals("hires", inferAudioQuality("m4a", codec = "audio/alac", bitrateKbps = 1577, sampleRateHz = 44_100, bitDepth = 24))
+        assertEquals("lossless", inferAudioQuality("m4a", codec = "audio/alac", bitrateKbps = 900, sampleRateHz = 44_100, bitDepth = 16))
+        assertEquals("lossless", inferAudioQuality("m4a", codec = "alac", bitrateKbps = 1577, sampleRateHz = 44_100, bitDepth = 0))
+
+        // AAC m4a 按有损码率判档
+        assertEquals("exhigh", inferAudioQuality("m4a", codec = "audio/mp4a-latm", bitrateKbps = 320, sampleRateHz = 44_100))
+        assertEquals("higher", inferAudioQuality("m4a", codec = "aac", bitrateKbps = 192, sampleRateHz = 44_100))
+        assertEquals("standard", inferAudioQuality("mp4", codec = "audio/mp4a-latm", bitrateKbps = 128, sampleRateHz = 44_100))
+
+        // 容器 mime 或读取失败时安全回退
+        assertEquals("exhigh", inferAudioQuality("m4a", codec = "audio/mp4", bitrateKbps = 320))
+        assertNull(inferAudioQuality("m4a", codec = null, bitrateKbps = 0, sizeBytes = 0L, durationMs = 0L))
+    }
+
+    @Test
     fun bitrateEstimatedFromSizeAndDuration() {
         assertEquals(320, estimateBitrateKbps(8_000_000L, 200_000L))
         assertEquals(0, estimateBitrateKbps(0, 200_000L))

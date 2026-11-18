@@ -18,7 +18,9 @@ import org.koin.dsl.module
 
 val localMusicModule = module {
     single {
-        Room.databaseBuilder(androidContext(), LocalMusicDatabase::class.java, LocalMusicDatabase.NAME).build()
+        Room.databaseBuilder(androidContext(), LocalMusicDatabase::class.java, LocalMusicDatabase.NAME)
+            .addMigrations(LocalMusicDatabase.MIGRATION_5_6)
+            .build()
     }
     single { get<LocalMusicDatabase>().localTrackDao() }
     single { get<LocalMusicDatabase>().localPlaylistDao() }

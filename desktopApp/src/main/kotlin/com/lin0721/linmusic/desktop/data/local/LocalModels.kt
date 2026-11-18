@@ -71,12 +71,15 @@ data class LocalBuiltinState(
     val lastPlayedAt: Long = 0
 )
 
+internal const val CURRENT_LOCAL_QUALITY_VERSION = 1
+
 @Serializable
 data class LocalLibraryData(
     val playlists: List<LocalPlaylist> = emptyList(),
     val tracks: List<LocalTrack> = emptyList(),
     val filter: LocalScanFilter = LocalScanFilter(),
-    val builtins: List<LocalBuiltinState> = emptyList()
+    val builtins: List<LocalBuiltinState> = emptyList(),
+    val qualityVersion: Int = 0
 )
 
 // 音乐库列表与侧栏展示用的歌单摘要

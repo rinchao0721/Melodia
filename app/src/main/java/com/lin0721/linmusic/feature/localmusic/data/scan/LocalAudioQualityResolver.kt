@@ -9,9 +9,14 @@ import android.system.Os
 import android.system.OsConstants
 import com.kyant.taglib.AudioProperties
 import com.kyant.taglib.TagLib
+import com.lin0721.linmusic.core.download.ContainerAudioMetrics
+import com.lin0721.linmusic.core.download.isContainerMimeType
+import com.lin0721.linmusic.core.download.readExtractorAudioMetrics
 import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
-import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
+import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
+import com.lin0721.linmusic.core.download.recognition.isContainerAudioExtension
 import com.lin0721.linmusic.core.download.recognition.isLosslessAudioExtension
+import com.lin0721.linmusic.core.download.recognition.mapLosslessCodecToExtension
 import com.lin0721.linmusic.core.log.AppLogger
 import kotlinx.coroutines.CancellationException
 import java.net.URLDecoder
@@ -23,6 +28,7 @@ private const val CD_SAMPLE_RATE_MAX = 48_000
 private val MIME_EXTENSION_MAP = mapOf(
     "audio/flac" to "flac",
     "audio/x-flac" to "flac",
+    "audio/alac" to "alac",
     "audio/wav" to "wav",
     "audio/x-wav" to "wav",
     "audio/wave" to "wav",
@@ -32,8 +38,11 @@ private val MIME_EXTENSION_MAP = mapOf(
     "audio/mp4" to "m4a",
     "audio/m4a" to "m4a",
     "audio/x-m4a" to "m4a",
+    "video/mp4" to "mp4",
+    "audio/3gpp" to "3gp",
     "audio/aac" to "aac",
     "audio/x-aac" to "aac",
+    "audio/mp4a-latm" to "aac",
     "audio/ogg" to "ogg",
     "application/ogg" to "ogg",
     "audio/opus" to "opus",
@@ -79,20 +88,17 @@ internal fun inferLocalQualityLevel(
     sampleRateHz: Int,
     bitDepth: Int,
     sizeBytes: Long,
-    durationMs: Long
-): String? {
-    val ext = extension.trim().trimStart('.').lowercase(Locale.ROOT)
-    val effectiveBitrate = bitrateKbps.takeIf { it > 0 } ?: estimateBitrateKbps(sizeBytes, durationMs)
-    if (ext.isBlank()) {
-        if (effectiveBitrate <= 0 && sampleRateHz <= 0 && bitDepth <= 0) return null
-        return guessAudioQuality("", effectiveBitrate, sampleRateHz, bitDepth)
-    }
-    if (isLosslessAudioExtension(ext)) {
-        return guessAudioQuality(ext, effectiveBitrate, sampleRateHz, bitDepth)
-    }
-    if (effectiveBitrate <= 0) return null
-    return guessAudioQuality(ext, effectiveBitrate, sampleRateHz, bitDepth)
-}
+    durationMs: Long,
+    codec: String? = null
+): String? = inferAudioQuality(
+    extension = extension,
+    codec = codec,
+    bitrateKbps = bitrateKbps,
+    sampleRateHz = sampleRateHz,
+    bitDepth = bitDepth,
+    sizeBytes = sizeBytes,
+    durationMs = durationMs
+)
 
 internal fun fallbackLocalQualityLevel(
     pathOrName: String?,
@@ -110,6 +116,48 @@ internal fun fallbackLocalQualityLevel(
     return inferLocalQualityLevel(ext, 0, 0, 0, sizeBytes, durationMs)
 }
 
+internal fun resolveLocalQualityLevel(
+    extension: String,
+    mimeType: String?,
+    sizeBytes: Long,
+    durationMs: Long,
+    initialBitrateKbps: Int = 0,
+    initialSampleRateHz: Int = 0,
+    initialBitDepth: Int = 0,
+    supportsRetrieverBitDepth: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+    probeExtractor: () -> ContainerAudioMetrics = { ContainerAudioMetrics() },
+    probeTagLib: () -> AudioProperties? = { null },
+    probeRetriever: () -> LocalAudioMetrics = { LocalAudioMetrics() }
+): String? {
+    val ext = extension.trim().trimStart('.').lowercase(Locale.ROOT)
+    val needContainerProbe = isContainerAudioExtension(ext) || isContainerMimeType(mimeType) || ext.isBlank()
+    val extractor = if (needContainerProbe) probeExtractor() else ContainerAudioMetrics()
+    val normalizedMime = mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.ROOT)
+    val codec = extractor.codec ?: normalizedMime?.takeIf { it == "audio/alac" }
+
+    val isLossless = mapLosslessCodecToExtension(codec) != null || (codec == null && isLosslessAudioExtension(ext))
+    var bitrateKbps = initialBitrateKbps.takeIf { it > 0 } ?: extractor.bitrateKbps
+    var sampleRateHz = initialSampleRateHz.takeIf { it > 0 } ?: extractor.sampleRateHz
+    var bitDepth = initialBitDepth.takeIf { it > 0 } ?: extractor.bitDepth
+
+    val needTagLib = (isLossless && sampleRateHz <= 0) || bitrateKbps <= 0
+    val tagLibProps = if (needTagLib) probeTagLib() else null
+    if (bitrateKbps <= 0) bitrateKbps = tagLibProps?.bitrate?.takeIf { it > 0 } ?: 0
+    if (sampleRateHz <= 0) sampleRateHz = tagLibProps?.sampleRate?.takeIf { it > 0 } ?: 0
+
+    // TagLib Android 绑定未暴露位深；无损且采样率 <= 48kHz 时在 API 31+ 用 MediaMetadataRetriever 补查 24bit Hi-Res
+    val shouldCheckRetriever = (isLossless && supportsRetrieverBitDepth && bitDepth <= 0 && sampleRateHz <= CD_SAMPLE_RATE_MAX) ||
+        (bitrateKbps <= 0 && estimateBitrateKbps(sizeBytes, durationMs) <= 0)
+    if (shouldCheckRetriever) {
+        val mmr = probeRetriever()
+        if (bitrateKbps <= 0) bitrateKbps = mmr.bitrateKbps
+        if (sampleRateHz <= 0) sampleRateHz = mmr.sampleRateHz
+        if (bitDepth <= 0) bitDepth = mmr.bitDepth
+    }
+
+    return inferLocalQualityLevel(ext, bitrateKbps, sampleRateHz, bitDepth, sizeBytes, durationMs, codec)
+}
+
 internal fun resolveMediaStoreQualityLevel(
     context: Context,
     uri: Uri,
@@ -121,25 +169,16 @@ internal fun resolveMediaStoreQualityLevel(
     mediaStoreBitrateKbps: Int
 ): String? {
     val ext = resolveAudioExtension(path ?: displayName, mimeType, Uri.decode(uri.lastPathSegment))
-    val isLossless = isLosslessAudioExtension(ext)
-    val needProbe = isLossless || mediaStoreBitrateKbps <= 0
-    val tagLibProps = if (needProbe) readTagLibAudioProperties(context, uri) else null
-
-    var bitrateKbps = tagLibProps?.bitrate?.takeIf { it > 0 } ?: mediaStoreBitrateKbps
-    var sampleRateHz = tagLibProps?.sampleRate?.takeIf { it > 0 } ?: 0
-    var bitDepth = 0
-
-    // TagLib Android 绑定未暴露位深；无损且采样率 <= 48kHz 时在 API 31+ 用 MediaMetadataRetriever 补查 24bit Hi-Res
-    val shouldCheckRetriever = (isLossless && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && sampleRateHz <= CD_SAMPLE_RATE_MAX) ||
-        (bitrateKbps <= 0 && estimateBitrateKbps(sizeBytes, durationMs) <= 0)
-    if (shouldCheckRetriever) {
-        val mmr = readRetrieverAudioMetrics(context, uri)
-        if (bitrateKbps <= 0) bitrateKbps = mmr.bitrateKbps
-        if (sampleRateHz <= 0) sampleRateHz = mmr.sampleRateHz
-        bitDepth = mmr.bitDepth
-    }
-
-    return inferLocalQualityLevel(ext, bitrateKbps, sampleRateHz, bitDepth, sizeBytes, durationMs)
+    return resolveLocalQualityLevel(
+        extension = ext,
+        mimeType = mimeType,
+        sizeBytes = sizeBytes,
+        durationMs = durationMs,
+        initialBitrateKbps = mediaStoreBitrateKbps,
+        probeExtractor = { readExtractorAudioMetrics(context, uri) },
+        probeTagLib = { readTagLibAudioProperties(context, uri) },
+        probeRetriever = { readRetrieverAudioMetrics(context, uri) }
+    )
 }
 
 internal fun resolveImportedQualityLevel(
@@ -154,17 +193,19 @@ internal fun resolveImportedQualityLevel(
     durationMs: Long
 ): String? {
     val ext = resolveAudioExtension(displayName, mimeType, Uri.decode(uri.lastPathSegment))
-    val isLossless = isLosslessAudioExtension(ext)
-    var bitrateKbps = retrieverBitrateKbps
-    var sampleRateHz = retrieverSampleRateHz
-
-    if (bitrateKbps <= 0 || (isLossless && sampleRateHz <= 0)) {
-        val props = readTagLibAudioProperties(context, uri)
-        if (bitrateKbps <= 0) bitrateKbps = props?.bitrate?.takeIf { it > 0 } ?: 0
-        if (sampleRateHz <= 0) sampleRateHz = props?.sampleRate?.takeIf { it > 0 } ?: 0
-    }
-
-    return inferLocalQualityLevel(ext, bitrateKbps, sampleRateHz, retrieverBitDepth, sizeBytes, durationMs)
+    return resolveLocalQualityLevel(
+        extension = ext,
+        mimeType = mimeType,
+        sizeBytes = sizeBytes,
+        durationMs = durationMs,
+        initialBitrateKbps = retrieverBitrateKbps,
+        initialSampleRateHz = retrieverSampleRateHz,
+        initialBitDepth = retrieverBitDepth,
+        // 导入路径在调用前已执行过 MediaMetadataRetriever，此处不再重复创建实例
+        supportsRetrieverBitDepth = false,
+        probeExtractor = { readExtractorAudioMetrics(context, uri) },
+        probeTagLib = { readTagLibAudioProperties(context, uri) }
+    )
 }
 
 internal fun readRetrieverAudioMetrics(context: Context, uri: Uri): LocalAudioMetrics {

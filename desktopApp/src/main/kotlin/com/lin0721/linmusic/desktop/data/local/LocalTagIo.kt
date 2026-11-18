@@ -1,10 +1,9 @@
 package com.lin0721.linmusic.desktop.data.local
 
-import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
-import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
-import com.lin0721.linmusic.core.download.recognition.isLosslessAudioExtension
+import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
 import org.jaudiotagger.audio.AudioFile
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.audio.AudioHeader
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.images.ArtworkFactory
@@ -42,22 +41,37 @@ sealed interface CoverChange {
 
 internal const val UNKNOWN_ARTIST = "未知歌手"
 
+internal fun resolveDesktopAudioCodec(header: AudioHeader?): String? {
+    if (header == null) return null
+    val encoding = runCatching { header.encodingType }.getOrNull().orEmpty().trim().lowercase()
+    val format = runCatching { header.format }.getOrNull().orEmpty().trim().lowercase()
+    val combined = "$encoding $format"
+    return when {
+        "alac" in combined || "apple lossless" in combined -> "alac"
+        "flac" in combined -> "flac"
+        runCatching { header.isLossless }.getOrDefault(false) -> "flac"
+        "aac" in combined -> "aac"
+        else -> null
+    }
+}
+
 internal fun inferDesktopAudioQuality(
     extension: String,
     bitrateKbps: Int,
     sampleRateHz: Int,
     bitDepth: Int,
     sizeBytes: Long,
-    durationMs: Long
-): String {
-    val ext = extension.trim().trimStart('.').lowercase()
-    val effectiveBitrate = bitrateKbps.takeIf { it > 0 } ?: estimateBitrateKbps(sizeBytes, durationMs)
-    if (isLosslessAudioExtension(ext)) {
-        return guessAudioQuality(ext, effectiveBitrate, sampleRateHz, bitDepth)
-    }
-    if (effectiveBitrate <= 0) return ""
-    return guessAudioQuality(ext, effectiveBitrate, sampleRateHz, bitDepth)
-}
+    durationMs: Long,
+    codec: String? = null
+): String = inferAudioQuality(
+    extension = extension,
+    codec = codec,
+    bitrateKbps = bitrateKbps,
+    sampleRateHz = sampleRateHz,
+    bitDepth = bitDepth,
+    sizeBytes = sizeBytes,
+    durationMs = durationMs
+).orEmpty()
 
 object LocalTagIo {
 
@@ -83,7 +97,8 @@ object LocalTagIo {
             sampleRateHz = sampleRateHz,
             bitDepth = bitDepth,
             sizeBytes = file.length(),
-            durationMs = durationMs
+            durationMs = durationMs,
+            codec = resolveDesktopAudioCodec(header)
         )
         return LocalTagData(
             title = tag.field(FieldKey.TITLE).ifBlank { fallbackTitle },

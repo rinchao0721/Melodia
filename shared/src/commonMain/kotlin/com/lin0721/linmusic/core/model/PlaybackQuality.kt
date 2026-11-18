@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.core.model
 
 import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
+import com.lin0721.linmusic.core.download.recognition.isDolbyAudioCodec
+import com.lin0721.linmusic.core.download.recognition.mapLosslessCodecToExtension
+import com.lin0721.linmusic.core.download.recognition.normalizeAudioCodec
 import kotlin.math.roundToInt
 
 // 实际音频流解码/解封装参数
@@ -28,8 +31,6 @@ data class PlaybackQuality(
     val output: OutputAudioInfo? = null
 )
 
-private val DOLBY_CODECS = setOf("eac3", "eac3-joc", "ac3", "ac4", "truehd", "true-hd")
-
 private val PRESERVABLE_LOSSLESS_LEVELS = setOf("jymaster", "sky", "jyeffect")
 
 private val LOSSLESS_TIER_LEVELS = setOf("lossless", "hires", "jymaster", "sky", "jyeffect")
@@ -37,22 +38,6 @@ private val LOSSLESS_TIER_LEVELS = setOf("lossless", "hires", "jymaster", "sky",
 private val LOSSY_LEVELS = setOf("standard", "higher", "exhigh")
 
 private val LOSSLESS_DISPLAY_LEVELS = setOf("lossless", "hires", "dolby", "jymaster", "sky", "jyeffect")
-
-// 仅做无损编码到扩展名的映射，具体档位阈值复用 guessAudioQuality
-private fun mapLosslessCodecToExtension(codec: String): String? = when {
-    codec == "flac" || codec == "x-flac" -> "flac"
-    codec == "alac" || codec == "tak" || codec == "tta" || codec == "mlp" -> "flac"
-    codec.startsWith("dsd") -> "flac"
-    codec == "wav" || codec == "x-wav" || codec == "vnd.wave" || codec == "raw" -> "wav"
-    codec == "pcm" || codec.startsWith("pcm_") || codec.startsWith("pcm-") -> "wav"
-    codec == "ape" || codec == "monkeys_audio" || codec == "x-ape" -> "ape"
-    codec == "wavpack" || codec == "wv" -> "wv"
-    codec == "aiff" || codec == "aif" || codec == "x-aiff" -> "aiff"
-    else -> null
-}
-
-private fun normalizeCodec(raw: String?): String? =
-    raw?.trim()?.lowercase()?.removePrefix("audio/")?.takeIf { it.isNotEmpty() }
 
 private fun StreamAudioInfo.bitrateKbps(): Int =
     bitrateBps?.takeIf { it > 0 }?.let { (it / 1000.0).roundToInt() } ?: 0
@@ -62,13 +47,13 @@ fun resolveQualityLevel(declared: String?, stream: StreamAudioInfo?): String? {
     val declaredLevel = declared?.trim()?.takeIf { it.isNotEmpty() }
     if (stream == null) return declaredLevel
 
-    val codec = normalizeCodec(stream.codec)
+    val codec = normalizeAudioCodec(stream.codec)
     val sampleRateHz = stream.sampleRateHz?.takeIf { it > 0 } ?: 0
     val bitDepth = stream.bitDepth?.takeIf { it > 0 } ?: 0
     val bitrateKbps = stream.bitrateKbps()
 
     if (codec != null) {
-        if (codec in DOLBY_CODECS) return "dolby"
+        if (isDolbyAudioCodec(codec)) return "dolby"
 
         val losslessExt = mapLosslessCodecToExtension(codec)
         if (losslessExt != null) {
