@@ -22,6 +22,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
 import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
@@ -51,7 +52,8 @@ class ArtistViewModel(
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val searchRepository: SearchRepository,
-    private val trackBatchActions: TrackBatchActionsDelegate
+    private val trackBatchActions: TrackBatchActionsDelegate,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ArtistUiState>(ArtistUiState.Loading)
@@ -142,6 +144,7 @@ class ArtistViewModel(
                     val similar = similarResult.getOrDefault(emptyList())
 
                     albumOffset = albumsPage?.albums?.size ?: 0
+                    songQualityCache?.prefetch(topSongs)
 
                     _uiState.value = ArtistUiState.Success(
                         artist = detail,
@@ -159,6 +162,7 @@ class ArtistViewModel(
                     _uiState.value = ArtistUiState.Error(err)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.e(TAG, "歌手详情页加载最终失败 artistId=$artistId", e)
                 _uiState.value = ArtistUiState.Error(e.toUserMessage(resourceProvider))
             }
@@ -199,6 +203,7 @@ class ArtistViewModel(
             artistRepository.getArtistAllSongs(currentArtistId, offset = 0, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
+                    songQualityCache?.prefetch(page.songs)
                     allSongsOffset = page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
@@ -225,6 +230,7 @@ class ArtistViewModel(
             artistRepository.getArtistAllSongs(currentArtistId, offset = allSongsOffset, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
+                    songQualityCache?.prefetch(page.songs)
                     allSongsOffset += page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
@@ -379,6 +385,7 @@ class ArtistViewModel(
             hasMore = page.hasMore && page.rawFetchedCount > 0
             pages++
         }
+        songQualityCache?.prefetch(collected)
         _songSearch.update {
             if (it.query != query) it
             else it.copy(

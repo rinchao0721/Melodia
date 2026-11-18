@@ -5,8 +5,14 @@ import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import kotlinx.serialization.json.JsonObject
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -294,7 +300,7 @@ fun TrackRow(
                     localLevel = localQualityLevel.takeIf { sourcePlatform == null }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (qualityBadge != null) SongQualityBadgeTag(qualityBadge, Modifier.padding(end = 6.dp))
+                    AnimatedSongQualityBadge(qualityBadge)
                     Text(
                         artistLinks(track.ar, navigator.openArtist),
                         color = DesktopColors.TextGray,
@@ -550,6 +556,28 @@ private fun Track.toPluginArgs(): JsonObject =
     pluginSongArgs(id, name, ar.joinToString(" / ") { it.name }, al.name, al.picUrl)
 
 private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
+
+// 最高音质徽标出现/切换淡入淡出过渡，尊重减少动画设置
+@Composable
+private fun AnimatedSongQualityBadge(badge: QualityBadge?, modifier: Modifier = Modifier) {
+    val motion = LocalUiMotion.current
+    AnimatedContent(
+        targetState = badge,
+        transitionSpec = {
+            motion.transform(
+                (fadeIn(motion.tween(180)) togetherWith fadeOut(motion.tween(150)))
+                    .using(SizeTransform(clip = false) { _, _ -> motion.tween(180) })
+            )
+        },
+        contentAlignment = Alignment.CenterStart,
+        label = "songQualityBadge",
+        modifier = modifier
+    ) { target ->
+        if (target != null) {
+            SongQualityBadgeTag(target, Modifier.padding(end = 6.dp))
+        }
+    }
+}
 
 // 歌手名前的最高音质描边标签
 @Composable

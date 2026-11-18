@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 
@@ -67,5 +68,8 @@ val localModule = module {
             PreferencesStores.get(androidContext(), PreferencesStores.COVER_COLOR),
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
         )
+    }
+    single(named(PreferencesStores.SONG_QUALITY)) {
+        PreferencesStores.get(androidContext(), PreferencesStores.SONG_QUALITY)
     }
 }

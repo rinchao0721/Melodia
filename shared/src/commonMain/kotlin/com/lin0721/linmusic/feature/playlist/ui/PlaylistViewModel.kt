@@ -64,6 +64,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.search.data.SearchRepository
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
@@ -94,7 +95,8 @@ class PlaylistViewModel(
     private val trackBatchActions: TrackBatchActionsDelegate,
     private val externalStore: PlaylistExternalTrackStore,
     private val pluginContent: PluginContent,
-    private val downloadRecognizer: DownloadRecognizer
+    private val downloadRecognizer: DownloadRecognizer,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -241,6 +243,7 @@ class PlaylistViewModel(
                                     fee = song.fee
                                 )
                             }
+                            songQualityCache?.prefetch(tracks)
                             val detail = PlaylistDetail(
                                 id = -1L,
                                 name = "每日推荐",
@@ -265,6 +268,7 @@ class PlaylistViewModel(
             flow.collect { result ->
                 result.fold(
                     onSuccess = { detail ->
+                        songQualityCache?.prefetch(detail.tracks)
                         _uiState.value = PlaylistUiState.Success(
                             detail,
                             isSubscribed = detail.subscribed,
@@ -359,6 +363,7 @@ class PlaylistViewModel(
             playlistRepository.loadMoreTracks(nextIds).collect { result ->
                 result.fold(
                     onSuccess = { newTracks ->
+                        songQualityCache?.prefetch(newTracks)
                         _uiState.update { state ->
                             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
                                 state.copy(
@@ -684,6 +689,7 @@ class PlaylistViewModel(
                 .flatMap { it.getOrDefault(emptyList()) }
                 .distinctBy { it.id }
                 .filterNot { it.id in existingIds }
+            songQualityCache?.prefetch(allRecommendedTracks)
             currentRecIndex = 0
             updateCurrentRecommendations()
         }
@@ -995,18 +1001,19 @@ class PlaylistViewModel(
             _historyRecommendState.update { it.copy(selectedDate = date, songsLoading = true) }
             homeRepository.getHistoryRecommendDetail(date).collect { result ->
                 result.onSuccess { songs ->
+                    val newTracks = songs.map { song ->
+                        Track(
+                            id = song.id,
+                            name = song.name,
+                            ar = song.ar,
+                            al = song.al,
+                            fee = song.fee
+                        )
+                    }
+                    songQualityCache?.prefetch(newTracks)
                     _historyRecommendState.update { it.copy(songs = songs) }
                     _uiState.update { state ->
                         if (state is PlaylistUiState.Success && state.playlist.id == -1L) {
-                            val newTracks = songs.map { song ->
-                                Track(
-                                    id = song.id,
-                                    name = song.name,
-                                    ar = song.ar,
-                                    al = song.al,
-                                    fee = song.fee
-                                )
-                            }
                             state.copy(playlist = state.playlist.copy(tracks = newTracks))
                         } else state
                     }
@@ -1032,6 +1039,7 @@ class PlaylistViewModel(
                 result.fold(
                     onSuccess = { records ->
                         val tracks = records.map { it.track }
+                        songQualityCache?.prefetch(tracks)
                         val detail = PlaylistDetail(
                             id = -2L,
                             name = "听歌排行的歌单",
@@ -1226,6 +1234,7 @@ class PlaylistViewModel(
                 result.fold(
                     onSuccess = { pageResult ->
                         val tracks = pageResult.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                        songQualityCache?.prefetch(tracks)
                         _addMusicSearchState.value = AddMusicSearchState.Success(tracks)
                     },
                     onFailure = { error ->

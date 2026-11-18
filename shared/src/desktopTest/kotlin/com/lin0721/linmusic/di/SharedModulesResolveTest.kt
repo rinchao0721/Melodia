@@ -78,6 +78,7 @@ class SharedModulesResolveTest {
             single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
             single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
+            single(org.koin.core.qualifier.named(PreferencesStores.SONG_QUALITY)) { store(PreferencesStores.SONG_QUALITY) }
             single { ContentFilter(get()) }
             single { ResourceProvider() }
             single<NetworkStateProvider> { NetworkStateProvider { true } }

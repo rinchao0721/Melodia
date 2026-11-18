@@ -35,6 +35,7 @@ import com.lin0721.linmusic.feature.podcast.domain.playPodcastPrograms
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -77,7 +78,8 @@ class SearchViewModel(
     private val collectionActions: CollectionActionsDelegate? = null,
     private val artistRepository: ArtistRepository? = null,
     private val podcastRepository: PodcastRepository? = null,
-    private val linkPreviewResolver: LinkPreviewResolver? = null
+    private val linkPreviewResolver: LinkPreviewResolver? = null,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
@@ -326,7 +328,10 @@ class SearchViewModel(
             ?.getOrNull()
             ?.items
             ?.firstNotNullOfOrNull { (it as? SearchResultItem.SongItem)?.track }
-            ?.let { _featuredTrack.value = it }
+            ?.let { track ->
+                songQualityCache?.prefetch(listOf(track))
+                _featuredTrack.value = track
+            }
     }
 
     // 发现页加载失败时的重试入口，UI 层错误态按钮调用
@@ -410,6 +415,7 @@ class SearchViewModel(
                 delay(300)
                 repository.search(query, SearchType.SONG, offset = 0, limit = SONG_HIT_LIMIT).firstOrNull()?.onSuccess { page ->
                     val tracks = page.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                    songQualityCache?.prefetch(tracks)
                     _inputState.value = _inputState.value.copy(songHits = tracks, songHitsQuery = query)
                 }
             }
@@ -768,6 +774,8 @@ class SearchViewModel(
         repository.search(keyword, type, offset = offset).firstOrNull()?.let { result ->
             result.onSuccess { page ->
                 offsetByType[type] = offset + page.rawFetchedCount
+                val newTracks = page.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                if (newTracks.isNotEmpty()) songQualityCache?.prefetch(newTracks)
                 val currentItems = if (isLoadMore) {
                     val existing = (stateFlow.value as? SearchResultsUiState.Success)?.items.orEmpty()
                     val existingKeys = existing.mapTo(hashSetOf()) { it.stableKey }

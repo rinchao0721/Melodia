@@ -25,6 +25,7 @@ object PreferencesStores {
     const val PLAYLIST_EXTERNAL = "playlist_external_prefs"
     const val MESSAGE = "message_prefs"
     const val COVER_COLOR = "cover_color_prefs"
+    const val SONG_QUALITY = "song_quality_prefs"
 
     private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
 

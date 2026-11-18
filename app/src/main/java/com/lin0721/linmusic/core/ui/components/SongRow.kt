@@ -282,10 +282,7 @@ fun SongRow(
                 localLevel = effectiveLocalLevel
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (qualityBadge != null) {
-                    SongQualityBadgeTag(qualityBadge)
-                    Spacer(Modifier.width(MelodiaSpacing.xs))
-                }
+                AnimatedSongQualityBadge(qualityBadge)
                 Text(
                     text = data.artist,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -538,10 +535,7 @@ fun DraggableSongRow(
                 localLevel = effectiveLocalLevel
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (qualityBadge != null) {
-                    SongQualityBadgeTag(qualityBadge)
-                    Spacer(Modifier.width(MelodiaSpacing.xs))
-                }
+                AnimatedSongQualityBadge(qualityBadge)
                 Text(
                     data.artist,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
