@@ -256,11 +256,7 @@ class LyriconAdapter(private val context: Context) {
     }
 
     fun release() {
-        // 这里不能注销连接：词幕侧的活跃播放器是「先到先得，且只有当前活跃者不在播放时
-        // 别的来源才能抢占」。同一 ProviderInfo 注销后再注册，中心会 reattach 到旧连接，
-        // 旧会话仍记着 isPlaying=true 而它的远端桩已经拆掉，之后本进程的所有事件都被忽略，
-        // 重启 App 和重启 SystemUI 都救不回来，只能重启系统。
-        // 所以服务停止时只清时间基准、停重连，连接留给进程自然结束时的 Binder 死亡清理。
+        // 不能注销：重注册会 reattach 到仍标记播放中的旧会话，事件全被忽略；连接留给 Binder 死亡清理
         lastPlaying = null
         lastPositionAt = 0L
         reconnectJob?.cancel()
