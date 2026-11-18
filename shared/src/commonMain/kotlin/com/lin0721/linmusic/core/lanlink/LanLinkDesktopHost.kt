@@ -468,6 +468,7 @@ class LanLinkDesktopHost(
     ): LanLinkSession = LanLinkSession(
         socket = socket,
         sessionKey = sessionKey,
+        isHost = true,
         peerDeviceId = peerDeviceId,
         peerDeviceName = peerDeviceName,
         store = playlistExternalTrackStore,

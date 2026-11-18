@@ -438,6 +438,7 @@ class LanLinkAndroidClient(
         val session = LanLinkSession(
             socket = socket,
             sessionKey = sessionKey,
+            isHost = false,
             peerDeviceId = peerDeviceId,
             peerDeviceName = peerDeviceName,
             store = playlistExternalTrackStore,

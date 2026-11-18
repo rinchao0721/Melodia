@@ -205,24 +205,46 @@ object LanLinkCrypto {
     }
 }
 
-// 会话帧加密器：4 字节随机前缀 + 8 字节单调递增序号组成每帧唯一 12 字节 IV
-class LanLinkSessionCipher(private val sessionKey: ByteArray) {
-    private val ivPrefix = LanLinkCrypto.randomBytes(4)
-    private val counter = AtomicLong(0L)
+// 会话帧加密器：两个方向各用独立子密钥，IV 为 4 字节零前缀 + 8 字节递增序号；
+// 共用一把密钥时双方 IV 可能撞车，且对端发来的帧可被原样反射回去解密成功
+class LanLinkSessionCipher(sessionKey: ByteArray, isHost: Boolean) {
+    private val sendKey = directionKey(sessionKey, if (isHost) HOST_TO_CLIENT else CLIENT_TO_HOST)
+    private val receiveKey = directionKey(sessionKey, if (isHost) CLIENT_TO_HOST else HOST_TO_CLIENT)
+    private val sendCounter = AtomicLong(0L)
+    private var lastReceivedSeq = 0L
 
     fun encryptFrame(plaintext: ByteArray): ByteArray {
-        val seq = counter.incrementAndGet()
         val iv = ByteBuffer.allocate(LanLinkCrypto.GCM_IV_BYTES)
-            .put(ivPrefix)
-            .putLong(seq)
+            .putInt(0)
+            .putLong(sendCounter.incrementAndGet())
             .array()
-        val ciphertext = LanLinkCrypto.encryptAesGcm(sessionKey, iv, plaintext)
+        val ciphertext = LanLinkCrypto.encryptAesGcm(sendKey, iv, plaintext)
         return ByteArray(iv.size + ciphertext.size).apply {
             System.arraycopy(iv, 0, this, 0, iv.size)
             System.arraycopy(ciphertext, 0, this, iv.size, ciphertext.size)
         }
     }
 
-    fun decryptFrame(framePayload: ByteArray): ByteArray =
-        LanLinkCrypto.openWithPrefixedIv(sessionKey, framePayload)
+    // 只由读循环单线程调用；序号必须严格递增，拒绝重放
+    fun decryptFrame(framePayload: ByteArray): ByteArray {
+        if (framePayload.size <= LanLinkCrypto.GCM_IV_BYTES) throw GeneralSecurityException("密文长度不足")
+        val ivBuffer = ByteBuffer.wrap(framePayload, 0, LanLinkCrypto.GCM_IV_BYTES)
+        if (ivBuffer.getInt() != 0) throw GeneralSecurityException("非法 IV 前缀")
+        val seq = ivBuffer.getLong()
+        if (seq <= lastReceivedSeq) throw GeneralSecurityException("帧序号未递增: $seq")
+        val plaintext = LanLinkCrypto.openWithPrefixedIv(receiveKey, framePayload)
+        lastReceivedSeq = seq
+        return plaintext
+    }
+
+    private companion object {
+        const val HOST_TO_CLIENT = "melodia-lanlink-v1-host-to-client"
+        const val CLIENT_TO_HOST = "melodia-lanlink-v1-client-to-host"
+
+        fun directionKey(sessionKey: ByteArray, label: String): ByteArray = LanLinkCrypto.hkdfSha256(
+            ikm = sessionKey,
+            salt = ByteArray(0),
+            info = label.toByteArray(Charsets.UTF_8)
+        )
+    }
 }

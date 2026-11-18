@@ -51,8 +51,8 @@ class LanLinkCryptoAndPairingTest {
             clientNonce = LanLinkCrypto.randomBytes(LanLinkCrypto.NONCE_BYTES),
             serverNonce = LanLinkCrypto.randomBytes(LanLinkCrypto.NONCE_BYTES)
         )
-        val sender = LanLinkSessionCipher(sessionKey)
-        val receiver = LanLinkSessionCipher(sessionKey)
+        val sender = LanLinkSessionCipher(sessionKey, isHost = true)
+        val receiver = LanLinkSessionCipher(sessionKey, isHost = false)
 
         val frame1 = sender.encryptFrame("payload-1".encodeToByteArray())
         val frame2 = sender.encryptFrame("payload-2".encodeToByteArray())
@@ -60,6 +60,14 @@ class LanLinkCryptoAndPairingTest {
         assertFalse(frame1.copyOfRange(0, LanLinkCrypto.GCM_IV_BYTES).contentEquals(frame2.copyOfRange(0, LanLinkCrypto.GCM_IV_BYTES)))
         assertEquals("payload-1", receiver.decryptFrame(frame1).decodeToString())
         assertEquals("payload-2", receiver.decryptFrame(frame2).decodeToString())
+
+        // 重放已收过的帧被拒
+        assertThrows(GeneralSecurityException::class.java) { receiver.decryptFrame(frame2) }
+        // 把对端的帧反射回发送方无法解密
+        assertThrows(GeneralSecurityException::class.java) { sender.decryptFrame(frame1) }
+        // 反方向独立计数，可正常往返
+        val reply = receiver.encryptFrame("reply".encodeToByteArray())
+        assertEquals("reply", sender.decryptFrame(reply).decodeToString())
     }
 
     @Test
@@ -132,6 +140,7 @@ class LanLinkCryptoAndPairingTest {
                 val hostSession = LanLinkSession(
                     socket = serverSocket,
                     sessionKey = sessionKey,
+                    isHost = true,
                     peerDeviceId = "phone-1",
                     peerDeviceName = "Phone",
                     store = hostStore,
@@ -142,6 +151,7 @@ class LanLinkCryptoAndPairingTest {
                 val clientSession = LanLinkSession(
                     socket = clientSocket,
                     sessionKey = sessionKey,
+                    isHost = false,
                     peerDeviceId = "desktop-1",
                     peerDeviceName = "Desktop",
                     store = clientStore,

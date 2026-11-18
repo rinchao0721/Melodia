@@ -27,6 +27,7 @@ private const val TAG = "LanLinkSession"
 internal class LanLinkSession(
     private val socket: Socket,
     sessionKey: ByteArray,
+    isHost: Boolean,
     val peerDeviceId: String,
     val peerDeviceName: String,
     private val store: PlaylistExternalTrackStore,
@@ -34,7 +35,7 @@ internal class LanLinkSession(
     private val onUnpairedByPeer: suspend () -> Unit,
     private val onSyncStateChanged: (LanLinkSyncState, String) -> Unit
 ) {
-    private val cipher = LanLinkSessionCipher(sessionKey)
+    private val cipher = LanLinkSessionCipher(sessionKey, isHost)
     private val sendMutex = Mutex()
     private val input = socket.getInputStream()
     private val output = socket.getOutputStream()
@@ -215,10 +216,10 @@ internal class LanLinkSession(
 
     private suspend fun sendEncrypted(message: LanLinkMessage) {
         val encoded = LanLinkJson.encodeToString<LanLinkMessage>(message).encodeToByteArray()
-        val encrypted = cipher.encryptFrame(encoded)
+        // 加密与写出同在锁内，保证帧序号与线上顺序一致，否则对端按递增校验会拒收
         sendMutex.withLock {
             if (closed || socket.isClosed) throw IOException("会话已关闭")
-            LanLinkFrameCodec.writeFrame(output, encrypted)
+            LanLinkFrameCodec.writeFrame(output, cipher.encryptFrame(encoded))
         }
     }
 }
