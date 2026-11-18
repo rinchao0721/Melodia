@@ -207,6 +207,7 @@ fun main(args: Array<String>) {
     }
     val playerViewModel = koin.get<PlayerViewModel>()
     val appDependencies = koin.desktopAppDependencies()
+    appDependencies.lanLink.start()
     val desktopPreferences = koin.get<DesktopPreferences>()
     val hotkeys = koin.get<GlobalHotkeyService>()
     val mediaSession = koin.get<MediaSessionService>()
@@ -319,6 +320,7 @@ fun main(args: Array<String>) {
         // 先隐藏窗口等消失动画播完，再补报当前曲目播放时长、销毁 mpv 句柄并退出
         var isExiting by remember { mutableStateOf(false) }
         val shutdownAndExit = {
+            appDependencies.lanLink.stop()
             mediaSession.shutdown()
             controller.release()
             singleInstance.close()

@@ -221,6 +221,8 @@ class SettingsPreferences(
         private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
         // 歌曲列表是否常驻显示已喜欢标记，默认 true
         val KEY_ALWAYS_SHOW_LIKED_BADGE = booleanPreferencesKey("always_show_liked_badge")
+        // 局域网联动开关，默认 false
+        private val KEY_LAN_LINK_ENABLED = booleanPreferencesKey("lan_link_enabled")
 
         private fun personalFmModeKeyFor(uid: Long?) =
             stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
@@ -1204,6 +1206,17 @@ class SettingsPreferences(
     suspend fun saveAlwaysShowLikedBadge(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_ALWAYS_SHOW_LIKED_BADGE] = enabled
+        }
+    }
+
+    // 局域网联动开关，默认关闭
+    val lanLinkEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LAN_LINK_ENABLED] ?: false
+    }
+
+    suspend fun saveLanLinkEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAN_LINK_ENABLED] = enabled
         }
     }
 

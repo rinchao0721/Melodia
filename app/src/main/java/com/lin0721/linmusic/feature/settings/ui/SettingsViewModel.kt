@@ -38,6 +38,12 @@ import com.lin0721.linmusic.core.source.LxPluginItem
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.source.LxPluginManager
+import com.lin0721.linmusic.core.lanlink.ConnectedPeerInfo
+import com.lin0721.linmusic.core.lanlink.DiscoveredLanDevice
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.LanLinkConnectionState
+import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
+import com.lin0721.linmusic.core.lanlink.PairedLanDevice
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentState
@@ -56,7 +62,8 @@ class SettingsViewModel(
     private val accountSwitcher: AccountSwitcher,
     private val resourceProvider: ResourceProvider,
     val skins: SkinRepository,
-    private val ffmpegComponentManager: FfmpegComponentManager
+    private val ffmpegComponentManager: FfmpegComponentManager,
+    private val lanLinkClient: LanLinkAndroidClient
 ) : ViewModel() {
 
     // DataStore 的偏好流统一以相同策略转为 StateFlow，避免每项重复五行样板
@@ -798,5 +805,52 @@ class SettingsViewModel(
             ffmpegComponentManager.deleteComponent()
             _toastEvent.emit("已删除 ffmpeg 解码组件")
         }
+    }
+
+    // ─── 局域网联动 ───
+
+    val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
+    val lanLinkIsDiscovering: StateFlow<Boolean> = lanLinkClient.isDiscovering
+    val lanLinkDiscoveredDevices: StateFlow<List<DiscoveredLanDevice>> = lanLinkClient.discoveredDevices
+    val lanLinkPairedDevices: StateFlow<List<PairedLanDevice>> = lanLinkClient.pairedDevices
+    val lanLinkConnectionState: StateFlow<LanLinkConnectionState> = lanLinkClient.connectionState
+    val lanLinkConnectedDevice: StateFlow<ConnectedPeerInfo?> = lanLinkClient.connectedDevice
+    val lanLinkSyncState: StateFlow<LanLinkSyncState> = lanLinkClient.syncState
+    val lanLinkSyncStatusMessage: StateFlow<String> = lanLinkClient.syncStatusMessage
+
+    fun updateLanLinkEnabled(enabled: Boolean) = launchSave {
+        settingsPreferences.saveLanLinkEnabled(enabled)
+    }
+
+    fun discoverLanDesktops() {
+        viewModelScope.launch {
+            val found = lanLinkClient.discoverDevices()
+            if (found.isEmpty()) {
+                _toastEvent.emit("未发现桌面端设备，请确认处于同一局域网并已开启联动")
+            }
+        }
+    }
+
+    fun pairLanDevice(
+        device: DiscoveredLanDevice,
+        code: String,
+        onFinished: (success: Boolean, error: String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = lanLinkClient.pairWithDevice(device, code)
+            result.onSuccess {
+                onFinished(true, null)
+            }.onFailure { err ->
+                onFinished(false, err.message ?: "配对失败")
+            }
+        }
+    }
+
+    fun unpairLanDevice(deviceId: String) {
+        lanLinkClient.unpairDevice(deviceId)
+    }
+
+    fun triggerLanReconnect() {
+        lanLinkClient.triggerReconnectNow()
     }
 }

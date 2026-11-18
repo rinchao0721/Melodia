@@ -34,12 +34,15 @@ import com.lin0721.linmusic.core.plugin.NativePluginHost
 import com.lin0721.linmusic.core.source.LxPluginRuntime
 import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
+import java.net.InetAddress
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -152,6 +155,11 @@ private fun createPlaybackController(
 
 private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferencesFile(name))
 
+private fun desktopDeviceDisplayName(): String =
+    System.getenv("COMPUTERNAME")?.takeIf { it.isNotBlank() }
+        ?: runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: "Desktop 设备"
+
 // 启动参数，须先于依赖注入设置
 object DesktopLaunchOptions {
     @Volatile
@@ -166,6 +174,8 @@ val desktopPlatformModule = module {
     single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
+    single { LanLinkPreferences(store(PreferencesStores.LAN_LINK)) }
+    single { LanLinkDesktopHost(get(), get(), get(), get(), ::desktopDeviceDisplayName) }
     single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
     single { SpectrumHub() }
     single<NativePluginHost> {

@@ -23,6 +23,11 @@ import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.get
+import com.lin0721.linmusic.core.lanlink.AndroidLanDiscoveryLock
+import com.lin0721.linmusic.core.lanlink.LanDiscoveryLock
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
+import com.lin0721.linmusic.core.lanlink.androidDeviceDisplayName
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
@@ -47,6 +52,18 @@ val localModule = module {
     single { SkinRepository(get(), get()) }
     single { SourcePreferences(PreferencesStores.get(androidContext(), PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(PreferencesStores.get(androidContext(), PreferencesStores.PLAYLIST_EXTERNAL)) }
+    single { LanLinkPreferences(PreferencesStores.get(androidContext(), PreferencesStores.LAN_LINK)) }
+    single<LanDiscoveryLock> { AndroidLanDiscoveryLock(androidContext()) }
+    single {
+        LanLinkAndroidClient(
+            lanLinkPreferences = get(),
+            settingsPreferences = get(),
+            playlistExternalTrackStore = get(),
+            userPreferences = get(),
+            discoveryLock = get(),
+            deviceNameProvider = ::androidDeviceDisplayName
+        )
+    }
     single { ContentFilter(get()) }
     single<ResourceProvider> { AndroidResourceProvider(androidContext()) }
     single<NetworkStateProvider> { AndroidNetworkStateProvider(androidContext()) }

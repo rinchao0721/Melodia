@@ -149,6 +149,7 @@ internal fun RouteContent(
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
             downloadScanner = deps.downloadScanner,
+            lanLink = deps.lanLink,
             focusCategory = state.settingsFocus,
             onFocusConsumed = { state.settingsFocus = null }
         )

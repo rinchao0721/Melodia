@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -58,6 +59,7 @@ class MelodiaApplication : Application() {
     private val playbackController = inject<PlaybackController>()
     private val settingsPreferences: SettingsPreferences by inject()
     private val lxPluginEngine: LxPluginEngine by inject()
+    private val lanLinkAndroidClient: LanLinkAndroidClient by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -131,6 +133,11 @@ class MelodiaApplication : Application() {
             launch { updateChecker.messages.collect(ToastManager::showToast) }
             delay(3000)
             updateChecker.checkForUpdate(manual = false)
+        }
+        // 启动局域网联动客户端（开关关闭时保持静默）
+        lanLinkAndroidClient.start()
+        CoroutineScope(Dispatchers.IO).launch {
+            lanLinkAndroidClient.messages.collect(ToastManager::showToast)
         }
         // 旧版内置下载遗留的更新通知渠道
         getSystemService(NotificationManager::class.java)?.deleteNotificationChannel(LEGACY_UPDATE_CHANNEL_ID)

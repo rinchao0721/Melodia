@@ -92,9 +92,19 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import kotlin.math.roundToInt
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontWeight
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
+import com.lin0721.linmusic.core.lanlink.PairedLanDevice
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.ChevronUp
+import com.lin0721.linmusic.core.ui.icons.Phone
+import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 
 internal enum class SettingsCategory(val label: String) {
     Playback("播放"),
@@ -149,6 +159,7 @@ private const val DESKTOP_LYRIC_GROUP = "桌面歌词"
 private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
 private const val SIMPLIFY_GROUP = "界面精简"
+private const val LAN_LINK_GROUP = "局域网联动"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
 
@@ -376,7 +387,8 @@ internal fun settingsEntries(
     plugins: PluginRepository,
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository,
-    downloadScanner: DesktopDownloadFolderScanner
+    downloadScanner: DesktopDownloadFolderScanner,
+    lanLink: LanLinkDesktopHost
 ): List<SettingsEntry> {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
@@ -400,6 +412,12 @@ internal fun settingsEntries(
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
     val showDesktopLyric by common.showDesktopLrc.collectAsState()
     val clipboardLinkEnabled by common.clipboardLinkEnabled.collectAsState()
+    val lanLinkEnabled by common.lanLinkEnabled.collectAsState()
+    val lanLinkConnectedDevice by lanLink.connectedDevice.collectAsState()
+    val lanLinkSyncState by lanLink.syncState.collectAsState()
+    val lanLinkSyncMessage by lanLink.syncStatusMessage.collectAsState()
+    val lanLinkPairedDevices by lanLink.pairedDevices.collectAsState()
+    val lanLinkPairingDisplay by lanLink.pairingDisplay.collectAsState()
     val logLevelName by common.logLevel.collectAsState()
     val logBytes by desktop.logBytes.collectAsState()
     val cacheMaxSize by common.audioCacheMaxSize.collectAsState()
@@ -1061,6 +1079,68 @@ internal fun settingsEntries(
                 }
             }
         )
+        add(
+            rowEntry(
+                "lanLinkEnabled", SettingsCategory.System, "局域网联动",
+                subtitle = "开启后可与同一局域网内的手机端配对，双向同步歌单外部歌曲与外部红心",
+                keywords = listOf("局域网", "联动", "同步", "配对", "手机", "歌单", "红心"),
+                group = LAN_LINK_GROUP
+            ) {
+                SettingSwitch(lanLinkEnabled, onChange = common::updateLanLinkEnabled)
+            }
+        )
+        if (lanLinkEnabled) {
+            add(
+                SettingsEntry(
+                    key = "lanLinkStatus",
+                    category = SettingsCategory.System,
+                    title = "连接与同步状态",
+                    subtitle = lanLinkConnectedDevice?.let { "${it.deviceName} · $lanLinkSyncMessage" } ?: lanLinkSyncMessage,
+                    keywords = listOf("局域网", "联动", "配对码", "配对新设备", "同步", "状态"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    val statusSubtitle = lanLinkConnectedDevice?.let { "${it.deviceName} · $lanLinkSyncMessage" } ?: lanLinkSyncMessage
+                    val mismatch = lanLinkSyncState == LanLinkSyncState.ACCOUNT_MISMATCH
+                    Column {
+                        SettingRow(
+                            title = "连接与同步状态",
+                            subtitle = statusSubtitle,
+                            subtitleColor = if (mismatch) DesktopColors.Accent else DesktopColors.TextGray
+                        ) {
+                            SettingsActionButton("配对新设备", onClick = lanLink::generatePairingCode)
+                        }
+                        lanLinkPairingDisplay?.let { pairing ->
+                            LanLinkPairingDialog(
+                                code = pairing.code,
+                                remainingSeconds = pairing.remainingSeconds,
+                                remainingAttempts = pairing.remainingAttempts,
+                                onRefresh = lanLink::generatePairingCode,
+                                onDismiss = lanLink::cancelPairingCode
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        if (lanLinkEnabled || lanLinkPairedDevices.isNotEmpty()) {
+            add(
+                SettingsEntry(
+                    key = "lanLinkPairedDevices",
+                    category = SettingsCategory.System,
+                    title = "已配对设备",
+                    subtitle = if (lanLinkPairedDevices.isEmpty()) "暂无已配对手机端设备" else "已配对 ${lanLinkPairedDevices.size} 台设备",
+                    keywords = listOf("局域网", "联动", "已配对", "设备", "取消配对"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    LanLinkPairedDevicesSection(
+                        devices = lanLinkPairedDevices,
+                        connectedDeviceId = lanLinkConnectedDevice?.deviceId,
+                        syncMessage = lanLinkSyncMessage,
+                        onUnpair = lanLink::unpairDevice
+                    )
+                }
+            )
+        }
 
         if (desktop.hotkeysSupported) {
             add(
@@ -1515,6 +1595,101 @@ private fun DesktopServerUrlInput(
             )
             // 复制来的地址常带换行，单行输入框只显示首行会像是空的
             DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 https://your-unm-server.com")
+        }
+    }
+}
+
+@Composable
+private fun LanLinkPairingDialog(
+    code: String,
+    remainingSeconds: Int,
+    remainingAttempts: Int,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    DesktopDialog(
+        title = "配对新设备",
+        onDismiss = onDismiss,
+        width = 380.dp,
+        actions = {
+            DialogButton("刷新配对码", onRefresh)
+            DialogButton("关闭", onDismiss, primary = true)
+        }
+    ) {
+        Text(
+            text = "请在手机端「网络设置 → 局域网联动」中搜索并选择本机，输入以下 6 位配对码：",
+            color = DesktopColors.TextGray,
+            fontSize = 13.sp
+        )
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(DesktopColors.Surface)
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = code.chunked(3).joinToString(" "),
+                color = DesktopColors.TextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 4.sp
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "有效期剩余 ${remainingSeconds} 秒 · 最多还可错误尝试 ${remainingAttempts} 次",
+            color = DesktopColors.TextGray,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun LanLinkPairedDevicesSection(
+    devices: List<PairedLanDevice>,
+    connectedDeviceId: String?,
+    syncMessage: String,
+    onUnpair: (String) -> Unit
+) {
+    if (devices.isEmpty()) {
+        SettingRow("已配对设备", "暂无已配对手机端设备") {}
+        return
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("已配对设备", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+        Spacer(Modifier.height(6.dp))
+        devices.forEach { device ->
+            val hoverSource = remember { MutableInteractionSource() }
+            val hovered by hoverSource.collectIsHoveredAsState()
+            val isConnected = device.deviceId == connectedDeviceId
+            Row(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .hoverable(hoverSource)
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    MelodiaIcons.Phone,
+                    contentDescription = null,
+                    tint = if (isConnected) DesktopColors.Accent else DesktopColors.TextGray,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(device.deviceName, color = DesktopColors.TextPrimary, fontSize = 13.sp)
+                    Text(
+                        text = if (isConnected) "当前已连接 · $syncMessage" else "已配对",
+                        color = if (isConnected) DesktopColors.AccentText else DesktopColors.TextGray,
+                        fontSize = 11.sp
+                    )
+                }
+                HoverReveal(revealed = hovered) {
+                    SettingsActionButton("取消配对", onClick = { onUnpair(device.deviceId) }, danger = true)
+                }
+            }
         }
     }
 }
