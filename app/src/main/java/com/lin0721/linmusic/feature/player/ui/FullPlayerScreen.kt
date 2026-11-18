@@ -1191,7 +1191,16 @@ private fun FullPlayerScreenContent(
             showPersonalFmModeSheet = showPersonalFmModeSheet,
             onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
-            onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
+            onRemoveSong = { songId ->
+                // 用实时队列定位，避免高速连划时拿到的下标已经过期
+                val index = viewModel.playerManager.queue.value.indexOfFirst { it.songId == songId }
+                if (index < 0) {
+                    false
+                } else {
+                    viewModel.playerManager.removeFromQueue(index)
+                    viewModel.playerManager.queue.value.none { it.songId == songId }
+                }
+            },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onClearQueue = {
