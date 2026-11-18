@@ -146,7 +146,7 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = option.label, color = MelodiaColors.OnAccent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(text = option.label, color = MelodiaColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (isLastUsed) {
                     Spacer(Modifier.width(MelodiaSpacing.sm))
                     Surface(shape = RoundedCornerShape(10.dp), color = MelodiaColors.AccentText.copy(alpha = 0.2f)) {
