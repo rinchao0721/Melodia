@@ -145,8 +145,6 @@ class SettingsViewModel(
 
     val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
 
-    val showCreateEntry = settingsPreferences.showCreateEntry.asState(true)
-
     val bottomBarLayout = settingsPreferences.bottomBarLayout.asState(BottomBarLayout.DEFAULT)
 
     val bottomBarIconOnly = settingsPreferences.bottomBarIconOnly.asState(false)
@@ -442,8 +440,6 @@ class SettingsViewModel(
     fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave {
         settingsPreferences.setClipboardLinkEnabled(enabled)
     }
-
-    fun updateShowCreateEntry(enabled: Boolean) = launchSave { settingsPreferences.saveShowCreateEntry(enabled) }
 
     fun updateBottomBarLayout(layout: List<BottomBarItemSetting>) = launchSave {
         settingsPreferences.saveBottomBarLayout(layout)

@@ -47,7 +47,6 @@ import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
-import com.lin0721.linmusic.feature.create.ui.CreatePopupMenu
 import com.lin0721.linmusic.feature.player.ui.FullPlayerScreen
 import com.lin0721.linmusic.feature.settings.ui.UpdateBanner
 import dev.chrisbanes.haze.HazeState
@@ -58,8 +57,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
-import com.lin0721.linmusic.core.ui.back.BackDismissState
-import com.lin0721.linmusic.core.ui.back.backDismissPreview
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
@@ -72,7 +69,7 @@ internal val ExpandedBottomBarHeight = 74.dp
 // 面板让位后 Tab 栏在内容卡片内的最大宽度
 private val ExpandedNavigationBarMaxWidth = 560.dp
 
-// 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
+// 全屏播放器/侧边栏这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
 // 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
 // 导致返回键没有先关掉全局浮层，而是直接改动了浮层底下页面的内部状态
 val LocalGlobalOverlayOpen = compositionLocalOf { false }
@@ -104,14 +101,12 @@ fun SuppressMiniPlayer(active: Boolean) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 底部浮层：创建菜单弹出层 + 悬浮播放卡片 + M3 导航栏
+// 底部浮层：悬浮播放卡片 + M3 导航栏
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MelodiaBottomOverlay(
     modifier: Modifier = Modifier,
     currentScreen: Screen,
-    showCreateSheet: Boolean,
-    createBackDismissState: BackDismissState? = null,
     isLoginScreenVisible: Boolean,
     // 多选等操作态下收起迷你播放器
     isMiniPlayerHidden: Boolean = false,
@@ -135,10 +130,7 @@ fun MelodiaBottomOverlay(
     isMiniPlayerLiked: Boolean = false,
     onMiniPlayerLikeClick: () -> Unit = {},
     miniPlayerLikeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
-    onCreateDismiss: () -> Unit,
     onNavigate: (Screen) -> Unit,
-    onCreateClick: () -> Unit,
-    showCreateEntry: Boolean = true,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     bottomBarIconOnly: Boolean = false,
     bottomBarGradient: Boolean = false,
@@ -150,39 +142,6 @@ fun MelodiaBottomOverlay(
         modifier = modifier
             .fillMaxWidth()
     ) {
-        // 0. 创建菜单弹出层
-        AnimatedVisibility(
-            visible = showCreateSheet && !isLoginScreenVisible,
-            enter = slideInVertically(
-                initialOffsetY = { it / 2 },
-                animationSpec = uiTween(250, easing = FastOutSlowInEasing)
-            ) + fadeIn(uiTween(200)),
-            exit = slideOutVertically(
-                targetOffsetY = { it / 2 },
-                animationSpec = uiTween(200, easing = FastOutSlowInEasing)
-            ) + fadeOut(uiTween(150))
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = MelodiaSpacing.md)
-                    .padding(bottom = 12.dp)
-                    .then(
-                        if (createBackDismissState != null) {
-                            Modifier.backDismissPreview(createBackDismissState, TransformOrigin(0.5f, 1f))
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
-                CreatePopupMenu(
-                    onDismiss = onCreateDismiss,
-                    onLoginRequest = {
-                        // TODO: 触发登录流程
-                    }
-                )
-            }
-        }
-
         // 悬浮播放卡片 + 导航栏：实际占用高度上报出去，供页面内容计算底部留白
         val windowSizeClass = LocalMelodiaWindowSizeClass.current
         Box(
@@ -225,9 +184,6 @@ fun MelodiaBottomOverlay(
                                 MelodiaNavigationBar(
                                     currentScreen = currentScreen,
                                     onNavigate = onNavigate,
-                                    onCreateClick = onCreateClick,
-                                    isCreateMenuOpen = showCreateSheet,
-                                    showCreateEntry = showCreateEntry,
                                     bottomBarLayout = bottomBarLayout,
                                     iconOnly = bottomBarIconOnly,
                                     activeTab = activeTab,
@@ -353,9 +309,6 @@ fun MelodiaBottomOverlay(
                             MelodiaNavigationBar(
                                 currentScreen = currentScreen,
                                 onNavigate = onNavigate,
-                                onCreateClick = onCreateClick,
-                                isCreateMenuOpen = showCreateSheet,
-                                showCreateEntry = showCreateEntry,
                                 bottomBarLayout = bottomBarLayout,
                                 iconOnly = bottomBarIconOnly,
                                 activeTab = activeTab,

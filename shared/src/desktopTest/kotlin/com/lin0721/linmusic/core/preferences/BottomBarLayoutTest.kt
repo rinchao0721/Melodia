@@ -13,10 +13,14 @@ class BottomBarLayoutTest {
     }
 
     @Test
-    fun `空值时尊重旧版创建入口配置`() {
-        val decodedWithCreateFalse = BottomBarLayout.decode(null, defaultShowCreate = false)
-        val createSetting = decodedWithCreateFalse.first { it.item == BottomBarItem.CREATE }
-        assertEquals(false, createSetting.visible)
+    fun `旧存档中的create项会被忽略并保证可见项下限`() {
+        val decoded = BottomBarLayout.decode("home:1,create:1,search:0,library:0,local_music:0,downloads:0,cloud:0,profile:0")
+        assertEquals(BottomBarItem.entries.size, decoded.size)
+        assertTrue(decoded.count { it.visible } >= BottomBarLayout.MIN_VISIBLE_ITEMS)
+
+        val onlyCreate = BottomBarLayout.decode("create:1")
+        assertEquals(BottomBarItem.entries.size, onlyCreate.size)
+        assertTrue(onlyCreate.count { it.visible } >= BottomBarLayout.MIN_VISIBLE_ITEMS)
     }
 
     @Test
@@ -26,7 +30,6 @@ class BottomBarLayoutTest {
             BottomBarItemSetting(BottomBarItem.LOCAL_MUSIC, true),
             BottomBarItemSetting(BottomBarItem.HOME, false),
             BottomBarItemSetting(BottomBarItem.LIBRARY, false),
-            BottomBarItemSetting(BottomBarItem.CREATE, false),
             BottomBarItemSetting(BottomBarItem.DOWNLOADS, false),
             BottomBarItemSetting(BottomBarItem.CLOUD, false),
             BottomBarItemSetting(BottomBarItem.PROFILE, false)
@@ -42,7 +45,6 @@ class BottomBarLayoutTest {
             BottomBarItemSetting(BottomBarItem.HOME, false),
             BottomBarItemSetting(BottomBarItem.SEARCH, false),
             BottomBarItemSetting(BottomBarItem.LIBRARY, false),
-            BottomBarItemSetting(BottomBarItem.CREATE, false),
             BottomBarItemSetting(BottomBarItem.DOWNLOADS, false),
             BottomBarItemSetting(BottomBarItem.CLOUD, false),
             BottomBarItemSetting(BottomBarItem.PROFILE, false)

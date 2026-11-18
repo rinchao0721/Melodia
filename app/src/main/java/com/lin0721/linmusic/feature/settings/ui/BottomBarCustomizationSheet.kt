@@ -38,7 +38,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.AddSquare
 import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.Menu
 
@@ -304,7 +303,6 @@ fun bottomBarItemIcon(item: BottomBarItem): ImageVector = when (item) {
     BottomBarItem.HOME -> MelodiaIcons.Home
     BottomBarItem.SEARCH -> MelodiaIcons.Search
     BottomBarItem.LIBRARY -> MelodiaIcons.Library
-    BottomBarItem.CREATE -> MelodiaIcons.AddSquare
     BottomBarItem.LOCAL_MUSIC -> MelodiaIcons.LocalMusic
     BottomBarItem.DOWNLOADS -> MelodiaIcons.Download
     BottomBarItem.CLOUD -> MelodiaIcons.Cloud

@@ -93,7 +93,6 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.back.LocalPredictiveBackEnabled
 import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
 import com.lin0721.linmusic.core.ui.back.decelerateBackProgress
-import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -164,7 +163,6 @@ private enum class GlobalBackTarget {
     Undecided,
     PlayerSheet,
     Sidebar,
-    CreateSheet,
     Page,
     Ignored
 }
@@ -213,7 +211,6 @@ fun MelodiaApp() {
     val viewModel: HomeViewModel = koinViewModel()
     val libraryViewModel: LibraryViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
-    val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
     val bottomBarLayout by settingsPreferences.bottomBarLayout.collectAsStateWithLifecycle(initialValue = BottomBarLayout.DEFAULT)
     val bottomBarIconOnly by settingsPreferences.bottomBarIconOnly.collectAsStateWithLifecycle(initialValue = false)
     val bottomBarGradient by settingsPreferences.bottomBarGradient.collectAsStateWithLifecycle(initialValue = false)
@@ -324,7 +321,6 @@ fun MelodiaApp() {
         coldStartApplied = true
     }
 
-    var showCreateSheet by remember { mutableStateOf(false) }
     // 听歌识曲全屏覆盖层，盖住底栏与迷你播放条
     var showRecognition by remember { mutableStateOf(false) }
     // 点了后台内录的结果通知
@@ -416,7 +412,6 @@ fun MelodiaApp() {
     val latestLyricsFullscreen by rememberUpdatedState(isLyricsFullScreen)
     val latestSidePlayerPinned by rememberUpdatedState(sidePlayerPinned)
     val latestSidebarOpen by rememberUpdatedState(sidebar.isOpen)
-    val latestShowCreateSheet by rememberUpdatedState(showCreateSheet)
     val latestMotion by rememberUpdatedState(motion)
 
     // 单一协程串行消费面板升起/收起与返回跟手进度，防止手势与状态切换并发调用 Animatable
@@ -424,7 +419,7 @@ fun MelodiaApp() {
         snapshotFlow {
             // 直接读状态而非重组后的快照：返回提交改完布尔值的那一帧就要走收起，不能先被判成展开
             val panelVisible = latestUsePanel && isPanelExpanded
-            val canRiseBack = panelVisible && !latestSidePlayerPinned && !latestSidebarOpen && !latestShowCreateSheet
+            val canRiseBack = panelVisible && !latestSidePlayerPinned && !latestSidebarOpen
             when {
                 !latestUsePanel -> PanelRiseIntent.ResetOffPanel
                 !panelVisible -> PanelRiseIntent.Close
@@ -577,7 +572,6 @@ fun MelodiaApp() {
     LaunchedEffect(pendingSleepTimer, currentTrack) {
         if (pendingSleepTimer && currentTrack != null) {
             if (sidebar.isOpen) sidebar.close()
-            showCreateSheet = false
             showRecognition = false
             if (currentUsePanel) {
                 openPanel()
@@ -594,7 +588,6 @@ fun MelodiaApp() {
             when (target) {
                 is SongLinkTarget.Playlist -> {
                     if (sidebar.isOpen) sidebar.close()
-                    showCreateSheet = false
                     if (playerSheet.isOpen) {
                         navigation.resetPlayerNavigation()
                         playerSheet.animateTo(false, 0f)
@@ -604,7 +597,6 @@ fun MelodiaApp() {
                 }
                 is SongLinkTarget.Artist -> {
                     if (sidebar.isOpen) sidebar.close()
-                    showCreateSheet = false
                     if (playerSheet.isOpen) {
                         navigation.resetPlayerNavigation()
                         playerSheet.animateTo(false, 0f)
@@ -658,18 +650,9 @@ fun MelodiaApp() {
     // 当存在浮层、处于非主页 tab、当前栈深大于 1、或主页未处于「全部」默认分类时均由 handleBack() 逐级处理。
     // 侧栏面板钉住时不随返回键收起，直接交由内容导航处理
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
-            showCreateSheet || navigation.canGoBackToHomeAll
+            navigation.canGoBackToHomeAll
 
     val pageBackGesture = remember { PageBackGestureState() }
-    val createBackDismissState = rememberBackDismissState()
-    val wasCreateMenuVisible = remember { booleanArrayOf(false) }
-    val isCreateMenuVisible = showCreateSheet && !isLoginScreenVisible
-    SideEffect {
-        if (isCreateMenuVisible && !wasCreateMenuVisible[0]) {
-            createBackDismissState.reset()
-        }
-        wasCreateMenuVisible[0] = isCreateMenuVisible
-    }
     val predictiveBackEnabled by rememberUpdatedState(LocalPredictiveBackEnabled.current)
     val gestureSession = remember { object { var target = GlobalBackTarget.Undecided } }
 
@@ -700,10 +683,6 @@ fun MelodiaApp() {
                         gestureSession.target = GlobalBackTarget.Sidebar
                         sidebar.onBackProgress(event.progress)
                     }
-                    showCreateSheet -> {
-                        gestureSession.target = GlobalBackTarget.CreateSheet
-                        createBackDismissState.onProgress(event.progress)
-                    }
                     navigation.canGoBackToHomeAll -> {
                         val target = navigation.peekBackTarget() as? BackTarget.Entry
                         if (target != null) {
@@ -724,7 +703,6 @@ fun MelodiaApp() {
                 when (gestureSession.target) {
                     GlobalBackTarget.PlayerSheet -> playerSheet.onBackProgress(event.progress)
                     GlobalBackTarget.Sidebar -> sidebar.onBackProgress(event.progress)
-                    GlobalBackTarget.CreateSheet -> createBackDismissState.onProgress(event.progress)
                     GlobalBackTarget.Page -> pageBackGesture.update(
                         progress = event.progress,
                         fromLeftEdge = event.fromLeftEdge
@@ -737,7 +715,6 @@ fun MelodiaApp() {
             when (gestureSession.target) {
                 GlobalBackTarget.PlayerSheet -> playerSheet.onBackCancel()
                 GlobalBackTarget.Sidebar -> sidebar.onBackCancel()
-                GlobalBackTarget.CreateSheet -> createBackDismissState.onCancel()
                 GlobalBackTarget.Page -> pageBackGesture.cancel()
                 GlobalBackTarget.Ignored, GlobalBackTarget.Undecided -> Unit
             }
@@ -748,11 +725,10 @@ fun MelodiaApp() {
             gestureSession.target = GlobalBackTarget.Undecided
             when (sessionTarget) {
                 GlobalBackTarget.Page -> pageBackGesture.commit()
-                GlobalBackTarget.CreateSheet -> createBackDismissState.onCommit()
                 GlobalBackTarget.Undecided -> {
                     // 极快轻扫时系统可能跳过 onBackProgressed 直接触发 onBackPressed，补走预见式退场以防回退到原动画
                     if (predictiveBackEnabled && !playerSheet.isOpen &&
-                        (navigation.isNavigatingFromPlayer || (!sidebar.isOpen && !showCreateSheet && navigation.canGoBackToHomeAll))
+                        (navigation.isNavigatingFromPlayer || (!sidebar.isOpen && navigation.canGoBackToHomeAll))
                     ) {
                         val target = navigation.peekBackTarget() as? BackTarget.Entry
                         if (target != null) {
@@ -775,7 +751,6 @@ fun MelodiaApp() {
                 }
                 navigation.isNavigatingFromPlayer -> handleBack()
                 sidebar.isOpen -> sidebar.close()
-                showCreateSheet -> showCreateSheet = false
                 navigation.canGoBackToHomeAll -> handleBack()
             }
         }
@@ -814,11 +789,11 @@ fun MelodiaApp() {
     )
 
     val riseBackSession = remember { object { var state = PanelBackSession.Undecided } }
-    // 侧栏未钉住时返回直接收起面板（含全屏态）；侧边栏、创建菜单等全局浮层先处理
+    // 侧栏未钉住时返回直接收起面板（含全屏态）；侧边栏等全局浮层先处理
     MelodiaBackHandler(
-        enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet,
+        enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen,
         onProgress = { event ->
-            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen
             if (riseBackSession.state == PanelBackSession.Undecided) {
                 if (canHandle) {
                     riseBackSession.state = PanelBackSession.Active
@@ -832,7 +807,7 @@ fun MelodiaApp() {
             }
         },
         onCancel = {
-            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen
             val wasActive = riseBackSession.state == PanelBackSession.Active
             riseBackSession.state = PanelBackSession.Undecided
             if (wasActive && canHandle && riseBackPhase == PanelBackPhase.Seeking) {
@@ -852,7 +827,7 @@ fun MelodiaApp() {
     val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
     // 主页任意位置右滑拉出侧栏；横向列表滚到最左后的继续右滑由 homeHandoffConnection 接管
     val isHomeSwipeEnabled = navigation.currentScreen == Screen.Home &&
-        !playerSheet.isOpen && !showCreateSheet && !showRecognition &&
+        !playerSheet.isOpen && !showRecognition &&
         !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown)
     SideEffect { sidebar.isHomeHandoffEnabled = isHomeSwipeEnabled }
     val isDrawerDraggable = sidebar.isOpen || isHomeSwipeEnabled ||
@@ -965,7 +940,7 @@ fun MelodiaApp() {
                 CompositionLocalProvider(
                     LocalBottomOverlayInset provides bottomOverlayHeight,
                     LocalMiniPlayerSuppressor provides miniPlayerSuppressor,
-                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || showCreateSheet)
+                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen)
                 ) {
                     Box(
                         modifier = Modifier
@@ -1025,22 +1000,10 @@ fun MelodiaApp() {
                             }
                         }
 
-                        // 创建菜单遮罩
-                        if (showCreateSheet) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f))
-                                    .pressable(MelodiaPress.None) { showCreateSheet = false }
-                            )
-                        }
-
                         // 放置在应用了平移 graphicsLayer 的主 Box 内部的底部
                         MelodiaBottomOverlay(
                             modifier = Modifier.align(Alignment.BottomCenter),
                             currentScreen = navigation.currentScreen,
-                            showCreateSheet = showCreateSheet,
-                            createBackDismissState = createBackDismissState,
                             isLoginScreenVisible = isLoginScreenVisible || showSidebarWebLogin,
                             isMiniPlayerHidden = miniPlayerSuppressor.requestCount > 0,
                             isPanelDocked = isPanelDocked,
@@ -1072,15 +1035,12 @@ fun MelodiaApp() {
                             isMiniPlayerLiked = isMiniPlayerLiked,
                             onMiniPlayerLikeClick = onMiniPlayerLikeClick,
                             miniPlayerLikeMode = miniPlayerLikeMode,
-                            onCreateDismiss = { showCreateSheet = false },
                             onNavigate = { screen ->
                                 navigation.openTab(screen)
                                 if (screen == Screen.Library) {
                                     libraryViewModel.loadLibraryData()
                                 }
                             },
-                            onCreateClick = { showCreateSheet = !showCreateSheet },
-                            showCreateEntry = showCreateEntry,
                             bottomBarLayout = bottomBarLayout,
                             bottomBarIconOnly = bottomBarIconOnly,
                             bottomBarGradient = bottomBarGradient,

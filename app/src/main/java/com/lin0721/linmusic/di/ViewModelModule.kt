@@ -2,7 +2,6 @@ package com.lin0721.linmusic.di
 
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.feature.settings.ui.SettingsViewModel
-import com.lin0721.linmusic.feature.create.ui.CreateViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
@@ -83,7 +82,6 @@ val viewModelModule = module {
     viewModelOf(::LocalMusicSettingsViewModel)
     viewModelOf(::LocalTagEditorViewModel)
     viewModelOf(::NewWorksViewModel)
-    viewModelOf(::CreateViewModel)
     viewModelOf(::PlayerViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::LoginViewModel)

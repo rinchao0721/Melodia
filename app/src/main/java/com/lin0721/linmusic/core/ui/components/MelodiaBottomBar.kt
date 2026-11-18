@@ -113,8 +113,6 @@ import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.SkipNext
 import com.lin0721.linmusic.core.ui.icons.SkipPrevious
-import com.lin0721.linmusic.core.ui.icons.AddSquare
-import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.Download
 
 //悬浮播放控制卡片
@@ -754,9 +752,6 @@ fun MiniPlayerProgress(
 fun MelodiaNavigationBar(
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit,
-    onCreateClick: () -> Unit,
-    isCreateMenuOpen: Boolean,
-    showCreateEntry: Boolean = true,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     iconOnly: Boolean = false,
     activeTab: Screen? = null,
@@ -809,20 +804,11 @@ fun MelodiaNavigationBar(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val effectiveLayout = if (!showCreateEntry && bottomBarLayout == BottomBarLayout.DEFAULT) {
-                bottomBarLayout.map {
-                    if (it.item == BottomBarItem.CREATE) it.copy(visible = false) else it
-                }
-            } else {
-                bottomBarLayout
-            }
-
-            val navItems = effectiveLayout.filter { it.visible }.map { setting ->
+            val navItems = bottomBarLayout.filter { it.visible }.map { setting ->
                 when (setting.item) {
                     BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
                     BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
                     BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
-                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) MelodiaIcons.Close else MelodiaIcons.AddSquare, null)
                     BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
                     BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
                     BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)
@@ -831,17 +817,13 @@ fun MelodiaNavigationBar(
             }
 
             navItems.forEach { (label, icon, targetScreen) ->
-                val isSelected = targetScreen != null && (activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen))
-                
+                val isSelected = activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen)
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .pressable(MelodiaPress.Tab) {
-                            if (targetScreen != null) {
-                                onNavigate(targetScreen)
-                            } else {
-                                onCreateClick()
-                            }
+                            onNavigate(targetScreen)
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
