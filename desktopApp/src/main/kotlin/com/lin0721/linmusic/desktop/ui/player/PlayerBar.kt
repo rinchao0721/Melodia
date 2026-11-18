@@ -76,7 +76,7 @@ import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.layoutFill
-import com.lin0721.linmusic.core.model.getQualityBadgeLabel
+import com.lin0721.linmusic.core.model.playbackQualityLabel
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberLayoutCoverColors
 import androidx.compose.runtime.CompositionLocalProvider
@@ -225,7 +225,15 @@ fun PlayerBar(
                 parts.CoverButton(56.dp)
                 Column(Modifier.weight(1f, fill = false).padding(start = 12.dp)) {
                     parts.Title(14.sp)
-                    parts.Artists(12.sp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        parts.QualityBadge()
+                        Box(Modifier.weight(1f, fill = false)) {
+                            parts.Artists(12.sp)
+                        }
+                    }
                 }
                 parts.LikeButton(Modifier.padding(start = 4.dp))
             }
@@ -371,12 +379,12 @@ internal class PlayerBarParts(
         val podcast by playerViewModel.podcastState.collectAsState()
         val playContext by controller.playContext.collectAsState()
         val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
-        val level by controller.playbackLevel.collectAsState()
+        val playbackQuality by controller.playbackQuality.collectAsState()
         val track = nowPlaying
         val lyrics = songDetail.lyrics
-        val quality = level
-            ?.takeIf { showQuality && !podcast.isPodcast && it.songId.toString() == track?.mediaId }
-            ?.let { getQualityBadgeLabel(it.level) }
+        val quality = playbackQuality
+            ?.takeIf { showQuality && !podcast.isPodcast && it.mediaId == track?.mediaId }
+            ?.let(::playbackQualityLabel)
         return PlayerBindingState(
             title = track?.title.orEmpty(),
             artist = track?.artist.orEmpty(),
@@ -405,6 +413,17 @@ internal class PlayerBarParts(
     fun Title(fontSize: TextUnit, maxLines: Int = 1) {
         val track = nowPlaying ?: return
         NowPlayingSongTitle(track, playerViewModel, fontSize = fontSize, maxLines = maxLines)
+    }
+
+    @Composable
+    fun QualityBadge(modifier: Modifier = Modifier) {
+        val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
+        val playbackQuality by controller.playbackQuality.collectAsState()
+        val track = nowPlaying ?: return
+        val quality = playbackQuality
+            ?.takeIf { showQuality && !isPodcast && it.mediaId == track.mediaId }
+            ?: return
+        PlaybackQualityBadge(quality = quality, modifier = modifier)
     }
 
     @Composable

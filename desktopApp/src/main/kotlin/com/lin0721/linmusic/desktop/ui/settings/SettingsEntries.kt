@@ -388,6 +388,7 @@ internal fun settingsEntries(
     val playlistTagsEnabled by common.playlistTagsEnabled.collectAsState()
     val searchSuggestionEnabled by common.searchSuggestionEnabled.collectAsState()
     val homeRecentPlayEnabled by common.homeRecentPlayEnabled.collectAsState()
+    val showPlaybackQuality by common.showPlaybackQuality.collectAsState()
     val showSongMaxQuality by common.showSongMaxQuality.collectAsState()
     val alwaysShowLikedBadge by common.alwaysShowLikedBadge.collectAsState()
     val lyricFilter by common.lyricFilterConfig.collectAsState()
@@ -460,6 +461,15 @@ internal fun settingsEntries(
                     label = { key -> QualityOptions.firstOrNull { it.first == key }?.second ?: key },
                     onSelect = common::updateWifiQuality
                 )
+            }
+        )
+        add(
+            rowEntry(
+                "playbackQuality", SettingsCategory.Playback, "显示实际音质",
+                subtitle = "在播放栏显示当前曲目的实际采样率/码率，悬停或点击查看详情",
+                keywords = listOf("音质", "采样率", "码率", "位深", "播放栏", "标签")
+            ) {
+                SettingSwitch(showPlaybackQuality, onChange = common::updateShowPlaybackQuality)
             }
         )
         add(

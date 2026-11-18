@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.player
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessPolicy
 import com.lin0721.linmusic.core.player.LoudnessStore
@@ -11,6 +12,7 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PERSONAL_FM
+import com.lin0721.linmusic.core.player.PlaybackLevel
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackQueue
 import com.lin0721.linmusic.core.player.PlaybackState
@@ -26,7 +28,9 @@ import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
+import com.lin0721.linmusic.desktop.player.mpv.MpvAudioInfo
 import com.lin0721.linmusic.desktop.player.mpv.MpvEngine
+import com.lin0721.linmusic.desktop.player.mpv.mergePlaybackQuality
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,10 +76,16 @@ private const val CROSSFADE_PREPARE_TIMEOUT_MS = 8_000L
 private const val CROSSFADE_PREPARE_POLL_MS = 100L
 
 // 到点时下一首仍是它才执行
-private class CrossfadePlan(val index: Int, val songId: Long, val fadeMs: Long, val url: String)
+private class CrossfadePlan(
+    val index: Int,
+    val songId: Long,
+    val fadeMs: Long,
+    val url: String,
+    val declaredLevel: String? = null
+)
 
 // record 为空表示本地文件或缓存命中，非空表示联网播放时录制缓存
-private class Playback(val url: String, val record: RecordRequest?)
+private class Playback(val url: String, val record: RecordRequest?, val declaredLevel: String? = null)
 
 class MpvPlaybackController(
     private val repository: PlaybackRepository,
@@ -107,6 +117,12 @@ class MpvPlaybackController(
 
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     override val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying.asStateFlow()
+
+    private val _playbackLevel = MutableStateFlow<PlaybackLevel?>(null)
+    override val playbackLevel: StateFlow<PlaybackLevel?> = _playbackLevel.asStateFlow()
+
+    private val _playbackQuality = MutableStateFlow<PlaybackQuality?>(null)
+    override val playbackQuality: StateFlow<PlaybackQuality?> = _playbackQuality.asStateFlow()
 
     private val _currentPosition = MutableStateFlow(0L)
     override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
@@ -168,6 +184,8 @@ class MpvPlaybackController(
     private var loadedSongId: Long? = null
     // 已载入曲目的播放地址，供尾部分析读取
     private var loadedUrl: String? = null
+    private var currentDeclaredLevel: String? = null
+    private var currentAudioInfo: MpvAudioInfo? = null
     private var restoreAttempted = false
     private var lastPeriodicSaveMs = 0L
 
@@ -453,6 +471,7 @@ class MpvPlaybackController(
             loadedSongId = null
             _nowPlaying.value = null
             _duration.value = 0L
+            clearQuality()
         } else if (loadedSongId == kept.songId) {
             engine.setPaused(true)
             engine.seekTo(0L)
@@ -474,6 +493,7 @@ class MpvPlaybackController(
         _nowPlaying.value = null
         _currentPosition.value = 0L
         _duration.value = 0L
+        clearQuality()
         saveQueueState()
         saveState()
     }
@@ -653,6 +673,16 @@ class MpvPlaybackController(
         }
     }
 
+    override fun onAudioInfoChanged(info: MpvAudioInfo) {
+        scope.launch {
+            val mediaId = _nowPlaying.value?.mediaId ?: return@launch
+            // 切歌等待取地址期间 loadedSongId 为空，忽略旧引擎滞后事件
+            if (loadedSongId?.toString() != mediaId) return@launch
+            currentAudioInfo = info
+            publishQuality(mediaId, info)
+        }
+    }
+
     // 当前歌的曲目增益：ReplayGain 标签 > 缓存 > 自测，结果平滑生效
     private fun applyLoudness() {
         loudnessJob?.cancel()
@@ -686,7 +716,9 @@ class MpvPlaybackController(
             if (engine.exclusive) {
                 engine.setExclusive(false)
                 _messages.tryEmit("独占输出不可用，本次已改用共享模式")
-                if (playbackQueue.itemAt(index) != null) playIndex(index, positionMs, knownUrl = loadedUrl)
+                if (playbackQueue.itemAt(index) != null) {
+                    playIndex(index, positionMs, knownUrl = loadedUrl, knownDeclaredLevel = currentDeclaredLevel)
+                }
                 return@launch
             }
             _messages.tryEmit("输出设备被占用或不可用")
@@ -716,7 +748,12 @@ class MpvPlaybackController(
         }
     }
 
-    private fun playIndex(index: Int, startMs: Long = 0L, knownUrl: String? = null) {
+    private fun playIndex(
+        index: Int,
+        startMs: Long = 0L,
+        knownUrl: String? = null,
+        knownDeclaredLevel: String? = null
+    ) {
         val item = playbackQueue.itemAt(index) ?: return
         abortCrossfadePlan()
         crossfadeAttemptedSongId = null
@@ -726,6 +763,7 @@ class MpvPlaybackController(
         if (loadedSongId != item.songId) engine.setPaused(true)
         playbackQueue.setCurrentIndex(index)
         loadedSongId = null
+        clearQuality()
         _currentPosition.value = startMs
         _duration.value = 0L
         _playWhenReady.value = true
@@ -738,16 +776,21 @@ class MpvPlaybackController(
         )
         saveQueueState()
         playJob = scope.launch {
-            val playback = knownUrl?.let { Playback(it, null) } ?: resolvePlayback(item).getOrElse { error ->
+            val playback = knownUrl?.let { Playback(it, null, knownDeclaredLevel) } ?: resolvePlayback(item).getOrElse { error ->
                 AppLogger.w(TAG, "取播放地址失败 songId=${item.songId}", error)
                 handleFailure(if (item.external != null) error.message.orEmpty() else "《${item.title}》暂无版权或需要会员")
                 return@launch
             }
+            val mediaId = item.songId.toString()
+            currentDeclaredLevel = playback.declaredLevel?.takeIf { it.isNotBlank() }
+            currentAudioInfo = null
+            // 流参数就绪前先发布接口声明档位
+            publishQuality(mediaId, null)
             val gainDb = if (loudnessEnabled) loudnessMeter.cachedGainDb(item.songId) ?: 0.0 else 0.0
-            // 从中途起播录不出完整文件
-            engine.load(playback.url, startMs, record = playback.record.takeIf { startMs == 0L }, gainDb = gainDb)
             loadedSongId = item.songId
             loadedUrl = playback.url
+            // 从中途起播录不出完整文件
+            engine.load(playback.url, startMs, record = playback.record.takeIf { startMs == 0L }, gainDb = gainDb)
             beginReporting(item.songId)
             prefetchRoaming(item.songId)
             saveState()
@@ -784,7 +827,7 @@ class MpvPlaybackController(
                 // 网易返回的有效增益优先于自测，覆盖已缓存的值
                 if (loudnessEnabled) info.gainDb?.let { loudnessMeter.remember(songId, it) }
                 val record = audioCache?.let { RecordRequest(songId, it.tempFile(songId, level).absolutePath) }
-                Result.success(Playback(info.url, record))
+                Result.success(Playback(info.url, record, declaredLevel = info.level))
             },
             onFailure = { error ->
                 audioCache?.anyCompleteFile(songId)?.let { Result.success(Playback(it.absolutePath, null)) }
@@ -844,7 +887,7 @@ class MpvPlaybackController(
                 return@launch
             }
             if (smart) AppLogger.i(TAG, "智能过渡 songId=$songId end=$effectiveEndMs/$duration nextStart=$startMs")
-            crossfadePlan = CrossfadePlan(nextIdx, next.songId, plannedFadeMs, playback.url)
+            crossfadePlan = CrossfadePlan(nextIdx, next.songId, plannedFadeMs, playback.url, playback.declaredLevel)
             crossfadeTriggerMs = CrossfadePolicy.triggerPositionMs(effectiveEndMs, plannedFadeMs)
         }
     }
@@ -872,12 +915,16 @@ class MpvPlaybackController(
         consecutiveFailures = 0
         _currentPosition.value = position
         _duration.value = duration
+        val mediaId = item.songId.toString()
         _nowPlaying.value = NowPlaying(
-            mediaId = item.songId.toString(),
+            mediaId = mediaId,
             title = item.title,
             artist = item.artist,
             artworkUri = item.coverUrl.takeIf { it.isNotBlank() }
         )
+        currentDeclaredLevel = plan.declaredLevel?.takeIf { it.isNotBlank() }
+        currentAudioInfo = engine.activeAudioInfo()
+        publishQuality(mediaId, currentAudioInfo)
         saveQueueState()
         beginReporting(item.songId)
         startClock()
@@ -893,6 +940,19 @@ class MpvPlaybackController(
         crossfadePlan = null
     }
 
+    private fun clearQuality() {
+        currentDeclaredLevel = null
+        currentAudioInfo = null
+        _playbackQuality.value = null
+        _playbackLevel.value = null
+    }
+
+    private fun publishQuality(mediaId: String, audioInfo: MpvAudioInfo?) {
+        val level = currentDeclaredLevel
+        _playbackLevel.value = level?.let { l -> mediaId.toLongOrNull()?.let { PlaybackLevel(it, l) } }
+        _playbackQuality.value = mergePlaybackQuality(mediaId, level, audioInfo)
+    }
+
     private fun handleFailure(message: String) {
         consecutiveFailures++
         _messages.tryEmit(message)
@@ -902,6 +962,7 @@ class MpvPlaybackController(
             _playWhenReady.value = false
             _isPlaying.value = false
             loadedSongId = null
+            clearQuality()
             engine.stop()
             return
         }

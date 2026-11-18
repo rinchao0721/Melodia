@@ -53,6 +53,7 @@ class CommonSettingsViewModel(
     val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)
     val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
     val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
+    val showPlaybackQuality = settingsPreferences.showPlaybackQuality.asState(false)
     val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
     val alwaysShowLikedBadge = settingsPreferences.alwaysShowLikedBadge.asState(true)
     val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
@@ -112,6 +113,8 @@ class CommonSettingsViewModel(
     fun updateSearchSuggestionEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSearchSuggestionEnabled(enabled) }
 
     fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
+
+    fun updateShowPlaybackQuality(show: Boolean) = launchSave { settingsPreferences.saveShowPlaybackQuality(show) }
 
     fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
 

@@ -44,6 +44,7 @@ internal interface LibMpv : Library {
 
 // client.h 中用到的枚举值
 internal object MpvConst {
+    const val FORMAT_NONE = 0
     const val FORMAT_FLAG = 3
     const val FORMAT_DOUBLE = 5
 

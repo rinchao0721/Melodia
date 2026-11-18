@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.player
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessPolicy
+import com.lin0721.linmusic.desktop.player.mpv.MpvAudioInfo
 import com.lin0721.linmusic.desktop.player.mpv.MpvEngine
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ internal class MpvEnginePair(
         @Volatile var duration = 0L
         @Volatile var loaded = false
         @Volatile var ended = false
+        @Volatile var audioInfo: MpvAudioInfo? = null
 
         // 拖动过的录制不完整
         @Volatile var record: RecordRequest? = null
@@ -56,6 +58,7 @@ internal class MpvEnginePair(
             duration = 0L
             loaded = false
             ended = false
+            audioInfo = null
         }
 
         // 停引擎后 mpv 异步释放文件，删除需要重试直到释放
@@ -83,6 +86,11 @@ internal class MpvEnginePair(
         override fun onFileLoaded() {
             loaded = true
             if (isActive) listener.onFileLoaded()
+        }
+
+        override fun onAudioInfoChanged(info: MpvAudioInfo) {
+            audioInfo = info
+            if (isActive) listener.onAudioInfoChanged(info)
         }
 
         override fun onEnded(isError: Boolean) {
@@ -181,6 +189,9 @@ internal class MpvEnginePair(
 
     // 主引擎已载入文件的标签值
     fun activeMetadata(key: String): String? = activeSlot.engine.metadataValue(key)
+
+    // 当前出声主引擎的流与输出参数快照
+    fun activeAudioInfo(): MpvAudioInfo? = activeSlot.audioInfo ?: activeSlot.engine.currentAudioInfo()
 
     fun setPaused(paused: Boolean) {
         // 淡化期间暂停：直接收尾，避免恢复后音量跳变

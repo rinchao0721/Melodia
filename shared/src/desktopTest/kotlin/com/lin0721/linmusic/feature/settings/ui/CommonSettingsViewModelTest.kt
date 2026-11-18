@@ -56,11 +56,15 @@ class CommonSettingsViewModelTest {
 
     @Test
     fun playbackSettingsArePersisted() {
+        settings.showPlaybackQuality.awaitValue(false)
+
         vm.updateWifiQuality("hires")
+        vm.updateShowPlaybackQuality(true)
         vm.updateCrossfadeEnabled(true)
         vm.updateCrossfadeDurationMs(6_000)
 
         settings.wifiQuality.awaitValue("hires")
+        settings.showPlaybackQuality.awaitValue(true)
         settings.crossfadeEnabled.awaitValue(true)
         settings.crossfadeDurationMs.awaitValue(6_000)
     }
