@@ -98,9 +98,9 @@ fun LibraryFilterPillsRow(
     val fadeOutSpec = uiSpring<Float>(stiffness = Spring.StiffnessMedium)
 
     LazyRow(
-        modifier = modifier.padding(top = MelodiaSpacing.sm, bottom = 10.dp),
-        contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(top = 2.dp, bottom = 6.dp),
+        contentPadding = PaddingValues(horizontal = MelodiaSpacing.md),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selectedFilter != null) {
@@ -111,7 +111,7 @@ fun LibraryFilterPillsRow(
                         .pressable(MelodiaPress.Pill) { onClear() }
                         .clip(CircleShape)
                         .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
-                        .size(36.dp),
+                        .size(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -138,18 +138,18 @@ fun LibraryFilterPillsRow(
             Box(
                 modifier = Modifier
                     .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                    .height(36.dp)
+                    .height(32.dp)
                     .pressable(MelodiaPress.Pill) { onSelect(filter) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(bgColor)
                     .animateContentSize(uiSpring(stiffness = Spring.StiffnessMedium))
-                    .padding(horizontal = 18.dp),
+                    .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
                     color = contentColor,
-                    fontSize = 14.sp
+                    fontSize = 13.sp
                 )
             }
         }
@@ -170,17 +170,17 @@ fun LibraryFilterPillsRow(
                 Box(
                     modifier = Modifier
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                        .height(36.dp)
+                        .height(32.dp)
                         .pressable(MelodiaPress.Pill) { onSelectPlaylistOwnerFilter(ownerFilter) }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(bgColor)
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label,
                         color = contentColor,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -191,17 +191,17 @@ fun LibraryFilterPillsRow(
                 Box(
                     modifier = Modifier
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                        .height(36.dp)
+                        .height(32.dp)
                         .pressable(MelodiaPress.Pill) { onLocalMusicClick() }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "本地音乐",
                         color = MelodiaColors.PillContent,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 }
             }

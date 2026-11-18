@@ -238,7 +238,7 @@ fun LibraryScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(64.dp)
+                            .height(56.dp)
                             .padding(horizontal = MelodiaSpacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -249,7 +249,7 @@ fun LibraryScreen(
                                 model = "$avatarUrl?param=100y100",
                                 contentDescription = "用户头像",
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(32.dp)
                                     .pressable(MelodiaPress.Icon) { onAvatarClick() }
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop
@@ -257,7 +257,7 @@ fun LibraryScreen(
                         } else {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(32.dp)
                                     .pressable(MelodiaPress.Icon) { onAvatarClick() }
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surface),
