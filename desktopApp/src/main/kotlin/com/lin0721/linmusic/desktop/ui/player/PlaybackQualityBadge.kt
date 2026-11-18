@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.desktop.ui.player
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,14 +46,36 @@ import com.lin0721.linmusic.core.ui.theme.floatingOutline
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.TooltipSide
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.roundToInt
 
 internal const val QUALITY_MISSING_TEXT = "—"
+private const val QUALITY_ANIM_MS = 220
 
 private val BadgeShape = RoundedCornerShape(3.dp)
 private val TooltipCardShape = RoundedCornerShape(6.dp)
+
+internal data class QualityBadgeVisual(
+    val label: String,
+    val colorArgb: Long?
+)
+
+private data class QualityBadgeRenderState(
+    val quality: PlaybackQuality,
+    val visual: QualityBadgeVisual
+)
+
+internal fun resolveQualityBadgeVisual(quality: PlaybackQuality?): QualityBadgeVisual? {
+    val q = quality ?: return null
+    val label = playbackQualityLabel(q) ?: return null
+    val resolvedLevel = resolveQualityLevel(q.declaredLevel, q.stream)
+    return QualityBadgeVisual(
+        label = label,
+        colorArgb = qualityBadgeOf(resolvedLevel)?.colorArgb
+    )
+}
 
 internal fun formatCodecText(codec: String?): String =
     codec?.trim()?.takeIf { it.isNotEmpty() }?.uppercase() ?: QUALITY_MISSING_TEXT
@@ -96,41 +125,65 @@ internal fun formatResampledText(resampled: Boolean?): String = when (resampled)
 internal fun formatDeclaredLevelText(declaredLevel: String?): String =
     declaredLevel?.trim()?.takeIf { it.isNotEmpty() }?.let(::getQualityDisplayName) ?: QUALITY_MISSING_TEXT
 
-// 播放栏音质标签：悬停显示流参数小卡片，点击弹出完整音质详情面板
+// 播放栏音质标签：支持从无到有展开与档位切换平滑过渡，悬停显示流参数小卡片，点击弹出详情面板
 @Composable
 internal fun PlaybackQualityBadge(
-    quality: PlaybackQuality,
+    quality: PlaybackQuality?,
     modifier: Modifier = Modifier
 ) {
-    val label = playbackQualityLabel(quality) ?: return
-    val resolvedLevel = resolveQualityLevel(quality.declaredLevel, quality.stream)
-    val badgeColor = qualityBadgeOf(resolvedLevel)?.colorArgb?.let(::Color) ?: DesktopColors.TextGray
+    val renderState = quality?.let { q ->
+        resolveQualityBadgeVisual(q)?.let { QualityBadgeRenderState(quality = q, visual = it) }
+    }
     var showDetail by remember { mutableStateOf(false) }
-
-    DesktopTooltip(
-        tooltipContent = { PlaybackQualityHoverCard(quality) },
-        modifier = modifier,
-        side = TooltipSide.Top
-    ) {
-        Text(
-            text = label,
-            color = badgeColor,
-            fontSize = 10.sp,
-            lineHeight = 12.sp,
-            maxLines = 1,
-            modifier = Modifier
-                .clip(BadgeShape)
-                .background(badgeColor.copy(alpha = 0.1f), BadgeShape)
-                .border(0.5.dp, badgeColor, BadgeShape)
-                .pointerHoverIcon(PointerIcon.Hand)
-                .clickable { showDetail = true }
-                .padding(horizontal = 4.dp, vertical = 1.dp)
-        )
+    val detailQuality = renderState?.quality
+    LaunchedEffect(detailQuality == null) {
+        if (detailQuality == null) showDetail = false
     }
 
-    if (showDetail) {
+    val motion = LocalUiMotion.current
+    AnimatedContent(
+        targetState = renderState,
+        modifier = modifier,
+        contentAlignment = Alignment.CenterStart,
+        transitionSpec = {
+            motion.transform(
+                (fadeIn(tween(QUALITY_ANIM_MS)) togetherWith fadeOut(tween(QUALITY_ANIM_MS)))
+                    .using(SizeTransform(clip = true) { _, _ -> tween(QUALITY_ANIM_MS) })
+            )
+        },
+        contentKey = { it?.visual },
+        label = "playbackQualityBadge"
+    ) { target ->
+        if (target != null) {
+            val badgeColor = target.visual.colorArgb?.let(::Color) ?: DesktopColors.TextGray
+            // 间距放在动画槽位内，无标签时收成 0 宽不留空白
+            Box(Modifier.padding(end = 6.dp)) {
+                DesktopTooltip(
+                    tooltipContent = { PlaybackQualityHoverCard(target.quality) },
+                    side = TooltipSide.Top
+                ) {
+                    Text(
+                        text = target.visual.label,
+                        color = badgeColor,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .clip(BadgeShape)
+                            .background(badgeColor.copy(alpha = 0.1f), BadgeShape)
+                            .border(0.5.dp, badgeColor, BadgeShape)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable { showDetail = true }
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDetail && detailQuality != null) {
         PlaybackQualityDetailDialog(
-            quality = quality,
+            quality = detailQuality,
             onDismiss = { showDetail = false }
         )
     }

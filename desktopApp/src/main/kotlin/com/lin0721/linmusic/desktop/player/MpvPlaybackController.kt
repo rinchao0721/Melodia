@@ -12,6 +12,7 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PERSONAL_FM
+import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PODCAST
 import com.lin0721.linmusic.core.player.PlaybackLevel
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackQueue
@@ -23,6 +24,7 @@ import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.player.SleepTimer
 import com.lin0721.linmusic.core.player.TrackLoudnessMeter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -31,6 +33,7 @@ import com.lin0721.linmusic.desktop.player.cache.AudioCache
 import com.lin0721.linmusic.desktop.player.mpv.MpvAudioInfo
 import com.lin0721.linmusic.desktop.player.mpv.MpvEngine
 import com.lin0721.linmusic.desktop.player.mpv.mergePlaybackQuality
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -178,6 +181,7 @@ class MpvPlaybackController(
     override val unavailableReason: String? = null
 
     private var playJob: Job? = null
+    private var restoreQualityJob: Job? = null
     private var consecutiveFailures = 0
 
     // mpv 已载入的曲目；冷启动恢复出的曲目只有元数据，首次播放时才取地址载入
@@ -326,6 +330,7 @@ class MpvPlaybackController(
         )
         _currentPosition.value = lastTrack.lastPositionMs
         _duration.value = lastTrack.durationMs
+        playbackQueue.currentItem()?.let { launchRestoreDeclaredLevel(it, playbackQueue.playContext.value) }
     }
 
     override fun playQueue(
@@ -461,6 +466,7 @@ class MpvPlaybackController(
     override fun clearQueue() {
         val kept = playbackQueue.keepOnlyCurrent()
         abortCrossfadePlan()
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         _playWhenReady.value = false
@@ -483,6 +489,7 @@ class MpvPlaybackController(
     // 切换或退出账户时彻底停止播放并清空队列与持久化状态
     override fun stopAndClearQueue() {
         abortCrossfadePlan()
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         playbackQueue.clear()
@@ -618,6 +625,7 @@ class MpvPlaybackController(
 
     // 退出时同步落盘，异步写入来不及在进程结束前完成
     override fun release() {
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         sleepTimer.cancel()
         roaming.cancel()
@@ -757,6 +765,7 @@ class MpvPlaybackController(
         val item = playbackQueue.itemAt(index) ?: return
         abortCrossfadePlan()
         crossfadeAttemptedSongId = null
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         // 取播放地址在弱网下可能很久才返回，界面已切到新歌，旧歌不能继续出声；换音质重载同一首不打断
@@ -797,6 +806,40 @@ class MpvPlaybackController(
         }
     }
 
+    // 启动恢复后后台静默查询一次接口声明档位，不载入引擎；已下载、缓存命中或非网易歌曲均不查询
+    private fun launchRestoreDeclaredLevel(item: QueueItem, playContext: String?) {
+        if (!isRestorableNeteaseTrack(item, playContext)) return
+        restoreQualityJob?.cancel()
+        restoreQualityJob = scope.launch {
+            probeRestoredDeclaredLevel(
+                item = item,
+                playContext = playContext,
+                findOffline = ::lookupOfflineNetease,
+                fetchPlaybackInfo = { songId -> repository.getSongPlaybackInfo(songId).first() },
+                canApply = {
+                    shouldApplyRestoredLevel(
+                        restoredSongId = item.songId,
+                        currentMediaId = _nowPlaying.value?.mediaId,
+                        loadedSongId = loadedSongId,
+                        isPlaybackLoading = playJob?.isActive == true
+                    )
+                },
+                onLevelResolved = { level ->
+                    currentDeclaredLevel = level
+                    publishQuality(item.songId.toString(), currentAudioInfo)
+                }
+            )
+        }
+    }
+
+    private suspend fun lookupOfflineNetease(item: QueueItem): OfflineNeteaseMatch =
+        findOfflineNeteaseMatch(
+            item = item,
+            localAudioOf = localAudioOf,
+            wifiQuality = { settingsPreferences.wifiQuality.first() },
+            cachedFileOf = { songId, level -> audioCache?.completeFile(songId, level) }
+        )
+
     // 外部平台搜索结果用负数 id 且自带直链，不属于网易云曲库，不参与打卡上报、相似漫游与缓存
     private fun isOnlineSong(songId: Long): Boolean = songId > 0L
 
@@ -819,9 +862,9 @@ class MpvPlaybackController(
     // 已下载 > 缓存命中 > 联网（同时录制缓存）；联网失败退回任意音质缓存
     private suspend fun resolveNeteasePlayback(item: QueueItem): Result<Playback> {
         val songId = item.songId
-        localAudioOf(item)?.let { return Result.success(Playback(it, null)) }
-        val level = settingsPreferences.wifiQuality.first()
-        audioCache?.completeFile(songId, level)?.let { return Result.success(Playback(it.absolutePath, null)) }
+        val offline = lookupOfflineNetease(item)
+        offline.path?.let { return Result.success(Playback(it, null)) }
+        val level = offline.preferredLevel ?: settingsPreferences.wifiQuality.first()
         return repository.getSongPlaybackInfo(songId).first().fold(
             onSuccess = { info ->
                 // 网易返回的有效增益优先于自测，覆盖已缓存的值
@@ -1045,3 +1088,67 @@ class MpvPlaybackController(
         return (playedMs + ongoingMs).coerceAtLeast(0L) / 1000L
     }
 }
+
+// 与 resolveNeteasePlayback 顺序一致的本地/缓存查找结果
+internal data class OfflineNeteaseMatch(
+    val path: String?,
+    val preferredLevel: String?
+)
+
+// 判断启动恢复出的队列项是否满足仅取档位探测条件：网易歌曲、非播客、非本地/外部直链
+internal fun isRestorableNeteaseTrack(item: QueueItem?, playContext: String?): Boolean =
+    item != null &&
+        item.songId > 0L &&
+        item.radioId == 0L &&
+        playContext != CONTEXT_PODCAST &&
+        item.localUri.isNullOrBlank() &&
+        item.external == null
+
+// 判断恢复探测结果返回后是否仍可发布：未切歌、未载入引擎且未开始切歌起播
+internal fun shouldApplyRestoredLevel(
+    restoredSongId: Long,
+    currentMediaId: String?,
+    loadedSongId: Long?,
+    isPlaybackLoading: Boolean
+): Boolean =
+    currentMediaId == restoredSongId.toString() &&
+        loadedSongId == null &&
+        !isPlaybackLoading
+
+// 先查已下载，再查当前目标音质缓存；与 resolveNeteasePlayback 顺序一致
+internal suspend fun findOfflineNeteaseMatch(
+    item: QueueItem,
+    localAudioOf: suspend (QueueItem) -> String?,
+    wifiQuality: suspend () -> String,
+    cachedFileOf: (songId: Long, level: String) -> File?
+): OfflineNeteaseMatch {
+    localAudioOf(item)?.let { return OfflineNeteaseMatch(path = it, preferredLevel = null) }
+    val level = wifiQuality()
+    val cached = cachedFileOf(item.songId, level)?.absolutePath
+    return OfflineNeteaseMatch(path = cached, preferredLevel = level)
+}
+
+// 启动恢复后的后台档位探测：本地/缓存命中或条件不满足不请求，失败静默，切歌/开播即丢弃
+internal suspend fun probeRestoredDeclaredLevel(
+    item: QueueItem,
+    playContext: String?,
+    findOffline: suspend (QueueItem) -> OfflineNeteaseMatch,
+    fetchPlaybackInfo: suspend (Long) -> Result<SongPlaybackInfo>,
+    canApply: () -> Boolean,
+    onLevelResolved: (String) -> Unit
+) {
+    if (!isRestorableNeteaseTrack(item, playContext)) return
+    if (findOffline(item).path != null) return
+    if (!canApply()) return
+    val info = try {
+        fetchPlaybackInfo(item.songId).getOrNull()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        null
+    } ?: return
+    val level = info.level?.trim()?.takeIf { it.isNotEmpty() } ?: return
+    if (!canApply()) return
+    onLevelResolved(level)
+}
+

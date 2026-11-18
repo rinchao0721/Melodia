@@ -1,7 +1,12 @@
 package com.lin0721.linmusic.desktop.ui.player
 
 import com.lin0721.linmusic.core.model.OutputAudioInfo
+import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.StreamAudioInfo
+import com.lin0721.linmusic.core.model.qualityBadgeOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PlaybackQualityFormatTest {
@@ -37,5 +42,37 @@ class PlaybackQualityFormatTest {
         assertEquals("否", formatResampledText(false))
         assertEquals("Hi-Res", formatDeclaredLevelText("hires"))
         assertEquals("无损 (FLAC)", formatDeclaredLevelText("lossless"))
+    }
+
+    @Test
+    fun resolveQualityBadgeVisualTracksLabelAndColorAcrossUpdates() {
+        assertNull(resolveQualityBadgeVisual(null))
+
+        val declared = resolveQualityBadgeVisual(
+            PlaybackQuality(mediaId = "1001", declaredLevel = "lossless")
+        )
+        assertEquals("Lossless", declared?.label)
+        assertEquals(qualityBadgeOf("lossless")?.colorArgb, declared?.colorArgb)
+
+        val actualStream = resolveQualityBadgeVisual(
+            PlaybackQuality(
+                mediaId = "1001",
+                declaredLevel = "lossless",
+                stream = StreamAudioInfo(codec = "flac", sampleRateHz = 96000, bitDepth = 24, bitrateBps = 2800000)
+            )
+        )
+        assertEquals("24bit/96kHz", actualStream?.label)
+        assertEquals(qualityBadgeOf("hires")?.colorArgb, actualStream?.colorArgb)
+        assertNotEquals(declared, actualStream)
+
+        // 仅码率微调且展示文案/颜色未变时，保持同一视觉 key 避免重复触发切换动画
+        val updatedBitrateSameVisual = resolveQualityBadgeVisual(
+            PlaybackQuality(
+                mediaId = "1001",
+                declaredLevel = "lossless",
+                stream = StreamAudioInfo(codec = "flac", sampleRateHz = 96000, bitDepth = 24, bitrateBps = 2950000)
+            )
+        )
+        assertEquals(actualStream, updatedBitrateSameVisual)
     }
 }

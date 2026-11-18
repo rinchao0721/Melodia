@@ -225,10 +225,7 @@ fun PlayerBar(
                 parts.CoverButton(56.dp)
                 Column(Modifier.weight(1f, fill = false).padding(start = 12.dp)) {
                     parts.Title(14.sp)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         parts.QualityBadge()
                         Box(Modifier.weight(1f, fill = false)) {
                             parts.Artists(12.sp)
@@ -419,10 +416,9 @@ internal class PlayerBarParts(
     fun QualityBadge(modifier: Modifier = Modifier) {
         val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
         val playbackQuality by controller.playbackQuality.collectAsState()
-        val track = nowPlaying ?: return
+        val track = nowPlaying
         val quality = playbackQuality
-            ?.takeIf { showQuality && !isPodcast && it.mediaId == track.mediaId }
-            ?: return
+            ?.takeIf { track != null && showQuality && !isPodcast && it.mediaId == track.mediaId }
         PlaybackQualityBadge(quality = quality, modifier = modifier)
     }
 
