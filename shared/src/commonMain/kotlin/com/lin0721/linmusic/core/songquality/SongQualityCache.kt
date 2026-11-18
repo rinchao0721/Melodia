@@ -50,6 +50,9 @@ internal const val PREFETCH_TIMEOUT_MS = 3_000L
 
 private const val KEY_PREFIX = "q_"
 
+// 超过 4 倍有效期仍未刷新的条目在启动时删除
+private const val PRUNE_TTL_MULTIPLIER = 4
+
 // 缺失接口自带音质且推断结果非最终档位（Hi-Res 或未知）的曲目需要预查
 fun Track.needsQualityPrefetch(): Boolean =
     id > 0 && privilege?.maxBrLevel.isNullOrBlank() && !isFinalInferredLevel(inferredMaxBrLevel())
@@ -161,12 +164,21 @@ class SongQualityCache(
 
     private suspend fun loadPersisted() {
         val store = dataStore ?: return
+        val now = nowMs()
+        val discarded = ArrayList<Preferences.Key<*>>()
         val loaded = try {
             store.data.first().asMap().mapNotNull { (key, value) ->
                 val rawId = key.name.removePrefix(KEY_PREFIX)
                 val id = if (rawId != key.name) rawId.toLongOrNull() else null
                 val entry = (value as? String)?.let(::parseEntry)
-                if (id != null && id > 0 && entry != null) id to entry else null
+                when {
+                    id == null || id <= 0 -> null
+                    entry == null || now - entry.updatedAt >= ttlMs * PRUNE_TTL_MULTIPLIER -> {
+                        discarded += key
+                        null
+                    }
+                    else -> id to entry
+                }
             }.toMap()
         } catch (e: CancellationException) {
             throw e
@@ -174,6 +186,7 @@ class SongQualityCache(
             AppLogger.w(TAG, "读取最高音质缓存失败", e)
             emptyMap()
         }
+        pruneKeys(store, discarded)
         if (loaded.isEmpty()) return
         loaded.forEach { (id, entry) -> entries.putIfAbsent(id, entry) }
         // 加载期间内存已写入的新等级优先
@@ -268,6 +281,18 @@ class SongQualityCache(
             throw e
         } catch (e: Exception) {
             AppLogger.w(TAG, "保存最高音质缓存失败：${updates.size} 首", e)
+        }
+    }
+
+    // 每首歌一个 key 且整文件重写，长期不访问的条目要清掉
+    private suspend fun pruneKeys(store: DataStore<Preferences>, keys: List<Preferences.Key<*>>) {
+        if (keys.isEmpty()) return
+        try {
+            store.edit { prefs -> keys.forEach { prefs.remove(it) } }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "清理过期最高音质缓存失败：${keys.size} 条", e)
         }
     }
 

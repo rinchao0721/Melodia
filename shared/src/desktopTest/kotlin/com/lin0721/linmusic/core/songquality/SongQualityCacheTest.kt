@@ -11,6 +11,7 @@ import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -289,6 +290,35 @@ class SongQualityCacheTest {
         cache.prefetchIds(listOf(50L))
         assertEquals(2, fetcher.calls.size)
         assertEquals("dolby", cache.levels.value[50L])
+    }
+
+    @Test
+    fun longUnrefreshedEntriesArePrunedOnStartup() = runTest {
+        var now = 1_000_000L
+        val store = InMemoryPreferencesStore()
+        val cache1 = SongQualityCache(
+            enabledFlow = MutableStateFlow(true),
+            fetcher = FakeFetcher(mapOf(1L to "hires"))::fetch,
+            scope = backgroundScope,
+            batchDelayMs = 300,
+            dataStore = store,
+            nowMs = { now }
+        )
+        cache1.prefetchIds(listOf(1L))
+        assertEquals("hires", cache1.levels.value[1L])
+
+        now += SONG_QUALITY_TTL_MS * 4
+        val cache2 = SongQualityCache(
+            enabledFlow = MutableStateFlow(false),
+            fetcher = FakeFetcher(emptyMap())::fetch,
+            scope = backgroundScope,
+            batchDelayMs = 300,
+            dataStore = store,
+            nowMs = { now }
+        )
+        runCurrent()
+        assertNull(cache2.levels.value[1L])
+        assertTrue(store.data.first().asMap().isEmpty())
     }
 
     @Test
