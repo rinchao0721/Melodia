@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.formatOutputDeviceLabel
+import com.lin0721.linmusic.core.player.listOutputDevices
+import com.lin0721.linmusic.core.player.resolveEffectiveDeviceId
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -42,37 +45,6 @@ import com.lin0721.linmusic.core.ui.icons.Bluetooth
 import com.lin0721.linmusic.core.ui.icons.Check
 import com.lin0721.linmusic.core.ui.icons.Headphones
 import com.lin0721.linmusic.core.ui.icons.Phone
-
-// 只展示物理输出类型，蓝牙 LE/USB/有线各算一类
-internal val RELEVANT_DEVICE_TYPES = setOf(
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
-    AudioDeviceInfo.TYPE_WIRED_HEADSET,
-    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-    AudioDeviceInfo.TYPE_BLE_HEADSET,
-    AudioDeviceInfo.TYPE_USB_HEADSET
-)
-
-internal fun listOutputDevices(audioManager: AudioManager): List<AudioDeviceInfo> =
-    audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        .filter { it.type in RELEVANT_DEVICE_TYPES }
-
-// 有线插入优先级最高
-// 其次是在弹层里手动选过、且还在设备列表里的那个；再退到蓝牙启发式；最后是手机扬声器
-private fun resolveEffectiveDeviceId(devices: List<AudioDeviceInfo>, preferredId: Int?): Int {
-    val wired = devices.firstOrNull {
-        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-            it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
-            it.type == AudioDeviceInfo.TYPE_USB_HEADSET
-    }
-    if (wired != null) return wired.id
-    if (preferredId != null && devices.any { it.id == preferredId }) return preferredId
-    val bluetooth = devices.firstOrNull {
-        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
-    }
-    if (bluetooth != null) return bluetooth.id
-    return devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }?.id ?: -1
-}
 
 @Composable
 private fun rememberOutputDevices(): List<AudioDeviceInfo> {
@@ -119,18 +91,7 @@ internal fun deviceIcon(type: Int): ImageVector = when (type) {
     else -> MelodiaIcons.Headphones
 }
 
-// 未授予 BLUETOOTH_CONNECT 时系统只返回占位名，兜底成按类型区分的通用名称
-internal fun deviceLabel(device: AudioDeviceInfo): String {
-    val name = device.productName?.toString().orEmpty()
-    if (name.isNotBlank() && name != "?") return name
-    return when (device.type) {
-        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "此手机"
-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET -> "蓝牙设备"
-        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "有线耳机"
-        AudioDeviceInfo.TYPE_USB_HEADSET -> "USB 耳机"
-        else -> "未知设备"
-    }
-}
+internal fun deviceLabel(device: AudioDeviceInfo): String = formatOutputDeviceLabel(device)
 
 // 名称之下的设备类型子标题
 private fun deviceTypeLabel(type: Int): String = when (type) {

@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
@@ -33,6 +34,8 @@ class MediaControllerHolder(private val context: Context) {
     val playbackState: Int get() = controller?.playbackState ?: Player.STATE_IDLE
 
     val playWhenReady: Boolean get() = controller?.playWhenReady ?: false
+
+    val currentTracks: Tracks get() = controller?.currentTracks ?: Tracks.EMPTY
 
     // 建立连接，onReady 在控制器就绪后、字段赋值前回调，用于同步初始状态
     suspend fun connect(listener: Player.Listener, onReady: (MediaController) -> Unit) {

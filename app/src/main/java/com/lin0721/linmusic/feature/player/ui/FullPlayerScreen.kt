@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import com.lin0721.linmusic.core.ui.back.MelodiaDismissBackHandler
@@ -65,7 +66,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
-import com.lin0721.linmusic.core.model.getQualityBadgeLabel
+import com.lin0721.linmusic.core.model.playbackQualityLabel
+import com.lin0721.linmusic.core.model.qualityBadgeOf
+import com.lin0721.linmusic.core.model.resolveQualityLevel
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -416,6 +419,11 @@ private fun FullPlayerScreenContent(
         showLyricsSettingsSheet = false
     }
 
+    var showQualityDetailSheet by remember { mutableStateOf(false) }
+    BackHandler(enabled = showQualityDetailSheet) {
+        showQualityDetailSheet = false
+    }
+
     val fullScreenLyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
@@ -487,7 +495,12 @@ private fun FullPlayerScreenContent(
 
     val title = currentTrack.mediaMetadata.title?.toString() ?: ""
     val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val qualityLabel = rememberPlaybackQualityLabel(viewModel, currentTrack.mediaId, podcast.isPodcast)
+    val qualityDisplay = rememberPlaybackQualityDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
+    val qualityLabel = qualityDisplay?.label
+    val qualityColor = qualityDisplay?.colorArgb?.let(::Color)
+    LaunchedEffect(qualityDisplay == null) {
+        if (qualityDisplay == null) showQualityDetailSheet = false
+    }
     val rawCoverUrl = normalizeFullPlayerCoverUrl(
         currentTrack.mediaMetadata.artworkUri?.toString().orEmpty()
     )
@@ -713,6 +726,8 @@ private fun FullPlayerScreenContent(
             animateLyricsMesh = isPlaying && !isLyricsFullScreen,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel,
+            qualityColor = qualityColor,
+            onQualityClick = { showQualityDetailSheet = true },
             onToggleLike = onCollectButtonClick,
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
@@ -902,6 +917,8 @@ private fun FullPlayerScreenContent(
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
+                        qualityColor = qualityColor,
+                        onQualityClick = { showQualityDetailSheet = true },
                         showMiniLyric = showMiniLyric,
                         baseCoverPadding = animatedCoverPadding,
                         itemGap = animatedItemGap,
@@ -1053,6 +1070,8 @@ private fun FullPlayerScreenContent(
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
+                        qualityColor = qualityColor,
+                        onQualityClick = { showQualityDetailSheet = true },
                         showLyricsControls = !podcast.isPodcast,
                         secondaryMode = fullScreenLyricSecondaryMode,
                         hasTranslation = hasTranslation,
@@ -1202,6 +1221,8 @@ private fun FullPlayerScreenContent(
             isPodcast = podcast.isPodcast,
             personalFmMode = personalFmMode,
             showPersonalFmModeSheet = showPersonalFmModeSheet,
+            qualityDetail = if (showQualityDetailSheet) qualityDisplay?.quality else null,
+            onQualityDetailDismiss = { showQualityDetailSheet = false },
             onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
             onRemoveSong = { songId ->
@@ -1433,11 +1454,24 @@ internal fun shouldKeepScreenOn(
     isPlaying: Boolean
 ): Boolean = keepScreenOnEnabled && isPlayerVisible && isLyricsScreenVisible && isPlaying
 
-// 当前歌曲的实际音质短标签；档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
+// 当前歌曲的实际音质展示快照；按 mediaId 绑定，切歌瞬间旧歌的音质不会串到新歌上
 @Composable
-fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? {
+fun rememberPlaybackQualityDisplay(
+    viewModel: PlayerViewModel,
+    mediaId: String,
+    isPodcast: Boolean
+): PlaybackQualityDisplay? {
     val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
-    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
+    val playbackQuality by viewModel.playerManager.playbackQuality.collectAsStateWithLifecycle()
     if (!showPlaybackQuality || isPodcast) return null
-    return playbackLevel?.takeIf { it.songId.toString() == mediaId }?.let { getQualityBadgeLabel(it.level) }
+    val quality = playbackQuality?.takeIf { it.mediaId == mediaId } ?: return null
+    val label = playbackQualityLabel(quality) ?: return null
+    val colorArgb = resolveQualityLevel(quality.declaredLevel, quality.stream)
+        ?.let { qualityBadgeOf(it)?.colorArgb }
+    return PlaybackQualityDisplay(quality = quality, label = label, colorArgb = colorArgb)
 }
+
+// 当前歌曲的实际音质短标签；供迷你条等仅需文案的入口复用
+@Composable
+fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? =
+    rememberPlaybackQualityDisplay(viewModel, mediaId, isPodcast)?.label

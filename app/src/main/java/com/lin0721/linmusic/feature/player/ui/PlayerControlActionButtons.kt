@@ -20,7 +20,9 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
@@ -44,6 +46,8 @@ fun PlayerActionRow(
     connectedDevice: AudioDeviceInfo?,
     qualityLabel: String?,
     modifier: Modifier = Modifier,
+    qualityColor: Color? = null,
+    onQualityClick: (() -> Unit)? = null,
     onSleepTimerClick: () -> Unit = {},
     sleepTimerActive: Boolean = false,
     onCommentsClick: () -> Unit = {},
@@ -72,7 +76,7 @@ fun PlayerActionRow(
                     Icon(MelodiaIcons.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
                 "quality" -> if (qualityLabel != null) {
-                    Text(qualityLabel, color = MelodiaColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    QualityBadgeText(label = qualityLabel, color = qualityColor, onClick = onQualityClick)
                 }
                 "more" -> MelodiaIconButton(onClick = onMoreClick) {
                     Icon(MelodiaIcons.MoreVert, contentDescription = "更多", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
@@ -99,6 +103,30 @@ fun PlayerActionRow(
     }
 }
 
+// 音质短标签：随判定档位着色，点击弹出详情
+@Composable
+private fun QualityBadgeText(
+    label: String,
+    color: Color?,
+    onClick: (() -> Unit)?
+) {
+    Text(
+        text = label,
+        color = color ?: MelodiaColors.TextSecondary,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        modifier = if (onClick != null) {
+            Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .pressable(MelodiaPress.Pill, onClick = onClick)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+        } else {
+            Modifier
+        }
+    )
+}
+
 // 控件区底部次级入口：输出设备、分享、播放队列，平板横屏下支持整合歌词控制（文A/音A切换、歌词设置）
 // connectedDevice 非空时说明当前连着非扬声器设备（有线/蓝牙），图标换类型、变主题色，并在图标后显示设备名；扬声器播放时保持默认
 @Composable
@@ -109,6 +137,8 @@ fun ActionButtons(
     connectedDevice: AudioDeviceInfo? = null,
     // 实际音质短标签，为空时不显示
     qualityLabel: String? = null,
+    qualityColor: Color? = null,
+    onQualityClick: (() -> Unit)? = null,
     showLyricsControls: Boolean = false,
     secondaryMode: String = "translation",
     hasTranslation: Boolean = false,
@@ -155,13 +185,7 @@ fun ActionButtons(
         }
         Box {
             if (qualityLabel != null) {
-                Text(
-                    text = qualityLabel,
-                    color = MelodiaColors.TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1
-                )
+                QualityBadgeText(label = qualityLabel, color = qualityColor, onClick = onQualityClick)
             }
         }
         Box {

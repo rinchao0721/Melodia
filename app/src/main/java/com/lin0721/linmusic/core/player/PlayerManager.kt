@@ -1,9 +1,13 @@
 package com.lin0721.linmusic.core.player
 
 import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
@@ -12,6 +16,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import java.io.File
 import java.util.Collections
@@ -24,6 +29,9 @@ import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.OutputAudioInfo
+import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.StreamAudioInfo
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -102,9 +110,16 @@ class PlayerManager(
     private val _displayTrack = MutableStateFlow<MediaItem?>(null)
     val currentTrack: StateFlow<MediaItem?> = _displayTrack.asStateFlow()
 
-    // 当前曲目接口实际下发的音质；本地、已下载、离线缓存与换源取不到档位时为空
-    private val _playbackLevel = MutableStateFlow<PlaybackLevel?>(null)
-    override val playbackLevel: StateFlow<PlaybackLevel?> = _playbackLevel.asStateFlow()
+    // 当前曲目的实际流参数与输出音质快照，按 mediaId 绑定
+    private val _playbackQuality = MutableStateFlow<PlaybackQuality?>(null)
+    override val playbackQuality: StateFlow<PlaybackQuality?> = _playbackQuality.asStateFlow()
+
+    // 接口下发的声明档位，按 mediaId 绑定（本地、离线缓存与换源为 null）
+    private var declaredQualityLevel: Pair<String, String?>? = null
+    private var previousDeclaredQualityLevel: Pair<String, String?>? = null
+
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private var audioDeviceCallback: AudioDeviceCallback? = null
 
     // 与 currentTrack 同步写入，保证读取 value 时两者一致
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
@@ -248,6 +263,7 @@ class PlayerManager(
     init {
         AppLogger.i(TAG, "PlayerManager 初始化 instanceId=${System.identityHashCode(this)}")
         networkGuard.register()
+        registerAudioDeviceCallback()
 
         scope.launch {
             playbackQueue.setPlayMode(stateStore.loadPlayMode())
@@ -344,6 +360,7 @@ class PlayerManager(
                 progress.setPosition(mediaController.currentPosition)
                 progress.setDuration(mediaController.duration)
                 resetTrackTiming(startPlaying = mediaController.isPlaying)
+                refreshPlaybackQuality(mediaController.currentMediaItem, mediaController.currentTracks)
             }
 
             mediaController.repeatMode = if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP)
@@ -419,6 +436,9 @@ class PlayerManager(
         playbackQueue.setPlaySource(null)
         consecutiveErrors = 0
         pendingStartPosition = startPosition
+        declaredQualityLevel = null
+        previousDeclaredQualityLevel = null
+        _playbackQuality.value = null
 
         externalInterruptionResumeController.onExplicitUserPlay()
         controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
@@ -555,6 +575,7 @@ class PlayerManager(
             pendingSkipFromIndex = null
             pausedForPendingPlay = false
             clearPendingTrack(restorePlayWhenReady = false)
+            restorePlaybackQualityOnPendingCancel()
             MelodiaPlaybackService.stopPendingForeground(context)
         }
         _playWhenReady.value = false
@@ -584,6 +605,7 @@ class PlayerManager(
     fun setPreferredAudioDevice(deviceId: Int) {
         controllerHolder.setPreferredAudioDevice(deviceId)
         _preferredOutputDeviceId.value = deviceId
+        refreshOutputDeviceInQuality()
     }
 
     override fun togglePlayPause() {
@@ -671,6 +693,9 @@ class PlayerManager(
                 )
             }
         } else {
+            declaredQualityLevel = null
+            previousDeclaredQualityLevel = null
+            _playbackQuality.value = null
             setCurrentTrack(null)
             _isPlaying.value = false
             progress.setPosition(0L)
@@ -724,7 +749,9 @@ class PlayerManager(
         requestedSource = null
         pendingStartOffset = null
         pendingStartPosition = 0L
-        _playbackLevel.value = null
+        declaredQualityLevel = null
+        previousDeclaredQualityLevel = null
+        _playbackQuality.value = null
 
         playbackQueue.clear()
         setCurrentTrack(null)
@@ -776,7 +803,11 @@ class PlayerManager(
         }
 
         activePlayJob = scope.launch {
-            _playbackLevel.value = null
+            if (_currentTrack.value?.mediaId != null && _currentTrack.value?.mediaId == declaredQualityLevel?.first) {
+                previousDeclaredQualityLevel = declaredQualityLevel
+            }
+            declaredQualityLevel = null
+            _playbackQuality.value = null
             // 本地外部音频直接播放
             val localUri = item.localUri
             if (localUri != null) {
@@ -858,7 +889,7 @@ class PlayerManager(
             // 命中预取缓存时跳过网络请求，最大限度缩短切歌间隙
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
-                publishPlaybackLevel(item.songId, prefetchedLevel)
+                setDeclaredQualityLevel(mediaItem.mediaId, prefetchedLevel)
                 pendingSkipFromIndex = null
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
@@ -872,7 +903,7 @@ class PlayerManager(
             repository.getSongPlaybackInfo(item.songId).collect { result ->
                 result.onSuccess { info ->
                     val mediaItem = item.toMediaItem(info.url, playbackQueue.playContext.value)
-                    publishPlaybackLevel(item.songId, info.level)
+                    setDeclaredQualityLevel(mediaItem.mediaId, info.level)
                     rememberNeteaseGain(item.songId, info)
                     pendingSkipFromIndex = null
                     if (info.trialFallback && playWhenReady) {
@@ -891,8 +922,72 @@ class PlayerManager(
         }
     }
 
-    private fun publishPlaybackLevel(songId: Long, level: String?) {
-        _playbackLevel.value = level?.let { PlaybackLevel(songId, it) }
+    private fun registerAudioDeviceCallback() {
+        val manager = audioManager ?: return
+        val callback = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                refreshOutputDeviceInQuality()
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+                refreshOutputDeviceInQuality()
+            }
+        }
+        runCatching {
+            manager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
+            audioDeviceCallback = callback
+        }
+    }
+
+    private fun currentOutputAudioInfo(): OutputAudioInfo? =
+        resolveCurrentMediaOutputDeviceName(audioManager, _preferredOutputDeviceId.value)
+            ?.let { OutputAudioInfo(deviceName = it) }
+
+    private fun setDeclaredQualityLevel(mediaId: String, level: String?) {
+        declaredQualityLevel = mediaId to level
+        val existingStream = _playbackQuality.value?.takeIf { it.mediaId == mediaId }?.stream
+        publishPlaybackQuality(mediaId, level, existingStream)
+    }
+
+    private fun refreshPlaybackQuality(
+        mediaItem: MediaItem? = _currentTrack.value,
+        tracks: Tracks = controllerHolder.currentTracks
+    ) {
+        val mediaId = mediaItem?.mediaId ?: run {
+            _playbackQuality.value = null
+            return
+        }
+        val declaredLevel = declaredQualityLevel?.takeIf { it.first == mediaId }?.second
+        val stream = extractStreamAudioInfo(tracks)
+        publishPlaybackQuality(mediaId, declaredLevel, stream)
+    }
+
+    private fun publishPlaybackQuality(
+        mediaId: String,
+        declaredLevel: String?,
+        stream: StreamAudioInfo?
+    ) {
+        if (declaredLevel == null && stream == null) {
+            _playbackQuality.value = null
+            return
+        }
+        _playbackQuality.value = PlaybackQuality(
+            mediaId = mediaId,
+            declaredLevel = declaredLevel,
+            stream = stream,
+            output = currentOutputAudioInfo()
+        )
+    }
+
+    private fun refreshOutputDeviceInQuality() {
+        val current = _playbackQuality.value ?: return
+        _playbackQuality.value = current.copy(output = currentOutputAudioInfo())
+    }
+
+    private fun restorePlaybackQualityOnPendingCancel() {
+        val realMediaId = _currentTrack.value?.mediaId ?: return
+        declaredQualityLevel = previousDeclaredQualityLevel?.takeIf { it.first == realMediaId }
+        refreshPlaybackQuality(_currentTrack.value, controllerHolder.currentTracks)
     }
 
     @OptIn(UnstableApi::class)
@@ -932,6 +1027,7 @@ class PlayerManager(
             }
         }
         pendingStartPosition = 0L
+        restorePlaybackQualityOnPendingCancel()
         MelodiaPlaybackService.stopPendingForeground(context)
         Toast.makeText(context, "离线状态下没有可播放的已缓存歌曲", Toast.LENGTH_SHORT).show()
     }
@@ -951,6 +1047,7 @@ class PlayerManager(
         playbackQueue.setCurrentIndex(fromIndex)
         saveQueueState()
         clearPendingTrack(restorePlayWhenReady = true)
+        restorePlaybackQualityOnPendingCancel()
         if (pausedForPendingPlay) {
             pausedForPendingPlay = false
             controllerHolder.play()
@@ -1252,6 +1349,10 @@ class PlayerManager(
     fun release() {
         reportPlayedTrack()
         networkGuard.unregister()
+        audioDeviceCallback?.let { callback ->
+            runCatching { audioManager?.unregisterAudioDeviceCallback(callback) }
+        }
+        audioDeviceCallback = null
         sleepTimer.cancel()
         activePlayJob?.cancel()
         prefetchJob?.cancel()
@@ -1313,6 +1414,7 @@ class PlayerManager(
             _playWhenReady.value = false
             pausedForPendingPlay = false
             clearPendingTrack(restorePlayWhenReady = false)
+            restorePlaybackQualityOnPendingCancel()
             MelodiaPlaybackService.stopPendingForeground(context)
             scope.launch {
                 Toast.makeText(context, giveUpMessage, Toast.LENGTH_SHORT).show()
@@ -1420,6 +1522,7 @@ class PlayerManager(
         }
         if (pendingStartOffset?.first != newSongId) pendingStartOffset = null
         setCurrentTrack(mediaItem)
+        refreshPlaybackQuality(mediaItem, controllerHolder.currentTracks)
         playbackQueue.setPlayContext(mediaItem?.mediaMetadata?.extras?.getString("playContext"))
         if (mediaItem != null) {
             reportStartPlay(mediaItem)
@@ -1435,6 +1538,10 @@ class PlayerManager(
             progress.updateDurationFromController()
             saveState()
         }
+    }
+
+    override fun onTracksChanged(tracks: Tracks) {
+        refreshPlaybackQuality(_currentTrack.value, tracks)
     }
 
     // 交叉淡化接管时状态始终为 READY，不会再触发 onPlaybackStateChanged，时长需随时间线补取

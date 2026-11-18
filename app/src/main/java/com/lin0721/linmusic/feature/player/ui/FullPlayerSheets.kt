@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherPlayerEntry
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
@@ -15,7 +16,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 
-// 全屏播放器的底部弹层：播放队列、更多操作、收藏到歌单、睡眠定时、连接设备、私人FM模式
+// 全屏播放器的底部弹层：播放队列、更多操作、收藏到歌单、睡眠定时、连接设备、私人FM模式、音质详情
 @Composable
 fun FullPlayerSheets(
     songState: PlayerSongDetailState,
@@ -39,6 +40,8 @@ fun FullPlayerSheets(
     isPodcast: Boolean = false,
     personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     showPersonalFmModeSheet: Boolean = false,
+    qualityDetail: PlaybackQuality? = null,
+    onQualityDetailDismiss: () -> Unit = {},
     onToggleMiniLyric: (Boolean) -> Unit = {},
     onPlayAtIndex: (Int) -> Unit,
     onRemoveSong: (Long) -> Boolean,
@@ -169,6 +172,13 @@ fun FullPlayerSheets(
             currentMode = personalFmMode,
             onSelectMode = onSelectPersonalFmMode,
             onDismiss = onPersonalFmModeDismiss
+        )
+    }
+
+    if (qualityDetail != null) {
+        PlaybackQualityDetailSheet(
+            quality = qualityDetail,
+            onDismiss = onQualityDetailDismiss
         )
     }
 }
