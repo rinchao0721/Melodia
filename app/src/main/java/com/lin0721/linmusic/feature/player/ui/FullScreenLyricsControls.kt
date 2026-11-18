@@ -378,8 +378,6 @@ fun FullScreenLyricsSettingsSheet(
     hasRoma: Boolean,
     advancedKaraokeEffect: Boolean = true,
     onAdvancedKaraokeEffectChange: (Boolean) -> Unit = {},
-    karaokeGlowEffect: Boolean = false,
-    onKaraokeGlowEffectChange: (Boolean) -> Unit = {},
     neteaseLyricsEnabled: Boolean = true,
     onNeteaseLyricsEnabledChange: (Boolean) -> Unit = {},
     qqLyricsEnabled: Boolean = true,
@@ -631,13 +629,6 @@ fun FullScreenLyricsSettingsSheet(
                                 subtitle = "开启柔和渐变推进边缘",
                                 checked = advancedKaraokeEffect,
                                 onCheckedChange = onAdvancedKaraokeEffectChange
-                            )
-
-                            LyricCompactSwitchRow(
-                                title = "字词呼吸光晕动效",
-                                subtitle = "演唱字词叠加呼吸高亮微光",
-                                checked = karaokeGlowEffect,
-                                onCheckedChange = onKaraokeGlowEffectChange
                             )
                         }
                         else -> {

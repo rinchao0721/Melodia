@@ -95,7 +95,6 @@ fun FullScreenLyricsList(
     lineSpacing: Int = 24,
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
-    karaokeGlowEffect: Boolean = false,
     sungColor: Color? = null,
     harmonySungColor: Color? = null,
     harmonyUnsungColor: Color? = null,
@@ -260,7 +259,6 @@ fun FullScreenLyricsList(
                         secondaryMode = secondaryMode,
                         secondarySpacing = secondarySpacing,
                         advancedKaraokeEffect = advancedKaraokeEffect,
-                        karaokeGlowEffect = karaokeGlowEffect,
                         isPlaying = isPlaying,
                         onTextBoundsInRoot = onLineTextBounds?.let { report -> { bounds -> report(index, bounds) } },
                         onClick = { onLyricClick(line) }

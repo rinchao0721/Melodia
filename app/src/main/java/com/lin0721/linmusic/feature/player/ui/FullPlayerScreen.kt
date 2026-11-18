@@ -426,7 +426,6 @@ private fun FullPlayerScreenContent(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val fullScreenKaraokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
     val neteaseLyricsEnabled by settingsPreferences.neteaseLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val qqLyricsEnabled by settingsPreferences.qqLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
@@ -1414,10 +1413,6 @@ private fun FullPlayerScreenContent(
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 onAdvancedKaraokeEffectChange = { enabled ->
                     coroutineScope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
-                },
-                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
-                onKaraokeGlowEffectChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(enabled) }
                 },
                 neteaseLyricsEnabled = neteaseLyricsEnabled,
                 onNeteaseLyricsEnabledChange = { enabled ->

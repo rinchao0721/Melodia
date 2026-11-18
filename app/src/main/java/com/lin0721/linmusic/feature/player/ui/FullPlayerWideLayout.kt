@@ -308,7 +308,6 @@ private fun WideRightColumn(
                             lineSpacing = lyricsSettings.lineSpacing,
                             secondarySpacing = lyricsSettings.secondarySpacing,
                             advancedKaraokeEffect = lyricsSettings.karaokeAdvanced,
-                            karaokeGlowEffect = lyricsSettings.karaokeGlow,
                             isPlaying = isPlaying,
                             showSeekGuide = true,
                             userScrollEnabled = false,

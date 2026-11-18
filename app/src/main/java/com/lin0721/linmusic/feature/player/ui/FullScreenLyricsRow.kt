@@ -54,7 +54,6 @@ fun FullScreenLyricsRow(
     secondaryMode: String = "translation",
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
-    karaokeGlowEffect: Boolean = false,
     sungColor: Color? = null,
     harmonySungColor: Color? = null,
     harmonyUnsungColor: Color? = null,
@@ -204,7 +203,6 @@ fun FullScreenLyricsRow(
                         lineHeight = mainLineHeight,
                         textAlign = textAlign,
                         advancedEffect = advancedKaraokeEffect,
-                        glowEffect = karaokeGlowEffect,
                         isPlaying = isPlaying,
                         isActive = isCurrent
                     )
@@ -269,7 +267,6 @@ fun FullScreenLyricsRow(
                             lineHeight = backgroundLineHeight,
                             textAlign = backgroundTextAlign,
                             advancedEffect = advancedKaraokeEffect,
-                            glowEffect = karaokeGlowEffect,
                             isPlaying = isPlaying,
                             fontWeight = FontWeight.Bold,
                             isActive = isCurrent

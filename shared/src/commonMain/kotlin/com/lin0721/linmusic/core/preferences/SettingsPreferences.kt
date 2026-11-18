@@ -161,8 +161,6 @@ class SettingsPreferences(
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
-        // 逐字歌词字词呼吸光晕动效，默认 false
-        private val KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT = booleanPreferencesKey("full_screen_karaoke_glow_effect")
         private val KEY_AMLL_LYRICS_ENABLED = booleanPreferencesKey("amll_lyrics_enabled")
         private val KEY_QQ_LYRICS_ENABLED = booleanPreferencesKey("qq_lyrics_enabled")
         private val KEY_NETEASE_LYRICS_ENABLED = booleanPreferencesKey("netease_lyrics_enabled")
@@ -1000,17 +998,6 @@ class SettingsPreferences(
     suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
-        }
-    }
-
-    // 逐字歌词字词呼吸光晕动效 Flow，默认 false
-    val fullScreenKaraokeGlowEffect: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT] ?: false
-    }
-
-    suspend fun saveFullScreenKaraokeGlowEffect(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT] = enabled
         }
     }
 

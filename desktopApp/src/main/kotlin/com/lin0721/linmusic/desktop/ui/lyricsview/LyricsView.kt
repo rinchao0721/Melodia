@@ -563,9 +563,7 @@ private fun LyricsRow(
                 lineHeight = fontSize * 1.3f,
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
-                advancedEffect = settings.advancedEffect,
-                // 白色加亮微光只适合深底
-                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight
+                advancedEffect = settings.advancedEffect
             )
         } else {
             Text(
@@ -620,7 +618,6 @@ private fun BackgroundVocal(
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
                 advancedEffect = settings.advancedEffect,
-                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight,
                 fontWeight = FontWeight.Bold
             )
         } else {

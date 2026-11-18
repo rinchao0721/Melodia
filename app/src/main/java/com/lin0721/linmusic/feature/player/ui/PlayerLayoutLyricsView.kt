@@ -38,8 +38,7 @@ data class LyricsDisplaySettings(
     val secondaryMode: String,
     val lineSpacing: Int,
     val secondarySpacing: Int,
-    val karaokeAdvanced: Boolean,
-    val karaokeGlow: Boolean
+    val karaokeAdvanced: Boolean
 )
 
 @Composable
@@ -49,7 +48,6 @@ fun rememberLyricsDisplaySettings(): LyricsDisplaySettings {
     val alignment by preferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val secondaryMode by preferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val karaokeAdvanced by preferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val karaokeGlow by preferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
     val lineSpacing by preferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val secondarySpacing by preferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
     return LyricsDisplaySettings(
@@ -58,8 +56,7 @@ fun rememberLyricsDisplaySettings(): LyricsDisplaySettings {
         secondaryMode = secondaryMode,
         lineSpacing = lineSpacing,
         secondarySpacing = secondarySpacing,
-        karaokeAdvanced = karaokeAdvanced,
-        karaokeGlow = karaokeGlow
+        karaokeAdvanced = karaokeAdvanced
     )
 }
 
@@ -126,7 +123,6 @@ fun EmbeddedLyricsView(
         lineSpacing = settings.lineSpacing,
         secondarySpacing = settings.secondarySpacing,
         advancedKaraokeEffect = settings.karaokeAdvanced,
-        karaokeGlowEffect = settings.karaokeGlow,
         isPlaying = isPlaying,
         onSeek = { timeMs ->
             isUserScrolling = false

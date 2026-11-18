@@ -86,7 +86,6 @@ fun LyricsSettingsPanel(
         SwitchSetting("启用QQ音乐歌词源", "提供更多逐字歌词", settings.qqEnabled, actions.setQqEnabled)
         SwitchSetting("启用 AMLL 歌词源", "支持对唱分边与背景和声，对下一次加载的歌词生效", settings.amllEnabled, actions.setAmllEnabled)
         SwitchSetting("逐字歌词流光动效", "开启柔和渐变推进边缘", settings.advancedEffect, actions.setAdvancedEffect)
-        SwitchSetting("字词呼吸光晕动效", "演唱字词叠加呼吸高亮微光", settings.glowEffect, actions.setGlowEffect)
         SwitchSetting("自动隐藏顶栏", "鼠标无操作或移出窗口后隐藏，移动鼠标重新呼出", settings.autoHideControls, actions.setAutoHideControls)
     }
 }
