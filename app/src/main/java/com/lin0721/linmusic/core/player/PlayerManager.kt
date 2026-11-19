@@ -1663,10 +1663,14 @@ class PlayerManager(
             PlaybackErrorAction.Skip -> Unit
         }
 
+        val failedUri = requestedSource?.takeIf { it.first.toString() == currentMediaId }?.second
+        val unreachableMessage = thirdPartySourceUnreachableHost(errorCode, failedUri)
+            ?.let(::formatSourceUnreachableMessage)
         scope.launch {
-            Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
+            val toast = unreachableMessage?.let { "$it，已自动跳过" } ?: "当前歌曲无法播放，已自动跳过"
+            Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
         }
-        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(errorCode))
+        skipToNextOnError(playbackQueue.currentIndex.value, unreachableMessage ?: playerErrorMessage(errorCode))
     }
 
     // 组件安装完成后原地重播当前失败曲目，FfmpegLibrary.isAvailable() 动态生效
