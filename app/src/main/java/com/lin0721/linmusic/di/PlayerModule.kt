@@ -17,6 +17,8 @@ import com.lin0721.linmusic.core.player.data.QqLyricsSource
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.NeteaseSongLookup
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.songquality.warmQueue
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +55,9 @@ val playerModule = module {
             localController = get<PlayerManager>(),
             coordinator = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        )
+        ).also { controller ->
+            getOrNull<SongQualityCache>()?.warmQueue(controller.queue, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        }
     }
     single<PlaybackController> { get<RoutingPlaybackController>() }
     single { FloatingLyricRequests() }

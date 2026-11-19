@@ -108,10 +108,13 @@ import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.songquality.warmIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -286,7 +289,12 @@ val desktopPlatformModule = module {
             downloadPreferences = get(),
             onlineState = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        )
+        ).also { repository ->
+            getOrNull<SongQualityCache>()?.warmIds(
+                repository.data.map { data -> data.tracks.mapNotNullTo(HashSet()) { it.songId } },
+                CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            )
+        }
     }
     single { LocalMusicActions(get(), get<PlaybackController>(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列

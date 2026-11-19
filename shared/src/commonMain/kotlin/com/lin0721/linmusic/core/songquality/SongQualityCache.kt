@@ -109,8 +109,34 @@ class SongQualityCache(
 
     // 列表展示前批量预查缺失最高音质的曲目：未命中的同步等待补查，已过期缓存直接复用并后台刷新；失败或取消不抛业务异常
     suspend fun prefetch(tracks: Collection<Track>) {
+        val known = tracks.mapNotNull { track ->
+            track.privilege?.maxBrLevel?.takeIf { track.id > 0 && it.isNotBlank() }?.let { track.id to it }
+        }.toMap()
+        // 接口自带的等级也写入缓存，播放队列等不带 privilege 的地方直接命中
+        if (known.isNotEmpty()) seed(known)
         val ids = tracksNeedingQualityPrefetch(tracks)
         if (ids.isNotEmpty()) prefetchIds(ids)
+    }
+
+    suspend fun seed(levels: Map<Long, String>) {
+        loadJob.join()
+        val now = nowMs()
+        val updates = stateMutex.withLock {
+            val changed = LinkedHashMap<Long, CacheEntry>()
+            levels.forEach { (id, level) ->
+                if (id <= 0 || level.isBlank()) return@forEach
+                val current = entries[id]
+                // 同等级且未过半有效期时跳过，避免每次进列表都整文件重写
+                if (current != null && current.level == level && now - current.updatedAt < ttlMs / 2) return@forEach
+                val entry = CacheEntry(level, now)
+                entries[id] = entry
+                changed[id] = entry
+            }
+            changed
+        }
+        if (updates.isEmpty()) return
+        _levels.update { current -> current + updates.mapValues { it.value.level } }
+        persistEntries(updates)
     }
 
     suspend fun prefetchIds(ids: Collection<Long>) {

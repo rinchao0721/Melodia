@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.mergePrivilege
 import com.lin0721.linmusic.core.model.mergePrivileges
 import com.lin0721.linmusic.core.model.qualityBadgeOf
+import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -314,6 +315,43 @@ class SongQualityCacheTest {
         // 超过 1000 首时分批同步预查
         cache.prefetchIds((1001L..2500L).toList())
         assertEquals(listOf(3, 1000, 500), fetcher.calls.map { it.size })
+    }
+
+    @Test
+    fun prefetchSeedsExactLevelsWithoutNetworkAndWarmQueueSkipsNonNetease() = runTest {
+        val fetcher = FakeFetcher(mapOf(31L to "hires"))
+        val store = InMemoryPreferencesStore()
+        val cache = SongQualityCache(
+            enabledFlow = MutableStateFlow(true),
+            fetcher = fetcher::fetch,
+            scope = backgroundScope,
+            batchDelayMs = 300,
+            dataStore = store
+        )
+
+        // 接口自带等级直接写入缓存，不发请求
+        cache.prefetch(listOf(Track(id = 30L, privilege = SongPrivilege(maxBrLevel = "sky"))))
+        assertTrue(fetcher.calls.isEmpty())
+        assertEquals("sky", cache.levels.value[30L])
+
+        // 重启后从持久化读回
+        val restored = SongQualityCache(MutableStateFlow(true), fetcher::fetch, backgroundScope, dataStore = store)
+        runCurrent()
+        assertEquals("sky", restored.levels.value[30L])
+
+        val queue = MutableStateFlow(
+            listOf(
+                QueueItem(30L, "a", "", ""),
+                QueueItem(31L, "b", "", ""),
+                QueueItem(32L, "c", "", "", localUri = "content://x"),
+                QueueItem(33L, "d", "", "", radioId = 9L)
+            )
+        )
+        cache.warmQueue(queue, backgroundScope)
+        advanceTimeBy(501)
+        runCurrent()
+        assertEquals(listOf(listOf(31L)), fetcher.calls)
+        assertEquals("hires", cache.levels.value[31L])
     }
 
     @Test

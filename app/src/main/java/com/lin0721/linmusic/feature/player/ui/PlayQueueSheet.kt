@@ -40,6 +40,7 @@ import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.qualitySongId
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
@@ -758,6 +759,3 @@ private fun BottomActionRow(
     }
 }
 
-// 本地文件、播客、外部平台歌曲的 songId 不是网易云歌曲 id，不查最高音质
-private fun QueueItem.qualitySongId(): Long? =
-    songId.takeIf { localUri == null && radioId == 0L && external == null }
