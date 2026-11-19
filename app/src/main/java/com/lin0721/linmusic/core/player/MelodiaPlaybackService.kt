@@ -258,23 +258,24 @@ class MelodiaPlaybackService : MediaSessionService() {
             .setAllowCrossProtocolRedirects(true)
         val defaultDataSourceFactory = DefaultDataSource.Factory(this, httpDataSourceFactory)
 
-        // 动态代理数据源，每次请求新数据源时获取最新配置并创建对应的源
+        // 每次创建数据源时读取最新配置；边听边存开启时歌曲会落到下载目录，不再重复写播放缓存
         val dynamicDataSourceFactory = androidx.media3.datasource.DataSource.Factory {
-            val isCacheEnabled = runBlocking {
+            val streamSaveEnabled = runBlocking {
                 settingsPreferences.streamCacheEnabled.first()
             }
-            if (isCacheEnabled) {
+            if (streamSaveEnabled) {
+                defaultDataSourceFactory.createDataSource()
+            } else {
                 val maxSize = runBlocking {
                     settingsPreferences.audioCacheMaxSize.first()
                 }
                 val cache = AudioCacheManager.getCache(this@MelodiaPlaybackService, maxSize)
-                CacheDataSource.Factory()
+                val cachedSource = CacheDataSource.Factory()
                     .setCache(cache)
                     .setUpstreamDataSourceFactory(defaultDataSourceFactory)
                     .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                     .createDataSource()
-            } else {
-                defaultDataSourceFactory.createDataSource()
+                NetworkCacheRoutingDataSource(cachedSource, defaultDataSourceFactory.createDataSource())
             }
         }
 
