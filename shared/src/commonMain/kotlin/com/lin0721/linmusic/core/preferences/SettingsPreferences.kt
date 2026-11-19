@@ -88,8 +88,6 @@ class SettingsPreferences(
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
         // 流量播放警告提示，默认 true
         private val KEY_MOBILE_ALERT = booleanPreferencesKey("mobile_alert")
-        // 使用代理服务器，默认 false
-        private val KEY_USE_PROXY = booleanPreferencesKey("use_proxy")
         // 启用桌面悬浮歌词，默认 false
         private val KEY_SHOW_DESKTOP_LRC = booleanPreferencesKey("show_desktop_lrc")
         // 启用系统锁屏显示，默认 true
@@ -473,17 +471,6 @@ class SettingsPreferences(
     suspend fun saveMobileAlert(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_MOBILE_ALERT] = enabled
-        }
-    }
-
-    // 使用代理服务器 Flow
-    val useProxy: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_USE_PROXY] ?: false
-    }
-
-    suspend fun saveUseProxy(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[KEY_USE_PROXY] = enabled
         }
     }
 

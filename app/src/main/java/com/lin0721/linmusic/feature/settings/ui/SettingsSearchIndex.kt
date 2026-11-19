@@ -49,7 +49,6 @@ object SettingsSearchIndex {
             entry(NETWORK, 0, "仅 Wi-Fi 网络下联网播放", "流量 移动网络"),
             entry(NETWORK, 0, "流量播放警告提示", "移动数据 提醒"),
             entry(NETWORK, 1, "使用国内 IP 地址", "海外 ip 限制"),
-            entry(NETWORK, 1, "使用代理服务器", "proxy 代理"),
             entry(NETWORK, 2, "局域网联动", "局域网 同步 配对 桌面端 电脑 歌单 红心"),
 
             entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),

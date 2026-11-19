@@ -80,6 +80,8 @@ class CommonSettingsViewModel(
     val allowPrereleaseChannel = settingsPreferences.allowPrereleaseChannel.asState(false)
     val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
     val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
+    val useRealIp = settingsPreferences.useRealIp.asState(false)
+    val realIpValue = settingsPreferences.realIpValue.asState("")
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 
@@ -173,4 +175,8 @@ class CommonSettingsViewModel(
     fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave { settingsPreferences.setClipboardLinkEnabled(enabled) }
 
     fun updateLanLinkEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLanLinkEnabled(enabled) }
+
+    fun updateUseRealIp(enabled: Boolean) = launchSave { settingsPreferences.saveUseRealIp(enabled) }
+
+    fun updateRealIpValue(ip: String) = launchSave { settingsPreferences.saveRealIpValue(ip) }
 }

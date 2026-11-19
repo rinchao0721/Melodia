@@ -3,7 +3,15 @@ package com.lin0721.linmusic.core.network
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -23,6 +31,19 @@ class HeaderInterceptor(
         // 内部控制头：临时覆盖本次请求使用的账户 Cookie（供添加/验证新账户时避免污染当前活跃会话）
         const val HEADER_OVERRIDE_SESSION_COOKIE = "X-Override-Session-Cookie"
     }
+
+    private data class RealIpSetting(val enabled: Boolean, val customIp: String)
+
+    private val realIpSettingFlow = combine(
+        settingsPreferences.useRealIp,
+        settingsPreferences.realIpValue,
+        ::RealIpSetting
+    )
+
+    // 缓存国内 IP 设置，避免每个请求同步读 DataStore；首个值到达前回退为同步读取
+    private val cachedRealIpSetting: StateFlow<RealIpSetting?> = realIpSettingFlow
+        .catch { e -> AppLogger.e(TAG, "监听国内 IP 设置失败，回退为逐次读取", e) }
+        .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.IO), SharingStarted.Eagerly, null)
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -49,22 +70,16 @@ class HeaderInterceptor(
                 null
             }
         }
-        val useRealIp = try {
-            runBlocking { settingsPreferences.useRealIp.first() }
+        val realIp = cachedRealIpSetting.value ?: try {
+            runBlocking { realIpSettingFlow.first() }
         } catch (e: Exception) {
-            AppLogger.e(TAG, "读取真实IP开关失败，本次请求跳过IP伪装", e)
-            false
-        }
-        val realIpValue = try {
-            runBlocking { settingsPreferences.realIpValue.first() }
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "读取真实IP值失败", e)
-            ""
+            AppLogger.e(TAG, "读取国内 IP 设置失败，本次请求跳过IP伪装", e)
+            RealIpSetting(enabled = false, customIp = "")
         }
 
         // 域名白名单控制；二维码或无会话登录接口保持纯净直连，不注入伪装 IP 避免鉴权风控
         val isCleanLoginRequest = noSessionCookie || urlString.contains("/login/qrcode/")
-        val ipAddress = realIpProvider.resolveIp(useRealIp, realIpValue)
+        val ipAddress = realIpProvider.resolveIp(realIp.enabled, realIp.customIp)
         if (!isCleanLoginRequest && ipAddress != null && url.host.contains(NeteaseEndpoints.DOMAIN_SUFFIX)) {
             newRequestBuilder.header("X-Real-IP", ipAddress)
             newRequestBuilder.header("X-Forwarded-For", ipAddress)

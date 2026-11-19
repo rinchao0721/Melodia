@@ -98,6 +98,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.network.RealIpProvider
 import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
 import com.lin0721.linmusic.core.lanlink.PairedLanDevice
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
@@ -110,6 +111,7 @@ internal enum class SettingsCategory(val label: String) {
     Playback("播放"),
     Source("音源与换源"),
     Storage("存储与下载"),
+    Network("网络"),
     Interface("界面与歌词"),
     System("系统与窗口"),
     Hotkeys("快捷键"),
@@ -160,6 +162,7 @@ private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
 private const val SIMPLIFY_GROUP = "界面精简"
 private const val LAN_LINK_GROUP = "局域网联动"
+private const val NETWORK_ACCESS_GROUP = "网络访问"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
 
@@ -412,6 +415,8 @@ internal fun settingsEntries(
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
     val showDesktopLyric by common.showDesktopLrc.collectAsState()
     val clipboardLinkEnabled by common.clipboardLinkEnabled.collectAsState()
+    val useRealIp by common.useRealIp.collectAsState()
+    val realIpValue by common.realIpValue.collectAsState()
     val lanLinkEnabled by common.lanLinkEnabled.collectAsState()
     val lanLinkConnectedDevice by lanLink.connectedDevice.collectAsState()
     val lanLinkSyncState by lanLink.syncState.collectAsState()
@@ -1081,8 +1086,30 @@ internal fun settingsEntries(
         )
         add(
             rowEntry(
-                "lanLinkEnabled", SettingsCategory.System, "局域网联动",
-                subtitle = "开启后可与同一局域网内的手机端配对，双向同步歌单外部歌曲与外部红心",
+                "useRealIp", SettingsCategory.Network, "使用国内 IP 地址",
+                subtitle = "在海外网络下请求可能受限，开启后伪装国内 IP 访问接口",
+                keywords = listOf("国内", "ip", "海外", "伪装", "realip", "限制"),
+                group = NETWORK_ACCESS_GROUP
+            ) {
+                SettingSwitch(useRealIp, onChange = common::updateUseRealIp)
+            }
+        )
+        if (useRealIp) {
+            add(
+                rowEntry(
+                    "realIpValue", SettingsCategory.Network, "自定义 IP",
+                    subtitle = realIpValue.ifBlank { "未填写，使用随机国内 IP" },
+                    keywords = listOf("国内", "ip", "自定义", "伪装"),
+                    group = NETWORK_ACCESS_GROUP
+                ) {
+                    DesktopRealIpInput(currentIp = realIpValue, onSave = common::updateRealIpValue)
+                }
+            )
+        }
+        add(
+            rowEntry(
+                "lanLinkEnabled", SettingsCategory.Network, "局域网联动",
+                subtitle = "与同一局域网内的手机端配对，双向同步歌单外部歌曲与外部红心，并可互相遥控播放",
                 keywords = listOf("局域网", "联动", "同步", "配对", "手机", "歌单", "红心"),
                 group = LAN_LINK_GROUP
             ) {
@@ -1093,7 +1120,7 @@ internal fun settingsEntries(
             add(
                 SettingsEntry(
                     key = "lanLinkStatus",
-                    category = SettingsCategory.System,
+                    category = SettingsCategory.Network,
                     title = "连接与同步状态",
                     subtitle = lanLinkConnectedDevice?.let { "${it.deviceName} · $lanLinkSyncMessage" } ?: lanLinkSyncMessage,
                     keywords = listOf("局域网", "联动", "配对码", "配对新设备", "同步", "状态"),
@@ -1126,7 +1153,7 @@ internal fun settingsEntries(
             add(
                 SettingsEntry(
                     key = "lanLinkPairedDevices",
-                    category = SettingsCategory.System,
+                    category = SettingsCategory.Network,
                     title = "已配对设备",
                     subtitle = if (lanLinkPairedDevices.isEmpty()) "暂无已配对手机端设备" else "已配对 ${lanLinkPairedDevices.size} 台设备",
                     keywords = listOf("局域网", "联动", "已配对", "设备", "取消配对"),
@@ -1595,6 +1622,46 @@ private fun DesktopServerUrlInput(
             )
             // 复制来的地址常带换行，单行输入框只显示首行会像是空的
             DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 https://your-unm-server.com")
+        }
+    }
+}
+
+@Composable
+private fun DesktopRealIpInput(
+    currentIp: String,
+    onSave: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var text by remember(currentIp, showDialog) { mutableStateOf(currentIp) }
+    val trimmed = text.trim()
+    val valid = trimmed.isEmpty() || RealIpProvider.isValidIpv4(trimmed)
+
+    SettingsActionButton("配置 IP", onClick = { showDialog = true })
+
+    if (showDialog) {
+        DesktopDialog(
+            title = "自定义国内 IP",
+            onDismiss = { showDialog = false },
+            width = 400.dp,
+            actions = {
+                DialogButton("清空", {
+                    onSave("")
+                    showDialog = false
+                }, danger = true)
+                DialogButton("取消", { showDialog = false })
+                DialogButton("保存", {
+                    onSave(trimmed)
+                    showDialog = false
+                }, primary = true, enabled = valid)
+            }
+        ) {
+            Text(
+                text = if (valid) "填写一个国内 IPv4 地址，留空则每次启动随机选取：" else "IP 地址格式不正确",
+                color = if (valid) DesktopColors.TextGray else DesktopColors.Accent,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 116.25.1.1")
         }
     }
 }

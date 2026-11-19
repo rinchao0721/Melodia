@@ -38,7 +38,6 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
     val realIpValue by viewModel.realIpValue.collectAsStateWithLifecycle()
     val wifiOnlyPlay by viewModel.wifiOnlyPlay.collectAsStateWithLifecycle()
     val mobileAlert by viewModel.mobileAlert.collectAsStateWithLifecycle()
-    val useProxy by viewModel.useProxy.collectAsStateWithLifecycle()
 
     val lanLinkEnabled by viewModel.lanLinkEnabled.collectAsStateWithLifecycle()
     val lanLinkDiscovering by viewModel.lanLinkIsDiscovering.collectAsStateWithLifecycle()
@@ -108,15 +107,6 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                         )
                     }
                 }
-
-                HorizontalDivider(color = MelodiaColors.Divider)
-
-                SettingsSwitchRow(
-                    title = "使用代理服务器",
-                    subtitle = "配置自定义网络代理进行数据解析",
-                    checked = useProxy,
-                    onCheckedChange = { viewModel.updateUseProxy(it) }
-                )
             }
         }
 

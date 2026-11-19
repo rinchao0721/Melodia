@@ -146,7 +146,6 @@ class SettingsViewModel(
 
     val mobileAlert = settingsPreferences.mobileAlert.asState(true)
 
-    val useProxy = settingsPreferences.useProxy.asState(false)
 
     val showDesktopLrc = settingsPreferences.showDesktopLrc.asState(false)
 
@@ -444,7 +443,6 @@ class SettingsViewModel(
 
     fun updateMobileAlert(enabled: Boolean) = launchSave { settingsPreferences.saveMobileAlert(enabled) }
 
-    fun updateUseProxy(enabled: Boolean) = launchSave { settingsPreferences.saveUseProxy(enabled) }
 
     fun updateShowDesktopLrc(enabled: Boolean) = launchSave { settingsPreferences.saveShowDesktopLrc(enabled) }
 

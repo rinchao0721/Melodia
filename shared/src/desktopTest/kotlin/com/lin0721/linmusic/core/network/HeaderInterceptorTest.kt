@@ -121,4 +121,38 @@ class HeaderInterceptorTest {
         // 原 UserPreferences 中的活跃账户凭据保持不变
         assertEquals("MUSIC_U=active_cookie", userPrefs.cookies.first())
     }
+
+    @Test
+    fun realIpSettingInjectsCustomIpOnNeteaseRequests() = runTest {
+        val userPrefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore(), userPreferences = userPrefs)
+        settings.saveUseRealIp(true)
+        settings.saveRealIpValue("116.25.1.1")
+        val harness = CapturingClient(userPrefs, settings)
+
+        harness.execute(Request.Builder().url("https://music.163.com/weapi/song/detail").build())
+
+        val req = harness.capturedRequest!!
+        assertEquals("116.25.1.1", req.header("X-Real-IP"))
+        assertEquals("116.25.1.1", req.header("X-Forwarded-For"))
+    }
+
+    @Test
+    fun realIpSettingDisabledSkipsIpHeaders() = runTest {
+        val userPrefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore(), userPreferences = userPrefs)
+        settings.saveRealIpValue("116.25.1.1")
+        val harness = CapturingClient(userPrefs, settings)
+
+        harness.execute(Request.Builder().url("https://music.163.com/weapi/song/detail").build())
+
+        assertNull(harness.capturedRequest!!.header("X-Real-IP"))
+    }
+
+    @Test
+    fun realIpValidationAcceptsOnlyIpv4() {
+        assertTrue(RealIpProvider.isValidIpv4(" 116.25.1.1 "))
+        assertFalse(RealIpProvider.isValidIpv4("256.1.1.1"))
+        assertFalse(RealIpProvider.isValidIpv4("example.com"))
+    }
 }
