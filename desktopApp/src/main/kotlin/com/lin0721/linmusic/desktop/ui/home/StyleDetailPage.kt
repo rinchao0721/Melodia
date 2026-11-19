@@ -315,7 +315,7 @@ private fun ActionRow(favourite: Track?, canPlay: Boolean, onPlayAll: () -> Unit
                 .pointerHoverIcon(PointerIcon.Hand).clickable(enabled = canPlay, onClick = onPlayAll),
             contentAlignment = Alignment.Center
         ) {
-            Icon(MelodiaIcons.Play, "播放全部", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
+            Icon(MelodiaIcons.Play, "播放全部", tint = if (canPlay) DesktopColors.OnAccent else DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
         }
         favourite?.let { FavouriteChip(it, onPlayFavourite) }
     }

@@ -211,7 +211,7 @@ private fun RadioActions(
             enabled = state.programs.isNotEmpty(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = DesktopColors.Accent,
-                contentColor = DesktopColors.TextPrimary
+                contentColor = DesktopColors.OnAccent
             )
         ) {
             Icon(MelodiaIcons.Play, contentDescription = null, modifier = Modifier.size(20.dp))

@@ -867,7 +867,7 @@ internal fun PlayCircleButton(
             Icon(
                 if (isPlaying) MelodiaIcons.Pause else MelodiaIcons.Play,
                 if (isPlaying) "暂停" else "播放全部",
-                tint = DesktopColors.TextPrimary,
+                tint = DesktopColors.OnAccent,
                 modifier = Modifier.size(iconSize)
             )
         }

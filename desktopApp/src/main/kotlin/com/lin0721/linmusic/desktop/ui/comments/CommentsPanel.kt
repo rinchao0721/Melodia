@@ -125,7 +125,7 @@ fun CommentsPanel(
                             onClick = host::retry,
                             colors = ButtonDefaults.buttonColors(containerColor = DesktopColors.Accent),
                             modifier = Modifier.padding(top = 12.dp)
-                        ) { Text("重试", color = DesktopColors.TextPrimary) }
+                        ) { Text("重试", color = DesktopColors.OnAccent) }
                     }
                     is CommentsState.Success -> CommentList(
                         state = current,

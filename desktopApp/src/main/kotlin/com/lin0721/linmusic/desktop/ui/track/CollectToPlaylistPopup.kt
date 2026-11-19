@@ -261,7 +261,7 @@ private fun CollectPanel(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.padding(start = 4.dp).height(32.dp)
                 ) {
-                    Text("保存 $changeCount 项更改", color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("保存 $changeCount 项更改", color = DesktopColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

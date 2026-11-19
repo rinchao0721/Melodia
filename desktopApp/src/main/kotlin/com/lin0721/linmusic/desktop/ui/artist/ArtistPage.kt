@@ -485,7 +485,7 @@ private fun PlayCircleButton(size: Dp, iconSize: Dp, onClick: () -> Unit, modifi
                 .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.TextPrimary, modifier = Modifier.size(iconSize))
+            Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.OnAccent, modifier = Modifier.size(iconSize))
         }
     }
 }
@@ -550,7 +550,7 @@ private fun ArtistHeader(
                     .clickable(enabled = state.topSongs.isNotEmpty(), onClick = onPlayHot),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
+                Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.OnAccent, modifier = Modifier.size(32.dp))
             }
             HeaderButton(if (state.isFollowed) "已关注" else "关注", onToggleFollow)
             HeaderButton(if (isBlocked) "取消屏蔽" else "屏蔽", onToggleBlock)

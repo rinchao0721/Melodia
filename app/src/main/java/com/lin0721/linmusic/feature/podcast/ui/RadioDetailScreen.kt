@@ -319,12 +319,12 @@ private fun RadioDetailHeader(
                 Icon(
                     imageVector = MelodiaIcons.Play,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MelodiaColors.OnAccent,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = playLabel,
-                    color = Color.White,
+                    color = MelodiaColors.OnAccent,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 7.dp)

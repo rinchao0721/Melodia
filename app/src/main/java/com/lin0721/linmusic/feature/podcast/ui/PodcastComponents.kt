@@ -276,7 +276,7 @@ fun PodcastRadioCard(
             if (hasUpdate) {
                 Text(
                     text = "新",
-                    color = Color.White,
+                    color = MelodiaColors.OnAccent,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier

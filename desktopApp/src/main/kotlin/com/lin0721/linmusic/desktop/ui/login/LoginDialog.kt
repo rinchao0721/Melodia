@@ -255,9 +255,9 @@ private fun LoginButton(loading: Boolean, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         if (loading) {
-            CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.TextPrimary, strokeWidth = 2.dp)
+            CircularProgressIndicator(Modifier.size(16.dp), color = DesktopColors.OnAccent, strokeWidth = 2.dp)
         } else {
-            Text("登录", color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold)
+            Text("登录", color = DesktopColors.OnAccent, fontWeight = FontWeight.Bold)
         }
     }
 }
