@@ -236,6 +236,7 @@ fun MelodiaApp() {
         .collectAsStateWithLifecycle(initialValue = SettingsPreferences.SIDE_PLAYER_POSITION_RIGHT)
     val isPanelAtStart = sidePlayerPosition == SettingsPreferences.SIDE_PLAYER_POSITION_LEFT
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
+    val sidebarMessageEnabled by settingsPreferences.sidebarMessageEnabled.collectAsStateWithLifecycle(initialValue = true)
     // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
     val playerManager: PlayerManager = koinInject()
     val ffmpegComponentManager: FfmpegComponentManager = koinInject()
@@ -381,8 +382,8 @@ fun MelodiaApp() {
         }
     }
     // 打开侧边栏先显示缓存，再后台刷新私信预览
-    LaunchedEffect(sidebar.isOpen, userProfile?.uid) {
-        if (sidebar.isOpen && userProfile != null) conversationPreviewStore.refresh()
+    LaunchedEffect(sidebar.isOpen, userProfile?.uid, sidebarMessageEnabled) {
+        if (sidebar.isOpen && userProfile != null && sidebarMessageEnabled) conversationPreviewStore.refresh()
     }
     LaunchedEffect(navigation, sidebar) {
         AccountEvents.switched.collect { event ->
@@ -897,6 +898,7 @@ fun MelodiaApp() {
             ProfileSidebar(
                 userProfile = userProfile,
                 accounts = accounts,
+                showMessageSection = sidebarMessageEnabled,
                 privateUnreadCount = privateUnreadCount,
                 conversationPreview = conversationPreview,
                 onDismissUnread = { privateUnreadMonitor.markAllRead() },

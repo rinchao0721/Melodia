@@ -63,6 +63,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
     val homeSearchButtonEnabled by viewModel.homeSearchButtonEnabled.collectAsStateWithLifecycle()
+    val sidebarMessageEnabled by viewModel.sidebarMessageEnabled.collectAsStateWithLifecycle()
     val searchDefaultKeywordEnabled by viewModel.searchDefaultKeywordEnabled.collectAsStateWithLifecycle()
     val hotSearchEnabled by viewModel.hotSearchEnabled.collectAsStateWithLifecycle()
     val playlistTagsEnabled by viewModel.playlistTagsEnabled.collectAsStateWithLifecycle()
@@ -236,6 +237,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "在首页顶栏右上角显示快捷搜索入口",
                         checked = homeSearchButtonEnabled,
                         onCheckedChange = { viewModel.updateHomeSearchButtonEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "侧栏显示消息",
+                        subtitle = "在侧边栏底部显示消息入口与最近私信",
+                        checked = sidebarMessageEnabled,
+                        onCheckedChange = { viewModel.updateSidebarMessageEnabled(it) }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(

@@ -55,6 +55,7 @@ private val AccountCardShape = RoundedCornerShape(20.dp)
 fun ProfileSidebar(
     userProfile: UserProfile?,
     accounts: List<UserProfile>,
+    showMessageSection: Boolean = true,
     privateUnreadCount: Int = 0,
     conversationPreview: ConversationPreviewState = ConversationPreviewState(),
     onDismissUnread: () -> Unit = {},
@@ -137,21 +138,23 @@ fun ProfileSidebar(
             onClick = onNavigateToSettings
         )
 
-        HorizontalDivider(
-            color = MelodiaColors.Overlay.copy(alpha = 0.1f),
-            thickness = 1.dp,
-            modifier = Modifier.padding(horizontal = SidebarHorizontalPadding, vertical = MelodiaSpacing.sm)
-        )
+        if (showMessageSection) {
+            HorizontalDivider(
+                color = MelodiaColors.Overlay.copy(alpha = 0.1f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = SidebarHorizontalPadding, vertical = MelodiaSpacing.sm)
+            )
 
-        MessageSection(
-            isLoggedIn = userProfile != null,
-            unreadCount = privateUnreadCount,
-            preview = conversationPreview,
-            onDismissUnread = onDismissUnread,
-            onDismissConversationUnread = onDismissConversationUnread,
-            onOpenMessages = withLogin(onNavigateToMessage),
-            onOpenPrivateChat = onOpenPrivateChat
-        )
+            MessageSection(
+                isLoggedIn = userProfile != null,
+                unreadCount = privateUnreadCount,
+                preview = conversationPreview,
+                onDismissUnread = onDismissUnread,
+                onDismissConversationUnread = onDismissConversationUnread,
+                onOpenMessages = withLogin(onNavigateToMessage),
+                onOpenPrivateChat = onOpenPrivateChat
+            )
+        }
     }
 }
 

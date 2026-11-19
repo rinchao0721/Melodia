@@ -88,4 +88,15 @@ class SettingsPreferencesTest {
         settings.saveHomeSearchButtonEnabled(true)
         assertEquals(true, settings.homeSearchButtonEnabled.first())
     }
+
+    @Test
+    fun sidebarMessageDefaultsToTrueAndPersists() = runBlocking {
+        assertEquals(true, settings.sidebarMessageEnabled.first())
+
+        settings.saveSidebarMessageEnabled(false)
+        assertFalse(settings.sidebarMessageEnabled.first())
+
+        settings.saveSidebarMessageEnabled(true)
+        assertEquals(true, settings.sidebarMessageEnabled.first())
+    }
 }

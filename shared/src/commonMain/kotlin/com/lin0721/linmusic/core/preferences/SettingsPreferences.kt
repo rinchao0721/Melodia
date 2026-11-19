@@ -176,6 +176,7 @@ class SettingsPreferences(
         private val KEY_HOME_RECENT_PLAY_ENABLED = booleanPreferencesKey("home_recent_play_enabled")
         private val KEY_HOME_FOR_YOU_ENABLED = booleanPreferencesKey("home_for_you_enabled")
         private val KEY_HOME_SEARCH_BUTTON_ENABLED = booleanPreferencesKey("home_search_button_enabled")
+        private val KEY_SIDEBAR_MESSAGE_ENABLED = booleanPreferencesKey("sidebar_message_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
@@ -990,6 +991,15 @@ class SettingsPreferences(
 
     suspend fun saveHomeSearchButtonEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_HOME_SEARCH_BUTTON_ENABLED] = enabled }
+    }
+
+    // 侧栏消息区开关，默认启用
+    val sidebarMessageEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SIDEBAR_MESSAGE_ENABLED] ?: true
+    }
+
+    suspend fun saveSidebarMessageEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SIDEBAR_MESSAGE_ENABLED] = enabled }
     }
 
     // 逐字歌词流光动效 Flow
