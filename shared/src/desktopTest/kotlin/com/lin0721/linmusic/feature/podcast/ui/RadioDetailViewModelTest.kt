@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.podcast.data.RADIO_PROGRAM_PAGE_SIZE
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +20,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+private const val PAGE = RADIO_PROGRAM_PAGE_SIZE
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RadioDetailViewModelTest {
@@ -119,8 +122,8 @@ class RadioDetailViewModelTest {
     @Test
     fun `翻页沿用当前排序`() {
         repository.radioPrograms = { _, offset, asc ->
-            val base = if (offset == 0) 0 else 100
-            Result.success(List(30) { testProgram((base + it + if (asc) 1000 else 0).toLong() + 1) })
+            val base = if (offset == 0) 0 else 10_000
+            Result.success(List(PAGE) { testProgram((base + it + if (asc) 100_000 else 0).toLong() + 1) })
         }
         val vm = viewModel()
         vm.load(7)
@@ -128,8 +131,50 @@ class RadioDetailViewModelTest {
 
         vm.loadMore()
 
-        assertEquals(1, repository.count("programs:7:30:true"))
-        assertEquals(60, vm.success().programs.size)
+        assertEquals(1, repository.count("programs:7:$PAGE:true"))
+        assertEquals(PAGE * 2, vm.success().programs.size)
+    }
+
+    @Test
+    fun `翻页失败保留已有内容并可重试`() {
+        var failNext = false
+        repository.radioPrograms = { _, offset, _ ->
+            if (offset > 0 && failNext) {
+                failNext = false
+                failure()
+            } else {
+                Result.success(List(PAGE) { testProgram((offset + it).toLong() + 1) })
+            }
+        }
+        val vm = viewModel()
+        vm.load(7)
+
+        failNext = true
+        vm.loadMore()
+
+        assertEquals(PAGE, vm.success().programs.size)
+        assertTrue(vm.success().hasMore)
+        assertEquals("失败", vm.success().loadMoreError)
+
+        vm.loadMore()
+
+        assertEquals(PAGE * 2, vm.success().programs.size)
+        assertNull(vm.success().loadMoreError)
+        assertTrue(vm.success().hasMore)
+    }
+
+    @Test
+    fun `翻页返回空列表视为到底`() {
+        repository.radioPrograms = { _, offset, _ ->
+            Result.success(if (offset == 0) List(PAGE) { testProgram(it.toLong() + 1) } else emptyList())
+        }
+        val vm = viewModel()
+        vm.load(7)
+
+        vm.loadMore()
+
+        assertEquals(false, vm.success().hasMore)
+        assertNull(vm.success().loadMoreError)
     }
 
     @Test

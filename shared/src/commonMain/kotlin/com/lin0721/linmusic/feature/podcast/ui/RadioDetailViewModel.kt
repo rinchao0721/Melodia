@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepository
 import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.podcast.data.RADIO_PROGRAM_PAGE_SIZE
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressEntry
 import com.lin0721.linmusic.feature.podcast.domain.playPodcastPrograms
@@ -24,8 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// 服务端一页给 30 条
-private const val PAGE_SIZE = 30
+private const val PAGE_SIZE = RADIO_PROGRAM_PAGE_SIZE
 
 // 电台详情页 ViewModel
 class RadioDetailViewModel(
@@ -101,25 +101,30 @@ class RadioDetailViewModel(
         val current = _uiState.value as? RadioDetailUiState.Success ?: return
         if (!current.hasMore || current.isLoadingMore || current.isReloadingPrograms) return
 
-        _uiState.value = current.copy(isLoadingMore = true)
+        _uiState.value = current.copy(isLoadingMore = true, loadMoreError = null)
 
         viewModelScope.launch {
-            val more = runCatching {
+            val result = runCatching {
                 podcastRepository.getRadioPrograms(
                     radioId = currentRadioId,
                     offset = current.programs.size,
                     asc = current.sortAscending
                 ).first()
-            }.getOrNull()?.getOrNull()
+            }.getOrElse { Result.failure(it) }
 
             val latest = _uiState.value as? RadioDetailUiState.Success ?: return@launch
             // 翻页期间切了排序，晚到的追加结果丢弃
             if (latest.sortAscending != current.sortAscending) return@launch
-            _uiState.value = if (more.isNullOrEmpty()) {
-                // 追加失败或已到底，停止继续翻页但保留已有内容
-                latest.copy(isLoadingMore = false, hasMore = false)
-            } else {
-                latest.copy(
+            val more = result.getOrNull()
+            _uiState.value = when {
+                // 失败不等于到底：保留 hasMore，交给用户重试
+                more == null -> latest.copy(
+                    isLoadingMore = false,
+                    loadMoreError = result.exceptionOrNull()?.toUserMessage(resourceProvider)
+                        ?: resourceProvider.getString(AppString.ErrorBizDefault)
+                )
+                more.isEmpty() -> latest.copy(isLoadingMore = false, hasMore = false)
+                else -> latest.copy(
                     programs = latest.programs + more,
                     isLoadingMore = false,
                     hasMore = more.size >= PAGE_SIZE
@@ -144,6 +149,7 @@ class RadioDetailViewModel(
                     is PodcastSection.Success -> state.copy(
                         programs = section.data,
                         hasMore = section.data.size >= PAGE_SIZE,
+                        loadMoreError = null,
                         isReloadingPrograms = false
                     )
                     is PodcastSection.Error -> {

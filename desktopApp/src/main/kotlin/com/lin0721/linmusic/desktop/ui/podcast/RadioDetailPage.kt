@@ -74,10 +74,10 @@ private fun RadioDetailContent(
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
-    val shouldLoadMore by remember(state.hasMore, state.isLoadingMore, state.isReloadingPrograms) {
+    val shouldLoadMore by remember(state.hasMore, state.isLoadingMore, state.isReloadingPrograms, state.loadMoreError) {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            state.hasMore && !state.isLoadingMore && !state.isReloadingPrograms &&
+            state.hasMore && !state.isLoadingMore && !state.isReloadingPrograms && state.loadMoreError == null &&
                 lastVisible >= listState.layoutInfo.totalItemsCount - PROGRAM_LOAD_MORE_THRESHOLD
         }
     }
@@ -122,6 +122,12 @@ private fun RadioDetailContent(
                 item(key = "loading_more") {
                     Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = DesktopColors.Accent)
+                    }
+                }
+            } else if (!state.isReloadingPrograms) {
+                state.loadMoreError?.let { message ->
+                    item(key = "load_more_error") {
+                        PodcastInlineError(message = message, onRetry = viewModel::loadMore)
                     }
                 }
             }

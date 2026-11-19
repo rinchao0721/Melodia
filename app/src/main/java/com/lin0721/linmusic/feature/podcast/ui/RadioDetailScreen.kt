@@ -86,7 +86,7 @@ fun RadioDetailScreen(
     }
 
     val success = uiState as? RadioDetailUiState.Success
-    val canLoadMore = success != null && success.hasMore && !success.isLoadingMore
+    val canLoadMore = success != null && success.hasMore && !success.isLoadingMore && success.loadMoreError == null
 
     LaunchedEffect(listState, canLoadMore) {
         if (!canLoadMore) return@LaunchedEffect
@@ -170,6 +170,12 @@ fun RadioDetailScreen(
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                        }
+                    }
+                } else if (!state.isReloadingPrograms) {
+                    state.loadMoreError?.let { message ->
+                        item(key = "load_more_error") {
+                            SectionError(message = message, onRetry = { viewModel.loadMore() })
                         }
                     }
                 }

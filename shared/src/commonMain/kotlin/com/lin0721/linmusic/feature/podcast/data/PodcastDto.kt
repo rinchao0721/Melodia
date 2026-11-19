@@ -251,10 +251,13 @@ data class PodcastSubscribeResponse(
     val isSuccess: Boolean get() = code == 200
 }
 
+// 连续快速翻页第 5 次起会被 406 限流，单页放大以减少请求次数
+const val RADIO_PROGRAM_PAGE_SIZE = 100
+
 @Serializable
 data class PodcastProgramListRequest(
     val radioId: Long,
-    val limit: Int = 30,
+    val limit: Int = RADIO_PROGRAM_PAGE_SIZE,
     val offset: Int = 0,
     val asc: Boolean = false
 )
