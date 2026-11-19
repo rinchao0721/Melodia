@@ -52,18 +52,6 @@ enum class QualityBadge(val label: String, val colorArgb: Long?) {
     Master("超清母带", 0xFFC9A227)
 }
 
-// 由各档位文件推断最高音质；有 hr 只能说明至少 Hi-Res，母带、杜比等更高档位仍需补查
-fun Track.inferredMaxBrLevel(): String? = when {
-    hr != null -> "hires"
-    sq != null -> "lossless"
-    (h?.br ?: 0) >= 320_000 -> "exhigh"
-    h != null || m != null || l != null -> "standard"
-    else -> null
-}
-
-// 推断结果是否已是最终档位，不用再补查
-fun isFinalInferredLevel(level: String?): Boolean = level != null && level != "hires"
-
 fun qualityBadgeOf(maxBrLevel: String?): QualityBadge? = when (maxBrLevel) {
     "jymaster" -> QualityBadge.Master
     "dolby" -> QualityBadge.Dolby

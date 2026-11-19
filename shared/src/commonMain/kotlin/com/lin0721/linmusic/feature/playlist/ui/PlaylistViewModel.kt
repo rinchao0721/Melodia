@@ -240,7 +240,8 @@ class PlaylistViewModel(
                                     name = song.name,
                                     ar = song.ar,
                                     al = song.al,
-                                    fee = song.fee
+                                    fee = song.fee,
+                                    privilege = song.privilege
                                 )
                             }
                             songQualityCache?.prefetch(tracks)
@@ -405,6 +406,7 @@ class PlaylistViewModel(
             pending = pending.drop(chunk.size)
         }
         val addedTracks = detail.tracks.drop(current.playlist.tracks.size)
+        if (addedTracks.isNotEmpty()) songQualityCache?.prefetch(addedTracks)
         val droppedIds = current.playlist.trackIds.map { it.id }.toSet() - detail.trackIds.map { it.id }.toSet()
         _uiState.update { state ->
             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
@@ -1007,7 +1009,8 @@ class PlaylistViewModel(
                             name = song.name,
                             ar = song.ar,
                             al = song.al,
-                            fee = song.fee
+                            fee = song.fee,
+                            privilege = song.privilege
                         )
                     }
                     songQualityCache?.prefetch(newTracks)

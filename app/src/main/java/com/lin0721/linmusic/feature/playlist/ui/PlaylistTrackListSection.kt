@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
@@ -75,8 +74,7 @@ fun LazyListScope.playlistTrackItems(
                 platformTag = platform?.badgeName,
                 platformTagColorArgb = platform?.brandColorArgb,
                 qualitySongId = track.id.takeIf { platform == null },
-                maxBrLevel = track.privilege?.maxBrLevel,
-                inferredLevel = track.inferredMaxBrLevel()
+                maxBrLevel = track.privilege?.maxBrLevel
             )
         }
         // SongRow 本身不接受外部 modifier，外层套 Box 挂 animateItem：

@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.search.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
@@ -359,8 +358,7 @@ private fun SearchResultsList(
                                     coverUrl = track.al.picUrl,
                                     isVip = track.fee == 1,
                                     qualitySongId = track.id,
-                                    maxBrLevel = track.privilege?.maxBrLevel,
-                                    inferredLevel = track.inferredMaxBrLevel()
+                                    maxBrLevel = track.privilege?.maxBrLevel
                                 ),
                                 isActive = isActive,
                                 isPlaying = isPlaying,

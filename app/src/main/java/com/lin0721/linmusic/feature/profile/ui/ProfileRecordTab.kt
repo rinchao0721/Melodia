@@ -73,7 +73,8 @@ fun LazyListScope.profileRecordItems(
                     title = item.songName,
                     artist = item.artistName,
                     coverUrl = item.albumCoverUrl,
-                    qualitySongId = item.songId
+                    qualitySongId = item.songId,
+                    maxBrLevel = item.maxBrLevel
                 ),
                 index = index + 1,
                 onClick = {},

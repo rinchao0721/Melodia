@@ -56,7 +56,7 @@ class RecentPlayViewModelQualityPrefetchTest {
             enabledFlow = MutableStateFlow(true),
             fetcher = { ids ->
                 fetchedCalls += ids
-                mapOf(3L to "jymaster", 4L to "lossless")
+                mapOf(2L to "sky", 3L to "jymaster", 4L to "lossless")
             },
             scope = backgroundScope,
             batchDelayMs = 300
@@ -71,7 +71,8 @@ class RecentPlayViewModelQualityPrefetchTest {
 
         val state = vm.uiState.first { it is RecentPlayUiState.Success } as RecentPlayUiState.Success
         assertEquals(4, state.songs.size)
-        assertEquals(listOf(listOf(3L, 4L)), fetchedCalls)
+        assertEquals(listOf(listOf(2L, 3L, 4L)), fetchedCalls)
+        assertEquals("sky", qualityCache.levels.value[2L])
         assertEquals("jymaster", qualityCache.levels.value[3L])
         assertEquals("lossless", qualityCache.levels.value[4L])
     }

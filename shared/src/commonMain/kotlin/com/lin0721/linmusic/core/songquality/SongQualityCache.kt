@@ -6,8 +6,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
-import com.lin0721.linmusic.core.model.isFinalInferredLevel
 import com.lin0721.linmusic.core.player.data.PlaybackApi
 import com.lin0721.linmusic.core.player.data.SongDetailRequest
 import kotlinx.coroutines.CancellationException
@@ -53,9 +51,9 @@ private const val KEY_PREFIX = "q_"
 // 超过 4 倍有效期仍未刷新的条目在启动时删除
 private const val PRUNE_TTL_MULTIPLIER = 4
 
-// 缺失接口自带音质且推断结果非最终档位（Hi-Res 或未知）的曲目需要预查
+// 缺失接口自带 maxBrLevel 的线上曲目需要预查
 fun Track.needsQualityPrefetch(): Boolean =
-    id > 0 && privilege?.maxBrLevel.isNullOrBlank() && !isFinalInferredLevel(inferredMaxBrLevel())
+    id > 0 && privilege?.maxBrLevel.isNullOrBlank()
 
 fun tracksNeedingQualityPrefetch(tracks: Collection<Track>): List<Long> =
     tracks.asSequence()

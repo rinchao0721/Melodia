@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.lin0721.linmusic.core.model.QualityBadge
-import com.lin0721.linmusic.core.model.isFinalInferredLevel
 import com.lin0721.linmusic.core.model.qualityBadgeOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -20,14 +19,13 @@ val LocalSongQualityCache = staticCompositionLocalOf<SongQualityCache?> { null }
 val LocalDownloadedQualities = staticCompositionLocalOf<StateFlow<Map<Long, String>>?> { null }
 
 // 列表行的最高音质徽标：开关关闭时为 null；
-// 有网易 songId 时优先显示已下载实际音质（未知值回退线上逻辑），否则走线上最高音质（接口自带 → 推断 → 补查缓存）；
+// 有网易 songId 时优先显示已下载实际音质（未知值回退线上逻辑），否则仅显示真实最高音质（接口自带 → 补查缓存），补查完成前返回 null；
 // 无网易 songId 时对本地歌曲显示推断音质，外部平台与播客保持为 null
 @Composable
 fun rememberSongQualityBadge(
     cache: SongQualityCache?,
     songId: Long?,
     exactLevel: String?,
-    inferredLevel: String? = null,
     downloadedLevel: String? = null,
     localLevel: String? = null
 ): QualityBadge? {
@@ -48,7 +46,7 @@ fun rememberSongQualityBadge(
         cache.levels.map { levels -> id?.let(levels::get) }.distinctUntilChanged()
     }
     val cachedLevel by cachedFlow.collectAsState(initial = id?.let(cache.levels.value::get))
-    val needsLookup = needsSongQualityLookup(id, exactLevel, inferredLevel, effectiveDownloaded)
+    val needsLookup = needsSongQualityLookup(id, exactLevel, effectiveDownloaded)
     LaunchedEffect(enabled, id, needsLookup) {
         if (enabled && id != null && needsLookup) cache.request(id)
     }
@@ -56,7 +54,6 @@ fun rememberSongQualityBadge(
         enabled = enabled,
         songId = id,
         exactLevel = exactLevel,
-        inferredLevel = inferredLevel,
         downloadedLevel = effectiveDownloaded,
         cachedLevel = cachedLevel,
         localLevel = localLevel
@@ -66,29 +63,26 @@ fun rememberSongQualityBadge(
 internal fun needsSongQualityLookup(
     songId: Long?,
     exactLevel: String?,
-    inferredLevel: String? = null,
     downloadedLevel: String? = null
 ): Boolean {
-    val id = songId?.takeIf { it > 0 } ?: return false
+    songId?.takeIf { it > 0 } ?: return false
     if (qualityBadgeOf(downloadedLevel) != null) return false
-    val exact = exactLevel?.takeIf { it.isNotBlank() }
-    return exact == null && !isFinalInferredLevel(inferredLevel)
+    return exactLevel.isNullOrBlank()
 }
 
 internal fun resolveSongQualityBadge(
     enabled: Boolean,
     songId: Long?,
     exactLevel: String?,
-    inferredLevel: String? = null,
     downloadedLevel: String? = null,
     cachedLevel: String? = null,
     localLevel: String? = null
 ): QualityBadge? {
     if (!enabled) return null
-    val id = songId?.takeIf { it > 0 } ?: return qualityBadgeOf(localLevel)
+    songId?.takeIf { it > 0 } ?: return qualityBadgeOf(localLevel)
     val downloadedBadge = qualityBadgeOf(downloadedLevel)
     if (downloadedBadge != null) return downloadedBadge
-    val level = exactLevel?.takeIf { it.isNotBlank() }
-        ?: if (isFinalInferredLevel(inferredLevel)) inferredLevel else cachedLevel ?: inferredLevel
+    // 文件档位推断与真实最高音质偏差大，补查返回前宁可不显示
+    val level = exactLevel?.takeIf { it.isNotBlank() } ?: cachedLevel
     return qualityBadgeOf(level)
 }

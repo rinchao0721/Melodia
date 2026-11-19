@@ -105,8 +105,6 @@ data class SongRowData(
     val qualitySongId: Long? = null,
     // 接口自带的最高音质等级，有值时不再补查
     val maxBrLevel: String? = null,
-    // 由档位文件推断的等级，除 Hi-Res 外直接采用不再补查
-    val inferredLevel: String? = null,
     // 本地未匹配歌曲的推断音质等级
     val localQualityLevel: String? = null
 )
@@ -277,7 +275,6 @@ fun SongRow(
                 cache = koinInject<SongQualityCache>(),
                 songId = qualitySongId,
                 exactLevel = data.maxBrLevel,
-                inferredLevel = data.inferredLevel,
                 downloadedLevel = qualityDownloadRecord?.quality,
                 localLevel = effectiveLocalLevel
             )
@@ -530,7 +527,6 @@ fun DraggableSongRow(
                 cache = koinInject<SongQualityCache>(),
                 songId = qualitySongId,
                 exactLevel = data.maxBrLevel,
-                inferredLevel = data.inferredLevel,
                 downloadedLevel = qualityDownloadRecord?.quality,
                 localLevel = effectiveLocalLevel
             )

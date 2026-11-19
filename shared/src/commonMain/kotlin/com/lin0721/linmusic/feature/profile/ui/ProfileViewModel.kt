@@ -184,7 +184,11 @@ class ProfileViewModel(
             profileRepository.getUserListeningRank(uid, type = type)
                 .first()
                 .onSuccess { items ->
-                    songQualityCache?.prefetchIds(items.map { it.songId })
+                    val missingIds = items.asSequence()
+                        .filter { it.maxBrLevel.isNullOrBlank() }
+                        .map { it.songId }
+                        .toList()
+                    if (missingIds.isNotEmpty()) songQualityCache?.prefetchIds(missingIds)
                     val latest = _uiState.value as? ProfileUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
                         rankItems = items,

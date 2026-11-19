@@ -76,7 +76,6 @@ import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.QualityBadge
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
 import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
 import androidx.compose.foundation.border
@@ -296,7 +295,6 @@ fun TrackRow(
                     cache = LocalSongQualityCache.current,
                     songId = qualitySongId.takeIf { sourcePlatform == null },
                     exactLevel = track.privilege?.maxBrLevel,
-                    inferredLevel = track.inferredMaxBrLevel(),
                     localLevel = localQualityLevel.takeIf { sourcePlatform == null }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {

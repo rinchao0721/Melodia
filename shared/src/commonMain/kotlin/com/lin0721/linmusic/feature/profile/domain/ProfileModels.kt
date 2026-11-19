@@ -67,5 +67,6 @@ data class ProfileListenRankItem(
     val songId: Long,
     val songName: String,
     val artistName: String,
-    val albumCoverUrl: String
+    val albumCoverUrl: String,
+    val maxBrLevel: String? = null
 )

@@ -4,8 +4,8 @@ import com.lin0721.linmusic.core.model.SongPrivilege
 import com.lin0721.linmusic.core.model.QualityBadge
 import com.lin0721.linmusic.core.model.SongFileInfo
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
-import com.lin0721.linmusic.core.model.isFinalInferredLevel
+import com.lin0721.linmusic.core.model.mergePrivilege
+import com.lin0721.linmusic.core.model.mergePrivileges
 import com.lin0721.linmusic.core.model.qualityBadgeOf
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import kotlinx.coroutines.CompletableDeferred
@@ -73,7 +73,6 @@ class SongQualityCacheTest {
             needsSongQualityLookup(
                 songId = 10L,
                 exactLevel = null,
-                inferredLevel = "hires",
                 downloadedLevel = "lossless"
             )
         )
@@ -84,7 +83,6 @@ class SongQualityCacheTest {
                 enabled = true,
                 songId = 10L,
                 exactLevel = null,
-                inferredLevel = "hires",
                 downloadedLevel = "unexpected",
                 cachedLevel = "jymaster"
             )
@@ -93,7 +91,6 @@ class SongQualityCacheTest {
             needsSongQualityLookup(
                 songId = 10L,
                 exactLevel = null,
-                inferredLevel = "hires",
                 downloadedLevel = "unexpected"
             )
         )
@@ -130,23 +127,61 @@ class SongQualityCacheTest {
     }
 
     @Test
-    fun levelIsInferredFromFileTiers() {
-        val file = SongFileInfo(br = 128_000)
-        assertEquals("hires", Track(hr = file, sq = file, h = file).inferredMaxBrLevel())
-        assertEquals("lossless", Track(sq = file, h = file).inferredMaxBrLevel())
-        assertEquals("exhigh", Track(h = SongFileInfo(br = 320_000), l = file).inferredMaxBrLevel())
-        assertEquals("standard", Track(h = SongFileInfo(br = 192_000)).inferredMaxBrLevel())
-        assertEquals("standard", Track(l = file).inferredMaxBrLevel())
-        assertNull(Track().inferredMaxBrLevel())
+    fun onlineBadgeHiddenUntilExactOrCachedLevel() {
+        assertTrue(needsSongQualityLookup(songId = 10L, exactLevel = null))
+        assertNull(
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 10L,
+                exactLevel = null,
+                cachedLevel = null
+            )
+        )
+        assertEquals(
+            QualityBadge.Master,
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 10L,
+                exactLevel = null,
+                cachedLevel = "jymaster"
+            )
+        )
+        assertEquals(
+            QualityBadge.Immersive,
+            resolveSongQualityBadge(
+                enabled = true,
+                songId = 10L,
+                exactLevel = "sky",
+                cachedLevel = null
+            )
+        )
+        assertFalse(needsSongQualityLookup(songId = 10L, exactLevel = "sky"))
     }
 
     @Test
-    fun onlyHiResInferenceNeedsLookup() {
-        assertFalse(isFinalInferredLevel("hires"))
-        assertFalse(isFinalInferredLevel(null))
-        assertTrue(isFinalInferredLevel("lossless"))
-        assertTrue(isFinalInferredLevel("exhigh"))
-        assertTrue(isFinalInferredLevel("standard"))
+    fun mergePrivilegesFillsMissingWithoutOverwritingExisting() {
+        val existingPrivilege = SongPrivilege(id = 1L, maxBrLevel = "sky")
+        val tracks = listOf(
+            Track(id = 1L, name = "A", privilege = existingPrivilege),
+            Track(id = 2L, name = "B", privilege = null),
+            Track(id = 3L, name = "C", privilege = null),
+            Track(id = 0L, name = "Local", privilege = null)
+        )
+        val privileges = listOf(
+            SongPrivilege(id = 1L, maxBrLevel = "lossless"),
+            SongPrivilege(id = 2L, maxBrLevel = "jymaster"),
+            SongPrivilege(id = 0L, maxBrLevel = "standard")
+        )
+
+        val merged = tracks.mergePrivileges(privileges)
+        assertEquals("sky", merged[0].privilege?.maxBrLevel)
+        assertEquals("jymaster", merged[1].privilege?.maxBrLevel)
+        assertNull(merged[2].privilege)
+        assertNull(merged[3].privilege)
+
+        // 单首合并同样保留已有 privilege 并补全缺失项
+        assertEquals("sky", tracks[0].mergePrivilege(privileges).privilege?.maxBrLevel)
+        assertEquals("jymaster", tracks[1].mergePrivilege(privileges).privilege?.maxBrLevel)
     }
 
     @Test
@@ -228,7 +263,7 @@ class SongQualityCacheTest {
     }
 
     @Test
-    fun tracksNeedingPrefetchFiltersExactAndFinalInferredTracks() {
+    fun tracksNeedingPrefetchIncludesAllOnlineTracksMissingMaxBrLevel() {
         val file = SongFileInfo(br = 128_000)
         val tracks = listOf(
             Track(id = 1L, privilege = SongPrivilege(maxBrLevel = "lossless")),
@@ -237,16 +272,17 @@ class SongQualityCacheTest {
             Track(id = 4L, hr = file),
             Track(id = 5L),
             Track(id = 4L, hr = file),
+            Track(id = 6L, privilege = SongPrivilege(maxBrLevel = "")),
             Track(id = 0L),
             Track(id = -2L)
         )
 
-        assertEquals(listOf(4L, 5L), tracksNeedingQualityPrefetch(tracks))
+        assertEquals(listOf(2L, 3L, 4L, 5L, 6L), tracksNeedingQualityPrefetch(tracks))
     }
 
     @Test
     fun prefetchResolvesBeforeReturningSplitsBatchesAndSkipsDuplicates() = runTest {
-        val fetcher = FakeFetcher(mapOf(10L to "jymaster", 20L to "sky"))
+        val fetcher = FakeFetcher(mapOf(10L to "jymaster", 12L to "sky", 20L to "sky"))
         val cache = SongQualityCache(
             enabledFlow = MutableStateFlow(true),
             fetcher = fetcher::fetch,
@@ -263,8 +299,9 @@ class SongQualityCacheTest {
         )
         cache.prefetch(tracks)
 
-        assertEquals(listOf(listOf(10L, 20L)), fetcher.calls)
+        assertEquals(listOf(listOf(10L, 12L, 20L)), fetcher.calls)
         assertEquals("jymaster", cache.levels.value[10L])
+        assertEquals("sky", cache.levels.value[12L])
         assertEquals("sky", cache.levels.value[20L])
 
         // 已有缓存且未过期：prefetch 与 request 均不再触发网络请求
@@ -276,7 +313,7 @@ class SongQualityCacheTest {
 
         // 超过 1000 首时分批同步预查
         cache.prefetchIds((1001L..2500L).toList())
-        assertEquals(listOf(2, 1000, 500), fetcher.calls.map { it.size })
+        assertEquals(listOf(3, 1000, 500), fetcher.calls.map { it.size })
     }
 
     @Test

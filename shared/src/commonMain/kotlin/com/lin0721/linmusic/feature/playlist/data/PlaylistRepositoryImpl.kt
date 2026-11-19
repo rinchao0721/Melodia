@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.cache.OfflineFallback
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.mergePrivileges
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import com.lin0721.linmusic.feature.playlist.domain.pendingTrackIds
@@ -30,10 +31,11 @@ class PlaylistRepositoryImpl(
                 code = { it.code },
                 transform = { response ->
                     val playlist = response.playlist!!
-                    val filteredTracks = contentFilter.filterBlockedArtists(playlist.tracks) { it.ar.map { a -> a.id } }
+                    val mergedTracks = playlist.tracks.mergePrivileges(response.privileges)
+                    val filteredTracks = contentFilter.filterBlockedArtists(mergedTracks) { it.ar.map { a -> a.id } }
                     // 被屏蔽歌手过滤掉的曲目同步从 trackIds 剔除，避免后续分页按数量对齐时错位、总数也与可见曲目一致
                     val keptIds = filteredTracks.mapTo(HashSet()) { it.id }
-                    val blockedIds = playlist.tracks.mapNotNullTo(HashSet()) { t -> t.id.takeIf { it !in keptIds } }
+                    val blockedIds = mergedTracks.mapNotNullTo(HashSet()) { t -> t.id.takeIf { it !in keptIds } }
                     playlist.copy(
                         tracks = filteredTracks,
                         trackIds = if (blockedIds.isEmpty()) playlist.trackIds else playlist.trackIds.filter { it.id !in blockedIds }

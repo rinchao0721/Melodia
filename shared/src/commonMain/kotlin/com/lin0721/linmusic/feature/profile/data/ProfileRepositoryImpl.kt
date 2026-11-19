@@ -209,7 +209,8 @@ class ProfileRepositoryImpl(
                     songId = record.song?.id ?: 0L,
                     songName = record.song?.name ?: "",
                     artistName = record.song?.ar?.firstOrNull()?.name ?: "",
-                    albumCoverUrl = record.song?.al?.picUrl ?: ""
+                    albumCoverUrl = record.song?.al?.picUrl ?: "",
+                    maxBrLevel = record.song?.privilege?.maxBrLevel
                 )
             }
         }
