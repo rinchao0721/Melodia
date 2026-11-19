@@ -230,6 +230,74 @@ class CommentsSectionControllerTest {
         assertEquals(1, state.total)
     }
 
+    private fun floorRepository(likeResult: Result<Unit>) = FakeCommentRepository().apply {
+        commentsV2Result = Result.success(
+            CommentsV2Data(comments = listOf(CommentItem(commentId = 1, likedCount = 5, liked = false)))
+        )
+        floorResult = Result.success(
+            FloorCommentsData(
+                comments = listOf(CommentItem(commentId = 2, likedCount = 3, liked = false, parentCommentId = 1)),
+                hasMore = false,
+                totalCount = 1
+            )
+        )
+        this.likeResult = likeResult
+    }
+
+    @Test
+    fun `楼层里给回复点赞会更新楼层状态`() = runTest {
+        val controller = newController(floorRepository(Result.success(Unit)), this)
+        controller.load("R_SO_4_1")
+        advanceUntilIdle()
+        controller.openFloor((controller.commentsState.value as CommentsState.Success).comments.first())
+        advanceUntilIdle()
+
+        controller.like((controller.floorState.value as CommentFloorState.Success).replies.first())
+        advanceUntilIdle()
+
+        val reply = (controller.floorState.value as CommentFloorState.Success).replies.first()
+        assertTrue(reply.liked)
+        assertEquals(4, reply.likedCount)
+        val main = (controller.commentsState.value as CommentsState.Success).comments.first()
+        assertEquals(false, main.liked)
+        assertEquals(5, main.likedCount)
+    }
+
+    @Test
+    fun `楼层里给回复点赞失败会回滚`() = runTest {
+        val controller = newController(floorRepository(Result.failure(AppError.NetworkError)), this)
+        controller.load("R_SO_4_1")
+        advanceUntilIdle()
+        controller.openFloor((controller.commentsState.value as CommentsState.Success).comments.first())
+        advanceUntilIdle()
+
+        controller.like((controller.floorState.value as CommentFloorState.Success).replies.first())
+        advanceUntilIdle()
+
+        val reply = (controller.floorState.value as CommentFloorState.Success).replies.first()
+        assertEquals(false, reply.liked)
+        assertEquals(3, reply.likedCount)
+    }
+
+    @Test
+    fun `楼层里给楼主点赞同步到主列表`() = runTest {
+        val controller = newController(floorRepository(Result.success(Unit)), this)
+        controller.load("R_SO_4_1")
+        advanceUntilIdle()
+        controller.openFloor((controller.commentsState.value as CommentsState.Success).comments.first())
+        advanceUntilIdle()
+
+        controller.like((controller.floorState.value as CommentFloorState.Success).ownerComment)
+        advanceUntilIdle()
+
+        val owner = (controller.floorState.value as CommentFloorState.Success).ownerComment
+        assertTrue(owner.liked)
+        assertEquals(6, owner.likedCount)
+        val main = (controller.commentsState.value as CommentsState.Success).comments.first()
+        assertTrue(main.liked)
+        assertEquals(6, main.likedCount)
+    }
+
     @Test
     fun `openFloor成功后floorState为Success`() = runTest {
         val owner = CommentItem(commentId = 1, content = "owner")

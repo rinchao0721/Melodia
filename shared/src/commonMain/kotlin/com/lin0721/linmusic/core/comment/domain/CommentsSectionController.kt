@@ -149,42 +149,46 @@ class CommentsSectionController(
         }
     }
 
+    // 楼层里的回复不在主列表中，需同时改楼层状态，否则点赞后界面不变
     fun like(comment: CommentItem) {
-        val currentState = _commentsState.value as? CommentsState.Success ?: return
+        if (threadId.isEmpty() || comment.commentId == 0L) return
         val targetLike = !comment.liked
-
-        fun bump(item: CommentItem) = if (item.commentId == comment.commentId) {
-            item.copy(liked = targetLike, likedCount = item.likedCount + if (targetLike) 1 else -1)
-        } else item
-
-        val updatedCurrent = currentState.copy(
-            comments = currentState.comments.map(::bump),
-            hotComments = currentState.hotComments.map(::bump)
-        )
-        _commentsState.value = updatedCurrent
-        sortCache[currentState.sortType] = TabCacheEntry(state = updatedCurrent, pageNo = currentPageNo)
-
-        // 跨 Tab 同步缓存中的点赞状态
-        sortCache.forEach { (type, entry) ->
-            if (type != currentState.sortType) {
-                val updatedState = entry.state.copy(
-                    comments = entry.state.comments.map(::bump),
-                    hotComments = entry.state.hotComments.map(::bump)
-                )
-                sortCache[type] = entry.copy(state = updatedState)
-            }
-        }
+        applyLikeState(comment.commentId, targetLike)
 
         val requestThreadId = threadId
         scope.launch {
             repository.likeComment(requestThreadId, comment.commentId, targetLike).collect { result ->
                 if (requestThreadId != threadId) return@collect
                 result.onFailure { error ->
-                    _commentsState.value = currentState
-                    sortCache[currentState.sortType] = TabCacheEntry(state = currentState, pageNo = currentPageNo)
+                    applyLikeState(comment.commentId, !targetLike)
                     onToast(error.toUserMessage(resourceProvider))
                 }
             }
+        }
+    }
+
+    // 按目标状态改写，已是目标状态的条目不动，回滚时不会把计数改错
+    private fun applyLikeState(commentId: Long, liked: Boolean) {
+        fun CommentItem.withLike(): CommentItem =
+            if (this.commentId != commentId || this.liked == liked) this
+            else copy(liked = liked, likedCount = (likedCount + if (liked) 1 else -1).coerceAtLeast(0))
+
+        fun CommentsState.Success.withLike(): CommentsState.Success = copy(
+            comments = comments.map { it.withLike() },
+            hotComments = hotComments.map { it.withLike() }
+        )
+
+        (_commentsState.value as? CommentsState.Success)?.let { state ->
+            _commentsState.value = state.withLike()
+        }
+        sortCache.keys.toList().forEach { type ->
+            sortCache[type]?.let { entry -> sortCache[type] = entry.copy(state = entry.state.withLike()) }
+        }
+        (_floorState.value as? CommentFloorState.Success)?.let { floor ->
+            _floorState.value = floor.copy(
+                ownerComment = floor.ownerComment.withLike(),
+                replies = floor.replies.map { it.withLike() }
+            )
         }
     }
 
