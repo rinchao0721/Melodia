@@ -134,6 +134,7 @@ import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
@@ -246,6 +247,15 @@ fun MelodiaApp() {
     val activeTarget by routingController.activeTarget.collectAsStateWithLifecycle()
     val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
     var showMiniDeviceSheet by remember { mutableStateOf(false) }
+    val lanLinkClient: LanLinkAndroidClient = koinInject()
+    val lanLinkEnabled by lanLinkClient.enabled.collectAsStateWithLifecycle()
+    val lanLinkPeer by lanLinkClient.connectedDevice.collectAsStateWithLifecycle()
+    // 迷你条设备按钮只在联动已连接时出现，未连接时本机输出切换走播放页入口
+    val onMiniDeviceClick: (() -> Unit)? = if ((lanLinkEnabled && lanLinkPeer != null) || remoteDeviceName != null) {
+        { showMiniDeviceSheet = true }
+    } else {
+        null
+    }
     val ffmpegComponentManager: FfmpegComponentManager = koinInject()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
@@ -1061,7 +1071,7 @@ fun MelodiaApp() {
                             onMiniPlayerLikeClick = onMiniPlayerLikeClick,
                             miniPlayerLikeMode = miniPlayerLikeMode,
                             remoteDeviceName = remoteDeviceName,
-                            onDeviceClick = { showMiniDeviceSheet = true },
+                            onDeviceClick = onMiniDeviceClick,
                             onNavigate = { screen ->
                                 navigation.openTab(screen)
                                 if (screen == Screen.Library) {
@@ -1293,7 +1303,7 @@ fun MelodiaApp() {
                         onLikeClick = onMiniPlayerLikeClick,
                         likeMode = miniPlayerLikeMode,
                         remoteDeviceName = remoteDeviceName,
-                        onDeviceClick = { showMiniDeviceSheet = true },
+                        onDeviceClick = onMiniDeviceClick,
                         modifier = modifier
                     )
                 }
