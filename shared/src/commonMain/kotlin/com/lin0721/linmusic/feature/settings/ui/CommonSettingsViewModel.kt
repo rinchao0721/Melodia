@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
@@ -82,6 +83,7 @@ class CommonSettingsViewModel(
     val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
     val useRealIp = settingsPreferences.useRealIp.asState(false)
     val realIpValue = settingsPreferences.realIpValue.asState("")
+    val lanLinkPlaybackMode = settingsPreferences.lanLinkPlaybackMode.asState(LanLinkPlaybackMode.SINGLE_DEVICE)
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 
@@ -179,4 +181,8 @@ class CommonSettingsViewModel(
     fun updateUseRealIp(enabled: Boolean) = launchSave { settingsPreferences.saveUseRealIp(enabled) }
 
     fun updateRealIpValue(ip: String) = launchSave { settingsPreferences.saveRealIpValue(ip) }
+
+    fun updateLanLinkPlaybackMode(mode: LanLinkPlaybackMode) = launchSave {
+        settingsPreferences.saveLanLinkPlaybackMode(mode)
+    }
 }

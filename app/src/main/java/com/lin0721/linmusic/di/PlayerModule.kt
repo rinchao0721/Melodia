@@ -47,7 +47,8 @@ val playerModule = module {
             localController = get<PlayerManager>(),
             transport = get<LanLinkAndroidClient>(),
             volumeBridge = get<AndroidVolumeBridge>(),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            playbackModeStore = get<SettingsPreferences>()
         )
     }
     single {

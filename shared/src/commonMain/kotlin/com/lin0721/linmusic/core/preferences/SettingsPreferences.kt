@@ -10,6 +10,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeState
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.PersonalFmMode
@@ -40,8 +43,9 @@ private const val TAG = "SettingsPreferences"
 class SettingsPreferences(
     private val dataStore: DataStore<Preferences>,
     private val streamCacheDefault: Boolean = false,
-    private val userPreferences: UserPreferences? = null
-) {
+    private val userPreferences: UserPreferences? = null,
+    private val clockMs: () -> Long = { System.currentTimeMillis() }
+) : LanLinkPlaybackModeStore {
 
     companion object {
         // Wi-Fi 播放音质 KEY，默认 "lossless"
@@ -222,6 +226,9 @@ class SettingsPreferences(
         val KEY_ALWAYS_SHOW_LIKED_BADGE = booleanPreferencesKey("always_show_liked_badge")
         // 局域网联动开关，默认 false
         private val KEY_LAN_LINK_ENABLED = booleanPreferencesKey("lan_link_enabled")
+        // 局域网联动播放模式与修改时间戳
+        private val KEY_LAN_LINK_PLAYBACK_MODE = stringPreferencesKey("lan_link_playback_mode")
+        private val KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS = longPreferencesKey("lan_link_playback_mode_updated_at_ms")
 
         private fun personalFmModeKeyFor(uid: Long?) =
             stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
@@ -1214,6 +1221,43 @@ class SettingsPreferences(
     suspend fun saveLanLinkEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_LAN_LINK_ENABLED] = enabled
+        }
+    }
+
+    // 局域网联动播放模式状态流（含时间戳，供跨端 Last-Write-Wins 同步）
+    val lanLinkPlaybackModeState: Flow<LanLinkPlaybackModeState> = dataStore.data.map { prefs ->
+        LanLinkPlaybackModeState(
+            mode = LanLinkPlaybackMode.fromKey(prefs[KEY_LAN_LINK_PLAYBACK_MODE]),
+            updatedAtMs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+        )
+    }.distinctUntilChanged()
+
+    // 局域网联动播放模式，默认「单一播放设备」
+    val lanLinkPlaybackMode: Flow<LanLinkPlaybackMode> = lanLinkPlaybackModeState
+        .map { it.mode }
+        .distinctUntilChanged()
+
+    override val state: Flow<LanLinkPlaybackModeState> = lanLinkPlaybackModeState
+
+    suspend fun saveLanLinkPlaybackMode(
+        mode: LanLinkPlaybackMode,
+        updatedAtMs: Long = clockMs()
+    ) {
+        dataStore.edit { prefs ->
+            val currentTs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+            val effectiveTs = maxOf(updatedAtMs, currentTs + 1L)
+            prefs[KEY_LAN_LINK_PLAYBACK_MODE] = mode.key
+            prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] = effectiveTs
+        }
+    }
+
+    override suspend fun applySynced(mode: LanLinkPlaybackMode, updatedAtMs: Long) {
+        dataStore.edit { prefs ->
+            val currentTs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+            if (updatedAtMs >= currentTs) {
+                prefs[KEY_LAN_LINK_PLAYBACK_MODE] = mode.key
+                prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] = updatedAtMs
+            }
         }
     }
 

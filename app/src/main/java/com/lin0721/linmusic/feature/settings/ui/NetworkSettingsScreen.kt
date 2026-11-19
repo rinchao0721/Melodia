@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.lanlink.DiscoveredLanDevice
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaOutlinedButton
@@ -40,6 +45,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
     val mobileAlert by viewModel.mobileAlert.collectAsStateWithLifecycle()
 
     val lanLinkEnabled by viewModel.lanLinkEnabled.collectAsStateWithLifecycle()
+    val lanLinkPlaybackMode by viewModel.lanLinkPlaybackMode.collectAsStateWithLifecycle()
     val lanLinkDiscovering by viewModel.lanLinkIsDiscovering.collectAsStateWithLifecycle()
     val discoveredDevices by viewModel.lanLinkDiscoveredDevices.collectAsStateWithLifecycle()
     val pairedDevices by viewModel.lanLinkPairedDevices.collectAsStateWithLifecycle()
@@ -120,6 +126,11 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (lanLinkEnabled) {
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    LanLinkPlaybackModeSection(
+                        currentMode = lanLinkPlaybackMode,
+                        onSelectMode = viewModel::updateLanLinkPlaybackMode
+                    )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     Row(
                         modifier = Modifier
@@ -343,5 +354,94 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeSection(
+    currentMode: LanLinkPlaybackMode,
+    onSelectMode: (LanLinkPlaybackMode) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Column {
+            Text(
+                text = "联动播放模式",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "选择多端连接时的播放协作方式，修改后会自动同步到对端",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        LanLinkPlaybackModeOptionCard(
+            title = "单一播放设备",
+            description = "两端同步播放状态，同时仅在一台设备上发声并可跨端接力",
+            selected = currentMode == LanLinkPlaybackMode.SINGLE_DEVICE,
+            onClick = { onSelectMode(LanLinkPlaybackMode.SINGLE_DEVICE) }
+        )
+        LanLinkPlaybackModeOptionCard(
+            title = "各自独立播放",
+            description = "两端互不打断各自独立播放，仅手动切换输出设备时进行遥控或接力",
+            selected = currentMode == LanLinkPlaybackMode.INDEPENDENT,
+            onClick = { onSelectMode(LanLinkPlaybackMode.INDEPENDENT) }
+        )
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeOptionCard(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = MelodiaColors.Surface,
+        border = BorderStroke(
+            width = if (selected) 1.5.dp else 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MelodiaColors.Divider
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary,
+                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+            Spacer(Modifier.width(6.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+        }
     }
 }

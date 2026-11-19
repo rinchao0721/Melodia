@@ -541,4 +541,343 @@ class LanLinkRemoteCoordinatorTest {
         local.pause()
         runCurrent()
     }
+
+    @Test
+    fun independentModeConnectDoesNotArbitrateOrPreemptLocalPlayback() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val local = FakePlaybackController().apply {
+            isPlaying.value = true
+            playWhenReady.value = true
+        }
+        val transport = FakeTransport(localDeviceId = "phone-z", localDeviceName = "Pixel 9", isHostDevice = false)
+        val volumeBridge = FakeVolumeBridge()
+        var clock = 1_000L
+        val modeStore = InMemoryLanLinkPlaybackModeStore(
+            LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, updatedAtMs = 500L)
+        )
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = volumeBridge,
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            clockMs = { clock },
+            playbackModeStore = modeStore
+        )
+        coordinator.start()
+        runCurrent()
+
+        val peer = ConnectedPeerInfo("desktop-a", "MyDesktop")
+        transport._connectedDevice.value = peer
+        runCurrent()
+
+        val helloSent = transport.sentMessages.filterIsInstance<LanLinkMessage.RemotePlaybackHello>().single()
+        assertEquals(LanLinkPlaybackMode.INDEPENDENT, helloSent.playbackMode)
+        assertEquals(500L, helloSent.playbackModeUpdatedAtMs)
+        transport.sentMessages.clear()
+
+        // 对端也是 Host 且正在播放：各自独立模式下不仲裁、不暂停、不切换控制目标
+        transport.receive(
+            peer,
+            LanLinkMessage.RemotePlaybackHello(
+                deviceId = peer.deviceId,
+                deviceName = peer.deviceName,
+                isPlaying = true,
+                playWhenReady = true,
+                hasTrack = true,
+                lastActiveAtMs = 900L,
+                isHost = true,
+                playbackMode = LanLinkPlaybackMode.INDEPENDENT,
+                playbackModeUpdatedAtMs = 400L
+            )
+        )
+        runCurrent()
+        assertEquals(0, local.pauseCount)
+        assertTrue(local.isPlaying.value)
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteActiveDevice })
+
+        // 即使收到 RemoteActiveDevice，各自独立模式下也不应打断本机播放
+        transport.receive(
+            peer,
+            LanLinkMessage.RemoteActiveDevice(
+                activeDeviceId = peer.deviceId,
+                activeDeviceName = peer.deviceName,
+                epoch = 5L,
+                timestampMs = 1_500L
+            )
+        )
+        runCurrent()
+        assertEquals(0, local.pauseCount)
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+
+        // 本机从暂停重新直接起播：独立模式下不广播 RemoteActiveDevice 抢占对端
+        local.pause()
+        runCurrent()
+        clock = 5_000L
+        transport.sentMessages.clear()
+        local.resume()
+        runCurrent()
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteActiveDevice })
+
+        local.pause()
+        runCurrent()
+    }
+
+    @Test
+    fun independentModeManualHandoffAndPeerLocalPlayback() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val playable = QueueItem(songId = 101L, title = "晴天", artist = "周杰伦", coverUrl = "https://img/1.jpg")
+        val local = FakePlaybackController().apply {
+            queue.value = listOf(playable)
+            currentIndex.value = 0
+            currentQueueItem.value = playable
+            nowPlaying.value = NowPlaying("101", "晴天", "周杰伦", "https://img/1.jpg")
+            currentPosition.value = 25_000L
+            isPlaying.value = true
+            playWhenReady.value = true
+        }
+        val transport = FakeTransport()
+        val volumeBridge = FakeVolumeBridge()
+        var clock = 2_000L
+        val modeStore = InMemoryLanLinkPlaybackModeStore(
+            LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, updatedAtMs = 1_000L)
+        )
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = volumeBridge,
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            clockMs = { clock },
+            playbackModeStore = modeStore
+        )
+        val emittedMessages = mutableListOf<String>()
+        coordinator.start()
+        backgroundScope.launch(dispatcher) {
+            coordinator.messages.collect { emittedMessages += it }
+        }
+        runCurrent()
+
+        val peer = ConnectedPeerInfo("phone-1", "Pixel 9")
+        transport._connectedDevice.value = peer
+        runCurrent()
+
+        // 本地仅文件歌曲在独立模式下同样拒绝远程接力
+        val localOnly = QueueItem(songId = -1L, title = "Local.flac", artist = "Unknown", coverUrl = "", localUri = "file:///local.flac")
+        local.currentQueueItem.value = localOnly
+        assertFalse(coordinator.switchToRemote())
+        runCurrent()
+        assertTrue(emittedMessages.contains("本地歌曲无法在远程设备播放"))
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+
+        // 可播放歌曲手动切到远端：暂停本机，发送 RemoteHandoffPlay，不发 RemoteActiveDevice
+        local.currentQueueItem.value = playable
+        transport.sentMessages.clear()
+        assertTrue(coordinator.switchToRemote())
+        runCurrent()
+        assertEquals(PlaybackTarget.Remote(peer), coordinator.activeTarget.value)
+        assertEquals(1, local.pauseCount)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteActiveDevice })
+        val handoff = transport.sentMessages.filterIsInstance<LanLinkMessage.RemoteHandoffPlay>().single()
+        assertEquals(25_000L, handoff.startPositionMs)
+
+        // 对端推送远端状态后手动切回本机：接力起播、发送 PAUSE 暂停远端，但不发 RemoteActiveDevice
+        val remoteItem = QueueItem(songId = 202L, title = "七里香", artist = "周杰伦", coverUrl = "https://img/2.jpg")
+        transport.receive(peer, LanLinkMessage.RemoteQueueSync(queueVersion = 3L, items = listOf(remoteItem), currentIndex = 0))
+        transport.receive(
+            peer,
+            LanLinkMessage.RemotePlaybackState(
+                isPlaying = true,
+                playWhenReady = true,
+                nowPlaying = RemoteNowPlaying("202", "七里香", "周杰伦", "https://img/2.jpg"),
+                positionMs = 18_000L,
+                sampledAtMs = clock,
+                durationMs = 240_000L,
+                currentIndex = 0,
+                queueVersion = 3L
+            )
+        )
+        runCurrent()
+        transport.sentMessages.clear()
+        assertTrue(coordinator.switchToLocal())
+        runCurrent()
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertEquals(remoteItem.copy(localUri = null) to 18_000L, local.lastPlayNextNow)
+        assertTrue(transport.sentMessages.any { it == LanLinkMessage.RemoteCommand(RemoteCommandAction.PAUSE) })
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteActiveDevice })
+
+        // 被接力方在独立模式下收到 RemoteHandoffPlay 时仍保持 PlaybackTarget.Local，且后续本地切歌正常执行
+        transport.sentMessages.clear()
+        clock = 8_000L
+        transport.receive(
+            peer,
+            LanLinkMessage.RemoteHandoffPlay(
+                targetDeviceId = transport.localDeviceId,
+                item = playable,
+                startPositionMs = 9_000L,
+                epoch = 1L,
+                timestampMs = clock
+            )
+        )
+        runCurrent()
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertEquals(playable to 9_000L, local.lastPlayNextNow)
+        local.playQueue(listOf(remoteItem), 0, "歌单", null, 0L)
+        runCurrent()
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteActiveDevice })
+
+        local.pause()
+        runCurrent()
+    }
+
+    @Test
+    fun playbackModeSyncUsesLastWriteWinsTieBreakerAndPreventsLoops() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val local = FakePlaybackController()
+        val transport = FakeTransport(localDeviceId = "desktop-1", localDeviceName = "MyDesktop")
+        val volumeBridge = FakeVolumeBridge()
+        val modeStore = InMemoryLanLinkPlaybackModeStore(
+            LanLinkPlaybackModeState(LanLinkPlaybackMode.SINGLE_DEVICE, updatedAtMs = 100L)
+        )
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = volumeBridge,
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            playbackModeStore = modeStore
+        )
+        coordinator.start()
+        runCurrent()
+
+        val peerHigh = ConnectedPeerInfo("phone-z", "Pixel 9")
+        transport._connectedDevice.value = peerHigh
+        runCurrent()
+        transport.sentMessages.clear()
+
+        // 1. 握手携带更新时间戳的 INDEPENDENT：本机应采纳且不得回传 RemotePlaybackModeSync（防回环）
+        transport.receive(
+            peerHigh,
+            LanLinkMessage.RemotePlaybackHello(
+                deviceId = peerHigh.deviceId,
+                deviceName = peerHigh.deviceName,
+                isPlaying = false,
+                playWhenReady = false,
+                hasTrack = false,
+                lastActiveAtMs = 0L,
+                isHost = false,
+                playbackMode = LanLinkPlaybackMode.INDEPENDENT,
+                playbackModeUpdatedAtMs = 200L
+            )
+        )
+        runCurrent()
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 200L), modeStore.state.value)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemotePlaybackModeSync })
+
+        // 2. 更旧时间戳的同步消息应被忽略
+        transport.receive(peerHigh, LanLinkMessage.RemotePlaybackModeSync(LanLinkPlaybackMode.SINGLE_DEVICE, 150L))
+        runCurrent()
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 200L), modeStore.state.value)
+
+        // 3. 本地用户主动修改应推送给已连接对端
+        modeStore.setFromUser(LanLinkPlaybackMode.SINGLE_DEVICE, 500L)
+        runCurrent()
+        val pushed = transport.sentMessages.filterIsInstance<LanLinkMessage.RemotePlaybackModeSync>().single()
+        assertEquals(LanLinkPlaybackMode.SINGLE_DEVICE, pushed.mode)
+        assertEquals(500L, pushed.updatedAtMs)
+
+        // 4. 相等时间戳按 deviceId 决定胜者："phone-z" > "desktop-1" 胜出且不回环
+        transport.sentMessages.clear()
+        transport.receive(peerHigh, LanLinkMessage.RemotePlaybackModeSync(LanLinkPlaybackMode.INDEPENDENT, 500L))
+        runCurrent()
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 500L), modeStore.state.value)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemotePlaybackModeSync })
+
+        // 5. 对端 deviceId 小于本机且时间戳相等时，不覆盖本机当前模式
+        val peerLow = ConnectedPeerInfo("aaa-0", "LowDevice")
+        transport._connectedDevice.value = peerLow
+        runCurrent()
+        transport.sentMessages.clear()
+        transport.receive(peerLow, LanLinkMessage.RemotePlaybackModeSync(LanLinkPlaybackMode.SINGLE_DEVICE, 500L))
+        runCurrent()
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 500L), modeStore.state.value)
+    }
+
+    @Test
+    fun runtimeModeSwitchingTransitionsTargetsAndArbitrates() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val local = FakePlaybackController()
+        val transport = FakeTransport(localDeviceId = "phone-z", localDeviceName = "Pixel 9", isHostDevice = false)
+        val volumeBridge = FakeVolumeBridge()
+        val modeStore = InMemoryLanLinkPlaybackModeStore(
+            LanLinkPlaybackModeState(LanLinkPlaybackMode.SINGLE_DEVICE, updatedAtMs = 100L)
+        )
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = volumeBridge,
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            playbackModeStore = modeStore
+        )
+        coordinator.start()
+        runCurrent()
+
+        val peer = ConnectedPeerInfo("desktop-a", "MyDesktop")
+        transport._connectedDevice.value = peer
+        runCurrent()
+
+        // 单一设备模式下先进入 Remote(peer)
+        assertTrue(coordinator.switchToRemote())
+        runCurrent()
+        assertEquals(PlaybackTarget.Remote(peer), coordinator.activeTarget.value)
+
+        // 运行时切到「各自独立播放」：回退为 Local，不暂停对端
+        transport.sentMessages.clear()
+        modeStore.setFromUser(LanLinkPlaybackMode.INDEPENDENT, 200L)
+        runCurrent()
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertTrue(transport.sentMessages.none { it == LanLinkMessage.RemoteCommand(RemoteCommandAction.PAUSE) })
+        assertTrue(
+            transport.sentMessages.any {
+                it == LanLinkMessage.RemotePlaybackModeSync(LanLinkPlaybackMode.INDEPENDENT, 200L)
+            }
+        )
+
+        // 本地开始播放后，运行时切回「单一播放设备」：应立即发送 Hello 触发仲裁
+        local.resume()
+        runCurrent()
+        transport.sentMessages.clear()
+        modeStore.setFromUser(LanLinkPlaybackMode.SINGLE_DEVICE, 300L)
+        runCurrent()
+        assertTrue(
+            transport.sentMessages.any {
+                it is LanLinkMessage.RemotePlaybackHello &&
+                    it.playbackMode == LanLinkPlaybackMode.SINGLE_DEVICE &&
+                    it.playbackModeUpdatedAtMs == 300L
+            }
+        )
+
+        // 对端 Host 也在播放并回复 Hello：仲裁生效，本机暂停并切回 Remote(peer)
+        transport.receive(
+            peer,
+            LanLinkMessage.RemotePlaybackHello(
+                deviceId = peer.deviceId,
+                deviceName = peer.deviceName,
+                isPlaying = true,
+                playWhenReady = true,
+                hasTrack = true,
+                lastActiveAtMs = 300L,
+                isHost = true,
+                playbackMode = LanLinkPlaybackMode.SINGLE_DEVICE,
+                playbackModeUpdatedAtMs = 300L
+            )
+        )
+        runCurrent()
+        assertEquals(PlaybackTarget.Remote(peer), coordinator.activeTarget.value)
+        assertEquals(1, local.pauseCount)
+    }
 }

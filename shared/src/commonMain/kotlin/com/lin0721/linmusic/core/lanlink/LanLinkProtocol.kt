@@ -83,6 +83,21 @@ enum class LanLinkSyncState {
     NOT_LOGGED_IN
 }
 
+// 局域网联动播放模式
+@Serializable
+enum class LanLinkPlaybackMode(val key: String) {
+    @SerialName("single_device")
+    SINGLE_DEVICE("single_device"),
+
+    @SerialName("independent")
+    INDEPENDENT("independent");
+
+    companion object {
+        fun fromKey(key: String?): LanLinkPlaybackMode =
+            entries.firstOrNull { it.key == key } ?: SINGLE_DEVICE
+    }
+}
+
 // 局域网联动 TCP 帧负载协议；预留 sealed 接口与 type 字段供二期遥控、三期接力扩展
 @OptIn(ExperimentalSerializationApi::class)
 @JsonClassDiscriminator("type")
@@ -198,7 +213,16 @@ sealed interface LanLinkMessage {
         val playWhenReady: Boolean,
         val hasTrack: Boolean,
         val lastActiveAtMs: Long,
-        val isHost: Boolean
+        val isHost: Boolean,
+        val playbackMode: LanLinkPlaybackMode = LanLinkPlaybackMode.SINGLE_DEVICE,
+        val playbackModeUpdatedAtMs: Long = 0L
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_playback_mode_sync")
+    data class RemotePlaybackModeSync(
+        val mode: LanLinkPlaybackMode,
+        val updatedAtMs: Long
     ) : LanLinkMessage
 
     @Serializable

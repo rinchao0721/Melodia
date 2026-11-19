@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.core.preferences
 
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeState
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -98,5 +100,34 @@ class SettingsPreferencesTest {
 
         settings.saveSidebarMessageEnabled(true)
         assertEquals(true, settings.sidebarMessageEnabled.first())
+    }
+
+    @Test
+    fun lanLinkPlaybackModeDefaultsToSingleDeviceAndSupportsMonotonicLwwSync() = runBlocking {
+        var now = 5_000L
+        val clockedSettings = SettingsPreferences(
+            dataStore = PreferencesStores.get(File(dir, "clocked-settings.preferences_pb")),
+            clockMs = { now }
+        )
+
+        assertEquals(LanLinkPlaybackMode.SINGLE_DEVICE, clockedSettings.lanLinkPlaybackMode.first())
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.SINGLE_DEVICE, 0L), clockedSettings.lanLinkPlaybackModeState.first())
+
+        // 用户主动保存应持久化并使用当前时间戳
+        clockedSettings.saveLanLinkPlaybackMode(LanLinkPlaybackMode.INDEPENDENT)
+        assertEquals(LanLinkPlaybackMode.INDEPENDENT, clockedSettings.lanLinkPlaybackMode.first())
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 5_000L), clockedSettings.lanLinkPlaybackModeState.first())
+
+        // 时钟回拨时仍保持单调递增时间戳
+        now = 2_000L
+        clockedSettings.saveLanLinkPlaybackMode(LanLinkPlaybackMode.SINGLE_DEVICE)
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.SINGLE_DEVICE, 5_001L), clockedSettings.lanLinkPlaybackModeState.first())
+
+        // 旧时间戳的远端同步应被忽略，更新或相等时间戳才生效
+        clockedSettings.applySynced(LanLinkPlaybackMode.INDEPENDENT, 4_000L)
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.SINGLE_DEVICE, 5_001L), clockedSettings.lanLinkPlaybackModeState.first())
+
+        clockedSettings.applySynced(LanLinkPlaybackMode.INDEPENDENT, 6_000L)
+        assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 6_000L), clockedSettings.lanLinkPlaybackModeState.first())
     }
 }

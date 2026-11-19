@@ -42,6 +42,7 @@ import com.lin0721.linmusic.core.lanlink.ConnectedPeerInfo
 import com.lin0721.linmusic.core.lanlink.DiscoveredLanDevice
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.LanLinkConnectionState
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
 import com.lin0721.linmusic.core.lanlink.PairedLanDevice
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
@@ -811,6 +812,7 @@ class SettingsViewModel(
     // ─── 局域网联动 ───
 
     val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
+    val lanLinkPlaybackMode = settingsPreferences.lanLinkPlaybackMode.asState(LanLinkPlaybackMode.SINGLE_DEVICE)
     val lanLinkIsDiscovering: StateFlow<Boolean> = lanLinkClient.isDiscovering
     val lanLinkDiscoveredDevices: StateFlow<List<DiscoveredLanDevice>> = lanLinkClient.discoveredDevices
     val lanLinkPairedDevices: StateFlow<List<PairedLanDevice>> = lanLinkClient.pairedDevices
@@ -821,6 +823,10 @@ class SettingsViewModel(
 
     fun updateLanLinkEnabled(enabled: Boolean) = launchSave {
         settingsPreferences.saveLanLinkEnabled(enabled)
+    }
+
+    fun updateLanLinkPlaybackMode(mode: LanLinkPlaybackMode) = launchSave {
+        settingsPreferences.saveLanLinkPlaybackMode(mode)
     }
 
     fun discoverLanDesktops() {

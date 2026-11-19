@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.preferences.PreferencesStores
@@ -160,5 +161,16 @@ class CommonSettingsViewModelTest {
         settings.saveWifiQuality("exhigh")
 
         assertEquals("exhigh", withTimeout(5_000) { vm.wifiQuality.first { it == "exhigh" } })
+    }
+
+    @Test
+    fun lanLinkPlaybackModeIsPersisted() {
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.SINGLE_DEVICE)
+
+        vm.updateLanLinkPlaybackMode(LanLinkPlaybackMode.INDEPENDENT)
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.INDEPENDENT)
+
+        vm.updateLanLinkPlaybackMode(LanLinkPlaybackMode.SINGLE_DEVICE)
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.SINGLE_DEVICE)
     }
 }

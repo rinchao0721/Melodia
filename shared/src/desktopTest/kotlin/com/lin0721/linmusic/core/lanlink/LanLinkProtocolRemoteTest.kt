@@ -27,7 +27,13 @@ class LanLinkProtocolRemoteTest {
                 playWhenReady = true,
                 hasTrack = true,
                 lastActiveAtMs = 1_700_000_000_000L,
-                isHost = false
+                isHost = false,
+                playbackMode = LanLinkPlaybackMode.INDEPENDENT,
+                playbackModeUpdatedAtMs = 1_700_000_000_123L
+            ),
+            LanLinkMessage.RemotePlaybackModeSync(
+                mode = LanLinkPlaybackMode.INDEPENDENT,
+                updatedAtMs = 1_700_000_000_456L
             ),
             LanLinkMessage.RemoteActiveDevice(
                 activeDeviceId = "pixel-9",
@@ -112,5 +118,24 @@ class LanLinkProtocolRemoteTest {
             val decoded = LanLinkJson.decodeFromString<LanLinkMessage>(encoded) as LanLinkMessage.RemoteCommand
             assertEquals(action, decoded.action)
         }
+    }
+
+    @Test
+    fun legacyHelloWithoutPlaybackModeDefaultsToSingleDevice() {
+        val legacyJson = """
+            {
+              "type": "remote_playback_hello",
+              "deviceId": "pixel-9",
+              "deviceName": "Pixel 9",
+              "isPlaying": false,
+              "playWhenReady": false,
+              "hasTrack": false,
+              "lastActiveAtMs": 0,
+              "isHost": false
+            }
+        """.trimIndent()
+        val decoded = LanLinkJson.decodeFromString<LanLinkMessage>(legacyJson) as LanLinkMessage.RemotePlaybackHello
+        assertEquals(LanLinkPlaybackMode.SINGLE_DEVICE, decoded.playbackMode)
+        assertEquals(0L, decoded.playbackModeUpdatedAtMs)
     }
 }

@@ -264,7 +264,8 @@ val desktopPlatformModule = module {
             localController = get<DesktopPlaybackController>(named("local")),
             transport = get<LanLinkDesktopHost>(),
             volumeBridge = get<DesktopVolumeBridge>(),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            playbackModeStore = get<SettingsPreferences>()
         )
     }
     single {

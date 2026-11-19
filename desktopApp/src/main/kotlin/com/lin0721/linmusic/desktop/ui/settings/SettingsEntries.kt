@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,6 +93,7 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import kotlin.math.roundToInt
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -99,6 +101,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.network.RealIpProvider
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
 import com.lin0721.linmusic.core.lanlink.PairedLanDevice
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
@@ -418,6 +421,7 @@ internal fun settingsEntries(
     val useRealIp by common.useRealIp.collectAsState()
     val realIpValue by common.realIpValue.collectAsState()
     val lanLinkEnabled by common.lanLinkEnabled.collectAsState()
+    val lanLinkPlaybackMode by common.lanLinkPlaybackMode.collectAsState()
     val lanLinkConnectedDevice by lanLink.connectedDevice.collectAsState()
     val lanLinkSyncState by lanLink.syncState.collectAsState()
     val lanLinkSyncMessage by lanLink.syncStatusMessage.collectAsState()
@@ -1119,6 +1123,21 @@ internal fun settingsEntries(
         if (lanLinkEnabled) {
             add(
                 SettingsEntry(
+                    key = "lanLinkPlaybackMode",
+                    category = SettingsCategory.System,
+                    title = "联动播放模式",
+                    subtitle = "选择多端连接时的播放协作方式，修改后会自动同步到对端",
+                    keywords = listOf("局域网", "联动", "播放模式", "单一播放设备", "各自独立播放", "接力", "同步"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    LanLinkPlaybackModeSection(
+                        current = lanLinkPlaybackMode,
+                        onSelect = common::updateLanLinkPlaybackMode
+                    )
+                }
+            )
+            add(
+                SettingsEntry(
                     key = "lanLinkStatus",
                     category = SettingsCategory.Network,
                     title = "连接与同步状态",
@@ -1756,6 +1775,71 @@ private fun LanLinkPairedDevicesSection(
                 HoverReveal(revealed = hovered) {
                     SettingsActionButton("取消配对", onClick = { onUnpair(device.deviceId) }, danger = true)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeSection(
+    current: LanLinkPlaybackMode,
+    onSelect: (LanLinkPlaybackMode) -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("联动播放模式", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+        Text(
+            "选择多端连接时的播放协作方式，修改后会自动同步到对端",
+            color = DesktopColors.TextGray,
+            fontSize = 12.sp
+        )
+        LanLinkPlaybackModeOptionRow(
+            title = "单一播放设备",
+            description = "两端同步播放状态，同时仅在一台设备上发声并可跨端接力",
+            selected = current == LanLinkPlaybackMode.SINGLE_DEVICE,
+            onClick = { onSelect(LanLinkPlaybackMode.SINGLE_DEVICE) }
+        )
+        LanLinkPlaybackModeOptionRow(
+            title = "各自独立播放",
+            description = "两端互不打断各自独立播放，仅手动切换输出设备时进行遥控或接力",
+            selected = current == LanLinkPlaybackMode.INDEPENDENT,
+            onClick = { onSelect(LanLinkPlaybackMode.INDEPENDENT) }
+        )
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeOptionRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = DesktopColors.CardSurface,
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) DesktopColors.Accent else DesktopColors.Overlay.copy(alpha = 0.1f)
+        ),
+        modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = DesktopColors.Accent,
+                    unselectedColor = DesktopColors.TextGray
+                )
+            )
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text(title, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(2.dp))
+                Text(description, color = DesktopColors.TextGray, fontSize = 11.sp)
             }
         }
     }

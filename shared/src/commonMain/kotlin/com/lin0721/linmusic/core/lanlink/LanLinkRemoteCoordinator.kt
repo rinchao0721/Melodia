@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,8 +18,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
@@ -40,14 +44,48 @@ interface RemoteVolumeBridge {
     fun setVolume(percent: Int)
 }
 
-// 局域网双向遥控协调器：实现单一活跃播放设备协商、切端接力与同步回退
+// 联动播放模式及修改时间戳，用于跨端 Last-Write-Wins 同步
+data class LanLinkPlaybackModeState(
+    val mode: LanLinkPlaybackMode = LanLinkPlaybackMode.SINGLE_DEVICE,
+    val updatedAtMs: Long = 0L
+)
+
+// 联动播放模式持久化抽象，避免协调器直接耦合 DataStore 实现
+interface LanLinkPlaybackModeStore {
+    val state: Flow<LanLinkPlaybackModeState>
+    suspend fun applySynced(mode: LanLinkPlaybackMode, updatedAtMs: Long)
+}
+
+// 默认内存模式存储，供测试或未注入偏好存储时使用
+class InMemoryLanLinkPlaybackModeStore(
+    initial: LanLinkPlaybackModeState = LanLinkPlaybackModeState()
+) : LanLinkPlaybackModeStore {
+    private val _state = MutableStateFlow(initial)
+    override val state: StateFlow<LanLinkPlaybackModeState> = _state.asStateFlow()
+
+    fun setFromUser(mode: LanLinkPlaybackMode, updatedAtMs: Long) {
+        val current = _state.value
+        val effectiveTs = maxOf(updatedAtMs, current.updatedAtMs + 1L)
+        _state.value = LanLinkPlaybackModeState(mode, effectiveTs)
+    }
+
+    override suspend fun applySynced(mode: LanLinkPlaybackMode, updatedAtMs: Long) {
+        val current = _state.value
+        if (updatedAtMs >= current.updatedAtMs) {
+            _state.value = LanLinkPlaybackModeState(mode, updatedAtMs)
+        }
+    }
+}
+
+// 局域网双向遥控协调器：实现单一活跃播放设备协商 / 各自独立播放切换、切端接力与同步回退
 class LanLinkRemoteCoordinator(
     private val localController: PlaybackController,
     private val transport: LanLinkTransport,
     private val volumeBridge: RemoteVolumeBridge,
     private val scope: CoroutineScope,
     private val commandDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
-    private val clockMs: () -> Long = { System.currentTimeMillis() }
+    private val clockMs: () -> Long = { System.currentTimeMillis() },
+    private val playbackModeStore: LanLinkPlaybackModeStore = InMemoryLanLinkPlaybackModeStore()
 ) {
     private val _activeTarget = MutableStateFlow<PlaybackTarget>(PlaybackTarget.Local)
     val activeTarget: StateFlow<PlaybackTarget> = _activeTarget.asStateFlow()
@@ -66,6 +104,7 @@ class LanLinkRemoteCoordinator(
     )
 
     private val queueVersionCounter = AtomicLong(0L)
+    private val modeMutex = Mutex()
 
     @Volatile
     private var started = false
@@ -100,6 +139,15 @@ class LanLinkRemoteCoordinator(
     @Volatile
     private var ignoreLocalPlayUntilMs = 0L
 
+    @Volatile
+    private var latestModeState = LanLinkPlaybackModeState()
+
+    @Volatile
+    private var modeInitialized = false
+
+    @Volatile
+    private var lastRemoteAppliedModeState: LanLinkPlaybackModeState? = null
+
     private var heartbeatJob: Job? = null
 
     private data class StateSignature(
@@ -126,6 +174,42 @@ class LanLinkRemoteCoordinator(
         scope.launch {
             for (msg in outboundChannel) {
                 transport.sendMessage(msg)
+            }
+        }
+
+        // 监听联动播放模式变化：仅将本地主动修改同步给已连接对端，远端回写不回传以避免循环
+        scope.launch {
+            playbackModeStore.state.collect { incoming ->
+                var syncMessage: LanLinkMessage.RemotePlaybackModeSync? = null
+                var transition: Pair<LanLinkPlaybackMode, LanLinkPlaybackMode>? = null
+                modeMutex.withLock {
+                    if (!modeInitialized) {
+                        latestModeState = incoming
+                        modeInitialized = true
+                        return@withLock
+                    }
+                    if (incoming == lastRemoteAppliedModeState ||
+                        incoming == latestModeState ||
+                        incoming.updatedAtMs < latestModeState.updatedAtMs
+                    ) {
+                        return@withLock
+                    }
+                    val oldMode = latestModeState.mode
+                    latestModeState = incoming
+                    if (transport.enabled.value && transport.connectedDevice.value != null) {
+                        syncMessage = LanLinkMessage.RemotePlaybackModeSync(
+                            mode = incoming.mode,
+                            updatedAtMs = incoming.updatedAtMs
+                        )
+                    }
+                    if (oldMode != incoming.mode) {
+                        transition = oldMode to incoming.mode
+                    }
+                }
+                syncMessage?.let { enqueueOutbound(it) }
+                transition?.let { (oldMode, newMode) ->
+                    handleRuntimeModeTransition(oldMode, newMode, transport.connectedDevice.value)
+                }
             }
         }
 
@@ -163,7 +247,7 @@ class LanLinkRemoteCoordinator(
             }
         }
 
-        // 监听本机直接起播：未在抑制窗口内从暂停转为播放时抢占为唯一活跃设备
+        // 监听本机直接起播：单一设备模式下抢占活跃设备；独立模式下不抢占对端、不广播 RemoteActiveDevice
         scope.launch {
             var previousPlaying: Boolean? = null
             combine(localController.isPlaying, localController.playWhenReady) { playing, ready ->
@@ -174,8 +258,13 @@ class LanLinkRemoteCoordinator(
                 if (nowPlayingOrReady) {
                     lastLocalActiveAtMs = clockMs()
                 }
-                if (prev == false && nowPlayingOrReady) {
-                    if (clockMs() >= ignoreLocalPlayUntilMs &&
+                if (prev == false && nowPlayingOrReady && clockMs() >= ignoreLocalPlayUntilMs) {
+                    val mode = ensureModeInitialized().mode
+                    if (mode == LanLinkPlaybackMode.INDEPENDENT) {
+                        if (_activeTarget.value is PlaybackTarget.Remote) {
+                            _activeTarget.value = PlaybackTarget.Local
+                        }
+                    } else if (
                         transport.enabled.value &&
                         transport.connectedDevice.value != null &&
                         (_activeTarget.value is PlaybackTarget.Remote ||
@@ -282,6 +371,24 @@ class LanLinkRemoteCoordinator(
         _messages.tryEmit(message)
     }
 
+    private fun currentMode(): LanLinkPlaybackMode =
+        if (modeInitialized) {
+            latestModeState.mode
+        } else {
+            (playbackModeStore.state as? StateFlow<LanLinkPlaybackModeState>)?.value?.mode
+                ?: latestModeState.mode
+        }
+
+    private suspend fun ensureModeInitialized(): LanLinkPlaybackModeState {
+        return modeMutex.withLock {
+            if (!modeInitialized) {
+                latestModeState = playbackModeStore.state.first()
+                modeInitialized = true
+            }
+            latestModeState
+        }
+    }
+
     fun switchToRemote(): Boolean {
         val peer = transport.connectedDevice.value
         if (!transport.enabled.value || peer == null) {
@@ -292,19 +399,22 @@ class LanLinkRemoteCoordinator(
         if (currentTarget is PlaybackTarget.Remote && currentTarget.peer.deviceId == peer.deviceId) {
             return true
         }
+        val mode = currentMode()
         val currentNowPlaying = localController.nowPlaying.value
         val currentItem = localController.currentQueueItem.value
         if (currentNowPlaying == null && currentItem == null) {
-            lastDeclaredActiveDeviceId = peer.deviceId
             _activeTarget.value = PlaybackTarget.Remote(peer)
-            enqueueOutbound(
-                LanLinkMessage.RemoteActiveDevice(
-                    activeDeviceId = peer.deviceId,
-                    activeDeviceName = peer.deviceName,
-                    epoch = nextEpoch(),
-                    timestampMs = clockMs()
+            if (mode == LanLinkPlaybackMode.SINGLE_DEVICE) {
+                lastDeclaredActiveDeviceId = peer.deviceId
+                enqueueOutbound(
+                    LanLinkMessage.RemoteActiveDevice(
+                        activeDeviceId = peer.deviceId,
+                        activeDeviceName = peer.deviceName,
+                        epoch = nextEpoch(),
+                        timestampMs = clockMs()
+                    )
                 )
-            )
+            }
             enqueueOutbound(LanLinkMessage.RemoteRequestSync)
             return true
         }
@@ -319,7 +429,9 @@ class LanLinkRemoteCoordinator(
         scope.launch(commandDispatcher) {
             localController.pause()
         }
-        lastDeclaredActiveDeviceId = peer.deviceId
+        if (mode == LanLinkPlaybackMode.SINGLE_DEVICE) {
+            lastDeclaredActiveDeviceId = peer.deviceId
+        }
         _activeTarget.value = PlaybackTarget.Remote(peer)
         enqueueOutbound(
             LanLinkMessage.RemoteHandoffPlay(
@@ -338,20 +450,23 @@ class LanLinkRemoteCoordinator(
         val currentTarget = _activeTarget.value
         if (currentTarget is PlaybackTarget.Local) return true
         val peer = (currentTarget as? PlaybackTarget.Remote)?.peer ?: transport.connectedDevice.value
+        val mode = currentMode()
         val remoteNowPlaying = remoteController.nowPlaying.value
         val remoteItem = remoteController.currentQueueItem.value
         if (remoteNowPlaying == null && remoteItem == null) {
-            lastDeclaredActiveDeviceId = transport.localDeviceId
             _activeTarget.value = PlaybackTarget.Local
-            if (transport.enabled.value && peer != null) {
-                enqueueOutbound(
-                    LanLinkMessage.RemoteActiveDevice(
-                        activeDeviceId = transport.localDeviceId,
-                        activeDeviceName = transport.localDeviceName,
-                        epoch = nextEpoch(),
-                        timestampMs = clockMs()
+            if (mode == LanLinkPlaybackMode.SINGLE_DEVICE) {
+                lastDeclaredActiveDeviceId = transport.localDeviceId
+                if (transport.enabled.value && peer != null) {
+                    enqueueOutbound(
+                        LanLinkMessage.RemoteActiveDevice(
+                            activeDeviceId = transport.localDeviceId,
+                            activeDeviceName = transport.localDeviceName,
+                            epoch = nextEpoch(),
+                            timestampMs = clockMs()
+                        )
                     )
-                )
+                }
             }
             return true
         }
@@ -364,17 +479,22 @@ class LanLinkRemoteCoordinator(
             .coerceAtLeast(0L)
         ignoreLocalPlayUntilMs = clockMs() + SUPPRESSION_WINDOW_MS
         lastLocalActiveAtMs = clockMs()
-        lastDeclaredActiveDeviceId = transport.localDeviceId
         _activeTarget.value = PlaybackTarget.Local
         if (transport.enabled.value && peer != null) {
-            enqueueOutbound(
-                LanLinkMessage.RemoteActiveDevice(
-                    activeDeviceId = transport.localDeviceId,
-                    activeDeviceName = transport.localDeviceName,
-                    epoch = nextEpoch(),
-                    timestampMs = clockMs()
+            if (mode == LanLinkPlaybackMode.SINGLE_DEVICE) {
+                lastDeclaredActiveDeviceId = transport.localDeviceId
+                enqueueOutbound(
+                    LanLinkMessage.RemoteActiveDevice(
+                        activeDeviceId = transport.localDeviceId,
+                        activeDeviceName = transport.localDeviceName,
+                        epoch = nextEpoch(),
+                        timestampMs = clockMs()
+                    )
                 )
-            )
+            } else if (remoteController.isPlaying.value || remoteController.playWhenReady.value) {
+                // 独立播放模式下切回本机仅暂停远端接力播放，不发送会抢占控制目标的 RemoteActiveDevice
+                enqueueOutbound(LanLinkMessage.RemoteCommand(RemoteCommandAction.PAUSE))
+            }
         }
         scope.launch(commandDispatcher) {
             localController.playNextNow(remoteItem, posMs)
@@ -389,8 +509,9 @@ class LanLinkRemoteCoordinator(
         return currentEpoch
     }
 
-    private fun sendPlaybackHello() {
+    private suspend fun sendPlaybackHello() {
         if (!transport.enabled.value || transport.connectedDevice.value == null) return
+        val modeState = ensureModeInitialized()
         enqueueOutbound(
             LanLinkMessage.RemotePlaybackHello(
                 deviceId = transport.localDeviceId,
@@ -399,7 +520,9 @@ class LanLinkRemoteCoordinator(
                 playWhenReady = localController.playWhenReady.value,
                 hasTrack = localController.nowPlaying.value != null || localController.currentQueueItem.value != null,
                 lastActiveAtMs = lastLocalActiveAtMs,
-                isHost = transport.isHostDevice
+                isHost = transport.isHostDevice,
+                playbackMode = modeState.mode,
+                playbackModeUpdatedAtMs = modeState.updatedAtMs
             )
         )
     }
@@ -419,6 +542,69 @@ class LanLinkRemoteCoordinator(
         pushStateSnapshot(force = true)
     }
 
+    private suspend fun reconcileRemoteMode(
+        peer: ConnectedPeerInfo,
+        remoteMode: LanLinkPlaybackMode,
+        remoteUpdatedAtMs: Long,
+        fromHello: Boolean
+    ) {
+        var transition: Pair<LanLinkPlaybackMode, LanLinkPlaybackMode>? = null
+        modeMutex.withLock {
+            if (!modeInitialized) {
+                latestModeState = playbackModeStore.state.first()
+                modeInitialized = true
+            }
+            val local = latestModeState
+            val shouldApply = when {
+                remoteUpdatedAtMs > local.updatedAtMs -> true
+                remoteUpdatedAtMs < local.updatedAtMs -> false
+                remoteMode == local.mode -> false
+                else -> peer.deviceId > transport.localDeviceId
+            }
+            if (!shouldApply) return
+            val nextState = LanLinkPlaybackModeState(remoteMode, remoteUpdatedAtMs)
+            val oldMode = local.mode
+            lastRemoteAppliedModeState = nextState
+            latestModeState = nextState
+            playbackModeStore.applySynced(remoteMode, remoteUpdatedAtMs)
+            if (oldMode != remoteMode) {
+                transition = oldMode to remoteMode
+            }
+        }
+        transition?.let { (oldMode, newMode) ->
+            // 握手阶段若切入单一设备模式，紧随其后的 handlePlaybackHello 会立即完成仲裁，无需重复发 Hello
+            if (!fromHello || newMode == LanLinkPlaybackMode.INDEPENDENT) {
+                handleRuntimeModeTransition(oldMode, newMode, peer)
+            }
+        }
+    }
+
+    private suspend fun handleRuntimeModeTransition(
+        oldMode: LanLinkPlaybackMode,
+        newMode: LanLinkPlaybackMode,
+        peer: ConnectedPeerInfo?
+    ) {
+        if (oldMode == newMode) return
+        when (newMode) {
+            LanLinkPlaybackMode.INDEPENDENT -> {
+                // 单一播放设备 -> 各自独立播放：两端均恢复为本机控制目标，互不暂停
+                lastDeclaredActiveDeviceId = null
+                if (_activeTarget.value !is PlaybackTarget.Local) {
+                    _activeTarget.value = PlaybackTarget.Local
+                }
+            }
+            LanLinkPlaybackMode.SINGLE_DEVICE -> {
+                // 各自独立播放 -> 单一播放设备：按连接握手规则立即重新仲裁一次
+                if (!transport.enabled.value || peer == null) return
+                currentEpoch = 0L
+                lastDeclaredActiveDeviceId = null
+                pushQueueSnapshot()
+                pushStateSnapshot(force = true)
+                sendPlaybackHello()
+            }
+        }
+    }
+
     private suspend fun handleIncomingMessage(peer: ConnectedPeerInfo, message: LanLinkMessage) {
         when (message) {
             is LanLinkMessage.RemotePlaybackState -> {
@@ -431,6 +617,10 @@ class LanLinkRemoteCoordinator(
 
             is LanLinkMessage.RemotePlaybackHello -> {
                 handlePlaybackHello(peer, message)
+            }
+
+            is LanLinkMessage.RemotePlaybackModeSync -> {
+                reconcileRemoteMode(peer, message.mode, message.updatedAtMs, fromHello = false)
             }
 
             is LanLinkMessage.RemoteActiveDevice -> {
@@ -512,6 +702,10 @@ class LanLinkRemoteCoordinator(
 
     private suspend fun handlePlaybackHello(peer: ConnectedPeerInfo, msg: LanLinkMessage.RemotePlaybackHello) {
         peerIsHost = msg.isHost
+        reconcileRemoteMode(peer, msg.playbackMode, msg.playbackModeUpdatedAtMs, fromHello = true)
+        if (ensureModeInitialized().mode == LanLinkPlaybackMode.INDEPENDENT) {
+            return
+        }
         val localPlaying = localController.isPlaying.value || localController.playWhenReady.value
         val peerPlaying = msg.isPlaying || msg.playWhenReady
         when {
@@ -564,6 +758,7 @@ class LanLinkRemoteCoordinator(
     }
 
     private suspend fun handleRemoteActiveDevice(peer: ConnectedPeerInfo, msg: LanLinkMessage.RemoteActiveDevice) {
+        if (ensureModeInitialized().mode == LanLinkPlaybackMode.INDEPENDENT) return
         if (msg.epoch < currentEpoch) return
         if (msg.epoch == currentEpoch &&
             lastDeclaredActiveDeviceId != null &&
@@ -598,9 +793,12 @@ class LanLinkRemoteCoordinator(
 
     private suspend fun handleRemoteHandoffPlay(msg: LanLinkMessage.RemoteHandoffPlay) {
         if (msg.targetDeviceId != transport.localDeviceId) return
-        if (msg.epoch < currentEpoch) return
+        val isIndependent = ensureModeInitialized().mode == LanLinkPlaybackMode.INDEPENDENT
+        if (!isIndependent && msg.epoch < currentEpoch) return
         currentEpoch = maxOf(currentEpoch, msg.epoch)
-        lastDeclaredActiveDeviceId = transport.localDeviceId
+        if (!isIndependent) {
+            lastDeclaredActiveDeviceId = transport.localDeviceId
+        }
         lastLocalActiveAtMs = clockMs()
         ignoreLocalPlayUntilMs = clockMs() + SUPPRESSION_WINDOW_MS
         _activeTarget.value = PlaybackTarget.Local
