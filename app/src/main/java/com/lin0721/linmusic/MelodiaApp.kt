@@ -133,8 +133,11 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
+import com.lin0721.linmusic.feature.player.ui.OutputDeviceSheet
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
@@ -237,10 +240,14 @@ fun MelodiaApp() {
     val isPanelAtStart = sidePlayerPosition == SettingsPreferences.SIDE_PLAYER_POSITION_LEFT
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
     val sidebarMessageEnabled by settingsPreferences.sidebarMessageEnabled.collectAsStateWithLifecycle(initialValue = true)
-    // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
+    // 播放队列和状态走 RoutingPlaybackController，系统播放器特有属性（ffmpeg 提示、首选输出设备）保留 PlayerManager
     val playerManager: PlayerManager = koinInject()
+    val routingController: RoutingPlaybackController = koinInject()
+    val activeTarget by routingController.activeTarget.collectAsStateWithLifecycle()
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
+    var showMiniDeviceSheet by remember { mutableStateOf(false) }
     val ffmpegComponentManager: FfmpegComponentManager = koinInject()
-    val currentTrack by playerManager.currentTrack.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val currentQueueIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
@@ -627,7 +634,7 @@ fun MelodiaApp() {
                         ToastManager.showToast("这首歌打不开，可能已下架")
                         return@collect
                     }
-                    playerManager.playLinkTrack(track, "链接")
+                    viewModel.playerManager.playLinkTrack(track, "链接")
                     if (currentUsePanel) {
                         openPanel()
                     } else {
@@ -1053,6 +1060,8 @@ fun MelodiaApp() {
                             isMiniPlayerLiked = isMiniPlayerLiked,
                             onMiniPlayerLikeClick = onMiniPlayerLikeClick,
                             miniPlayerLikeMode = miniPlayerLikeMode,
+                            remoteDeviceName = remoteDeviceName,
+                            onDeviceClick = { showMiniDeviceSheet = true },
                             onNavigate = { screen ->
                                 navigation.openTab(screen)
                                 if (screen == Screen.Library) {
@@ -1283,6 +1292,8 @@ fun MelodiaApp() {
                         isLiked = isMiniPlayerLiked,
                         onLikeClick = onMiniPlayerLikeClick,
                         likeMode = miniPlayerLikeMode,
+                        remoteDeviceName = remoteDeviceName,
+                        onDeviceClick = { showMiniDeviceSheet = true },
                         modifier = modifier
                     )
                 }
@@ -1329,7 +1340,7 @@ fun MelodiaApp() {
                 val current = songLinkRequests.takeClipboard() ?: return@ClipboardLinkFloatingCard
                 val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
                 if (current.target is SongLinkTarget.Song && readyTrack != null) {
-                    playerManager.playLinkTrack(readyTrack, "链接")
+                    viewModel.playerManager.playLinkTrack(readyTrack, "链接")
                     if (currentUsePanel) {
                         openPanel()
                     } else {
@@ -1344,13 +1355,13 @@ fun MelodiaApp() {
                 val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkFloatingCard
                 val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
                 if (readyTrack != null) {
-                    playerManager.enqueueLinkTrackNext(readyTrack)
+                    viewModel.playerManager.enqueueLinkTrackNext(readyTrack)
                     ToastManager.showToast("已添加至下一首播放")
                 } else {
                     scope.launch {
                         val track = playbackRepository.getSongDetail(songTarget.id).first().getOrNull()
                         if (track != null) {
-                            playerManager.enqueueLinkTrackNext(track)
+                            viewModel.playerManager.enqueueLinkTrackNext(track)
                             ToastManager.showToast("已添加至下一首播放")
                         } else {
                             ToastManager.showToast("这首歌打不开，可能已下架")
@@ -1401,6 +1412,14 @@ fun MelodiaApp() {
 
         // 8. 一起听房间全局弹窗，聊天页与播放页共用
         ListenTogetherRoomHost()
+
+        // 迷你播放条设备按钮打开的输出与联动设备弹窗
+        if (showMiniDeviceSheet) {
+            OutputDeviceSheet(
+                onDeviceSelected = { playerManager.setPreferredAudioDevice(it) },
+                onDismiss = { showMiniDeviceSheet = false }
+            )
+        }
 
         // 9. 系统不支持音频格式时弹窗引导下载 ffmpeg 解码组件
         val ffmpegPrompt by playerManager.ffmpegInstallPrompt.collectAsStateWithLifecycle()

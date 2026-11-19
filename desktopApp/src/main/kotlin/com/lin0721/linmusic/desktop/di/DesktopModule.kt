@@ -36,6 +36,8 @@ import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
@@ -64,7 +66,9 @@ import com.lin0721.linmusic.desktop.plugin.DesktopNativePluginHost
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
 import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
+import com.lin0721.linmusic.desktop.player.DesktopVolumeBridge
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
+import com.lin0721.linmusic.desktop.player.RoutingDesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
 import com.lin0721.linmusic.desktop.player.spectrum.SpectrumHub
@@ -248,8 +252,28 @@ val desktopPlatformModule = module {
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
-    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single<PlaybackController> { get<DesktopPlaybackController>() }
+    single<DesktopPlaybackController>(named("local")) {
+        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get())
+    }
+    single { DesktopVolumeBridge(get(named("local"))) }
+    single {
+        LanLinkRemoteCoordinator(
+            localController = get<DesktopPlaybackController>(named("local")),
+            transport = get<LanLinkDesktopHost>(),
+            volumeBridge = get<DesktopVolumeBridge>(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        )
+    }
+    single {
+        RoutingDesktopPlaybackController(
+            localDesktopController = get(named("local")),
+            coordinator = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        )
+    }
+    single<RoutingPlaybackController> { get<RoutingDesktopPlaybackController>() }
+    single<DesktopPlaybackController> { get<RoutingDesktopPlaybackController>() }
+    single<PlaybackController> { get<RoutingDesktopPlaybackController>() }
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }
     single { QqLyricsSource(get(), get()) }

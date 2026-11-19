@@ -22,6 +22,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
+import com.lin0721.linmusic.core.player.AndroidVolumeBridge
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -35,7 +39,23 @@ val playerModule = module {
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
     }
-    single<PlaybackController> { get<PlayerManager>() }
+    single { AndroidVolumeBridge(androidContext()) }
+    single {
+        LanLinkRemoteCoordinator(
+            localController = get<PlayerManager>(),
+            transport = get<LanLinkAndroidClient>(),
+            volumeBridge = get<AndroidVolumeBridge>(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        )
+    }
+    single {
+        RoutingPlaybackController(
+            localController = get<PlayerManager>(),
+            coordinator = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        )
+    }
+    single<PlaybackController> { get<RoutingPlaybackController>() }
     single { FloatingLyricRequests() }
     single { SleepTimerRequests() }
     // 离线时的可播放判定：已下载 + 播放缓存已完整
@@ -45,7 +65,7 @@ val playerModule = module {
     single { QqLyricsClient() }
     single { QqLyricsSource(get(), get()) }
     single {
-        val playerManager = get<PlayerManager>()
+        val playbackController = get<PlaybackController>()
         val localMusicApi = get<LocalMusicApi>()
         val amllLyricsClient = get<AmllLyricsClient>()
         val settingsPreferences = get<SettingsPreferences>()
@@ -55,13 +75,13 @@ val playerModule = module {
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
-            localUriOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.localUri },
+            localUriOf = { songId -> playbackController.queue.value.firstOrNull { it.songId == songId }?.localUri },
             readAmllLyrics = { songId -> amllLyricsClient.fetch(songId) },
             isAmllEnabled = { settingsPreferences.amllLyricsEnabled.first() },
             isQqEnabled = { settingsPreferences.qqLyricsEnabled.first() },
             isNeteaseEnabled = { settingsPreferences.neteaseLyricsEnabled.first() },
             readQqLyrics = qqLyricsSource::fetch,
-            externalOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.external },
+            externalOf = { songId -> playbackController.queue.value.firstOrNull { it.songId == songId }?.external },
             matchNeteaseId = neteaseLookup::find,
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,

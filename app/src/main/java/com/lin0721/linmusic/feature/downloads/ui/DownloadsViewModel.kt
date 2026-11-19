@@ -6,7 +6,7 @@ import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.SongDownloadManager
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 class DownloadsViewModel(
     private val downloadPreferences: DownloadPreferences,
     private val songDownloadManager: SongDownloadManager,
-    private val playerManager: PlayerManager
+    private val playerManager: PlaybackController
 ) : ViewModel() {
 
     // 已下载歌曲，按下载时间倒序；文件已被删除的记录在校验时清理，null 表示仍在加载

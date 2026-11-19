@@ -57,6 +57,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         userPreferences = get(),
         accountSwitcher = get(),
         lanLink = get(),
+        remoteCoordinator = get(),
         pageViewModels = object : PageViewModelFactory {
             override fun <T : ViewModel> create(modelClass: KClass<T>): T = koin.get(modelClass)
         }

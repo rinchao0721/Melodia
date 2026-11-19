@@ -64,9 +64,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.model.playbackQualityLabel
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -111,7 +113,7 @@ private const val PortraitFullscreenColumnFraction = 0.62f
 
 @Composable
 fun FullPlayerScreen(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -185,7 +187,7 @@ private fun PlayerTintScope(immersive: Boolean, content: @Composable () -> Unit)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullPlayerScreenContent(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -225,11 +227,14 @@ private fun FullPlayerScreenContent(
     val settingsPreferences: SettingsPreferences = koinInject()
     // 输出设备切换为 Android 专属能力，不在跨平台接口里
     val playerManager: PlayerManager = koinInject()
+    val routingController: RoutingPlaybackController = koinInject()
+    val activeTarget by routingController.activeTarget.collectAsStateWithLifecycle()
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
     val lyricPositionProvider: () -> Long = {
         // 保留采样状态的读取依赖，让暂停时的手动跳转也触发重绘；
-        // 扫色进度使用共用的绘制时钟，只在 PlayerManager 中平滑推进和校正。
+        // 扫色进度使用当前生效控制器（本机或远端）的平滑推进时钟。
         currentPositionProvider()
-        playerManager.currentPositionNow()
+        viewModel.playerManager.currentPositionNow()
     }
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
@@ -490,15 +495,15 @@ private fun FullPlayerScreenContent(
     val colors = rememberFullPlayerColors(colorPalette)
     val lyricsCoverColors = LayoutCoverColors(colorPalette.base, colorPalette.textHighlight)
 
-    val title = currentTrack.mediaMetadata.title?.toString() ?: ""
-    val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
+    val title = currentTrack.title
+    val artist = currentTrack.artist
     val qualityDisplay = rememberPlaybackQualityDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
     val qualityLabel = qualityDisplay?.label
     LaunchedEffect(qualityDisplay == null) {
         if (qualityDisplay == null) showQualityDetailSheet = false
     }
     val rawCoverUrl = normalizeFullPlayerCoverUrl(
-        currentTrack.mediaMetadata.artworkUri?.toString().orEmpty()
+        currentTrack.artworkUri.orEmpty()
     )
     val fallbackCoverUrl = currentQueueItem?.let {
         normalizeFullPlayerCoverUrl(rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri))
@@ -721,6 +726,7 @@ private fun FullPlayerScreenContent(
             playMode = playMode,
             animateLyricsMesh = isPlaying && !isLyricsFullScreen,
             connectedDevice = connectedDevice,
+            remoteDeviceName = remoteDeviceName,
             qualityLabel = qualityLabel,
             onQualityClick = { showQualityDetailSheet = true },
             onToggleLike = onCollectButtonClick,
@@ -911,6 +917,7 @@ private fun FullPlayerScreenContent(
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
+                        remoteDeviceName = remoteDeviceName,
                         qualityLabel = qualityLabel,
                         onQualityClick = { showQualityDetailSheet = true },
                         showMiniLyric = showMiniLyric,
@@ -1063,6 +1070,7 @@ private fun FullPlayerScreenContent(
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
+                        remoteDeviceName = remoteDeviceName,
                         qualityLabel = qualityLabel,
                         onQualityClick = { showQualityDetailSheet = true },
                         showLyricsControls = !podcast.isPodcast,

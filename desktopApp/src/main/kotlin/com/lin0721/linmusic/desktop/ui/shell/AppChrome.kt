@@ -20,6 +20,7 @@ import com.lin0721.linmusic.desktop.ui.library.performLibraryShortcutClick
 import com.lin0721.linmusic.desktop.ui.library.shortcutTooltip
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 import com.lin0721.linmusic.desktop.ui.nowplaying.DockOverlay
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
 import com.lin0721.linmusic.desktop.ui.player.PlayerBar
 import com.lin0721.linmusic.desktop.ui.player.collectSelectedAudioDevice
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
@@ -214,7 +215,14 @@ internal fun AppPlayerBar(
     val scope = rememberCoroutineScope()
     val controller = deps.playbackController
     val lyricsView = state.lyricsView
-    val volume = controller.volume.collectAsState().value.takeIf { audioOutput != null }
+    val lanLinkEnabled by deps.lanLink.enabled.collectAsState()
+    val connectedPeer by deps.lanLink.connectedDevice.collectAsState()
+    val pairedDevices by deps.lanLink.pairedDevices.collectAsState()
+    val activeTarget by deps.remoteCoordinator.activeTarget.collectAsState()
+    val peerForSwitch = connectedPeer?.takeIf { lanLinkEnabled }
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
+    val isRemote = remoteDeviceName != null
+    val volume = controller.volume.collectAsState().value.takeIf { audioOutput != null || isRemote }
     val lastAudibleVolume by controller.lastAudibleVolume.collectAsState()
     val showDesktopLyric by deps.settingsPreferences.showDesktopLrc.collectAsState(initial = false)
     PlayerBar(
@@ -228,15 +236,18 @@ internal fun AppPlayerBar(
         queueOpen = state.isOverlayOpen(DockOverlay.Queue),
         onToggleQueue = { state.toggleOverlay(DockOverlay.Queue) },
         devicesOpen = state.isOverlayOpen(DockOverlay.Devices),
-        // 占位播放器没有输出设备能力时不显示按钮
-        onToggleDevices = audioOutput?.let { { state.toggleOverlay(DockOverlay.Devices) } },
-        outputDevice = audioOutput?.let { collectSelectedAudioDevice(it) },
+        // 占位播放器且无任何已连接或已配对联动设备时没有设备面板入口
+        onToggleDevices = if (audioOutput != null || peerForSwitch != null || pairedDevices.isNotEmpty()) {
+            { state.toggleOverlay(DockOverlay.Devices) }
+        } else null,
+        outputDevice = if (isRemote) null else audioOutput?.let { collectSelectedAudioDevice(it) },
         isFullscreen = fullscreen.isFullscreen,
         onToggleFullscreen = fullscreen::toggle,
         lyricVisible = showDesktopLyric,
         onToggleLyric = { scope.launch { deps.settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } },
         lyricsViewOpen = lyricsView.isOpen,
         onToggleLyricsView = state::toggleLyricsView,
-        onEnterMiniPlayer = onEnterMiniPlayer
+        onEnterMiniPlayer = onEnterMiniPlayer,
+        remoteDeviceName = remoteDeviceName
     )
 }

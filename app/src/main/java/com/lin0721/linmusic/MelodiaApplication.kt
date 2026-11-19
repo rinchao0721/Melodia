@@ -16,7 +16,8 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
-import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -56,10 +57,11 @@ class MelodiaApplication : Application() {
 
     private val updateChecker: UpdateChecker by inject()
     private val downloadWorkerFactory: DownloadWorkerFactory by inject()
-    private val playbackController = inject<PlaybackController>()
+    private val localPlayerManager = inject<PlayerManager>()
     private val settingsPreferences: SettingsPreferences by inject()
     private val lxPluginEngine: LxPluginEngine by inject()
     private val lanLinkAndroidClient: LanLinkAndroidClient by inject()
+    private val remoteCoordinator: LanLinkRemoteCoordinator by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -124,9 +126,9 @@ class MelodiaApplication : Application() {
         )
 
         // 零跑车机方向盘：必须进程级注册，任何入口启动都要生效
-        val mediaClaim = LeapmotorMediaClaim(this, playbackController, settingsPreferences)
+        val mediaClaim = LeapmotorMediaClaim(this, localPlayerManager, settingsPreferences)
         mediaClaim.start()
-        LeapmotorSteeringControl(this, playbackController, onKeyReceived = mediaClaim::publishNow).register()
+        LeapmotorSteeringControl(this, localPlayerManager, onKeyReceived = mediaClaim::publishNow).register()
 
         // 延迟几秒后台检查更新，避开启动关键路径；进程生命周期内只检查这一次
         CoroutineScope(Dispatchers.IO).launch {
@@ -134,10 +136,12 @@ class MelodiaApplication : Application() {
             delay(3000)
             updateChecker.checkForUpdate(manual = false)
         }
-        // 启动局域网联动客户端（开关关闭时保持静默）
+        // 启动局域网联动客户端与双向遥控协调器（开关关闭时保持静默）
         lanLinkAndroidClient.start()
+        remoteCoordinator.start()
         CoroutineScope(Dispatchers.IO).launch {
-            lanLinkAndroidClient.messages.collect(ToastManager::showToast)
+            launch { lanLinkAndroidClient.messages.collect(ToastManager::showToast) }
+            launch { remoteCoordinator.messages.collect(ToastManager::showToast) }
         }
         // 旧版内置下载遗留的更新通知渠道
         getSystemService(NotificationManager::class.java)?.deleteNotificationChannel(LEGACY_UPDATE_CHANNEL_ID)

@@ -197,7 +197,7 @@ class PlayerManager(
     }
 
     // 直接读时钟仍可能得到离散采样值；用共享绘制时钟逐帧推进，并渐进校正。
-    fun currentPositionNow(): Long {
+    override fun currentPositionNow(): Long {
         val sample = playbackPositionSource?.invoke()
         val raw = sample?.positionMs
             ?: controllerHolder.currentPositionOrNull

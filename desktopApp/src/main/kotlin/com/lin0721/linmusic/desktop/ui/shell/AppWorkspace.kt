@@ -70,8 +70,11 @@ internal fun Workspace(
     val dockOverlay = state.dockOverlay
     BoxWithConstraints(modifier) {
         val available = maxWidth - DesktopDimens.PaneGap * 2
-        // 无曲目时下载面板与歌单评论也要能打开，右侧栏只承载它们
-        val hasTrack = hasNowPlaying || dockOverlay == DockOverlay.Downloads || dockOverlay == DockOverlay.PlaylistComments
+        // 无曲目时下载面板、歌单评论与设备面板也要能打开，右侧栏只承载它们
+        val hasTrack = hasNowPlaying ||
+            dockOverlay == DockOverlay.Downloads ||
+            dockOverlay == DockOverlay.PlaylistComments ||
+            dockOverlay == DockOverlay.Devices
         val measure = pane.measure(available, hasTrack, dockOpen)
         val dockState = rememberNowPlayingDockState(hasTrack, dockOpen, measure.dockOpenWidth, pane.resizing)
         val workspace = rememberWorkspaceLayout(
@@ -157,7 +160,11 @@ internal fun Workspace(
                     songActions = deps.songActions,
                     onResizeStart = { pane.startDockDrag(dockState.width) },
                     onResize = { delta -> pane.dragDock(delta, measure.dockMax, dockOpen, state::closeDockByDrag) },
-                    onResizeEnd = pane::endDockDrag
+                    onResizeEnd = pane::endDockDrag,
+                    lanLink = deps.lanLink,
+                    remoteCoordinator = deps.remoteCoordinator,
+                    onToggleDevices = { state.toggleOverlay(DockOverlay.Devices) },
+                    devicesOpen = state.isOverlayOpen(DockOverlay.Devices)
                 )
             }
         }
@@ -184,7 +191,9 @@ internal fun Workspace(
                 onClose = state::closeOverlay,
                 modifier = Modifier.align(Alignment.CenterEnd).padding(DesktopDimens.PaneGap)
                     .width(pane.dockWidthPref.coerceIn(DesktopDimens.NowPlayingMinWidth, DesktopDimens.NowPlayingMaxWidth))
-                    .fillMaxHeight()
+                    .fillMaxHeight(),
+                lanLink = deps.lanLink,
+                remoteCoordinator = deps.remoteCoordinator
             )
         }
     }

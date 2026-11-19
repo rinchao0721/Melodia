@@ -65,6 +65,7 @@ import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.player.RoutingDesktopPlaybackController
 import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
 import com.lin0721.linmusic.desktop.ui.components.registerClipboardCopyObserver
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
@@ -120,8 +121,10 @@ fun WindowScope.MelodiaDesktopApp(
 ) {
     val focusManager = LocalFocusManager.current
     val controller = deps.playbackController
-    // 占位播放器没有音量与输出设备能力，界面隐藏对应入口
-    val audioOutput: AudioOutputControl? = controller.takeIf { it.unavailableReason == null }
+    // 占位播放器没有音量与输出设备能力，界面隐藏对应入口（远端控制时仍可控制远端音量）
+    val localUnavailableReason = (controller as? RoutingDesktopPlaybackController)?.localUnavailableReason
+        ?: controller.unavailableReason
+    val audioOutput: AudioOutputControl? = controller.takeIf { localUnavailableReason == null }
     val state = session.state
 
     val userProfile by deps.homeViewModel.userProfile.collectAsState()

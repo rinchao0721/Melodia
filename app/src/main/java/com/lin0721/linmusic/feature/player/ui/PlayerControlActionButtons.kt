@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Computer
 import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.Subtitles
 import com.lin0721.linmusic.core.ui.icons.MoreVert
@@ -52,6 +53,7 @@ fun PlayerActionRow(
     connectedDevice: AudioDeviceInfo?,
     qualityLabel: String?,
     modifier: Modifier = Modifier,
+    remoteDeviceName: String? = null,
     onQualityClick: (() -> Unit)? = null,
     onSleepTimerClick: () -> Unit = {},
     sleepTimerActive: Boolean = false,
@@ -68,9 +70,17 @@ fun PlayerActionRow(
             when (button) {
                 "device" -> MelodiaIconButton(onClick = onOutputDeviceClick) {
                     Icon(
-                        connectedDevice?.let { deviceIcon(it.type) } ?: MelodiaIcons.Devices,
+                        when {
+                            remoteDeviceName != null -> MelodiaIcons.Computer
+                            connectedDevice != null -> deviceIcon(connectedDevice.type)
+                            else -> MelodiaIcons.Devices
+                        },
                         contentDescription = "连接设备",
-                        tint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary,
+                        tint = if (remoteDeviceName != null || connectedDevice != null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MelodiaColors.TextSecondary
+                        },
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -154,6 +164,7 @@ fun ActionButtons(
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
     connectedDevice: AudioDeviceInfo? = null,
+    remoteDeviceName: String? = null,
     // 实际音质短标签，为空时不显示
     qualityLabel: String? = null,
     onQualityClick: (() -> Unit)? = null,
@@ -164,8 +175,14 @@ fun ActionButtons(
     onToggleSecondaryMode: (() -> Unit)? = null,
     onLyricsSettingsClick: (() -> Unit)? = null
 ) {
-    val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: MelodiaIcons.Devices
-    val outputDeviceTint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
+    val outputDeviceIcon = when {
+        remoteDeviceName != null -> MelodiaIcons.Computer
+        connectedDevice != null -> deviceIcon(connectedDevice.type)
+        else -> MelodiaIcons.Devices
+    }
+    val isDeviceHighlighted = remoteDeviceName != null || connectedDevice != null
+    val outputDeviceTint = if (isDeviceHighlighted) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
+    val outputDeviceLabel = remoteDeviceName ?: connectedDevice?.let { deviceLabel(it) }
 
     // 依次排入设备、音质、按钮三个槽位，见 ActionRowLayout
     ActionRowLayout(
@@ -187,9 +204,9 @@ fun ActionButtons(
                 ) {
                     Icon(outputDeviceIcon, contentDescription = "连接设备", tint = outputDeviceTint, modifier = Modifier.size(24.dp))
                 }
-                if (connectedDevice != null) {
+                if (outputDeviceLabel != null) {
                     Text(
-                        text = deviceLabel(connectedDevice),
+                        text = outputDeviceLabel,
                         color = outputDeviceTint,
                         fontSize = 12.sp,
                         maxLines = 1,

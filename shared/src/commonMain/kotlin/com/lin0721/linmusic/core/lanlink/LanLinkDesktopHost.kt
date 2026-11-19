@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import java.io.IOException
 import java.net.DatagramPacket
@@ -45,13 +47,27 @@ class LanLinkDesktopHost(
     private val userPreferences: UserPreferences,
     private val deviceNameProvider: () -> String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-) {
+) : LanLinkTransport {
     private val pairingManager = PairingSessionManager()
+    private val sessionLock = Any()
 
-    val enabled: StateFlow<Boolean> = settingsPreferences.lanLinkEnabled
+    @Volatile
+    private var cachedLocalDeviceId: String = ""
+
+    override val localDeviceId: String
+        get() = cachedLocalDeviceId.ifBlank {
+            runBlocking { lanLinkPreferences.ensureLocalDeviceId().also { cachedLocalDeviceId = it } }
+        }
+
+    override val localDeviceName: String
+        get() = deviceNameProvider()
+
+    override val isHostDevice: Boolean = true
+
+    override val enabled: StateFlow<Boolean> = settingsPreferences.lanLinkEnabled
         .stateIn(scope, SharingStarted.Eagerly, false)
 
-    val pairedDevices: StateFlow<List<PairedLanDevice>> = lanLinkPreferences.pairedDevices
+    override val pairedDevices: StateFlow<List<PairedLanDevice>> = lanLinkPreferences.pairedDevices
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     private val _pairingDisplay = MutableStateFlow<PairingDisplayState?>(null)
@@ -61,7 +77,7 @@ class LanLinkDesktopHost(
     val connectionState: StateFlow<LanLinkConnectionState> = _connectionState.asStateFlow()
 
     private val _connectedDevice = MutableStateFlow<ConnectedPeerInfo?>(null)
-    val connectedDevice: StateFlow<ConnectedPeerInfo?> = _connectedDevice.asStateFlow()
+    override val connectedDevice: StateFlow<ConnectedPeerInfo?> = _connectedDevice.asStateFlow()
 
     private val _syncState = MutableStateFlow(LanLinkSyncState.IDLE)
     val syncState: StateFlow<LanLinkSyncState> = _syncState.asStateFlow()
@@ -71,6 +87,9 @@ class LanLinkDesktopHost(
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    private val _incomingMessages = MutableSharedFlow<LanLinkIncomingMessage>(extraBufferCapacity = 64)
+    override val incomingMessages: Flow<LanLinkIncomingMessage> = _incomingMessages.asSharedFlow()
 
     private var started = false
     private var lifecycleJob: Job? = null
@@ -132,17 +151,20 @@ class LanLinkDesktopHost(
 
     fun unpairDevice(deviceId: String) {
         scope.launch {
-            val current = activeSession
-            if (current != null && current.peerDeviceId == deviceId) {
+            val current = synchronized(sessionLock) {
+                activeSession?.takeIf { it.peerDeviceId == deviceId }?.also { activeSession = null }
+            }
+            if (current != null) {
                 current.sendUnpairedAndClose()
-                if (activeSession === current) activeSession = null
             }
             lanLinkPreferences.removePairedDevice(deviceId)
-            if (_connectedDevice.value?.deviceId == deviceId) {
-                _connectedDevice.value = null
-                _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
-                _syncState.value = LanLinkSyncState.IDLE
-                _syncStatusMessage.value = if (enabled.value) "等待手机连接" else "已关闭"
+            synchronized(sessionLock) {
+                if (_connectedDevice.value?.deviceId == deviceId) {
+                    _connectedDevice.value = null
+                    _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
+                    _syncState.value = LanLinkSyncState.IDLE
+                    _syncStatusMessage.value = if (enabled.value) "等待手机连接" else "已关闭"
+                }
             }
             _messages.tryEmit("已取消配对")
         }
@@ -150,7 +172,7 @@ class LanLinkDesktopHost(
 
     private suspend fun startHost() {
         stopHostInternal()
-        val localDeviceId = lanLinkPreferences.ensureLocalDeviceId()
+        val localDeviceId = lanLinkPreferences.ensureLocalDeviceId().also { cachedLocalDeviceId = it }
         val tcp = try {
             ServerSocket(0)
         } catch (e: IOException) {
@@ -197,13 +219,17 @@ class LanLinkDesktopHost(
         cancelPairingCode()
         serverJob?.cancel()
         serverJob = null
-        activeSession?.close()
-        activeSession = null
+        val previous = synchronized(sessionLock) {
+            val s = activeSession
+            activeSession = null
+            _connectedDevice.value = null
+            s
+        }
+        previous?.close()
         runCatching { udpSocket?.close() }
         udpSocket = null
         runCatching { serverSocket?.close() }
         serverSocket = null
-        _connectedDevice.value = null
     }
 
     private fun runUdpDiscoveryLoop(udp: DatagramSocket, localDeviceId: String, tcpPort: Int) {
@@ -261,23 +287,35 @@ class LanLinkDesktopHost(
             } ?: return
 
             startedSession = sessionContext
-            activeSession?.close()
-            activeSession = sessionContext
-            _connectedDevice.value = ConnectedPeerInfo(sessionContext.peerDeviceId, sessionContext.peerDeviceName)
-            _connectionState.value = LanLinkConnectionState.CONNECTED
-            _syncStatusMessage.value = "已连接，正在核对账号…"
+            // 先把新会话置为 activeSession，再关闭旧会话，避免旧会话 finally 误清当前连接状态
+            val previous = synchronized(sessionLock) {
+                val prev = activeSession
+                activeSession = sessionContext
+                _connectedDevice.value = ConnectedPeerInfo(sessionContext.peerDeviceId, sessionContext.peerDeviceName)
+                _connectionState.value = LanLinkConnectionState.CONNECTED
+                _syncStatusMessage.value = "已连接，正在核对账号…"
+                prev
+            }
+            previous?.close()
 
             sessionContext.run()
         } catch (e: Exception) {
             if (!socket.isClosed) AppLogger.d(TAG, "连接已结束: ${e.message}")
         } finally {
             if (startedSession == null) runCatching { socket.close() }
-            if (startedSession != null && activeSession === startedSession) {
-                activeSession = null
-                _connectedDevice.value = null
-                _syncState.value = LanLinkSyncState.IDLE
-                _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
-                _syncStatusMessage.value = if (enabled.value) "等待手机连接" else "已关闭"
+            if (startedSession != null) {
+                var cleared = false
+                synchronized(sessionLock) {
+                    if (activeSession === startedSession) {
+                        activeSession = null
+                        _connectedDevice.value = null
+                        _syncState.value = LanLinkSyncState.IDLE
+                        _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
+                        _syncStatusMessage.value = if (enabled.value) "等待手机连接" else "已关闭"
+                        cleared = true
+                    }
+                }
+                if (cleared) startedSession.close()
             }
         }
     }
@@ -460,6 +498,30 @@ class LanLinkDesktopHost(
         return createSession(socket, sessionKey, paired.deviceId, peerName)
     }
 
+    override suspend fun sendMessage(message: LanLinkMessage): Boolean {
+        val session = activeSession ?: return false
+        return runCatching {
+            session.sendMessage(message)
+            true
+        }.onFailure {
+            AppLogger.w(TAG, "发送局域网消息失败: ${it.message}")
+            session.close()
+            synchronized(sessionLock) {
+                if (activeSession === session) {
+                    activeSession = null
+                    _connectedDevice.value = null
+                    _syncState.value = LanLinkSyncState.IDLE
+                    _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
+                    _syncStatusMessage.value = if (enabled.value) "等待手机连接" else "已关闭"
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    override fun emitUserMessage(message: String) {
+        _messages.tryEmit(message)
+    }
+
     private fun createSession(
         socket: Socket,
         sessionKey: ByteArray,
@@ -480,6 +542,14 @@ class LanLinkDesktopHost(
         onSyncStateChanged = { state, message ->
             _syncState.value = state
             _syncStatusMessage.value = message
+        },
+        onMessageReceived = { message ->
+            _incomingMessages.emit(
+                LanLinkIncomingMessage(
+                    peer = ConnectedPeerInfo(peerDeviceId, peerDeviceName),
+                    message = message
+                )
+            )
         }
     )
 

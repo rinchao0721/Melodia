@@ -13,5 +13,6 @@ internal fun appMessages(deps: DesktopAppDependencies, state: DesktopAppState): 
     state.messages,
     deps.playbackController.messages,
     deps.downloader.messages,
-    deps.updateChecker.messages
+    deps.updateChecker.messages,
+    deps.lanLink.messages
 )

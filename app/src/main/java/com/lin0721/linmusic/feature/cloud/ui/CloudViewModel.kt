@@ -11,7 +11,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -54,7 +54,7 @@ class CloudViewModel(
     private val songLikeRepository: SongLikeRepository,
     private val uploadManager: CloudUploadManager,
     private val userPreferences: UserPreferences,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     private val resourceProvider: ResourceProvider,
     private val context: Context
 ) : ViewModel() {

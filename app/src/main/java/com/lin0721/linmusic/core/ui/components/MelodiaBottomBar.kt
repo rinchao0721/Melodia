@@ -64,7 +64,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -109,6 +109,8 @@ import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Computer
+import com.lin0721.linmusic.core.ui.icons.Devices
 import com.lin0721.linmusic.core.ui.icons.Favorite
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.SkipNext
@@ -122,7 +124,7 @@ enum class MiniPlayerLikeMode { Collect, Subscribe, Hidden }
 
 @Composable
 fun MiniPlayerCard(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -141,14 +143,16 @@ fun MiniPlayerCard(
     isLiked: Boolean = false,
     onLikeClick: () -> Unit = {},
     likeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
-    expanded: Boolean = false
+    expanded: Boolean = false,
+    remoteDeviceName: String? = null,
+    onDeviceClick: (() -> Unit)? = null
 ) {
     val motion = LocalUiMotion.current
     if (currentTrack == null) return
 
     val context = LocalContext.current
-    val cleanCoverUrl = remember(currentTrack.mediaMetadata.artworkUri) {
-        currentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    val cleanCoverUrl = remember(currentTrack.artworkUri) {
+        currentTrack.artworkUri.orEmpty()
     }
 
     // 切歌时沿用上一首的配色直到新封面取色完成，避免闪回默认底色
@@ -206,8 +210,8 @@ fun MiniPlayerCard(
     }
     val canSwipeToPrevious = displayedPreviousQueueItem != null
     val canSwipeToNext = displayedNextQueueItem != null
-    val displayedCleanCoverUrl = remember(displayedCurrentTrack.mediaMetadata.artworkUri) {
-        displayedCurrentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    val displayedCleanCoverUrl = remember(displayedCurrentTrack.artworkUri) {
+        displayedCurrentTrack.artworkUri.orEmpty()
     }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
     if (swipeDirection != null) {
@@ -317,8 +321,8 @@ fun MiniPlayerCard(
             if (pluginSpec != null && !pluginSpec.hostContent) BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
                 val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
-                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
-                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+                val title = displayedCurrentTrack.title.ifBlank { "未知歌名" }
+                val artist = displayedCurrentTrack.artist
                 val pluginState = rememberMiniPluginState(
                     title = title,
                     artist = artist,
@@ -427,18 +431,29 @@ fun MiniPlayerCard(
                     MiniPlayerSlidingContent(
                         state = swipeState,
                         currentKey = displayedCurrentTrack.mediaId,
-                        currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
-                        currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                        currentTitle = displayedCurrentTrack.title.ifBlank { "未知歌名" },
+                        currentArtist = displayedCurrentTrack.artist,
                         currentCoverUrl = displayedCleanCoverUrl,
                         previousQueueItem = displayedPreviousQueueItem,
                         nextQueueItem = displayedNextQueueItem,
                         connectedDevice = connectedDevice,
+                        remoteDeviceName = remoteDeviceName,
                         modifier = Modifier
                             .weight(1f)
                             .height(if (expanded) 52.dp else 44.dp)
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
+                        if (onDeviceClick != null) {
+                            MelodiaIconButton(onClick = onDeviceClick) {
+                                Icon(
+                                    imageVector = if (remoteDeviceName != null) MelodiaIcons.Computer else MelodiaIcons.Devices,
+                                    contentDescription = "设备",
+                                    tint = if (remoteDeviceName != null) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
+                                    modifier = Modifier.size(21.dp)
+                                )
+                            }
+                        }
                         // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
                         MiniLikeButton(likeMode, isLiked, onLikeClick)
                         // 播放/暂停按钮
@@ -553,6 +568,7 @@ private class MiniPlayerSlideLayer(
     val artist: String,
     val coverUrl: String,
     val connectedDevice: AudioDeviceInfo?,
+    val remoteDeviceName: String?,
     val translationXProvider: () -> Float
 )
 
@@ -567,6 +583,7 @@ private fun MiniPlayerSlidingContent(
     previousQueueItem: QueueItem?,
     nextQueueItem: QueueItem?,
     connectedDevice: AudioDeviceInfo?,
+    remoteDeviceName: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -587,6 +604,7 @@ private fun MiniPlayerSlidingContent(
                             artist = item.artist,
                             coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                             connectedDevice = null,
+                            remoteDeviceName = null,
                             translationXProvider = { state.offsetX - state.containerWidthPx }
                         )
                     )
@@ -599,6 +617,7 @@ private fun MiniPlayerSlidingContent(
                     artist = currentArtist,
                     coverUrl = currentCoverUrl,
                     connectedDevice = connectedDevice,
+                    remoteDeviceName = remoteDeviceName,
                     translationXProvider = { state.offsetX }
                 )
             )
@@ -613,6 +632,7 @@ private fun MiniPlayerSlidingContent(
                             artist = item.artist,
                             coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                             connectedDevice = null,
+                            remoteDeviceName = null,
                             translationXProvider = { state.offsetX + state.containerWidthPx }
                         )
                     )
@@ -626,6 +646,7 @@ private fun MiniPlayerSlidingContent(
                     artist = layer.artist,
                     coverUrl = layer.coverUrl,
                     connectedDevice = layer.connectedDevice,
+                    remoteDeviceName = layer.remoteDeviceName,
                     translationXProvider = layer.translationXProvider
                 )
             }
@@ -640,9 +661,16 @@ private fun MiniPlayerContentRow(
     artist: String,
     coverUrl: String,
     connectedDevice: AudioDeviceInfo?,
+    remoteDeviceName: String?,
     translationXProvider: () -> Float
 ) {
     val thumbUrl = remember(coverUrl) { miniThumbUrl(coverUrl) }
+    val activeDeviceLabel = remoteDeviceName?.let { "在 $it 上播放" } ?: connectedDevice?.let { deviceLabel(it) }
+    val activeDeviceIcon = when {
+        remoteDeviceName != null -> MelodiaIcons.Computer
+        connectedDevice != null -> deviceIcon(connectedDevice.type)
+        else -> null
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -664,7 +692,7 @@ private fun MiniPlayerContentRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
+            val titleLine = if (activeDeviceLabel != null && artist.isNotBlank()) "$title · $artist" else title
             Text(
                 text = titleLine,
                 color = MelodiaColors.OnPlayer,
@@ -678,18 +706,18 @@ private fun MiniPlayerContentRow(
                 ),
                 modifier = Modifier.basicMarquee()
             )
-            if (connectedDevice != null) {
+            if (activeDeviceLabel != null && activeDeviceIcon != null) {
                 Spacer(modifier = Modifier.height(1.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = deviceIcon(connectedDevice.type),
+                        imageVector = activeDeviceIcon,
                         contentDescription = null,
                         tint = MelodiaColors.OnCoverAccent,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = deviceLabel(connectedDevice),
+                        text = activeDeviceLabel,
                         color = MelodiaColors.OnCoverAccent,
                         fontSize = 11.sp,
                         maxLines = 1,

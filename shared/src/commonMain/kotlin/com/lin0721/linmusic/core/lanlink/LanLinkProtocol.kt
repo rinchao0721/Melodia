@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.core.lanlink
 
+import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PersonalFmMode
+import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalSnapshot
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -17,6 +22,7 @@ object LanLinkConstants {
     const val HEARTBEAT_TIMEOUT_MS = 45_000L
     const val SYNC_DEBOUNCE_MS = 1_000L
     const val DISCOVERY_LISTEN_MS = 2_200L
+    const val REMOTE_STATE_THROTTLE_MS = 1_000L
 }
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -182,4 +188,175 @@ sealed interface LanLinkMessage {
         val code: String,
         val message: String
     ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_playback_hello")
+    data class RemotePlaybackHello(
+        val deviceId: String,
+        val deviceName: String,
+        val isPlaying: Boolean,
+        val playWhenReady: Boolean,
+        val hasTrack: Boolean,
+        val lastActiveAtMs: Long,
+        val isHost: Boolean
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_active_device")
+    data class RemoteActiveDevice(
+        val activeDeviceId: String,
+        val activeDeviceName: String,
+        val epoch: Long,
+        val timestampMs: Long
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_handoff_play")
+    data class RemoteHandoffPlay(
+        val targetDeviceId: String,
+        val item: QueueItem,
+        val startPositionMs: Long = 0L,
+        val epoch: Long,
+        val timestampMs: Long
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_request_sync")
+    data object RemoteRequestSync : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_command")
+    data class RemoteCommand(
+        val action: RemoteCommandAction,
+        val index: Int = -1,
+        val fromIndex: Int = -1,
+        val toIndex: Int = -1,
+        val positionMs: Long = 0L,
+        val volumePercent: Int = -1,
+        val personalFmMode: PersonalFmMode? = null
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_play_queue")
+    data class RemotePlayQueue(
+        val items: List<QueueItem>,
+        val startIndex: Int,
+        val playContext: String? = null,
+        val source: PlaySource? = null,
+        val startPositionMs: Long = 0L
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_play_audio")
+    data class RemotePlayAudio(
+        val songId: Long,
+        val url: String,
+        val title: String,
+        val artist: String,
+        val coverUrl: String,
+        val startPosition: Long = 0L,
+        val playContext: String? = null
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_add_to_play_next")
+    data class RemoteAddToPlayNext(
+        val items: List<QueueItem>
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_play_next_now")
+    data class RemotePlayNextNow(
+        val item: QueueItem,
+        val startPositionMs: Long = 0L
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_append_to_queue")
+    data class RemoteAppendToQueue(
+        val items: List<QueueItem>
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_extend_queue")
+    data class RemoteExtendQueue(
+        val source: PlaySource,
+        val items: List<QueueItem>
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_start_personal_fm")
+    data class RemoteStartPersonalFm(
+        val items: List<QueueItem>
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_playback_state")
+    data class RemotePlaybackState(
+        val isPlaying: Boolean,
+        val playWhenReady: Boolean,
+        val nowPlaying: RemoteNowPlaying? = null,
+        val positionMs: Long = 0L,
+        val sampledAtMs: Long = 0L,
+        val durationMs: Long = 0L,
+        val playMode: PlayMode = PlayMode.LIST_LOOP,
+        val playContext: String? = null,
+        val playSource: PlaySource? = null,
+        val currentIndex: Int = -1,
+        val volumePercent: Int = 100,
+        val queueVersion: Long = 0L
+    ) : LanLinkMessage
+
+    @Serializable
+    @SerialName("remote_queue_sync")
+    data class RemoteQueueSync(
+        val queueVersion: Long,
+        val items: List<QueueItem>,
+        val currentIndex: Int,
+        val playContext: String? = null,
+        val playSource: PlaySource? = null
+    ) : LanLinkMessage
 }
+
+@Serializable
+data class RemoteNowPlaying(
+    val mediaId: String,
+    val title: String,
+    val artist: String,
+    val artworkUri: String? = null
+) {
+    fun toNowPlaying(): NowPlaying = NowPlaying(mediaId, title, artist, artworkUri)
+
+    companion object {
+        fun from(nowPlaying: NowPlaying): RemoteNowPlaying =
+            RemoteNowPlaying(nowPlaying.mediaId, nowPlaying.title, nowPlaying.artist, nowPlaying.artworkUri)
+    }
+}
+
+@Serializable
+enum class RemoteCommandAction {
+    PLAY,
+    PAUSE,
+    TOGGLE_PLAY_PAUSE,
+    NEXT,
+    PREVIOUS,
+    SKIP_TO_PREVIOUS,
+    PLAY_AT_INDEX,
+    REMOVE_FROM_QUEUE,
+    MOVE_IN_QUEUE,
+    CLEAR_QUEUE,
+    STOP_AND_CLEAR_QUEUE,
+    SEEK,
+    SET_VOLUME,
+    TOGGLE_SHUFFLE,
+    TOGGLE_REPEAT,
+    ROTATE_PLAY_MODE,
+    RELOAD_CURRENT,
+    CANCEL_PENDING_SKIP,
+    DISABLE_ROAMING,
+    DISABLE_INTELLIGENCE,
+    DISABLE_PERSONAL_FM,
+    TRASH_FM,
+    SWITCH_FM_MODE
+}
+

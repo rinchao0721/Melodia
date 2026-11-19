@@ -36,8 +36,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadProgressBanner
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
@@ -112,7 +112,7 @@ fun MelodiaBottomOverlay(
     isMiniPlayerHidden: Boolean = false,
     // 平板播放面板是否已让位（内容区已收窄、面板常驻一侧）
     isPanelDocked: Boolean = false,
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -130,6 +130,8 @@ fun MelodiaBottomOverlay(
     isMiniPlayerLiked: Boolean = false,
     onMiniPlayerLikeClick: () -> Unit = {},
     miniPlayerLikeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
+    remoteDeviceName: String? = null,
+    onDeviceClick: (() -> Unit)? = null,
     onNavigate: (Screen) -> Unit,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     bottomBarIconOnly: Boolean = false,
@@ -230,6 +232,8 @@ fun MelodiaBottomOverlay(
                                     onLikeClick = onMiniPlayerLikeClick,
                                     likeMode = miniPlayerLikeMode,
                                     expanded = true,
+                                    remoteDeviceName = remoteDeviceName,
+                                    onDeviceClick = onDeviceClick,
                                     // 和展开态面板同宽，两者上下贴齐
                                     modifier = Modifier
                                         .padding(
@@ -295,6 +299,8 @@ fun MelodiaBottomOverlay(
                                 isLiked = isMiniPlayerLiked,
                                 onLikeClick = onMiniPlayerLikeClick,
                                 likeMode = miniPlayerLikeMode,
+                                remoteDeviceName = remoteDeviceName,
+                                onDeviceClick = onDeviceClick,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = MelodiaSpacing.sm)
@@ -350,7 +356,7 @@ private const val PlayerBackMaxCornerDp = 28f
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MelodiaFullPlayerOverlay(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     screenHeightPx: Float,
     isPlayerOpen: Boolean,
     // 位移只在布局阶段读取，展开动画逐帧推进时不会让调用方整体重组

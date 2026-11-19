@@ -41,6 +41,10 @@ interface PlaybackController {
     // 当前曲目的实际流参数与输出音质快照，默认不提供
     val playbackQuality: StateFlow<PlaybackQuality?> get() = NO_PLAYBACK_QUALITY
     val currentPosition: StateFlow<Long>
+
+    // 实时播放进度（毫秒），供歌词渲染等需要平滑插值的场景使用
+    fun currentPositionNow(): Long = currentPosition.value
+
     val duration: StateFlow<Long>
     val sleepTimerRemaining: StateFlow<Long>
     val playContext: StateFlow<String?>

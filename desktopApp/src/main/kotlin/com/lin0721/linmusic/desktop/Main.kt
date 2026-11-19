@@ -127,6 +127,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image
 import org.koin.core.context.startKoin
+import org.koin.core.qualifier.named
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.KeyboardFocusManager
@@ -183,9 +184,10 @@ fun main(args: Array<String>) {
             listenTogetherModule(Dispatchers.Main)
         )
     }.koin
+    val localController = koin.get<DesktopPlaybackController>(named("local"))
     val controller = koin.get<DesktopPlaybackController>()
-    // 进程内常驻记录播客收听进度
-    PodcastProgressTracker(controller, koin.get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    // 进程内常驻记录播客收听进度（仅绑定本机真实播放器）
+    PodcastProgressTracker(localController, koin.get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
     // 延迟检查更新，避开启动关键路径；进程生命周期内只自动检查这一次
     CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
         delay(3000)
@@ -208,6 +210,7 @@ fun main(args: Array<String>) {
     val playerViewModel = koin.get<PlayerViewModel>()
     val appDependencies = koin.desktopAppDependencies()
     appDependencies.lanLink.start()
+    appDependencies.remoteCoordinator.start()
     val desktopPreferences = koin.get<DesktopPreferences>()
     val hotkeys = koin.get<GlobalHotkeyService>()
     val mediaSession = koin.get<MediaSessionService>()
@@ -322,7 +325,7 @@ fun main(args: Array<String>) {
         val shutdownAndExit = {
             appDependencies.lanLink.stop()
             mediaSession.shutdown()
-            controller.release()
+            localController.release()
             singleInstance.close()
             // 关闭钩子也会清标记，这里提前清掉以防退出中途卡死被强杀
             RenderSessionGuard.end()
@@ -388,7 +391,7 @@ fun main(args: Array<String>) {
                 }
         }
         LaunchedEffect(Unit) {
-            mediaSession.bind(controller, playerViewModel)
+            mediaSession.bind(localController, playerViewModel)
         }
 
         val appIcon = remember { loadAppIcon() }
@@ -538,7 +541,7 @@ fun main(args: Array<String>) {
             // 全屏与最大化一样不要圆角和边框线
             WindowChromeEffect(windowEffects, maximized = windowState.placement != WindowPlacement.Floating, palette = palette)
             CanvasClearColorEffect(palette.windowBackground)
-            TaskbarThumbnailEffect(taskbarThumbnail, controller)
+            TaskbarThumbnailEffect(taskbarThumbnail, localController)
             if (backdropHost != null && pluginBackdrop != null) {
                 PluginBackdropAnimator(
                     host = backdropHost,

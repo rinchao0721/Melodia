@@ -13,6 +13,7 @@ import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
 import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -95,5 +96,6 @@ class DesktopAppDependencies(
     val userPreferences: UserPreferences,
     val accountSwitcher: AccountSwitcher,
     val lanLink: LanLinkDesktopHost,
+    val remoteCoordinator: LanLinkRemoteCoordinator,
     val pageViewModels: PageViewModelFactory
 )

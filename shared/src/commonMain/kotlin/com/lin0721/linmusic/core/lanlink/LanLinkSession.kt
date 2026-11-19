@@ -33,7 +33,8 @@ internal class LanLinkSession(
     private val store: PlaylistExternalTrackStore,
     private val userPreferences: UserPreferences,
     private val onUnpairedByPeer: suspend () -> Unit,
-    private val onSyncStateChanged: (LanLinkSyncState, String) -> Unit
+    private val onSyncStateChanged: (LanLinkSyncState, String) -> Unit,
+    private val onMessageReceived: (suspend (LanLinkMessage) -> Unit)? = null
 ) {
     private val cipher = LanLinkSessionCipher(sessionKey, isHost)
     private val sendMutex = Mutex()
@@ -64,7 +65,7 @@ internal class LanLinkSession(
             updateSyncStatus(initialPushIfNeeded = false)
 
             coroutineScope {
-                launch(Dispatchers.IO) {
+                val heartbeatJob = launch(Dispatchers.IO) {
                     while (!closed && !socket.isClosed) {
                         delay(LanLinkConstants.HEARTBEAT_INTERVAL_MS)
                         runCatching { sendEncrypted(LanLinkMessage.Ping(System.currentTimeMillis())) }
@@ -75,7 +76,7 @@ internal class LanLinkSession(
                     }
                 }
 
-                launch(Dispatchers.IO) {
+                val uidJob = launch(Dispatchers.IO) {
                     userPreferences.activeUid
                         .distinctUntilChanged()
                         .drop(1)
@@ -87,7 +88,7 @@ internal class LanLinkSession(
                         }
                 }
 
-                launch(Dispatchers.IO) {
+                val snapshotJob = launch(Dispatchers.IO) {
                     // 跳过订阅首帧，首次同步由 AccountExchange 匹配触发；本地后续变更防抖 1s 推送
                     store.snapshotFlow
                         .drop(1)
@@ -101,8 +102,16 @@ internal class LanLinkSession(
                         }
                 }
 
-                withContext(Dispatchers.IO) {
-                    readLoop()
+                try {
+                    withContext(Dispatchers.IO) {
+                        readLoop()
+                    }
+                } finally {
+                    // 读循环结束后必须取消永不终止的流收集子协程，否则 coroutineScope 永久挂起导致会话对象泄漏
+                    closed = true
+                    heartbeatJob.cancel()
+                    uidJob.cancel()
+                    snapshotJob.cancel()
                 }
             }
         } finally {
@@ -117,6 +126,11 @@ internal class LanLinkSession(
             }
         }
         close()
+    }
+
+    // 遥控协调器在主线程调度，Android 主线程写 socket 会抛 NetworkOnMainThreadException
+    suspend fun sendMessage(message: LanLinkMessage) = withContext(Dispatchers.IO) {
+        sendEncrypted(message)
     }
 
     fun close() {
@@ -178,7 +192,9 @@ internal class LanLinkSession(
                     break
                 }
 
-                else -> Unit
+                else -> {
+                    onMessageReceived?.invoke(message)
+                }
             }
         }
     }

@@ -65,7 +65,7 @@ private const val LOCKED_WINDOW_ALPHA = 0.8f
 
 class FloatingLyricService : Service() {
 
-    private val playerManager: PlayerManager by inject()
+    private val playerManager: PlaybackController by inject()
     private val settingsPreferences: SettingsPreferences by inject()
     private val lyricsResolver: LyricsResolver by inject()
 
