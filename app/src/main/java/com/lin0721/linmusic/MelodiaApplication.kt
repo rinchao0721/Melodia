@@ -19,6 +19,7 @@ import com.lin0721.linmusic.core.lanlink.AndroidLanNetworkMonitor
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
 import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.player.LanLinkMediaRouteCoordinator
 import com.lin0721.linmusic.core.player.MelodiaPlaybackService
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
@@ -69,6 +70,7 @@ class MelodiaApplication : Application() {
     private val lanLinkPreferences: LanLinkPreferences by inject()
     private val androidLanNetworkMonitor: AndroidLanNetworkMonitor by inject()
     private val remoteCoordinator: LanLinkRemoteCoordinator by inject()
+    private val mediaRouteCoordinator: LanLinkMediaRouteCoordinator by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -143,16 +145,21 @@ class MelodiaApplication : Application() {
             delay(3000)
             updateChecker.checkForUpdate(manual = false)
         }
-        // 启动局域网联动客户端、Wi-Fi 监听与双向遥控协调器（开关关闭时保持静默）
+        // 启动局域网联动客户端、Wi-Fi 监听、双向遥控协调器与系统输出路由协调器（开关关闭时保持静默）
         lanLinkAndroidClient.start()
         androidLanNetworkMonitor.start()
         remoteCoordinator.start()
+        mediaRouteCoordinator.start()
         CoroutineScope(Dispatchers.IO).launch {
             launch { lanLinkAndroidClient.messages.collect(ToastManager::showToast) }
             launch { remoteCoordinator.messages.collect(ToastManager::showToast) }
             launch {
-                combine(settingsPreferences.lanLinkEnabled, lanLinkPreferences.pairedDevices) { on, paired ->
-                    on && paired.isNotEmpty()
+                combine(
+                    settingsPreferences.lanLinkEnabled,
+                    settingsPreferences.lanLinkBackgroundKeepalive,
+                    lanLinkPreferences.pairedDevices
+                ) { on, keepalive, paired ->
+                    on && keepalive && paired.isNotEmpty()
                 }.distinctUntilChanged().collect { shouldWake ->
                     if (shouldWake) {
                         MelodiaPlaybackService.wakeForLanLink(this@MelodiaApplication)
@@ -160,8 +167,12 @@ class MelodiaApplication : Application() {
                 }
             }
             launch {
-                combine(lanLinkAndroidClient.enabled, lanLinkAndroidClient.connectedDevice) { enabled, peer ->
-                    enabled && peer != null
+                combine(
+                    lanLinkAndroidClient.enabled,
+                    settingsPreferences.lanLinkBackgroundKeepalive,
+                    lanLinkAndroidClient.connectedDevice
+                ) { enabled, keepalive, peer ->
+                    enabled && keepalive && peer != null
                 }.distinctUntilChanged().collect { connected ->
                     if (connected) {
                         MelodiaPlaybackService.startForLanLinkKeepalive(this@MelodiaApplication)

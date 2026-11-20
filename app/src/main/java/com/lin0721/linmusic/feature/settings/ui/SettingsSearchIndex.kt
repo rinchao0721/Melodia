@@ -50,6 +50,7 @@ object SettingsSearchIndex {
             entry(NETWORK, 0, "流量播放警告提示", "移动数据 提醒"),
             entry(NETWORK, 1, "使用国内 IP 地址", "海外 ip 限制"),
             entry(NETWORK, 2, "局域网联动", "局域网 同步 配对 桌面端 电脑 歌单 红心"),
+            entry(NETWORK, 2, "后台保持连接", "局域网 联动 保活 通知 后台 保持连接 桌面端"),
             entry(NETWORK, 2, "联动播放模式", "单一播放设备 各自独立播放 局域网 联动 播放模式 同步"),
 
             entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),

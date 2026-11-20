@@ -130,4 +130,15 @@ class SettingsPreferencesTest {
         clockedSettings.applySynced(LanLinkPlaybackMode.INDEPENDENT, 6_000L)
         assertEquals(LanLinkPlaybackModeState(LanLinkPlaybackMode.INDEPENDENT, 6_000L), clockedSettings.lanLinkPlaybackModeState.first())
     }
+
+    @Test
+    fun lanLinkBackgroundKeepaliveDefaultsToTrueAndPersists() = runBlocking {
+        assertEquals(true, settings.lanLinkBackgroundKeepalive.first())
+
+        settings.saveLanLinkBackgroundKeepalive(false)
+        assertFalse(settings.lanLinkBackgroundKeepalive.first())
+
+        settings.saveLanLinkBackgroundKeepalive(true)
+        assertEquals(true, settings.lanLinkBackgroundKeepalive.first())
+    }
 }

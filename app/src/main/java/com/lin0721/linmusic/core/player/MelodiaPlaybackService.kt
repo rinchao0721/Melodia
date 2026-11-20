@@ -164,6 +164,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val playerManager: PlayerManager by inject()
     private val routingPlaybackController: RoutingPlaybackController by inject()
     private val lanLinkClient: LanLinkAndroidClient by inject()
+    private val lanLinkMediaRouteCoordinator: LanLinkMediaRouteCoordinator by inject()
     private val settingsPreferences: SettingsPreferences by inject()
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
@@ -182,6 +183,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private var isPodcast = false
     private var currentPlayMode = PlayMode.LIST_LOOP
     private var isPendingForegroundActive = false
+    private var isLanLinkKeepaliveEnabled = true
     private var isKeepaliveForegroundActive = false
     private var currentKeepalivePeerName: String? = null
 
@@ -374,7 +376,11 @@ class MelodiaPlaybackService : MediaSessionService() {
         playerManager.attachLocalPlayer(sessionPlayer)
         playerManager.setPlaybackPositionSource(sessionPlayer::currentPositionSample)
 
-        val remotePlayer = RemoteSessionPlayer(routingPlaybackController, serviceScope)
+        val remotePlayer = RemoteSessionPlayer(
+            routingPlaybackController = routingPlaybackController,
+            scope = serviceScope,
+            routingControllerIdFlow = lanLinkMediaRouteCoordinator.routingControllerId
+        )
         remoteSessionPlayer = remotePlayer
 
         serviceScope.launch {
@@ -395,8 +401,14 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
+        val initialKeepalive = runBlocking { settingsPreferences.lanLinkBackgroundKeepalive.first() }
+        isLanLinkKeepaliveEnabled = initialKeepalive
         val initialTarget = routingPlaybackController.activeTarget.value
-        val initialPlayer: Player = if (initialTarget is PlaybackTarget.Remote) remotePlayer else sessionPlayer
+        val initialPlayer: Player = if (shouldUseRemoteSessionPlayer(initialKeepalive, initialTarget)) {
+            remotePlayer
+        } else {
+            sessionPlayer
+        }
         player = initialPlayer
 
         // 点击通知时跳转回应用；REORDER_TO_FRONT 避免每次新建 Activity 实例导致重新加载
@@ -430,26 +442,31 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
-        // 只切换 MediaSession 的底层播放器，不重建 MediaSession
+        // 只切换 MediaSession 的底层播放器，不重建 MediaSession；关闭后台保持连接时立即切回本机播放器
         serviceScope.launch {
-            routingPlaybackController.activeTarget
-                .collect { target ->
-                    val nextPlayer: Player = if (target is PlaybackTarget.Remote) {
-                        sessionPlayer.pause()
-                        isPendingForegroundActive = false
-                        remotePlayer
-                    } else {
-                        sessionPlayer
-                    }
-                    if (mediaSession?.player !== nextPlayer) {
-                        player = nextPlayer
-                        mediaSession?.player = nextPlayer
-                        onSessionMediaItemChanged(nextPlayer.currentMediaItem)
-                    }
-                    updateMediaSessionButtons()
-                    triggerNotificationUpdate()
-                    syncKeepaliveForegroundState()
+            combine(
+                routingPlaybackController.activeTarget,
+                settingsPreferences.lanLinkBackgroundKeepalive.distinctUntilChanged()
+            ) { target, keepalive ->
+                target to keepalive
+            }.collect { (target, keepalive) ->
+                isLanLinkKeepaliveEnabled = keepalive
+                val nextPlayer: Player = if (shouldUseRemoteSessionPlayer(keepalive, target)) {
+                    sessionPlayer.pause()
+                    isPendingForegroundActive = false
+                    remotePlayer
+                } else {
+                    sessionPlayer
                 }
+                if (mediaSession?.player !== nextPlayer) {
+                    player = nextPlayer
+                    mediaSession?.player = nextPlayer
+                    onSessionMediaItemChanged(nextPlayer.currentMediaItem)
+                }
+                updateMediaSessionButtons()
+                triggerNotificationUpdate()
+                syncKeepaliveForegroundState()
+            }
         }
 
         serviceScope.launch {
@@ -586,11 +603,15 @@ class MelodiaPlaybackService : MediaSessionService() {
                 syncKeepaliveForegroundState()
             }
             ACTION_ENSURE_LANLINK_KEEPALIVE -> {
-                val peer = if (lanLinkClient.enabled.value) lanLinkClient.connectedDevice.value else null
+                val peer = if (isLanLinkKeepaliveEnabled && lanLinkClient.enabled.value) {
+                    lanLinkClient.connectedDevice.value
+                } else {
+                    null
+                }
                 if (peer != null && !isMediaPlaybackForegroundActive()) {
                     startConnectedDeviceForeground(peer)
                 } else if (!isMediaPlaybackForegroundActive()) {
-                    // 通过 startForegroundService 启动但连接刚断开时，先兜底进入前台再立即同步退出避免系统超时异常
+                    // 通过 startForegroundService 启动但连接刚断开或保活已关闭时，先兜底进入前台再立即同步退出避免系统超时异常
                     startConnectedDeviceForeground(ConnectedPeerInfo("", getString(R.string.app_name)))
                     syncKeepaliveForegroundState()
                 }
@@ -600,12 +621,13 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val keepAlive = isMediaPlaybackForegroundActive() || (
-            lanLinkClient.enabled.value && (
-                lanLinkClient.connectedDevice.value != null ||
-                    lanLinkClient.pairedDevices.value.isNotEmpty()
-                )
-            )
+        val keepAlive = shouldKeepServiceOnTaskRemoved(
+            mediaPlaybackForegroundActive = isMediaPlaybackForegroundActive(),
+            keepaliveEnabled = isLanLinkKeepaliveEnabled,
+            lanLinkEnabled = lanLinkClient.enabled.value,
+            hasConnectedPeer = lanLinkClient.connectedDevice.value != null,
+            hasPairedDevices = lanLinkClient.pairedDevices.value.isNotEmpty()
+        )
         if (keepAlive) return
         super.onTaskRemoved(rootIntent)
     }
@@ -680,7 +702,11 @@ class MelodiaPlaybackService : MediaSessionService() {
         val manager = getSystemService(NotificationManager::class.java)
         val mediaActive = isMediaPlaybackForegroundActive()
         val mediaNotificationVisible = hasMediaNotificationContent()
-        val connectedPeer = if (lanLinkClient.enabled.value) lanLinkClient.connectedDevice.value else null
+        val connectedPeer = if (isLanLinkKeepaliveEnabled && lanLinkClient.enabled.value) {
+            lanLinkClient.connectedDevice.value
+        } else {
+            null
+        }
 
         if (mediaActive) {
             if (isKeepaliveForegroundActive) {

@@ -226,6 +226,8 @@ class SettingsPreferences(
         val KEY_ALWAYS_SHOW_LIKED_BADGE = booleanPreferencesKey("always_show_liked_badge")
         // 局域网联动开关，默认 false
         private val KEY_LAN_LINK_ENABLED = booleanPreferencesKey("lan_link_enabled")
+        // 局域网联动后台保持连接开关，默认 true
+        private val KEY_LAN_LINK_BACKGROUND_KEEPALIVE = booleanPreferencesKey("lan_link_background_keepalive")
         // 局域网联动播放模式与修改时间戳
         private val KEY_LAN_LINK_PLAYBACK_MODE = stringPreferencesKey("lan_link_playback_mode")
         private val KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS = longPreferencesKey("lan_link_playback_mode_updated_at_ms")
@@ -1221,6 +1223,17 @@ class SettingsPreferences(
     suspend fun saveLanLinkEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_LAN_LINK_ENABLED] = enabled
+        }
+    }
+
+    // 局域网联动后台保持连接开关，默认开启
+    val lanLinkBackgroundKeepalive: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LAN_LINK_BACKGROUND_KEEPALIVE] ?: true
+    }
+
+    suspend fun saveLanLinkBackgroundKeepalive(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAN_LINK_BACKGROUND_KEEPALIVE] = enabled
         }
     }
 

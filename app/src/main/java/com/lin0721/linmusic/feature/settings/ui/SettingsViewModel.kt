@@ -812,6 +812,7 @@ class SettingsViewModel(
     // ─── 局域网联动 ───
 
     val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
+    val lanLinkBackgroundKeepalive = settingsPreferences.lanLinkBackgroundKeepalive.asState(true)
     val lanLinkPlaybackMode = settingsPreferences.lanLinkPlaybackMode.asState(LanLinkPlaybackMode.SINGLE_DEVICE)
     val lanLinkIsDiscovering: StateFlow<Boolean> = lanLinkClient.isDiscovering
     val lanLinkDiscoveredDevices: StateFlow<List<DiscoveredLanDevice>> = lanLinkClient.discoveredDevices
@@ -823,6 +824,10 @@ class SettingsViewModel(
 
     fun updateLanLinkEnabled(enabled: Boolean) = launchSave {
         settingsPreferences.saveLanLinkEnabled(enabled)
+    }
+
+    fun updateLanLinkBackgroundKeepalive(enabled: Boolean) = launchSave {
+        settingsPreferences.saveLanLinkBackgroundKeepalive(enabled)
     }
 
     fun updateLanLinkPlaybackMode(mode: LanLinkPlaybackMode) = launchSave {

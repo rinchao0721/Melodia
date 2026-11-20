@@ -28,6 +28,7 @@ import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
 import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.player.AndroidVolumeBridge
+import com.lin0721.linmusic.core.player.LanLinkMediaRouteCoordinator
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -61,6 +62,7 @@ val playerModule = module {
         }
     }
     single<PlaybackController> { get<RoutingPlaybackController>() }
+    single { LanLinkMediaRouteCoordinator(androidContext(), get(), get(), get()) }
     single { FloatingLyricRequests() }
     single { SleepTimerRequests() }
     // 离线时的可播放判定：已下载 + 播放缓存已完整

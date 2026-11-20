@@ -45,6 +45,7 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
     val mobileAlert by viewModel.mobileAlert.collectAsStateWithLifecycle()
 
     val lanLinkEnabled by viewModel.lanLinkEnabled.collectAsStateWithLifecycle()
+    val lanLinkBackgroundKeepalive by viewModel.lanLinkBackgroundKeepalive.collectAsStateWithLifecycle()
     val lanLinkPlaybackMode by viewModel.lanLinkPlaybackMode.collectAsStateWithLifecycle()
     val lanLinkDiscovering by viewModel.lanLinkIsDiscovering.collectAsStateWithLifecycle()
     val discoveredDevices by viewModel.lanLinkDiscoveredDevices.collectAsStateWithLifecycle()
@@ -126,6 +127,13 @@ fun NetworkSettingsView(viewModel: SettingsViewModel) {
                 )
 
                 if (lanLinkEnabled) {
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "后台保持连接",
+                        subtitle = "开启后使用低功耗通知保持连接并在系统媒体面板控播；关闭后切至后台可能会断开联动",
+                        checked = lanLinkBackgroundKeepalive,
+                        onCheckedChange = viewModel::updateLanLinkBackgroundKeepalive
+                    )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     LanLinkPlaybackModeSection(
                         currentMode = lanLinkPlaybackMode,

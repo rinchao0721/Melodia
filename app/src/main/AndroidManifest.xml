@@ -124,6 +124,14 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".core.player.LanLinkMediaRoute2ProviderService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.MediaRoute2ProviderService" />
+            </intent-filter>
+        </service>
+
         <!-- 进程未运行时接收耳机媒体键 -->
         <receiver
             android:name="androidx.media3.session.MediaButtonReceiver"

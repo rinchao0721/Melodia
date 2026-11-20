@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -18,16 +19,19 @@ import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-// 远程播放代理播放器：向 MediaSession 暴露远端队列与状态，并将所有播放控制命令路由给远端设备
+// 远程播放代理播放器：向 MediaSession 暴露远端队列、状态与系统音量控制，并将所有控制命令路由给远端设备
 @OptIn(UnstableApi::class)
 class RemoteSessionPlayer(
     private val routingPlaybackController: RoutingPlaybackController,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val routingControllerIdFlow: StateFlow<String?> = MutableStateFlow(null)
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     private val remoteController
@@ -53,10 +57,18 @@ class RemoteSessionPlayer(
         ) { playContext, queue, index, target ->
             StateQueue(playContext, queue, index, target)
         }
+        val deviceFlowPart = combine(
+            remoteController.volume,
+            routingControllerIdFlow
+        ) { volume, controllerId ->
+            volume to controllerId
+        }
         var lastPositionMs = -1L
         observeJob = scope.launch(Dispatchers.Main.immediate) {
             launch {
-                combine(stateFlowPart, queueFlowPart) { meta, queue -> meta to queue }
+                combine(stateFlowPart, queueFlowPart, deviceFlowPart) { meta, queue, device ->
+                    Triple(meta, queue, device)
+                }
                     .distinctUntilChanged()
                     .collect { invalidateState() }
             }
@@ -72,6 +84,7 @@ class RemoteSessionPlayer(
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun getState(): State {
         val remote = remoteController
         val peerName = (routingPlaybackController.activeTarget.value as? PlaybackTarget.Remote)
@@ -168,7 +181,12 @@ class RemoteSessionPlayer(
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_TIMELINE,
             Player.COMMAND_GET_METADATA,
-            Player.COMMAND_GET_AUDIO_ATTRIBUTES
+            Player.COMMAND_GET_AUDIO_ATTRIBUTES,
+            Player.COMMAND_GET_DEVICE_VOLUME,
+            Player.COMMAND_SET_DEVICE_VOLUME,
+            Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
+            Player.COMMAND_ADJUST_DEVICE_VOLUME,
+            Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS
         )
         if (!isPersonalFm) {
             commandsBuilder.add(Player.COMMAND_SEEK_TO_PREVIOUS)
@@ -180,9 +198,21 @@ class RemoteSessionPlayer(
             .setUsage(C.USAGE_MEDIA)
             .build()
 
+        val volumePercent = remote.volume.value
+        val volumeStep = LanLinkRemoteVolume.percentToStep(volumePercent)
+        val isDeviceMuted = volumePercent <= 0
+        val deviceInfo = DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
+            .setMinVolume(0)
+            .setMaxVolume(LanLinkRemoteVolume.MAX_STEPS)
+            .setRoutingControllerId(routingControllerIdFlow.value)
+            .build()
+
         val stateBuilder = State.Builder()
             .setAvailableCommands(commandsBuilder.build())
             .setAudioAttributes(audioAttributes)
+            .setDeviceInfo(deviceInfo)
+            .setDeviceVolume(volumeStep)
+            .setIsDeviceMuted(isDeviceMuted)
             .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
             .setPlaybackState(playbackState)
             .setRepeatMode(repeatMode)
@@ -194,6 +224,33 @@ class RemoteSessionPlayer(
             stateBuilder.setCurrentMediaItemIndex(currentIndex)
         }
         return stateBuilder.build()
+    }
+
+    override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): ListenableFuture<*> {
+        remoteController.setVolume(LanLinkRemoteVolume.stepToPercent(deviceVolume))
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleIncreaseDeviceVolume(flags: Int): ListenableFuture<*> {
+        val nextStep = LanLinkRemoteVolume.increaseStep(remoteController.volume.value)
+        remoteController.setVolume(LanLinkRemoteVolume.stepToPercent(nextStep))
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleDecreaseDeviceVolume(flags: Int): ListenableFuture<*> {
+        val nextStep = LanLinkRemoteVolume.decreaseStep(remoteController.volume.value)
+        remoteController.setVolume(LanLinkRemoteVolume.stepToPercent(nextStep))
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleSetDeviceMuted(muted: Boolean, flags: Int): ListenableFuture<*> {
+        val targetPercent = if (muted) {
+            0
+        } else {
+            LanLinkRemoteVolume.unmutePercent(remoteController.lastAudibleVolume.value)
+        }
+        remoteController.setVolume(targetPercent)
+        return Futures.immediateVoidFuture()
     }
 
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
