@@ -171,7 +171,7 @@ private fun HistoryRow(
     )
     SwipeToDismissBox(
         state = dismissState,
-        backgroundContent = { SwipeDeleteBackground() },
+        backgroundContent = { SwipeDeleteBackground(dismissState) },
         enableDismissFromStartToEnd = false
     ) {
         // 前景必须有底色，否则左滑前就会透出红色底层

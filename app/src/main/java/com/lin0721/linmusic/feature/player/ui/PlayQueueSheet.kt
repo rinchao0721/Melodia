@@ -352,7 +352,7 @@ fun PlayQueueSheet(
                         )
                         SwipeToDismissBox(
                             state = dismissState,
-                            backgroundContent = { SwipeDeleteBackground() },
+                            backgroundContent = { SwipeDeleteBackground(dismissState) },
                             enableDismissFromStartToEnd = false
                         ) {
                             DraggableSongRow(
@@ -415,7 +415,7 @@ fun PlayQueueSheet(
                             )
                             SwipeToDismissBox(
                                 state = dismissState,
-                                backgroundContent = { SwipeDeleteBackground() },
+                                backgroundContent = { SwipeDeleteBackground(dismissState) },
                                 enableDismissFromStartToEnd = false
                             ) {
                                 DraggableSongRow(
@@ -472,7 +472,7 @@ fun PlayQueueSheet(
                             ) {
                                 SwipeToDismissBox(
                                     state = dismissState,
-                                    backgroundContent = { SwipeDeleteBackground() },
+                                    backgroundContent = { SwipeDeleteBackground(dismissState) },
                                     enableDismissFromStartToEnd = false,
                                     // 拖拽期间关掉侧滑
                                     enableDismissFromEndToStart = !isDraggingActive
