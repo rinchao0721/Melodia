@@ -40,11 +40,39 @@ import java.util.concurrent.ConcurrentHashMap
 private const val TAG = "LanLinkAndroidClient"
 private const val TCP_CONNECT_TIMEOUT_MS = 4_000
 private const val HANDSHAKE_TIMEOUT_MS = 12_000
+internal const val WIFI_RECONNECT_DEBOUNCE_MS = 1_500L
 private val RECONNECT_BACKOFF_MS = longArrayOf(2_000L, 5_000L, 10_000L, 20_000L, 30_000L)
 
 // 平台锁抽象：Android 仅在 UDP 发现期间持有多播锁，结束后立即释放
 interface LanDiscoveryLock {
     fun <T> withLock(block: () -> T): T
+}
+
+// Wi-Fi 就绪重连防抖器：网络切换抖动时延迟触发一次重连，断网时取消待触发任务
+internal class LanLinkWifiReconnectDebouncer(
+    private val scope: CoroutineScope,
+    private val debounceMs: Long = WIFI_RECONNECT_DEBOUNCE_MS,
+    private val onTriggerReconnect: () -> Unit
+) {
+    private val lock = Any()
+    private var pendingJob: Job? = null
+
+    fun onAvailable() {
+        synchronized(lock) {
+            pendingJob?.cancel()
+            pendingJob = scope.launch {
+                delay(debounceMs)
+                onTriggerReconnect()
+            }
+        }
+    }
+
+    fun cancel() {
+        synchronized(lock) {
+            pendingJob?.cancel()
+            pendingJob = null
+        }
+    }
 }
 
 // Android 端局域网联动客户端：UDP 发现桌面端、配对码配对、密钥双向认证与自动重连同步
@@ -90,6 +118,9 @@ class LanLinkAndroidClient(
     private val _connectedDevice = MutableStateFlow<ConnectedPeerInfo?>(null)
     override val connectedDevice: StateFlow<ConnectedPeerInfo?> = _connectedDevice.asStateFlow()
 
+    private val _sessionSequence = MutableStateFlow(0L)
+    override val sessionSequence: StateFlow<Long> = _sessionSequence.asStateFlow()
+
     private val _syncState = MutableStateFlow(LanLinkSyncState.IDLE)
     val syncState: StateFlow<LanLinkSyncState> = _syncState.asStateFlow()
 
@@ -107,6 +138,11 @@ class LanLinkAndroidClient(
     private var started = false
     private var lifecycleJob: Job? = null
     private var reconnectJob: Job? = null
+    private val wifiDebouncer = LanLinkWifiReconnectDebouncer(scope) {
+        if (enabled.value && pairedDevices.value.isNotEmpty()) {
+            triggerReconnectNow()
+        }
+    }
 
     @Volatile
     private var activeSession: LanLinkSession? = null
@@ -124,7 +160,7 @@ class LanLinkAndroidClient(
                 .distinctUntilChanged()
                 .collectLatest { (isEnabled, paired) ->
                     if (!isEnabled) {
-                        shutdownConnectionLoop()
+                        shutdownConnectionLoop(sendBye = true, reason = "disabled")
                         return@collectLatest
                     }
                     if (paired.isEmpty()) {
@@ -151,9 +187,21 @@ class LanLinkAndroidClient(
     @Synchronized
     fun stop() {
         started = false
+        wifiDebouncer.cancel()
         lifecycleJob?.cancel()
         lifecycleJob = null
-        scope.launch { shutdownConnectionLoop() }
+        scope.launch { shutdownConnectionLoop(sendBye = true, reason = "stop") }
+    }
+
+    // 显式关闭应用或停止服务前先发 Bye 再关闭会话
+    suspend fun shutdownWithBye(reason: String = "app_exit") {
+        synchronized(this) {
+            started = false
+            wifiDebouncer.cancel()
+            lifecycleJob?.cancel()
+            lifecycleJob = null
+        }
+        shutdownConnectionLoop(sendBye = true, reason = reason)
     }
 
     suspend fun discoverDevices(): List<DiscoveredLanDevice> {
@@ -200,6 +248,10 @@ class LanLinkAndroidClient(
                 _connectionState.value = LanLinkConnectionState.CONNECTING
                 _syncStatusMessage.value = "正在配对 ${device.deviceName}…"
                 socket.connect(InetSocketAddress(device.hostAddress, device.tcpPort), TCP_CONNECT_TIMEOUT_MS)
+                runCatching {
+                    socket.keepAlive = true
+                    socket.tcpNoDelay = true
+                }
                 socket.soTimeout = HANDSHAKE_TIMEOUT_MS
 
                 writePlainMessage(
@@ -318,6 +370,30 @@ class LanLinkAndroidClient(
         }
     }
 
+    // Wi-Fi 就绪后防抖 1.5s 触发立即重连并重置退避
+    fun onWifiAvailable() {
+        if (!enabled.value || pairedDevices.value.isEmpty()) return
+        wifiDebouncer.onAvailable()
+    }
+
+    // 网络断开后立即中止待触发重连并关闭活跃会话，避免等待 45s 心跳超时
+    fun onNetworkLost() {
+        wifiDebouncer.cancel()
+        reconnectJob?.cancel()
+        reconnectJob = null
+        val previous = synchronized(sessionLock) {
+            val s = activeSession
+            activeSession = null
+            activeSessionJob = null
+            _connectedDevice.value = null
+            _syncState.value = LanLinkSyncState.IDLE
+            _connectionState.value = if (enabled.value) LanLinkConnectionState.IDLE else LanLinkConnectionState.DISABLED
+            _syncStatusMessage.value = if (enabled.value) "网络已断开" else "已关闭"
+            s
+        }
+        previous?.close()
+    }
+
     fun triggerReconnectNow() {
         if (!enabled.value || activeSession != null) return
         ensureReconnectLoop(restart = true)
@@ -411,6 +487,10 @@ class LanLinkAndroidClient(
             _connectionState.value = LanLinkConnectionState.CONNECTING
             _syncStatusMessage.value = "正在连接 ${paired.deviceName}…"
             socket.connect(InetSocketAddress(host, port), TCP_CONNECT_TIMEOUT_MS)
+            runCatching {
+                socket.keepAlive = true
+                socket.tcpNoDelay = true
+            }
             socket.soTimeout = HANDSHAKE_TIMEOUT_MS
 
             writePlainMessage(
@@ -554,6 +634,9 @@ class LanLinkAndroidClient(
                         message = message
                     )
                 )
+            },
+            onByeByPeer = {
+                _syncStatusMessage.value = "$peerDeviceName 已退出"
             }
         )
 
@@ -562,6 +645,7 @@ class LanLinkAndroidClient(
         synchronized(sessionLock) {
             previous = activeSession
             activeSession = session
+            _sessionSequence.value += 1L
             _connectedDevice.value = ConnectedPeerInfo(peerDeviceId, peerDeviceName)
             _connectionState.value = LanLinkConnectionState.CONNECTED
             _syncStatusMessage.value = "已连接，正在核对账号…"
@@ -596,7 +680,11 @@ class LanLinkAndroidClient(
         previous?.close()
     }
 
-    private suspend fun shutdownConnectionLoop() {
+    private suspend fun shutdownConnectionLoop(
+        sendBye: Boolean = false,
+        reason: String = "normal_disconnect"
+    ) {
+        wifiDebouncer.cancel()
         reconnectJob?.cancel()
         reconnectJob = null
         val previous = synchronized(sessionLock) {
@@ -606,7 +694,11 @@ class LanLinkAndroidClient(
             _connectedDevice.value = null
             s
         }
-        previous?.close()
+        if (sendBye) {
+            previous?.sendByeAndClose(reason)
+        } else {
+            previous?.close()
+        }
         _discoveredDevices.value = emptyList()
         _isDiscovering.value = false
         _connectionState.value = LanLinkConnectionState.DISABLED

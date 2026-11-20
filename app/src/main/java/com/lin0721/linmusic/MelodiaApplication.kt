@@ -15,8 +15,11 @@ import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
+import com.lin0721.linmusic.core.lanlink.AndroidLanNetworkMonitor
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
 import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.player.MelodiaPlaybackService
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -44,6 +47,8 @@ import com.lin0721.linmusic.feature.source.plugin.LxPluginEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.koin.androidContext
@@ -61,6 +66,8 @@ class MelodiaApplication : Application() {
     private val settingsPreferences: SettingsPreferences by inject()
     private val lxPluginEngine: LxPluginEngine by inject()
     private val lanLinkAndroidClient: LanLinkAndroidClient by inject()
+    private val lanLinkPreferences: LanLinkPreferences by inject()
+    private val androidLanNetworkMonitor: AndroidLanNetworkMonitor by inject()
     private val remoteCoordinator: LanLinkRemoteCoordinator by inject()
 
     override fun onCreate() {
@@ -136,12 +143,31 @@ class MelodiaApplication : Application() {
             delay(3000)
             updateChecker.checkForUpdate(manual = false)
         }
-        // 启动局域网联动客户端与双向遥控协调器（开关关闭时保持静默）
+        // 启动局域网联动客户端、Wi-Fi 监听与双向遥控协调器（开关关闭时保持静默）
         lanLinkAndroidClient.start()
+        androidLanNetworkMonitor.start()
         remoteCoordinator.start()
         CoroutineScope(Dispatchers.IO).launch {
             launch { lanLinkAndroidClient.messages.collect(ToastManager::showToast) }
             launch { remoteCoordinator.messages.collect(ToastManager::showToast) }
+            launch {
+                combine(settingsPreferences.lanLinkEnabled, lanLinkPreferences.pairedDevices) { on, paired ->
+                    on && paired.isNotEmpty()
+                }.distinctUntilChanged().collect { shouldWake ->
+                    if (shouldWake) {
+                        MelodiaPlaybackService.wakeForLanLink(this@MelodiaApplication)
+                    }
+                }
+            }
+            launch {
+                combine(lanLinkAndroidClient.enabled, lanLinkAndroidClient.connectedDevice) { enabled, peer ->
+                    enabled && peer != null
+                }.distinctUntilChanged().collect { connected ->
+                    if (connected) {
+                        MelodiaPlaybackService.startForLanLinkKeepalive(this@MelodiaApplication)
+                    }
+                }
+            }
         }
         // 旧版内置下载遗留的更新通知渠道
         getSystemService(NotificationManager::class.java)?.deleteNotificationChannel(LEGACY_UPDATE_CHANNEL_ID)

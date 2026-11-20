@@ -79,6 +79,9 @@ class LanLinkDesktopHost(
     private val _connectedDevice = MutableStateFlow<ConnectedPeerInfo?>(null)
     override val connectedDevice: StateFlow<ConnectedPeerInfo?> = _connectedDevice.asStateFlow()
 
+    private val _sessionSequence = MutableStateFlow(0L)
+    override val sessionSequence: StateFlow<Long> = _sessionSequence.asStateFlow()
+
     private val _syncState = MutableStateFlow(LanLinkSyncState.IDLE)
     val syncState: StateFlow<LanLinkSyncState> = _syncState.asStateFlow()
 
@@ -113,7 +116,7 @@ class LanLinkDesktopHost(
             settingsPreferences.lanLinkEnabled
                 .distinctUntilChanged()
                 .collect { isEnabled ->
-                    if (isEnabled) startHost() else stopHost()
+                    if (isEnabled) startHost() else stopHost(sendBye = true, reason = "disabled")
                 }
         }
     }
@@ -123,7 +126,17 @@ class LanLinkDesktopHost(
         started = false
         lifecycleJob?.cancel()
         lifecycleJob = null
-        scope.launch { stopHost() }
+        scope.launch { stopHost(sendBye = true, reason = "stop") }
+    }
+
+    // 应用退出前先向对端发送 Bye 再关闭连接，让对端立即复位状态
+    suspend fun stopAndNotify(reason: String = "app_exit") {
+        synchronized(this) {
+            started = false
+            lifecycleJob?.cancel()
+            lifecycleJob = null
+        }
+        stopHost(sendBye = true, reason = reason)
     }
 
     fun generatePairingCode() {
@@ -171,7 +184,7 @@ class LanLinkDesktopHost(
     }
 
     private suspend fun startHost() {
-        stopHostInternal()
+        stopHostInternal(sendBye = false)
         val localDeviceId = lanLinkPreferences.ensureLocalDeviceId().also { cachedLocalDeviceId = it }
         val tcp = try {
             ServerSocket(0)
@@ -208,14 +221,14 @@ class LanLinkDesktopHost(
         }
     }
 
-    private suspend fun stopHost() {
-        stopHostInternal()
+    private suspend fun stopHost(sendBye: Boolean = true, reason: String = "normal_disconnect") {
+        stopHostInternal(sendBye = sendBye, reason = reason)
         _connectionState.value = LanLinkConnectionState.DISABLED
         _syncState.value = LanLinkSyncState.IDLE
         _syncStatusMessage.value = "已关闭"
     }
 
-    private suspend fun stopHostInternal() {
+    private suspend fun stopHostInternal(sendBye: Boolean = false, reason: String = "normal_disconnect") {
         cancelPairingCode()
         serverJob?.cancel()
         serverJob = null
@@ -225,7 +238,11 @@ class LanLinkDesktopHost(
             _connectedDevice.value = null
             s
         }
-        previous?.close()
+        if (sendBye) {
+            previous?.sendByeAndClose(reason)
+        } else {
+            previous?.close()
+        }
         runCatching { udpSocket?.close() }
         udpSocket = null
         runCatching { serverSocket?.close() }
@@ -267,6 +284,10 @@ class LanLinkDesktopHost(
             } catch (_: IOException) {
                 break
             }
+            runCatching {
+                client.keepAlive = true
+                client.tcpNoDelay = true
+            }
             scope.launch(Dispatchers.IO) {
                 handleClientSocket(client, localDeviceId)
             }
@@ -291,6 +312,7 @@ class LanLinkDesktopHost(
             val previous = synchronized(sessionLock) {
                 val prev = activeSession
                 activeSession = sessionContext
+                _sessionSequence.value += 1L
                 _connectedDevice.value = ConnectedPeerInfo(sessionContext.peerDeviceId, sessionContext.peerDeviceName)
                 _connectionState.value = LanLinkConnectionState.CONNECTED
                 _syncStatusMessage.value = "已连接，正在核对账号…"
@@ -550,6 +572,9 @@ class LanLinkDesktopHost(
                     message = message
                 )
             )
+        },
+        onByeByPeer = {
+            _syncStatusMessage.value = "$peerDeviceName 已断开连接"
         }
     )
 

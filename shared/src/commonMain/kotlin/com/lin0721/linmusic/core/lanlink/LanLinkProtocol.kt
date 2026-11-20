@@ -205,6 +205,12 @@ sealed interface LanLinkMessage {
     ) : LanLinkMessage
 
     @Serializable
+    @SerialName("bye")
+    data class Bye(
+        val reason: String = ""
+    ) : LanLinkMessage
+
+    @Serializable
     @SerialName("remote_playback_hello")
     data class RemotePlaybackHello(
         val deviceId: String,

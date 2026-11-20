@@ -21,24 +21,42 @@ private const val TAG = "MediaControllerHolder"
 class MediaControllerHolder(private val context: Context) {
 
     private var controller: MediaController? = null
+    private var localPlayer: Player? = null
+    private var registeredListener: Player.Listener? = null
+
+    private val commandPlayer: Player? get() = localPlayer ?: controller
 
     val isConnected: Boolean get() = controller != null
 
-    val currentPosition: Long get() = controller?.currentPosition ?: 0L
+    val currentPosition: Long get() = commandPlayer?.currentPosition ?: 0L
 
     // 控制器未连接时返回 null，供调用方回退到本地缓存进度
-    val currentPositionOrNull: Long? get() = controller?.currentPosition
+    val currentPositionOrNull: Long? get() = commandPlayer?.currentPosition
 
-    val duration: Long get() = controller?.duration ?: 0L
+    val duration: Long get() = commandPlayer?.duration ?: 0L
 
-    val playbackState: Int get() = controller?.playbackState ?: Player.STATE_IDLE
+    val playbackState: Int get() = commandPlayer?.playbackState ?: Player.STATE_IDLE
 
-    val playWhenReady: Boolean get() = controller?.playWhenReady ?: false
+    val playWhenReady: Boolean get() = commandPlayer?.playWhenReady ?: false
 
-    val currentTracks: Tracks get() = controller?.currentTracks ?: Tracks.EMPTY
+    val currentTracks: Tracks get() = commandPlayer?.currentTracks ?: Tracks.EMPTY
+
+    // 直连服务内本机播放器，避免 MediaSession 切到远程播放器后反控远端状态
+    fun attachLocalPlayer(player: Player?) {
+        val oldTarget = localPlayer ?: controller
+        val listener = registeredListener
+        if (oldTarget !== player && listener != null) {
+            oldTarget?.removeListener(listener)
+        }
+        localPlayer = player
+        val newTarget = localPlayer ?: controller
+        if (listener != null && newTarget != null && oldTarget !== newTarget) {
+            newTarget.addListener(listener)
+        }
+    }
 
     // 建立连接，onReady 在控制器就绪后、字段赋值前回调，用于同步初始状态
-    suspend fun connect(listener: Player.Listener, onReady: (MediaController) -> Unit) {
+    suspend fun connect(listener: Player.Listener, onReady: (Player) -> Unit) {
         if (controller != null) return
 
         val sessionToken = SessionToken(
@@ -46,15 +64,18 @@ class MediaControllerHolder(private val context: Context) {
             ComponentName(context, MelodiaPlaybackService::class.java)
         )
 
+        registeredListener = listener
         controller = suspendCancellableCoroutine { continuation ->
             val factory = MediaController.Builder(context, sessionToken).buildAsync()
             factory.addListener(
                 {
                     try {
                         val mediaController = factory.get()
-                        mediaController.addListener(listener)
+                        if (localPlayer == null) {
+                            mediaController.addListener(listener)
+                        }
                         AppLogger.i(TAG, "MediaController 连接成功")
-                        onReady(mediaController)
+                        onReady(localPlayer ?: mediaController)
                         continuation.resume(mediaController)
                     } catch (e: Exception) {
                         AppLogger.e(TAG, "MediaController 连接失败", e)
@@ -71,13 +92,13 @@ class MediaControllerHolder(private val context: Context) {
     }
 
     fun setRepeatMode(mode: PlayMode) {
-        controller?.repeatMode = if (mode == PlayMode.SINGLE_LOOP)
+        commandPlayer?.repeatMode = if (mode == PlayMode.SINGLE_LOOP)
             Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
 
     // 装载并起播单个曲目，支持从断点位置直接起播；playWhenReady=false 时只装载不起播
     fun playItem(mediaItem: MediaItem, mode: PlayMode, startPosition: Long, playWhenReady: Boolean = true) {
-        controller?.apply {
+        commandPlayer?.apply {
             repeatMode = if (mode == PlayMode.SINGLE_LOOP)
                 Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             setMediaItem(mediaItem, startPosition.coerceAtLeast(0L))
@@ -87,30 +108,30 @@ class MediaControllerHolder(private val context: Context) {
     }
 
     fun play() {
-        controller?.play()
+        commandPlayer?.play()
     }
 
     // 音量平衡的曲目增益，服务侧平滑过渡
     fun setVolume(volume: Float) {
-        controller?.volume = volume
+        commandPlayer?.volume = volume
     }
 
     fun pause() {
-        controller?.pause()
+        commandPlayer?.pause()
     }
 
     fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs)
+        commandPlayer?.seekTo(positionMs)
     }
 
     fun pauseAndRewind() {
-        controller?.pause()
-        controller?.seekTo(0)
+        commandPlayer?.pause()
+        commandPlayer?.seekTo(0)
     }
 
     fun stopAndClear() {
-        controller?.stop()
-        controller?.clearMediaItems()
+        commandPlayer?.stop()
+        commandPlayer?.clearMediaItems()
     }
 
     // deviceId 为 -1 表示恢复自动路由，交给 Service 端反查匹配的 AudioDeviceInfo
@@ -123,6 +144,12 @@ class MediaControllerHolder(private val context: Context) {
 
     // 主动断开控制器连接，确保关闭服务时无残留绑定阻碍服务销毁
     fun disconnect() {
+        val listener = registeredListener
+        if (listener != null) {
+            localPlayer?.removeListener(listener)
+            controller?.removeListener(listener)
+        }
+        registeredListener = null
         controller?.release()
         controller = null
     }

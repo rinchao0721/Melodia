@@ -213,12 +213,16 @@ class LanLinkRemoteCoordinator(
             }
         }
 
-        // 监听连接状态：连上时交换握手并推送初始快照，断开时清理会话协商状态并回退本机
+        // 监听连接状态：连上时先清理残留远程态并握手，断开时立即复位遥控态并回退本机
         scope.launch {
             var hadPeer = false
-            combine(transport.enabled, transport.connectedDevice) { enabled, peer ->
-                if (enabled) peer else null
-            }.distinctUntilChanged().collect { peer ->
+            combine(
+                transport.enabled,
+                transport.connectedDevice,
+                transport.sessionSequence
+            ) { enabled, peer, seq ->
+                Triple(if (enabled) peer else null, seq, enabled)
+            }.distinctUntilChanged().collect { (peer, _, _) ->
                 if (peer == null) {
                     stopHeartbeat()
                     currentEpoch = 0L
@@ -234,9 +238,14 @@ class LanLinkRemoteCoordinator(
                     hadPeer = false
                 } else {
                     hadPeer = true
+                    stopHeartbeat()
                     currentEpoch = 0L
                     lastDeclaredActiveDeviceId = null
                     peerIsHost = false
+                    if (_activeTarget.value is PlaybackTarget.Remote) {
+                        _activeTarget.value = PlaybackTarget.Local
+                    }
+                    remoteController.reset()
                     pushQueueSnapshot()
                     pushStateSnapshot(force = true)
                     sendPlaybackHello()

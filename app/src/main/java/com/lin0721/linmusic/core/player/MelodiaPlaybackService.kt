@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.player
 
 import android.app.ActivityManager
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,6 +24,7 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences
@@ -52,6 +54,10 @@ import coil3.toBitmap
 import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.lanlink.ConnectedPeerInfo
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.external.EXTRA_LYRIC_INFO
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
@@ -77,12 +83,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.android.ext.android.inject
 
 private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
+private const val CONNECTED_NOTIFICATION_ID = 1002
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
 private const val PLAYBACK_CHANNEL_NAME = "正在播放"
+private const val CONNECTED_CHANNEL_ID = "melodia_lanlink_connected"
+private const val CONNECTED_CHANNEL_NAME = "局域网联动保持连接"
 private const val ACTION_TOGGLE_LIKE = "ACTION_TOGGLE_LIKE"
 private const val ACTION_TRASH_FM = "ACTION_TRASH_FM"
 private const val ACTION_TOGGLE_PLAY_MODE = "ACTION_TOGGLE_PLAY_MODE"
@@ -91,10 +101,11 @@ private const val ACTION_OPEN_SLEEP_TIMER = "ACTION_OPEN_SLEEP_TIMER"
 private const val ACTION_CLOSE_APP = "ACTION_CLOSE_APP"
 private const val ACTION_SEEK_BACK_15 = "ACTION_SEEK_BACK_15"
 private const val ACTION_SEEK_FORWARD_15 = "ACTION_SEEK_FORWARD_15"
-private const val REQUEST_CODE_SLEEP_TIMER = 1002
+private const val REQUEST_CODE_SLEEP_TIMER = 1003
 private const val SEEK_STEP_SECONDS = 15L
 private const val ACTION_PREPARE_FOREGROUND = "com.lin0721.linmusic.action.PREPARE_FOREGROUND"
 private const val ACTION_STOP_PENDING_FOREGROUND = "com.lin0721.linmusic.action.STOP_PENDING_FOREGROUND"
+private const val ACTION_ENSURE_LANLINK_KEEPALIVE = "com.lin0721.linmusic.action.ENSURE_LANLINK_KEEPALIVE"
 private const val EXTRA_PENDING_TITLE = "extra_pending_title"
 private const val EXTRA_PENDING_ARTIST = "extra_pending_artist"
 
@@ -111,7 +122,11 @@ class MelodiaPlaybackService : MediaSessionService() {
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: Exception) {
-                AppLogger.w(TAG, "预启动播放前台服务失败", e)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                    AppLogger.w(TAG, "系统限制后台启动播放前台服务", e)
+                } else {
+                    AppLogger.w(TAG, "预启动播放前台服务失败", e)
+                }
             }
         }
 
@@ -122,9 +137,33 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
             runCatching { context.startService(intent) }
         }
+
+        // 联动已连接且服务尚未运行时拉起前台服务保活
+        fun startForLanLinkKeepalive(context: Context) {
+            val intent = Intent(context, MelodiaPlaybackService::class.java).apply {
+                action = ACTION_ENSURE_LANLINK_KEEPALIVE
+            }
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                    AppLogger.w(TAG, "系统限制后台启动联动前台服务", e)
+                } else {
+                    AppLogger.w(TAG, "启动联动前台服务失败", e)
+                }
+            }
+        }
+
+        // 前台期间提前唤醒服务以订阅连接状态，无活跃连接时不强制进入前台
+        fun wakeForLanLink(context: Context) {
+            val intent = Intent(context, MelodiaPlaybackService::class.java)
+            runCatching { context.startService(intent) }
+        }
     }
 
     private val playerManager: PlayerManager by inject()
+    private val routingPlaybackController: RoutingPlaybackController by inject()
+    private val lanLinkClient: LanLinkAndroidClient by inject()
     private val settingsPreferences: SettingsPreferences by inject()
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
@@ -142,13 +181,18 @@ class MelodiaPlaybackService : MediaSessionService() {
     private var isPersonalFm = false
     private var isPodcast = false
     private var currentPlayMode = PlayMode.LIST_LOOP
+    private var isPendingForegroundActive = false
+    private var isKeepaliveForegroundActive = false
+    private var currentKeepalivePeerName: String? = null
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
+    private var remoteSessionPlayer: RemoteSessionPlayer? = null
     private var usbAudio: UsbAudioDeviceManager? = null
     private var mediaSession: MediaSession? = null
     private var sessionActivityPendingIntent: PendingIntent? = null
     private var currentCoverBitmap: Bitmap? = null
+    private var loadedCoverUrl: String? = null
     private var notificationCallback: MediaNotification.Provider.Callback? = null
 
     private fun ensureNotificationChannel() {
@@ -165,19 +209,35 @@ class MelodiaPlaybackService : MediaSessionService() {
                 }
                 manager?.createNotificationChannel(channel)
             }
+            if (manager?.getNotificationChannel(CONNECTED_CHANNEL_ID) == null) {
+                val channel = NotificationChannel(
+                    CONNECTED_CHANNEL_ID,
+                    CONNECTED_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_MIN
+                ).apply {
+                    description = "保持局域网联动后台连接"
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                }
+                manager?.createNotificationChannel(channel)
+            }
         }
     }
 
-    private fun loadCoverBitmap(coverUri: android.net.Uri?) {
-        if (coverUri == null) {
+    private fun loadCoverBitmap(coverUri: Uri?) {
+        val rawUri = coverUri?.toString()
+        if (coverUri == null || rawUri.isNullOrBlank()) {
+            loadedCoverUrl = null
             currentCoverBitmap = null
             return
         }
+        if (rawUri == loadedCoverUrl && currentCoverBitmap != null) return
+        loadedCoverUrl = rawUri
         serviceScope.launch(Dispatchers.IO) {
             try {
-                val raw = coverUri.toString()
-                val dataModel: Any = if ((raw.startsWith("http://") || raw.startsWith("https://")) && !raw.contains('?')) {
-                    "$raw?param=300y300"
+                val dataModel: Any = if ((rawUri.startsWith("http://") || rawUri.startsWith("https://")) && !rawUri.contains('?')) {
+                    "$rawUri?param=300y300"
                 } else {
                     coverUri
                 }
@@ -189,10 +249,11 @@ class MelodiaPlaybackService : MediaSessionService() {
                     .build()
                 val result = SingletonImageLoader.get(this@MelodiaPlaybackService).execute(request)
                 val bitmap = result.image?.toBitmap()
-                if (bitmap != null) {
+                if (bitmap != null && loadedCoverUrl == rawUri) {
                     currentCoverBitmap = bitmap
                     withContext(Dispatchers.Main) {
                         updateMediaSessionButtons()
+                        triggerNotificationUpdate()
                     }
                 }
             } catch (e: Exception) {
@@ -246,7 +307,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
 
         serviceScope.launch {
-            playerManager.playMode.collect { mode ->
+            routingPlaybackController.playMode.collect { mode ->
                 currentPlayMode = mode
                 updateMediaSessionButtons()
                 triggerNotificationUpdate()
@@ -310,7 +371,11 @@ class MelodiaPlaybackService : MediaSessionService() {
             externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
         }
         crossfadePlayer = sessionPlayer
+        playerManager.attachLocalPlayer(sessionPlayer)
         playerManager.setPlaybackPositionSource(sessionPlayer::currentPositionSample)
+
+        val remotePlayer = RemoteSessionPlayer(routingPlaybackController, serviceScope)
+        remoteSessionPlayer = remotePlayer
 
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
@@ -330,7 +395,9 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
-        player = sessionPlayer
+        val initialTarget = routingPlaybackController.activeTarget.value
+        val initialPlayer: Player = if (initialTarget is PlaybackTarget.Remote) remotePlayer else sessionPlayer
+        player = initialPlayer
 
         // 点击通知时跳转回应用；REORDER_TO_FRONT 避免每次新建 Activity 实例导致重新加载
         val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
@@ -344,7 +411,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         )
         sessionActivityPendingIntent = pendingIntent
 
-        mediaSession = MediaSession.Builder(this, sessionPlayer)
+        mediaSession = MediaSession.Builder(this, initialPlayer)
             .setCallback(CustomSessionCallback())
             .setSessionActivity(pendingIntent)
             .build()
@@ -355,11 +422,41 @@ class MelodiaPlaybackService : MediaSessionService() {
         externalLyricCoordinator.onTickerChanged = { triggerNotificationUpdate() }
 
         serviceScope.launch {
-            playerManager.playContext.collect { ctx ->
+            routingPlaybackController.playContext.collect { ctx ->
                 isPersonalFm = ctx == PlaybackController.CONTEXT_PERSONAL_FM
                 isPodcast = ctx == PlaybackController.CONTEXT_PODCAST
                 updateMediaSessionButtons()
                 triggerNotificationUpdate()
+            }
+        }
+
+        // 只切换 MediaSession 的底层播放器，不重建 MediaSession
+        serviceScope.launch {
+            routingPlaybackController.activeTarget
+                .collect { target ->
+                    val nextPlayer: Player = if (target is PlaybackTarget.Remote) {
+                        sessionPlayer.pause()
+                        isPendingForegroundActive = false
+                        remotePlayer
+                    } else {
+                        sessionPlayer
+                    }
+                    if (mediaSession?.player !== nextPlayer) {
+                        player = nextPlayer
+                        mediaSession?.player = nextPlayer
+                        onSessionMediaItemChanged(nextPlayer.currentMediaItem)
+                    }
+                    updateMediaSessionButtons()
+                    triggerNotificationUpdate()
+                    syncKeepaliveForegroundState()
+                }
+        }
+
+        serviceScope.launch {
+            combine(lanLinkClient.enabled, lanLinkClient.connectedDevice) { enabled, peer ->
+                if (enabled) peer else null
+            }.distinctUntilChanged().collect {
+                syncKeepaliveForegroundState()
             }
         }
 
@@ -371,62 +468,146 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         )
 
-        // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态，并监听焦点变化
+        // 监听本机播放器事件：更新红心状态、封面、中断恢复，并在停止播放时刷新保活前台状态
         sessionPlayer.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 super.onPlayerError(error)
                 val mime = (error as? ExoPlaybackException)?.rendererFormat?.sampleMimeType
                     ?: extractAudioMimeForError(sessionPlayer.currentTracks)
                 playerManager.recordRendererErrorMime(sessionPlayer.currentMediaItem?.mediaId, mime)
+                isPendingForegroundActive = false
+                syncKeepaliveForegroundState()
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
-                externalInterruptionResumeController.onIsPlayingChanged(isPlaying)
+                if (isPlaying) isPendingForegroundActive = false
+                if (player === sessionPlayer) {
+                    externalInterruptionResumeController.onIsPlayingChanged(isPlaying)
+                }
+                syncKeepaliveForegroundState()
             }
 
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 super.onMediaItemTransition(mediaItem, reason)
-                externalInterruptionResumeController.onTrackTransition(mediaItem?.mediaId?.toLongOrNull())
-                loadCoverBitmap(mediaItem?.mediaMetadata?.artworkUri)
-                mediaItem?.mediaId?.toLongOrNull()?.let { songId ->
-                    checkAndFetchLikedStatus(songId)
-                } ?: updateMediaSessionButtons()
+                if (player === sessionPlayer) {
+                    externalInterruptionResumeController.onTrackTransition(mediaItem?.mediaId?.toLongOrNull())
+                    onSessionMediaItemChanged(mediaItem)
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                super.onPlaybackStateChanged(playbackState)
+                if (playbackState == Player.STATE_READY || playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+                    isPendingForegroundActive = false
+                }
+                syncKeepaliveForegroundState()
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 super.onPlayWhenReadyChanged(playWhenReady, reason)
-                if (!playWhenReady) {
-                    if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
-                        externalInterruptionResumeController.onAudioFocusLoss(
-                            playbackState = sessionPlayer.playbackState,
-                            currentSongId = sessionPlayer.currentMediaItem?.mediaId?.toLongOrNull()
-                        )
+                if (player === sessionPlayer) {
+                    if (!playWhenReady) {
+                        if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
+                            externalInterruptionResumeController.onAudioFocusLoss(
+                                playbackState = sessionPlayer.playbackState,
+                                currentSongId = sessionPlayer.currentMediaItem?.mediaId?.toLongOrNull()
+                            )
+                        } else {
+                            externalInterruptionResumeController.onExplicitUserPause()
+                        }
                     } else {
-                        externalInterruptionResumeController.onExplicitUserPause()
+                        externalInterruptionResumeController.onPlaybackStarted()
                     }
-                } else {
-                    externalInterruptionResumeController.onPlaybackStarted()
+                }
+                syncKeepaliveForegroundState()
+            }
+        })
+
+        // 监听远程代理播放器状态变化：同步封面、红心状态和连接保活通知切换
+        remotePlayer.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                super.onIsPlayingChanged(isPlaying)
+                syncKeepaliveForegroundState()
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                super.onPlaybackStateChanged(playbackState)
+                syncKeepaliveForegroundState()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                super.onPlayWhenReadyChanged(playWhenReady, reason)
+                syncKeepaliveForegroundState()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                super.onMediaItemTransition(mediaItem, reason)
+                if (player === remotePlayer) {
+                    onSessionMediaItemChanged(mediaItem)
                 }
             }
         })
     }
 
+    private fun onSessionMediaItemChanged(mediaItem: MediaItem?) {
+        loadCoverBitmap(mediaItem?.mediaMetadata?.artworkUri)
+        val songId = mediaItem?.mediaId?.toLongOrNull()
+        if (songId != null) {
+            checkAndFetchLikedStatus(songId)
+        } else {
+            updateMediaSessionButtons()
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    override fun onUpdateNotificationAsync(
+        session: MediaSession,
+        startInForegroundRequired: Boolean
+    ): ListenableFuture<Void> {
+        val future = super.onUpdateNotificationAsync(session, startInForegroundRequired)
+        future.addListener(
+            { syncKeepaliveForegroundState() },
+            ContextCompat.getMainExecutor(this)
+        )
+        return future
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PREPARE_FOREGROUND -> {
+                isPendingForegroundActive = true
                 val title = intent.getStringExtra(EXTRA_PENDING_TITLE)
                 val artist = intent.getStringExtra(EXTRA_PENDING_ARTIST)
                 promoteToForegroundForPendingPlay(title, artist)
             }
             ACTION_STOP_PENDING_FOREGROUND -> {
-                val currentPlayer = player
-                if (currentPlayer == null || (currentPlayer.playbackState == Player.STATE_IDLE && !currentPlayer.isPlaying)) {
-                    runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
+                isPendingForegroundActive = false
+                syncKeepaliveForegroundState()
+            }
+            ACTION_ENSURE_LANLINK_KEEPALIVE -> {
+                val peer = if (lanLinkClient.enabled.value) lanLinkClient.connectedDevice.value else null
+                if (peer != null && !isMediaPlaybackForegroundActive()) {
+                    startConnectedDeviceForeground(peer)
+                } else if (!isMediaPlaybackForegroundActive()) {
+                    // 通过 startForegroundService 启动但连接刚断开时，先兜底进入前台再立即同步退出避免系统超时异常
+                    startConnectedDeviceForeground(ConnectedPeerInfo("", getString(R.string.app_name)))
+                    syncKeepaliveForegroundState()
                 }
             }
         }
         return super.onStartCommand(intent, flags, startId)
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val keepAlive = isMediaPlaybackForegroundActive() || (
+            lanLinkClient.enabled.value && (
+                lanLinkClient.connectedDevice.value != null ||
+                    lanLinkClient.pairedDevices.value.isNotEmpty()
+                )
+            )
+        if (keepAlive) return
+        super.onTaskRemoved(rootIntent)
     }
 
     // 系统「继续播放」卡片只取元数据，不需要播放地址
@@ -467,9 +648,106 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
         try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, fgsType)
+            if (isKeepaliveForegroundActive) {
+                isKeepaliveForegroundActive = false
+                currentKeepalivePeerName = null
+                getSystemService(NotificationManager::class.java)?.cancel(CONNECTED_NOTIFICATION_ID)
+            }
         } catch (e: Exception) {
-            AppLogger.w(TAG, "进入待播前台服务失败", e)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                AppLogger.w(TAG, "系统限制后台进入待播前台服务", e)
+            } else {
+                AppLogger.w(TAG, "进入待播前台服务失败", e)
+            }
         }
+    }
+
+    private fun isMediaPlaybackForegroundActive(): Boolean {
+        if (isPendingForegroundActive) return true
+        val currentPlayer = mediaSession?.player ?: player ?: return false
+        return !currentPlayer.currentTimeline.isEmpty &&
+            (currentPlayer.isPlaying || currentPlayer.playWhenReady)
+    }
+
+    private fun hasMediaNotificationContent(): Boolean {
+        if (isPendingForegroundActive) return true
+        val currentPlayer = mediaSession?.player ?: player ?: return false
+        return !currentPlayer.currentTimeline.isEmpty &&
+            currentPlayer.playbackState != Player.STATE_IDLE
+    }
+
+    private fun syncKeepaliveForegroundState() {
+        val manager = getSystemService(NotificationManager::class.java)
+        val mediaActive = isMediaPlaybackForegroundActive()
+        val mediaNotificationVisible = hasMediaNotificationContent()
+        val connectedPeer = if (lanLinkClient.enabled.value) lanLinkClient.connectedDevice.value else null
+
+        if (mediaActive) {
+            if (isKeepaliveForegroundActive) {
+                isKeepaliveForegroundActive = false
+                currentKeepalivePeerName = null
+                manager?.cancel(CONNECTED_NOTIFICATION_ID)
+            }
+            return
+        }
+
+        if (connectedPeer != null) {
+            startConnectedDeviceForeground(connectedPeer)
+            return
+        }
+
+        val wasKeepalive = isKeepaliveForegroundActive
+        isKeepaliveForegroundActive = false
+        currentKeepalivePeerName = null
+        manager?.cancel(CONNECTED_NOTIFICATION_ID)
+        if (!mediaNotificationVisible || wasKeepalive) {
+            val flag = if (mediaNotificationVisible) {
+                ServiceCompat.STOP_FOREGROUND_DETACH
+            } else {
+                ServiceCompat.STOP_FOREGROUND_REMOVE
+            }
+            runCatching { ServiceCompat.stopForeground(this, flag) }
+            if (!mediaNotificationVisible) {
+                manager?.cancel(NOTIFICATION_ID)
+            }
+        }
+    }
+
+    private fun startConnectedDeviceForeground(peer: ConnectedPeerInfo) {
+        if (isKeepaliveForegroundActive && currentKeepalivePeerName == peer.deviceName) return
+        ensureNotificationChannel()
+        val notification = buildConnectedKeepaliveNotification(peer.deviceName)
+        val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        } else {
+            0
+        }
+        try {
+            ServiceCompat.startForeground(this, CONNECTED_NOTIFICATION_ID, notification, fgsType)
+            isKeepaliveForegroundActive = true
+            currentKeepalivePeerName = peer.deviceName
+        } catch (e: Exception) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                AppLogger.w(TAG, "系统限制后台启动 connectedDevice 前台服务", e)
+            } else {
+                AppLogger.w(TAG, "进入 connectedDevice 前台服务失败", e)
+            }
+        }
+    }
+
+    private fun buildConnectedKeepaliveNotification(peerName: String): Notification {
+        val displayName = peerName.ifBlank { "桌面端" }
+        return NotificationCompat.Builder(this, CONNECTED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText("已连接 $displayName")
+            .setContentIntent(sessionActivityPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .build()
     }
 
     private fun buildPendingForegroundNotification(title: String, artist: String): Notification {
@@ -506,6 +784,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        playerManager.attachLocalPlayer(null)
         playerManager.setPlaybackPositionSource(null)
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
         externalInterruptionResumeController.release()
@@ -517,10 +796,16 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.cancel()
         notificationCallback = null
         currentCoverBitmap = null
+        loadedCoverUrl = null
+        isKeepaliveForegroundActive = false
+        currentKeepalivePeerName = null
+        getSystemService(NotificationManager::class.java)?.cancel(CONNECTED_NOTIFICATION_ID)
         mediaSession?.run {
             release()
             mediaSession = null
         }
+        remoteSessionPlayer?.release()
+        remoteSessionPlayer = null
         crossfadePlayer?.release()
         crossfadePlayer = null
         player = null
@@ -580,7 +865,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     ): CommandButton {
         val builder = when (button) {
             NotificationButton.LIKE -> {
-                val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
+                val songId = (mediaSession?.player ?: player)?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
                 val isLiked = songId != -1L && songId in songLikeRepository.likedSongIds.value
                 val icon = if (isLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
                 val displayName = if (isLiked) "取消喜欢" else "喜欢"
@@ -706,26 +991,37 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     private fun seekBySeconds(deltaSeconds: Long) {
-        val currentPlayer = player
-        val currentPos = currentPlayer?.currentPosition?.takeIf { it >= 0L } ?: playerManager.currentPositionExact()
-        val totalDuration = currentPlayer?.duration?.takeIf { it > 0L } ?: playerManager.duration.value
+        val currentPlayer = mediaSession?.player ?: player
+        val currentPos = currentPlayer?.currentPosition?.takeIf { it >= 0L }
+            ?: routingPlaybackController.currentPositionNow()
+        val totalDuration = currentPlayer?.duration?.takeIf { it > 0L }
+            ?: routingPlaybackController.duration.value
         val rawTarget = currentPos + deltaSeconds * 1000L
         val target = if (totalDuration > 0L) rawTarget.coerceIn(0L, totalDuration) else rawTarget.coerceAtLeast(0L)
-        playerManager.seekTo(target)
-        if (!playerManager.isControllerConnected) {
+        routingPlaybackController.seekTo(target)
+        if (currentPlayer === crossfadePlayer && !playerManager.isControllerConnected) {
             currentPlayer?.seekTo(target)
         }
     }
 
     private fun closeAppFromNotification() {
         serviceScope.launch {
+            runCatching {
+                withTimeoutOrNull(800L) {
+                    lanLinkClient.shutdownWithBye("user_close_app")
+                }
+            }
             playerManager.pause()
             crossfadePlayer?.pause()
             playerManager.saveStateNowAndDisconnect()
             crossfadePlayer?.stop()
+            isKeepaliveForegroundActive = false
+            currentKeepalivePeerName = null
             runCatching { stopService(Intent(this@MelodiaPlaybackService, FloatingLyricService::class.java)) }
             runCatching { ServiceCompat.stopForeground(this@MelodiaPlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE) }
-            getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.cancel(CONNECTED_NOTIFICATION_ID)
+            manager?.cancel(NOTIFICATION_ID)
             getSystemService(ActivityManager::class.java)?.appTasks?.forEach { task ->
                 runCatching { task.finishAndRemoveTask() }
             }
@@ -814,11 +1110,14 @@ class MelodiaPlaybackService : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             playerCommand: Int
         ): Int {
+            val isLocalPlayer = session.player === crossfadePlayer
             when (playerCommand) {
                 Player.COMMAND_SEEK_TO_NEXT,
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                    externalInterruptionResumeController.onTrackTransition(null)
-                    playerManager.playNext()
+                    if (isLocalPlayer) {
+                        externalInterruptionResumeController.onTrackTransition(null)
+                    }
+                    routingPlaybackController.playNext()
                     return SessionResult.RESULT_SUCCESS
                 }
                 Player.COMMAND_SEEK_TO_PREVIOUS,
@@ -826,17 +1125,21 @@ class MelodiaPlaybackService : MediaSessionService() {
                     if (isPersonalFm) {
                         return SessionResult.RESULT_ERROR_NOT_SUPPORTED
                     }
-                    externalInterruptionResumeController.onTrackTransition(null)
-                    playerManager.playPrevious()
+                    if (isLocalPlayer) {
+                        externalInterruptionResumeController.onTrackTransition(null)
+                    }
+                    routingPlaybackController.playPrevious()
                     return SessionResult.RESULT_SUCCESS
                 }
                 Player.COMMAND_PLAY_PAUSE -> {
-                    if (externalInterruptionResumeController.isAwaitingResumeActive() && player?.playWhenReady == false) {
+                    if (isLocalPlayer && externalInterruptionResumeController.isAwaitingResumeActive() && session.player.playWhenReady == false) {
                         externalInterruptionResumeController.onExplicitUserPause()
                     }
                 }
                 Player.COMMAND_STOP -> {
-                    externalInterruptionResumeController.onExplicitUserPause()
+                    if (isLocalPlayer) {
+                        externalInterruptionResumeController.onExplicitUserPause()
+                    }
                 }
             }
             return super.onPlayerCommandRequest(session, controller, playerCommand)
@@ -851,7 +1154,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
                 ACTION_TOGGLE_LIKE -> {
-                    val songId = player?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
+                    val songId = (mediaSession?.player ?: player)?.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
                     if (songId != -1L) {
                         toggleLike(songId)
                     }
@@ -859,12 +1162,12 @@ class MelodiaPlaybackService : MediaSessionService() {
                 }
                 ACTION_TRASH_FM -> {
                     if (isPersonalFm) {
-                        playerManager.trashCurrentFmSong()
+                        routingPlaybackController.trashCurrentFmSong()
                     }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 ACTION_TOGGLE_PLAY_MODE -> {
-                    playerManager.rotatePlayMode()
+                    routingPlaybackController.rotatePlayMode()
                     updateMediaSessionButtons()
                     triggerNotificationUpdate()
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -923,6 +1226,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             val metadata = currentItem?.mediaMetadata
             val title = metadata?.title?.toString()?.ifBlank { null } ?: getString(R.string.app_name)
             val artist = metadata?.artist?.toString() ?: ""
+            val subtitle = metadata?.subtitle?.toString()?.takeIf { it.isNotBlank() }
 
             val isPlaying = session.player.isPlaying
             val playPauseIconRes = if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play
@@ -950,6 +1254,9 @@ class MelodiaPlaybackService : MediaSessionService() {
                 .setOnlyAlertOnce(true)
                 .setOngoing(isPlaying)
                 .setShowWhen(false)
+            if (subtitle != null) {
+                builder.setSubText(subtitle)
+            }
             if (!isPersonalFm) {
                 val prevAction = actionFactory.createMediaAction(
                     session,

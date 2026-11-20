@@ -125,6 +125,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.skia.Image
 import org.koin.core.context.startKoin
 import org.koin.core.qualifier.named
@@ -323,7 +324,11 @@ fun main(args: Array<String>) {
         // 先隐藏窗口等消失动画播完，再补报当前曲目播放时长、销毁 mpv 句柄并退出
         var isExiting by remember { mutableStateOf(false) }
         val shutdownAndExit = {
-            appDependencies.lanLink.stop()
+            runBlocking {
+                withTimeoutOrNull(1_000L) {
+                    appDependencies.lanLink.stopAndNotify("app_exit")
+                }
+            }
             mediaSession.shutdown()
             localController.release()
             singleInstance.close()

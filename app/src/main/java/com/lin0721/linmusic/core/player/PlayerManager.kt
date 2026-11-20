@@ -191,6 +191,10 @@ class PlayerManager(
         playbackPositionSource = source
     }
 
+    internal fun attachLocalPlayer(player: Player?) {
+        controllerHolder.attachLocalPlayer(player)
+    }
+
     // 外部歌词服务要的是"此刻"的进度：直接读控制器，绕开 1s 一次的业务轮询
     fun currentPositionExact(): Long {
         return controllerHolder.currentPositionOrNull ?: currentPositionNow()

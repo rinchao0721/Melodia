@@ -24,6 +24,7 @@ import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.get
 import com.lin0721.linmusic.core.lanlink.AndroidLanDiscoveryLock
+import com.lin0721.linmusic.core.lanlink.AndroidLanNetworkMonitor
 import com.lin0721.linmusic.core.lanlink.LanDiscoveryLock
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
@@ -64,6 +65,7 @@ val localModule = module {
             deviceNameProvider = ::androidDeviceDisplayName
         )
     }
+    single { AndroidLanNetworkMonitor(androidContext(), get()) }
     single { ContentFilter(get()) }
     single<ResourceProvider> { AndroidResourceProvider(androidContext()) }
     single<NetworkStateProvider> { AndroidNetworkStateProvider(androidContext()) }

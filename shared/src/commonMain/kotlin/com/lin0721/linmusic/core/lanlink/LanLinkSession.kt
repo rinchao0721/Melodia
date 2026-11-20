@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.lanlink
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
@@ -15,12 +16,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import java.io.IOException
 import java.net.Socket
 import java.security.GeneralSecurityException
 
 private const val TAG = "LanLinkSession"
+private const val BYE_SEND_TIMEOUT_MS = 800L
 
 // 管理认证后单条加密长连接的心跳、账号校验与歌单外部曲目/红心双向同步
 @OptIn(FlowPreview::class)
@@ -34,7 +37,8 @@ internal class LanLinkSession(
     private val userPreferences: UserPreferences,
     private val onUnpairedByPeer: suspend () -> Unit,
     private val onSyncStateChanged: (LanLinkSyncState, String) -> Unit,
-    private val onMessageReceived: (suspend (LanLinkMessage) -> Unit)? = null
+    private val onMessageReceived: (suspend (LanLinkMessage) -> Unit)? = null,
+    private val onByeByPeer: (suspend (String) -> Unit)? = null
 ) {
     private val cipher = LanLinkSessionCipher(sessionKey, isHost)
     private val sendMutex = Mutex()
@@ -128,6 +132,20 @@ internal class LanLinkSession(
         close()
     }
 
+    // 正常关闭前尽力向对端发送 Bye，超时或失败均立即关闭底层连接
+    suspend fun sendByeAndClose(reason: String = "normal_disconnect") {
+        withTimeoutOrNull(BYE_SEND_TIMEOUT_MS) {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    if (!closed && !socket.isClosed) {
+                        sendEncrypted(LanLinkMessage.Bye(reason))
+                    }
+                }
+            }
+        }
+        close()
+    }
+
     // 遥控协调器在主线程调度，Android 主线程写 socket 会抛 NetworkOnMainThreadException
     suspend fun sendMessage(message: LanLinkMessage) = withContext(Dispatchers.IO) {
         sendEncrypted(message)
@@ -178,9 +196,16 @@ internal class LanLinkSession(
 
                 is LanLinkMessage.Ping -> {
                     runCatching { sendEncrypted(LanLinkMessage.Pong(message.timestampMs)) }
+                        .onFailure { break }
                 }
 
                 is LanLinkMessage.Pong -> Unit
+
+                is LanLinkMessage.Bye -> {
+                    AppLogger.i(TAG, "收到对端断开通知: ${message.reason}")
+                    onByeByPeer?.invoke(message.reason)
+                    break
+                }
 
                 is LanLinkMessage.UnpairedNotice -> {
                     onUnpairedByPeer()
@@ -231,11 +256,18 @@ internal class LanLinkSession(
     }
 
     private suspend fun sendEncrypted(message: LanLinkMessage) {
-        val encoded = LanLinkJson.encodeToString<LanLinkMessage>(message).encodeToByteArray()
-        // 加密与写出同在锁内，保证帧序号与线上顺序一致，否则对端按递增校验会拒收
-        sendMutex.withLock {
-            if (closed || socket.isClosed) throw IOException("会话已关闭")
-            LanLinkFrameCodec.writeFrame(output, cipher.encryptFrame(encoded))
+        try {
+            val encoded = LanLinkJson.encodeToString<LanLinkMessage>(message).encodeToByteArray()
+            // 加密与写出同在锁内，保证帧序号与线上顺序一致，否则对端按递增校验会拒收
+            sendMutex.withLock {
+                if (closed || socket.isClosed) throw IOException("会话已关闭")
+                LanLinkFrameCodec.writeFrame(output, cipher.encryptFrame(encoded))
+            }
+        } catch (t: Throwable) {
+            if (t !is CancellationException) {
+                close()
+            }
+            throw t
         }
     }
 }
