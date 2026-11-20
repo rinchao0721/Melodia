@@ -191,6 +191,8 @@ class LyriconAdapter(private val context: Context) {
             null
         }
         if (status != null && !status.isDisconnected()) return
+        // 退避重连进行中就交给它，避免和重连抢着重建
+        if (reconnectJob?.isActive == true) return
 
         AppLogger.w(TAG, "Lyricon 连接状态异常（$status，$reason），重建 Provider")
         try {
@@ -260,7 +262,8 @@ class LyriconAdapter(private val context: Context) {
      * @param force 切歌、跳转、连接建立后必须重发，否则会被漂移判断吞掉
      */
     fun syncPlaybackState(isPlaying: Boolean, positionMs: Long, force: Boolean = false) {
-        ensureHealthy("同步播放状态")
+        // 进度每秒都会同步，只在起停、切歌、跳转时核对连接，否则断开态下会每轮重建 Provider
+        if (force || lastPlaying != isPlaying) ensureHealthy("同步播放状态") else ensureStarted()
         if (!isEnabled) return
         val player = provider?.player ?: return
         val position = positionMs.coerceAtLeast(0L)
