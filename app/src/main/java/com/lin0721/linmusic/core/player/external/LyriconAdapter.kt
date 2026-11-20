@@ -168,6 +168,52 @@ class LyriconAdapter(private val context: Context) {
         watchdogJob = null
     }
 
+    /**
+     * 检查连接是否还活着，不健康就整份重建。
+     *
+     * 状态机、注册协调器、Binder 死亡监听任何一层卡住，都会显得「已开启但没歌词」。
+     * 与其猜是哪一层，不如在播放开始、切歌这些必须出歌词的时刻先把连接状态核对一遍：
+     * 处于断开态就销毁当前 Provider 重新建一个再注册，把状态机一起重置。
+     *
+     * @param reason 触发这次检查的场景，只用于日志
+     */
+    private fun ensureHealthy(reason: String) {
+        if (!isEnabled) return
+        val target = provider ?: run {
+            ensureStarted()
+            if (provider == null) scheduleReconnect("Provider 缺失（$reason）")
+            return
+        }
+        val status = try {
+            target.service.connectionStatus
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Lyricon 读取连接状态失败（$reason）", e)
+            null
+        }
+        if (status != null && !status.isDisconnected()) return
+        // 退避重连进行中就交给它，避免和重连抢着重建
+        if (reconnectJob?.isActive == true) return
+
+        AppLogger.w(TAG, "Lyricon 连接状态异常（$status，$reason），重建 Provider")
+        try {
+            target.destroy()
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Lyricon 销毁异常 Provider 失败", e)
+        }
+        provider = null
+        val rebuilt = createProvider()?.also { provider = it }
+        if (rebuilt == null) {
+            scheduleReconnect("Provider 重建失败（$reason）")
+            return
+        }
+        try {
+            rebuilt.register()
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Lyricon 重建后注册失败（$reason）", e)
+            scheduleReconnect("重建后注册失败（$reason）")
+        }
+    }
+
     fun updateSong(
         songId: String,
         title: String,
@@ -176,7 +222,7 @@ class LyriconAdapter(private val context: Context) {
         lines: List<LyricLine>,
         showTranslation: Boolean
     ) {
-        ensureStarted()
+        ensureHealthy("更新曲目")
         if (!isEnabled) return
         val player = provider?.player ?: return
         try {
@@ -216,7 +262,8 @@ class LyriconAdapter(private val context: Context) {
      * @param force 切歌、跳转、连接建立后必须重发，否则会被漂移判断吞掉
      */
     fun syncPlaybackState(isPlaying: Boolean, positionMs: Long, force: Boolean = false) {
-        ensureStarted()
+        // 进度每秒都会同步，只在起停、切歌、跳转时核对连接，否则断开态下会每轮重建 Provider
+        if (force || lastPlaying != isPlaying) ensureHealthy("同步播放状态") else ensureStarted()
         if (!isEnabled) return
         val player = provider?.player ?: return
         val position = positionMs.coerceAtLeast(0L)
