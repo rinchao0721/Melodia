@@ -15,8 +15,12 @@ import com.lin0721.linmusic.desktop.platform.MediaSessionService
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,7 +85,9 @@ class DesktopSettingsViewModelTest {
 
     private lateinit var dir: File
     private lateinit var cacheDir: File
+    private lateinit var store: DataStore<Preferences>
     private lateinit var preferences: DesktopPreferences
+    private val createdViewModels = mutableListOf<DesktopSettingsViewModel>()
     private val hotkeys = FakeHotkeys()
     private var imageBytes = 300L
     private var logBytes = 40L
@@ -96,11 +102,16 @@ class DesktopSettingsViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         dir = Files.createTempDirectory("melodia-desktop-settings-test").toFile()
         cacheDir = File(dir, "audio").apply { mkdirs() }
-        preferences = DesktopPreferences(PreferencesStores.get(File(dir, "desktop.preferences_pb")))
+        store = PreferencesStores.get(File(dir, "desktop.preferences_pb"))
+        preferences = DesktopPreferences(store)
     }
 
     @After
     fun tearDown() {
+        // 偏好是异步写的，先停掉 ViewModel 并等写入落盘，否则写入会晚于删目录、重置 Main，异常泄漏给后续用例
+        createdViewModels.forEach { it.viewModelScope.cancel() }
+        createdViewModels.clear()
+        runBlocking { store.updateData { it } }
         Dispatchers.resetMain()
         dir.deleteRecursively()
     }
@@ -121,7 +132,7 @@ class DesktopSettingsViewModelTest {
         relocator = relocator(),
         storage = storage,
         ioDispatcher = UnconfinedTestDispatcher()
-    )
+    ).also { createdViewModels += it }
 
     private fun relocator() = CacheRelocator(
         preferences,
