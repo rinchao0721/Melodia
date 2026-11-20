@@ -104,6 +104,12 @@ val repositoryModule = module {
     // 首页数据仓储（feature/home）
     singleOf(::HomeRepositoryImpl) { bind<HomeRepository>() }
     singleOf(::MusicRepositoryImpl) { bind<MusicRepository>() }
+    // 曲风封面地址缓存（偏好与全部曲风共用），随进程存活
+    single {
+        com.lin0721.linmusic.feature.music.data.StyleCoverCache(
+            dataStore = getOrNull(org.koin.core.qualifier.named(com.lin0721.linmusic.core.preferences.PreferencesStores.STYLE_COVER))
+        )
+    }
     singleOf(::PodcastRepositoryImpl) { bind<PodcastRepository>() }
     // 播放器里的播客订阅状态，迷你条与全屏播放页共用，随进程存活
     single { PodcastPlayerController(CoroutineScope(SupervisorJob() + Dispatchers.Main), get(), get(), get(), get()) }

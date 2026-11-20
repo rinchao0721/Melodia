@@ -295,6 +295,7 @@ fun HomePage(
                         uiState = musicState,
                         listState = musicListState,
                         onStyleClick = onStyleClick,
+                        onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = musicViewModel::loadStyles
                     )
                     selectedTab == HOME_TAB_PODCAST -> PodcastTab(

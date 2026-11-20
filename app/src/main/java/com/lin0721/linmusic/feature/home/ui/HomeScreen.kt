@@ -193,6 +193,7 @@ fun HomeScreen(
                     selectedTab == TAB_MUSIC -> MusicContent(
                         uiState = musicUiState,
                         onStyleClick = onStyleClick,
+                        onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = { musicViewModel.loadStyles() }
                     )
 

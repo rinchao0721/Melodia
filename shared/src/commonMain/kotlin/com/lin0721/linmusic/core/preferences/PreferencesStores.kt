@@ -26,6 +26,7 @@ object PreferencesStores {
     const val MESSAGE = "message_prefs"
     const val COVER_COLOR = "cover_color_prefs"
     const val SONG_QUALITY = "song_quality_prefs"
+    const val STYLE_COVER = "style_cover_prefs"
     const val LAN_LINK = "lan_link_prefs"
 
     private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()

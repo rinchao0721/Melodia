@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -53,6 +55,7 @@ import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.ChevronUp
 
 private val TileGap = 10.dp
+private val TileShape = RoundedCornerShape(8.dp)
 // 偏好与全部曲风共用同一比例，随列宽等比缩放
 private const val TileAspectRatio = 1.7f
 
@@ -61,6 +64,7 @@ private const val TileAspectRatio = 1.7f
 fun MusicContent(
     uiState: MusicUiState,
     onStyleClick: (id: Long, name: String) -> Unit,
+    onRequestStyleCover: (Long) -> Unit = {},
     onRetry: () -> Unit
 ) {
     val columns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 4, expandedLandscape = 5)
@@ -89,14 +93,15 @@ fun MusicContent(
                     }
                     items(data.preferences.chunked(columns), key = { row -> "pref_${row.first().id}" }) { row ->
                         TileRow(row, columns) { pref ->
-                            PreferenceTile(pref, data.preferenceCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
+                            PreferenceTile(pref, data.styleCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
                         }
                     }
                 }
                 item(key = "styles_title") { MusicSectionTitle("全部曲风") }
                 items(data.styles.chunked(columns), key = { row -> "style_${row.first().id}" }) { row ->
                     TileRow(row, columns) { style ->
-                        StyleTile(style) { onStyleClick(style.id, style.name) }
+                        LaunchedEffect(style.id) { onRequestStyleCover(style.id) }
+                        StyleTile(style, data.styleCovers[style.id]) { onStyleClick(style.id, style.name) }
                     }
                 }
             }
@@ -164,41 +169,47 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(TileAspectRatio)
-            .pressable(MelodiaPress.Card) { onClick() }
-            .clip(RoundedCornerShape(8.dp))
+            .pressable(MelodiaPress.Card, shape = TileShape) { onClick() }
             .background(pref.colorHex.toStyleColor().tileBackground())
     ) {
-        coverUrl?.let {
-            SubcomposeAsyncImage(
-                model = it.withStyleCoverParam("200y200"),
-                contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 14.dp, y = 4.dp)
-                    .rotate(25f)
-                    .fillMaxHeight(0.66f)
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(4.dp)),
-                contentScale = ContentScale.Crop,
-                loading = { CoverPlaceholder() },
-                error = { CoverPlaceholder() }
-            )
-        }
+        TiltedStyleCover(coverUrl)
         TileLabel(title = pref.name, subtitle = "${pref.ratio}%", modifier = Modifier.fillMaxWidth(0.7f))
     }
 }
 
+// 全部曲风色块：样式与偏好色块统一，文字限宽避免压到右下角斜封面
 @Composable
-private fun StyleTile(style: MusicStyle, onClick: () -> Unit) {
+private fun StyleTile(style: MusicStyle, coverUrl: String?, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(TileAspectRatio)
-            .pressable(MelodiaPress.Card) { onClick() }
-            .clip(RoundedCornerShape(8.dp))
+            .pressable(MelodiaPress.Card, shape = TileShape) { onClick() }
             .background(style.colorHex.toStyleColor().tileBackground())
     ) {
-        TileLabel(title = style.name, subtitle = style.enName)
+        TiltedStyleCover(coverUrl)
+        TileLabel(title = style.name, subtitle = style.enName, modifier = Modifier.fillMaxWidth(0.7f))
+    }
+}
+
+// 偏好与全部曲风色块共用的右下角斜放封面
+@Composable
+private fun BoxScope.TiltedStyleCover(coverUrl: String?) {
+    coverUrl?.let {
+        SubcomposeAsyncImage(
+            model = it.withStyleCoverParam("200y200"),
+            contentDescription = null,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = 14.dp, y = 4.dp)
+                .rotate(25f)
+                .fillMaxHeight(0.66f)
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(4.dp)),
+            contentScale = ContentScale.Crop,
+            loading = { CoverPlaceholder() },
+            error = { CoverPlaceholder() }
+        )
     }
 }
 

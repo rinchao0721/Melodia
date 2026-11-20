@@ -79,6 +79,7 @@ class SharedModulesResolveTest {
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
             single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
             single(org.koin.core.qualifier.named(PreferencesStores.SONG_QUALITY)) { store(PreferencesStores.SONG_QUALITY) }
+            single(org.koin.core.qualifier.named(PreferencesStores.STYLE_COVER)) { store(PreferencesStores.STYLE_COVER) }
             single { ContentFilter(get()) }
             single { ResourceProvider() }
             single<NetworkStateProvider> { NetworkStateProvider { true } }
@@ -94,6 +95,7 @@ class SharedModulesResolveTest {
         try {
             listOf(
                 AuthRepositoryImpl::class, AccountSwitcher::class, SessionMonitor::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
+                com.lin0721.linmusic.feature.music.data.StyleCoverCache::class,
                 PodcastRepositoryImpl::class, SearchRepositoryImpl::class, LibraryRepositoryImpl::class,
                 RecentRepositoryImpl::class, CloudRepositoryImpl::class, ListenDataRepositoryImpl::class,
                 NewWorksRepositoryImpl::class, ArtistRepositoryImpl::class, CommentRepositoryImpl::class,

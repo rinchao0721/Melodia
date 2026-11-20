@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +28,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -64,7 +66,8 @@ private val PreferenceTileMinWidth = 200.dp
 private val PreferenceTileHeight = 120.dp
 private val StyleTileMinWidth = 150.dp
 private val StyleTileHeight = 76.dp
-private val TiltedCoverSize = 84.dp
+private val PreferenceTiltedCoverSize = 84.dp
+private val StyleTiltedCoverSize = 54.dp
 
 // 服务端没给配色的曲风统一退回中性灰
 private val FallbackStyleColor = Color(0xFF4A4A4A)
@@ -75,6 +78,7 @@ fun MusicTab(
     uiState: MusicUiState,
     listState: LazyListState,
     onStyleClick: (id: Long, name: String) -> Unit,
+    onRequestStyleCover: (Long) -> Unit = {},
     onRetry: () -> Unit
 ) {
     when (uiState) {
@@ -87,7 +91,8 @@ fun MusicTab(
                 listState = listState,
                 preferenceColumns = columnCount(contentWidth, PreferenceTileMinWidth),
                 styleColumns = columnCount(contentWidth, StyleTileMinWidth),
-                onStyleClick = onStyleClick
+                onStyleClick = onStyleClick,
+                onRequestStyleCover = onRequestStyleCover
             )
         }
     }
@@ -99,7 +104,8 @@ private fun MusicBrowseList(
     listState: LazyListState,
     preferenceColumns: Int,
     styleColumns: Int,
-    onStyleClick: (id: Long, name: String) -> Unit
+    onStyleClick: (id: Long, name: String) -> Unit,
+    onRequestStyleCover: (Long) -> Unit
 ) {
     HoverScrollbarBox(listState) {
         LazyColumn(
@@ -117,7 +123,7 @@ private fun MusicBrowseList(
                 }
                 items(data.preferences.chunked(preferenceColumns), key = { row -> "pref_${row.first().id}" }) { row ->
                     TileRow(row, preferenceColumns) { pref ->
-                        PreferenceTile(pref, data.preferenceCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
+                        PreferenceTile(pref, data.styleCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
                     }
                 }
                 item(key = "styles_gap") { Spacer(Modifier.height(8.dp)) }
@@ -125,7 +131,8 @@ private fun MusicBrowseList(
             item(key = "styles_title") { SectionTitle("全部曲风") }
             items(data.styles.chunked(styleColumns), key = { row -> "style_${row.first().id}" }) { row ->
                 TileRow(row, styleColumns) { style ->
-                    StyleTile(style) { onStyleClick(style.id, style.name) }
+                    LaunchedEffect(style.id) { onRequestStyleCover(style.id) }
+                    StyleTile(style, data.styleCovers[style.id]) { onStyleClick(style.id, style.name) }
                 }
             }
         }
@@ -188,14 +195,7 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
         Modifier.fillMaxWidth().height(PreferenceTileHeight).clip(RoundedCornerShape(8.dp))
             .background(pref.colorHex.toStyleColor().liftedForTile()).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
     ) {
-        if (coverUrl != null) {
-            Cover(
-                coverUrl,
-                TiltedCoverSize,
-                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 18.dp, y = 6.dp).rotate(25f),
-                shape = RoundedCornerShape(4.dp)
-            )
-        }
+        TiltedStyleCover(coverUrl, PreferenceTiltedCoverSize, offsetX = 18.dp, offsetY = 6.dp)
         Column(Modifier.padding(16.dp).fillMaxWidth(0.7f)) {
             Text(
                 pref.name,
@@ -216,30 +216,51 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
     }
 }
 
+// 全部曲风色块：右下角斜放封面，文字限宽避免压到封面上
 @Composable
-private fun StyleTile(style: MusicStyle, onClick: () -> Unit) {
-    Column(
+private fun StyleTile(style: MusicStyle, coverUrl: String?, onClick: () -> Unit) {
+    Box(
         Modifier.fillMaxWidth().height(StyleTileHeight).clip(RoundedCornerShape(8.dp))
             .background(style.colorHex.toStyleColor().liftedForTile()).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
-        Text(
-            style.name,
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (style.enName.isNotBlank()) {
+        TiltedStyleCover(coverUrl, StyleTiltedCoverSize, offsetX = 12.dp, offsetY = 4.dp)
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp).fillMaxWidth(0.7f)) {
             Text(
-                style.enName,
-                color = Color.White.copy(alpha = 0.6f),
-                fontSize = 12.sp,
+                style.name,
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (style.enName.isNotBlank()) {
+                Text(
+                    style.enName,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
+    }
+}
+
+// 偏好与全部曲风色块共用的右下角斜放封面
+@Composable
+private fun BoxScope.TiltedStyleCover(
+    coverUrl: String?,
+    size: Dp,
+    offsetX: Dp,
+    offsetY: Dp
+) {
+    if (coverUrl != null) {
+        Cover(
+            coverUrl,
+            size,
+            modifier = Modifier.align(Alignment.BottomEnd).offset(x = offsetX, y = offsetY).rotate(25f),
+            shape = RoundedCornerShape(4.dp)
+        )
     }
 }
 

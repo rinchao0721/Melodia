@@ -198,6 +198,7 @@ val desktopPlatformModule = module {
     // 启动即预读，首页首帧前备好封面卡颜色
     single(createdAtStart = true) { CoverColorMemory(store(PreferencesStores.COVER_COLOR), CoroutineScope(SupervisorJob() + Dispatchers.IO)) }
     single(named(PreferencesStores.SONG_QUALITY)) { store(PreferencesStores.SONG_QUALITY) }
+    single(named(PreferencesStores.STYLE_COVER)) { store(PreferencesStores.STYLE_COVER) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }

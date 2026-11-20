@@ -91,4 +91,7 @@ val localModule = module {
     single(named(PreferencesStores.SONG_QUALITY)) {
         PreferencesStores.get(androidContext(), PreferencesStores.SONG_QUALITY)
     }
+    single(named(PreferencesStores.STYLE_COVER)) {
+        PreferencesStores.get(androidContext(), PreferencesStores.STYLE_COVER)
+    }
 }
