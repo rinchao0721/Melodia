@@ -166,7 +166,7 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
             .aspectRatio(TileAspectRatio)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(8.dp))
-            .background(pref.colorHex.toStyleColor().liftedForTile())
+            .background(pref.colorHex.toStyleColor().tileBackground())
     ) {
         coverUrl?.let {
             SubcomposeAsyncImage(
@@ -196,7 +196,7 @@ private fun StyleTile(style: MusicStyle, onClick: () -> Unit) {
             .aspectRatio(TileAspectRatio)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(8.dp))
-            .background(style.colorHex.toStyleColor().liftedForTile())
+            .background(style.colorHex.toStyleColor().tileBackground())
     ) {
         TileLabel(title = style.name, subtitle = style.enName)
     }
