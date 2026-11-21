@@ -23,7 +23,6 @@ enum class LoudnessSource {
     MEASURED_SAMPLED
 }
 
-@Serializable
 data class LoudnessEntry(
     val lufs: Double,
     val peak: Double? = null,

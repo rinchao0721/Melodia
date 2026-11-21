@@ -15,8 +15,6 @@ data class SongPlaybackInfo(
     val level: String? = null,
     // 官方只有试听且换源全部未命中，只能退回播放官方试听片段
     val trialFallback: Boolean = false,
-    // 已换算到本地目标的网易曲目增益，换源或拿不到有效值时为空
-    val gainDb: Double? = null,
     // 换算后的网易响度与峰值，换源或拿不到有效值时为空
     val loudness: TrackLoudness? = null
 )

@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.player
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.LoudnessMeasureRequest
 import com.lin0721.linmusic.core.player.LoudnessPolicy
 import com.lin0721.linmusic.core.player.LoudnessSource
 import com.lin0721.linmusic.core.player.LoudnessStore
@@ -211,6 +212,7 @@ class MpvPlaybackController(
     @Volatile private var loudnessEnabled = false
     private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(loudnessStoreFile), pcmDecoder)
     private var loudnessJob: Job? = null
+    private var loudnessPredictJob: Job? = null
     private var crossfadePlan: CrossfadePlan? = null
     private var crossfadePrepareJob: Job? = null
     @Volatile private var crossfadeTriggerMs = Long.MAX_VALUE
@@ -251,9 +253,13 @@ class MpvPlaybackController(
         scope.launch {
             settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
                 loudnessEnabled = enabled
-                if (enabled) applyLoudness() else {
+                if (enabled) {
+                    applyLoudness()
+                    predictQueueLoudness(playbackQueue.items.value, playbackQueue.currentIndex.value)
+                } else {
                     loudnessJob?.cancel()
-                    engine.setTrackGain(0.0)
+                    cancelLoudnessPrediction()
+                    engine.setTrackGain(null)
                 }
             }
         }
@@ -362,6 +368,7 @@ class MpvPlaybackController(
         playbackQueue.replaceAll(items, startIndex)
         consecutiveFailures = 0
         saveQueueState()
+        predictQueueLoudness(items, playbackQueue.currentIndex.value)
 
         val index = playbackQueue.currentIndex.value
         val target = playbackQueue.itemAt(index)
@@ -678,7 +685,6 @@ class MpvPlaybackController(
             consecutiveFailures = 0
             _isPlaying.value = _playWhenReady.value
             startClock()
-            applyLoudness()
         }
     }
 
@@ -692,22 +698,60 @@ class MpvPlaybackController(
         }
     }
 
-    // 当前歌的曲目增益：ReplayGain 标签 > 缓存 > 自测，结果平滑生效
+    // 音量平衡中途开启时给当前歌补上增益
     private fun applyLoudness() {
         loudnessJob?.cancel()
         if (!loudnessEnabled) return
         val songId = loadedSongId ?: return
         val url = loadedUrl ?: return
         loudnessJob = scope.launch {
-            val tagged = LoudnessPolicy.fromReplayGain(
-                engine.activeMetadata("REPLAYGAIN_TRACK_GAIN"),
-                engine.activeMetadata("REPLAYGAIN_TRACK_PEAK")
-            ) ?: LoudnessPolicy.fromR128Tag(engine.activeMetadata("R128_TRACK_GAIN"))
-            if (tagged != null) loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
-            val gainDb = tagged?.let { LoudnessPolicy.gainDb(it) }
-                ?: loudnessMeter.measure(songId, url)
-                ?: return@launch
+            val gainDb = resolveGainDb(songId, url) ?: return@launch
             if (loudnessEnabled && loadedSongId == songId) engine.setTrackGain(gainDb)
+        }
+    }
+
+    // 缓存（含网易值）> 本地标签 > 起播前限时测量，超时用兜底值；waitFully 供预载下一首等测完
+    private suspend fun resolveGainDb(songId: Long, uri: String, waitFully: Boolean = false): Double? {
+        if (!loudnessEnabled) return null
+        loudnessMeter.cachedGainDb(songId)?.let { return it }
+        val local = DesktopReplayGainReader.isLocalUri(uri)
+        if (local) {
+            DesktopReplayGainReader.trackLoudness(uri)?.let {
+                loudnessMeter.remember(songId, it, LoudnessSource.TAG)
+                return LoudnessPolicy.gainDb(it)
+            }
+        }
+        val measured = if (waitFully) {
+            loudnessMeter.measure(songId, uri, fullTrack = local)
+        } else {
+            loudnessMeter.measureBeforeStart(songId, uri, fullTrack = local) { delayedDb ->
+                scope.launch {
+                    if (loudnessEnabled && loadedSongId == songId) engine.setTrackGain(delayedDb)
+                }
+            }
+        }
+        return measured ?: LoudnessPolicy.FALLBACK_GAIN_DB
+    }
+
+    private fun cancelLoudnessPrediction() {
+        loudnessPredictJob?.cancel()
+        loudnessMeter.cancelAll()
+    }
+
+    // 按播放顺序串行测量队列里的本地与已下载歌曲
+    private fun predictQueueLoudness(items: List<QueueItem>, startIndex: Int) {
+        cancelLoudnessPrediction()
+        if (!loudnessEnabled || items.isEmpty()) return
+        val from = startIndex.coerceIn(0, items.size - 1)
+        val ordered = items.subList(from, items.size) + items.subList(0, from)
+        loudnessPredictJob = scope.launch(Dispatchers.IO) {
+            for (item in ordered) {
+                val path = item.localUri?.takeIf { it.isNotBlank() }
+                    ?: if (item.external == null) lookupOfflineNetease(item).path else null
+                if (path != null) {
+                    loudnessMeter.enqueue(listOf(LoudnessMeasureRequest(item.songId, path, fullTrack = true)))
+                }
+            }
         }
     }
 
@@ -801,7 +845,7 @@ class MpvPlaybackController(
             currentAudioInfo = null
             // 流参数就绪前先发布接口声明档位
             publishQuality(mediaId, null)
-            val gainDb = if (loudnessEnabled) loudnessMeter.cachedGainDb(item.songId) ?: 0.0 else 0.0
+            val gainDb = resolveGainDb(item.songId, playback.url)
             loadedSongId = item.songId
             loadedUrl = playback.url
             // 从中途起播录不出完整文件
@@ -874,10 +918,7 @@ class MpvPlaybackController(
         return repository.getSongPlaybackInfo(songId).first().fold(
             onSuccess = { info ->
                 // 网易返回的有效响度优先于自测，覆盖已缓存的值
-                if (loudnessEnabled) {
-                    info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
-                        ?: info.gainDb?.let { loudnessMeter.remember(songId, LoudnessPolicy.TARGET_LUFS - it, null, LoudnessSource.NETEASE) }
-                }
+                if (loudnessEnabled) info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
                 val record = audioCache?.let { RecordRequest(songId, it.tempFile(songId, level).absolutePath) }
                 Result.success(Playback(info.url, record, declaredLevel = info.level))
             },
@@ -921,8 +962,8 @@ class MpvPlaybackController(
             val (endMs, startMs, nextGainDb) = coroutineScope {
                 val endDeferred = async { if (smart) currentUrl?.let { edgeAnalyzer.effectiveEndMs(songId, it, duration) } else null }
                 val startDeferred = async { if (smart) edgeAnalyzer.effectiveStartMs(next.songId, playback.url) else null }
-                val gainDeferred = async { if (loudnessEnabled) loudnessMeter.measure(next.songId, playback.url) else null }
-                Triple(endDeferred.await(), startDeferred.await() ?: 0L, gainDeferred.await() ?: 0.0)
+                val gainDeferred = async { resolveGainDb(next.songId, playback.url, waitFully = true) }
+                Triple(endDeferred.await(), startDeferred.await() ?: 0L, gainDeferred.await())
             }
             if (loadedSongId != songId) return@launch
             val effectiveEndMs = endMs?.coerceAtMost(duration) ?: duration
@@ -963,7 +1004,6 @@ class MpvPlaybackController(
         playbackQueue.setCurrentIndex(plan.index)
         loadedSongId = item.songId
         loadedUrl = plan.url
-        applyLoudness()
         consecutiveFailures = 0
         _currentPosition.value = position
         _duration.value = duration

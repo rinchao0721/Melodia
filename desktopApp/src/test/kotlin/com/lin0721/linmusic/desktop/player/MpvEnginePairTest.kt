@@ -156,23 +156,36 @@ class MpvEnginePairTest {
         assertEquals(null, pair.promote(500L))
     }
 
-    // -6dB 对应 mpv 音量系数约 0.794
     @Test
     fun trackGainAppliesOnLoadAndRampsAtRuntime() {
         val pair = newPair()
         pair.load(wav("a.wav", 6, 440.0), 0L, gainDb = -6.0)
         assertTrue(await(5_000) { positions.isNotEmpty() })
-        assertEquals(79.4, pair.volumes().first ?: -1.0, 0.2)
+        val (af, gain) = pair.gainState()
+        assertTrue("应安装 -6dB 滤镜：$af", af.orEmpty().contains("volume=-6.000dB"))
+        assertEquals(-6.0, gain ?: 0.0, 1e-6)
+        assertEquals("音量平衡不占用 mpv 音量", 100.0, pair.volumes().first ?: -1.0, 0.01)
 
+        // 本机 libmpv 不支持 af-command 原地调参，运行中改增益一步到位
         pair.setTrackGain(0.0)
-        Thread.sleep(800)
-        val mid = pair.volumes().first ?: -1.0
-        assertTrue("增益应平滑变化：$mid", mid > 80.0 && mid < 99.5)
-        assertTrue(await(3_000) { (pair.volumes().first ?: 0.0) > 99.9 })
+        assertTrue(await(3_000) { pair.gainState().second == 0.0 })
+        assertTrue(pair.gainState().first.orEmpty().contains("volume=0.000dB"))
+        assertEquals(100.0, pair.volumes().first ?: -1.0, 0.01)
     }
 
     @Test
-    fun crossfadeEndsAtIncomingTrackGain() {
+    fun nullGainRemovesFilter() {
+        val pair = newPair()
+        pair.load(wav("a.wav", 4, 440.0), 0L, gainDb = -6.0)
+        assertTrue(await(5_000) { positions.isNotEmpty() })
+        pair.setTrackGain(null)
+        val (af, gain) = pair.gainState()
+        assertEquals(null, gain)
+        assertTrue("滤镜应被移除：$af", af.orEmpty().isEmpty() || af == "[]")
+    }
+
+    @Test
+    fun crossfadeKeepsIncomingTrackGainSeparateFromVolume() {
         val pair = newPair()
         pair.load(wav("a.wav", 4, 440.0), 0L)
         assertTrue(await(5_000) { positions.isNotEmpty() })
@@ -180,6 +193,7 @@ class MpvEnginePairTest {
         assertTrue(await(5_000) { pair.spareReady })
         pair.promote(500L)
         assertTrue(await(3_000) { !pair.isFading })
-        assertEquals(79.4, pair.volumes().first ?: -1.0, 0.2)
+        assertEquals(-6.0, pair.gainState().second ?: 0.0, 1e-6)
+        assertEquals(100.0, pair.volumes().first ?: -1.0, 0.01)
     }
 }

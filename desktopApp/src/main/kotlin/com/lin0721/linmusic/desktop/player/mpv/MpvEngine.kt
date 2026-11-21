@@ -45,6 +45,7 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
     private val eventThread: Thread
     @Volatile private var lastAudioInfo: MpvAudioInfo? = null
     @Volatile private var cachedDeviceListJson: String? = null
+    @Volatile private var afCommandUsable = true
 
     init {
         setOption("vid", "no")
@@ -110,6 +111,32 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
 
     // 仅测试用
     internal fun volume(): Double? = getProperty("volume")?.toDoubleOrNull()
+
+    // 仅测试用
+    internal fun audioFilter(): String? = getProperty("af")
+
+    // gainDb 为空时移除滤镜
+    fun setTrackGainFilter(gainDb: Double?) {
+        afCommandUsable = true
+        setProperty("af", gainDb?.let(MpvGainFilter::buildAfSpec).orEmpty())
+    }
+
+    // 实测 lavfi 滤镜不接受 af-command，失败后不再重试；volume-gain 会与滤镜重复施加，不可用
+    fun tryLiveTrackGain(gainDb: Double): Boolean {
+        if (!running.get() || !afCommandUsable) return false
+        val arg = MpvGainFilter.formatVolumeArg(gainDb)
+        val code = mpv.mpv_command(ctx, arrayOf("af-command", MpvGainFilter.LABEL, MpvGainFilter.COMMAND_VOLUME, arg, null))
+        if (code >= 0) return true
+        afCommandUsable = false
+        AppLogger.d(TAG, "af-command 不可用，改为整体替换 af：${mpv.mpv_error_string(code)}")
+        return false
+    }
+
+    // 会重建滤镜链
+    fun replaceTrackGain(gainDb: Double) {
+        if (!running.get()) return
+        setProperty("af", MpvGainFilter.buildAfSpec(gainDb))
+    }
 
     // 播放中切换会由 mpv 自动重开输出，进度不中断
     fun setExclusive(enabled: Boolean) = setProperty("audio-exclusive", if (enabled) "yes" else "no")

@@ -7,19 +7,19 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
-// ITU-R BS.1770-4 / EBU R128 测量结果：积分响度 (LUFS) 与线性采样峰值
+// 积分响度 (LUFS) 与线性采样峰值
 data class LoudnessAnalysis(
     val integratedLufs: Double,
     val samplePeak: Double
 )
 
-// ITU-R BS.1770-4 / EBU R128 积分响度计，支持多段独立滤波后合并门限
+// ITU-R BS.1770-4 / EBU R128 积分响度计，多段各自滤波后合并门限
 class R128Meter {
 
     private val blockEnergies = ArrayList<Double>()
     private var maxSamplePeak = 0.0
 
-    // 单段测量状态：持有独立的 K 加权双二阶滤波状态与 400ms (75% 重叠) 滑窗
+    // 单段的 K 加权滤波状态与 400ms (75% 重叠) 块
     class Segment(val sampleRate: Int, val channels: Int) {
 
         private val b10: Double
@@ -56,7 +56,7 @@ class R128Meter {
             require(sampleRate > 0) { "采样率必须大于 0: $sampleRate" }
             require(channels > 0) { "声道数必须大于 0: $channels" }
 
-            // 第一级：头部声学高架滤波（按采样率双线性变换推导）
+            // 高架滤波
             val f0Shelf = 1681.974450955533
             val qShelf = 0.7071752369554196
             val dbShelf = 3.999843853973347
@@ -70,7 +70,7 @@ class R128Meter {
             a11 = 2.0 * (k1 * k1 - 1.0) / a10
             a12 = (1.0 - k1 / qShelf + k1 * k1) / a10
 
-            // 第二级：RLB 高通滤波（按采样率双线性变换推导）
+            // RLB 高通
             val f0Hp = 38.13547087602444
             val qHp = 0.5003270373238773
             val k2 = tan(PI * f0Hp / sampleRate)
@@ -91,7 +91,7 @@ class R128Meter {
             subSumSq = DoubleArray(channels)
         }
 
-        // 喂入交错 float PCM（-1..1）
+        // 交错 float PCM，-1..1
         fun process(pcm: FloatArray, offset: Int = 0, sampleCount: Int = pcm.size - offset) {
             require(offset >= 0 && sampleCount >= 0 && offset + sampleCount <= pcm.size) {
                 "无效的 PCM 切片 offset=$offset sampleCount=$sampleCount size=${pcm.size}"
@@ -168,7 +168,7 @@ class R128Meter {
         addSegment(segment)
     }
 
-    // 对已汇总的所有 400ms 块做绝对门限 (-70 LUFS) 与相对门限 (-10 LU)，全程低于门限返回 null
+    // -70 LUFS 绝对门限与 -10 LU 相对门限，全低于门限返回 null
     fun analyze(): LoudnessAnalysis? {
         if (blockEnergies.isEmpty()) return null
 
@@ -208,7 +208,7 @@ class R128Meter {
         private const val RELATIVE_GATE_LU = -10.0
         private val ABSOLUTE_GATE_ENERGY = 10.0.pow((ABSOLUTE_GATE_LUFS - LUFS_OFFSET) / 10.0)
 
-        // ITU-R BS.1770-4 声道加权：环绕声道 +1.5 dB，LFE 不计入
+        // 环绕声道 +1.5 dB，LFE 不计入
         private val SURROUND_WEIGHT = 10.0.pow(1.5 / 10.0)
 
         private fun channelWeights(channels: Int): DoubleArray = when (channels) {

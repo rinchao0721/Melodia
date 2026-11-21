@@ -93,10 +93,8 @@ class LoudnessPolicyTest {
     }
 
     @Test
-    fun `幅度与 mpv 音量系数换算`() {
+    fun `幅度换算`() {
         assertEquals(0.5012f, LoudnessPolicy.amplitude(-6.0), 1e-3f)
         assertEquals(1f, LoudnessPolicy.amplitude(0.0), 1e-6f)
-        val factor = LoudnessPolicy.mpvVolumeFactor(-6.0)
-        assertEquals(0.5012, factor * factor * factor, 1e-3)
     }
 }

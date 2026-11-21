@@ -20,12 +20,12 @@ import kotlin.coroutines.coroutineContext
 
 private const val TAG = "TrackLoudnessMeter"
 
-// 接收交错 float PCM（-1..1），仅 [0, sampleCount) 有效
+// 交错 float PCM，仅 [0, sampleCount) 有效
 fun interface PcmConsumer {
     fun onPcm(samples: FloatArray, sampleCount: Int, sampleRate: Int, channels: Int)
 }
 
-// 从曲长 startFraction 处起解码 spanMs 毫秒交错 float PCM；spanMs 为 null 表示解码到结尾（整首）
+// 从曲长 startFraction 处解码 spanMs 毫秒，spanMs 为空表示解码到结尾
 fun interface SegmentDecoder {
     suspend fun decode(uri: String, startFraction: Double, spanMs: Long?, consumer: PcmConsumer): Boolean
 }
@@ -36,7 +36,7 @@ data class LoudnessMeasureRequest(
     val fullTrack: Boolean = false
 )
 
-// 曲目响度测量与缓存：支持整首/三段抽样 R128 测量、并发合并、起播限时等待及串行预测队列
+// 曲目响度测量与缓存：本地整首、在线三段抽样
 class TrackLoudnessMeter(
     private val store: LoudnessStore,
     private val decoder: SegmentDecoder,
@@ -54,20 +54,17 @@ class TrackLoudnessMeter(
 
     suspend fun cachedEntry(songId: Long): LoudnessEntry? = store.get(songId)
 
-    suspend fun remember(songId: Long, lufs: Double, peak: Double?, source: LoudnessSource) =
-        store.put(songId, lufs, peak, source)
-
     suspend fun remember(songId: Long, loudness: TrackLoudness, source: LoudnessSource) =
         store.put(songId, loudness.lufs, loudness.peak, source)
 
-    // 命中缓存直接返回；同一首正在测量时共享结果，不再重复解码
+    // 同一首正在测量时共享结果
     suspend fun measure(songId: Long, uri: String, fullTrack: Boolean = false): Double? {
         store.get(songId)?.let { return LoudnessPolicy.gainDb(it.lufs, it.peak) }
         val entry = startOrJoin(songId, uri, fullTrack).await() ?: return null
         return LoudnessPolicy.gainDb(entry.lufs, entry.peak)
     }
 
-    // 起播前限时等待测量结果；超时返回 null，但测量在后台继续完成写缓存并通过回调通知
+    // 超时返回 null，测量继续进行，完成后写缓存并回调
     suspend fun measureBeforeStart(
         songId: Long,
         uri: String,
@@ -91,7 +88,7 @@ class TrackLoudnessMeter(
         return null
     }
 
-    // 追加串行预测任务：逐首测量不并发，已缓存或已在队内的跳过
+    // 逐首串行测量，已缓存或已在队内的跳过
     fun enqueue(requests: List<LoudnessMeasureRequest>) {
         if (requests.isEmpty()) return
         synchronized(queueLock) {
@@ -160,7 +157,7 @@ class TrackLoudnessMeter(
     }
 
     private suspend fun runMeasure(songId: Long, uri: String, fullTrack: Boolean): LoudnessEntry? {
-        // 启动并发任务后再次确认缓存，避免与外部 remember 竞争
+        // 防与 remember 竞争
         store.get(songId)?.let { return it }
         return if (fullTrack) {
             val segments = decodeToSegments(uri, 0.0, null) ?: return null

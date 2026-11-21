@@ -23,7 +23,7 @@ private const val DECODE_TIMEOUT_MS = 20_000L
 private const val FULL_DECODE_TIMEOUT_MS = 60_000L
 private const val STREAM_CHUNK_FRAMES = 4096
 
-// 分析用实例只解码不出声，保留原声道数并输出 float PCM 供 R128 测量与首尾分析使用
+// 分析用实例只解码不出声，保留原声道数输出 float PCM
 private val DECODE_OPTIONS = mapOf(
     "ao" to "pcm",
     "ao-pcm-waveheader" to "yes",
@@ -33,7 +33,7 @@ private val DECODE_OPTIONS = mapOf(
     "demuxer-max-back-bytes" to "1MiB"
 )
 
-// 用临时 mpv 实例导出音频 wav 并流式喂给 PcmConsumer 或切为 100ms 响度窗口
+// 用临时 mpv 实例导出 wav，流式输出 PCM 或切为 100ms 响度窗口
 internal class MpvPcmDecoder : SegmentDecoder {
 
     // toMs 为空表示解码到结尾
@@ -42,13 +42,7 @@ internal class MpvPcmDecoder : SegmentDecoder {
         return exportWindows(url, start = "+${seconds(fromMs)}", options, timelineStartMs = fromMs)
     }
 
-    // 保留供首尾/片段窗口测试直接调用
-    suspend fun decode(uri: String, startFraction: Double, spanMs: Long): List<LoudnessWindow>? {
-        val percent = String.format(Locale.ROOT, "%.3f%%", startFraction * 100)
-        return exportWindows(uri, start = percent, mapOf("length" to seconds(spanMs)), timelineStartMs = 0L)
-    }
-
-    // spanMs 为 null 且 startFraction <= 0 时解码整首（用于本地文件 R128 测量）
+    // spanMs 为空且 startFraction <= 0 时解码整首
     override suspend fun decode(uri: String, startFraction: Double, spanMs: Long?, consumer: PcmConsumer): Boolean {
         val start = if (startFraction <= 0.0) "none" else String.format(Locale.ROOT, "%.3f%%", startFraction * 100)
         val options = if (spanMs != null) mapOf("length" to seconds(spanMs)) else emptyMap()
@@ -140,7 +134,7 @@ internal class MpvPcmDecoder : SegmentDecoder {
     private fun seconds(ms: Long): String = String.format(Locale.ROOT, "%.3f", ms / 1000.0)
 }
 
-// 解析 16 位整数或 32 位浮点 PCM 的 wav，支持整块切 100ms 窗口或流式输出交错 float PCM
+// 解析 16 位整数或 32 位浮点 wav
 internal object WavLoudness {
 
     private const val FORMAT_PCM = 1

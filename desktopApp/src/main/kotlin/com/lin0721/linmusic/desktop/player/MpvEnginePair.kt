@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.player
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessPolicy
+import com.lin0721.linmusic.desktop.player.mpv.MpvGainFilter
 import com.lin0721.linmusic.desktop.player.mpv.MpvAudioInfo
 import com.lin0721.linmusic.desktop.player.mpv.MpvEngine
 import java.io.File
@@ -15,6 +16,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "MpvEnginePair"
 private const val RAMP_STEP_MS = 20L
+
+// af-command 原地调参的步进
+private const val GAIN_STEP_MS = 50L
 
 // 等渐出引擎读完的最长时间，录制读完才完整
 private const val OUTGOING_DRAIN_TIMEOUT_MS = 2_500L
@@ -48,8 +52,8 @@ internal class MpvEnginePair(
         @Volatile var record: RecordRequest? = null
         @Volatile var seeked = false
 
-        // 音量平衡的曲目增益，已换算为 mpv 音量系数
-        @Volatile var gain = 1.0
+        // 滤镜当前增益 (dB)，为空表示未安装
+        @Volatile var gainDb: Double? = null
 
         private val isActive: Boolean get() = this === active
 
@@ -139,6 +143,9 @@ internal class MpvEnginePair(
     // 仅测试用
     internal fun volumes(): Pair<Double?, Double?> = activeSlot.engine.volume() to spare?.engine?.volume()
 
+    // 仅测试用：主引擎的 af 属性与记录的增益
+    internal fun gainState(): Pair<String?, Double?> = activeSlot.engine.audioFilter() to activeSlot.gainDb
+
     val spareReady: Boolean get() = spareArmed && spare?.let { it.loaded && it.duration > 0L } == true
 
     private fun newSlot(): Slot {
@@ -148,7 +155,7 @@ internal class MpvEnginePair(
     }
 
     // 从中途起播的录制必然不完整，不应传 record
-    fun load(url: String, startMs: Long, record: RecordRequest? = null, gainDb: Double = 0.0) {
+    fun load(url: String, startMs: Long, record: RecordRequest? = null, gainDb: Double? = null) {
         reset()
         gainJob?.cancel()
         gainJob = null
@@ -157,31 +164,42 @@ internal class MpvEnginePair(
         slot.resetProgress()
         slot.record = record
         slot.seeked = false
-        slot.gain = LoudnessPolicy.mpvVolumeFactor(gainDb)
-        slot.engine.setVolume(userVolume * slot.gain)
+        installGain(slot, gainDb)
+        slot.engine.setVolume(userVolume)
         slot.engine.load(url, startMs, recordPath = record?.path)
     }
 
-    // 播放中更新主引擎的曲目增益并平滑过渡；交叉淡化进行中由淡入曲线逐步跟上
-    fun setTrackGain(gainDb: Double) {
+    private fun installGain(slot: Slot, gainDb: Double?) {
+        slot.gainDb = gainDb
+        slot.engine.setTrackGainFilter(gainDb)
+    }
+
+    // 播放中修正主引擎增益；gainDb 为空时移除滤镜
+    fun setTrackGain(gainDb: Double?) {
         val slot = activeSlot
-        val target = LoudnessPolicy.mpvVolumeFactor(gainDb)
         gainJob?.cancel()
-        if (rampJob != null) {
-            slot.gain = target
-            gainJob = null
+        gainJob = null
+        if (gainDb == null) {
+            if (slot.gainDb != null) installGain(slot, null)
             return
         }
-        val from = slot.gain
+        val from = slot.gainDb ?: 0.0.also { installGain(slot, it) }
+        if (from == gainDb) return
         gainJob = scope.launch {
             val startedAt = System.nanoTime()
             while (true) {
                 val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000.0
-                val progress = (elapsedMs / LoudnessPolicy.RAMP_MS).coerceIn(0.0, 1.0)
-                slot.gain = from + (target - from) * progress
-                if (rampJob == null && slot === active) slot.engine.setVolume(userVolume * slot.gain)
+                val progress = MpvGainFilter.rampProgress(elapsedMs, LoudnessPolicy.RAMP_MS)
+                val step = MpvGainFilter.interpolateGainDb(from, gainDb, progress)
+                if (!slot.engine.tryLiveTrackGain(step)) {
+                    // 逐步替换会反复重建滤镜链
+                    slot.gainDb = gainDb
+                    slot.engine.replaceTrackGain(gainDb)
+                    break
+                }
+                slot.gainDb = step
                 if (progress >= 1.0) break
-                delay(RAMP_STEP_MS)
+                delay(GAIN_STEP_MS)
             }
             gainJob = null
         }
@@ -212,7 +230,7 @@ internal class MpvEnginePair(
 
     fun setVolume(percent: Int) {
         userVolume = percent.toDouble()
-        if (rampJob == null) activeSlot.engine.setVolume(userVolume * activeSlot.gain)
+        if (rampJob == null) activeSlot.engine.setVolume(userVolume)
     }
 
     fun audioDevices(): List<AudioDevice> = activeSlot.engine.audioDevices()
@@ -241,7 +259,7 @@ internal class MpvEnginePair(
     }
 
     // 静音预载并停在 startMs，失败返回 false；从中途起播的录制必然不完整，不应传 record
-    fun prepareSpare(url: String, record: RecordRequest? = null, startMs: Long = 0L, gainDb: Double = 0.0): Boolean {
+    fun prepareSpare(url: String, record: RecordRequest? = null, startMs: Long = 0L, gainDb: Double? = null): Boolean {
         if (exclusive || spareUnavailable || rampJob != null) return false
         val slot = spare ?: try {
             newSlot().also { created ->
@@ -257,7 +275,7 @@ internal class MpvEnginePair(
         slot.resetProgress()
         slot.record = record
         slot.seeked = false
-        slot.gain = LoudnessPolicy.mpvVolumeFactor(gainDb)
+        installGain(slot, gainDb)
         slot.engine.setVolume(0.0)
         slot.engine.load(url, startMs, paused = true, recordPath = record?.path)
         spareArmed = true
@@ -305,12 +323,12 @@ internal class MpvEnginePair(
         while (true) {
             val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000.0
             val progress = (elapsedMs / fadeMs).coerceIn(0.0, 1.0).toFloat()
-            outgoing.engine.setVolume(userVolume * outgoing.gain * CrossfadePolicy.fadeOutGain(progress, 1f))
-            incoming.engine.setVolume(userVolume * incoming.gain * CrossfadePolicy.fadeInGain(progress))
+            outgoing.engine.setVolume(userVolume * CrossfadePolicy.fadeOutGain(progress, 1f))
+            incoming.engine.setVolume(userVolume * CrossfadePolicy.fadeInGain(progress))
             if (progress >= 1f) break
             delay(RAMP_STEP_MS)
         }
-        incoming.engine.setVolume(userVolume * incoming.gain)
+        incoming.engine.setVolume(userVolume)
         if (outgoing.record != null && !outgoing.seeked) {
             withTimeoutOrNull(OUTGOING_DRAIN_TIMEOUT_MS) {
                 while (!outgoing.ended) delay(OUTGOING_DRAIN_POLL_MS)
@@ -327,7 +345,7 @@ internal class MpvEnginePair(
         spareArmed = false
         spare?.discardRecord()
         spare?.engine?.stop()
-        activeSlot.engine.setVolume(userVolume * activeSlot.gain)
+        activeSlot.engine.setVolume(userVolume)
     }
 
     fun release() {

@@ -63,7 +63,6 @@ class PlaybackRepositoryImpl(
                 url = item.url.orEmpty(),
                 isFreeTrial = item.isTrialAudio,
                 level = item.level?.takeIf { it.isNotBlank() },
-                gainDb = loudness?.let { LoudnessPolicy.gainDb(it.lufs, it.peak) },
                 loudness = loudness
             )
         }

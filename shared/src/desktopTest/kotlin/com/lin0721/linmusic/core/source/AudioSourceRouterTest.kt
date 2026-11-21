@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.TrackLoudness
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -70,7 +71,7 @@ class AudioSourceRouterTest {
         override val playlistRecorded: SharedFlow<Long> = MutableSharedFlow()
     }
 
-    private val fullOfficial = SongPlaybackInfo(url = "http://official/full.mp3", level = "lossless", gainDb = -3.0)
+    private val fullOfficial = SongPlaybackInfo(url = "http://official/full.mp3", level = "lossless", loudness = TrackLoudness(-11.0, 0.5))
     private val trialOfficial = SongPlaybackInfo(url = "http://official/trial.mp3", isFreeTrial = true)
     private val pluginHit = SourceResult(url = "http://plugin/ok.mp3", platform = MusicPlatform.LX)
 
@@ -112,7 +113,7 @@ class AudioSourceRouterTest {
 
         assertEquals("http://plugin/ok.mp3", info.url)
         assertNull(info.level)
-        assertNull(info.gainDb)
+        assertNull(info.loudness)
         assertEquals(0, official.calls)
     }
 
