@@ -32,6 +32,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
@@ -357,10 +358,12 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
         val primaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(buildMelodiaLoadControl())
             .setHandleAudioBecomingNoisy(true)
             .build()
         val secondaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(buildMelodiaLoadControl())
             .setHandleAudioBecomingNoisy(true)
             .build()
         val sessionPlayer = CrossfadePlayer(
@@ -1437,6 +1440,18 @@ private fun ExoPlayer.setAudioOffloadEnabled(enabled: Boolean) {
         .setAudioOffloadPreferences(AudioOffloadPreferences.Builder().setAudioOffloadMode(mode).build())
         .build()
 }
+
+// 本地默认 1s 才续载，卸载休眠时播放线程常错过这个窗口导致周期性欠载卡顿；下限拉到与上限一致，任何一次唤醒都会补满
+@OptIn(UnstableApi::class)
+private fun buildMelodiaLoadControl(): DefaultLoadControl =
+    DefaultLoadControl.Builder()
+        .setBufferDurationsMsForLocalPlayback(
+            DefaultLoadControl.DEFAULT_MAX_BUFFER_FOR_LOCAL_PLAYBACK_MS,
+            DefaultLoadControl.DEFAULT_MAX_BUFFER_FOR_LOCAL_PLAYBACK_MS,
+            DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS,
+            DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS
+        )
+        .build()
 
 
 
