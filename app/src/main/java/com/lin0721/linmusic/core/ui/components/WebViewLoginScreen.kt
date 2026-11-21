@@ -13,8 +13,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +37,8 @@ import com.lin0721.linmusic.core.ui.theme.uiExit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 // 网易登录页"手机号登录"按钮用内联 style="width: Nvh; height: Mvh" 按视口高度算宽高
 private const val LOGIN_BUTTON_FIX_JS = """
@@ -118,7 +118,7 @@ fun WebViewLoginScreen(
                 navigationIcon = {
                     MelodiaIconButton(onClick = onClose) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = MelodiaIcons.Close,
                             contentDescription = "关闭",
                             tint = MelodiaColors.TextPrimary
                         )

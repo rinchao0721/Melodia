@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FileUpload
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -72,6 +67,10 @@ import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.io.File
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Restore
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 private val PluginRowShape = RoundedCornerShape(8.dp)
 private const val MAX_REPORT_LINES = 8
@@ -336,10 +335,10 @@ private fun PluginRow(
         }
         HoverReveal(hovered) {
             Row {
-                plugin.previousVersion?.let { RowIconButton(Icons.Rounded.Restore, "回退到 v$it", hoverSource, onRollback) }
-                if (hasSettings) RowIconButton(Icons.Rounded.Settings, "设置", hoverSource, onSettings)
-                if (manifest != null) RowIconButton(Icons.Rounded.FileUpload, "导出", hoverSource, onExport)
-                RowIconButton(Icons.Rounded.Delete, "删除", hoverSource, onDelete)
+                plugin.previousVersion?.let { RowIconButton(MelodiaIcons.Restore, "回退到 v$it", hoverSource, onRollback) }
+                if (hasSettings) RowIconButton(MelodiaIcons.Settings, "设置", hoverSource, onSettings)
+                if (manifest != null) RowIconButton(MelodiaIcons.Upload, "导出", hoverSource, onExport)
+                RowIconButton(MelodiaIcons.Delete, "删除", hoverSource, onDelete)
             }
         }
         SettingSwitch(plugin.state.enabled, enabled = plugin.state.enabled || plugin.canRun, onChange = onToggle)

@@ -24,16 +24,18 @@ import com.lin0721.linmusic.desktop.ui.search.PlaylistCategoryPage
 import com.lin0721.linmusic.desktop.ui.search.SearchPage
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherPage
 import com.lin0721.linmusic.desktop.ui.message.MessagesPage
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.desktop.ui.settings.SettingsPage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
-// 取该栈帧专属的页面 ViewModel；toasts 为需要转发到全局提示的事件流
+// 取该栈帧专属的页面 ViewModel；toasts 与 collectPrompts 为需要转发到全局提示的事件流
 private inline fun <reified T : ViewModel> DesktopFrameHost.pageViewModel(
     entry: DesktopEntry,
     factory: PageViewModelFactory,
-    noinline toasts: (T) -> Flow<String> = { emptyFlow() }
-): T = viewModelFor(entry.id, T::class, toasts) { factory.create(T::class) }
+    noinline toasts: (T) -> Flow<String> = { emptyFlow() },
+    noinline collectPrompts: (T) -> Flow<CollectPromptEvent> = { emptyFlow() }
+): T = viewModelFor(entry.id, T::class, toasts, collectPrompts) { factory.create(T::class) }
 
 // 路由到页面的映射；对密封的 DesktopRoute 穷尽匹配，新增路由漏写时编译报错
 @Composable
@@ -61,13 +63,13 @@ internal fun RouteContent(
         is DesktopRoute.Style -> StyleDetailPage(
             tagId = route.id,
             name = route.name,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }),
             controller = controller
         )
         is DesktopRoute.Playlist -> PlaylistPage(
             playlistId = route.id,
             isAlbum = route.isAlbum,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }, collectPrompts = { it.collectPromptEvent }),
             controller = controller
         )
         is DesktopRoute.LocalPlaylist -> LocalPlaylistPage(
@@ -92,17 +94,17 @@ internal fun RouteContent(
         )
         is DesktopRoute.PlaylistCategory -> PlaylistCategoryPage(
             category = route.name,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }),
             onPlaylistClick = { id, title -> state.navigate(DesktopRoute.Playlist(id, title)) }
         )
         is DesktopRoute.Artist -> ArtistPage(
             artistId = route.id,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }, collectPrompts = { it.collectPromptEvent }),
             controller = controller
         )
         is DesktopRoute.Radio -> RadioDetailPage(
             radioId = route.id,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent }
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent })
         )
         DesktopRoute.PodcastSubscribed -> PodcastSubscribedPage(viewModel = frameHost.pageViewModel(entry, factory))
         DesktopRoute.PodcastToplist -> PodcastToplistPage(viewModel = frameHost.pageViewModel(entry, factory))
@@ -117,13 +119,13 @@ internal fun RouteContent(
         )
         is DesktopRoute.Profile -> ProfilePage(
             uid = route.uid,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }),
             controller = controller
         )
         is DesktopRoute.FollowList -> FollowListPage(
             uid = route.uid,
             mode = route.mode,
-            viewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent }
+            viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent })
         )
         DesktopRoute.ListenTogether -> ListenTogetherPage(
             viewModel = deps.listenTogether,
@@ -134,8 +136,8 @@ internal fun RouteContent(
             initialPeerUid = route.peerUid,
             initialPeerName = route.peerName,
             initialPeerAvatar = route.peerAvatar,
-            messageViewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
-            chatViewModel = frameHost.pageViewModel(entry, factory) { it.toastEvent },
+            messageViewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }),
+            chatViewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }),
             unreadMonitor = deps.privateUnreadMonitor
         )
         is DesktopRoute.PluginPage -> PluginPageScreen(route.pluginId, route.pageId, deps.plugins, deps.pluginPages)
@@ -147,6 +149,7 @@ internal fun RouteContent(
             updateChecker = deps.updateChecker,
             localLibrary = deps.localMusic.repository,
             downloadScanner = deps.downloadScanner,
+            lanLink = deps.lanLink,
             focusCategory = state.settingsFocus,
             onFocusConsumed = { state.settingsFocus = null }
         )

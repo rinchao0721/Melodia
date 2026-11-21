@@ -46,7 +46,7 @@ import com.lin0721.linmusic.core.share.ui.formatTime
 import kotlin.math.abs
 import kotlin.math.max
 
-// Spotify 式：小封面标题 + 大字歌词；paper 为竖排书笺遇到非中文歌词时的横排版本
+// 小封面标题 + 大字歌词；paper 为竖排书笺遇到非中文歌词时的横排版本
 @Composable
 internal fun ClassicCard(s: CardScope, paper: Boolean = false) {
     val fill = s.fill(if (paper) Paper else s.coverBase)

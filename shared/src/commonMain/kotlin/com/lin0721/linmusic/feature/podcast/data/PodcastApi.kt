@@ -79,7 +79,7 @@ interface PodcastApi {
         @Body body: PodcastSubscribeRequest
     ): PodcastSubscribeResponse
 
-    // 电台下的节目列表，一次 30 条
+    // 电台下的节目列表
     @POST("/eapi/dj/program/byradio")
     suspend fun getRadioPrograms(
         @Body body: PodcastProgramListRequest

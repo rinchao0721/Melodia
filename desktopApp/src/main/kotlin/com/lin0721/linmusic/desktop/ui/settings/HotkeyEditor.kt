@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -44,6 +42,8 @@ import com.lin0721.linmusic.desktop.ui.components.HoldTextInputFocus
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import java.awt.event.KeyEvent as AwtKeyEvent
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 // 录制期间暂停全局热键，避免按下的组合被已注册的热键拦截
 @Composable
@@ -106,7 +106,7 @@ internal fun HotkeyEditor(
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.Close,
+                        MelodiaIcons.Close,
                         "清除",
                         tint = if (combo != null) DesktopColors.TextGray else DesktopColors.SurfaceLight,
                         modifier = Modifier.size(16.dp)

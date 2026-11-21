@@ -15,13 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -46,8 +39,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.SimilarRoamingController
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
 import com.lin0721.linmusic.desktop.data.local.LOCAL_ALL_TRACKS_ID
@@ -184,89 +179,110 @@ internal fun rememberLibraryShortcutsState(
             activeShortcuts = active,
             roamingEnabled = roamingEnabled,
             onClick = { item ->
-                when (resolveShortcutClickAction(item, isActive = item in active)) {
-                    LibraryShortcutClickAction.DISABLE_PERSONAL_FM -> deps.playerViewModel.disablePersonalFm()
-                    LibraryShortcutClickAction.DISABLE_INTELLIGENCE -> deps.playbackController.disableIntelligence()
-                    LibraryShortcutClickAction.DISABLE_SIMILAR_ROAMING -> deps.playbackController.disableRoaming()
-                    LibraryShortcutClickAction.NAVIGATE_BACK -> appState.popBack()
-                    LibraryShortcutClickAction.START_PERSONAL_FM -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            deps.playerViewModel.startPersonalFm()
-                        }
-                    }
-                    LibraryShortcutClickAction.START_INTELLIGENCE -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            val track = nowPlaying
-                            if (track == null) {
-                                deps.homeViewModel.startIntelligenceMode()
-                            } else if (cloudSongId != null) {
-                                deps.playerViewModel.startIntelligenceMode(
-                                    songId = cloudSongId,
-                                    currentTitle = track.title,
-                                    currentArtist = track.artist,
-                                    currentCoverUrl = track.artworkUri.orEmpty()
-                                )
-                            } else {
-                                appState.showMessage("当前歌曲暂无云端信息，无法开启心动模式")
-                            }
-                        }
-                    }
-                    LibraryShortcutClickAction.START_SIMILAR_ROAMING -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            val track = nowPlaying
-                            if (track == null || cloudSongId == null) {
-                                appState.showMessage("请先播放一首云端歌曲")
-                            } else {
-                                deps.playerViewModel.startSimilarSongsRoaming(
-                                    songId = cloudSongId,
-                                    currentTitle = track.title,
-                                    currentArtist = track.artist,
-                                    currentCoverUrl = track.artworkUri.orEmpty()
-                                )
-                            }
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_DAILY_RECOMMEND -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            appState.openDailyRecommend()
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_CLOUD -> {
-                        if (!isLoggedIn) {
-                            appState.showMessage("请先登录账号")
-                            appState.showLogin = true
-                        } else {
-                            appState.openCloud()
-                        }
-                    }
-                    LibraryShortcutClickAction.OPEN_LOCAL_MUSIC ->
-                        appState.openLocalPlaylist(LOCAL_ALL_TRACKS_ID, LOCAL_ALL_TRACKS_NAME)
-                }
+                performLibraryShortcutClick(
+                    item = item,
+                    isActive = item in active,
+                    appState = appState,
+                    deps = deps,
+                    isLoggedIn = isLoggedIn,
+                    nowPlaying = nowPlaying,
+                    cloudSongId = cloudSongId
+                )
             },
             onToggleVisible = deps.desktopSettingsViewModel::toggleLibraryShortcut
         )
     }
 }
 
+// 侧栏与标题栏共用的快捷入口点击行为，保证开启/退出/返回逻辑一致
+internal fun performLibraryShortcutClick(
+    item: LibraryShortcut,
+    isActive: Boolean,
+    appState: DesktopAppState,
+    deps: DesktopAppDependencies,
+    isLoggedIn: Boolean,
+    nowPlaying: NowPlaying? = null,
+    cloudSongId: Long? = null
+) {
+    when (resolveShortcutClickAction(item, isActive = isActive)) {
+        LibraryShortcutClickAction.DISABLE_PERSONAL_FM -> deps.playerViewModel.disablePersonalFm()
+        LibraryShortcutClickAction.DISABLE_INTELLIGENCE -> deps.playbackController.disableIntelligence()
+        LibraryShortcutClickAction.DISABLE_SIMILAR_ROAMING -> deps.playbackController.disableRoaming()
+        LibraryShortcutClickAction.NAVIGATE_BACK -> appState.popBack()
+        LibraryShortcutClickAction.START_PERSONAL_FM -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                deps.playerViewModel.startPersonalFm()
+            }
+        }
+        LibraryShortcutClickAction.START_INTELLIGENCE -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                val track = nowPlaying
+                if (track == null) {
+                    deps.homeViewModel.startIntelligenceMode()
+                } else if (cloudSongId != null) {
+                    deps.playerViewModel.startIntelligenceMode(
+                        songId = cloudSongId,
+                        currentTitle = track.title,
+                        currentArtist = track.artist,
+                        currentCoverUrl = track.artworkUri.orEmpty()
+                    )
+                } else {
+                    appState.showMessage("当前歌曲暂无云端信息，无法开启心动模式")
+                }
+            }
+        }
+        LibraryShortcutClickAction.START_SIMILAR_ROAMING -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                val track = nowPlaying
+                if (track == null || cloudSongId == null) {
+                    appState.showMessage("请先播放一首云端歌曲")
+                } else {
+                    deps.playerViewModel.startSimilarSongsRoaming(
+                        songId = cloudSongId,
+                        currentTitle = track.title,
+                        currentArtist = track.artist,
+                        currentCoverUrl = track.artworkUri.orEmpty()
+                    )
+                }
+            }
+        }
+        LibraryShortcutClickAction.OPEN_DAILY_RECOMMEND -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                appState.openDailyRecommend()
+            }
+        }
+        LibraryShortcutClickAction.OPEN_CLOUD -> {
+            if (!isLoggedIn) {
+                appState.showMessage("请先登录账号")
+                appState.showLogin = true
+            } else {
+                appState.openCloud()
+            }
+        }
+        LibraryShortcutClickAction.OPEN_LOCAL_MUSIC ->
+            appState.openLocalPlaylist(LOCAL_ALL_TRACKS_ID, LOCAL_ALL_TRACKS_NAME)
+    }
+}
+
 internal fun LibraryShortcut.icon(): ImageVector = when (this) {
-    LibraryShortcut.PERSONAL_FM -> Icons.Rounded.Radio
-    LibraryShortcut.INTELLIGENCE -> Icons.Rounded.Favorite
-    LibraryShortcut.SIMILAR_ROAMING -> Icons.Rounded.Explore
-    LibraryShortcut.DAILY_RECOMMEND -> Icons.Rounded.Today
-    LibraryShortcut.CLOUD -> Icons.Rounded.Cloud
-    LibraryShortcut.LOCAL_MUSIC -> Icons.Rounded.AudioFile
+    LibraryShortcut.PERSONAL_FM -> MelodiaIcons.Radio
+    LibraryShortcut.INTELLIGENCE -> MelodiaIcons.Heart
+    LibraryShortcut.SIMILAR_ROAMING -> MelodiaIcons.Explore
+    LibraryShortcut.DAILY_RECOMMEND -> MelodiaIcons.Calendar
+    LibraryShortcut.CLOUD -> MelodiaIcons.Cloud
+    LibraryShortcut.LOCAL_MUSIC -> MelodiaIcons.LocalMusic
 }
 
 // 侧栏快捷入口右键上下文菜单容器，用于勾选各入口显隐

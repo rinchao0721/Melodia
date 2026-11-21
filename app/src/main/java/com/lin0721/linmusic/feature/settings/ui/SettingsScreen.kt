@@ -10,12 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,17 +46,30 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Subtitles
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.HighQuality
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.Info
+import com.lin0721.linmusic.core.ui.icons.Palette
+import com.lin0721.linmusic.core.ui.icons.Phone
+import com.lin0721.linmusic.core.ui.icons.PlayCircleOutline
+import com.lin0721.linmusic.core.ui.icons.Storage
+import com.lin0721.linmusic.core.ui.icons.Wifi
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
-    PLAYBACK("播放", listOf("播放参数"), Icons.Outlined.PlayCircleOutline),
-    QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.Outlined.HighQuality),
-    DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), Icons.Outlined.Storage),
-    NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
-    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词", "歌词过滤"), Icons.Outlined.Subtitles),
-    APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局", "界面精简"), Icons.Outlined.Palette),
-    SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), Icons.Outlined.Extension),
-    ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
+    PLAYBACK("播放", listOf("播放参数"), MelodiaIcons.PlayCircleOutline),
+    QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), MelodiaIcons.HighQuality),
+    DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), MelodiaIcons.Storage),
+    NETWORK("网络设置", listOf("网络连接", "网络访问", "局域网联动"), MelodiaIcons.Wifi),
+    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词", "歌词过滤"), MelodiaIcons.Subtitles),
+    APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局", "界面精简"), MelodiaIcons.Palette),
+    SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), MelodiaIcons.Plugin),
+    ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), MelodiaIcons.Info);
 
     val subtitle: String get() = sectionTitles.take(2).joinToString("、")
 }
@@ -122,7 +129,7 @@ fun SettingsScreen(
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = MelodiaIcons.ArrowBack,
                             contentDescription = "返回",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -287,7 +294,7 @@ private fun MainSettingsMenu(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            imageVector = MelodiaIcons.Logout,
                             contentDescription = null,
                             tint = MelodiaColors.Accent,
                             modifier = Modifier.size(20.dp)
@@ -395,7 +402,7 @@ private fun SettingsMainMenuRow(
             }
         }
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -424,7 +431,7 @@ fun SettingsRow(
             }
         }
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -461,9 +468,9 @@ fun SettingsSwitchRow(
 
 fun getBindingIcon(type: Int): androidx.compose.ui.graphics.vector.ImageVector {
     return when (type) {
-        1 -> Icons.Default.PhoneAndroid
-        10 -> Icons.Default.ChatBubbleOutline
-        20 -> Icons.Default.AccountCircle
-        else -> Icons.Default.Link
+        1 -> MelodiaIcons.Phone
+        10 -> MelodiaIcons.Comment
+        20 -> MelodiaIcons.Person
+        else -> MelodiaIcons.Link
     }
 }

@@ -8,9 +8,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,6 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 二态图标切换：新图标弹性放大淡入、旧图标缩小淡出，让点击结果立刻可见
 @Composable
@@ -44,7 +44,7 @@ fun PlayPauseIcon(
 ) {
     StateIcon(isPlaying) { playing ->
         Icon(
-            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            imageVector = if (playing) MelodiaIcons.Pause else MelodiaIcons.Play,
             contentDescription = contentDescription,
             tint = tint,
             modifier = modifier.then(Modifier.size(size))

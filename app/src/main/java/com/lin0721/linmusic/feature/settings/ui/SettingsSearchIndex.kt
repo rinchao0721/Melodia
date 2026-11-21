@@ -27,6 +27,7 @@ object SettingsSearchIndex {
             entry(PLAYBACK, 0, "音量平衡", "响度 均衡 replaygain"),
             entry(PLAYBACK, 0, "切歌淡入淡出", "crossfade 交叠 过渡时长 智能过渡 静音"),
             entry(PLAYBACK, 0, "通知栏按钮", "媒体通知 控件 自定义 排序 喜欢 不喜欢 播放模式 悬浮歌词 定时关闭 关闭 快进 快退"),
+            entry(PLAYBACK, 0, "ffmpeg 解码组件", "alac flac ac3 dts 解码 音频格式 组件"),
 
             entry(QUALITY_SOURCES, 0, "Wi-Fi 环境播放音质", "wifi 无线 码率"),
             entry(QUALITY_SOURCES, 0, "移动网络环境播放音质", "流量 蜂窝 码率"),
@@ -48,7 +49,9 @@ object SettingsSearchIndex {
             entry(NETWORK, 0, "仅 Wi-Fi 网络下联网播放", "流量 移动网络"),
             entry(NETWORK, 0, "流量播放警告提示", "移动数据 提醒"),
             entry(NETWORK, 1, "使用国内 IP 地址", "海外 ip 限制"),
-            entry(NETWORK, 1, "使用代理服务器", "proxy 代理"),
+            entry(NETWORK, 2, "局域网联动", "局域网 同步 配对 桌面端 电脑 歌单 红心"),
+            entry(NETWORK, 2, "后台保持连接", "局域网 联动 保活 通知 后台 保持连接 桌面端"),
+            entry(NETWORK, 2, "联动播放模式", "单一播放设备 各自独立播放 局域网 联动 播放模式 同步"),
 
             entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),
             entry(LYRICS, 0, "歌词对齐方式", "居中 左对齐"),
@@ -77,6 +80,7 @@ object SettingsSearchIndex {
             entry(APPEARANCE, 2, "侧边播放页钉住", "返回键"),
             entry(APPEARANCE, 3, "首页最近播放", "主页 精简 隐藏"),
             entry(APPEARANCE, 3, "首页为你定制", "主页 精简 隐藏 热歌榜 私人FM 私人雷达 音乐漫游"),
+            entry(APPEARANCE, 3, "首页显示搜索按钮", "主页 顶栏 搜索 入口 精简"),
             entry(APPEARANCE, 3, "搜索框推荐词", "搜索 推荐 关键词 默认 精简"),
             entry(APPEARANCE, 3, "热搜榜", "搜索 热搜 排行 精简"),
             entry(APPEARANCE, 3, "歌单分类", "搜索 精品歌单 分类 标签 精简"),

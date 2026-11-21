@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextLayoutResult
@@ -36,8 +35,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import kotlin.math.PI
-import kotlin.math.sin
 
 private const val TAG = "KaraokeText"
 
@@ -60,8 +57,6 @@ fun KaraokeText(
     isPlaying: Boolean,
     // 关闭流光只去掉柔边羽化，仍按逐字时间裁剪并逐帧推进
     advancedEffect: Boolean = true,
-    // 演唱中的字词叠加呼吸高亮微光
-    glowEffect: Boolean = false,
     fontWeight: FontWeight = FontWeight.ExtraBold,
     // 只加在底层未播文字上，已播层裁剪覆盖在其上，阴影不会叠两遍
     shadow: Shadow? = null
@@ -156,27 +151,9 @@ fun KaraokeText(
                                 )
                             }
                         }
-                        if (glowEffect) drawBreathingGlow(info, relativeProgress)
                     }
                 }
         )
-    }
-}
-
-// 演唱中的字词按进度叠一层随正弦脉动的白色微光
-private fun DrawScope.drawBreathingGlow(info: LyricLayoutInfo, relativeProgress: Long) {
-    info.wordLayouts.forEach { word ->
-        if (relativeProgress !in word.startMs..word.endMs) return@forEach
-        val duration = (word.endMs - word.startMs).coerceAtLeast(1)
-        val pulse = sin((relativeProgress - word.startMs).toFloat() / duration * PI).toFloat()
-        if (pulse > 0f) {
-            drawRect(
-                color = Color.White.copy(alpha = 0.22f * pulse),
-                topLeft = Offset(word.left, word.top),
-                size = Size((word.right - word.left).coerceAtLeast(0f), (word.bottom - word.top).coerceAtLeast(0f)),
-                blendMode = BlendMode.Plus
-            )
-        }
     }
 }
 

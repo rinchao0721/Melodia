@@ -7,16 +7,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.VerticalAlignTop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -47,6 +37,16 @@ import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Drag
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.ToTop
+import com.lin0721.linmusic.core.ui.icons.Unchecked
 
 internal val TrackGray: Color @Composable @ReadOnlyComposable get() = MelodiaColors.SurfaceLight
 internal val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
@@ -91,15 +91,15 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                     )
                     if (task.status == DownloadTaskStatus.PAUSED) {
                         IconButton(onClick = { actions.onResume(listOf(task)) }) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
+                            Icon(MelodiaIcons.Play, contentDescription = "继续下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     } else {
                         IconButton(onClick = { actions.onPause(listOf(task)) }) {
-                            Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
+                            Icon(MelodiaIcons.Pause, contentDescription = "暂停下载", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                     IconButton(onClick = { actions.onCancel(listOf(task)) }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "取消下载", tint = MutedText, modifier = Modifier.size(18.dp))
+                        Icon(MelodiaIcons.Close, contentDescription = "取消下载", tint = MutedText, modifier = Modifier.size(18.dp))
                     }
                 }
                 DownloadTaskStatus.FAILED -> {
@@ -117,7 +117,7 @@ internal fun TaskRow(task: DownloadTask, queuePosition: Int?, actions: TaskActio
                 }
                 DownloadTaskStatus.SUCCEEDED -> {
                     Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
+                        imageVector = MelodiaIcons.CheckCircle,
                         contentDescription = "已完成",
                         tint = MelodiaColors.Success,
                         modifier = Modifier.padding(end = 8.dp).size(20.dp)
@@ -150,21 +150,21 @@ private fun menuItemsFor(task: DownloadTask, actions: TaskActions, normal: Color
     val single = listOf(task)
     return when (task.status) {
         DownloadTaskStatus.RUNNING, DownloadTaskStatus.WAITING, DownloadTaskStatus.PAUSED -> listOfNotNull(
-            MenuItem("优先下载", Icons.Rounded.VerticalAlignTop, normal) { actions.onPrioritize(single) }
+            MenuItem("优先下载", MelodiaIcons.ToTop, normal) { actions.onPrioritize(single) }
                 .takeIf { task.status != DownloadTaskStatus.RUNNING },
             if (task.status == DownloadTaskStatus.PAUSED) {
-                MenuItem("继续", Icons.Rounded.PlayArrow, normal) { actions.onResume(single) }
+                MenuItem("继续", MelodiaIcons.Play, normal) { actions.onResume(single) }
             } else {
-                MenuItem("暂停", Icons.Rounded.Pause, normal) { actions.onPause(single) }
+                MenuItem("暂停", MelodiaIcons.Pause, normal) { actions.onPause(single) }
             },
-            MenuItem("取消下载", Icons.Rounded.Close, danger) { actions.onCancel(single) }
+            MenuItem("取消下载", MelodiaIcons.Close, danger) { actions.onCancel(single) }
         )
         DownloadTaskStatus.FAILED -> listOf(
-            MenuItem("重试", Icons.Rounded.Refresh, normal) { actions.onRetry(single) },
-            MenuItem("移除记录", Icons.Outlined.DeleteOutline, danger) { actions.onRemove(single) }
+            MenuItem("重试", MelodiaIcons.Refresh, normal) { actions.onRetry(single) },
+            MenuItem("移除记录", MelodiaIcons.Delete, danger) { actions.onRemove(single) }
         )
         DownloadTaskStatus.SUCCEEDED -> listOf(
-            MenuItem("移除记录", Icons.Outlined.DeleteOutline, danger) { actions.onRemove(single) }
+            MenuItem("移除记录", MelodiaIcons.Delete, danger) { actions.onRemove(single) }
         )
     }
 }
@@ -188,7 +188,7 @@ internal fun EditableTaskRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            imageVector = if (selected) MelodiaIcons.CheckCircle else MelodiaIcons.Unchecked,
             contentDescription = if (selected) "取消选择" else "选择",
             tint = if (selected) MelodiaColors.Accent else MutedText,
             modifier = Modifier.size(22.dp)
@@ -202,7 +202,7 @@ internal fun EditableTaskRow(
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).dragHandle(),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.DragHandle, contentDescription = "拖动排序", tint = MutedText)
+                Icon(MelodiaIcons.Drag, contentDescription = "拖动排序", tint = MutedText)
             }
         }
     }
@@ -235,17 +235,17 @@ internal fun EditActionBar(tab: DownloadManagerTab, selectedTasks: List<Download
     ) {
         when (tab) {
             DownloadManagerTab.ACTIVE -> {
-                EditAction("优先下载", Icons.Rounded.VerticalAlignTop, enabled) { actions.onPrioritize(selectedTasks) }
-                EditAction("暂停", Icons.Rounded.Pause, enabled) { actions.onPause(selectedTasks) }
-                EditAction("继续", Icons.Rounded.PlayArrow, enabled) { actions.onResume(selectedTasks) }
-                EditAction("取消下载", Icons.Rounded.Close, enabled, MelodiaColors.Error) { actions.onCancel(selectedTasks) }
+                EditAction("优先下载", MelodiaIcons.ToTop, enabled) { actions.onPrioritize(selectedTasks) }
+                EditAction("暂停", MelodiaIcons.Pause, enabled) { actions.onPause(selectedTasks) }
+                EditAction("继续", MelodiaIcons.Play, enabled) { actions.onResume(selectedTasks) }
+                EditAction("取消下载", MelodiaIcons.Close, enabled, MelodiaColors.Error) { actions.onCancel(selectedTasks) }
             }
             DownloadManagerTab.FAILED -> {
-                EditAction("重试", Icons.Rounded.Refresh, enabled) { actions.onRetry(selectedTasks) }
-                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
+                EditAction("重试", MelodiaIcons.Refresh, enabled) { actions.onRetry(selectedTasks) }
+                EditAction("移除记录", MelodiaIcons.Delete, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
             }
             DownloadManagerTab.SUCCEEDED -> {
-                EditAction("移除记录", Icons.Outlined.DeleteOutline, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
+                EditAction("移除记录", MelodiaIcons.Delete, enabled, MelodiaColors.Error) { actions.onRemove(selectedTasks) }
             }
         }
     }

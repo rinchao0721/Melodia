@@ -24,9 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -54,6 +51,9 @@ import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 private const val BANNER_AUTO_DISMISS_MS = 12_000L
 
@@ -141,7 +141,7 @@ internal fun ClipboardLinkBanner(
                         modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            imageVector = MelodiaIcons.PlaylistAdd,
                             contentDescription = "下一首播放",
                             tint = DesktopColors.TextPrimary,
                             modifier = Modifier.size(18.dp)
@@ -173,7 +173,7 @@ internal fun ClipboardLinkBanner(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = MelodiaIcons.Close,
                         contentDescription = "关闭",
                         tint = DesktopColors.TextGray,
                         modifier = Modifier.size(16.dp)

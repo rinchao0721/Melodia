@@ -1,17 +1,5 @@
 package com.lin0721.linmusic.desktop.ui.search
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.PersonRemove
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -31,6 +19,15 @@ import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.PersonRemove
 
 private const val NETEASE_WEB = "https://music.163.com"
 
@@ -52,21 +49,21 @@ internal fun MenuScope.CollectionMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         viewModel.playCollection(id, isAlbum)
     })
-    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addCollectionToPlayNext(id, isAlbum)
     })
     if (!isAlbum) {
-        MenuItem("收藏歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+        MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
             dismiss()
             navigator.requireLogin { viewModel.subscribePlaylist(id) }
         })
     }
-    MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
         dismiss()
         viewModel.downloadCollection(id, isAlbum, navigator.downloadLevel)
     })
@@ -74,7 +71,7 @@ internal fun MenuScope.CollectionMenuItems(
     if (isAlbum && artists.isNotEmpty()) {
         MenuDivider()
         if (artists.size > 1) {
-            SubMenuItem("查看歌手", icon = Icons.Rounded.Person) {
+            SubMenuItem("查看歌手", icon = MelodiaIcons.Person) {
                 artists.forEach { artist ->
                     SimpleMenuItem(artist.name, onClick = {
                         dismiss()
@@ -83,13 +80,13 @@ internal fun MenuScope.CollectionMenuItems(
                 }
             }
         } else {
-            MenuItem("查看歌手", icon = Icons.Rounded.Person, onClick = {
+            MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 dismiss()
                 navigator.openArtist(artists[0].id, artists[0].name)
             })
         }
     }
-    MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/${if (isAlbum) "album" else "playlist"}?id=$id")
     })
@@ -102,20 +99,20 @@ internal fun MenuScope.ArtistMenuItems(artist: Artist, viewModel: SearchViewMode
     val followed by produceState<Boolean?>(null, artist.id, navigator.isLoggedIn) {
         value = if (navigator.isLoggedIn) viewModel.isArtistFollowed(artist.id) else false
     }
-    MenuItem("打开歌手", icon = Icons.Rounded.Person, onClick = {
+    MenuItem("打开歌手", icon = MelodiaIcons.Person, onClick = {
         dismiss()
         navigator.openArtist(artist.id, artist.name)
     })
     MenuItem(
         if (followed == true) "取消关注" else "关注",
-        icon = if (followed == true) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
+        icon = if (followed == true) MelodiaIcons.PersonRemove else MelodiaIcons.PersonAdd,
         enabled = followed != null,
         onClick = {
             dismiss()
             navigator.requireLogin { viewModel.setArtistFollowed(artist.id, followed != true) }
         }
     )
-    MenuItem("复制歌手链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制歌手链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/artist?id=${artist.id}")
     })
@@ -127,20 +124,20 @@ internal fun MenuScope.RadioMenuItems(radioId: Long, viewModel: SearchViewModel,
     val subscribed by produceState<Boolean?>(null, radioId, navigator.isLoggedIn) {
         value = if (navigator.isLoggedIn) viewModel.isRadioSubscribed(radioId) else false
     }
-    MenuItem("打开电台", icon = Icons.Rounded.Mic, onClick = {
+    MenuItem("打开电台", icon = MelodiaIcons.Mic, onClick = {
         dismiss()
         navigator.openRadio(radioId)
     })
     MenuItem(
         if (subscribed == true) "取消订阅" else "订阅",
-        icon = if (subscribed == true) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
+        icon = if (subscribed == true) MelodiaIcons.PersonRemove else MelodiaIcons.PersonAdd,
         enabled = subscribed != null,
         onClick = {
             dismiss()
             navigator.requireLogin { viewModel.setRadioSubscribed(radioId, subscribed != true) }
         }
     )
-    MenuItem("复制电台链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制电台链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/djradio?id=$radioId")
     })
@@ -154,21 +151,21 @@ internal fun MenuScope.ProgramMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         onPlay()
     })
-    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addProgramToPlayNext(program)
     })
     if (program.radioId > 0) {
-        MenuItem("打开电台", icon = Icons.Rounded.Mic, onClick = {
+        MenuItem("打开电台", icon = MelodiaIcons.Mic, onClick = {
             dismiss()
             navigator.openRadio(program.radioId)
         })
     }
-    MenuItem("复制节目链接", icon = Icons.Rounded.Link, onClick = {
+    MenuItem("复制节目链接", icon = MelodiaIcons.Link, onClick = {
         dismiss()
         navigator.copyLink("$NETEASE_WEB/program?id=${program.id}")
     })
@@ -184,31 +181,31 @@ internal fun MenuScope.ExternalTrackMenuItems(
     dismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
-    MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+    MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
         onPlay()
     })
-    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
         viewModel.addExternalToPlayNext(track)
     })
     val asTrack = track.toPlaylistTrack()
     if (navigator.isLoggedIn) {
-        SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(asTrack) }) {
+        SubMenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(asTrack) }) {
             CollectSubmenuContent(asTrack, actions, dismiss)
         }
     } else {
-        MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+        MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
             dismiss()
             navigator.showMessage("请先登录账号")
         })
     }
     MenuDivider()
-    MenuItem("在网易云中搜索", icon = Icons.Rounded.Search, onClick = {
+    MenuItem("在网易云中搜索", icon = MelodiaIcons.Search, onClick = {
         dismiss()
         viewModel.searchOnNetease(track)
     })
-    MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+    MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
         dismiss()
         val ok = copyTextToClipboard(songInfoText(track.name, track.artists))
         navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")

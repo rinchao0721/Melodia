@@ -9,8 +9,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +44,8 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
 
 @Composable
 fun SongDetailCard(
@@ -322,7 +322,7 @@ fun SongDetailRow(
 
         if (showChevron) {
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowRight,
+                imageVector = MelodiaIcons.ChevronRight,
                 contentDescription = null,
                 tint = MelodiaColors.TextSecondary.copy(alpha = 0.5f),
                 modifier = Modifier

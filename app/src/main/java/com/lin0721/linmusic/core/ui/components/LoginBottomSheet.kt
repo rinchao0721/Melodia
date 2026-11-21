@@ -18,11 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +42,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Globe
+import com.lin0721.linmusic.core.ui.icons.Paste
+import com.lin0721.linmusic.core.ui.icons.QrCode
 
 private enum class LoginMode { CHOICE, QR, COOKIE }
 
@@ -107,7 +107,7 @@ fun LoginBottomSheet(
                         viewModel.resetQrState()
                         mode = LoginMode.CHOICE
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
+                        Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MelodiaColors.TextPrimary)
                     }
                 }
             }
@@ -183,11 +183,11 @@ private fun LoginChoiceContent(
         modifier = Modifier.padding(bottom = MelodiaSpacing.xl)
     )
 
-    LoginOptionButton(text = "网页登录", icon = Icons.Default.Language, isPrimary = true, onClick = onWebLogin)
+    LoginOptionButton(text = "网页登录", icon = MelodiaIcons.Globe, isPrimary = true, onClick = onWebLogin)
     Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
-    LoginOptionButton(text = "二维码登录", icon = Icons.Default.QrCode, isPrimary = false, onClick = onQrLogin)
+    LoginOptionButton(text = "二维码登录", icon = MelodiaIcons.QrCode, isPrimary = false, onClick = onQrLogin)
     Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
-    LoginOptionButton(text = "Cookie 登录", icon = Icons.Default.ContentPaste, isPrimary = false, onClick = onCookieLogin)
+    LoginOptionButton(text = "Cookie 登录", icon = MelodiaIcons.Paste, isPrimary = false, onClick = onCookieLogin)
 }
 
 /**

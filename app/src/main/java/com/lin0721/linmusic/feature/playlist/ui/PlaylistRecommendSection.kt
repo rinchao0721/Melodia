@@ -1,15 +1,11 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +22,8 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 // ────────────────────────────────────────────────────────────────────────────
 // 推荐歌曲板块（标题行 + 可一键加入歌单的推荐列表）
@@ -53,8 +51,7 @@ fun LazyListScope.playlistRecommendItems(
                 coverUrl = track.al.picUrl,
                 isVip = track.fee == 1,
                 qualitySongId = track.id,
-                maxBrLevel = track.privilege?.maxBrLevel,
-                inferredLevel = track.inferredMaxBrLevel()
+                maxBrLevel = track.privilege?.maxBrLevel
             ),
             isActive = currentTrackId == track.id.toString(),
             isPlaying = isPlaying,
@@ -67,7 +64,7 @@ fun LazyListScope.playlistRecommendItems(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = MelodiaIcons.Plus,
                         contentDescription = "添加歌曲到歌单",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
@@ -107,7 +104,7 @@ private fun RecommendationHeader(onRefresh: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Refresh,
+                imageVector = MelodiaIcons.Refresh,
                 contentDescription = "刷新推荐",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(16.dp)

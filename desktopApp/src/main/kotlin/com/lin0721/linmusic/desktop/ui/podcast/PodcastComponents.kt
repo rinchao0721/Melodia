@@ -21,9 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -61,6 +58,9 @@ import com.lin0721.linmusic.feature.podcast.domain.formatRemaining
 import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import com.lin0721.linmusic.feature.podcast.ui.PodcastFilter
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Check
 
 internal val PodcastEdgePadding = 24.dp
 private val ProgressTrack: Color @Composable @ReadOnlyComposable get() = DesktopColors.Overlay.copy(alpha = 0.16f)
@@ -269,7 +269,7 @@ internal fun PodcastProgramRow(
             }
             HoverReveal(revealed = hovered) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = MelodiaIcons.Play,
                     contentDescription = "播放",
                     tint = DesktopColors.TextPrimary,
                     modifier = Modifier.size(22.dp).clickable(onClick = onPlay)
@@ -326,7 +326,7 @@ private fun ProgramProgress(program: PodcastProgram, progress: PodcastProgressEn
             }
         }
         progress.isFinished -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(14.dp))
+            Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(14.dp))
             Text("已听完", color = DesktopColors.AccentText, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp))
         }
         progress.fraction > 0f -> LinearProgressIndicator(

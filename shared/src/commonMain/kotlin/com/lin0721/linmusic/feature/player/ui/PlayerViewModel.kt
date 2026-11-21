@@ -23,6 +23,7 @@ import com.lin0721.linmusic.core.comment.data.qqSongThreadId
 import com.lin0721.linmusic.core.source.QQSongIdResolver
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
@@ -256,6 +257,7 @@ class PlayerViewModel(
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     // 播客节目的电台订阅状态；非播客播放时 isPodcast 为假
     val podcastState: StateFlow<PodcastPlayerState> = podcastPlayer.state
@@ -313,6 +315,14 @@ class PlayerViewModel(
         }
     }
 
+    // 一键收藏当前或指定歌曲到“已点赞的歌曲”，成功后发出 CollectPromptEvent 提示
+    fun quickLike(songId: Long = currentSongId) {
+        if (songId <= 0L && !isExternalSong(songId)) return
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     // 打开"收藏到歌单"面板前先拉取歌单勾选状态
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
@@ -320,11 +330,12 @@ class PlayerViewModel(
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->

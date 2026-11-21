@@ -1,11 +1,6 @@
 package com.lin0721.linmusic.feature.localmusic.ui.components
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +13,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicUiState
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Checklist
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 // 本地音乐详情页（专辑、歌手、文件夹）顶部的多选入口与多选态操作，与"全部歌曲"页的图标行为一致：
 // 未多选时只有"多选"；多选后已选歌曲可加入本地歌单，删除/退出共用最后一个按钮
@@ -30,7 +30,7 @@ fun RowScope.LocalSelectionActions(
 ) {
     if (!state.isSelectionMode) {
         MelodiaIconButton(onClick = { viewModel.toggleSelectionMode() }) {
-            Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
         }
         return
     }
@@ -38,16 +38,16 @@ fun RowScope.LocalSelectionActions(
         MelodiaIconButton(onClick = {
             viewModel.openPlaylistPicker(tracks.filter { it.uri.toString() in state.selectedUris })
         }) {
-            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
         }
     }
     MelodiaIconButton(onClick = {
         if (state.selectedUris.isEmpty()) viewModel.exitSelectionMode() else onRequestDelete()
     }) {
         if (state.selectedUris.isEmpty()) {
-            Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
+            Icon(MelodiaIcons.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
         } else {
-            Icon(Icons.Rounded.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
+            Icon(MelodiaIcons.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
         }
     }
 }

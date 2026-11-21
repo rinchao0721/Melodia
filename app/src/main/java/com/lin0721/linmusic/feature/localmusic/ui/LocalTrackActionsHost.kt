@@ -7,12 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.PlaylistRemove
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +32,12 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.rememberLocalCoverU
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistPickerSheet
 import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.PlaylistRemove
+import com.lin0721.linmusic.core.ui.icons.Info
 
 // 同时负责投递 toast，每个本地页挂一个即可
 @Composable
@@ -99,23 +99,23 @@ fun LocalTrackActionsHost(
                 onRequireLogin = { showLoginSheet = true },
                 onShareClick = { shareTarget = it },
                 extraOptions = {
-                    OptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, text = "加入本地歌单") {
+                    OptionRow(icon = MelodiaIcons.PlaylistAdd, text = "加入本地歌单") {
                         viewModel.openPlaylistPicker(listOf(track))
                     }
                     menu.playlistId?.let { playlistId ->
-                        OptionRow(icon = Icons.Rounded.PlaylistRemove, text = "从歌单移除") {
+                        OptionRow(icon = MelodiaIcons.PlaylistRemove, text = "从歌单移除") {
                             viewModel.removeFromPlaylist(playlistId, track)
                         }
                     }
-                    OptionRow(icon = Icons.Rounded.Edit, text = "编辑标签") {
+                    OptionRow(icon = MelodiaIcons.Edit, text = "编辑标签") {
                         viewModel.closeTrackMenu()
                         navigation.openTagEditor(track.uri.toString())
                     }
-                    OptionRow(icon = Icons.Rounded.Info, text = "查看详情") {
+                    OptionRow(icon = MelodiaIcons.Info, text = "查看详情") {
                         viewModel.openDetail(track)
                     }
                     OptionRow(
-                        icon = Icons.Rounded.Delete,
+                        icon = MelodiaIcons.Delete,
                         text = "删除本地文件",
                         iconTint = MaterialTheme.colorScheme.error
                     ) {
@@ -168,7 +168,7 @@ fun LocalTrackActionsHost(
             songId = songId,
             collectState = collectState,
             onDismiss = { collectSongId = null },
-            onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+            onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
             onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
         )
     }

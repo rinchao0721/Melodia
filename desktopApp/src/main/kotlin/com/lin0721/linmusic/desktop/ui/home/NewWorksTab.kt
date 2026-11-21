@@ -24,15 +24,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -84,6 +75,15 @@ import com.lin0721.linmusic.feature.newworks.ui.NewWorksReleaseStatus
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // 距离末尾还剩几项时提前拉下一页
 private const val LOAD_MORE_THRESHOLD = 2
@@ -303,7 +303,7 @@ private fun ReleaseCard(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Rounded.MoreHoriz, contentDescription = "更多", tint = Color.White)
+                            Icon(MelodiaIcons.MoreHoriz, contentDescription = "更多", tint = Color.White)
                         }
                         ReleaseMenu(
                             expanded = menuOpen,
@@ -324,7 +324,7 @@ private fun ReleaseCard(
                     }) {
                         StateIcon(inLibrary) { added ->
                             Icon(
-                                imageVector = if (added) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                imageVector = if (added) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                                 contentDescription = if (added) "取消收藏" else "收藏",
                                 tint = if (added) DesktopColors.Accent else Color.White,
                                 modifier = Modifier.size(28.dp)
@@ -381,17 +381,17 @@ private fun ReleaseMenu(
     ) {
         MenuEntry(
             if (inLibrary) "从音乐库移除" else "添加到音乐库",
-            if (inLibrary) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
+            if (inLibrary) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
         ) {
             closeAll()
             actions.onToggleLibrary(release)
         }
-        MenuEntry("加入播放队列", Icons.AutoMirrored.Rounded.QueueMusic) {
+        MenuEntry("加入播放队列", MelodiaIcons.Queue) {
             closeAll()
             actions.onAddToPlayNext(release)
         }
         Box {
-            MenuEntry("加入歌单", Icons.AutoMirrored.Rounded.PlaylistAdd, chevron = true) {
+            MenuEntry("加入歌单", MelodiaIcons.PlaylistAdd, chevron = true) {
                 actions.onPrepareImportTargets { subMenu = SubMenu.Playlist }
             }
             DropdownMenu(
@@ -403,7 +403,7 @@ private fun ReleaseMenu(
                 containerColor = DesktopColors.PopupSurface,
                 shadowElevation = 12.dp
             ) {
-                MenuEntry("新建歌单", Icons.AutoMirrored.Rounded.PlaylistAdd) {
+                MenuEntry("新建歌单", MelodiaIcons.PlaylistAdd) {
                     closeAll()
                     onCreatePlaylist(release)
                 }
@@ -425,9 +425,9 @@ private fun ReleaseMenu(
                 }
             }
         }
-        MenuEntry("下载", Icons.Rounded.FileDownload, enabled = false) {}
+        MenuEntry("下载", MelodiaIcons.Download, enabled = false) {}
         Box {
-            MenuEntry("分享", Icons.Rounded.Share, chevron = true) { subMenu = SubMenu.Share }
+            MenuEntry("分享", MelodiaIcons.Share, chevron = true) { subMenu = SubMenu.Share }
             DropdownMenu(
                 expanded = subMenu == SubMenu.Share,
                 onDismissRequest = { subMenu = SubMenu.None },
@@ -460,7 +460,7 @@ private fun MenuEntry(
         enabled = enabled,
         modifier = Modifier.padding(horizontal = 4.dp),
         trailing = if (chevron) {
-            { Icon(Icons.Rounded.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp)) }
+            { Icon(MelodiaIcons.ChevronRight, null, tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp)) }
         } else {
             null
         },

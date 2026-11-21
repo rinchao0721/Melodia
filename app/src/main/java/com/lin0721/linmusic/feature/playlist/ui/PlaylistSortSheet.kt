@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,6 +14,8 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌单内歌曲排序方式弹层，复用与"更多操作""收藏到歌单"一致的弹层视觉规范
@@ -67,7 +67,7 @@ fun PlaylistSortSheet(
                     )
                     if (selected) {
                         Icon(
-                            imageVector = Icons.Default.Check,
+                            imageVector = MelodiaIcons.Check,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)

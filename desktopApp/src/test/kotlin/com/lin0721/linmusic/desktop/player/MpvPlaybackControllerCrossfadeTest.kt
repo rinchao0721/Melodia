@@ -152,10 +152,28 @@ class MpvPlaybackControllerCrossfadeTest {
         Thread.sleep(300)
         controller.playQueue(listOf(item(1)), 0, null, null, 0L)
         assertTrue(await(5_000) { controller.nowPlaying.value?.songId == 1L && controller.currentPosition.value > 300L } >= 0)
-        // 幅度 16000 的正弦约 -9.2dBFS，按 -16 目标应压低约 6.8dB
+        // 幅度 16000 的单声道正弦约 -9.9 LUFS，本地歌整首测量
         assertTrue("应写入响度缓存", await(10_000) { storeFile.isFile && storeFile.readText().contains("\"id\":1") } >= 0)
-        val db = Regex("\"db\":(-?[0-9.]+)").find(storeFile.readText())!!.groupValues[1].toDouble()
-        assertEquals(-6.8, db, 0.5)
+        val text = storeFile.readText()
+        val lufs = Regex("\"lufs\":(-?[0-9.]+)").find(text)!!.groupValues[1].toDouble()
+        assertEquals(-9.9, lufs, 0.7)
+        assertTrue("本地歌应整首测量", text.contains("MEASURED_FULL"))
+    }
+
+    @Test
+    fun loudnessPredictsQueuedLocalTracksInBackground() {
+        runBlocking { settings.saveLoudnessNormalizationEnabled(true) }
+        paths[1] = wav("p1.wav", 8, 440.0, amplitude = 16_000.0)
+        paths[2] = wav("p2.wav", 8, 660.0, amplitude = 8_000.0)
+        val storeFile = File(dir, "loudness_predict.json")
+        val controller = newController(loudnessStoreFile = storeFile)
+        Thread.sleep(300)
+        controller.playQueue(listOf(item(1), item(2)), 0, null, null, 0L)
+        assertTrue(
+            "队列里未播放的本地歌也应被预测",
+            await(10_000) { storeFile.isFile && storeFile.readText().contains("\"id\":2") } >= 0
+        )
+        assertEquals(1L, controller.nowPlaying.value?.songId)
     }
 
     @Test

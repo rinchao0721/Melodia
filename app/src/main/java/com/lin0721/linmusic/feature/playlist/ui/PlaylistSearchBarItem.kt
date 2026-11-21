@@ -4,8 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +25,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private val SearchBarHeight = 40.dp
 
@@ -75,7 +74,7 @@ fun SearchBarItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.width(14.dp))
-                Icon(Icons.Default.Search, null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                Icon(MelodiaIcons.Search, null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(MelodiaSpacing.sm))
                 androidx.compose.foundation.text.BasicTextField(
                     value         = query,

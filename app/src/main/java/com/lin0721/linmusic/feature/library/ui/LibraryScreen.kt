@@ -14,20 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,6 +67,12 @@ import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Sort
+import com.lin0721.linmusic.core.ui.icons.Grid
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -211,7 +203,7 @@ fun LibraryScreen(
                             isSearchActive = false
                             viewModel.updateSearchQuery("")
                         }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         Box(
@@ -238,7 +230,7 @@ fun LibraryScreen(
 
                         if (searchQuery.isNotEmpty()) {
                             MelodiaIconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "清除", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(MelodiaIcons.Close, contentDescription = "清除", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -246,7 +238,7 @@ fun LibraryScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(64.dp)
+                            .height(56.dp)
                             .padding(horizontal = MelodiaSpacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -257,7 +249,7 @@ fun LibraryScreen(
                                 model = "$avatarUrl?param=100y100",
                                 contentDescription = "用户头像",
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(32.dp)
                                     .pressable(MelodiaPress.Icon) { onAvatarClick() }
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop
@@ -265,14 +257,14 @@ fun LibraryScreen(
                         } else {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(32.dp)
                                     .pressable(MelodiaPress.Icon) { onAvatarClick() }
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surface),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.LibraryMusic,
+                                    imageVector = MelodiaIcons.Library,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
@@ -291,7 +283,7 @@ fun LibraryScreen(
                         )
 
                         MelodiaIconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         MelodiaIconButton(onClick = {
@@ -302,7 +294,7 @@ fun LibraryScreen(
                                 showLoginSheet = true
                             }
                         }) {
-                            Icon(Icons.Default.Add, contentDescription = "创建歌单", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(MelodiaIcons.Plus, contentDescription = "创建歌单", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -737,7 +729,7 @@ private fun LibraryReorderView(
         ) {
             MelodiaIconButton(onClick = onCancel) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    imageVector = MelodiaIcons.ArrowBack,
                     contentDescription = "取消",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
@@ -844,7 +836,7 @@ private fun LibrarySortAndFilterBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Rounded.SwapVert,
+                imageVector = MelodiaIcons.Sort,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(18.dp)
@@ -867,7 +859,7 @@ private fun LibrarySortAndFilterBar(
             modifier = Modifier.size(32.dp)
         ) {
             Icon(
-                imageVector = if (isGridView) Icons.AutoMirrored.Rounded.List else Icons.Rounded.GridView,
+                imageVector = if (isGridView) MelodiaIcons.ListIcon else MelodiaIcons.Grid,
                 contentDescription = "切换视图",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)

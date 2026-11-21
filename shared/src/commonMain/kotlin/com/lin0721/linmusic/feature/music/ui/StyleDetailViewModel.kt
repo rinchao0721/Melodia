@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.music.data.MusicRepository
 import com.lin0721.linmusic.feature.music.domain.StyleAlbumItem
 import com.lin0721.linmusic.feature.music.domain.StyleArtistItem
@@ -38,7 +39,8 @@ class StyleDetailViewModel(
     private val musicRepository: MusicRepository,
     private val playbackRepository: PlaybackRepository,
     private val playbackController: PlaybackController,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<StyleDetailUiState>(StyleDetailUiState.Loading)
@@ -93,6 +95,8 @@ class StyleDetailViewModel(
                     return@launch
                 }
 
+                songPage?.songs?.let { songQualityCache?.prefetch(it) }
+
                 // 二级标签只在曲风列表里有，列表拿不到就不展示筛选
                 val children = stylesResult.getOrNull()?.firstOrNull { it.id == tagId }?.children.orEmpty()
                 _uiState.value = StyleDetailUiState.Success(
@@ -137,12 +141,13 @@ class StyleDetailViewModel(
         val requestSort = next.sort
         contentJob = viewModelScope.launch {
             val sections = fetchSections(requestTagId, requestSort)
+            val songPage = sections.songs.getOrNull()
+            songPage?.songs?.let { songQualityCache?.prefetch(it) }
             val latest = currentData() ?: return@launch
             if (latest.activeTagId != requestTagId) {
                 AppLogger.d(TAG, "二级标签已切换，丢弃 tagId=$requestTagId 的返回")
                 return@launch
             }
-            val songPage = sections.songs.getOrNull()
             // 期间又切了排序的话，曲目交给排序那次请求
             val keepSongs = latest.sort != requestSort
             _uiState.value = StyleDetailUiState.Success(
@@ -172,10 +177,11 @@ class StyleDetailViewModel(
         val requestTagId = current.activeTagId
         songsJob = viewModelScope.launch {
             val result = musicRepository.getStyleSongs(requestTagId, 0, sort).awaitResult()
+            val page = result.getOrNull()
+            if (page != null) songQualityCache?.prefetch(page.songs)
             val latest = currentData() ?: return@launch
             if (latest.activeTagId != requestTagId || latest.sort != sort) return@launch
 
-            val page = result.getOrNull()
             if (page == null) {
                 // 失败时退回原排序，列表仍是原排序的内容
                 _uiState.value = StyleDetailUiState.Success(latest.copy(sort = previousSort, isSongsLoading = false))
@@ -204,6 +210,7 @@ class StyleDetailViewModel(
         val requestCursor = current.nextCursor
         songsJob = viewModelScope.launch {
             val page = musicRepository.getStyleSongs(requestTagId, requestCursor, requestSort).awaitResult().getOrNull()
+            if (page != null) songQualityCache?.prefetch(page.songs)
             val latest = currentData() ?: return@launch
             if (latest.activeTagId != requestTagId || latest.sort != requestSort || latest.nextCursor != requestCursor) return@launch
 

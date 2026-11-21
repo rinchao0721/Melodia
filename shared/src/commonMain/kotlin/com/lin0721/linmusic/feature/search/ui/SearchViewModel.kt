@@ -20,6 +20,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
@@ -34,6 +35,7 @@ import com.lin0721.linmusic.feature.podcast.domain.playPodcastPrograms
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -76,7 +78,8 @@ class SearchViewModel(
     private val collectionActions: CollectionActionsDelegate? = null,
     private val artistRepository: ArtistRepository? = null,
     private val podcastRepository: PodcastRepository? = null,
-    private val linkPreviewResolver: LinkPreviewResolver? = null
+    private val linkPreviewResolver: LinkPreviewResolver? = null,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
@@ -86,6 +89,7 @@ class SearchViewModel(
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     val history: StateFlow<List<String>> = historyPreferences.history
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -212,6 +216,14 @@ class SearchViewModel(
         viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
+    // 一键收藏到“已点赞的歌曲”，外部搜索结果写入本机外部库
+    fun quickLike(songId: Long) {
+        searchedExternal(songId)?.let { return quickLikeExternal(it) }
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareCollectDialog(songId: Long) {
         searchedExternal(songId)?.let { return prepareExternalCollectDialog(it) }
         viewModelScope.launch {
@@ -219,12 +231,13 @@ class SearchViewModel(
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
-        searchedExternal(songId)?.let { return saveExternalCollection(it, items) }
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
+        searchedExternal(songId)?.let { return saveExternalCollection(it, items, silent) }
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
@@ -277,8 +290,19 @@ class SearchViewModel(
         this.playlistTagsEnabled = tagsEnabled
         discoveryJob?.cancel()
         discoveryJob = viewModelScope.launch {
-            _discoveryState.value = DiscoveryUiState.Loading
             if (!hotEnabled) _featuredTrack.value = null
+            // 热搜与歌单分类均关闭时，发现页正文保持空白，不展示骨架屏或错误态
+            val showAnyDiscoveryBody = hotEnabled || tagsEnabled
+            if (showAnyDiscoveryBody) {
+                _discoveryState.value = DiscoveryUiState.Loading
+            } else {
+                val currentKeyword = (_discoveryState.value as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
+                _discoveryState.value = DiscoveryUiState.Success(
+                    defaultKeyword = if (keywordEnabled) currentKeyword else "",
+                    hotSearches = emptyList(),
+                    playlistTags = emptyList()
+                )
+            }
 
             val keywordDeferred = async { if (keywordEnabled) repository.getDefaultSearchKeyword().firstOrNull() else null }
             val hotSearchDeferred = async { if (hotEnabled) repository.getHotSearches().firstOrNull() else null }
@@ -287,6 +311,15 @@ class SearchViewModel(
             val keywordResult = keywordDeferred.await()
             val hotSearchResult = hotSearchDeferred.await()
             val tagsResult = tagsDeferred.await()
+
+            if (!showAnyDiscoveryBody) {
+                _discoveryState.value = DiscoveryUiState.Success(
+                    defaultKeyword = keywordResult?.getOrNull().orEmpty(),
+                    hotSearches = emptyList(),
+                    playlistTags = emptyList()
+                )
+                return@launch
+            }
 
             val failures = listOfNotNull(keywordResult, hotSearchResult, tagsResult).mapNotNull { it.exceptionOrNull() }
             val allFailed = keywordResult?.getOrNull() == null &&
@@ -315,7 +348,10 @@ class SearchViewModel(
             ?.getOrNull()
             ?.items
             ?.firstNotNullOfOrNull { (it as? SearchResultItem.SongItem)?.track }
-            ?.let { _featuredTrack.value = it }
+            ?.let { track ->
+                songQualityCache?.prefetch(listOf(track))
+                _featuredTrack.value = track
+            }
     }
 
     // 发现页加载失败时的重试入口，UI 层错误态按钮调用
@@ -399,6 +435,7 @@ class SearchViewModel(
                 delay(300)
                 repository.search(query, SearchType.SONG, offset = 0, limit = SONG_HIT_LIMIT).firstOrNull()?.onSuccess { page ->
                     val tracks = page.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                    songQualityCache?.prefetch(tracks)
                     _inputState.value = _inputState.value.copy(songHits = tracks, songHitsQuery = query)
                 }
             }
@@ -636,15 +673,21 @@ class SearchViewModel(
         external = this
     )
 
+    fun quickLikeExternal(track: ExternalTrack) {
+        viewModelScope.launch {
+            songCollectDelegate.quickLikeExternal(track) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareExternalCollectDialog(track: ExternalTrack) {
         viewModelScope.launch {
             songCollectDelegate.prepareExternal(track) { _toastEvent.emit(it) }
         }
     }
 
-    fun saveExternalCollection(track: ExternalTrack, items: List<PlaylistCollectItem>) {
+    fun saveExternalCollection(track: ExternalTrack, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
-            songCollectDelegate.saveExternal(track, items) { _toastEvent.emit(it) }
+            songCollectDelegate.saveExternal(track, items, silent) { _toastEvent.emit(it) }
         }
     }
 
@@ -751,6 +794,8 @@ class SearchViewModel(
         repository.search(keyword, type, offset = offset).firstOrNull()?.let { result ->
             result.onSuccess { page ->
                 offsetByType[type] = offset + page.rawFetchedCount
+                val newTracks = page.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                if (newTracks.isNotEmpty()) songQualityCache?.prefetch(newTracks)
                 val currentItems = if (isLoadMore) {
                     val existing = (stateFlow.value as? SearchResultsUiState.Success)?.items.orEmpty()
                     val existingKeys = existing.mapTo(hashSetOf()) { it.stableKey }

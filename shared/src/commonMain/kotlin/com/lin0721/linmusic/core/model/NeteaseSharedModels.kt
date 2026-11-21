@@ -73,6 +73,30 @@ data class SongPrivilege(
     val st: Int = 0 // 小于 0 为无版权或需解锁
 )
 
+// 把顶层 privileges 按歌曲 id 合并进 Track.privilege：已有 privilege 的保留，缺的补上
+fun List<Track>.mergePrivileges(privileges: List<SongPrivilege>): List<Track> {
+    if (isEmpty() || privileges.isEmpty()) return this
+    val byId = HashMap<Long, SongPrivilege>(privileges.size)
+    for (p in privileges) {
+        if (p.id > 0) byId.putIfAbsent(p.id, p)
+    }
+    if (byId.isEmpty()) return this
+    return map { track -> track.mergePrivilege(byId) }
+}
+
+// 补全单首歌曲的 privilege：已有 privilege 的保留，缺的按 id 从顶层 privileges 补上
+fun Track.mergePrivilege(privileges: List<SongPrivilege>): Track {
+    if (privilege != null || privileges.isEmpty() || id <= 0) return this
+    val matched = privileges.firstOrNull { it.id == id } ?: return this
+    return copy(privilege = matched)
+}
+
+private fun Track.mergePrivilege(byId: Map<Long, SongPrivilege>): Track {
+    if (privilege != null || id <= 0) return this
+    val matched = byId[id] ?: return this
+    return copy(privilege = matched)
+}
+
 @Serializable
 data class PlaylistCreator(
     val userId: Long = 0,

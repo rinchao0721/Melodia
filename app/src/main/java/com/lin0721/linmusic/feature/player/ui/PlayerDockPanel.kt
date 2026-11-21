@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 
@@ -21,7 +21,7 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
 // 卡片本身已避开状态栏与手势条，内部不再为系统栏留白
 @Composable
 fun PlayerDockPanel(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,

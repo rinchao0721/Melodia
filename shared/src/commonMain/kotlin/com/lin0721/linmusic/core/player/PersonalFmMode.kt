@@ -1,7 +1,10 @@
 package com.lin0721.linmusic.core.player
 
+import kotlinx.serialization.Serializable
+
 // 私人FM模式枚举；场景推荐共用 mode="SCENE_RCMD"，以 subMode 区分
 // 三个配色为 ARGB：base 为卡片底色，light / dark 为极光光团的同色系深浅
+@Serializable
 enum class PersonalFmMode(
     val mode: String,
     val subMode: String?,

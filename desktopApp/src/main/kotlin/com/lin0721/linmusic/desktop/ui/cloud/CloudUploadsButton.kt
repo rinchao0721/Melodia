@@ -16,12 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +43,12 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import com.lin0721.linmusic.feature.cloud.upload.UploadTask
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Upload
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
 
 private val ButtonSize = 32.dp
 private val PanelWidth = 340.dp
@@ -89,7 +89,7 @@ internal fun CloudUploadsButton(cloud: CloudMusicActions) {
                                 strokeWidth = 2.dp
                             )
                         }
-                        Icon(Icons.Rounded.CloudUpload, "云盘上传", tint = tint, modifier = Modifier.size(if (progress != null) 15.dp else 20.dp))
+                        Icon(MelodiaIcons.Upload, "云盘上传", tint = tint, modifier = Modifier.size(if (progress != null) 15.dp else 20.dp))
                     }
                 }
                 if (hasFailed) {
@@ -145,10 +145,10 @@ private fun UploadsPanel(tasks: List<UploadTask>, onRetry: (String) -> Unit, onC
 private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         val (icon, iconTint) = when (task.status) {
-            UploadStatus.SUCCESS -> Icons.Rounded.CheckCircle to DesktopColors.Accent
-            UploadStatus.FAILED -> Icons.Rounded.ErrorOutline to DesktopColors.Accent
-            UploadStatus.QUEUED -> Icons.Rounded.Schedule to DesktopColors.TextGray
-            else -> Icons.Rounded.CloudUpload to DesktopColors.TextPrimary
+            UploadStatus.SUCCESS -> MelodiaIcons.CheckCircle to DesktopColors.Accent
+            UploadStatus.FAILED -> MelodiaIcons.ErrorIcon to DesktopColors.Accent
+            UploadStatus.QUEUED -> MelodiaIcons.Clock to DesktopColors.TextGray
+            else -> MelodiaIcons.Upload to DesktopColors.TextPrimary
         }
         Icon(icon, null, tint = iconTint, modifier = Modifier.size(18.dp))
         Column(Modifier.weight(1f).padding(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -173,7 +173,7 @@ private fun UploadTaskRow(task: UploadTask, onRetry: () -> Unit) {
         if (task.status == UploadStatus.FAILED) {
             DesktopTooltip("重试") {
                 IconButton(onClick = onRetry, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Refresh, "重试", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                    Icon(MelodiaIcons.Refresh, "重试", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                 }
             }
         }

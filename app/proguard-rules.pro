@@ -63,6 +63,8 @@
 # ===== Media3 / Coil / Koin =====
 # 三者均随包提供 consumer rules：Media3 保留 Player 相关回调，Coil 保留解码器，
 # Koin 的构造函数 DSL（::X 函数引用）为编译期解析，均无需额外声明
+# FFmpeg 音频扩展通过 DefaultRenderersFactory 反射构造且含 JNI 回调方法，不能被 R8 裁剪
+-keep class androidx.media3.decoder.ffmpeg.** { *; }
 
 # ===== Room & WorkManager =====
 # WorkManager 内部使用 Room 保存作业状态，Room 依赖反射调用数据库实现类的无参构造函数。

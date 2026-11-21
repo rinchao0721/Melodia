@@ -5,6 +5,7 @@ import com.lin0721.linmusic.desktop.ui.plugin.DesktopPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginCardContext
 import com.lin0721.linmusic.core.plugin.LocalPluginCards
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.songquality.LocalDownloadedQualities
 import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
 import com.lin0721.linmusic.desktop.ui.plugin.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
@@ -14,6 +15,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.awtEventOrNull
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -43,6 +46,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
@@ -61,6 +65,7 @@ import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.LocalCoverColorMemory
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
+import com.lin0721.linmusic.desktop.player.RoutingDesktopPlaybackController
 import com.lin0721.linmusic.desktop.ui.components.readTextFromClipboard
 import com.lin0721.linmusic.desktop.ui.components.registerClipboardCopyObserver
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
@@ -75,8 +80,11 @@ import com.lin0721.linmusic.desktop.ui.search.SearchDropdown
 import com.lin0721.linmusic.desktop.ui.share.ShareCardDialog
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.CollectPromptHost
+import com.lin0721.linmusic.desktop.ui.track.LocalAlwaysShowLikedBadge
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
+import com.lin0721.linmusic.feature.library.ui.LibraryUiState
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +94,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -112,8 +121,10 @@ fun WindowScope.MelodiaDesktopApp(
 ) {
     val focusManager = LocalFocusManager.current
     val controller = deps.playbackController
-    // 占位播放器没有音量与输出设备能力，界面隐藏对应入口
-    val audioOutput: AudioOutputControl? = controller.takeIf { it.unavailableReason == null }
+    // 占位播放器没有音量与输出设备能力，界面隐藏对应入口（远端控制时仍可控制远端音量）
+    val localUnavailableReason = (controller as? RoutingDesktopPlaybackController)?.localUnavailableReason
+        ?: controller.unavailableReason
+    val audioOutput: AudioOutputControl? = controller.takeIf { localUnavailableReason == null }
     val state = session.state
 
     val userProfile by deps.homeViewModel.userProfile.collectAsState()
@@ -184,6 +195,24 @@ fun WindowScope.MelodiaDesktopApp(
     val isFullscreen = fullscreen.isFullscreen
 
     val pluginLayouts by deps.plugins.layouts.collectAsState()
+    val alwaysShowLikedBadge by deps.commonSettingsViewModel.alwaysShowLikedBadge.collectAsState()
+    val libraryUiState by deps.libraryViewModel.uiState.collectAsState()
+    val likedCoverUrl = (libraryUiState as? LibraryUiState.Success)
+        ?.allItems
+        ?.firstOrNull { it.isLikedSongs }
+        ?.coverUrl
+        .orEmpty()
+    val collectState by deps.songActions.collect.state.collectAsState()
+    val collectPromptEvents = remember(deps, state) {
+        merge(
+            deps.playerViewModel.collectPromptEvent,
+            deps.homeViewModel.collectPromptEvent,
+            deps.searchViewModel.collectPromptEvent,
+            deps.newWorksViewModel.collectPromptEvent,
+            deps.songActions.collect.collectPromptEvent,
+            state.collectPromptEvents
+        )
+    }
     val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
     CompositionLocalProvider(
         LocalDesktopNavigator provides navigator,
@@ -191,8 +220,10 @@ fun WindowScope.MelodiaDesktopApp(
         LocalPluginCards provides pluginCards,
         LocalPluginCommands provides deps.pluginCommands,
         LocalSongQualityCache provides deps.songQuality,
+        LocalDownloadedQualities provides deps.downloadedQualities,
         LocalListenTogetherViewModel provides deps.listenTogether,
-        LocalCoverColorMemory provides deps.coverColorMemory
+        LocalCoverColorMemory provides deps.coverColorMemory,
+        LocalAlwaysShowLikedBadge provides alwaysShowLikedBadge
     ) {
         val scope = rememberCoroutineScope()
         var clipboardCheckJob by remember { mutableStateOf<Job?>(null) }
@@ -277,13 +308,21 @@ fun WindowScope.MelodiaDesktopApp(
             deps.pluginCommands.links.opens.collect { if (!openInBrowser(it)) navigator.showMessage("无法打开浏览器") }
         }
         PluginConfirmDialog(deps.pluginCommands.confirmations)
+        var titleBarBounds by remember { mutableStateOf(Rect.Zero) }
+        LaunchedEffect(isFullscreen, lyricsView.isImmersive) {
+            if (isFullscreen || lyricsView.isImmersive) state.titleBarEditMode = false
+        }
         Box(
             Modifier.fillMaxSize().skinBackdropRoot(DesktopColors.WindowBackground)
                 .onPointerEvent(PointerEventType.Enter) { lyricsView.pointerInWindow = true }
                 .onPointerEvent(PointerEventType.Exit) { lyricsView.pointerInWindow = false }
                 // 点到搜索下拉之外就收起它；鼠标侧键与浏览器一致：后退键返回，前进键前进；不消费事件，子组件照常响应
                 .onPointerEvent(PointerEventType.Press, PointerEventPass.Initial) { event ->
-                    event.changes.firstOrNull()?.position?.let(searchDropdown::onWindowPress)
+                    val pos = event.changes.firstOrNull()?.position
+                    pos?.let(searchDropdown::onWindowPress)
+                    if (state.titleBarEditMode && !event.buttons.isSecondaryPressed && pos != null && !titleBarBounds.contains(pos)) {
+                        state.titleBarEditMode = false
+                    }
                     when (event.awtEventOrNull?.button) {
                         MOUSE_BUTTON_BACK -> state.navigateBack()
                         MOUSE_BUTTON_FORWARD -> state.navigateForward()
@@ -292,6 +331,10 @@ fun WindowScope.MelodiaDesktopApp(
                 // Esc 先让输入框放弃焦点，窗口级快捷键随即恢复；同时收起剪贴板浮动条
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                        if (state.titleBarEditMode) {
+                            state.titleBarEditMode = false
+                            return@onPreviewKeyEvent true
+                        }
                         searchDropdown.close()
                         focusManager.clearFocus()
                         deps.songLinkRequests.dismissClipboard()
@@ -307,7 +350,16 @@ fun WindowScope.MelodiaDesktopApp(
                         enter = uiEnter(ChromeEnter),
                         exit = uiExit(ChromeExit)
                     ) {
-                        AppTitleBar(state, deps, windowState, userProfile, searchFocusRequests, searchDropdown, onClose)
+                        AppTitleBar(
+                            state = state,
+                            deps = deps,
+                            windowState = windowState,
+                            userProfile = userProfile,
+                            searchFocusRequests = searchFocusRequests,
+                            dropdown = searchDropdown,
+                            onTitleBarBoundsChange = { titleBarBounds = it },
+                            onClose = onClose
+                        )
                     }
                     Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
                     AnimatedVisibility(
@@ -323,56 +375,96 @@ fun WindowScope.MelodiaDesktopApp(
                     deps.searchViewModel.searchWithKeyword(keyword)
                 }
             }
-            ClipboardLinkBanner(
-                link = clipboardLink,
-                previewState = clipboardPreviewState,
-                onPrimaryAction = {
-                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
-                    val readyPreview = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview
-                    when (val target = current.target) {
-                        is SongLinkTarget.Song -> {
-                            val readyTrack = readyPreview?.track
-                            if (readyTrack != null) {
-                                controller.playLinkTrack(readyTrack, "链接")
-                            } else {
-                                deps.songLinkRequests.request(target)
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ClipboardLinkBanner(
+                    link = clipboardLink,
+                    previewState = clipboardPreviewState,
+                    onPrimaryAction = {
+                        val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                        val readyPreview = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview
+                        when (val target = current.target) {
+                            is SongLinkTarget.Song -> {
+                                val readyTrack = readyPreview?.track
+                                if (readyTrack != null) {
+                                    controller.playLinkTrack(readyTrack, "链接")
+                                } else {
+                                    deps.songLinkRequests.request(target)
+                                }
+                            }
+                            is SongLinkTarget.Playlist -> {
+                                lyricsView.close()
+                                val title = readyPreview?.title.orEmpty()
+                                if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                            }
+                            is SongLinkTarget.Artist -> {
+                                lyricsView.close()
+                                navigator.openArtist(target.id, readyPreview?.title.orEmpty())
                             }
                         }
-                        is SongLinkTarget.Playlist -> {
-                            lyricsView.close()
-                            val title = readyPreview?.title.orEmpty()
-                            if (target.isAlbum) navigator.openAlbum(target.id, title) else navigator.openPlaylist(target.id, title)
+                    },
+                    onEnqueueNext = {
+                        val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
+                        val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkBanner
+                        val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
+                        if (readyTrack != null) {
+                            controller.enqueueLinkTrackNext(readyTrack)
+                            state.showMessage("已添加至下一首播放")
+                        } else {
+                            scope.launch {
+                                val track = deps.playbackRepository.getSongDetail(songTarget.id).firstOrNull()?.getOrNull()
+                                if (track != null) {
+                                    controller.enqueueLinkTrackNext(track)
+                                    state.showMessage("已添加至下一首播放")
+                                } else {
+                                    state.showMessage("这首歌打不开，可能已下架")
+                                }
+                            }
                         }
-                        is SongLinkTarget.Artist -> {
-                            lyricsView.close()
-                            navigator.openArtist(target.id, readyPreview?.title.orEmpty())
-                        }
-                    }
-                },
-                onEnqueueNext = {
-                    val current = deps.songLinkRequests.takeClipboard() ?: return@ClipboardLinkBanner
-                    val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkBanner
-                    val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
-                    if (readyTrack != null) {
-                        controller.enqueueLinkTrackNext(readyTrack)
-                        state.showMessage("已添加至下一首播放")
-                    } else {
+                    },
+                    onDismiss = { deps.songLinkRequests.dismissClipboard() }
+                )
+                CollectPromptHost(
+                    promptEvents = collectPromptEvents,
+                    likedCoverUrl = likedCoverUrl,
+                    collectState = collectState,
+                    onPrepareCollect = { songId ->
                         scope.launch {
-                            val track = deps.playbackRepository.getSongDetail(songTarget.id).firstOrNull()?.getOrNull()
-                            if (track != null) {
-                                controller.enqueueLinkTrackNext(track)
-                                state.showMessage("已添加至下一首播放")
-                            } else {
-                                state.showMessage("这首歌打不开，可能已下架")
-                            }
+                            deps.songActions.collect.prepare(
+                                songId = songId,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) }
+                            )
+                        }
+                    },
+                    onSaveCollect = { songId, items ->
+                        scope.launch {
+                            deps.songActions.collect.save(
+                                songId = songId,
+                                items = items,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) },
+                                onLikedChanged = { deps.songActions.likes.syncLikedSongIds(it) }
+                            )
+                        }
+                    },
+                    onCreateAndAdd = { name, songId ->
+                        scope.launch {
+                            deps.songActions.collect.createAndAdd(
+                                name = name,
+                                songId = songId,
+                                likedSongIds = deps.songActions.likes.likedSongIds.value,
+                                onToast = { state.showMessage(it) }
+                            )
                         }
                     }
-                },
-                onDismiss = { deps.songLinkRequests.dismissClipboard() },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)
-            )
-            SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)) { data ->
-                Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
+                )
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(data, containerColor = DesktopColors.PopupSurface, contentColor = DesktopColors.TextPrimary)
+                }
             }
             WindowResizeHandles(enabled = !isMaximized && !isFullscreen)
         }

@@ -3,19 +3,6 @@ package com.lin0721.linmusic.feature.playlist.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.HeartBroken
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,6 +30,17 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.HeartBroken
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Group
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -147,7 +145,7 @@ fun PlaylistSongOptionsSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OptionRow(
-                    icon = Icons.AutoMirrored.Filled.QueueMusic,
+                    icon = MelodiaIcons.Queue,
                     text = "下一首播放",
                     onClick = {
                         onDismiss()
@@ -159,7 +157,7 @@ fun PlaylistSongOptionsSheet(
                 val roomState by listenTogether.state.collectAsState()
                 if (roomState.active && track.id > 0L) {
                     OptionRow(
-                        icon = Icons.Default.Group,
+                        icon = MelodiaIcons.Group,
                         text = "添加到一起听队列",
                         onClick = {
                             onDismiss()
@@ -168,7 +166,7 @@ fun PlaylistSongOptionsSheet(
                     )
                 }
 
-                val likeIcon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder
+                val likeIcon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite
                 val likeIconTint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 val likeText = if (isLiked) "取消喜欢" else "喜欢"
 
@@ -189,7 +187,7 @@ fun PlaylistSongOptionsSheet(
                 }
 
                 OptionRow(
-                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
                         onDismiss()
@@ -203,7 +201,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onShareClick != null) {
                     OptionRow(
-                        icon = Icons.Default.Share,
+                        icon = MelodiaIcons.Share,
                         text = "分享",
                         onClick = {
                             onDismiss()
@@ -214,7 +212,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onDownloadClick != null) {
                     OptionRow(
-                        icon = Icons.Default.Download,
+                        icon = MelodiaIcons.Download,
                         text = "下载",
                         onClick = {
                             onDismiss()
@@ -225,7 +223,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (onReduceRecommend != null) {
                     OptionRow(
-                        icon = Icons.Default.HeartBroken,
+                        icon = MelodiaIcons.HeartBroken,
                         text = "减少推荐",
                         onClick = {
                             onDismiss()
@@ -240,7 +238,7 @@ fun PlaylistSongOptionsSheet(
                         // 多歌手逐个列出，避免只能进入第一位歌手主页
                         linkedArtists.forEach { artist ->
                             OptionRow(
-                                icon = Icons.Default.Person,
+                                icon = MelodiaIcons.Person,
                                 text = "歌手: ${artist.name}",
                                 onClick = {
                                     onDismiss()
@@ -251,7 +249,7 @@ fun PlaylistSongOptionsSheet(
                     } else {
                         val artistsText = track.ar.joinToString(" • ") { it.name }
                         OptionRow(
-                            icon = Icons.Default.Person,
+                            icon = MelodiaIcons.Person,
                             text = "歌手: $artistsText",
                             onClick = {
                                 onDismiss()
@@ -268,7 +266,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (canRemoveFromPlaylist) {
                     OptionRow(
-                        icon = Icons.Default.Delete,
+                        icon = MelodiaIcons.Delete,
                         text = "从歌单中删除",
                         onClick = {
                             onDismiss()
@@ -279,7 +277,7 @@ fun PlaylistSongOptionsSheet(
 
                 if (showAlbumOption) {
                     OptionRow(
-                        icon = Icons.Default.Album,
+                        icon = MelodiaIcons.Album,
                         text = "专辑: ${track.al.name}",
                         onClick = {
                             onDismiss()
@@ -297,7 +295,7 @@ fun PlaylistSongOptionsSheet(
                 val pluginCommands = LocalPluginCommands.current
                 rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
                     OptionRow(
-                        icon = Icons.Default.Extension,
+                        icon = MelodiaIcons.Plugin,
                         text = item.title,
                         onClick = {
                             onDismiss()

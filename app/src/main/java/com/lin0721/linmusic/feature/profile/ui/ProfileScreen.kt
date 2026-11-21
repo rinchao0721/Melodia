@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +33,9 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 @Composable
 fun ProfileScreen(
@@ -203,7 +203,7 @@ private fun TopNavigationBar(
     ) {
         MelodiaIconButton(onClick = onBack) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                imageVector = MelodiaIcons.ArrowBack,
                 contentDescription = "返回",
                 tint = MelodiaColors.TextPrimary
             )
@@ -214,7 +214,7 @@ private fun TopNavigationBar(
         if (!isSelf) {
             MelodiaIconButton(onClick = onMoreClick) {
                 Icon(
-                    imageVector = Icons.Default.MoreVert,
+                    imageVector = MelodiaIcons.MoreVert,
                     contentDescription = "更多",
                     tint = MelodiaColors.TextPrimary
                 )

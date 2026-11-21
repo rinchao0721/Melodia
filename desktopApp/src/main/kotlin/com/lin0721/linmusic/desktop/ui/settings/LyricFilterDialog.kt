@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -46,6 +44,8 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private const val TAG = "LyricFilterDialog"
 private const val EXPORT_FILE_NAME = "melodia-lyric-filter.json"
@@ -209,7 +209,7 @@ internal fun LyricFilterDialog(
                             onClick = { remove(value) },
                             label = { Text(value, fontSize = 12.sp) },
                             trailingIcon = {
-                                Icon(Icons.Rounded.Close, "删除", tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
+                                Icon(MelodiaIcons.Close, "删除", tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
                             },
                             colors = InputChipDefaults.inputChipColors(
                                 containerColor = DesktopColors.Surface,

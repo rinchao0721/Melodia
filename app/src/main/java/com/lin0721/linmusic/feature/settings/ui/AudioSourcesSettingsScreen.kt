@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.feature.settings.ui
 
 import android.net.Uri
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Upload
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -10,13 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +37,12 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowDown
+import com.lin0721.linmusic.core.ui.icons.ArrowUp
+import com.lin0721.linmusic.core.ui.icons.Code
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 @Composable
 fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
@@ -206,7 +207,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                                                 enabled = index > 0
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.ArrowUpward,
+                                                    imageVector = MelodiaIcons.ArrowUp,
                                                     contentDescription = "上移",
                                                     tint = if (index > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                                                     modifier = Modifier.size(18.dp)
@@ -217,7 +218,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                                                 enabled = index < lxPlugins.size - 1
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.ArrowDownward,
+                                                    imageVector = MelodiaIcons.ArrowDown,
                                                     contentDescription = "下移",
                                                     tint = if (index < lxPlugins.size - 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                                                     modifier = Modifier.size(18.dp)
@@ -227,7 +228,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                                                 onClick = { viewModel.removeLxPlugin(plugin.id) }
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.Delete,
+                                                    imageVector = MelodiaIcons.Delete,
                                                     contentDescription = "卸载",
                                                     tint = MaterialTheme.colorScheme.error,
                                                     modifier = Modifier.size(18.dp)
@@ -297,7 +298,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         shape = RoundedCornerShape(PillRadius),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     ) {
-                        Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(MelodiaIcons.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("选取文件 (.js/.zip/.7z)", fontSize = 13.sp)
                     }
@@ -308,7 +309,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         shape = RoundedCornerShape(PillRadius),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     ) {
-                        Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(MelodiaIcons.Code, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("粘贴脚本导入", fontSize = 13.sp)
                     }
@@ -521,7 +522,7 @@ private fun ServerUrlEditDialog(
                     testResult = null
                     onReset()
                 }) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(MelodiaIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("清空")
                 }

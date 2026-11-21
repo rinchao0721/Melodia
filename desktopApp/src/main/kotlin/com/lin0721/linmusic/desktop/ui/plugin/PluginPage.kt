@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -64,6 +62,7 @@ import com.lin0721.linmusic.desktop.ui.settings.SettingsDropdown
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private const val DEFAULT_IMAGE_SIZE = 120f
 
@@ -273,7 +272,7 @@ internal fun PluginPageEntries(repository: PluginRepository, onOpen: (ActivePlug
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Extension, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                Icon(MelodiaIcons.Plugin, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                 Text(
                     active.page.title,
                     color = DesktopColors.TextPrimary,

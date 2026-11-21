@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.mergePrivilege
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
@@ -57,11 +58,12 @@ class PlaybackRepositoryImpl(
         transform = { response ->
             val item = response.data.first()
             AppLogger.d(TAG, "播放链接响度字段 songId=$songId level=${item.level} gain=${item.gain} peak=${item.peak}")
+            val loudness = LoudnessPolicy.fromNetease(item.gain, item.peak)
             SongPlaybackInfo(
                 url = item.url.orEmpty(),
                 isFreeTrial = item.isTrialAudio,
                 level = item.level?.takeIf { it.isNotBlank() },
-                gainDb = LoudnessPolicy.neteaseGainDb(item.gain, item.peak)
+                loudness = loudness
             )
         }
     )
@@ -153,7 +155,7 @@ class PlaybackRepositoryImpl(
         request = { apiService.getSongDetail(SongDetailRequest(c = """[{"id":$songId}]""")) },
         isSuccess = { it.isSuccess && it.songs.isNotEmpty() },
         code = { it.code },
-        transform = { it.songs[0] }
+        transform = { it.songs[0].mergePrivilege(it.privileges) }
     )
 
     override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = apiFlow(

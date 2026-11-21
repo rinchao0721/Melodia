@@ -4,10 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -21,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.CollectToggleIcon
 import com.lin0721.linmusic.core.ui.components.PersonalFmModeOrb
 import com.lin0721.linmusic.core.ui.interaction.copyOnLongClick
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -28,6 +25,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 // 私人FM 模式胶囊入口：左侧展示当前模式极光圆点，点击打开模式选择弹层
 @Composable
@@ -57,7 +58,7 @@ fun PersonalFmModePill(
             maxLines = 1
         )
         Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
+            imageVector = MelodiaIcons.ChevronDown,
             contentDescription = "切换FM模式",
             tint = MelodiaColors.TextPrimary.copy(alpha = 0.75f),
             modifier = Modifier.size(14.dp)
@@ -156,7 +157,7 @@ fun SongLikeButton(
         if (podcast.canSubscribe) {
             MelodiaIconButton(onClick = onToggleSubscribe, modifier = modifier) {
                 Icon(
-                    if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    if (podcast.subscribed) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                     contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
                     tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(28.dp)
@@ -164,11 +165,11 @@ fun SongLikeButton(
             }
         }
     } else MelodiaIconButton(onClick = onToggleLike, modifier = modifier) {
-        Icon(
-            if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            contentDescription = null,
+        CollectToggleIcon(
+            collected = isLiked,
+            size = 28.dp,
             tint = MelodiaColors.TextPrimary,
-            modifier = Modifier.size(28.dp)
+            collectedTint = MelodiaColors.OnCoverAccent
         )
     }
 }

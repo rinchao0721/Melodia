@@ -26,7 +26,6 @@ data class LyricsViewSettings(
     val alignment: String = "left",
     val secondaryMode: String = "translation",
     val advancedEffect: Boolean = true,
-    val glowEffect: Boolean = false,
     val neteaseEnabled: Boolean = true,
     val qqEnabled: Boolean = true,
     val amllEnabled: Boolean = true,
@@ -62,7 +61,6 @@ class LyricsViewSettingsActions internal constructor(
     val setAlignment: (String) -> Unit,
     val setSecondaryMode: (String) -> Unit,
     val setAdvancedEffect: (Boolean) -> Unit,
-    val setGlowEffect: (Boolean) -> Unit,
     val setNeteaseEnabled: (Boolean) -> Unit,
     val setQqEnabled: (Boolean) -> Unit,
     val setAmllEnabled: (Boolean) -> Unit,
@@ -81,7 +79,6 @@ fun rememberLyricsViewSettings(
     val alignment by settingsPreferences.fullScreenLyricAlignment.collectAsState(initial = defaults.alignment)
     val secondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsState(initial = defaults.secondaryMode)
     val advanced by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsState(initial = defaults.advancedEffect)
-    val glow by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsState(initial = defaults.glowEffect)
     val netease by settingsPreferences.neteaseLyricsEnabled.collectAsState(initial = defaults.neteaseEnabled)
     val qq by settingsPreferences.qqLyricsEnabled.collectAsState(initial = defaults.qqEnabled)
     val amll by settingsPreferences.amllLyricsEnabled.collectAsState(initial = defaults.amllEnabled)
@@ -95,14 +92,13 @@ fun rememberLyricsViewSettings(
             setAlignment = { scope.launch { settingsPreferences.saveFullScreenLyricAlignment(it) } },
             setSecondaryMode = { scope.launch { settingsPreferences.saveFullScreenLyricSecondaryMode(it) } },
             setAdvancedEffect = { scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(it) } },
-            setGlowEffect = { scope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(it) } },
             setNeteaseEnabled = { scope.launch { settingsPreferences.saveNeteaseLyricsEnabled(it) } },
             setQqEnabled = { scope.launch { settingsPreferences.saveQqLyricsEnabled(it) } },
             setAmllEnabled = { scope.launch { settingsPreferences.saveAmllLyricsEnabled(it) } },
             setAutoHideControls = { scope.launch { settingsPreferences.saveFullScreenLyricAutoHideControls(it) } }
         )
     }
-    val settings = remember(fontSize, lineSpacing, secondarySpacing, alignment, secondaryMode, advanced, glow, netease, qq, amll, autoHide) {
+    val settings = remember(fontSize, lineSpacing, secondarySpacing, alignment, secondaryMode, advanced, netease, qq, amll, autoHide) {
         LyricsViewSettings(
             fontSize = fontSize.coerceIn(LyricsFontSizeRange),
             lineSpacing = lineSpacing.coerceIn(LyricsLineSpacingRange),
@@ -110,7 +106,6 @@ fun rememberLyricsViewSettings(
             alignment = alignment,
             secondaryMode = secondaryMode,
             advancedEffect = advanced,
-            glowEffect = glow,
             neteaseEnabled = netease,
             qqEnabled = qq,
             amllEnabled = amll,

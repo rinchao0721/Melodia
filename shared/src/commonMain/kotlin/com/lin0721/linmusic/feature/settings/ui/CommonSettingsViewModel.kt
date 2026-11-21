@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
@@ -53,7 +54,9 @@ class CommonSettingsViewModel(
     val playlistTagsEnabled = settingsPreferences.playlistTagsEnabled.asState(true)
     val searchSuggestionEnabled = settingsPreferences.searchSuggestionEnabled.asState(true)
     val homeRecentPlayEnabled = settingsPreferences.homeRecentPlayEnabled.asState(true)
+    val showPlaybackQuality = settingsPreferences.showPlaybackQuality.asState(false)
     val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
+    val alwaysShowLikedBadge = settingsPreferences.alwaysShowLikedBadge.asState(true)
     val lyricFilterConfig = settingsPreferences.lyricFilterConfig.asState(LyricFilterConfig())
     val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
     val communityPriority = sourcePreferences.communityPriority.asState(false)
@@ -77,6 +80,10 @@ class CommonSettingsViewModel(
     val autoCheckUpdateEnabled = settingsPreferences.autoCheckUpdateEnabled.asState(true)
     val allowPrereleaseChannel = settingsPreferences.allowPrereleaseChannel.asState(false)
     val clipboardLinkEnabled = settingsPreferences.clipboardLinkEnabled.asState(true)
+    val lanLinkEnabled = settingsPreferences.lanLinkEnabled.asState(false)
+    val useRealIp = settingsPreferences.useRealIp.asState(false)
+    val realIpValue = settingsPreferences.realIpValue.asState("")
+    val lanLinkPlaybackMode = settingsPreferences.lanLinkPlaybackMode.asState(LanLinkPlaybackMode.SINGLE_DEVICE)
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 
@@ -112,7 +119,11 @@ class CommonSettingsViewModel(
 
     fun updateHomeRecentPlayEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveHomeRecentPlayEnabled(enabled) }
 
+    fun updateShowPlaybackQuality(show: Boolean) = launchSave { settingsPreferences.saveShowPlaybackQuality(show) }
+
     fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
+
+    fun updateAlwaysShowLikedBadge(enabled: Boolean) = launchSave { settingsPreferences.saveAlwaysShowLikedBadge(enabled) }
 
     fun updateLyricFilterEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricFilterEnabled(enabled) }
 
@@ -164,4 +175,14 @@ class CommonSettingsViewModel(
     }
 
     fun updateClipboardLinkEnabled(enabled: Boolean) = launchSave { settingsPreferences.setClipboardLinkEnabled(enabled) }
+
+    fun updateLanLinkEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLanLinkEnabled(enabled) }
+
+    fun updateUseRealIp(enabled: Boolean) = launchSave { settingsPreferences.saveUseRealIp(enabled) }
+
+    fun updateRealIpValue(ip: String) = launchSave { settingsPreferences.saveRealIpValue(ip) }
+
+    fun updateLanLinkPlaybackMode(mode: LanLinkPlaybackMode) = launchSave {
+        settingsPreferences.saveLanLinkPlaybackMode(mode)
+    }
 }

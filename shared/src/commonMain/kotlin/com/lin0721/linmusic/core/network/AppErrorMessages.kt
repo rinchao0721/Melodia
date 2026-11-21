@@ -6,7 +6,12 @@ fun AppError.toMessage(resourceProvider: ResourceProvider): String = when (this)
     AppError.RiskControl -> resourceProvider.getString(AppString.ErrorRiskControl)
     AppError.Unauthorized -> resourceProvider.getString(AppString.ErrorUnauthorized)
     AppError.ParseError -> resourceProvider.getString(AppString.ErrorParse)
-    is AppError.BizError -> resourceProvider.getString(AppString.ErrorBizDefault)
+    // 405/406 是网易的「操作频繁」限流码
+    is AppError.BizError -> if (code == 405 || code == 406) {
+        resourceProvider.getString(AppString.ErrorRiskControl)
+    } else {
+        resourceProvider.getString(AppString.ErrorBizDefault)
+    }
 }
 
 // 统一取错误提示：Repository 出口应始终是 AppError，非 AppError 兜底走原始 message

@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -41,6 +39,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 private val ChunkShape = RoundedCornerShape(16.dp)
 private val SelectedInk = Color(0xFF1A1A1A)
@@ -67,7 +67,7 @@ internal fun LyricSelectPage(
     Column(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)).background(surface)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.sm, vertical = MelodiaSpacing.sm)) {
             MelodiaIconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart)) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "关闭", tint = Color.White)
+                Icon(MelodiaIcons.ChevronDown, contentDescription = "关闭", tint = Color.White)
             }
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("选择歌词", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)

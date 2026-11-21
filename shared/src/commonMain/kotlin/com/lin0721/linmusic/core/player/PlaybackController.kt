@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.player
 
+import com.lin0721.linmusic.core.model.PlaybackQuality
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -17,6 +18,7 @@ data class NowPlaying(
 data class PlaybackLevel(val songId: Long, val level: String)
 
 private val NO_PLAYBACK_LEVEL: StateFlow<PlaybackLevel?> = MutableStateFlow(null)
+private val NO_PLAYBACK_QUALITY: StateFlow<PlaybackQuality?> = MutableStateFlow(null)
 
 // 播放门面的跨平台契约，各平台以各自播放引擎实现
 interface PlaybackController {
@@ -35,7 +37,14 @@ interface PlaybackController {
 
     // 当前曲目的实际音质，未获取到（本地、缓存、换源）时为空；默认不提供
     val playbackLevel: StateFlow<PlaybackLevel?> get() = NO_PLAYBACK_LEVEL
+
+    // 当前曲目的实际流参数与输出音质快照，默认不提供
+    val playbackQuality: StateFlow<PlaybackQuality?> get() = NO_PLAYBACK_QUALITY
     val currentPosition: StateFlow<Long>
+
+    // 实时播放进度（毫秒），供歌词渲染等需要平滑插值的场景使用
+    fun currentPositionNow(): Long = currentPosition.value
+
     val duration: StateFlow<Long>
     val sleepTimerRemaining: StateFlow<Long>
     val playContext: StateFlow<String?>

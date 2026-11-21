@@ -21,12 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -75,6 +69,12 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailUiState
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.Clock
 
 private val EdgePadding = 24.dp
 private val HeroHeight = 280.dp
@@ -315,7 +315,7 @@ private fun ActionRow(favourite: Track?, canPlay: Boolean, onPlayAll: () -> Unit
                 .pointerHoverIcon(PointerIcon.Hand).clickable(enabled = canPlay, onClick = onPlayAll),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.PlayArrow, "播放全部", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
+            Icon(MelodiaIcons.Play, "播放全部", tint = if (canPlay) DesktopColors.OnAccent else DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
         }
         favourite?.let { FavouriteChip(it, onPlayFavourite) }
     }
@@ -332,7 +332,7 @@ private fun FavouriteChip(track: Track, onPlay: () -> Unit) {
         Cover(track.al.picUrl, 40.dp)
         Column(Modifier.padding(start = 10.dp).width(220.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Favorite, null, tint = DesktopColors.Accent, modifier = Modifier.size(12.dp))
+                Icon(MelodiaIcons.FavoriteFilled, null, tint = DesktopColors.Accent, modifier = Modifier.size(12.dp))
                 Text(
                     "你在此曲风最爱",
                     color = DesktopColors.AccentText,
@@ -362,7 +362,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(sort.label(), color = DesktopColors.TextGray, fontSize = 13.sp)
-            Icon(Icons.Rounded.KeyboardArrowDown, "排序方式", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ChevronDown, "排序方式", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }, offset = DpOffset(0.dp, 4.dp)) {
             StyleSort.entries.forEach { option ->
@@ -370,7 +370,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit) {
                     text = option.label(),
                     selected = option == sort,
                     trailing = if (option == sort) {
-                        { Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+                        { Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
                     } else {
                         null
                     },
@@ -399,7 +399,7 @@ private fun SongTableHeader() {
             Text("标题", color = DesktopColors.TextGray, fontSize = 13.sp, modifier = Modifier.weight(0.45f).padding(start = 12.dp))
             Text("专辑", color = DesktopColors.TextGray, fontSize = 13.sp, modifier = Modifier.weight(0.35f).padding(horizontal = 12.dp))
             Box(Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
-                Icon(Icons.Rounded.Schedule, "时长", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Clock, "时长", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
             }
         }
         HorizontalDivider(color = DesktopColors.SurfaceLight, modifier = Modifier.padding(bottom = 8.dp))

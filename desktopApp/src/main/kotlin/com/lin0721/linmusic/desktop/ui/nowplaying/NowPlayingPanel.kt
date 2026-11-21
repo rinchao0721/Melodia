@@ -31,11 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bedtime
 import com.lin0721.linmusic.desktop.ui.listentogether.ListenTogetherBadge
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -63,6 +59,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.components.Cover
+import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePill
@@ -70,9 +67,19 @@ import com.lin0721.linmusic.desktop.ui.player.PersonalFmModePopup
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
+import com.lin0721.linmusic.desktop.ui.track.CollectToPlaylistPopup
 import com.lin0721.linmusic.desktop.ui.track.artistLinks
 import com.lin0721.linmusic.feature.player.presentation.visibleInfoCards
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.PanelCollapse
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Devices
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Moon
+import com.lin0721.linmusic.core.ui.icons.Phone
 
 private val HeaderButtonSize = 32.dp
 private val HeaderButtonOffset = 4.dp
@@ -86,7 +93,10 @@ fun NowPlayingPanel(
     modifier: Modifier = Modifier,
     onOpenComments: () -> Unit = {},
     onOpenLyricsView: () -> Unit = {},
-    onOpenLyricsFullscreen: () -> Unit = {}
+    onOpenLyricsFullscreen: () -> Unit = {},
+    onToggleDevices: (() -> Unit)? = null,
+    devicesOpen: Boolean = false,
+    remoteDeviceName: String? = null
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val track = nowPlaying ?: return
@@ -103,7 +113,16 @@ fun NowPlayingPanel(
     val scrollState = rememberScrollState()
     HoverScrollbarBox(scrollState) {
         Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
-            PanelHeader(track, controller, playerViewModel, hovered, onClose)
+            PanelHeader(
+                track = track,
+                controller = controller,
+                playerViewModel = playerViewModel,
+                hovered = hovered,
+                onClose = onClose,
+                onToggleDevices = onToggleDevices,
+                devicesOpen = devicesOpen,
+                remoteDeviceName = remoteDeviceName
+            )
             val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_NOW_PLAYING]
             if (pluginLayout != null) {
                 PluginNowPlayingHeader(pluginLayout, track, controller, playerViewModel)
@@ -259,7 +278,10 @@ private fun PanelHeader(
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
     hovered: Boolean,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onToggleDevices: (() -> Unit)? = null,
+    devicesOpen: Boolean = false,
+    remoteDeviceName: String? = null
 ) {
     val sleepRemaining by controller.sleepTimerRemaining.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
@@ -271,10 +293,10 @@ private fun PanelHeader(
         HoverReveal(revealed = hovered, modifier = Modifier.offset(x = (-HeaderButtonOffset)), reserveSpace = false) {
             IconButton(onClick = onClose, modifier = Modifier.size(HeaderButtonSize)) {
                 Icon(
-                    Icons.Rounded.KeyboardArrowRight,
+                    MelodiaIcons.PanelCollapse,
                     "关闭正在播放",
                     tint = DesktopColors.TextGray,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -285,7 +307,7 @@ private fun PanelHeader(
         }
         ListenTogetherBadge(Modifier.padding(end = 6.dp))
         if (sleepActive) {
-            Icon(Icons.Rounded.Bedtime, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
+            Icon(MelodiaIcons.Moon, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             Text(
                 formatSleepTimerRemaining(sleepRemaining),
                 color = DesktopColors.TextGray,
@@ -293,10 +315,25 @@ private fun PanelHeader(
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
+        if (onToggleDevices != null) {
+            val deviceActive = remoteDeviceName != null || devicesOpen
+            HoverReveal(revealed = hovered || deviceActive) {
+                DesktopTooltip(remoteDeviceName?.let { "在 $it 上播放" } ?: "播放设备") {
+                    IconButton(onClick = onToggleDevices, modifier = Modifier.size(HeaderButtonSize)) {
+                        Icon(
+                            if (remoteDeviceName != null) MelodiaIcons.Phone else MelodiaIcons.Devices,
+                            remoteDeviceName?.let { "在 $it 上播放" } ?: "切换播放设备",
+                            tint = if (deviceActive) DesktopColors.Accent else DesktopColors.TextGray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
         HoverReveal(revealed = hovered || menuOpen, modifier = Modifier.offset(x = HeaderButtonOffset)) {
             Box {
                 IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(HeaderButtonSize)) {
-                    Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
+                    Icon(MelodiaIcons.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
                 }
                 NowPlayingMoreMenu(track, controller, playerViewModel, expanded = menuOpen, onDismiss = { menuOpen = false })
             }

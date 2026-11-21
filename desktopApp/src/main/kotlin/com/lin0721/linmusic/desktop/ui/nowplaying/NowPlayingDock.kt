@@ -17,14 +17,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +35,9 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -58,6 +60,10 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.PanelExpand
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
 
 private const val PEEK_DELAY_MS = 120L
 private const val OVERLAY_FADE_MS = 150
@@ -149,12 +155,22 @@ fun NowPlayingDock(
     songActions: SongActionSources,
     onResizeStart: () -> Unit,
     onResize: (delta: Dp) -> Unit,
-    onResizeEnd: () -> Unit
+    onResizeEnd: () -> Unit,
+    lanLink: LanLinkDesktopHost? = null,
+    remoteCoordinator: LanLinkRemoteCoordinator? = null,
+    onToggleDevices: (() -> Unit)? = null,
+    devicesOpen: Boolean = false
 ) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
     val collapsed = hasTrack && !open
     val playerCommentsHost = remember(playerViewModel) { playerViewModel.asCommentsHost() }
+    val lanLinkEnabled by (lanLink?.enabled ?: flowOf(false)).collectAsState(false)
+    val connectedPeer by (lanLink?.connectedDevice ?: flowOf(null)).collectAsState(null)
+    val pairedDevices by (lanLink?.pairedDevices ?: flowOf(emptyList())).collectAsState(emptyList())
+    val activeTarget by (remoteCoordinator?.activeTarget ?: flowOf(PlaybackTarget.Local)).collectAsState(PlaybackTarget.Local)
+    val peerForSwitch = connectedPeer?.takeIf { lanLinkEnabled }
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
 
     // 停留一小段时间才预览，避免鼠标掠过窗口边缘时误触
     LaunchedEffect(hovered, collapsed) {
@@ -209,7 +225,10 @@ fun NowPlayingDock(
                         onClose = { onOpenChange(false) },
                         onOpenComments = onOpenComments,
                         onOpenLyricsView = onOpenLyricsView,
-                        onOpenLyricsFullscreen = onOpenLyricsFullscreen
+                        onOpenLyricsFullscreen = onOpenLyricsFullscreen,
+                        onToggleDevices = onToggleDevices,
+                        devicesOpen = devicesOpen,
+                        remoteDeviceName = remoteDeviceName
                     )
                     OverlayLayer(visible = open && overlay == DockOverlay.Comments) { modifier ->
                         CommentsPanel(host = playerCommentsHost, onClose = onCloseOverlay, modifier = modifier)
@@ -222,9 +241,15 @@ fun NowPlayingDock(
                     OverlayLayer(visible = open && overlay == DockOverlay.Queue) { modifier ->
                         PlayQueuePanel(controller = controller, playerViewModel = playerViewModel, songActions = songActions, onClose = onCloseOverlay, modifier = modifier)
                     }
-                    if (audioOutput != null) {
+                    if (audioOutput != null || peerForSwitch != null || pairedDevices.isNotEmpty()) {
                         OverlayLayer(visible = open && overlay == DockOverlay.Devices) { modifier ->
-                            AudioDevicePanel(control = audioOutput, onClose = onCloseOverlay, modifier = modifier)
+                            AudioDevicePanel(
+                                control = audioOutput,
+                                onClose = onCloseOverlay,
+                                modifier = modifier,
+                                lanLink = lanLink,
+                                remoteCoordinator = remoteCoordinator
+                            )
                         }
                     }
                     OverlayLayer(visible = open && overlay == DockOverlay.Downloads) { modifier ->
@@ -251,7 +276,7 @@ fun NowPlayingDock(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Rounded.ChevronLeft,
+                                MelodiaIcons.PanelExpand,
                                 null,
                                 tint = if (hovered) DesktopColors.TextPrimary else DesktopColors.TextGray
                             )
@@ -274,16 +299,29 @@ fun FloatingDockPanel(
     audioOutput: AudioOutputControl?,
     downloader: DesktopSongDownloader,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lanLink: LanLinkDesktopHost? = null,
+    remoteCoordinator: LanLinkRemoteCoordinator? = null
 ) {
     val shape = RoundedCornerShape(DesktopDimens.PaneRadius)
     val playerCommentsHost = remember(playerViewModel) { playerViewModel.asCommentsHost() }
+    val lanLinkEnabled by (lanLink?.enabled ?: flowOf(false)).collectAsState(false)
+    val connectedPeer by (lanLink?.connectedDevice ?: flowOf(null)).collectAsState(null)
+    val pairedDevices by (lanLink?.pairedDevices ?: flowOf(emptyList())).collectAsState(emptyList())
+    val peerForSwitch = connectedPeer?.takeIf { lanLinkEnabled }
     Box(modifier.themedShadow(16.dp, shape).clip(shape).paneBackdrop(DesktopColors.Pane)) {
         when (overlay) {
             DockOverlay.Comments -> CommentsPanel(host = playerCommentsHost, onClose = onClose)
             DockOverlay.PlaylistComments -> playlistComments?.let { CommentsPanel(host = it, onClose = onClose) }
             DockOverlay.Queue -> PlayQueuePanel(controller = controller, playerViewModel = playerViewModel, songActions = songActions, onClose = onClose)
-            DockOverlay.Devices -> audioOutput?.let { AudioDevicePanel(control = it, onClose = onClose) }
+            DockOverlay.Devices -> if (audioOutput != null || peerForSwitch != null || pairedDevices.isNotEmpty()) {
+                AudioDevicePanel(
+                    control = audioOutput,
+                    onClose = onClose,
+                    lanLink = lanLink,
+                    remoteCoordinator = remoteCoordinator
+                )
+            }
             DockOverlay.Downloads -> DownloadsPanel(downloader = downloader, onClose = onClose)
         }
     }

@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -31,6 +29,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 // 消息：私信、通知、@我、评论回复
 @Composable
@@ -60,7 +59,7 @@ fun MessageScreen(
 
             false -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Rounded.Notifications,
+                    icon = MelodiaIcons.Messages,
                     title = "请先登录",
                     subtitle = "登录后查看私信、通知、@我与评论回复"
                 )
@@ -150,7 +149,7 @@ private fun <T> MessageList(
         is MessageListState.Success -> {
             if (current.items.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    EmptyState(icon = Icons.Rounded.Notifications, title = emptyTitle)
+                    EmptyState(icon = MelodiaIcons.Messages, title = emptyTitle)
                 }
             } else {
                 val listState = rememberLazyListState()

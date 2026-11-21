@@ -40,6 +40,7 @@ class DesktopSongDownloaderTest {
 
     @Volatile private var slow = false
     private var buildDownloader: () -> DesktopSongDownloader = { error("未初始化") }
+    private val downloaders = mutableListOf<DesktopSongDownloader>()
 
     // 100 个 MPEG1 Layer3 128kbps 44.1kHz 静音帧，足够 jaudiotagger 识别并写标签
     private val audio: ByteArray = run {
@@ -83,6 +84,8 @@ class DesktopSongDownloaderTest {
 
     @After
     fun tearDown() {
+        runBlocking { downloaders.toList().forEach { it.shutdown() } }
+        downloaders.clear()
         server.stop(0)
         root.deleteRecursively()
     }
@@ -112,7 +115,10 @@ class DesktopSongDownloaderTest {
         val records = DesktopDownloadPreferences(com.lin0721.linmusic.core.preferences.PreferencesStores.get(File(root, "download.preferences_pb")))
         val folder = File(root, "out")
         runBlocking { settings.saveDownloadFolderUri(folder.absolutePath) }
-        buildDownloader = { DesktopSongDownloader(downloadApi, repository, settings, records, File(root, "tmp"), File(root, "default")) }
+        buildDownloader = {
+            DesktopSongDownloader(downloadApi, repository, settings, records, File(root, "tmp"), File(root, "default"))
+                .also { downloaders += it }
+        }
         return Triple(buildDownloader(), records, folder)
     }
 

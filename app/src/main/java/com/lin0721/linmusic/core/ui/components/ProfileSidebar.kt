@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +41,11 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.message.domain.PrivateConversation
 import com.lin0721.linmusic.feature.message.ui.ConversationPreviewState
 import com.lin0721.linmusic.feature.message.ui.PrivateConversationRow
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Insights
 
 private val SidebarHorizontalPadding = 20.dp
 private val AccountCardShape = RoundedCornerShape(20.dp)
@@ -53,6 +55,7 @@ private val AccountCardShape = RoundedCornerShape(20.dp)
 fun ProfileSidebar(
     userProfile: UserProfile?,
     accounts: List<UserProfile>,
+    showMessageSection: Boolean = true,
     privateUnreadCount: Int = 0,
     conversationPreview: ConversationPreviewState = ConversationPreviewState(),
     onDismissUnread: () -> Unit = {},
@@ -110,46 +113,48 @@ fun ProfileSidebar(
 
         // 菜单区。每项跳二级页，收起抽屉由调用方负责
         SidebarMenuItem(
-            icon = Icons.Outlined.History,
+            icon = MelodiaIcons.History,
             title = "最近播放",
             onClick = withLogin(onNavigateToRecentPlay)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.Insights,
+            icon = MelodiaIcons.Insights,
             title = "听歌数据",
             onClick = withLogin(onNavigateToListenData)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.CloudQueue,
+            icon = MelodiaIcons.Cloud,
             title = "我的云盘",
             onClick = withLogin(onNavigateToCloud)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.FileDownload,
+            icon = MelodiaIcons.Download,
             title = "下载管理",
             onClick = withLogin(onNavigateToDownloads)
         )
         SidebarMenuItem(
-            icon = Icons.Outlined.Settings,
+            icon = MelodiaIcons.Settings,
             title = "设置和隐私",
             onClick = onNavigateToSettings
         )
 
-        HorizontalDivider(
-            color = MelodiaColors.Overlay.copy(alpha = 0.1f),
-            thickness = 1.dp,
-            modifier = Modifier.padding(horizontal = SidebarHorizontalPadding, vertical = MelodiaSpacing.sm)
-        )
+        if (showMessageSection) {
+            HorizontalDivider(
+                color = MelodiaColors.Overlay.copy(alpha = 0.1f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = SidebarHorizontalPadding, vertical = MelodiaSpacing.sm)
+            )
 
-        MessageSection(
-            isLoggedIn = userProfile != null,
-            unreadCount = privateUnreadCount,
-            preview = conversationPreview,
-            onDismissUnread = onDismissUnread,
-            onDismissConversationUnread = onDismissConversationUnread,
-            onOpenMessages = withLogin(onNavigateToMessage),
-            onOpenPrivateChat = onOpenPrivateChat
-        )
+            MessageSection(
+                isLoggedIn = userProfile != null,
+                unreadCount = privateUnreadCount,
+                preview = conversationPreview,
+                onDismissUnread = onDismissUnread,
+                onDismissConversationUnread = onDismissConversationUnread,
+                onOpenMessages = withLogin(onNavigateToMessage),
+                onOpenPrivateChat = onOpenPrivateChat
+            )
+        }
     }
 }
 
@@ -207,7 +212,7 @@ private fun AccountCard(
             if (userProfile != null) {
                 MelodiaIconButton(onClick = { expanded = !expanded }) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        imageVector = MelodiaIcons.ChevronDown,
                         contentDescription = if (expanded) "收起账户列表" else "展开账户列表",
                         tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.rotate(arrowRotation)
@@ -264,7 +269,7 @@ private fun AccountCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector = MelodiaIcons.Plus,
                             contentDescription = null,
                             tint = MelodiaColors.TextPrimary,
                             modifier = Modifier.size(18.dp)
@@ -312,7 +317,7 @@ private fun AccountAvatar(avatarUrl: String?, size: Dp) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Person,
+                imageVector = MelodiaIcons.Person,
                 contentDescription = null,
                 tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(size * 0.55f)
@@ -357,7 +362,7 @@ private fun MessageSection(
             fontWeight = FontWeight.SemiBold
         )
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MelodiaColors.TextSecondary,
             modifier = Modifier.size(20.dp)
@@ -429,7 +434,7 @@ private fun SidebarMenuItem(
             modifier = Modifier.weight(1f)
         )
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = MelodiaIcons.ChevronRight,
             contentDescription = null,
             tint = MelodiaColors.TextSecondary,
             modifier = Modifier.size(20.dp)

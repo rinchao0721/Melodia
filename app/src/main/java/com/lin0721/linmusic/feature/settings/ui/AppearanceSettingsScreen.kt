@@ -6,8 +6,6 @@ import org.koin.compose.koinInject
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +30,8 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private val PlayerPageModes = listOf(
     SettingsPreferences.PLAYER_PAGE_MODE_AUTO to "自动",
@@ -49,6 +49,7 @@ private val SidePlayerPositions = listOf(
 fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val bottomBarLayout by viewModel.bottomBarLayout.collectAsStateWithLifecycle()
     val bottomBarIconOnly by viewModel.bottomBarIconOnly.collectAsStateWithLifecycle()
+    val bottomBarGradient by viewModel.bottomBarGradient.collectAsStateWithLifecycle()
     val startInLibrary by viewModel.startInLibrary.collectAsStateWithLifecycle()
     val playerPageMode by viewModel.playerPageMode.collectAsStateWithLifecycle()
     val sidePlayerPinned by viewModel.sidePlayerPinned.collectAsStateWithLifecycle()
@@ -58,8 +59,11 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
     val uiAnimationsEnabled by viewModel.uiAnimationsEnabled.collectAsStateWithLifecycle()
     val predictiveBackEnabled by viewModel.predictiveBackEnabled.collectAsStateWithLifecycle()
     val playlistTrackIndexEnabled by viewModel.playlistTrackIndexEnabled.collectAsStateWithLifecycle()
+    val alwaysShowLikedBadge by viewModel.alwaysShowLikedBadge.collectAsStateWithLifecycle()
     val homeRecentPlayEnabled by viewModel.homeRecentPlayEnabled.collectAsStateWithLifecycle()
     val homeForYouEnabled by viewModel.homeForYouEnabled.collectAsStateWithLifecycle()
+    val homeSearchButtonEnabled by viewModel.homeSearchButtonEnabled.collectAsStateWithLifecycle()
+    val sidebarMessageEnabled by viewModel.sidebarMessageEnabled.collectAsStateWithLifecycle()
     val searchDefaultKeywordEnabled by viewModel.searchDefaultKeywordEnabled.collectAsStateWithLifecycle()
     val hotSearchEnabled by viewModel.hotSearchEnabled.collectAsStateWithLifecycle()
     val playlistTagsEnabled by viewModel.playlistTagsEnabled.collectAsStateWithLifecycle()
@@ -150,6 +154,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         checked = playlistTrackIndexEnabled,
                         onCheckedChange = { viewModel.updatePlaylistTrackIndexEnabled(it) }
                     )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "常驻显示已喜欢标记",
+                        subtitle = "关闭后歌曲列表不再显示收藏按钮，播放页与迷你播放条不受影响",
+                        checked = alwaysShowLikedBadge,
+                        onCheckedChange = { viewModel.updateAlwaysShowLikedBadge(it) }
+                    )
                 }
             }
 
@@ -162,6 +173,13 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         title = "底栏自定义",
                         subtitle = "当前启用：$enabledItemsSummary",
                         onClick = { showBottomBarSheet = true }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "底栏渐变透明",
+                        subtitle = "底栏背景由透明向下渐变到主题背景色（仅手机布局）",
+                        checked = bottomBarGradient,
+                        onCheckedChange = { viewModel.updateBottomBarGradient(it) }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
@@ -212,6 +230,20 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                         subtitle = "热歌榜、私人FM、私人雷达、音乐漫游入口",
                         checked = homeForYouEnabled,
                         onCheckedChange = { viewModel.updateHomeForYouEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "首页显示搜索按钮",
+                        subtitle = "在首页顶栏右上角显示快捷搜索入口",
+                        checked = homeSearchButtonEnabled,
+                        onCheckedChange = { viewModel.updateHomeSearchButtonEnabled(it) }
+                    )
+                    HorizontalDivider(color = MelodiaColors.Divider)
+                    SettingsSwitchRow(
+                        title = "侧栏显示消息",
+                        subtitle = "在侧边栏底部显示消息入口与最近私信",
+                        checked = sidebarMessageEnabled,
+                        onCheckedChange = { viewModel.updateSidebarMessageEnabled(it) }
                     )
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
@@ -385,7 +417,7 @@ internal fun OptionPickerSheet(
                         fontSize = 15.sp
                     )
                     if (isSelected) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(MelodiaIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

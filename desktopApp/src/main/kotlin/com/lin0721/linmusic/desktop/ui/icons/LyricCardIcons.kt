@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.icons
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.lin0721.linmusic.core.ui.icons.lineIcon
 
 // 歌词卡右上角自绘图标：与播放栏图标同规格（24 格、2px 圆角描边），两枚占位一致
 object LyricCardIcons {

@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.listentogether.data.RoomSongSource
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,7 +38,8 @@ data class RoomSongPickerState(
 class RoomSongPickerViewModel(
     private val source: RoomSongSource,
     private val session: ListenTogetherSession,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     companion object {
@@ -91,10 +93,12 @@ class RoomSongPickerViewModel(
             _state.update { it.copy(loading = true, error = null) }
             try {
                 val tracks = if (keyword.isEmpty()) source.liked(LIKED_LIMIT) else source.search(keyword, SEARCH_LIMIT)
+                val validTracks = tracks.filter { track -> track.songId > 0L }
+                songQualityCache?.prefetchIds(validTracks.map { it.songId })
                 _state.update {
                     it.copy(
                         loading = false,
-                        tracks = tracks.filter { track -> track.songId > 0L },
+                        tracks = validTracks,
                         title = if (keyword.isEmpty()) "我喜欢的音乐" else "搜索结果"
                     )
                 }

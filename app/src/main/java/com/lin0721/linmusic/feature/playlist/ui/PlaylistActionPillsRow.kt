@@ -12,11 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +28,10 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.uiSpring
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Filter
+import com.lin0721.linmusic.core.ui.icons.Sort
 
 // 歌单详情页自建歌单快捷操作小胶囊行
 @Composable
@@ -61,7 +60,7 @@ fun PlaylistActionPillsRow(
     ) {
         // 1. 添加音乐
         ActionPill(
-            icon = Icons.Rounded.Add,
+            icon = MelodiaIcons.Plus,
             label = "添加",
             enabled = true,
             onClick = onAddMusicClick
@@ -69,7 +68,7 @@ fun PlaylistActionPillsRow(
 
         // 2. 调整顺序
         ActionPill(
-            icon = Icons.AutoMirrored.Rounded.Sort,
+            icon = MelodiaIcons.Sort,
             label = "编辑",
             enabled = !isTracksEmpty,
             onClick = onEditOrderClick
@@ -77,7 +76,7 @@ fun PlaylistActionPillsRow(
 
         // 3. 切换排序
         ActionPill(
-            icon = Icons.Rounded.FilterList,
+            icon = MelodiaIcons.Filter,
             label = currentSortOption.label,
             enabled = !isTracksEmpty,
             onClick = onSortClick
@@ -85,7 +84,7 @@ fun PlaylistActionPillsRow(
 
         // 4. 编辑信息
         ActionPill(
-            icon = Icons.Rounded.Edit,
+            icon = MelodiaIcons.Edit,
             label = "歌单信息",
             enabled = true,
             onClick = onEditInfoClick

@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.recognition.LocalAudioEntry
 import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
 import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
+import com.lin0721.linmusic.core.download.recognition.isContainerAudioExtension
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.player.QueueItem
@@ -132,7 +133,8 @@ class LocalLibraryRepository(
                 artist = track.artist,
                 durationMs = track.durationMs,
                 sizeBytes = track.size,
-                quality = guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
+                quality = track.resolvedQuality()
+                    ?: guessAudioQuality(File(track.path).extension, estimateBitrateKbps(track.size, track.durationMs)),
                 songIdTag = track.songId
             )
         }
@@ -263,6 +265,7 @@ class LocalLibraryRepository(
             records.value.forEach { add(normalizePath(it.mediaStoreUri)) }
             paths.values.toList()
         }
+        val needsContainerQualityRefresh = snapshot.qualityVersion < CURRENT_LOCAL_QUALITY_VERSION
         val previous = snapshot.tracks.associateBy { it.path.lowercase() }
         val scanned = ArrayList<LocalTrack>(sources.size)
         _scanState.value = LocalScanState.Scanning(0, sources.size)
@@ -270,14 +273,26 @@ class LocalLibraryRepository(
             withContext(ioDispatcher) {
                 sources.forEachIndexed { index, path ->
                     ensureActive()
-                    val track = runCatching { scanner.refresh(path, previous[path.lowercase()]) }
+                    val prevTrack = previous[path.lowercase()]?.let { prev ->
+                        if (needsContainerQualityRefresh && isContainerAudioExtension(File(path).extension)) {
+                            prev.copy(quality = null)
+                        } else {
+                            prev
+                        }
+                    }
+                    val track = runCatching { scanner.refresh(path, prevTrack) }
                         .onFailure { AppLogger.w(TAG, "读取失败 $path", it) }
                         .getOrNull()
                     if (track != null) scanned += track.withDownload(downloads[path.lowercase()])
                     if (index % SCAN_PROGRESS_STEP == 0) _scanState.value = LocalScanState.Scanning(index + 1, sources.size)
                 }
             }
-            mutate { data -> data.copy(tracks = mergeScanned(scanned, data.tracks)) }
+            mutate { data ->
+                data.copy(
+                    tracks = mergeScanned(scanned, data.tracks),
+                    qualityVersion = CURRENT_LOCAL_QUALITY_VERSION
+                )
+            }
             withContext(ioDispatcher) { scanner.pruneCovers(_data.value.tracks) }
         } finally {
             _scanState.value = LocalScanState.Idle
@@ -455,7 +470,8 @@ internal class LibraryView(
                 artist = record.artistName.ifBlank { UNKNOWN_ARTIST },
                 size = record.fileSize,
                 songId = record.songId,
-                matchState = LocalMatchState.MANUAL
+                matchState = LocalMatchState.MANUAL,
+                quality = record.quality.ifBlank { null }
             )
             else -> null
         }

@@ -29,8 +29,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +68,8 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.player.presentation.secondaryText
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 全屏歌词列表区：加载态/空态、当前行自动居中定位、居中行推导与拖动定位覆盖层
 @Composable
@@ -95,7 +95,6 @@ fun FullScreenLyricsList(
     lineSpacing: Int = 24,
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
-    karaokeGlowEffect: Boolean = false,
     sungColor: Color? = null,
     harmonySungColor: Color? = null,
     harmonyUnsungColor: Color? = null,
@@ -260,7 +259,6 @@ fun FullScreenLyricsList(
                         secondaryMode = secondaryMode,
                         secondarySpacing = secondarySpacing,
                         advancedKaraokeEffect = advancedKaraokeEffect,
-                        karaokeGlowEffect = karaokeGlowEffect,
                         isPlaying = isPlaying,
                         onTextBoundsInRoot = onLineTextBounds?.let { report -> { bounds -> report(index, bounds) } },
                         onClick = { onLyricClick(line) }
@@ -335,7 +333,7 @@ private fun PlayCapsule(
                     .padding(horizontal = 14.dp, vertical = MelodiaSpacing.sm)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.PlayArrow,
+                    imageVector = MelodiaIcons.Play,
                     contentDescription = "跳转到此处播放",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(16.dp)

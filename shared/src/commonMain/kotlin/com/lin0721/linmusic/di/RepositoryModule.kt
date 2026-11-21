@@ -104,17 +104,26 @@ val repositoryModule = module {
     // 首页数据仓储（feature/home）
     singleOf(::HomeRepositoryImpl) { bind<HomeRepository>() }
     singleOf(::MusicRepositoryImpl) { bind<MusicRepository>() }
+    // 曲风封面地址缓存（偏好与全部曲风共用），随进程存活
+    single {
+        com.lin0721.linmusic.feature.music.data.StyleCoverCache(
+            dataStore = getOrNull(org.koin.core.qualifier.named(com.lin0721.linmusic.core.preferences.PreferencesStores.STYLE_COVER))
+        )
+    }
     singleOf(::PodcastRepositoryImpl) { bind<PodcastRepository>() }
     // 播放器里的播客订阅状态，迷你条与全屏播放页共用，随进程存活
     single { PodcastPlayerController(CoroutineScope(SupervisorJob() + Dispatchers.Main), get(), get(), get(), get()) }
 
-    // 歌曲列表最高音质徽标的补查缓存，两端列表共用，随进程存活
-    single {
+    // 歌曲列表最高音质徽标的补查缓存，两端列表共用，随进程存活；启动时加载持久化缓存
+    single(createdAtStart = true) {
         val api = get<PlaybackApi>()
+        val onlineState = getOrNull<com.lin0721.linmusic.core.network.OnlineStateProvider>()
         SongQualityCache(
             enabledFlow = get<SettingsPreferences>().showSongMaxQuality,
             fetcher = { ids -> fetchSongMaxQuality(api, ids) },
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            dataStore = getOrNull(org.koin.core.qualifier.named(com.lin0721.linmusic.core.preferences.PreferencesStores.SONG_QUALITY)),
+            isOnline = { onlineState?.isOnline() ?: true }
         )
     }
 

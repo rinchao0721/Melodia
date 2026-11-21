@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,12 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -94,6 +87,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -508,8 +511,7 @@ fun PlaylistScreen(
                                             artist = item.ar.joinToString("/") { it.name },
                                             coverUrl = item.al.picUrl,
                                             qualitySongId = item.id,
-                                            maxBrLevel = item.privilege?.maxBrLevel,
-                                            inferredLevel = item.inferredMaxBrLevel()
+                                            maxBrLevel = item.privilege?.maxBrLevel
                                         ),
                                         isCurrent = currentTrack?.mediaId == item.id.toString(),
                                         isPlaying = isPlaying,
@@ -626,8 +628,10 @@ fun PlaylistScreen(
                     onLikeClick = { songId ->
                         viewModel.prepareCollectDialog(songId)
                     },
+                    onQuickLike = viewModel::quickLike,
+                    collectPromptEvents = viewModel.collectPromptEvent,
                     onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items)
+                        viewModel.savePlaylistCollection(songId, items, silent = true)
                     },
                     onSaveNewCollection = { name, songId ->
                         viewModel.createPlaylistAndAddSong(name, songId)
@@ -677,8 +681,8 @@ fun PlaylistScreen(
                         onToggle = viewModel::toggleSelected
                     ),
                     selectionActions = buildList {
-                        add(SelectionAction("下一首播放", Icons.AutoMirrored.Filled.QueueMusic) { viewModel.batchPlayNext() })
-                        add(SelectionAction("添加到歌单", Icons.AutoMirrored.Filled.PlaylistAdd) {
+                        add(SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() })
+                        add(SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
                             if (userProfile == null) {
                                 showLoginSheet = true
                             } else {
@@ -686,12 +690,12 @@ fun PlaylistScreen(
                                 showBatchTargetSheet = true
                             }
                         })
-                        add(SelectionAction("喜欢", Icons.Default.FavoriteBorder) {
+                        add(SelectionAction("喜欢", MelodiaIcons.Favorite) {
                             if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
                         })
-                        add(SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true })
+                        add(SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true })
                         if (isOwnedPlaylist) {
-                            add(SelectionAction("删除", Icons.Default.Delete) { showBatchRemoveConfirm = true })
+                            add(SelectionAction("删除", MelodiaIcons.Delete) { showBatchRemoveConfirm = true })
                         }
                     },
                     onToggleSelectAll = viewModel::toggleSelectAll,
@@ -991,7 +995,7 @@ fun PlaylistScreen(
                     val menuItems = buildList {
                         add(
                             PlaylistMenuItem(
-                                icon = if (successState.isSubscribed) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
+                                icon = if (successState.isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                                 title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel"
                             ) {
                                 showMoreMenuSheet = false
@@ -1004,7 +1008,7 @@ fun PlaylistScreen(
                         )
                         add(
                             PlaylistMenuItem(
-                                icon = Icons.Default.Person,
+                                icon = MelodiaIcons.Person,
                                 title = "跳转至艺人"
                             ) {
                                 showMoreMenuSheet = false
@@ -1023,7 +1027,7 @@ fun PlaylistScreen(
                         )
                         add(
                             PlaylistMenuItem(
-                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                icon = MelodiaIcons.Queue,
                                 title = "加入播放队列"
                             ) {
                                 showMoreMenuSheet = false
@@ -1032,7 +1036,7 @@ fun PlaylistScreen(
                         )
                         add(
                             PlaylistMenuItem(
-                                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                icon = MelodiaIcons.PlaylistAdd,
                                 title = "添加到歌单"
                             ) {
                                 showMoreMenuSheet = false
@@ -1047,7 +1051,7 @@ fun PlaylistScreen(
                         if (!isPluginCollectionId(playlist.id)) {
                             add(
                                 PlaylistMenuItem(
-                                    icon = Icons.Default.Share,
+                                    icon = MelodiaIcons.Share,
                                     title = "分享$resourceLabel"
                                 ) {
                                     showMoreMenuSheet = false
@@ -1056,7 +1060,7 @@ fun PlaylistScreen(
                             )
                             add(
                                 PlaylistMenuItem(
-                                    icon = Icons.Default.Download,
+                                    icon = MelodiaIcons.Download,
                                     title = "下载$resourceLabel"
                                 ) {
                                     showMoreMenuSheet = false
@@ -1067,7 +1071,7 @@ fun PlaylistScreen(
                         if (isManageable) {
                             add(
                                 PlaylistMenuItem(
-                                    icon = Icons.Default.Edit,
+                                    icon = MelodiaIcons.Edit,
                                     title = "编辑歌单信息"
                                 ) {
                                     showMoreMenuSheet = false
@@ -1076,7 +1080,7 @@ fun PlaylistScreen(
                             )
                             add(
                                 PlaylistMenuItem(
-                                    icon = Icons.Default.Delete,
+                                    icon = MelodiaIcons.Delete,
                                     title = "删除歌单",
                                     isDestructive = true
                                 ) {

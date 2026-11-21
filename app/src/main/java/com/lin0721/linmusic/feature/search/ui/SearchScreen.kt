@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +33,8 @@ import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.rememberShowLikedBadge
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -45,6 +45,7 @@ import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private const val ANIM_DURATION = 250
 private const val ANIM_EXIT_DURATION = 150
@@ -84,6 +85,11 @@ fun SearchScreen(
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
     var externalOptionsTrack by remember { mutableStateOf<ExternalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    CollectPromptEffect(viewModel.collectPromptEvent) { songId ->
+        collectSongId = songId
+        viewModel.prepareCollectDialog(songId)
+    }
+    val showLikedBadge = rememberShowLikedBadge()
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
 
@@ -219,6 +225,8 @@ fun SearchScreen(
                             collectSongId = songId
                             viewModel.prepareCollectDialog(songId)
                         },
+                        onQuickLike = viewModel::quickLike,
+                        showLikedBadge = showLikedBadge,
                         onOpenMoreOptions = { track ->
                             if (userProfile == null) showLoginSheet = true else optionsTrack = track
                         }
@@ -269,7 +277,7 @@ fun SearchScreen(
                 onShareClick = { shareTarget = it to false },
                 extraOptions = {
                     OptionRow(
-                        icon = Icons.Default.Search,
+                        icon = MelodiaIcons.Search,
                         text = "在网易云中搜索",
                         onClick = {
                             externalOptionsTrack = null
@@ -294,7 +302,7 @@ fun SearchScreen(
                 songId = songId,
                 collectState = collectState,
                 onDismiss = { collectSongId = null },
-                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
                 onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }

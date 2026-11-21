@@ -15,11 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,6 +48,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.music.domain.StyleSort
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val SONG_LOAD_MORE_THRESHOLD = 8
@@ -111,7 +111,7 @@ fun StyleDetailScreen(
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.3f))
         ) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回", tint = Color.White)
+            Icon(MelodiaIcons.ArrowBack, contentDescription = "返回", tint = Color.White)
         }
     }
 }
@@ -260,7 +260,7 @@ private fun ActionRow(data: StyleDetailData, onPlayAll: () -> Unit, onPlayFavour
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = MelodiaIcons.Play,
                 contentDescription = "播放全部",
                 tint = MelodiaColors.OnAccent,
                 modifier = Modifier.size(26.dp)
@@ -284,7 +284,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit, modifier: M
         ) {
             Text(text = sort.label(), color = MelodiaColors.TextSecondary, fontSize = 12.sp)
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
+                imageVector = MelodiaIcons.ChevronDown,
                 contentDescription = "排序方式",
                 tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(16.dp)
@@ -304,7 +304,7 @@ private fun SortMenu(sort: StyleSort, onSelect: (StyleSort) -> Unit, modifier: M
                     trailingIcon = if (selected) {
                         {
                             Icon(
-                                imageVector = Icons.Rounded.Check,
+                                imageVector = MelodiaIcons.Check,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)

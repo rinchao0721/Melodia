@@ -28,10 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -69,6 +65,9 @@ import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 private const val SKELETON_ROW_COUNT = 8
 // LazyColumn 第 0 项是容量海报头图，歌曲行的 list index 相应整体 +1
@@ -119,7 +118,7 @@ fun CloudScreen(
                         label = "cloud_search_icon"
                     ) { isSearching ->
                         Icon(
-                            if (isSearching) Icons.Rounded.Close else Icons.Rounded.Search,
+                            if (isSearching) MelodiaIcons.Close else MelodiaIcons.Search,
                             contentDescription = if (isSearching) "关闭搜索" else "搜索",
                             tint = MelodiaColors.TextPrimary
                         )
@@ -183,7 +182,7 @@ fun CloudScreen(
                         if (state.isSearchActive && displaySongs.isEmpty()) {
                             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 EmptyState(
-                                    icon = Icons.Rounded.CloudUpload,
+                                    icon = MelodiaIcons.Upload,
                                     title = "没有匹配的歌曲"
                                 )
                             }
@@ -266,7 +265,7 @@ fun CloudScreen(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.CloudUpload,
+                        imageVector = MelodiaIcons.Upload,
                         contentDescription = "上传到云盘",
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(26.dp)
@@ -304,7 +303,7 @@ fun CloudScreen(
                 songId = current.song.playSongId,
                 collectState = collectState,
                 onDismiss = { viewModel.dismissOverlay() },
-                onSaveCollection = { songId, items -> viewModel.saveAddToPlaylist(songId, items) },
+                onSaveCollection = { songId, items -> viewModel.saveAddToPlaylist(songId, items, silent = true) },
                 onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) }
             )
         }
@@ -392,7 +391,7 @@ private fun CloudSearchField(
                     modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = MelodiaIcons.Close,
                         contentDescription = "清空输入",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)

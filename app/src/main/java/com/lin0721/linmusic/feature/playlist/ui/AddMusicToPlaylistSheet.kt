@@ -22,11 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,6 +58,9 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
 
 // 半屏搜索添加音乐抽屉
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,7 +114,7 @@ fun AddMusicToPlaylistSheet(
                 )
                 MelodiaIconButton(onClick = onDismiss) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = MelodiaIcons.Close,
                         contentDescription = "关闭",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -136,7 +134,7 @@ fun AddMusicToPlaylistSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Rounded.Search,
+                    MelodiaIcons.Search,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
@@ -166,7 +164,7 @@ fun AddMusicToPlaylistSheet(
                         modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
-                            Icons.Rounded.Close,
+                            MelodiaIcons.Close,
                             contentDescription = "清空",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
@@ -379,7 +377,7 @@ private fun AddTrackRow(
             }
             isAdded -> {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = MelodiaIcons.Check,
                     contentDescription = "已添加",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -393,7 +391,7 @@ private fun AddTrackRow(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Add,
+                        imageVector = MelodiaIcons.Plus,
                         contentDescription = "添加",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)

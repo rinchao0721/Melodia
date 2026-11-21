@@ -21,10 +21,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +49,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalAlbumCard
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 @Composable
 fun LocalArtistsScreen(
@@ -66,7 +63,7 @@ fun LocalArtistsScreen(
                 CollectionRow(
                     coverSourceUri = artist.tracks.first().uri,
                     coverShape = CircleShape,
-                    fallbackIcon = Icons.Rounded.Person,
+                    fallbackIcon = MelodiaIcons.Person,
                     title = artist.name,
                     subtitle = "${artist.tracks.size} 首 · ${artist.albumCount} 张专辑",
                     onClick = { navigation.openArtist(artist.name) }
@@ -122,7 +119,7 @@ fun LocalFoldersScreen(
                 CollectionRow(
                     coverSourceUri = null,
                     coverShape = RoundedCornerShape(8.dp),
-                    fallbackIcon = Icons.Rounded.Folder,
+                    fallbackIcon = MelodiaIcons.LocalMusic,
                     title = folder.name,
                     subtitle = "${folder.tracks.size} 首 · ${folder.path}",
                     onClick = { navigation.openFolder(folder.path) }
@@ -145,7 +142,7 @@ private fun CollectionScaffold(
             LocalLibraryStateGate(viewModel) {
                 if (isEmpty) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        EmptyState(icon = Icons.Rounded.LibraryMusic, title = "还没有本地音频文件")
+                        EmptyState(icon = MelodiaIcons.Library, title = "还没有本地音频文件")
                     }
                 } else {
                     content()

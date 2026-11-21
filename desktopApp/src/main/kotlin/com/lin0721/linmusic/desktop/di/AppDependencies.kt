@@ -1,9 +1,15 @@
 package com.lin0721.linmusic.desktop.di
 
+import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppDependencies
 import com.lin0721.linmusic.desktop.ui.shell.PageViewModelFactory
 import com.lin0721.linmusic.desktop.ui.shell.SongActionSources
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import org.koin.core.Koin
 import kotlin.reflect.KClass
 
@@ -30,6 +36,8 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         lyricsResolver = get(),
         downloader = get(),
         downloadScanner = get(),
+        downloadedQualities = get<DesktopDownloadPreferences>().downloadedQualities
+            .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.Eagerly, emptyMap()),
         desktopPreferences = get(),
         settingsPreferences = get(),
         sessionMonitor = get(),
@@ -48,6 +56,8 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         coverColorMemory = get(),
         userPreferences = get(),
         accountSwitcher = get(),
+        lanLink = get(),
+        remoteCoordinator = get(),
         pageViewModels = object : PageViewModelFactory {
             override fun <T : ViewModel> create(modelClass: KClass<T>): T = koin.get(modelClass)
         }

@@ -2,6 +2,8 @@ package com.lin0721.linmusic.feature.player.data
 
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.mergePrivilege
+import com.lin0721.linmusic.core.model.mergePrivileges
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
 import com.lin0721.linmusic.core.player.data.SongDetailRequest
@@ -27,7 +29,7 @@ class PlayerRepositoryImpl(
         },
         isSuccess = { it.isSuccess && it.songs.isNotEmpty() },
         code = { it.code },
-        transform = { it.songs[0] }
+        transform = { it.songs[0].mergePrivilege(it.privileges) }
     )
 
     override fun getSongDetails(songIds: List<Long>): Flow<Result<List<Track>>> = apiFlow(
@@ -37,7 +39,7 @@ class PlayerRepositoryImpl(
         },
         isSuccess = { it.isSuccess },
         code = { it.code },
-        transform = { it.songs }
+        transform = { it.songs.mergePrivileges(it.privileges) }
     )
 
     override fun getChorusStartTime(songId: Long): Flow<Result<Long?>> = apiFlow(

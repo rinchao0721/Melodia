@@ -225,8 +225,10 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # 按 commit message 的 conventional commits 前缀（feat/fix/refactor...）自己分类生成
+      # 按 scope 分端、再按 conventional commits 前缀分类；android 与 desktop/installer 之外的 scope 归双端通用
       - name: 生成分类日志
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
           RANGE="HEAD"
@@ -236,39 +238,79 @@ jobs:
             [feat]="✨ 新功能" [fix]="🐛 修复" [refactor]="♻️ 重构"
             [perf]="⚡ 性能" [docs]="📝 文档" [test]="✅ 测试"
             [build]="📦 构建" [ci]="🔧 CI" [chore]="🧹 杂项" [style]="🎨 样式"
+            [other]="📌 其他"
           )
-          ORDER=(feat fix refactor perf build docs test ci chore style)
+          ORDER=(feat fix refactor perf build docs test ci chore style other)
+          declare -A PLATFORM_TITLES=(
+            [android]="📱 Android" [desktop]="💻 桌面端" [common]="🔄 双端通用"
+          )
+          PLATFORMS=(android desktop common)
           declare -A BUCKETS
-          OTHER=""
+          CONVENTIONAL='^([a-z]+)(\(([^)]*)\))?!?:[[:space:]]*(.*)$'
 
           while IFS= read -r line; do
             [ -z "$line" ] && continue
-            TYPE=$(echo "$line" | grep -oE '^[a-z]+' || true)
-            if [ -n "$TYPE" ] && [ -n "${TITLES[$TYPE]:-}" ]; then
-              BUCKETS[$TYPE]="${BUCKETS[$TYPE]:-}"$'\n'"- $line"
-            else
-              OTHER="$OTHER"$'\n'"- $line"
+            TYPE=other
+            SCOPE=""
+            DESC="$line"
+            if [[ "$line" =~ $CONVENTIONAL ]]; then
+              SCOPE="${BASH_REMATCH[3]}"
+              DESC="${BASH_REMATCH[4]}"
+              if [ -n "${TITLES[${BASH_REMATCH[1]}]:-}" ]; then
+                TYPE="${BASH_REMATCH[1]}"
+              fi
             fi
+            case "$SCOPE" in
+              android) PLATFORM=android ;;
+              desktop|installer) PLATFORM=desktop ;;
+              *) PLATFORM=common ;;
+            esac
+            KEY="$PLATFORM:$TYPE"
+            BUCKETS[$KEY]="${BUCKETS[$KEY]:-}"$'\n'"- $DESC"
           done < <(git log "$RANGE" --no-merges --pretty=format:'%s')
 
+          # 贡献者登录名取自 GitHub 关联账号，release 页面会把 @用户名 渲染成头像
+          CONTRIBUTORS=""
+          if [ -n "$PREV_TAG" ]; then
+            CONTRIBUTORS=$(gh api --paginate \
+              "repos/${{ github.repository }}/compare/$PREV_TAG...${GITHUB_REF_NAME}" \
+              --jq '.commits[].author.login // empty' 2>/dev/null \
+              | grep -v '\[bot\]$' | sort -fu || true)
+          fi
+
           {
-            for t in "${ORDER[@]}"; do
-              if [ -n "${BUCKETS[$t]:-}" ]; then
-                echo "### ${TITLES[$t]}"
-                echo "${BUCKETS[$t]}"
-                echo ""
-              fi
-            done
-            if [ -n "$OTHER" ]; then
-              echo "### 📌 其他"
-              echo "$OTHER"
+            for p in "${PLATFORMS[@]}"; do
+              HAS=false
+              for t in "${ORDER[@]}"; do
+                [ -n "${BUCKETS[$p:$t]:-}" ] && HAS=true && break
+              done
+              $HAS || continue
+              echo "## ${PLATFORM_TITLES[$p]}"
               echo ""
-            fi
-            echo "### 💻 桌面端安装说明"
+              for t in "${ORDER[@]}"; do
+                if [ -n "${BUCKETS[$p:$t]:-}" ]; then
+                  echo "### ${TITLES[$t]}"
+                  echo "${BUCKETS[$p:$t]}"
+                  echo ""
+                fi
+              done
+            done
+            echo "## 📥 安装说明"
+            echo ""
+            echo "### 📱 Android"
+            echo "- Android 8.0 及以上，下载 \`Melodia-v${{ needs.version.outputs.name }}-release.apk\` 安装"
+            echo ""
+            echo "### 💻 桌面端"
             echo "- Windows 10 及以上 64 位系统，提供安装程序（setup.exe）与免安装 zip"
             echo "- 安装程序支持静默安装：\`setup.exe /S [/allusers] [/nodesktop] [/autostart] [/run] [/D=安装目录]\`"
             echo "- 安装包暂未做代码签名，首次运行若出现 SmartScreen 提示，点击「更多信息」→「仍要运行」即可"
             echo ""
+            if [ -n "$CONTRIBUTORS" ]; then
+              echo "## 👥 贡献者"
+              echo ""
+              echo "$CONTRIBUTORS" | sed 's/^/@/' | paste -sd ' ' -
+              echo ""
+            fi
             if [ -n "$PREV_TAG" ]; then
               echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...${GITHUB_REF_NAME}"
             fi

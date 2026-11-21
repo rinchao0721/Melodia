@@ -30,18 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -125,6 +113,18 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.awt.Cursor
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Swap
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 // mpv 每秒上报几十次播放位置，迷你窗无需这么密
 private const val POSITION_STEP_MS = 250L
@@ -178,7 +178,9 @@ class MiniPlayerActions(
     val onTogglePlay: () -> Unit,
     val onNext: () -> Unit,
     val onToggleRepeat: () -> Unit,
-    val onToggleLike: () -> Unit,
+    // 未喜欢一键收藏，已喜欢返回 true 表示需打开收藏弹窗
+    val onQuickLike: (songId: Long, liked: Boolean) -> Boolean,
+    val collectPopup: @Composable (songId: Long, onDismiss: () -> Unit) -> Unit = { _, _ -> },
     val onSeek: (Long) -> Unit,
     val onSwitchStyle: () -> Unit,
     val onOpenLyricSettings: () -> Unit,
@@ -689,9 +691,9 @@ private fun MiniProgress(info: MiniTrackInfo, actions: MiniPlayerActions, modifi
 @Composable
 private fun TransportControls(info: MiniTrackInfo, actions: MiniPlayerActions, playSize: Dp, spacing: Dp) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing)) {
-        MiniIconButton(Icons.Rounded.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack && !info.isPersonalFm)
+        MiniIconButton(MelodiaIcons.SkipPrevious, "上一首", actions.onPrevious, enabled = info.hasTrack && !info.isPersonalFm)
         PlayButton(info, playSize, actions.onTogglePlay)
-        MiniIconButton(Icons.Rounded.SkipNext, "下一首", actions.onNext, enabled = info.hasTrack)
+        MiniIconButton(MelodiaIcons.SkipNext, "下一首", actions.onNext, enabled = info.hasTrack)
     }
 }
 
@@ -711,19 +713,24 @@ private fun PlayButton(info: MiniTrackInfo, size: Dp, onClick: () -> Unit) {
 
 @Composable
 private fun LikeButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
-    MiniIconButton(
-        if (info.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-        if (info.liked) "取消喜欢" else "喜欢",
-        actions.onToggleLike,
-        tint = if (info.liked) DesktopColors.Accent else null
-    )
+    val songId = info.track?.songId
+    var showCollectPopup by remember(songId) { mutableStateOf(false) }
+    Box {
+        MiniIconButton(
+            if (info.liked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+            if (info.liked) "收藏到歌单" else "添加到“已点赞的歌曲”",
+            { if (songId != null && actions.onQuickLike(songId, info.liked)) showCollectPopup = true },
+            tint = if (info.liked) DesktopColors.Accent else null
+        )
+        if (showCollectPopup && songId != null) actions.collectPopup(songId) { showCollectPopup = false }
+    }
 }
 
 @Composable
 private fun RepeatButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
     if (info.isPersonalFm) {
         MiniIconButton(
-            Icons.Rounded.DeleteOutline,
+            MelodiaIcons.Delete,
             "不喜欢",
             actions.onTrash,
             iconSize = 18.dp
@@ -732,7 +739,7 @@ private fun RepeatButton(info: MiniTrackInfo, actions: MiniPlayerActions) {
     }
     val singleLoop = info.playMode == PlayMode.SINGLE_LOOP
     MiniIconButton(
-        if (singleLoop) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+        if (singleLoop) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
         "循环模式",
         actions.onToggleRepeat,
         iconSize = 18.dp,
@@ -751,11 +758,11 @@ private fun WindowButtons(
     Box(modifier.clip(ChromeShape).background(ChromeBackground).padding(2.dp)) {
         val buttons = @Composable {
             if (onOpenLyricSettings != null) {
-                MiniIconButton(Icons.Rounded.Tune, "歌词设置", onOpenLyricSettings, size = 20.dp, iconSize = 14.dp)
+                MiniIconButton(MelodiaIcons.Tune, "歌词设置", onOpenLyricSettings, size = 20.dp, iconSize = 14.dp)
             }
-            MiniIconButton(Icons.Rounded.SwapHoriz, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
-            MiniIconButton(Icons.Rounded.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
-            MiniIconButton(Icons.Rounded.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
+            MiniIconButton(MelodiaIcons.Swap, "切换样式", actions.onSwitchStyle, size = 20.dp, iconSize = 14.dp)
+            MiniIconButton(MelodiaIcons.OpenInFull, "还原主窗口", actions.onRestore, size = 20.dp, iconSize = 12.dp)
+            MiniIconButton(MelodiaIcons.Close, "关闭迷你播放器", actions.onRestore, size = 20.dp, iconSize = 14.dp)
         }
         if (vertical) Column { buttons() } else Row { buttons() }
     }

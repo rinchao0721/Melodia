@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +32,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Leaderboard
 
 private val RANK_SUB_TABS = listOf("所有时间", "最近一周")
 
@@ -60,7 +60,7 @@ fun LazyListScope.profileRecordItems(
     }
     if (items.isEmpty()) {
         item(key = "record_empty") {
-            EmptyState(icon = Icons.Rounded.Leaderboard, title = "暂无听歌排行数据")
+            EmptyState(icon = MelodiaIcons.Leaderboard, title = "暂无听歌排行数据")
         }
         return
     }
@@ -73,7 +73,8 @@ fun LazyListScope.profileRecordItems(
                     title = item.songName,
                     artist = item.artistName,
                     coverUrl = item.albumCoverUrl,
-                    qualitySongId = item.songId
+                    qualitySongId = item.songId,
+                    maxBrLevel = item.maxBrLevel
                 ),
                 index = index + 1,
                 onClick = {},

@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +45,8 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 internal const val SUCCESS_CAPSULE_DURATION_MS = 2_500L
 
@@ -148,7 +148,7 @@ internal fun BoxScope.SuccessActionCapsule(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Rounded.Check,
+                    MelodiaIcons.Check,
                     contentDescription = null,
                     tint = contentColorOn(DesktopColors.Success),
                     modifier = Modifier.size(14.dp)

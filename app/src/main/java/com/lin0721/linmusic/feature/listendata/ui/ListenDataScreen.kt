@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +47,8 @@ import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Insights
 
 private const val SKELETON_ROW_COUNT = 6
 private const val COLLAPSED_RANK_COUNT = 5
@@ -64,7 +64,7 @@ fun ListenDataScreen(
     onArtistClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
 
     SecondaryScreenScaffold(title = "听歌数据", onBack = onBack) {
@@ -158,7 +158,7 @@ private fun TodayList(
     if (content.songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             EmptyState(
-                icon = Icons.Rounded.Insights,
+                icon = MelodiaIcons.Insights,
                 title = "今天还没有收听记录",
                 subtitle = "听几首歌之后再回来看看"
             )
@@ -325,7 +325,7 @@ private fun PeriodList(
 private fun YearList(content: ListenDataContent.Year) {
     if (content.stats.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(icon = Icons.Rounded.Insights, title = "还没有历年收听记录")
+            EmptyState(icon = MelodiaIcons.Insights, title = "还没有历年收听记录")
         }
         return
     }

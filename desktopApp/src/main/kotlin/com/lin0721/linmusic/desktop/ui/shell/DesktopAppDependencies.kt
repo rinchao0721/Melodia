@@ -12,6 +12,8 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.SessionMonitor
 import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
 import com.lin0721.linmusic.core.deeplink.SongLinkRequests
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -39,6 +41,7 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.reflect.KClass
 
 // 页面专属 ViewModel 的创建入口，每个栈帧各取一份
@@ -73,6 +76,7 @@ class DesktopAppDependencies(
     val lyricsResolver: LyricsResolver,
     val downloader: DesktopSongDownloader,
     val downloadScanner: DesktopDownloadFolderScanner,
+    val downloadedQualities: StateFlow<Map<Long, String>>,
     val desktopPreferences: DesktopPreferences,
     val settingsPreferences: SettingsPreferences,
     val sessionMonitor: SessionMonitor,
@@ -91,5 +95,7 @@ class DesktopAppDependencies(
     val coverColorMemory: CoverColorMemory,
     val userPreferences: UserPreferences,
     val accountSwitcher: AccountSwitcher,
+    val lanLink: LanLinkDesktopHost,
+    val remoteCoordinator: LanLinkRemoteCoordinator,
     val pageViewModels: PageViewModelFactory
 )

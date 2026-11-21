@@ -1,9 +1,13 @@
 package com.lin0721.linmusic.core.player
 
 import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
@@ -12,9 +16,12 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlaybackException
 import java.io.File
 import java.util.Collections
+import kotlin.math.abs
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -24,6 +31,13 @@ import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.OutputAudioInfo
+import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.StreamAudioInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
+import com.lin0721.linmusic.core.player.ffmpeg.PlaybackErrorAction
+import com.lin0721.linmusic.core.player.ffmpeg.classifyPlaybackErrorForFfmpeg
+import com.lin0721.linmusic.core.player.ffmpeg.formatPlayerErrorMessage
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
@@ -59,11 +73,23 @@ private val NETWORK_RETRY_DELAYS_MS = longArrayOf(2000L, 5000L, 10000L)
 // 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
 private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
 
+// 与已下发增益相差小于该值不再修正
+private const val GAIN_SYNC_EPSILON_DB = 0.05
+
 // 播放中自动持久化进度的周期，覆盖直接划掉应用强退场景
 private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
 
 // 预取到的下一首播放链接，按 songId 校验有效性
 private data class PrefetchedUrl(val songId: Long, val url: String, val level: String? = null)
+
+// 播放遇系统不支持格式时弹窗引导下载 ffmpeg 组件的上下文
+data class FfmpegInstallPrompt(
+    val failedIndex: Int,
+    val errorCode: Int,
+    val mediaId: String,
+    val mimeType: String,
+    val codecLabel: String
+)
 
 // 播放门面：对外暴露播放状态与控制入口，队列、控制器、进度、持久化等职责交由协作者承担
 class PlayerManager(
@@ -77,7 +103,8 @@ class PlayerManager(
     private val externalInterruptionResumeController: ExternalInterruptionResumeController,
     private val onlineState: OnlineStateProvider,
     private val externalResolver: ExternalTrackResolver,
-    private val downloadRecognizer: DownloadRecognizer
+    private val downloadRecognizer: DownloadRecognizer,
+    private val ffmpegComponentManager: FfmpegComponentManager
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -102,9 +129,16 @@ class PlayerManager(
     private val _displayTrack = MutableStateFlow<MediaItem?>(null)
     val currentTrack: StateFlow<MediaItem?> = _displayTrack.asStateFlow()
 
-    // 当前曲目接口实际下发的音质；本地、已下载、离线缓存与换源取不到档位时为空
-    private val _playbackLevel = MutableStateFlow<PlaybackLevel?>(null)
-    override val playbackLevel: StateFlow<PlaybackLevel?> = _playbackLevel.asStateFlow()
+    // 当前曲目的实际流参数与输出音质快照，按 mediaId 绑定
+    private val _playbackQuality = MutableStateFlow<PlaybackQuality?>(null)
+    override val playbackQuality: StateFlow<PlaybackQuality?> = _playbackQuality.asStateFlow()
+
+    // 接口下发的声明档位，按 mediaId 绑定（本地、离线缓存与换源为 null）
+    private var declaredQualityLevel: Pair<String, String?>? = null
+    private var previousDeclaredQualityLevel: Pair<String, String?>? = null
+
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private var audioDeviceCallback: AudioDeviceCallback? = null
 
     // 与 currentTrack 同步写入，保证读取 value 时两者一致
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
@@ -113,6 +147,28 @@ class PlayerManager(
     // 用户在"连接设备"弹层里手动选过的输出设备 id；null 表示本次会话还没手动选过，交给启发式猜测
     private val _preferredOutputDeviceId = MutableStateFlow<Int?>(null)
     val preferredOutputDeviceId: StateFlow<Int?> = _preferredOutputDeviceId.asStateFlow()
+
+    private val _ffmpegInstallPrompt = MutableStateFlow<FfmpegInstallPrompt?>(null)
+    val ffmpegInstallPrompt: StateFlow<FfmpegInstallPrompt?> = _ffmpegInstallPrompt.asStateFlow()
+
+    // 服务端本地 ExoPlayer 报错时先缓存底层 Format MIME（MediaController IPC 会丢失 ExoPlaybackException 字段）
+    @Volatile
+    private var lastRendererErrorMime: Pair<String?, String>? = null
+
+    // 同一首只按"音轨均不受支持"处理一次，避免轨道重复回调反复弹窗或连跳
+    private var unplayableAudioHandledMediaId: String? = null
+
+    fun recordRendererErrorMime(mediaId: String?, mimeType: String?) {
+        if (mimeType.isNullOrBlank()) return
+        lastRendererErrorMime = mediaId to mimeType
+    }
+
+    private fun consumeRendererErrorMime(mediaId: String?): String? {
+        val recorded = lastRendererErrorMime ?: return null
+        lastRendererErrorMime = null
+        if (recorded.first != null && mediaId != null && recorded.first != mediaId) return null
+        return recorded.second
+    }
 
     private val controllerHolder = MediaControllerHolder(context)
     private val playbackQueue = PlaybackQueue()
@@ -139,13 +195,17 @@ class PlayerManager(
         playbackPositionSource = source
     }
 
+    internal fun attachLocalPlayer(player: Player?) {
+        controllerHolder.attachLocalPlayer(player)
+    }
+
     // 外部歌词服务要的是"此刻"的进度：直接读控制器，绕开 1s 一次的业务轮询
     fun currentPositionExact(): Long {
         return controllerHolder.currentPositionOrNull ?: currentPositionNow()
     }
 
     // 直接读时钟仍可能得到离散采样值；用共享绘制时钟逐帧推进，并渐进校正。
-    fun currentPositionNow(): Long {
+    override fun currentPositionNow(): Long {
         val sample = playbackPositionSource?.invoke()
         val raw = sample?.positionMs
             ?: controllerHolder.currentPositionOrNull
@@ -219,9 +279,12 @@ class PlayerManager(
     private val edgeAnalyzer = TrackEdgeAnalyzer(pcmDecoder)
 
     // 音量平衡：每首歌只测一次，结果持久缓存
-    private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_gain.json")), pcmDecoder)
+    private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_v2.json")), pcmDecoder)
     private val replayGainReader = ReplayGainReader(context)
-    private var loudnessMeasuredSongId: Long = -1L
+    // 已核对增益的当前歌与已下发的增益
+    private var loudnessSyncedSongId: Long = -1L
+    private var appliedGainSongId: Long = -1L
+    private var appliedGainDb: Double = 0.0
     private var loudnessPremeasuredSongId: Long = -1L
 
     // 最近一次下发的播放源 (songId, uri)，供尾部分析读取当前歌的实际音频
@@ -248,6 +311,7 @@ class PlayerManager(
     init {
         AppLogger.i(TAG, "PlayerManager 初始化 instanceId=${System.identityHashCode(this)}")
         networkGuard.register()
+        registerAudioDeviceCallback()
 
         scope.launch {
             playbackQueue.setPlayMode(stateStore.loadPlayMode())
@@ -281,10 +345,11 @@ class PlayerManager(
         scope.launch {
             settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
                 loudnessEnabled = enabled
-                // 关闭时立即恢复原音量；开启后由进度回调为当前歌补测
-                loudnessMeasuredSongId = -1L
+                // 关闭时立即恢复 0 dB；开启后由进度回调补测当前歌
+                loudnessSyncedSongId = -1L
                 loudnessPremeasuredSongId = -1L
-                if (!enabled) controllerHolder.setVolume(1f)
+                if (!enabled) applyGainToPlayer(-1L, 0.0)
+                scheduleQueueLoudness()
             }
         }
 
@@ -344,6 +409,7 @@ class PlayerManager(
                 progress.setPosition(mediaController.currentPosition)
                 progress.setDuration(mediaController.duration)
                 resetTrackTiming(startPlaying = mediaController.isPlaying)
+                refreshPlaybackQuality(mediaController.currentMediaItem, mediaController.currentTracks)
             }
 
             mediaController.repeatMode = if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP)
@@ -394,6 +460,7 @@ class PlayerManager(
         playbackQueue.replaceAll(items, startIndex)
         consecutiveErrors = 0
         saveQueueState()
+        scheduleQueueLoudness()
 
         val currentIndex = playbackQueue.currentIndex.value
         val targetItem = playbackQueue.itemAt(currentIndex)
@@ -419,6 +486,12 @@ class PlayerManager(
         playbackQueue.setPlaySource(null)
         consecutiveErrors = 0
         pendingStartPosition = startPosition
+        declaredQualityLevel = null
+        previousDeclaredQualityLevel = null
+        _playbackQuality.value = null
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
 
         externalInterruptionResumeController.onExplicitUserPlay()
         controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
@@ -555,6 +628,7 @@ class PlayerManager(
             pendingSkipFromIndex = null
             pausedForPendingPlay = false
             clearPendingTrack(restorePlayWhenReady = false)
+            restorePlaybackQualityOnPendingCancel()
             MelodiaPlaybackService.stopPendingForeground(context)
         }
         _playWhenReady.value = false
@@ -584,6 +658,7 @@ class PlayerManager(
     fun setPreferredAudioDevice(deviceId: Int) {
         controllerHolder.setPreferredAudioDevice(deviceId)
         _preferredOutputDeviceId.value = deviceId
+        refreshOutputDeviceInQuality()
     }
 
     override fun togglePlayPause() {
@@ -671,6 +746,9 @@ class PlayerManager(
                 )
             }
         } else {
+            declaredQualityLevel = null
+            previousDeclaredQualityLevel = null
+            _playbackQuality.value = null
             setCurrentTrack(null)
             _isPlaying.value = false
             progress.setPosition(0L)
@@ -724,7 +802,12 @@ class PlayerManager(
         requestedSource = null
         pendingStartOffset = null
         pendingStartPosition = 0L
-        _playbackLevel.value = null
+        declaredQualityLevel = null
+        previousDeclaredQualityLevel = null
+        _playbackQuality.value = null
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
 
         playbackQueue.clear()
         setCurrentTrack(null)
@@ -765,6 +848,9 @@ class PlayerManager(
         activePlayJob?.cancel()
         roaming.cancel()
         networkGuard.cancelRecoveryWait()
+        _ffmpegInstallPrompt.value = null
+        lastRendererErrorMime = null
+        unplayableAudioHandledMediaId = null
         pendingStartPosition = startPosition
 
         val fromIndex = playbackQueue.currentIndex.value
@@ -776,7 +862,11 @@ class PlayerManager(
         }
 
         activePlayJob = scope.launch {
-            _playbackLevel.value = null
+            if (_currentTrack.value?.mediaId != null && _currentTrack.value?.mediaId == declaredQualityLevel?.first) {
+                previousDeclaredQualityLevel = declaredQualityLevel
+            }
+            declaredQualityLevel = null
+            _playbackQuality.value = null
             // 本地外部音频直接播放
             val localUri = item.localUri
             if (localUri != null) {
@@ -858,7 +948,7 @@ class PlayerManager(
             // 命中预取缓存时跳过网络请求，最大限度缩短切歌间隙
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
-                publishPlaybackLevel(item.songId, prefetchedLevel)
+                setDeclaredQualityLevel(mediaItem.mediaId, prefetchedLevel)
                 pendingSkipFromIndex = null
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
@@ -872,7 +962,7 @@ class PlayerManager(
             repository.getSongPlaybackInfo(item.songId).collect { result ->
                 result.onSuccess { info ->
                     val mediaItem = item.toMediaItem(info.url, playbackQueue.playContext.value)
-                    publishPlaybackLevel(item.songId, info.level)
+                    setDeclaredQualityLevel(mediaItem.mediaId, info.level)
                     rememberNeteaseGain(item.songId, info)
                     pendingSkipFromIndex = null
                     if (info.trialFallback && playWhenReady) {
@@ -891,8 +981,72 @@ class PlayerManager(
         }
     }
 
-    private fun publishPlaybackLevel(songId: Long, level: String?) {
-        _playbackLevel.value = level?.let { PlaybackLevel(songId, it) }
+    private fun registerAudioDeviceCallback() {
+        val manager = audioManager ?: return
+        val callback = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                refreshOutputDeviceInQuality()
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+                refreshOutputDeviceInQuality()
+            }
+        }
+        runCatching {
+            manager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
+            audioDeviceCallback = callback
+        }
+    }
+
+    private fun currentOutputAudioInfo(): OutputAudioInfo? =
+        resolveCurrentMediaOutputDeviceName(audioManager, _preferredOutputDeviceId.value)
+            ?.let { OutputAudioInfo(deviceName = it) }
+
+    private fun setDeclaredQualityLevel(mediaId: String, level: String?) {
+        declaredQualityLevel = mediaId to level
+        val existingStream = _playbackQuality.value?.takeIf { it.mediaId == mediaId }?.stream
+        publishPlaybackQuality(mediaId, level, existingStream)
+    }
+
+    private fun refreshPlaybackQuality(
+        mediaItem: MediaItem? = _currentTrack.value,
+        tracks: Tracks = controllerHolder.currentTracks
+    ) {
+        val mediaId = mediaItem?.mediaId ?: run {
+            _playbackQuality.value = null
+            return
+        }
+        val declaredLevel = declaredQualityLevel?.takeIf { it.first == mediaId }?.second
+        val stream = extractStreamAudioInfo(tracks)
+        publishPlaybackQuality(mediaId, declaredLevel, stream)
+    }
+
+    private fun publishPlaybackQuality(
+        mediaId: String,
+        declaredLevel: String?,
+        stream: StreamAudioInfo?
+    ) {
+        if (declaredLevel == null && stream == null) {
+            _playbackQuality.value = null
+            return
+        }
+        _playbackQuality.value = PlaybackQuality(
+            mediaId = mediaId,
+            declaredLevel = declaredLevel,
+            stream = stream,
+            output = currentOutputAudioInfo()
+        )
+    }
+
+    private fun refreshOutputDeviceInQuality() {
+        val current = _playbackQuality.value ?: return
+        _playbackQuality.value = current.copy(output = currentOutputAudioInfo())
+    }
+
+    private fun restorePlaybackQualityOnPendingCancel() {
+        val realMediaId = _currentTrack.value?.mediaId ?: return
+        declaredQualityLevel = previousDeclaredQualityLevel?.takeIf { it.first == realMediaId }
+        refreshPlaybackQuality(_currentTrack.value, controllerHolder.currentTracks)
     }
 
     @OptIn(UnstableApi::class)
@@ -932,6 +1086,7 @@ class PlayerManager(
             }
         }
         pendingStartPosition = 0L
+        restorePlaybackQualityOnPendingCancel()
         MelodiaPlaybackService.stopPendingForeground(context)
         Toast.makeText(context, "离线状态下没有可播放的已缓存歌曲", Toast.LENGTH_SHORT).show()
     }
@@ -951,6 +1106,7 @@ class PlayerManager(
         playbackQueue.setCurrentIndex(fromIndex)
         saveQueueState()
         clearPendingTrack(restorePlayWhenReady = true)
+        restorePlaybackQualityOnPendingCancel()
         if (pausedForPendingPlay) {
             pausedForPendingPlay = false
             controllerHolder.play()
@@ -1135,7 +1291,11 @@ class PlayerManager(
             startPositionMs = startPosition,
             autoFadeMs = pendingAutoFadeMs
         )
-        val gainDb = if (songId != null && uri != null) knownGainDb(songId, uri) else null
+        val gainDb = if (songId != null && uri != null) startGainDb(songId, uri) else null
+        if (songId != null && gainDb != null) {
+            appliedGainSongId = songId
+            appliedGainDb = gainDb
+        }
         if (fadeMs <= 0L && gainDb == null) return this
         val startOffsetMs = pendingStartOffset?.takeIf { it.first == songId }?.second ?: 0L
         val extras = Bundle(mediaMetadata.extras ?: Bundle()).apply {
@@ -1148,39 +1308,61 @@ class PlayerManager(
             .build()
     }
 
-    // 网易返回的有效增益优先于自测，覆盖已缓存的值
+    // 网易返回的有效响度优先于自测，覆盖已缓存的值
     private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
-        val gainDb = info.gainDb ?: return
-        if (loudnessEnabled) loudnessMeter.remember(songId, gainDb)
+        if (!loudnessEnabled) return
+        info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
     }
 
-    // 已知的曲目增益：缓存优先，本地文件再读 ReplayGain 标签；音量平衡关闭时为 null
+    private fun isRemoteUri(uri: String): Boolean = uri.startsWith("http")
+
+    // 缓存（含网易值）优先，本地文件再读标签；音量平衡关闭时为 null
     private suspend fun knownGainDb(songId: Long, uri: String): Double? {
         if (!loudnessEnabled) return null
         loudnessMeter.cachedGainDb(songId)?.let { return it }
-        val tagged = replayGainReader.trackGainDb(uri) ?: return null
-        loudnessMeter.remember(songId, tagged)
-        return tagged
+        if (isRemoteUri(uri)) return null
+        val tagged = replayGainReader.trackLoudness(uri) ?: return null
+        loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
+        return LoudnessPolicy.gainDb(tagged)
     }
 
-    // 在线链接仅 Wi-Fi 下解码自测，本地与已下载文件不受限；离线缓存的占位地址无法直接解码
-    private fun canMeasure(uri: String): Boolean = when {
-        uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX) -> false
-        uri.startsWith("http") -> isWifiConnected()
-        else -> true
+    // 离线缓存的占位地址无法直接解码
+    private fun canMeasure(uri: String): Boolean = !uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX)
+
+    // 已知值优先，否则起播前限时测量；超时用兜底值，结果迟到再平滑修正
+    private suspend fun startGainDb(songId: Long, uri: String): Double? {
+        if (!loudnessEnabled) return null
+        knownGainDb(songId, uri)?.let { return it }
+        if (!canMeasure(uri)) return LoudnessPolicy.FALLBACK_GAIN_DB
+        return loudnessMeter.measureBeforeStart(
+            songId = songId,
+            uri = uri,
+            fullTrack = !isRemoteUri(uri),
+            onDelayedResult = { gainDb -> scope.launch { applyGainToPlayer(songId, gainDb) } }
+        ) ?: LoudnessPolicy.FALLBACK_GAIN_DB
     }
 
-    // 当前歌没有已知增益时补测，测完平滑过渡到目标音量
+    // songId 为 -1 表示无条件复位
+    private fun applyGainToPlayer(songId: Long, gainDb: Double) {
+        if (songId != -1L) {
+            if (!loudnessEnabled || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return
+        }
+        appliedGainSongId = songId
+        appliedGainDb = gainDb
+        controllerHolder.setTrackGainDb(gainDb)
+    }
+
+    // 缓存值与已下发值不一致时修正，没有缓存则补测
     private fun maybeMeasureCurrentLoudness(songId: Long) {
-        if (!loudnessEnabled || loudnessMeasuredSongId == songId) return
+        if (!loudnessEnabled || loudnessSyncedSongId == songId) return
         val uri = requestedSource?.takeIf { it.first == songId }?.second ?: return
-        loudnessMeasuredSongId = songId
+        loudnessSyncedSongId = songId
         scope.launch {
             val gainDb = knownGainDb(songId, uri)
-                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri) else null)
+                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri, fullTrack = !isRemoteUri(uri)) else null)
                 ?: return@launch
-            if (!loudnessEnabled || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return@launch
-            controllerHolder.setVolume(LoudnessPolicy.amplitude(gainDb))
+            val unchanged = appliedGainSongId == songId && abs(appliedGainDb - gainDb) < GAIN_SYNC_EPSILON_DB
+            if (!unchanged) applyGainToPlayer(songId, gainDb)
         }
     }
 
@@ -1193,7 +1375,26 @@ class PlayerManager(
         scope.launch {
             val uri = nextTrackSourceUri(nextItem) ?: return@launch
             if (knownGainDb(nextItem.songId, uri) != null || !canMeasure(uri)) return@launch
-            loudnessMeter.measure(nextItem.songId, uri)
+            loudnessMeter.measure(nextItem.songId, uri, fullTrack = !isRemoteUri(uri))
+        }
+    }
+
+    // 从当前曲往后串行预测本地与已下载歌曲
+    private fun scheduleQueueLoudness() {
+        loudnessMeter.cancelAll()
+        if (!loudnessEnabled) return
+        val items = playbackQueue.items.value
+        if (items.isEmpty()) return
+        val start = playbackQueue.currentIndex.value.coerceIn(0, items.lastIndex)
+        val ordered = items.drop(start) + items.take(start)
+        scope.launch {
+            val requests = ArrayList<LoudnessMeasureRequest>()
+            for (item in ordered) {
+                val uri = item.localUri ?: localRecordOf(item)?.mediaStoreUri ?: continue
+                if (!canMeasure(uri)) continue
+                requests += LoudnessMeasureRequest(item.songId, uri, fullTrack = true)
+            }
+            if (loudnessEnabled) loudnessMeter.enqueue(requests)
         }
     }
 
@@ -1252,6 +1453,10 @@ class PlayerManager(
     fun release() {
         reportPlayedTrack()
         networkGuard.unregister()
+        audioDeviceCallback?.let { callback ->
+            runCatching { audioManager?.unregisterAudioDeviceCallback(callback) }
+        }
+        audioDeviceCallback = null
         sleepTimer.cancel()
         activePlayJob?.cancel()
         prefetchJob?.cancel()
@@ -1313,6 +1518,7 @@ class PlayerManager(
             _playWhenReady.value = false
             pausedForPendingPlay = false
             clearPendingTrack(restorePlayWhenReady = false)
+            restorePlaybackQualityOnPendingCancel()
             MelodiaPlaybackService.stopPendingForeground(context)
             scope.launch {
                 Toast.makeText(context, giveUpMessage, Toast.LENGTH_SHORT).show()
@@ -1420,6 +1626,7 @@ class PlayerManager(
         }
         if (pendingStartOffset?.first != newSongId) pendingStartOffset = null
         setCurrentTrack(mediaItem)
+        refreshPlaybackQuality(mediaItem, controllerHolder.currentTracks)
         playbackQueue.setPlayContext(mediaItem?.mediaMetadata?.extras?.getString("playContext"))
         if (mediaItem != null) {
             reportStartPlay(mediaItem)
@@ -1435,6 +1642,21 @@ class PlayerManager(
             progress.updateDurationFromController()
             saveState()
         }
+    }
+
+    override fun onTracksChanged(tracks: Tracks) {
+        refreshPlaybackQuality(_currentTrack.value, tracks)
+        checkUnplayableAudio(tracks)
+    }
+
+    // 系统解不了的音轨（如 ALAC）不会被选中，ExoPlayer 照常推进进度但没有声音且不报错，需主动按解码失败处理
+    private fun checkUnplayableAudio(tracks: Tracks) {
+        val mime = findUnplayableAudioMime(tracks) ?: return
+        val mediaId = _currentTrack.value?.mediaId ?: return
+        if (unplayableAudioHandledMediaId == mediaId) return
+        unplayableAudioHandledMediaId = mediaId
+        AppLogger.w(TAG, "音轨均不受支持，按解码失败处理 songId=$mediaId mime=$mime")
+        handleDecodeFailure(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED, mime, mediaId)
     }
 
     // 交叉淡化接管时状态始终为 READY，不会再触发 onPlaybackStateChanged，时长需随时间线补取
@@ -1459,22 +1681,97 @@ class PlayerManager(
         }
     }
 
+    @OptIn(UnstableApi::class)
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
-        AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=${_currentTrack.value?.mediaId}", error)
+        val currentMediaId = _currentTrack.value?.mediaId
+        AppLogger.e(TAG, "播放器报错 errorCode=${error.errorCodeName} songId=$currentMediaId", error)
         if (tryRecoverStreamError(error)) return
+
+        val failedMime = (error as? ExoPlaybackException)?.rendererFormat?.sampleMimeType
+            ?: consumeRendererErrorMime(currentMediaId)
+            ?: extractAudioMimeForError(controllerHolder.currentTracks)
+        handleDecodeFailure(error.errorCode, failedMime, currentMediaId)
+    }
+
+    // 组件未装且格式可由 ffmpeg 解时暂停并弹窗引导下载，其余提示后跳下一首
+    private fun handleDecodeFailure(errorCode: Int, failedMime: String?, currentMediaId: String?) {
+        when (val action = classifyPlaybackErrorForFfmpeg(errorCode, failedMime, ffmpegComponentManager.isInstalled)) {
+            is PlaybackErrorAction.PromptFfmpegInstall -> {
+                AppLogger.i(TAG, "检测到可由 ffmpeg 解码的格式，提示安装组件 mime=${action.mimeType}")
+                _playWhenReady.value = false
+                _isPlaying.value = false
+                pausedForPendingPlay = false
+                pendingSkipFromIndex = null
+                clearPendingTrack(restorePlayWhenReady = false)
+                controllerHolder.pause()
+                MelodiaPlaybackService.stopPendingForeground(context)
+                _ffmpegInstallPrompt.value = FfmpegInstallPrompt(
+                    failedIndex = playbackQueue.currentIndex.value,
+                    errorCode = errorCode,
+                    mediaId = currentMediaId.orEmpty(),
+                    mimeType = action.mimeType,
+                    codecLabel = action.codecLabel
+                )
+                if (ffmpegComponentManager.catalogInfo.value.remoteSizeBytes == null) {
+                    scope.launch { ffmpegComponentManager.refreshCatalog() }
+                }
+                return
+            }
+            PlaybackErrorAction.Skip -> Unit
+        }
+
+        val failedUri = requestedSource?.takeIf { it.first.toString() == currentMediaId }?.second
+        val unreachableMessage = thirdPartySourceUnreachableHost(errorCode, failedUri)
+            ?.let(::formatSourceUnreachableMessage)
+        scope.launch {
+            val toast = unreachableMessage?.let { "$it，已自动跳过" } ?: "当前歌曲无法播放，已自动跳过"
+            Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
+        }
+        skipToNextOnError(playbackQueue.currentIndex.value, unreachableMessage ?: playerErrorMessage(errorCode))
+    }
+
+    // 组件安装完成后原地重播当前失败曲目，FfmpegLibrary.isAvailable() 动态生效
+    fun replayAfterFfmpegInstall() {
+        val prompt = _ffmpegInstallPrompt.value
+        _ffmpegInstallPrompt.value = null
+        ffmpegComponentManager.restoreLocalStateIfIdle()
+        consecutiveErrors = 0
+        val targetIndex = prompt?.failedIndex
+            ?.takeIf { it in 0 until playbackQueue.size }
+            ?: playbackQueue.currentIndex.value
+        if (targetIndex in 0 until playbackQueue.size) {
+            fetchUrlAndPlay(targetIndex, startPosition = 0L, playWhenReady = true)
+        }
+    }
+
+    // 用户取消安装弹窗后恢复原有跳过/报错逻辑
+    fun dismissFfmpegInstallPromptAndSkip() {
+        val prompt = _ffmpegInstallPrompt.value ?: return
+        _ffmpegInstallPrompt.value = null
+        ffmpegComponentManager.restoreLocalStateIfIdle()
         scope.launch {
             Toast.makeText(context, "当前歌曲无法播放，已自动跳过", Toast.LENGTH_SHORT).show()
         }
-        skipToNextOnError(playbackQueue.currentIndex.value, playerErrorMessage(error))
+        val index = prompt.failedIndex.takeIf { it in 0 until playbackQueue.size }
+            ?: playbackQueue.currentIndex.value
+        skipToNextOnError(index, playerErrorMessage(prompt.errorCode))
+    }
+
+    private fun isCurrentTrackCloudOrLocal(): Boolean {
+        val item = playbackQueue.currentItem()
+        if (item?.localUri != null) return true
+        val ctx = playbackQueue.playContext.value
+            ?: _currentTrack.value?.mediaMetadata?.extras?.getString("playContext")
+        if (ctx == "我的云盘") return true
+        val uri = requestedSource?.takeIf { it.first == item?.songId }?.second
+            ?: _currentTrack.value?.localConfiguration?.uri?.toString()
+        return uri != null && !uri.startsWith("http") && !uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX)
     }
 
     // 链接已拿到、是播放器本身出错，不能沿用取链接失败的提示（#172 硬解 FLAC 失败被误报为取链接失败）
-    private fun playerErrorMessage(error: PlaybackException): String = when (error.errorCode) {
-        in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED ->
-            "设备无法解码当前音质，可尝试调低播放音质"
-        else -> "连续多首歌曲无法播放"
-    }
+    private fun playerErrorMessage(errorCode: Int): String =
+        formatPlayerErrorMessage(errorCode, isCurrentTrackCloudOrLocal())
 
     // 播放链接带时效签名，暂停较久后续播/续缓冲会拿过期链接请求（403 或连接被断开）而报 IO 错误；
     // 此时先原地换新链接、从断点位置续播当前曲目，同一首只尝试一次，仍失败才走跳过下一首的兜底

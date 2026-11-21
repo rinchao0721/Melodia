@@ -23,9 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +71,9 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.rememberThemeSwitcher
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private val SkinCardWidth = 112.dp
 private val SkinThumbHeight = 72.dp
@@ -252,7 +252,7 @@ private fun SkinCard(
                         Text(name, color = MelodiaColors.TextPrimary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(subtitle, color = MelodiaColors.TextTertiary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MelodiaColors.AccentText, modifier = Modifier.size(16.dp))
+                    if (selected) Icon(MelodiaIcons.Check, contentDescription = null, tint = MelodiaColors.AccentText, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -265,7 +265,7 @@ private fun SkinCard(
                 modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Close, contentDescription = "删除皮肤", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(14.dp))
+                    Icon(MelodiaIcons.Close, contentDescription = "删除皮肤", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(14.dp))
                 }
             }
         }

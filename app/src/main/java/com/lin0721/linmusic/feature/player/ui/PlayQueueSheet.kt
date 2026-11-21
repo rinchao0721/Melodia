@@ -13,11 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +40,7 @@ import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.qualitySongId
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.DraggableSongRow
@@ -59,6 +55,15 @@ import kotlin.math.min
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Timer
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Infinity
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 // 有效屏幕高度低于该值（dp）视为低高度屏幕
 private const val SHORT_SCREEN_HEIGHT_DP = 480
@@ -74,7 +79,8 @@ fun PlayQueueSheet(
     isPlaying: Boolean,
     sleepTimerRemaining: Long,
     onPlayAtIndex: (Int) -> Unit,
-    onRemoveAtIndex: (Int) -> Unit,
+    // 按 songId 删，连划时下标会过期；返回 false 则回弹
+    onRemoveSong: (Long) -> Boolean,
     onMoveItem: (from: Int, to: Int) -> Unit,
     onToggleShuffle: () -> Unit,
     onClearQueue: () -> Unit,
@@ -340,14 +346,13 @@ fun PlayQueueSheet(
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    onRemoveAtIndex(idx)
-                                    true
+                                    onRemoveSong(item.songId)
                                 } else false
                             }
                         )
                         SwipeToDismissBox(
                             state = dismissState,
-                            backgroundContent = { SwipeDeleteBackground() },
+                            backgroundContent = { SwipeDeleteBackground(dismissState) },
                             enableDismissFromStartToEnd = false
                         ) {
                             DraggableSongRow(
@@ -404,14 +409,13 @@ fun PlayQueueSheet(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        onRemoveAtIndex(currentIndex)
-                                        true
+                                        onRemoveSong(queue[currentIndex].songId)
                                     } else false
                                 }
                             )
                             SwipeToDismissBox(
                                 state = dismissState,
-                                backgroundContent = { SwipeDeleteBackground() },
+                                backgroundContent = { SwipeDeleteBackground(dismissState) },
                                 enableDismissFromStartToEnd = false
                             ) {
                                 DraggableSongRow(
@@ -458,8 +462,7 @@ fun PlayQueueSheet(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        onRemoveAtIndex(actualIndex)
-                                        true
+                                        onRemoveSong(item.songId)
                                     } else false
                                 }
                             )
@@ -469,7 +472,7 @@ fun PlayQueueSheet(
                             ) {
                                 SwipeToDismissBox(
                                     state = dismissState,
-                                    backgroundContent = { SwipeDeleteBackground() },
+                                    backgroundContent = { SwipeDeleteBackground(dismissState) },
                                     enableDismissFromStartToEnd = false,
                                     // 拖拽期间关掉侧滑
                                     enableDismissFromEndToStart = !isDraggingActive
@@ -583,7 +586,7 @@ private fun QueueHeader(
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
+                    imageVector = MelodiaIcons.Delete,
                     contentDescription = "清空队列",
                     tint = MelodiaColors.TextSecondary,
                     modifier = Modifier.size(20.dp)
@@ -598,7 +601,7 @@ private fun QueueHeader(
             modifier = Modifier.padding(end = MelodiaSpacing.sm)
         )
         MelodiaIconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Rounded.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Close, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -624,12 +627,12 @@ private fun PlayModeInfoRow(
         val isIntelligence = playContext == "intelligence"
         val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
         val (icon, label) = when {
-            isPersonalFm -> Icons.Rounded.Radio to "私人FM · ${personalFmMode.displayName}"
-            isRoaming -> Icons.Rounded.AllInclusive to "相似歌曲漫游"
-            isIntelligence -> Icons.Rounded.AutoAwesome to "心动模式"
-            playMode == PlayMode.LIST_LOOP -> Icons.Default.Repeat to "列表循环"
-            playMode == PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne to "单曲循环"
-            else -> Icons.Default.Shuffle to "随机播放"
+            isPersonalFm -> MelodiaIcons.Radio to "私人FM · ${personalFmMode.displayName}"
+            isRoaming -> MelodiaIcons.Infinity to "相似歌曲漫游"
+            isIntelligence -> MelodiaIcons.Sparkle to "心动模式"
+            playMode == PlayMode.LIST_LOOP -> MelodiaIcons.Repeat to "列表循环"
+            playMode == PlayMode.SINGLE_LOOP -> MelodiaIcons.RepeatOne to "单曲循环"
+            else -> MelodiaIcons.Shuffle to "随机播放"
         }
         Row(
             modifier = Modifier
@@ -715,10 +718,10 @@ private fun BottomActionRow(
         ) {
             Icon(
                 imageVector = when {
-                    isPersonalFm -> Icons.Rounded.Radio
-                    isRoaming -> Icons.Rounded.AllInclusive
-                    isIntelligence -> Icons.Rounded.AutoAwesome
-                    else -> Icons.Default.Shuffle
+                    isPersonalFm -> MelodiaIcons.Radio
+                    isRoaming -> MelodiaIcons.Infinity
+                    isIntelligence -> MelodiaIcons.Sparkle
+                    else -> MelodiaIcons.Shuffle
                 },
                 contentDescription = null,
                 tint = shuffleContent,
@@ -749,13 +752,10 @@ private fun BottomActionRow(
                 .weight(1f)
                 .height(44.dp)
         ) {
-            Icon(Icons.Outlined.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Timer, contentDescription = null, tint = MelodiaColors.TextPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(timerText, color = MelodiaColors.TextPrimary, fontSize = 13.sp)
         }
     }
 }
 
-// 本地文件、播客、外部平台歌曲的 songId 不是网易云歌曲 id，不查最高音质
-private fun QueueItem.qualitySongId(): Long? =
-    songId.takeIf { localUri == null && radioId == 0L && external == null }

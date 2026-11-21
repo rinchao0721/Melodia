@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +39,8 @@ import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.nowplaying.SupportedInfoCards
 import com.lin0721.linmusic.desktop.ui.player.rememberQueueReorderState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Drag
 
 private val EditorRowHeight = 48.dp
 
@@ -91,7 +91,7 @@ internal fun CardLayoutEditor(layout: List<PlayerCardEntry>, onChange: (List<Pla
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Rounded.DragIndicator,
+                    MelodiaIcons.Drag,
                     "拖动排序",
                     tint = DesktopColors.TextGray,
                     modifier = Modifier.size(24.dp).pointerHoverIcon(PointerIcon.Hand).pointerInput(Unit) {

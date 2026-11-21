@@ -29,15 +29,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -81,6 +72,15 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Share
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全屏歌词操作工具栏（翻译/罗马音切换、分享、快捷歌词设置）
@@ -146,7 +146,7 @@ fun FullScreenLyricsToolbar(
         ) {
             MelodiaIconButton(onClick = onShareClick) {
                 Icon(
-                    imageVector = Icons.Rounded.Share,
+                    imageVector = MelodiaIcons.Share,
                     contentDescription = "分享歌词",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)
@@ -155,7 +155,7 @@ fun FullScreenLyricsToolbar(
 
             MelodiaIconButton(onClick = onSettingsClick) {
                 Icon(
-                    imageVector = Icons.Default.MoreVert,
+                    imageVector = MelodiaIcons.MoreVert,
                     contentDescription = "歌词设置",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)
@@ -378,8 +378,6 @@ fun FullScreenLyricsSettingsSheet(
     hasRoma: Boolean,
     advancedKaraokeEffect: Boolean = true,
     onAdvancedKaraokeEffectChange: (Boolean) -> Unit = {},
-    karaokeGlowEffect: Boolean = false,
-    onKaraokeGlowEffectChange: (Boolean) -> Unit = {},
     neteaseLyricsEnabled: Boolean = true,
     onNeteaseLyricsEnabledChange: (Boolean) -> Unit = {},
     qqLyricsEnabled: Boolean = true,
@@ -632,13 +630,6 @@ fun FullScreenLyricsSettingsSheet(
                                 checked = advancedKaraokeEffect,
                                 onCheckedChange = onAdvancedKaraokeEffectChange
                             )
-
-                            LyricCompactSwitchRow(
-                                title = "字词呼吸光晕动效",
-                                subtitle = "演唱字词叠加呼吸高亮微光",
-                                checked = karaokeGlowEffect,
-                                onCheckedChange = onKaraokeGlowEffectChange
-                            )
                         }
                         else -> {
                             LyricCompactSwitchRow(
@@ -836,7 +827,7 @@ fun FullScreenControls(
                 contentAlignment = Alignment.CenterStart
             ) {
                 Icon(
-                    imageVector = if (isPersonalFm) Icons.Rounded.DeleteOutline else Icons.Default.Shuffle,
+                    imageVector = if (isPersonalFm) MelodiaIcons.Delete else MelodiaIcons.Shuffle,
                     contentDescription = if (isPersonalFm) "不喜欢" else null,
                     tint = if (!isPersonalFm && playMode == PlayMode.SHUFFLE) {
                         MaterialTheme.colorScheme.onSurface
@@ -857,7 +848,7 @@ fun FullScreenControls(
                     style = MelodiaPress.Transport
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
+                        imageVector = MelodiaIcons.SkipPrevious,
                         contentDescription = null,
                         tint = if (isPersonalFm) {
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
@@ -911,7 +902,7 @@ fun FullScreenControls(
 
                 MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport) {
                     Icon(
-                        imageVector = Icons.Rounded.SkipNext,
+                        imageVector = MelodiaIcons.SkipNext,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(46.dp)
@@ -930,7 +921,7 @@ fun FullScreenControls(
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Icon(
-                        imageVector = if (playMode == PlayMode.SINGLE_LOOP) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                        imageVector = if (playMode == PlayMode.SINGLE_LOOP) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
                         contentDescription = null,
                         tint = if (playMode == PlayMode.SINGLE_LOOP) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(26.dp)

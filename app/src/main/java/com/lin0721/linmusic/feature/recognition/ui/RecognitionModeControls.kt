@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -44,6 +40,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.TimerWarningRed
 import com.lin0721.linmusic.feature.recognition.domain.RecognitionMode
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.Phone
 
 private data class ModeOption(
     val mode: RecognitionMode,
@@ -53,8 +53,8 @@ private data class ModeOption(
 )
 
 private val ModeOptions = listOf(
-    ModeOption(RecognitionMode.MICROPHONE, "麦克风", "识别身边外放的声音", Icons.Rounded.Mic),
-    ModeOption(RecognitionMode.PLAYBACK, "内录", "识别手机里其他 App 正在放的歌", Icons.Rounded.PhoneAndroid)
+    ModeOption(RecognitionMode.MICROPHONE, "麦克风", "识别身边外放的声音", MelodiaIcons.Mic),
+    ModeOption(RecognitionMode.PLAYBACK, "内录", "识别手机里其他 App 正在放的歌", MelodiaIcons.Phone)
 )
 
 // 聆听中顶部的方式切换，切换即按新方式重新开始
@@ -146,7 +146,7 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = option.label, color = MelodiaColors.OnAccent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(text = option.label, color = MelodiaColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (isLastUsed) {
                     Spacer(Modifier.width(MelodiaSpacing.sm))
                     Surface(shape = RoundedCornerShape(10.dp), color = MelodiaColors.AccentText.copy(alpha = 0.2f)) {
@@ -161,6 +161,6 @@ private fun ModeOptionCard(option: ModeOption, isLastUsed: Boolean, onClick: () 
             }
             Text(text = option.description, color = MelodiaColors.TextSecondary, fontSize = 13.sp)
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = MelodiaColors.TextSecondary)
+        Icon(MelodiaIcons.ChevronRight, contentDescription = null, tint = MelodiaColors.TextSecondary)
     }
 }

@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
@@ -70,6 +71,7 @@ fun SettingsPage(
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository,
     downloadScanner: DesktopDownloadFolderScanner,
+    lanLink: LanLinkDesktopHost,
     modifier: Modifier = Modifier,
     // SettingsCategory.name，从外部入口打开时定位到该分区
     focusCategory: String? = null,
@@ -82,8 +84,9 @@ fun SettingsPage(
 
     LaunchedEffect(desktop) { desktop.refresh() }
     LaunchedEffect(desktop) { desktop.messages.collect { navigator.showMessage(it) } }
+    LaunchedEffect(lanLink) { lanLink.messages.collect { navigator.showMessage(it) } }
 
-    val entries = settingsEntries(common, desktop, lxPlugins, plugins, updateChecker, localLibrary, downloadScanner)
+    val entries = settingsEntries(common, desktop, lxPlugins, plugins, updateChecker, localLibrary, downloadScanner, lanLink)
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
     val sections = SettingsCategory.entries.mapNotNull { category ->

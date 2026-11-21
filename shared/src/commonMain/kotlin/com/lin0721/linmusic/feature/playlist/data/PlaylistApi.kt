@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.EmptyBody
 import com.lin0721.linmusic.core.model.PlaylistCreator
 import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.model.SongPrivilege
 import com.lin0721.linmusic.core.model.Track
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
@@ -80,7 +81,9 @@ data class PlaylistDetailRequest(
 @Serializable
 data class PlaylistDetailResponse(
     val code: Int = 0,
-    val playlist: PlaylistDetail? = null
+    val playlist: PlaylistDetail? = null,
+    // 与 playlist 同级下发，按歌曲 id 对应
+    val privileges: List<SongPrivilege> = emptyList()
 ) {
     val isSuccess: Boolean get() = code == 200
 }

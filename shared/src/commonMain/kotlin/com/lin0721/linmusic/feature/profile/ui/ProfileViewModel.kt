@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.profile.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.profile.data.ProfileRepository
 import com.lin0721.linmusic.feature.profile.domain.ProfileListenRankItem
 import com.lin0721.linmusic.feature.profile.domain.ProfilePlaylistInfo
@@ -41,7 +42,8 @@ sealed interface ProfileUiState {
 
 class ProfileViewModel(
     private val profileRepository: ProfileRepository,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     // Koin 的 koinViewModel() 按类型缓存实例，同一个 uid 的 ViewModel 会被复用；
@@ -182,6 +184,11 @@ class ProfileViewModel(
             profileRepository.getUserListeningRank(uid, type = type)
                 .first()
                 .onSuccess { items ->
+                    val missingIds = items.asSequence()
+                        .filter { it.maxBrLevel.isNullOrBlank() }
+                        .map { it.songId }
+                        .toList()
+                    if (missingIds.isNotEmpty()) songQualityCache?.prefetchIds(missingIds)
                     val latest = _uiState.value as? ProfileUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
                         rankItems = items,

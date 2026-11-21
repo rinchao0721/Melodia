@@ -18,17 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.NorthWest
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,6 +53,14 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.ArrowUpLeft
+import com.lin0721.linmusic.core.ui.icons.MusicNote
 
 private val LeadingSize = 40.dp
 
@@ -87,7 +84,7 @@ internal fun SearchTypingPanel(
     if (query.isBlank()) {
         if (history.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(top = 96.dp), contentAlignment = Alignment.TopCenter) {
-                EmptyState(icon = Icons.Rounded.Search, title = "搜索歌曲、歌手、专辑或歌单")
+                EmptyState(icon = MelodiaIcons.Search, title = "搜索歌曲、歌手、专辑或歌单")
             }
             return
         }
@@ -114,12 +111,12 @@ internal fun SearchTypingPanel(
             items(history, key = { "history_$it" }) { keyword ->
                 PanelRow(
                     onClick = { onSubmitKeyword(keyword) },
-                    leading = { LeadingIcon(Icons.Rounded.History) },
+                    leading = { LeadingIcon(MelodiaIcons.History) },
                     title = AnnotatedString(keyword),
                     trailing = {
                         MelodiaIconButton(onClick = { onRemoveHistory(keyword) }) {
                             Icon(
-                                Icons.Rounded.Close,
+                                MelodiaIcons.Close,
                                 contentDescription = "删除搜索记录 $keyword",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
@@ -150,7 +147,7 @@ internal fun SearchTypingPanel(
         item(key = "submit_query") {
             PanelRow(
                 onClick = { onSubmitKeyword(query) },
-                leading = { LeadingIcon(Icons.Rounded.Search, tint = MaterialTheme.colorScheme.onSurface) },
+                leading = { LeadingIcon(MelodiaIcons.Search, tint = MaterialTheme.colorScheme.onSurface) },
                 title = AnnotatedString("搜索“$query”"),
                 titleWeight = FontWeight.Bold
             )
@@ -162,7 +159,7 @@ internal fun SearchTypingPanel(
             val fillButton: @Composable () -> Unit = {
                 MelodiaIconButton(onClick = { onFillQuery(suggestion.text) }) {
                     Icon(
-                        Icons.Rounded.NorthWest,
+                        MelodiaIcons.ArrowUpLeft,
                         contentDescription = "填入 ${suggestion.text}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
@@ -172,21 +169,21 @@ internal fun SearchTypingPanel(
             when (suggestion) {
                 is SearchSuggestion.ArtistMatch -> PanelRow(
                     onClick = { onArtistClick(suggestion.id) },
-                    leading = { SuggestionCover(suggestion.avatarUrl, Icons.Rounded.Person, circle = true) },
+                    leading = { SuggestionCover(suggestion.avatarUrl, MelodiaIcons.Person, circle = true) },
                     title = title,
                     subtitle = "歌手",
                     trailing = fillButton
                 )
                 is SearchSuggestion.AlbumMatch -> PanelRow(
                     onClick = { onAlbumClick(suggestion.id) },
-                    leading = { SuggestionCover(null, Icons.Rounded.Album, circle = false) },
+                    leading = { SuggestionCover(null, MelodiaIcons.Album, circle = false) },
                     title = title,
                     subtitle = listOf("专辑", suggestion.artistName).filter { it.isNotBlank() }.joinToString(" · "),
                     trailing = fillButton
                 )
                 is SearchSuggestion.Keyword -> PanelRow(
                     onClick = { onSubmitKeyword(suggestion.text) },
-                    leading = { LeadingIcon(Icons.Rounded.Search) },
+                    leading = { LeadingIcon(MelodiaIcons.Search) },
                     title = title,
                     trailing = fillButton
                 )
@@ -206,9 +203,9 @@ private fun SearchLinkHitCard(
     val isSong = target is SongLinkTarget.Song
     val isCircle = preview?.isCircleCover ?: (target is SongLinkTarget.Artist)
     val fallbackIcon = when (target) {
-        is SongLinkTarget.Song -> Icons.Rounded.MusicNote
-        is SongLinkTarget.Playlist -> if (target.isAlbum) Icons.Rounded.Album else Icons.AutoMirrored.Rounded.QueueMusic
-        is SongLinkTarget.Artist -> Icons.Rounded.Person
+        is SongLinkTarget.Song -> MelodiaIcons.MusicNote
+        is SongLinkTarget.Playlist -> if (target.isAlbum) MelodiaIcons.Album else MelodiaIcons.Queue
+        is SongLinkTarget.Artist -> MelodiaIcons.Person
     }
     val titleText = when {
         preview != null -> preview.title
@@ -257,7 +254,7 @@ private fun SearchLinkHitCard(
         if (isSong) {
             MelodiaIconButton(onClick = onEnqueueNext) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    imageVector = MelodiaIcons.PlaylistAdd,
                     contentDescription = "下一首播放",
                     tint = MelodiaColors.TextPrimary,
                     modifier = Modifier.size(20.dp)
@@ -266,7 +263,7 @@ private fun SearchLinkHitCard(
         }
         MelodiaIconButton(onClick = onPrimaryAction) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = MelodiaIcons.Play,
                 contentDescription = if (isSong) "插播" else "打开",
                 tint = MelodiaColors.AccentText,
                 modifier = Modifier.size(22.dp)

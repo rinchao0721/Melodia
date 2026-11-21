@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.lin0721.linmusic.core.share.ShareCardKind
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.comments.CommentsHost
@@ -42,6 +43,7 @@ class DesktopAppState(
     // 非空时显示分享卡片对话框；song 为 null 时分享当前正在播放的歌曲
     var shareCardTarget by mutableStateOf<ShareCardTarget?>(null)
     var showRecognition by mutableStateOf(false)
+    var titleBarEditMode by mutableStateOf(false)
 
     data class ShareCardTarget(val kind: ShareCardKind, val song: ShareSongInfo? = null)
     data class ShareSongInfo(
@@ -77,6 +79,13 @@ class DesktopAppState(
 
     fun showMessage(text: String) {
         _messages.tryEmit(text)
+    }
+
+    private val _collectPromptEvents = MutableSharedFlow<CollectPromptEvent>(extraBufferCapacity = 8)
+    val collectPromptEvents: SharedFlow<CollectPromptEvent> = _collectPromptEvents.asSharedFlow()
+
+    fun showCollectPrompt(event: CollectPromptEvent) {
+        _collectPromptEvents.tryEmit(event)
     }
 
     // ─── 历史 ───

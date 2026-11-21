@@ -12,7 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
@@ -47,6 +46,10 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
+import com.lin0721.linmusic.core.ui.components.rememberShowLikedBadge
+import kotlinx.coroutines.flow.Flow
 
 // 搜索展开、头图收起后第 0 项保留的最小高度：保证列表位置可恢复，也用于背板对齐
 private val CollapsedHeaderMinHeight = 1.dp
@@ -78,6 +81,8 @@ fun ArtistContent(
     onBlockClick: () -> Unit,
     onPlaySong: (Track, List<Track>) -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    collectPromptEvents: Flow<CollectPromptEvent>,
     onToggleLike: (Long, Boolean) -> Unit,
     onAddToPlayNext: (Track) -> Unit,
     onSaveCollection: (Long, List<PlaylistCollectItem>) -> Unit,
@@ -131,6 +136,12 @@ fun ArtistContent(
     }
 
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+
+    CollectPromptEffect(collectPromptEvents) { songId ->
+        collectSongId = songId
+        onLikeClick(songId)
+    }
+    val showLikedBadge = rememberShowLikedBadge()
     var showBioDialog by remember { mutableStateOf(false) }
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
@@ -252,6 +263,8 @@ fun ArtistContent(
                         selectionUi = selectionUi,
                         onPlaySong = onPlaySong,
                         onLikeClick = onLikeClick,
+                        onQuickLike = onQuickLike,
+                        showLikedBadge = showLikedBadge,
                         onOpenCollectSheet = { collectSongId = it },
                         onOpenMoreOptions = { track ->
                             if (!isLoggedIn) onRequireLogin() else optionsTrack = track
@@ -317,8 +330,7 @@ fun ArtistContent(
                 collectState = collectState,
                 onDismiss = { collectSongId = null },
                 onSaveCollection = onSaveCollection,
-                onSaveNewCollection = onSaveNewCollection,
-                confirmButtonShape = RoundedCornerShape(12.dp)
+                onSaveNewCollection = onSaveNewCollection
             )
         }
 

@@ -23,12 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -83,6 +77,10 @@ import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlin.math.max
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Unchecked
 
 private const val PLAYLIST_NAME_MAX_LENGTH = 40
 private const val DIVIDER_ALPHA = 0.5f
@@ -176,11 +174,11 @@ private fun CollectPanel(
             value = query,
             onValueChange = { query = it },
             placeholder = "查找歌单",
-            leading = { Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
+            leading = { Icon(MelodiaIcons.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
             trailing = if (query.isNotEmpty()) {
                 {
                     Icon(
-                        Icons.Rounded.Close,
+                        MelodiaIcons.Close,
                         "清除搜索",
                         tint = DesktopColors.TextGray,
                         modifier = Modifier.size(16.dp).pointerHoverIcon(PointerIcon.Hand).clickable { query = "" }
@@ -202,7 +200,7 @@ private fun CollectPanel(
                     .clickable { creating = true }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Add, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
+                Icon(MelodiaIcons.Plus, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(22.dp))
                 Text(
                     "新建歌单",
                     color = DesktopColors.TextPrimary,
@@ -263,7 +261,7 @@ private fun CollectPanel(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.padding(start = 4.dp).height(32.dp)
                 ) {
-                    Text("保存 $changeCount 项更改", color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("保存 $changeCount 项更改", color = DesktopColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -292,7 +290,7 @@ private fun CreateRow(name: String, onNameChange: (String) -> Unit, onSubmit: ()
             value = name,
             onValueChange = onNameChange,
             placeholder = "歌单名称",
-            leading = { Icon(Icons.Rounded.Add, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
+            leading = { Icon(MelodiaIcons.Plus, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp)) },
             modifier = Modifier.weight(1f),
             focusRequester = focusRequester,
             onSubmit = onSubmit
@@ -392,7 +390,7 @@ private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: ()
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
         )
         Icon(
-            if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            if (checked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.Unchecked,
             if (checked) "已加入" else "未加入",
             tint = if (checked) DesktopColors.Accent else DesktopColors.TextGray,
             modifier = Modifier.size(22.dp)

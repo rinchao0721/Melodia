@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,6 +29,8 @@ import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Group
 
 private val AvatarSize = 20.dp
 private val AvatarOverlap = 7.dp
@@ -76,7 +76,7 @@ fun ListenTogetherBadge(modifier: Modifier = Modifier) {
                     Modifier.size(AvatarSize).clip(CircleShape).background(DesktopColors.SurfaceLight),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Group, null, tint = DesktopColors.TextGray, modifier = Modifier.size(13.dp))
+                    Icon(MelodiaIcons.Group, null, tint = DesktopColors.TextGray, modifier = Modifier.size(13.dp))
                 }
             } else {
                 Box {

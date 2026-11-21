@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -32,6 +34,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.download.DownloadFolderScanner
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentState
+import com.lin0721.linmusic.core.player.ffmpeg.formatComponentSize
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -83,7 +89,14 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
     val smartCrossfadeEnabled by viewModel.smartCrossfadeEnabled.collectAsStateWithLifecycle()
     val loudnessNormalizationEnabled by viewModel.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
     val notificationButtons by viewModel.notificationButtons.collectAsStateWithLifecycle()
+    val ffmpegState by viewModel.ffmpegComponentState.collectAsStateWithLifecycle()
+    val ffmpegCatalogInfo by viewModel.ffmpegCatalogInfo.collectAsStateWithLifecycle()
     var showNotificationButtonsSheet by remember { mutableStateOf(false) }
+    var showFfmpegDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshFfmpegCatalog()
+    }
 
     // 渲染播放的子设置项
     SettingsPageColumn {
@@ -182,6 +195,31 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
                         onCheckedChange = { viewModel.updateSmartCrossfadeEnabled(it) }
                     )
                 }
+                HorizontalDivider(color = MelodiaColors.Divider)
+                val hasFfmpegUpdate = viewModel.hasFfmpegUpdate(ffmpegState, ffmpegCatalogInfo)
+                val ffmpegStatusText = when (val state = ffmpegState) {
+                    FfmpegComponentState.NotInstalled ->
+                        ffmpegCatalogInfo.remoteSizeBytes?.let { "未安装（约 ${formatComponentSize(it)}）" } ?: "未安装"
+                    is FfmpegComponentState.Downloading -> {
+                        val pct = state.progress?.let { " ${(it * 100).toInt()}%" }.orEmpty()
+                        "正在下载$pct…"
+                    }
+                    is FfmpegComponentState.Installed -> buildString {
+                        append("已安装 ${state.version}（${formatComponentSize(state.sizeBytes)}）")
+                        if (hasFfmpegUpdate && ffmpegCatalogInfo.remoteVersion != null) {
+                            append(" · 可更新至 ${ffmpegCatalogInfo.remoteVersion}")
+                        }
+                    }
+                    is FfmpegComponentState.Failed -> "失败：${state.reason}"
+                }
+                SettingsRow(
+                    title = "ffmpeg 解码组件",
+                    subtitle = "用于播放 ALAC 等系统不支持的音频格式 · $ffmpegStatusText",
+                    onClick = {
+                        viewModel.refreshFfmpegCatalog()
+                        showFfmpegDialog = true
+                    }
+                )
             }
         }
     }
@@ -193,6 +231,156 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
             onDismiss = { showNotificationButtonsSheet = false }
         )
     }
+
+    if (showFfmpegDialog) {
+        FfmpegComponentDialog(
+            state = ffmpegState,
+            catalogInfo = ffmpegCatalogInfo,
+            hasUpdate = viewModel.hasFfmpegUpdate(ffmpegState, ffmpegCatalogInfo),
+            onInstallOrUpdate = { viewModel.installOrUpdateFfmpegComponent() },
+            onRefreshCatalog = { viewModel.refreshFfmpegCatalog() },
+            onDelete = {
+                viewModel.deleteFfmpegComponent()
+                showFfmpegDialog = false
+            },
+            onDismiss = {
+                viewModel.cancelFfmpegInstallOrRestore()
+                showFfmpegDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun FfmpegComponentDialog(
+    state: FfmpegComponentState,
+    catalogInfo: FfmpegCatalogInfo,
+    hasUpdate: Boolean,
+    onInstallOrUpdate: () -> Unit,
+    onRefreshCatalog: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDownloading = state is FfmpegComponentState.Downloading
+    val isInstalled = state is FfmpegComponentState.Installed
+
+    AlertDialog(
+        onDismissRequest = { if (!isDownloading) onDismiss() },
+        title = {
+            Text("ffmpeg 解码组件", color = MelodiaColors.TextPrimary, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "用于在系统解码器不支持时兜底播放 ALAC 等音频格式，不影响系统原本可解码的音频。",
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+                when (state) {
+                    FfmpegComponentState.NotInstalled -> {
+                        Text("当前状态：未安装", color = MelodiaColors.TextPrimary, fontSize = 13.sp)
+                    }
+                    is FfmpegComponentState.Installed -> {
+                        Text(
+                            text = "已安装版本：${state.version}（${formatComponentSize(state.sizeBytes)}）",
+                            color = MelodiaColors.TextPrimary,
+                            fontSize = 13.sp
+                        )
+                    }
+                    is FfmpegComponentState.Downloading -> {
+                        val progress = state.progress
+                        if (progress != null) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "正在下载… ${(progress * 100).toInt()}%（${formatComponentSize(state.downloadedBytes)} / ${formatComponentSize(state.totalBytes)}）",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text("正在连接下载服务器…", color = MelodiaColors.TextSecondary, fontSize = 12.sp)
+                        }
+                    }
+                    is FfmpegComponentState.Failed -> {
+                        Text(
+                            text = state.reason,
+                            color = MelodiaColors.Error,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+                when {
+                    catalogInfo.checking -> {
+                        Text("正在检查远端组件版本…", color = MelodiaColors.TextTertiary, fontSize = 12.sp)
+                    }
+                    catalogInfo.remoteVersion != null -> {
+                        val sizePart = catalogInfo.remoteSizeBytes?.let { "（约 ${formatComponentSize(it)}）" }.orEmpty()
+                        Text(
+                            text = "远端版本：${catalogInfo.remoteVersion}$sizePart",
+                            color = MelodiaColors.TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    catalogInfo.error != null -> {
+                        Text(
+                            text = "目录检查失败：${catalogInfo.error}",
+                            color = MelodiaColors.TextTertiary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            when {
+                isDownloading -> {
+                    MelodiaTextButton(enabled = false, onClick = {}) {
+                        Text("下载中…", color = MelodiaColors.TextTertiary)
+                    }
+                }
+                isInstalled && !hasUpdate -> {
+                    MelodiaTextButton(
+                        enabled = !catalogInfo.checking,
+                        onClick = onRefreshCatalog
+                    ) {
+                        Text(
+                            text = if (catalogInfo.checking) "检查中…" else "检查更新",
+                            color = MelodiaColors.AccentText,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                else -> {
+                    val label = when {
+                        isInstalled && hasUpdate -> "更新"
+                        state is FfmpegComponentState.Failed -> "重试"
+                        else -> "下载"
+                    }
+                    MelodiaTextButton(onClick = onInstallOrUpdate) {
+                        Text(label, color = MelodiaColors.AccentText, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (isInstalled && !isDownloading) {
+                    MelodiaTextButton(onClick = onDelete) {
+                        Text("删除", color = MelodiaColors.Error)
+                    }
+                }
+                MelodiaTextButton(onClick = onDismiss) {
+                    Text(if (isDownloading) "取消" else "关闭", color = MelodiaColors.TextPrimary)
+                }
+            }
+        },
+        containerColor = MelodiaColors.Surface
+    )
 }
 
 @Composable

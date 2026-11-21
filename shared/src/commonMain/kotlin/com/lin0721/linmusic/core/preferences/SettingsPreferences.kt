@@ -10,6 +10,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeState
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.PersonalFmMode
@@ -40,8 +43,9 @@ private const val TAG = "SettingsPreferences"
 class SettingsPreferences(
     private val dataStore: DataStore<Preferences>,
     private val streamCacheDefault: Boolean = false,
-    private val userPreferences: UserPreferences? = null
-) {
+    private val userPreferences: UserPreferences? = null,
+    private val clockMs: () -> Long = { System.currentTimeMillis() }
+) : LanLinkPlaybackModeStore {
 
     companion object {
         // Wi-Fi 播放音质 KEY，默认 "lossless"
@@ -88,16 +92,12 @@ class SettingsPreferences(
         private val KEY_WIFI_ONLY_PLAY = booleanPreferencesKey("wifi_only_play")
         // 流量播放警告提示，默认 true
         private val KEY_MOBILE_ALERT = booleanPreferencesKey("mobile_alert")
-        // 使用代理服务器，默认 false
-        private val KEY_USE_PROXY = booleanPreferencesKey("use_proxy")
         // 启用桌面悬浮歌词，默认 false
         private val KEY_SHOW_DESKTOP_LRC = booleanPreferencesKey("show_desktop_lrc")
         // 启用系统锁屏显示，默认 true
         private val KEY_SHOW_LOCKSCREEN = booleanPreferencesKey("show_lockscreen")
         // 车载模式蓝牙自动启动，默认 false
         private val KEY_CAR_MODE = booleanPreferencesKey("car_mode")
-        // 底栏是否显示创建歌单快捷入口，默认 true
-        private val KEY_SHOW_CREATE_ENTRY = booleanPreferencesKey("show_create_entry")
         // 平板点击播放条时播放页直接全屏展开，默认 false（侧栏展开）
         private val KEY_PANEL_DEFAULT_FULLSCREEN = booleanPreferencesKey("panel_default_fullscreen")
         private val KEY_PLAYER_PAGE_MODE = stringPreferencesKey("player_page_mode")
@@ -163,8 +163,6 @@ class SettingsPreferences(
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
-        // 逐字歌词字词呼吸光晕动效，默认 false
-        private val KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT = booleanPreferencesKey("full_screen_karaoke_glow_effect")
         private val KEY_AMLL_LYRICS_ENABLED = booleanPreferencesKey("amll_lyrics_enabled")
         private val KEY_QQ_LYRICS_ENABLED = booleanPreferencesKey("qq_lyrics_enabled")
         private val KEY_NETEASE_LYRICS_ENABLED = booleanPreferencesKey("netease_lyrics_enabled")
@@ -179,6 +177,8 @@ class SettingsPreferences(
         private val KEY_SEARCH_SUGGESTION_ENABLED = booleanPreferencesKey("search_suggestion_enabled")
         private val KEY_HOME_RECENT_PLAY_ENABLED = booleanPreferencesKey("home_recent_play_enabled")
         private val KEY_HOME_FOR_YOU_ENABLED = booleanPreferencesKey("home_for_you_enabled")
+        private val KEY_HOME_SEARCH_BUTTON_ENABLED = booleanPreferencesKey("home_search_button_enabled")
+        private val KEY_SIDEBAR_MESSAGE_ENABLED = booleanPreferencesKey("sidebar_message_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
@@ -194,6 +194,7 @@ class SettingsPreferences(
         private val KEY_BOTTOM_BAR_LAYOUT = stringPreferencesKey("bottom_bar_layout")
         // 底栏仅显示图标模式，默认 false
         private val KEY_BOTTOM_BAR_ICON_ONLY = booleanPreferencesKey("bottom_bar_icon_only")
+        private val KEY_BOTTOM_BAR_GRADIENT = booleanPreferencesKey("bottom_bar_gradient")
         // 通知栏自定义按钮排序与显隐，格式见 NotificationButtonLayout
         private val KEY_NOTIFICATION_BUTTONS = stringPreferencesKey("notification_buttons")
         // 启动默认打开音乐库，默认 false
@@ -221,6 +222,15 @@ class SettingsPreferences(
         private val KEY_LAST_HANDLED_CLIPBOARD_LINK = stringPreferencesKey("last_handled_clipboard_link")
         // 上次选择的私人FM模式，默认 DEFAULT（未注入 UserPreferences 时使用旧全局键）
         private val KEY_PERSONAL_FM_MODE = stringPreferencesKey("personal_fm_mode")
+        // 歌曲列表是否常驻显示已喜欢标记，默认 true
+        val KEY_ALWAYS_SHOW_LIKED_BADGE = booleanPreferencesKey("always_show_liked_badge")
+        // 局域网联动开关，默认 false
+        private val KEY_LAN_LINK_ENABLED = booleanPreferencesKey("lan_link_enabled")
+        // 局域网联动后台保持连接开关，默认 true
+        private val KEY_LAN_LINK_BACKGROUND_KEEPALIVE = booleanPreferencesKey("lan_link_background_keepalive")
+        // 局域网联动播放模式与修改时间戳
+        private val KEY_LAN_LINK_PLAYBACK_MODE = stringPreferencesKey("lan_link_playback_mode")
+        private val KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS = longPreferencesKey("lan_link_playback_mode_updated_at_ms")
 
         private fun personalFmModeKeyFor(uid: Long?) =
             stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
@@ -473,17 +483,6 @@ class SettingsPreferences(
         }
     }
 
-    // 使用代理服务器 Flow
-    val useProxy: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_USE_PROXY] ?: false
-    }
-
-    suspend fun saveUseProxy(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[KEY_USE_PROXY] = enabled
-        }
-    }
-
     // 启用桌面悬浮歌词 Flow
     val showDesktopLrc: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_SHOW_DESKTOP_LRC] ?: false
@@ -519,15 +518,13 @@ class SettingsPreferences(
 
     // 底栏项目配置 Flow
     val bottomBarLayout: Flow<List<BottomBarItemSetting>> = dataStore.data.map { prefs ->
-        BottomBarLayout.decode(prefs[KEY_BOTTOM_BAR_LAYOUT], prefs[KEY_SHOW_CREATE_ENTRY])
+        BottomBarLayout.decode(prefs[KEY_BOTTOM_BAR_LAYOUT])
     }
 
     suspend fun saveBottomBarLayout(layout: List<BottomBarItemSetting>) {
         val normalized = BottomBarLayout.normalize(layout)
-        val createVisible = normalized.firstOrNull { it.item == BottomBarItem.CREATE }?.visible ?: true
         dataStore.edit { prefs ->
             prefs[KEY_BOTTOM_BAR_LAYOUT] = BottomBarLayout.encode(normalized)
-            prefs[KEY_SHOW_CREATE_ENTRY] = createVisible
         }
     }
 
@@ -539,6 +536,17 @@ class SettingsPreferences(
     suspend fun saveBottomBarIconOnly(iconOnly: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_BOTTOM_BAR_ICON_ONLY] = iconOnly
+        }
+    }
+
+    // 底栏渐变透明 Flow
+    val bottomBarGradient: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_BOTTOM_BAR_GRADIENT] ?: false
+    }
+
+    suspend fun saveBottomBarGradient(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_BOTTOM_BAR_GRADIENT] = enabled
         }
     }
 
@@ -561,23 +569,6 @@ class SettingsPreferences(
     suspend fun saveStartInLibrary(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_START_IN_LIBRARY] = enabled
-        }
-    }
-
-    // 底栏创建歌单快捷入口 Flow
-    val showCreateEntry: Flow<Boolean> = dataStore.data.map { prefs ->
-        val layout = BottomBarLayout.decode(prefs[KEY_BOTTOM_BAR_LAYOUT], prefs[KEY_SHOW_CREATE_ENTRY])
-        layout.firstOrNull { it.item == BottomBarItem.CREATE }?.visible ?: true
-    }
-
-    suspend fun saveShowCreateEntry(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            val layout = BottomBarLayout.decode(prefs[KEY_BOTTOM_BAR_LAYOUT], prefs[KEY_SHOW_CREATE_ENTRY])
-            val updated = layout.map {
-                if (it.item == BottomBarItem.CREATE) it.copy(visible = enabled) else it
-            }
-            prefs[KEY_BOTTOM_BAR_LAYOUT] = BottomBarLayout.encode(updated)
-            prefs[KEY_SHOW_CREATE_ENTRY] = enabled
         }
     }
 
@@ -989,6 +980,24 @@ class SettingsPreferences(
         dataStore.edit { prefs -> prefs[KEY_HOME_FOR_YOU_ENABLED] = enabled }
     }
 
+    // 首页顶栏搜索按钮开关，默认启用
+    val homeSearchButtonEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_HOME_SEARCH_BUTTON_ENABLED] ?: true
+    }
+
+    suspend fun saveHomeSearchButtonEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_HOME_SEARCH_BUTTON_ENABLED] = enabled }
+    }
+
+    // 侧栏消息区开关，默认启用
+    val sidebarMessageEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SIDEBAR_MESSAGE_ENABLED] ?: true
+    }
+
+    suspend fun saveSidebarMessageEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SIDEBAR_MESSAGE_ENABLED] = enabled }
+    }
+
     // 逐字歌词流光动效 Flow
     val fullScreenKaraokeAdvancedEffect: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] ?: true
@@ -997,17 +1006,6 @@ class SettingsPreferences(
     suspend fun saveFullScreenKaraokeAdvancedEffect(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT] = enabled
-        }
-    }
-
-    // 逐字歌词字词呼吸光晕动效 Flow，默认 false
-    val fullScreenKaraokeGlowEffect: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT] ?: false
-    }
-
-    suspend fun saveFullScreenKaraokeGlowEffect(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[KEY_FULL_SCREEN_KARAOKE_GLOW_EFFECT] = enabled
         }
     }
 
@@ -1203,6 +1201,76 @@ class SettingsPreferences(
     suspend fun setLastHandledClipboardLink(text: String) {
         dataStore.edit { prefs ->
             prefs[KEY_LAST_HANDLED_CLIPBOARD_LINK] = text
+        }
+    }
+
+    // 歌曲列表是否常驻显示已喜欢标记 Flow，默认开启
+    val alwaysShowLikedBadge: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_ALWAYS_SHOW_LIKED_BADGE] ?: true
+    }
+
+    suspend fun saveAlwaysShowLikedBadge(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_ALWAYS_SHOW_LIKED_BADGE] = enabled
+        }
+    }
+
+    // 局域网联动开关，默认关闭
+    val lanLinkEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LAN_LINK_ENABLED] ?: false
+    }
+
+    suspend fun saveLanLinkEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAN_LINK_ENABLED] = enabled
+        }
+    }
+
+    // 局域网联动后台保持连接开关，默认开启
+    val lanLinkBackgroundKeepalive: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_LAN_LINK_BACKGROUND_KEEPALIVE] ?: true
+    }
+
+    suspend fun saveLanLinkBackgroundKeepalive(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAN_LINK_BACKGROUND_KEEPALIVE] = enabled
+        }
+    }
+
+    // 局域网联动播放模式状态流（含时间戳，供跨端 Last-Write-Wins 同步）
+    val lanLinkPlaybackModeState: Flow<LanLinkPlaybackModeState> = dataStore.data.map { prefs ->
+        LanLinkPlaybackModeState(
+            mode = LanLinkPlaybackMode.fromKey(prefs[KEY_LAN_LINK_PLAYBACK_MODE]),
+            updatedAtMs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+        )
+    }.distinctUntilChanged()
+
+    // 局域网联动播放模式，默认「单一播放设备」
+    val lanLinkPlaybackMode: Flow<LanLinkPlaybackMode> = lanLinkPlaybackModeState
+        .map { it.mode }
+        .distinctUntilChanged()
+
+    override val state: Flow<LanLinkPlaybackModeState> = lanLinkPlaybackModeState
+
+    suspend fun saveLanLinkPlaybackMode(
+        mode: LanLinkPlaybackMode,
+        updatedAtMs: Long = clockMs()
+    ) {
+        dataStore.edit { prefs ->
+            val currentTs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+            val effectiveTs = maxOf(updatedAtMs, currentTs + 1L)
+            prefs[KEY_LAN_LINK_PLAYBACK_MODE] = mode.key
+            prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] = effectiveTs
+        }
+    }
+
+    override suspend fun applySynced(mode: LanLinkPlaybackMode, updatedAtMs: Long) {
+        dataStore.edit { prefs ->
+            val currentTs = prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] ?: 0L
+            if (updatedAtMs >= currentTs) {
+                prefs[KEY_LAN_LINK_PLAYBACK_MODE] = mode.key
+                prefs[KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS] = updatedAtMs
+            }
         }
     }
 

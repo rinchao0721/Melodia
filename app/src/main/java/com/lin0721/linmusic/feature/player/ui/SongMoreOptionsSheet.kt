@@ -9,9 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +45,19 @@ import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddToQueue
+import com.lin0721.linmusic.core.ui.icons.Subtitles
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Group
+import com.lin0721.linmusic.core.ui.icons.Sparkle
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -173,7 +183,7 @@ fun SongMoreOptionsSheet(
                 if (!isPodcast) {
                     // 1. 专辑信息项
                     OptionRow(
-                        icon = Icons.Rounded.Album,
+                        icon = MelodiaIcons.Album,
                         text = "专辑: $albumName",
                         onClick = {
                             scope.launch {
@@ -186,7 +196,7 @@ fun SongMoreOptionsSheet(
 
                     // 2. 歌手信息项
                     OptionRow(
-                        icon = Icons.Rounded.Person,
+                        icon = MelodiaIcons.Person,
                         text = "歌手: $artist",
                         onClick = {
                             scope.launch {
@@ -202,7 +212,7 @@ fun SongMoreOptionsSheet(
 
                 // 3. 收藏到歌单
                 if (!isPodcast) OptionRow(
-                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
                         scope.launch {
@@ -218,7 +228,7 @@ fun SongMoreOptionsSheet(
             // 本地歌曲无法作为种子开启，但已处于心动模式时仍保留关闭入口
             if (!isPodcast && (!isLocalOnly || isIntelligence)) {
                 OptionRow(
-                    icon = Icons.Rounded.AutoAwesome,
+                    icon = MelodiaIcons.Sparkle,
                     text = if (isIntelligence) "关闭心动模式" else "打开心动模式",
                     onClick = {
                         scope.launch {
@@ -232,7 +242,7 @@ fun SongMoreOptionsSheet(
 
             if (isPersonalFm) {
                 OptionRow(
-                    icon = Icons.Rounded.Radio,
+                    icon = MelodiaIcons.Radio,
                     text = "切换FM模式 (${personalFmMode.displayName})",
                     onClick = {
                         scope.launch {
@@ -243,7 +253,7 @@ fun SongMoreOptionsSheet(
                     }
                 )
                 OptionRow(
-                    icon = Icons.Rounded.Close,
+                    icon = MelodiaIcons.Close,
                     text = "退出私人FM",
                     onClick = {
                         scope.launch {
@@ -259,7 +269,7 @@ fun SongMoreOptionsSheet(
                 if (!isPodcast) {
                     // 5. 开始相似歌曲漫游
                     OptionRow(
-                        icon = Icons.Rounded.Explore,
+                        icon = MelodiaIcons.Explore,
                         text = "开始相似歌曲漫游",
                         onClick = {
                             scope.launch {
@@ -272,7 +282,7 @@ fun SongMoreOptionsSheet(
 
                     // 5. 插播相似歌曲
                     OptionRow(
-                        icon = Icons.Rounded.QueueMusic,
+                        icon = MelodiaIcons.AddToQueue,
                         text = "插播相似歌曲",
                         onClick = {
                             scope.launch {
@@ -289,7 +299,7 @@ fun SongMoreOptionsSheet(
                 // 仅网易云歌曲：外部平台歌曲为负 id，本地未匹配歌曲已由外层 isLocalOnly 排除
                 if (!isPodcast && (songId ?: 0L) > 0L) {
                     OptionRow(
-                        icon = Icons.Rounded.Group,
+                        icon = MelodiaIcons.Group,
                         text = "一起听",
                         onClick = {
                             scope.launch {
@@ -303,7 +313,7 @@ fun SongMoreOptionsSheet(
 
                 // 6. 分享
                 OptionRow(
-                    icon = Icons.Rounded.Share,
+                    icon = MelodiaIcons.Share,
                     text = "分享",
                     onClick = {
                         scope.launch {
@@ -317,7 +327,7 @@ fun SongMoreOptionsSheet(
                 if (!isPodcast) {
                     // 下载
                     OptionRow(
-                        icon = Icons.Rounded.Download,
+                        icon = MelodiaIcons.Download,
                         text = "下载",
                         onClick = {
                             scope.launch {
@@ -340,7 +350,7 @@ fun SongMoreOptionsSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Tune,
+                            imageVector = MelodiaIcons.Tune,
                             contentDescription = null,
                             tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                             modifier = Modifier.size(24.dp)
@@ -424,7 +434,7 @@ fun SongMoreOptionsSheet(
                                         )
                                         if (isSelected) {
                                             Icon(
-                                                imageVector = Icons.Rounded.Check,
+                                                imageVector = MelodiaIcons.Check,
                                                 contentDescription = null,
                                                 tint = MelodiaColors.Accent,
                                                 modifier = Modifier.size(20.dp)
@@ -443,7 +453,7 @@ fun SongMoreOptionsSheet(
                     val pluginCommands = LocalPluginCommands.current
                     rememberPluginCommands(PluginMenuLocation.SONG).forEach { item ->
                         OptionRow(
-                            icon = Icons.Rounded.Extension,
+                            icon = MelodiaIcons.Plugin,
                             text = item.title,
                             onClick = {
                                 scope.launch {
@@ -463,7 +473,7 @@ fun SongMoreOptionsSheet(
                     "定时关闭"
                 }
                 OptionRow(
-                    icon = Icons.Rounded.AccessTime,
+                    icon = MelodiaIcons.Clock,
                     text = timerText,
                     onClick = {
                         scope.launch {
@@ -483,7 +493,7 @@ fun SongMoreOptionsSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Subtitles,
+                        imageVector = MelodiaIcons.Subtitles,
                         contentDescription = null,
                         tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
                         modifier = Modifier.size(24.dp)

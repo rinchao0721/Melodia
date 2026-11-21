@@ -13,6 +13,8 @@ sealed interface RadioDetailUiState {
         val programs: List<PodcastProgram>,
         val isLoadingMore: Boolean = false,
         val hasMore: Boolean = false,
+        // 翻页失败的提示，非空时停止自动翻页，等用户点重试
+        val loadMoreError: String? = null,
         // 订阅请求进行中，按钮置为等待态防止连点
         val isSubscribing: Boolean = false,
         // 为真时按期号从旧到新排列

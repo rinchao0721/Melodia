@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.home.data
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.EmptyBody
+import com.lin0721.linmusic.core.model.SongPrivilege
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
@@ -108,6 +109,7 @@ data class DailySong(
     val ar: List<Artist> = emptyList(),
     val al: Album = Album(),
     val fee: Int = 0,
+    val privilege: SongPrivilege? = null,
     // 推荐理由（例如："根据你喜欢的 xxx 推荐"）
     val reason: String? = null
 )

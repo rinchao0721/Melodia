@@ -8,15 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Comment
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +46,16 @@ import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Comment
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全出血 Hero（LazyColumn Item 1）
@@ -192,7 +193,7 @@ fun PlaylistHeaderItem(
                                 Spacer(Modifier.width(6.dp))
                                 Text(creator.nickname, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             } else {
-                                Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Icon(MelodiaIcons.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text("为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
@@ -231,7 +232,7 @@ fun PlaylistHeaderItem(
                                         fontWeight = FontWeight.Medium
                                     )
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                        imageVector = MelodiaIcons.ChevronRight,
                                         contentDescription = "展开完整介绍",
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(14.dp)
@@ -262,7 +263,7 @@ fun PlaylistHeaderItem(
                             if (!isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
-                                        imageVector = if (isSubscribed) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
+                                        imageVector = if (isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                                         contentDescription = if (isSubscribed) "取消收藏" else "收藏",
                                         tint = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
@@ -272,7 +273,7 @@ fun PlaylistHeaderItem(
                             if (!isPluginCollectionId(playlist.id)) {
                                 MelodiaIconButton(onClick = onCommentsClick) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Comment,
+                                        imageVector = MelodiaIcons.Comment,
                                         contentDescription = "评论",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
@@ -280,7 +281,7 @@ fun PlaylistHeaderItem(
                                 }
                                 MelodiaIconButton(onClick = onShareClick) {
                                     Icon(
-                                        imageVector = Icons.Default.Share,
+                                        imageVector = MelodiaIcons.Share,
                                         contentDescription = "分享",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
@@ -291,7 +292,7 @@ fun PlaylistHeaderItem(
                             if (isLikedSongsPlaylistView || isOwnedPlaylist) {
                                 MelodiaIconButton(onClick = onDownloadClick) {
                                     Icon(
-                                        imageVector = Icons.Default.Download,
+                                        imageVector = MelodiaIcons.Download,
                                         contentDescription = "下载",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
@@ -302,7 +303,7 @@ fun PlaylistHeaderItem(
                             if (!isLikedSongsPlaylistView) {
                                 MelodiaIconButton(onClick = onMoreClick) {
                                     Icon(
-                                        imageVector = Icons.Default.MoreVert,
+                                        imageVector = MelodiaIcons.MoreVert,
                                         contentDescription = "更多",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
@@ -316,7 +317,7 @@ fun PlaylistHeaderItem(
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Shuffle,
+                                    MelodiaIcons.Shuffle,
                                     "随机播放",
                                     tint = if (isShuffleActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(28.dp)

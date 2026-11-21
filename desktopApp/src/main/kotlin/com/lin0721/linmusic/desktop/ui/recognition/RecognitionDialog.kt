@@ -43,19 +43,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MicOff
-import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.StopCircle
-import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -129,6 +116,18 @@ import com.lin0721.linmusic.feature.recognition.ui.RecognitionUiState
 import com.lin0721.linmusic.feature.recognition.ui.groupRecognitionHistory
 import kotlinx.coroutines.launch
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.VolumeOff
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Error as ErrorIcon
+import com.lin0721.linmusic.core.ui.icons.Info
+import com.lin0721.linmusic.core.ui.icons.Mic
+import com.lin0721.linmusic.core.ui.icons.MicOff
+import com.lin0721.linmusic.core.ui.icons.MusicOff
+import com.lin0721.linmusic.core.ui.icons.WifiOff
 
 private val DialogWidth = 780.dp
 private val BodyHeight = 440.dp
@@ -165,7 +164,7 @@ internal fun RecognitionDialog(
     val trackActions = rememberRecognitionTrackActions(controller, songActions) { track, dismiss ->
         val entry = menuEntry?.takeIf { it.songId == track.id } ?: return@rememberRecognitionTrackActions
         MenuDivider()
-        MenuItem("从识别历史删除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+        MenuItem("从识别历史删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
             dismiss()
             recognition.removeHistory(entry.id)
         })
@@ -269,14 +268,14 @@ private fun StageContent(
             )
             is RecognitionUiState.Failed -> FailedContent(current.reason, current.progress, mode, onRetry = { recognition.start() })
             is RecognitionUiState.PermissionRequired -> MessageContent(
-                icon = Icons.Rounded.MicOff,
+                icon = MelodiaIcons.MicOff,
                 title = "无法使用麦克风",
                 subtitle = "请在系统设置的隐私设置中允许应用访问麦克风",
                 buttonText = "重试",
                 onClick = { recognition.start() }
             )
             RecognitionUiState.Idle, is RecognitionUiState.ChoosingMode -> MessageContent(
-                icon = if (mode == RecognitionMode.PLAYBACK) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
+                icon = if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.Recognition else MelodiaIcons.Mic,
                 title = "听歌识曲",
                 subtitle = if (mode == RecognitionMode.PLAYBACK) "识别电脑正在播放的声音" else "让麦克风听一段正在播放的音乐",
                 buttonText = "开始识别",
@@ -299,6 +298,11 @@ private fun rememberRecognitionTrackActions(
     return rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = { songId ->
+            scope.launch {
+                songActions.collect.quickLike(songId) { navigator.showMessage(it) }
+            }
+        },
         onToggleLike = { songId, like ->
             scope.launch {
                 songActions.likes.likeSong(songId, like).collect { result ->
@@ -432,7 +436,7 @@ private fun ListeningOrb(mode: RecognitionMode) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                if (mode == RecognitionMode.PLAYBACK) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
+                if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.Recognition else MelodiaIcons.Mic,
                 null,
                 tint = DesktopColors.TextPrimary,
                 modifier = Modifier.size(30.dp)
@@ -467,7 +471,7 @@ private fun ListeningContent(progress: RecognitionProgress, mode: RecognitionMod
         Spacer(Modifier.height(12.dp))
         AttemptChips(progress.attempts)
         Spacer(Modifier.weight(1f))
-        PlaylistPill(Icons.Rounded.Close, "取消", onCancel)
+        PlaylistPill(MelodiaIcons.Close, "取消", onCancel)
     }
 }
 
@@ -581,7 +585,7 @@ private fun FoundContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         DialogButton("从 ${formatDuration(best.startTimeMs)} 播放", { onPlay(best) }, primary = true)
-                        PlaylistPill(Icons.Rounded.Refresh, "再识别", onRetry)
+                        PlaylistPill(MelodiaIcons.Refresh, "再识别", onRetry)
                     }
                 }
             }
@@ -676,12 +680,12 @@ private fun StageIcon(icon: ImageVector, modifier: Modifier = Modifier) {
 }
 
 private fun failureIcon(reason: RecognitionFailedReason, mode: RecognitionMode): ImageVector = when (reason) {
-    RecognitionFailedReason.NOT_FOUND -> Icons.Rounded.MusicOff
-    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) Icons.AutoMirrored.Rounded.VolumeOff else Icons.Rounded.MicOff
-    RecognitionFailedReason.NETWORK -> Icons.Rounded.WifiOff
-    RecognitionFailedReason.RECORDER_UNAVAILABLE -> Icons.Rounded.MicOff
-    RecognitionFailedReason.STOPPED -> Icons.Rounded.StopCircle
-    RecognitionFailedReason.ENGINE_UNAVAILABLE, RecognitionFailedReason.UNKNOWN -> Icons.Rounded.ErrorOutline
+    RecognitionFailedReason.NOT_FOUND -> MelodiaIcons.MusicOff
+    RecognitionFailedReason.SILENT -> if (mode == RecognitionMode.PLAYBACK) MelodiaIcons.VolumeOff else MelodiaIcons.MicOff
+    RecognitionFailedReason.NETWORK -> MelodiaIcons.WifiOff
+    RecognitionFailedReason.RECORDER_UNAVAILABLE -> MelodiaIcons.MicOff
+    RecognitionFailedReason.STOPPED -> MelodiaIcons.Info
+    RecognitionFailedReason.ENGINE_UNAVAILABLE, RecognitionFailedReason.UNKNOWN -> MelodiaIcons.ErrorIcon
 }
 
 private fun failureCopy(reason: RecognitionFailedReason, progress: RecognitionProgress, mode: RecognitionMode): Pair<String, String> =
@@ -826,7 +830,7 @@ private fun SongLine(
             HoverReveal(revealed = hovered || menuOpen) {
                 DesktopTooltip("播放") {
                     IconButton(onClick = onPlay, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.PlayArrow, "播放", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
+                        Icon(MelodiaIcons.Play, "播放", tint = DesktopColors.TextPrimary, modifier = Modifier.size(20.dp))
                     }
                 }
             }

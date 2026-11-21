@@ -77,6 +77,7 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_MINI_LYRIC_SIDE_LINES = booleanPreferencesKey("mini_lyric_side_lines")
         private val KEY_MINI_LYRIC_ALIGN = stringPreferencesKey("mini_lyric_align")
         private val KEY_LIBRARY_SHORTCUTS = stringPreferencesKey("library_shortcuts")
+        private val KEY_TITLE_BAR_LAYOUT = stringPreferencesKey("title_bar_layout")
 
         val DEFAULT_DESKTOP_LYRIC_STYLE = FloatingLyricStyle(fontSizeSp = 28)
     }
@@ -207,6 +208,13 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveLibraryShortcuts(layout: List<LibraryShortcutSetting>) {
         dataStore.edit { it[KEY_LIBRARY_SHORTCUTS] = LibraryShortcutLayout.encode(layout) }
+    }
+
+    val titleBarLayout: Flow<TitleBarLayout> =
+        dataStore.data.map { TitleBarLayoutCodec.decode(it[KEY_TITLE_BAR_LAYOUT]) }.distinctUntilChanged()
+
+    suspend fun saveTitleBarLayout(layout: TitleBarLayout) {
+        dataStore.edit { it[KEY_TITLE_BAR_LAYOUT] = TitleBarLayoutCodec.encode(layout) }
     }
 
     // 拖动调整过的栏宽（dp），未调整过为 null

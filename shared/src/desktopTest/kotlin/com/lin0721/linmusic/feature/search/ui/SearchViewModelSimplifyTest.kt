@@ -139,18 +139,57 @@ class SearchViewModelSimplifyTest {
 
         assertTrue(vm.inputState.value.currentSuggestions.isEmpty())
     }
+
+    @Test
+    fun `关闭热搜后不请求热搜接口，重新打开后恢复`() = runTest(scheduler) {
+        settings.saveHotSearchEnabled(false)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.hotCalls)
+        assertTrue((vm.discoveryState.value as DiscoveryUiState.Success).hotSearches.isEmpty())
+
+        settings.saveHotSearchEnabled(true)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.hotCalls)
+        assertEquals(listOf("周杰伦"), (vm.discoveryState.value as DiscoveryUiState.Success).hotSearches.map { it.keyword })
+    }
+
+    @Test
+    fun `热搜和歌单分类都关闭时，即使推荐词接口失败也保持空白成功态`() = runTest(scheduler) {
+        repository.failKeyword = true
+        settings.saveHotSearchEnabled(false)
+        settings.savePlaylistTagsEnabled(false)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.hotCalls)
+        assertEquals(0, repository.tagsCalls)
+        val state = vm.discoveryState.value
+        assertTrue(state is DiscoveryUiState.Success)
+        val success = state as DiscoveryUiState.Success
+        assertTrue(success.hotSearches.isEmpty())
+        assertTrue(success.playlistTags.isEmpty())
+    }
 }
 
 private class CountingSearchRepository : SearchRepository {
+    var hotCalls = 0
     var tagsCalls = 0
     var suggestionCalls = 0
+    var failKeyword = false
 
-    override fun getDefaultSearchKeyword(): Flow<Result<String>> = flowOf(Result.success(""))
+    override fun getDefaultSearchKeyword(): Flow<Result<String>> =
+        flowOf(if (failKeyword) Result.failure(IllegalStateException("网络异常")) else Result.success(""))
 
     override fun search(keyword: String, type: SearchType, offset: Int, limit: Int): Flow<Result<SearchPageResult>> =
         flowOf(Result.failure(IllegalStateException("未实现")))
 
-    override fun getHotSearches(): Flow<Result<List<HotSearch>>> = flowOf(Result.success(emptyList()))
+    override fun getHotSearches(): Flow<Result<List<HotSearch>>> {
+        hotCalls++
+        return flowOf(Result.success(listOf(HotSearch(keyword = "周杰伦", score = 100))))
+    }
 
     override fun getPlaylistTags(): Flow<Result<List<PlaylistTag>>> {
         tagsCalls++

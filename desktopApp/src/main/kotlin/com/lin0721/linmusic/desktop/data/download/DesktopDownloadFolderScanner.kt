@@ -4,10 +4,12 @@ import com.lin0721.linmusic.core.download.recognition.LocalAudioEntry
 import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
 import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
 import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
+import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
 import com.lin0721.linmusic.core.download.recognition.parseDownloadFileName
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.desktop.data.local.isAudioFile
 import com.lin0721.linmusic.desktop.data.local.normalizePath
+import com.lin0721.linmusic.desktop.data.local.resolveDesktopAudioCodec
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,13 +80,24 @@ class DesktopDownloadFolderScanner(private val indexStore: LocalAudioIndexStore)
         val durationMs = header?.let { (it.preciseTrackLength * 1000).toLong() }?.takeIf { it > 0 } ?: 0L
         val size = file.length()
         val bitrate = header?.bitRateAsNumber?.toInt()?.takeIf { it > 0 } ?: estimateBitrateKbps(size, durationMs)
+        val sampleRate = header?.sampleRateAsNumber ?: 0
+        val bitDepth = header?.bitsPerSample ?: 0
+        val quality = inferAudioQuality(
+            extension = file.extension,
+            codec = resolveDesktopAudioCodec(header),
+            bitrateKbps = bitrate,
+            sampleRateHz = sampleRate,
+            bitDepth = bitDepth,
+            sizeBytes = size,
+            durationMs = durationMs
+        ) ?: guessAudioQuality(file.extension, bitrate, sampleRate, bitDepth)
         return LocalAudioEntry(
             uri = normalizePath(file.path),
             title = title,
             artist = artist,
             durationMs = durationMs,
             sizeBytes = size,
-            quality = guessAudioQuality(file.extension, bitrate, header?.sampleRateAsNumber ?: 0, header?.bitsPerSample ?: 0),
+            quality = quality,
             songIdTag = runCatching { tag?.readSongId() }.getOrNull()
         )
     }

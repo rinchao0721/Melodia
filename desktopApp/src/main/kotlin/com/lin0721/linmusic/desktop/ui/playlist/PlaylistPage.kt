@@ -34,27 +34,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -147,6 +126,25 @@ import com.lin0721.linmusic.feature.playlist.ui.PlaylistUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.util.Collections
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Pause
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.ArrowDown
+import com.lin0721.linmusic.core.ui.icons.ArrowUp
+import com.lin0721.linmusic.core.ui.icons.Checklist
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Clock
+import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val TRACK_LOAD_MORE_THRESHOLD = 10
@@ -420,6 +418,7 @@ private fun PlaylistContent(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = viewModel::quickLike,
         onToggleLike = viewModel::toggleLikeSong,
         onPlayNext = viewModel::addTrackToPlayNext,
         onPrepareCollect = viewModel::prepareCollectDialog,
@@ -593,8 +592,8 @@ private fun PlaylistContent(
                             Modifier.padding(start = HeaderPadding, end = HeaderPadding, bottom = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaylistPill(Icons.Rounded.Add, "添加") { dialogState.showAddSongs = true }
-                            PlaylistPill(Icons.Rounded.Edit, "名称和详情") { dialogState.showEdit = true }
+                            PlaylistPill(MelodiaIcons.Plus, "添加") { dialogState.showAddSongs = true }
+                            PlaylistPill(MelodiaIcons.Edit, "名称和详情") { dialogState.showEdit = true }
                         }
                     }
                 }
@@ -710,7 +709,7 @@ private fun PlaylistContent(
                                     onClick = { viewModel.addRecommendSongToPlaylist(playlist.id, track) },
                                     modifier = Modifier.padding(start = 4.dp).size(32.dp)
                                 ) {
-                                    Icon(Icons.Rounded.Add, "添加到歌单", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                                    Icon(MelodiaIcons.Plus, "添加到歌单", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -838,7 +837,7 @@ internal fun PlaylistStickyBar(
             enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
             exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
-            PlayCircleButton(StickyPlayButtonSize, 28.dp, isPlaying, onPlay, Modifier.padding(end = 12.dp))
+            PlayCircleButton(StickyPlayButtonSize, 21.dp, isPlaying, onPlay, Modifier.padding(end = 12.dp))
         }
         Text(
             name,
@@ -866,9 +865,9 @@ internal fun PlayCircleButton(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                if (isPlaying) MelodiaIcons.Pause else MelodiaIcons.Play,
                 if (isPlaying) "暂停" else "播放全部",
-                tint = DesktopColors.TextPrimary,
+                tint = DesktopColors.OnAccent,
                 modifier = Modifier.size(iconSize)
             )
         }
@@ -912,16 +911,16 @@ private fun PlaylistActionBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PlayCircleButton(PlayButtonSize, 32.dp, isPlaying, onPlay)
+        PlayCircleButton(PlayButtonSize, 24.dp, isPlaying, onPlay)
         ActionIcon(
-            Icons.Rounded.Shuffle,
+            MelodiaIcons.Shuffle,
             if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
             tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
             onClick = onToggleShuffle
         )
         if (canSubscribe) {
             ActionIcon(
-                if (isSubscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
                 if (isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel",
                 tint = if (isSubscribed) DesktopColors.Accent else DesktopColors.TextGray,
                 onClick = onToggleSubscribe
@@ -929,19 +928,19 @@ private fun PlaylistActionBar(
         }
         if (showComments) {
             ActionIcon(
-                Icons.Rounded.ChatBubbleOutline,
+                MelodiaIcons.Comment,
                 "${resourceLabel}评论",
                 tint = if (commentsOpen) DesktopColors.TextPrimary else DesktopColors.TextGray,
                 onClick = onToggleComments
             )
         }
-        if (canDownload) ActionIcon(Icons.Rounded.Download, "下载$resourceLabel", onClick = onDownload)
+        if (canDownload) ActionIcon(MelodiaIcons.Download, "下载$resourceLabel", onClick = onDownload)
         PlaylistMoreMenu(
             resourceLabel, canDelete, canCopyLink, onPlayNextAll,
             importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete
         )
         Spacer(Modifier.weight(1f))
-        ActionIcon(Icons.Rounded.Checklist, "多选", onClick = onEnterSelection)
+        ActionIcon(MelodiaIcons.Checklist, "多选", iconSize = 20.dp, onClick = onEnterSelection)
         PlaylistSearchBox(query, onQueryChange)
         PlaylistSortMenu(order, showAdded) { key ->
             onOrderChange(if (key == PlaylistSortKey.CUSTOM) PlaylistSortOrder() else PlaylistSortOrder(key, true))
@@ -954,11 +953,12 @@ internal fun ActionIcon(
     icon: ImageVector,
     description: String,
     tint: Color = DesktopColors.TextGray,
+    iconSize: Dp = 28.dp,
     onClick: () -> Unit
 ) {
     DesktopTooltip(description) {
         IconButton(onClick = onClick) {
-            Icon(icon, description, tint = tint, modifier = Modifier.size(28.dp))
+            Icon(icon, description, tint = tint, modifier = Modifier.size(iconSize))
         }
     }
 }
@@ -979,14 +979,14 @@ private fun PlaylistMoreMenu(
     val navigator = LocalDesktopNavigator.current
     var expanded by remember { mutableStateOf(false) }
     Box {
-        ActionIcon(Icons.Rounded.MoreHoriz, "更多") { expanded = true }
+        ActionIcon(MelodiaIcons.MoreHoriz, "更多") { expanded = true }
         DesktopMenu(expanded = expanded, onDismiss = { expanded = false }) {
-            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                 expanded = false
                 onPlayNextAll()
             })
             if (navigator.isLoggedIn) {
-                SubMenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = onPrepareImport) {
+                SubMenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = onPrepareImport) {
                     ImportSubmenuContent(importState, onImportTo = {
                         expanded = false
                         onImportTo(it)
@@ -996,20 +996,20 @@ private fun PlaylistMoreMenu(
                     })
                 }
             } else {
-                MenuItem("添加到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                MenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                     expanded = false
                     navigator.showMessage("请先登录账号")
                 })
             }
             if (canCopyLink) {
-                MenuItem("复制${resourceLabel}链接", icon = Icons.Rounded.Link, onClick = {
+                MenuItem("复制${resourceLabel}链接", icon = MelodiaIcons.Link, onClick = {
                     expanded = false
                     onCopyLink()
                 })
             }
             if (canDelete) {
                 MenuDivider()
-                MenuItem("删除歌单", icon = Icons.Rounded.Delete, danger = true, onClick = {
+                MenuItem("删除歌单", icon = MelodiaIcons.Delete, danger = true, onClick = {
                     expanded = false
                     onDelete()
                 })
@@ -1082,7 +1082,7 @@ internal fun PlaylistSearchBox(query: String, onQueryChange: (String) -> Unit) {
         } else {
             DesktopTooltip("在歌单内搜索", modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -1102,7 +1102,7 @@ internal fun PlaylistSortMenu(order: PlaylistSortOrder, showAdded: Boolean, onSe
         ) {
             Text(order.key.label, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, softWrap = false)
             Spacer(Modifier.width(6.dp))
-            Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.ListIcon, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         }
         LibraryPopupMenu(expanded, { expanded = false }, anchorWidth, SortMenuWidth) {
             MenuHeader("排序依据")
@@ -1143,7 +1143,7 @@ internal fun TrackColumnHeader(order: PlaylistSortOrder, showAdded: Boolean, onS
             ) {
                 SortArrow(order, PlaylistSortKey.DURATION)
                 Icon(
-                    Icons.Rounded.AccessTime,
+                    MelodiaIcons.Clock,
                     "时长",
                     tint = if (order.key == PlaylistSortKey.DURATION) DesktopColors.TextPrimary else DesktopColors.TextGray,
                     modifier = Modifier.size(16.dp)
@@ -1185,7 +1185,7 @@ private fun HeaderCell(
 private fun SortArrow(order: PlaylistSortOrder, key: PlaylistSortKey) {
     if (order.key != key) return
     Icon(
-        if (order.ascending) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+        if (order.ascending) MelodiaIcons.ArrowUp else MelodiaIcons.ArrowDown,
         if (order.ascending) "升序" else "降序",
         tint = DesktopColors.TextPrimary,
         modifier = Modifier.padding(horizontal = 2.dp).size(14.dp)

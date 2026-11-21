@@ -10,7 +10,7 @@ import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -103,7 +103,7 @@ private const val TAG = "LocalMusicViewModel"
 class LocalMusicViewModel(
     private val repository: LocalLibraryRepository,
     private val playlistRepository: LocalPlaylistRepository,
-    private val playerManager: PlayerManager,
+    private val playerManager: PlaybackController,
     private val playerRepository: PlayerRepository,
     private val songCollectDelegate: SongCollectDelegate,
     private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
@@ -142,7 +142,7 @@ class LocalMusicViewModel(
     private val _playlistPickerTracks = MutableStateFlow<List<LocalTrack>?>(null)
     val playlistPickerTracks: StateFlow<List<LocalTrack>?> = _playlistPickerTracks.asStateFlow()
 
-    val playingMediaId: StateFlow<String?> = playerManager.currentTrack
+    val playingMediaId: StateFlow<String?> = playerManager.nowPlaying
         .map { it?.mediaId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -350,11 +350,12 @@ class LocalMusicViewModel(
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->

@@ -18,16 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -69,6 +59,14 @@ import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicViewModel
 import com.lin0721.linmusic.feature.localmusic.ui.LocalTrackActionsHost
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.Checklist
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Sort
 
 private val DividerColor: Color @Composable @ReadOnlyComposable get() = MelodiaColors.Divider
 
@@ -98,28 +96,28 @@ fun LocalSongsScreen(
                     MelodiaIconButton(onClick = {
                         viewModel.openPlaylistPicker(success.filteredTracks.filter { it.uri.toString() in success.selectedUris })
                     }) {
-                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
+                        Icon(MelodiaIcons.PlaylistAdd, contentDescription = "加入本地歌单", tint = MelodiaColors.TextPrimary)
                     }
                 }
                 MelodiaIconButton(onClick = {
                     if (success.selectedUris.isEmpty()) viewModel.toggleSelectionMode() else confirmDeleteSelected = true
                 }) {
                     if (success.selectedUris.isEmpty()) {
-                        Icon(Icons.Rounded.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
+                        Icon(MelodiaIcons.Close, contentDescription = "退出多选", tint = MelodiaColors.TextPrimary)
                     } else {
-                        Icon(Icons.Rounded.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
+                        Icon(MelodiaIcons.Delete, contentDescription = "删除选中", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             } else {
                 MelodiaIconButton(onClick = { viewModel.toggleSearch() }) {
                     Icon(
-                        if (success.isSearchActive) Icons.Rounded.Close else Icons.Rounded.Search,
+                        if (success.isSearchActive) MelodiaIcons.Close else MelodiaIcons.Search,
                         contentDescription = if (success.isSearchActive) "关闭搜索" else "搜索",
                         tint = MelodiaColors.TextPrimary
                     )
                 }
                 MelodiaIconButton(onClick = { viewModel.toggleSelectionMode() }) {
-                    Icon(Icons.Rounded.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
+                    Icon(MelodiaIcons.Checklist, contentDescription = "多选", tint = MelodiaColors.TextPrimary)
                 }
             }
         }
@@ -134,7 +132,7 @@ fun LocalSongsScreen(
                     if (list.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
-                                icon = Icons.Rounded.LibraryMusic,
+                                icon = MelodiaIcons.Library,
                                 title = if (state.tracks.isEmpty()) "还没有本地音频文件" else "没有匹配的结果"
                             )
                         }
@@ -246,14 +244,14 @@ private fun PlayAllRow(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(16.dp))
+                Icon(MelodiaIcons.Play, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(MelodiaSpacing.sm))
             Text("播放全部", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(" ($count)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
         MelodiaIconButton(onClick = onShuffle) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = "随机播放", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Shuffle, contentDescription = "随机播放", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
         Box {
             Row(
@@ -264,7 +262,7 @@ private fun PlayAllRow(
             ) {
                 Text(sortOrder.label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
                 Spacer(Modifier.width(4.dp))
-                Icon(Icons.Rounded.SwapVert, contentDescription = "排序", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                Icon(MelodiaIcons.Sort, contentDescription = "排序", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
             }
             DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                 LocalMusicSortOrder.entries.forEach { order ->

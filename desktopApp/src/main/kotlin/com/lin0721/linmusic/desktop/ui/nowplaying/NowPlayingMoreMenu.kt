@@ -7,25 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.TimerOff
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -73,6 +54,23 @@ import com.lin0721.linmusic.desktop.ui.track.CollectSubmenuContent
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddToQueue
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.TimerOff
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Timer
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album as AlbumIcon
+import com.lin0721.linmusic.core.ui.icons.Group
+import com.lin0721.linmusic.core.ui.icons.Moon
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 private val SleepTimerOptions = listOf(15, 30, 60, 90)
 private val QualityKeys = listOf("standard", "exhigh", "lossless", "hires", "jymaster")
@@ -101,6 +99,7 @@ internal fun NowPlayingMoreMenu(
     val collectActions = rememberTrackActions(
         likedSongIds = emptySet(),
         collectState = collectState,
+        onQuickLike = {},
         onToggleLike = { _, _ -> },
         onPlayNext = {},
         onPrepareCollect = playerViewModel::prepareCollectDialog,
@@ -135,7 +134,7 @@ internal fun NowPlayingMoreMenu(
 
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, width = MoreMenuWidth) {
         if (isPersonalFm) {
-            SubMenuItem("FM 模式: ${personalFmMode.displayName}", icon = Icons.Rounded.Radio, width = 300.dp) {
+            SubMenuItem("FM 模式: ${personalFmMode.displayName}", icon = MelodiaIcons.Radio, width = 300.dp) {
                 PersonalFmModeGrid(
                     currentMode = personalFmMode,
                     onSelectMode = { mode ->
@@ -145,11 +144,11 @@ internal fun NowPlayingMoreMenu(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
-            MenuItem("不喜欢", icon = Icons.Rounded.DeleteOutline, onClick = {
+            MenuItem("不喜欢", icon = MelodiaIcons.Delete, onClick = {
                 onDismiss()
                 playerViewModel.trashCurrentFmSong()
             })
-            MenuItem("退出私人FM", icon = Icons.Rounded.Close, onClick = {
+            MenuItem("退出私人FM", icon = MelodiaIcons.Close, onClick = {
                 onDismiss()
                 playerViewModel.disablePersonalFm()
             })
@@ -158,14 +157,14 @@ internal fun NowPlayingMoreMenu(
 
         if (cloud && cloudSongId != null) {
             val albumName = detail?.al?.name?.takeIf { it.isNotBlank() } ?: detailState.songWiki?.album ?: "未知专辑"
-            MenuItem("专辑: $albumName", icon = Icons.Rounded.Album, onClick = {
+            MenuItem("专辑: $albumName", icon = MelodiaIcons.AlbumIcon, onClick = {
                 onDismiss()
                 scope.launch { openCurrentSongAlbum(songId, playerViewModel, navigator) }
             })
 
             val artists = detail?.ar.orEmpty().filter { it.id > 0L }
             when {
-                artists.size > 1 -> SubMenuItem("歌手", icon = Icons.Rounded.Person) {
+                artists.size > 1 -> SubMenuItem("歌手", icon = MelodiaIcons.Person) {
                     artists.forEach { artist ->
                         SimpleMenuItem(artist.name, onClick = {
                             onDismiss()
@@ -173,24 +172,24 @@ internal fun NowPlayingMoreMenu(
                         })
                     }
                 }
-                artists.size == 1 -> MenuItem("歌手: ${artists[0].name}", icon = Icons.Rounded.Person, onClick = {
+                artists.size == 1 -> MenuItem("歌手: ${artists[0].name}", icon = MelodiaIcons.Person, onClick = {
                     onDismiss()
                     navigator.openArtist(artists[0].id, artists[0].name)
                 })
-                else -> MenuItem("歌手: ${track.artist}", icon = Icons.Rounded.Person, enabled = false, onClick = {})
+                else -> MenuItem("歌手: ${track.artist}", icon = MelodiaIcons.Person, enabled = false, onClick = {})
             }
 
             if (navigator.isLoggedIn) {
                 val collectTrack = detail ?: Track(id = cloudSongId, name = track.title)
                 SubMenuItem(
                     "收藏到歌单",
-                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     onOpen = { playerViewModel.prepareCollectDialog(cloudSongId) }
                 ) {
                     CollectSubmenuContent(collectTrack, collectActions, onDismiss)
                 }
             } else {
-                MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                     onDismiss()
                     navigator.showMessage("请先登录账号")
                 })
@@ -203,20 +202,20 @@ internal fun NowPlayingMoreMenu(
             if (navigator.isLoggedIn) {
                 SubMenuItem(
                     "收藏到歌单",
-                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     onOpen = { playerViewModel.prepareCollectDialog(songId) }
                 ) {
                     CollectSubmenuContent(Track(id = songId, name = track.title), collectActions, onDismiss)
                 }
             } else {
-                MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                     onDismiss()
                     navigator.showMessage("请先登录账号")
                 })
             }
             MenuItem(
                 if (detailState.isLiked) "取消喜欢" else "喜欢",
-                icon = if (detailState.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                icon = if (detailState.isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                 onClick = {
                     onDismiss()
                     if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
@@ -227,7 +226,7 @@ internal fun NowPlayingMoreMenu(
 
         if (modes) {
             if (isIntelligence || cloudSongId != null) {
-                MenuItem(if (isIntelligence) "退出心动模式" else "心动模式", icon = Icons.Rounded.Favorite, onClick = {
+                MenuItem(if (isIntelligence) "退出心动模式" else "心动模式", icon = MelodiaIcons.Heart, onClick = {
                     onDismiss()
                     if (isIntelligence) {
                         controller.disableIntelligence()
@@ -237,7 +236,7 @@ internal fun NowPlayingMoreMenu(
                 })
             }
             if (isRoaming || cloudSongId != null) {
-                MenuItem(if (isRoaming) "退出相似歌曲漫游" else "相似歌曲漫游", icon = Icons.Rounded.Radio, onClick = {
+                MenuItem(if (isRoaming) "退出相似歌曲漫游" else "相似歌曲漫游", icon = MelodiaIcons.Radio, onClick = {
                     onDismiss()
                     if (isRoaming) {
                         controller.disableRoaming()
@@ -247,7 +246,7 @@ internal fun NowPlayingMoreMenu(
                 })
             }
             if (cloud && cloudSongId != null) {
-                MenuItem("插播相似歌曲", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                MenuItem("插播相似歌曲", icon = MelodiaIcons.AddToQueue, onClick = {
                     onDismiss()
                     playerViewModel.insertSimilarSongs(cloudSongId)
                 })
@@ -256,18 +255,18 @@ internal fun NowPlayingMoreMenu(
         }
 
         if (cloud && cloudSongId != null) {
-            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+            MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
                 onDismiss()
                 navigator.openShareCard(ShareCardKind.SONG)
             })
-            MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+            MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
                 onDismiss()
                 val ok = copyTextToClipboard(songLink(cloudSongId))
                 navigator.showMessage(if (ok) "已复制链接" else "复制失败")
             })
             // 账号权限未知时不限制，超出可下载上限的档位置灰
             val maxDownloadRank = qualityRank(detail?.privilege?.dlLevel).takeIf { it >= 0 }
-            SubMenuItem("下载", icon = Icons.Rounded.Download) {
+            SubMenuItem("下载", icon = MelodiaIcons.Download) {
                 DOWNLOAD_QUALITY_LEVELS.forEach { level ->
                     SimpleMenuItem(
                         getQualityDisplayName(level),
@@ -287,7 +286,7 @@ internal fun NowPlayingMoreMenu(
                     )
                 }
             }
-            SubMenuItem("音质: ${getQualityDisplayName(currentQuality)}", icon = Icons.Rounded.Tune) {
+            SubMenuItem("音质: ${getQualityDisplayName(currentQuality)}", icon = MelodiaIcons.Tune) {
                 QualityKeys.forEach { key ->
                     val selected = key == currentQuality
                     SimpleMenuItem(
@@ -297,7 +296,7 @@ internal fun NowPlayingMoreMenu(
                             if (!selected) playerViewModel.updateQuality(key)
                         },
                         trailing = if (selected) {
-                            { Icon(Icons.Rounded.Check, "当前音质", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+                            { Icon(MelodiaIcons.Check, "当前音质", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
                         } else {
                             null
                         }
@@ -307,7 +306,7 @@ internal fun NowPlayingMoreMenu(
         }
 
         if (cloud) {
-            MenuItem("一起听", icon = Icons.Rounded.Group, onClick = {
+            MenuItem("一起听", icon = MelodiaIcons.Group, onClick = {
                 onDismiss()
                 when {
                     !navigator.isLoggedIn -> navigator.showMessage("请先登录账号")
@@ -319,16 +318,16 @@ internal fun NowPlayingMoreMenu(
 
         SubMenuItem(
             if (sleepActive) "睡眠定时 (${formatSleepTimerRemaining(sleepRemaining)})" else "睡眠定时",
-            icon = Icons.Rounded.Bedtime
+            icon = MelodiaIcons.Moon
         ) {
             SleepTimerOptions.forEach { minutes ->
-                SimpleMenuItem("$minutes 分钟", icon = Icons.Rounded.Timer, onClick = {
+                SimpleMenuItem("$minutes 分钟", icon = MelodiaIcons.Timer, onClick = {
                     onDismiss()
                     playerViewModel.setSleepTimer(minutes)
                 })
             }
             if (sleepActive) {
-                SimpleMenuItem("取消定时", icon = Icons.Rounded.TimerOff, onClick = {
+                SimpleMenuItem("取消定时", icon = MelodiaIcons.TimerOff, onClick = {
                     onDismiss()
                     playerViewModel.setSleepTimer(0)
                 })

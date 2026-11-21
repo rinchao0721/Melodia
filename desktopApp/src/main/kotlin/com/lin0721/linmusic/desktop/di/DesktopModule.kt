@@ -34,12 +34,17 @@ import com.lin0721.linmusic.core.plugin.NativePluginHost
 import com.lin0721.linmusic.core.source.LxPluginRuntime
 import com.lin0721.linmusic.core.plugin.ScriptSandboxFactory
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.lanlink.LanLinkPreferences
+import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
 import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
+import java.net.InetAddress
 import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.CacheRelocator
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
@@ -61,7 +66,9 @@ import com.lin0721.linmusic.desktop.plugin.DesktopNativePluginHost
 import com.lin0721.linmusic.desktop.plugin.GraalLxPluginRuntime
 import com.lin0721.linmusic.desktop.plugin.GraalScriptSandboxFactory
 import com.lin0721.linmusic.desktop.player.DesktopPlaybackController
+import com.lin0721.linmusic.desktop.player.DesktopVolumeBridge
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
+import com.lin0721.linmusic.desktop.player.RoutingDesktopPlaybackController
 import com.lin0721.linmusic.desktop.player.SilentPlaybackController
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
 import com.lin0721.linmusic.desktop.player.spectrum.SpectrumHub
@@ -101,10 +108,13 @@ import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.feature.settings.ui.CommonSettingsViewModel
 import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.songquality.warmIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -140,7 +150,7 @@ private fun createPlaybackController(
         audioCache = audioCache,
         cacheManager = cacheManager,
         externalResolver = externalResolver,
-        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_gain.json")
+        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_v2.json")
     )
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
@@ -151,6 +161,11 @@ private fun createPlaybackController(
 }
 
 private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferencesFile(name))
+
+private fun desktopDeviceDisplayName(): String =
+    System.getenv("COMPUTERNAME")?.takeIf { it.isNotBlank() }
+        ?: runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: "Desktop 设备"
 
 // 启动参数，须先于依赖注入设置
 object DesktopLaunchOptions {
@@ -166,6 +181,8 @@ val desktopPlatformModule = module {
     single { SkinRepository(get(), get()) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
+    single { LanLinkPreferences(store(PreferencesStores.LAN_LINK)) }
+    single { LanLinkDesktopHost(get(), get(), get(), get(), ::desktopDeviceDisplayName) }
     single<ScriptSandboxFactory> { GraalScriptSandboxFactory() }
     single { SpectrumHub() }
     single<NativePluginHost> {
@@ -180,6 +197,8 @@ val desktopPlatformModule = module {
     single { PrivateReadPreferences(store(PreferencesStores.MESSAGE)) }
     // 启动即预读，首页首帧前备好封面卡颜色
     single(createdAtStart = true) { CoverColorMemory(store(PreferencesStores.COVER_COLOR), CoroutineScope(SupervisorJob() + Dispatchers.IO)) }
+    single(named(PreferencesStores.SONG_QUALITY)) { store(PreferencesStores.SONG_QUALITY) }
+    single(named(PreferencesStores.STYLE_COVER)) { store(PreferencesStores.STYLE_COVER) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }
@@ -237,8 +256,29 @@ val desktopPlatformModule = module {
         )
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
-    single<DesktopPlaybackController> { createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single<PlaybackController> { get<DesktopPlaybackController>() }
+    single<DesktopPlaybackController>(named("local")) {
+        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get())
+    }
+    single { DesktopVolumeBridge(get(named("local"))) }
+    single {
+        LanLinkRemoteCoordinator(
+            localController = get<DesktopPlaybackController>(named("local")),
+            transport = get<LanLinkDesktopHost>(),
+            volumeBridge = get<DesktopVolumeBridge>(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            playbackModeStore = get<SettingsPreferences>()
+        )
+    }
+    single {
+        RoutingDesktopPlaybackController(
+            localDesktopController = get(named("local")),
+            coordinator = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        )
+    }
+    single<RoutingPlaybackController> { get<RoutingDesktopPlaybackController>() }
+    single<DesktopPlaybackController> { get<RoutingDesktopPlaybackController>() }
+    single<PlaybackController> { get<RoutingDesktopPlaybackController>() }
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }
     single { QqLyricsSource(get(), get()) }
@@ -251,7 +291,12 @@ val desktopPlatformModule = module {
             downloadPreferences = get(),
             onlineState = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        )
+        ).also { repository ->
+            getOrNull<SongQualityCache>()?.warmIds(
+                repository.data.map { data -> data.tracks.mapNotNullTo(HashSet()) { it.songId } },
+                CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            )
+        }
     }
     single { LocalMusicActions(get(), get<PlaybackController>(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列
@@ -330,7 +375,8 @@ val desktopViewModelModule = module {
             collectionActions = get(),
             artistRepository = get(),
             podcastRepository = get(),
-            linkPreviewResolver = getOrNull()
+            linkPreviewResolver = getOrNull(),
+            songQualityCache = getOrNull()
         )
     }
     factoryOf(::PlaylistCategoryViewModel)

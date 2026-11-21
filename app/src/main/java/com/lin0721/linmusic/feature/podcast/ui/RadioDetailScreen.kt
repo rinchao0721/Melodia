@@ -19,9 +19,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -68,6 +65,9 @@ import com.lin0721.linmusic.feature.podcast.domain.formatProgramDuration
 import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
 
 // 电台详情页：封面居中大图 + 主播 + 订阅数，下面是带期号的节目列表
 @Composable
@@ -86,7 +86,7 @@ fun RadioDetailScreen(
     }
 
     val success = uiState as? RadioDetailUiState.Success
-    val canLoadMore = success != null && success.hasMore && !success.isLoadingMore
+    val canLoadMore = success != null && success.hasMore && !success.isLoadingMore && success.loadMoreError == null
 
     LaunchedEffect(listState, canLoadMore) {
         if (!canLoadMore) return@LaunchedEffect
@@ -172,6 +172,12 @@ fun RadioDetailScreen(
                             )
                         }
                     }
+                } else if (!state.isReloadingPrograms) {
+                    state.loadMoreError?.let { message ->
+                        item(key = "load_more_error") {
+                            SectionError(message = message, onRetry = { viewModel.loadMore() })
+                        }
+                    }
                 }
             }
         }
@@ -188,7 +194,7 @@ fun RadioDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                imageVector = MelodiaIcons.ArrowBack,
                 contentDescription = "返回",
                 tint = Color.White,
                 modifier = Modifier.size(20.dp)
@@ -311,14 +317,14 @@ private fun RadioDetailHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = MelodiaIcons.Play,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MelodiaColors.OnAccent,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = playLabel,
-                    color = Color.White,
+                    color = MelodiaColors.OnAccent,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 7.dp)

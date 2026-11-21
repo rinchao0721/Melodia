@@ -1,8 +1,11 @@
 package com.lin0721.linmusic.desktop.player
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.player.CrossfadePolicy
+import com.lin0721.linmusic.core.player.LoudnessMeasureRequest
 import com.lin0721.linmusic.core.player.LoudnessPolicy
+import com.lin0721.linmusic.core.player.LoudnessSource
 import com.lin0721.linmusic.core.player.LoudnessStore
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PersonalFmController
@@ -11,6 +14,8 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PERSONAL_FM
+import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_PODCAST
+import com.lin0721.linmusic.core.player.PlaybackLevel
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackQueue
 import com.lin0721.linmusic.core.player.PlaybackState
@@ -21,12 +26,16 @@ import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.player.SleepTimer
 import com.lin0721.linmusic.core.player.TrackLoudnessMeter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.DesktopCacheManager
 import com.lin0721.linmusic.desktop.data.DesktopPreferences
 import com.lin0721.linmusic.desktop.player.cache.AudioCache
+import com.lin0721.linmusic.desktop.player.mpv.MpvAudioInfo
 import com.lin0721.linmusic.desktop.player.mpv.MpvEngine
+import com.lin0721.linmusic.desktop.player.mpv.mergePlaybackQuality
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,10 +81,16 @@ private const val CROSSFADE_PREPARE_TIMEOUT_MS = 8_000L
 private const val CROSSFADE_PREPARE_POLL_MS = 100L
 
 // 到点时下一首仍是它才执行
-private class CrossfadePlan(val index: Int, val songId: Long, val fadeMs: Long, val url: String)
+private class CrossfadePlan(
+    val index: Int,
+    val songId: Long,
+    val fadeMs: Long,
+    val url: String,
+    val declaredLevel: String? = null
+)
 
 // record 为空表示本地文件或缓存命中，非空表示联网播放时录制缓存
-private class Playback(val url: String, val record: RecordRequest?)
+private class Playback(val url: String, val record: RecordRequest?, val declaredLevel: String? = null)
 
 class MpvPlaybackController(
     private val repository: PlaybackRepository,
@@ -107,6 +122,12 @@ class MpvPlaybackController(
 
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     override val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying.asStateFlow()
+
+    private val _playbackLevel = MutableStateFlow<PlaybackLevel?>(null)
+    override val playbackLevel: StateFlow<PlaybackLevel?> = _playbackLevel.asStateFlow()
+
+    private val _playbackQuality = MutableStateFlow<PlaybackQuality?>(null)
+    override val playbackQuality: StateFlow<PlaybackQuality?> = _playbackQuality.asStateFlow()
 
     private val _currentPosition = MutableStateFlow(0L)
     override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
@@ -162,12 +183,15 @@ class MpvPlaybackController(
     override val unavailableReason: String? = null
 
     private var playJob: Job? = null
+    private var restoreQualityJob: Job? = null
     private var consecutiveFailures = 0
 
     // mpv 已载入的曲目；冷启动恢复出的曲目只有元数据，首次播放时才取地址载入
     private var loadedSongId: Long? = null
     // 已载入曲目的播放地址，供尾部分析读取
     private var loadedUrl: String? = null
+    private var currentDeclaredLevel: String? = null
+    private var currentAudioInfo: MpvAudioInfo? = null
     private var restoreAttempted = false
     private var lastPeriodicSaveMs = 0L
 
@@ -188,6 +212,7 @@ class MpvPlaybackController(
     @Volatile private var loudnessEnabled = false
     private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(loudnessStoreFile), pcmDecoder)
     private var loudnessJob: Job? = null
+    private var loudnessPredictJob: Job? = null
     private var crossfadePlan: CrossfadePlan? = null
     private var crossfadePrepareJob: Job? = null
     @Volatile private var crossfadeTriggerMs = Long.MAX_VALUE
@@ -228,9 +253,13 @@ class MpvPlaybackController(
         scope.launch {
             settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
                 loudnessEnabled = enabled
-                if (enabled) applyLoudness() else {
+                if (enabled) {
+                    applyLoudness()
+                    predictQueueLoudness(playbackQueue.items.value, playbackQueue.currentIndex.value)
+                } else {
                     loudnessJob?.cancel()
-                    engine.setTrackGain(0.0)
+                    cancelLoudnessPrediction()
+                    engine.setTrackGain(null)
                 }
             }
         }
@@ -308,6 +337,7 @@ class MpvPlaybackController(
         )
         _currentPosition.value = lastTrack.lastPositionMs
         _duration.value = lastTrack.durationMs
+        playbackQueue.currentItem()?.let { launchRestoreDeclaredLevel(it, playbackQueue.playContext.value) }
     }
 
     override fun playQueue(
@@ -338,6 +368,7 @@ class MpvPlaybackController(
         playbackQueue.replaceAll(items, startIndex)
         consecutiveFailures = 0
         saveQueueState()
+        predictQueueLoudness(items, playbackQueue.currentIndex.value)
 
         val index = playbackQueue.currentIndex.value
         val target = playbackQueue.itemAt(index)
@@ -443,6 +474,7 @@ class MpvPlaybackController(
     override fun clearQueue() {
         val kept = playbackQueue.keepOnlyCurrent()
         abortCrossfadePlan()
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         _playWhenReady.value = false
@@ -453,6 +485,7 @@ class MpvPlaybackController(
             loadedSongId = null
             _nowPlaying.value = null
             _duration.value = 0L
+            clearQuality()
         } else if (loadedSongId == kept.songId) {
             engine.setPaused(true)
             engine.seekTo(0L)
@@ -464,6 +497,7 @@ class MpvPlaybackController(
     // 切换或退出账户时彻底停止播放并清空队列与持久化状态
     override fun stopAndClearQueue() {
         abortCrossfadePlan()
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         playbackQueue.clear()
@@ -474,6 +508,7 @@ class MpvPlaybackController(
         _nowPlaying.value = null
         _currentPosition.value = 0L
         _duration.value = 0L
+        clearQuality()
         saveQueueState()
         saveState()
     }
@@ -598,6 +633,7 @@ class MpvPlaybackController(
 
     // 退出时同步落盘，异步写入来不及在进程结束前完成
     override fun release() {
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         sleepTimer.cancel()
         roaming.cancel()
@@ -649,21 +685,73 @@ class MpvPlaybackController(
             consecutiveFailures = 0
             _isPlaying.value = _playWhenReady.value
             startClock()
-            applyLoudness()
         }
     }
 
-    // 当前歌的曲目增益：ReplayGain 标签 > 缓存 > 自测，结果平滑生效
+    override fun onAudioInfoChanged(info: MpvAudioInfo) {
+        scope.launch {
+            val mediaId = _nowPlaying.value?.mediaId ?: return@launch
+            // 切歌等待取地址期间 loadedSongId 为空，忽略旧引擎滞后事件
+            if (loadedSongId?.toString() != mediaId) return@launch
+            currentAudioInfo = info
+            publishQuality(mediaId, info)
+        }
+    }
+
+    // 音量平衡中途开启时给当前歌补上增益
     private fun applyLoudness() {
         loudnessJob?.cancel()
         if (!loudnessEnabled) return
         val songId = loadedSongId ?: return
         val url = loadedUrl ?: return
         loudnessJob = scope.launch {
-            val tagged = LoudnessPolicy.replayGainDb(engine.activeMetadata("REPLAYGAIN_TRACK_GAIN"))
-            if (tagged != null) loudnessMeter.remember(songId, tagged)
-            val gainDb = tagged ?: loudnessMeter.measure(songId, url) ?: return@launch
+            val gainDb = resolveGainDb(songId, url) ?: return@launch
             if (loudnessEnabled && loadedSongId == songId) engine.setTrackGain(gainDb)
+        }
+    }
+
+    // 缓存（含网易值）> 本地标签 > 起播前限时测量，超时用兜底值；waitFully 供预载下一首等测完
+    private suspend fun resolveGainDb(songId: Long, uri: String, waitFully: Boolean = false): Double? {
+        if (!loudnessEnabled) return null
+        loudnessMeter.cachedGainDb(songId)?.let { return it }
+        val local = DesktopReplayGainReader.isLocalUri(uri)
+        if (local) {
+            DesktopReplayGainReader.trackLoudness(uri)?.let {
+                loudnessMeter.remember(songId, it, LoudnessSource.TAG)
+                return LoudnessPolicy.gainDb(it)
+            }
+        }
+        val measured = if (waitFully) {
+            loudnessMeter.measure(songId, uri, fullTrack = local)
+        } else {
+            loudnessMeter.measureBeforeStart(songId, uri, fullTrack = local) { delayedDb ->
+                scope.launch {
+                    if (loudnessEnabled && loadedSongId == songId) engine.setTrackGain(delayedDb)
+                }
+            }
+        }
+        return measured ?: LoudnessPolicy.FALLBACK_GAIN_DB
+    }
+
+    private fun cancelLoudnessPrediction() {
+        loudnessPredictJob?.cancel()
+        loudnessMeter.cancelAll()
+    }
+
+    // 按播放顺序串行测量队列里的本地与已下载歌曲
+    private fun predictQueueLoudness(items: List<QueueItem>, startIndex: Int) {
+        cancelLoudnessPrediction()
+        if (!loudnessEnabled || items.isEmpty()) return
+        val from = startIndex.coerceIn(0, items.size - 1)
+        val ordered = items.subList(from, items.size) + items.subList(0, from)
+        loudnessPredictJob = scope.launch(Dispatchers.IO) {
+            for (item in ordered) {
+                val path = item.localUri?.takeIf { it.isNotBlank() }
+                    ?: if (item.external == null) lookupOfflineNetease(item).path else null
+                if (path != null) {
+                    loudnessMeter.enqueue(listOf(LoudnessMeasureRequest(item.songId, path, fullTrack = true)))
+                }
+            }
         }
     }
 
@@ -686,7 +774,9 @@ class MpvPlaybackController(
             if (engine.exclusive) {
                 engine.setExclusive(false)
                 _messages.tryEmit("独占输出不可用，本次已改用共享模式")
-                if (playbackQueue.itemAt(index) != null) playIndex(index, positionMs, knownUrl = loadedUrl)
+                if (playbackQueue.itemAt(index) != null) {
+                    playIndex(index, positionMs, knownUrl = loadedUrl, knownDeclaredLevel = currentDeclaredLevel)
+                }
                 return@launch
             }
             _messages.tryEmit("输出设备被占用或不可用")
@@ -716,16 +806,23 @@ class MpvPlaybackController(
         }
     }
 
-    private fun playIndex(index: Int, startMs: Long = 0L, knownUrl: String? = null) {
+    private fun playIndex(
+        index: Int,
+        startMs: Long = 0L,
+        knownUrl: String? = null,
+        knownDeclaredLevel: String? = null
+    ) {
         val item = playbackQueue.itemAt(index) ?: return
         abortCrossfadePlan()
         crossfadeAttemptedSongId = null
+        restoreQualityJob?.cancel()
         playJob?.cancel()
         finishReporting()
         // 取播放地址在弱网下可能很久才返回，界面已切到新歌，旧歌不能继续出声；换音质重载同一首不打断
         if (loadedSongId != item.songId) engine.setPaused(true)
         playbackQueue.setCurrentIndex(index)
         loadedSongId = null
+        clearQuality()
         _currentPosition.value = startMs
         _duration.value = 0L
         _playWhenReady.value = true
@@ -738,21 +835,60 @@ class MpvPlaybackController(
         )
         saveQueueState()
         playJob = scope.launch {
-            val playback = knownUrl?.let { Playback(it, null) } ?: resolvePlayback(item).getOrElse { error ->
+            val playback = knownUrl?.let { Playback(it, null, knownDeclaredLevel) } ?: resolvePlayback(item).getOrElse { error ->
                 AppLogger.w(TAG, "取播放地址失败 songId=${item.songId}", error)
                 handleFailure(if (item.external != null) error.message.orEmpty() else "《${item.title}》暂无版权或需要会员")
                 return@launch
             }
-            val gainDb = if (loudnessEnabled) loudnessMeter.cachedGainDb(item.songId) ?: 0.0 else 0.0
-            // 从中途起播录不出完整文件
-            engine.load(playback.url, startMs, record = playback.record.takeIf { startMs == 0L }, gainDb = gainDb)
+            val mediaId = item.songId.toString()
+            currentDeclaredLevel = playback.declaredLevel?.takeIf { it.isNotBlank() }
+            currentAudioInfo = null
+            // 流参数就绪前先发布接口声明档位
+            publishQuality(mediaId, null)
+            val gainDb = resolveGainDb(item.songId, playback.url)
             loadedSongId = item.songId
             loadedUrl = playback.url
+            // 从中途起播录不出完整文件
+            engine.load(playback.url, startMs, record = playback.record.takeIf { startMs == 0L }, gainDb = gainDb)
             beginReporting(item.songId)
             prefetchRoaming(item.songId)
             saveState()
         }
     }
+
+    // 启动恢复后后台静默查询一次接口声明档位，不载入引擎；已下载、缓存命中或非网易歌曲均不查询
+    private fun launchRestoreDeclaredLevel(item: QueueItem, playContext: String?) {
+        if (!isRestorableNeteaseTrack(item, playContext)) return
+        restoreQualityJob?.cancel()
+        restoreQualityJob = scope.launch {
+            probeRestoredDeclaredLevel(
+                item = item,
+                playContext = playContext,
+                findOffline = ::lookupOfflineNetease,
+                fetchPlaybackInfo = { songId -> repository.getSongPlaybackInfo(songId).first() },
+                canApply = {
+                    shouldApplyRestoredLevel(
+                        restoredSongId = item.songId,
+                        currentMediaId = _nowPlaying.value?.mediaId,
+                        loadedSongId = loadedSongId,
+                        isPlaybackLoading = playJob?.isActive == true
+                    )
+                },
+                onLevelResolved = { level ->
+                    currentDeclaredLevel = level
+                    publishQuality(item.songId.toString(), currentAudioInfo)
+                }
+            )
+        }
+    }
+
+    private suspend fun lookupOfflineNetease(item: QueueItem): OfflineNeteaseMatch =
+        findOfflineNeteaseMatch(
+            item = item,
+            localAudioOf = localAudioOf,
+            wifiQuality = { settingsPreferences.wifiQuality.first() },
+            cachedFileOf = { songId, level -> audioCache?.completeFile(songId, level) }
+        )
 
     // 外部平台搜索结果用负数 id 且自带直链，不属于网易云曲库，不参与打卡上报、相似漫游与缓存
     private fun isOnlineSong(songId: Long): Boolean = songId > 0L
@@ -776,15 +912,15 @@ class MpvPlaybackController(
     // 已下载 > 缓存命中 > 联网（同时录制缓存）；联网失败退回任意音质缓存
     private suspend fun resolveNeteasePlayback(item: QueueItem): Result<Playback> {
         val songId = item.songId
-        localAudioOf(item)?.let { return Result.success(Playback(it, null)) }
-        val level = settingsPreferences.wifiQuality.first()
-        audioCache?.completeFile(songId, level)?.let { return Result.success(Playback(it.absolutePath, null)) }
+        val offline = lookupOfflineNetease(item)
+        offline.path?.let { return Result.success(Playback(it, null)) }
+        val level = offline.preferredLevel ?: settingsPreferences.wifiQuality.first()
         return repository.getSongPlaybackInfo(songId).first().fold(
             onSuccess = { info ->
-                // 网易返回的有效增益优先于自测，覆盖已缓存的值
-                if (loudnessEnabled) info.gainDb?.let { loudnessMeter.remember(songId, it) }
+                // 网易返回的有效响度优先于自测，覆盖已缓存的值
+                if (loudnessEnabled) info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
                 val record = audioCache?.let { RecordRequest(songId, it.tempFile(songId, level).absolutePath) }
-                Result.success(Playback(info.url, record))
+                Result.success(Playback(info.url, record, declaredLevel = info.level))
             },
             onFailure = { error ->
                 audioCache?.anyCompleteFile(songId)?.let { Result.success(Playback(it.absolutePath, null)) }
@@ -826,8 +962,8 @@ class MpvPlaybackController(
             val (endMs, startMs, nextGainDb) = coroutineScope {
                 val endDeferred = async { if (smart) currentUrl?.let { edgeAnalyzer.effectiveEndMs(songId, it, duration) } else null }
                 val startDeferred = async { if (smart) edgeAnalyzer.effectiveStartMs(next.songId, playback.url) else null }
-                val gainDeferred = async { if (loudnessEnabled) loudnessMeter.measure(next.songId, playback.url) else null }
-                Triple(endDeferred.await(), startDeferred.await() ?: 0L, gainDeferred.await() ?: 0.0)
+                val gainDeferred = async { resolveGainDb(next.songId, playback.url, waitFully = true) }
+                Triple(endDeferred.await(), startDeferred.await() ?: 0L, gainDeferred.await())
             }
             if (loadedSongId != songId) return@launch
             val effectiveEndMs = endMs?.coerceAtMost(duration) ?: duration
@@ -844,7 +980,7 @@ class MpvPlaybackController(
                 return@launch
             }
             if (smart) AppLogger.i(TAG, "智能过渡 songId=$songId end=$effectiveEndMs/$duration nextStart=$startMs")
-            crossfadePlan = CrossfadePlan(nextIdx, next.songId, plannedFadeMs, playback.url)
+            crossfadePlan = CrossfadePlan(nextIdx, next.songId, plannedFadeMs, playback.url, playback.declaredLevel)
             crossfadeTriggerMs = CrossfadePolicy.triggerPositionMs(effectiveEndMs, plannedFadeMs)
         }
     }
@@ -868,16 +1004,19 @@ class MpvPlaybackController(
         playbackQueue.setCurrentIndex(plan.index)
         loadedSongId = item.songId
         loadedUrl = plan.url
-        applyLoudness()
         consecutiveFailures = 0
         _currentPosition.value = position
         _duration.value = duration
+        val mediaId = item.songId.toString()
         _nowPlaying.value = NowPlaying(
-            mediaId = item.songId.toString(),
+            mediaId = mediaId,
             title = item.title,
             artist = item.artist,
             artworkUri = item.coverUrl.takeIf { it.isNotBlank() }
         )
+        currentDeclaredLevel = plan.declaredLevel?.takeIf { it.isNotBlank() }
+        currentAudioInfo = engine.activeAudioInfo()
+        publishQuality(mediaId, currentAudioInfo)
         saveQueueState()
         beginReporting(item.songId)
         startClock()
@@ -893,6 +1032,19 @@ class MpvPlaybackController(
         crossfadePlan = null
     }
 
+    private fun clearQuality() {
+        currentDeclaredLevel = null
+        currentAudioInfo = null
+        _playbackQuality.value = null
+        _playbackLevel.value = null
+    }
+
+    private fun publishQuality(mediaId: String, audioInfo: MpvAudioInfo?) {
+        val level = currentDeclaredLevel
+        _playbackLevel.value = level?.let { l -> mediaId.toLongOrNull()?.let { PlaybackLevel(it, l) } }
+        _playbackQuality.value = mergePlaybackQuality(mediaId, level, audioInfo)
+    }
+
     private fun handleFailure(message: String) {
         consecutiveFailures++
         _messages.tryEmit(message)
@@ -902,6 +1054,7 @@ class MpvPlaybackController(
             _playWhenReady.value = false
             _isPlaying.value = false
             loadedSongId = null
+            clearQuality()
             engine.stop()
             return
         }
@@ -984,3 +1137,67 @@ class MpvPlaybackController(
         return (playedMs + ongoingMs).coerceAtLeast(0L) / 1000L
     }
 }
+
+// 与 resolveNeteasePlayback 顺序一致的本地/缓存查找结果
+internal data class OfflineNeteaseMatch(
+    val path: String?,
+    val preferredLevel: String?
+)
+
+// 判断启动恢复出的队列项是否满足仅取档位探测条件：网易歌曲、非播客、非本地/外部直链
+internal fun isRestorableNeteaseTrack(item: QueueItem?, playContext: String?): Boolean =
+    item != null &&
+        item.songId > 0L &&
+        item.radioId == 0L &&
+        playContext != CONTEXT_PODCAST &&
+        item.localUri.isNullOrBlank() &&
+        item.external == null
+
+// 判断恢复探测结果返回后是否仍可发布：未切歌、未载入引擎且未开始切歌起播
+internal fun shouldApplyRestoredLevel(
+    restoredSongId: Long,
+    currentMediaId: String?,
+    loadedSongId: Long?,
+    isPlaybackLoading: Boolean
+): Boolean =
+    currentMediaId == restoredSongId.toString() &&
+        loadedSongId == null &&
+        !isPlaybackLoading
+
+// 先查已下载，再查当前目标音质缓存；与 resolveNeteasePlayback 顺序一致
+internal suspend fun findOfflineNeteaseMatch(
+    item: QueueItem,
+    localAudioOf: suspend (QueueItem) -> String?,
+    wifiQuality: suspend () -> String,
+    cachedFileOf: (songId: Long, level: String) -> File?
+): OfflineNeteaseMatch {
+    localAudioOf(item)?.let { return OfflineNeteaseMatch(path = it, preferredLevel = null) }
+    val level = wifiQuality()
+    val cached = cachedFileOf(item.songId, level)?.absolutePath
+    return OfflineNeteaseMatch(path = cached, preferredLevel = level)
+}
+
+// 启动恢复后的后台档位探测：本地/缓存命中或条件不满足不请求，失败静默，切歌/开播即丢弃
+internal suspend fun probeRestoredDeclaredLevel(
+    item: QueueItem,
+    playContext: String?,
+    findOffline: suspend (QueueItem) -> OfflineNeteaseMatch,
+    fetchPlaybackInfo: suspend (Long) -> Result<SongPlaybackInfo>,
+    canApply: () -> Boolean,
+    onLevelResolved: (String) -> Unit
+) {
+    if (!isRestorableNeteaseTrack(item, playContext)) return
+    if (findOffline(item).path != null) return
+    if (!canApply()) return
+    val info = try {
+        fetchPlaybackInfo(item.songId).getOrNull()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        null
+    } ?: return
+    val level = info.level?.trim()?.takeIf { it.isNotEmpty() } ?: return
+    if (!canApply()) return
+    onLevelResolved(level)
+}
+

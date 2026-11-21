@@ -48,6 +48,7 @@ class LocalScannerTest {
         assertEquals("晴天", track.title)
         assertEquals("周杰伦", track.artist)
         assertEquals(LocalMatchState.PENDING, track.matchState)
+        assertEquals("lossless", track.resolvedQuality())
     }
 
     @Test
@@ -56,6 +57,26 @@ class LocalScannerTest {
         val path = normalizePath(file.path)
         val first = scanner.refresh(path, null)!!.copy(songId = 9, matchState = LocalMatchState.MANUAL)
         assertSame(first, scanner.refresh(path, first))
+    }
+
+    @Test
+    fun legacyTrackWithoutQualityTriggersRescanAndPreservesMatch() {
+        val file = audio("lib/周杰伦 - 稻香.flac")
+        val path = normalizePath(file.path)
+        val legacy = LocalTrack(
+            path = path,
+            title = "稻香",
+            artist = "周杰伦",
+            size = file.length(),
+            lastModified = file.lastModified(),
+            songId = 42L,
+            matchState = LocalMatchState.MANUAL,
+            quality = null
+        )
+        val refreshed = scanner.refresh(path, legacy)!!
+        assertEquals("lossless", refreshed.quality)
+        assertEquals(42L, refreshed.songId)
+        assertEquals(LocalMatchState.MANUAL, refreshed.matchState)
     }
 
     @Test

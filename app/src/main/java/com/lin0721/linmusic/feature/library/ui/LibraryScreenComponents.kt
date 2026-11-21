@@ -15,11 +15,6 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +50,11 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.Lock
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 // ────────────────────────────────────────────────────────────────────────────
 // 分类筛选胶囊行：默认（未筛选）展示全部胶囊；选中某个胶囊后仅保留该胶囊，
@@ -98,9 +98,9 @@ fun LibraryFilterPillsRow(
     val fadeOutSpec = uiSpring<Float>(stiffness = Spring.StiffnessMedium)
 
     LazyRow(
-        modifier = modifier.padding(top = MelodiaSpacing.sm, bottom = 10.dp),
-        contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(top = 2.dp, bottom = 6.dp),
+        contentPadding = PaddingValues(horizontal = MelodiaSpacing.md),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selectedFilter != null) {
@@ -111,11 +111,11 @@ fun LibraryFilterPillsRow(
                         .pressable(MelodiaPress.Pill) { onClear() }
                         .clip(CircleShape)
                         .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
-                        .size(36.dp),
+                        .size(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = MelodiaIcons.Close,
                         contentDescription = "清除筛选",
                         tint = MelodiaColors.PillContent,
                         modifier = Modifier.size(18.dp)
@@ -138,18 +138,18 @@ fun LibraryFilterPillsRow(
             Box(
                 modifier = Modifier
                     .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                    .height(36.dp)
+                    .height(32.dp)
                     .pressable(MelodiaPress.Pill) { onSelect(filter) }
                     .clip(RoundedCornerShape(PillRadius))
                     .background(bgColor)
                     .animateContentSize(uiSpring(stiffness = Spring.StiffnessMedium))
-                    .padding(horizontal = 18.dp),
+                    .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
                     color = contentColor,
-                    fontSize = 14.sp
+                    fontSize = 13.sp
                 )
             }
         }
@@ -170,17 +170,17 @@ fun LibraryFilterPillsRow(
                 Box(
                     modifier = Modifier
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                        .height(36.dp)
+                        .height(32.dp)
                         .pressable(MelodiaPress.Pill) { onSelectPlaylistOwnerFilter(ownerFilter) }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(bgColor)
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label,
                         color = contentColor,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -191,17 +191,17 @@ fun LibraryFilterPillsRow(
                 Box(
                     modifier = Modifier
                         .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                        .height(36.dp)
+                        .height(32.dp)
                         .pressable(MelodiaPress.Pill) { onLocalMusicClick() }
                         .clip(RoundedCornerShape(PillRadius))
                         .background(MelodiaColors.Overlay.copy(alpha = 0.1f))
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "本地音乐",
                         color = MelodiaColors.PillContent,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -229,7 +229,7 @@ fun NotLoggedInView(onLoginClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Lock,
+                imageVector = MelodiaIcons.Lock,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp)
@@ -332,7 +332,7 @@ fun LibraryItemRow(
                 // 如果是置顶条目，显示绿色的置顶图标
                 if (item.isPinned) {
                     Icon(
-                        imageVector = Icons.Default.PushPin,
+                        imageVector = MelodiaIcons.PushPin,
                         contentDescription = "已置顶",
                         tint = MelodiaColors.Success,
                         modifier = Modifier
@@ -413,7 +413,7 @@ fun LibraryGridItem(
         ) {
             if (item.isPinned) {
                 Icon(
-                    imageVector = Icons.Default.PushPin,
+                    imageVector = MelodiaIcons.PushPin,
                     contentDescription = "已置顶",
                     tint = MelodiaColors.Success,
                     modifier = Modifier
@@ -502,7 +502,7 @@ fun DraggablePlaylistRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (item.isPinned) {
                     Icon(
-                        imageVector = Icons.Default.PushPin,
+                        imageVector = MelodiaIcons.PushPin,
                         contentDescription = "已置顶",
                         tint = MelodiaColors.Success,
                         modifier = Modifier
@@ -521,7 +521,7 @@ fun DraggablePlaylistRow(
         }
 
         Icon(
-            imageVector = Icons.Default.Menu,
+            imageVector = MelodiaIcons.Menu,
             contentDescription = "拖拽调整顺序",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

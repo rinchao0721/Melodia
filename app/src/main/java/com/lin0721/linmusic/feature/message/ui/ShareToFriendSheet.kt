@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +57,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 sealed interface ShareToFriendMode {
     data class Song(val songId: Long, val songName: String, val note: String = "") : ShareToFriendMode
@@ -246,7 +245,7 @@ fun ShareToFriendSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             EmptyState(
-                                icon = Icons.Rounded.Person,
+                                icon = MelodiaIcons.Person,
                                 title = if (current.query.isNotBlank()) "没有找到匹配的好友" else emptyTitle
                             )
                         }

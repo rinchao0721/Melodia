@@ -1,50 +1,75 @@
 package com.lin0721.linmusic.core.player
 
+import kotlin.math.log10
 import kotlin.math.pow
 
-// 整曲响度归一化：只衰减不提升，避免削波
+// 积分响度 (LUFS) 与线性采样峰值，峰值为空表示未知
+data class TrackLoudness(
+    val lufs: Double,
+    val peak: Double? = null
+)
+
+// 曲目响度归一化：允许提升，峰值不超过上限
 object LoudnessPolicy {
 
     // 写入 MediaItem extras，服务侧据此设定曲目初始增益
     const val EXTRA_TRACK_GAIN_DB = "trackGainDb"
 
-    const val TARGET_DBFS = -16.0
-    const val MIN_GAIN_DB = -12.0
+    const val TARGET_LUFS = -14.0
+    const val MAX_BOOST_DB = 6.0
+    const val MIN_GAIN_DB = -15.0
+    const val FALLBACK_GAIN_DB = -6.0
+    const val PEAK_CEILING_DBFS = -1.0
+    const val PRE_START_TIMEOUT_MS = 1_500L
 
     // 增益变化的平滑时长
     const val RAMP_MS = 2_000L
 
-    // 自测在曲长这些比例处各取一段
+    // 在线曲目抽样位置与时长
     val SAMPLE_FRACTIONS = listOf(0.25, 0.5, 0.75)
     const val SAMPLE_SPAN_MS = 10_000L
 
-    private val REPLAY_GAIN_NUMBER = Regex("""[-+]?\d+(?:\.\d+)?""")
+    // 网易 gain 的参考响度，未经真机标定
+    private const val NETEASE_REFERENCE_LUFS = -14.0
+    private const val REPLAY_GAIN_REFERENCE_LUFS = -18.0
+    private const val R128_TAG_REFERENCE_LUFS = -23.0
 
-    // 网易 gain 按真机样本标定约对齐到该 RMS 水平，需平移到本地目标
-    private const val NETEASE_REFERENCE_DBFS = -20.5
+    private val NUMBER_REGEX = Regex("""[-+]?\d+(?:\.\d+)?""")
 
-    fun clampGainDb(db: Double): Double = db.coerceIn(MIN_GAIN_DB, 0.0)
-
-    // 播放链接返回的曲目增益；peak 为 0 时 gain 是占位值（standard 音质固定为 1.5）
-    fun neteaseGainDb(gain: Double?, peak: Double?): Double? {
-        if (gain == null || peak == null || peak <= 0.0 || !gain.isFinite()) return null
-        return clampGainDb(gain + TARGET_DBFS - NETEASE_REFERENCE_DBFS)
+    // 峰值未知时不做峰值约束
+    fun gainDb(lufs: Double, peak: Double? = null): Double {
+        if (!lufs.isFinite()) return FALLBACK_GAIN_DB
+        val clamped = (TARGET_LUFS - lufs).coerceIn(MIN_GAIN_DB, MAX_BOOST_DB)
+        if (peak == null || !peak.isFinite() || peak <= 0.0) return clamped
+        val peakCeilingGain = PEAK_CEILING_DBFS - 20.0 * log10(peak)
+        return minOf(clamped, peakCeilingGain)
     }
 
-    // 自测响度为 RMS dBFS，全程无声时无结果
-    fun measuredGainDb(segments: List<List<LoudnessWindow>>): Double? =
-        TrackEdges.audibleLoudnessDb(segments.flatten())?.let { clampGainDb(TARGET_DBFS - it) }
+    fun gainDb(loudness: TrackLoudness): Double = gainDb(loudness.lufs, loudness.peak)
 
-    // 解析 ReplayGain 曲目增益标签，如 "-7.32 dB"
-    fun replayGainDb(tagValue: String?): Double? {
-        val number = tagValue?.let { REPLAY_GAIN_NUMBER.find(it)?.value?.toDoubleOrNull() } ?: return null
-        if (!number.isFinite()) return null
-        return clampGainDb(number)
+    // peak <= 0 时 gain 是占位值
+    fun fromNetease(gain: Double?, peak: Double?): TrackLoudness? {
+        if (gain == null || !gain.isFinite()) return null
+        if (peak == null || !peak.isFinite() || peak <= 0.0) return null
+        return TrackLoudness(lufs = NETEASE_REFERENCE_LUFS - gain, peak = peak)
+    }
+
+    // ReplayGain 2.0 标签（参考 -18 LUFS），如 REPLAYGAIN_TRACK_GAIN="-7.32 dB"
+    fun fromReplayGain(gainTag: String?, peakTag: String? = null): TrackLoudness? {
+        val gain = parseFiniteNumber(gainTag) ?: return null
+        val peak = parseFiniteNumber(peakTag)?.takeIf { it > 0.0 }
+        return TrackLoudness(lufs = REPLAY_GAIN_REFERENCE_LUFS - gain, peak = peak)
+    }
+
+    // Opus R128_TRACK_GAIN 标签（Q7.8 定点整数，参考 -23 LUFS）
+    fun fromR128Tag(gainTag: String?): TrackLoudness? {
+        val raw = gainTag?.trim()?.toIntOrNull() ?: return null
+        return TrackLoudness(lufs = R128_TAG_REFERENCE_LUFS - raw / 256.0, peak = null)
     }
 
     // 线性幅度增益
-    fun amplitude(db: Double): Float = 10.0.pow(db / 20).toFloat()
+    fun amplitude(db: Double): Float = 10.0.pow(db / 20.0).toFloat()
 
-    // mpv 软件音量按三次方映射为幅度，系数需开三次方
-    fun mpvVolumeFactor(db: Double): Double = 10.0.pow(db / 60)
+    private fun parseFiniteNumber(raw: String?): Double? =
+        raw?.let { NUMBER_REGEX.find(it)?.value?.toDoubleOrNull() }?.takeIf { it.isFinite() }
 }

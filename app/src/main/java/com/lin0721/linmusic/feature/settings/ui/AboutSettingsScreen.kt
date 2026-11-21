@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +35,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.update.UpdateChecker
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private const val PROJECT_URL = "https://github.com/rinchao0721/Melodia"
 private const val QQ_GROUP = "331832966"
@@ -228,7 +228,7 @@ fun AboutSettingsView(viewModel: SettingsViewModel) {
                                         fontSize = 15.sp
                                     )
                                     if (isSelected) {
-                                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Icon(MelodiaIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

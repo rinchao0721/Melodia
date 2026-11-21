@@ -16,11 +16,13 @@ import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
 import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
@@ -50,7 +52,8 @@ class ArtistViewModel(
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val searchRepository: SearchRepository,
-    private val trackBatchActions: TrackBatchActionsDelegate
+    private val trackBatchActions: TrackBatchActionsDelegate,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ArtistUiState>(ArtistUiState.Loading)
@@ -83,6 +86,7 @@ class ArtistViewModel(
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     // 各分页区块当前已加载的偏移量，随 loadArtistData 重新加载而重置
     private var currentArtistId: Long = 0
@@ -140,6 +144,7 @@ class ArtistViewModel(
                     val similar = similarResult.getOrDefault(emptyList())
 
                     albumOffset = albumsPage?.albums?.size ?: 0
+                    songQualityCache?.prefetch(topSongs)
 
                     _uiState.value = ArtistUiState.Success(
                         artist = detail,
@@ -157,6 +162,7 @@ class ArtistViewModel(
                     _uiState.value = ArtistUiState.Error(err)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.e(TAG, "歌手详情页加载最终失败 artistId=$artistId", e)
                 _uiState.value = ArtistUiState.Error(e.toUserMessage(resourceProvider))
             }
@@ -197,6 +203,7 @@ class ArtistViewModel(
             artistRepository.getArtistAllSongs(currentArtistId, offset = 0, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
+                    songQualityCache?.prefetch(page.songs)
                     allSongsOffset = page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
@@ -223,6 +230,7 @@ class ArtistViewModel(
             artistRepository.getArtistAllSongs(currentArtistId, offset = allSongsOffset, limit = ALL_SONGS_PAGE_SIZE)
                 .first()
                 .onSuccess { page ->
+                    songQualityCache?.prefetch(page.songs)
                     allSongsOffset += page.songs.size
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
                     _uiState.value = latest.copy(
@@ -271,17 +279,25 @@ class ArtistViewModel(
         viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
+    // 一键收藏到“已点赞的歌曲”
+    fun quickLike(songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
             songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->
@@ -369,6 +385,7 @@ class ArtistViewModel(
             hasMore = page.hasMore && page.rawFetchedCount > 0
             pages++
         }
+        songQualityCache?.prefetch(collected)
         _songSearch.update {
             if (it.query != query) it
             else it.copy(

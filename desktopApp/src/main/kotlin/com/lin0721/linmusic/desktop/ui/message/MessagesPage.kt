@@ -25,12 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AlternateEmail
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.MailOutline
-import androidx.compose.material.icons.rounded.NotificationsNone
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -79,6 +73,10 @@ import com.lin0721.linmusic.feature.message.ui.MessageTab
 import com.lin0721.linmusic.feature.message.ui.MessageViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateChatViewModel
 import com.lin0721.linmusic.feature.message.ui.PrivateUnreadMonitor
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.At
+import com.lin0721.linmusic.core.ui.icons.Refresh
+import com.lin0721.linmusic.core.ui.icons.Comment
 
 private val LeftPaneWidth = 260.dp
 private val ConversationAvatarSize = 40.dp
@@ -134,7 +132,7 @@ fun MessagesPage(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Rounded.MailOutline, null, tint = DesktopColors.TextGray, modifier = Modifier.size(40.dp))
+                Icon(MelodiaIcons.Messages, null, tint = DesktopColors.TextGray, modifier = Modifier.size(40.dp))
                 Text("登录后查看消息", color = DesktopColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 Text("私信、通知、@我与评论回复仅对登录账号开放", color = DesktopColors.TextGray, fontSize = 13.sp)
                 Spacer(Modifier.height(4.dp))
@@ -508,10 +506,10 @@ private fun <T> ChannelOverviewPanel(
 ) {
     val state by pager.state.collectAsState()
     val icon = when (tab) {
-        MessageTab.NOTICE -> Icons.Rounded.NotificationsNone
-        MessageTab.FORWARD -> Icons.Rounded.AlternateEmail
-        MessageTab.COMMENT -> Icons.Rounded.ChatBubbleOutline
-        MessageTab.PRIVATE -> Icons.Rounded.MailOutline
+        MessageTab.NOTICE -> MelodiaIcons.Messages
+        MessageTab.FORWARD -> MelodiaIcons.At
+        MessageTab.COMMENT -> MelodiaIcons.Comment
+        MessageTab.PRIVATE -> MelodiaIcons.Messages
     }
     Column(
         modifier.padding(16.dp),
@@ -536,7 +534,7 @@ private fun <T> ChannelOverviewPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(Icons.Rounded.Refresh, null, tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
+            Icon(MelodiaIcons.Refresh, null, tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
             Text("刷新", color = DesktopColors.TextPrimary, fontSize = 12.sp)
         }
     }
@@ -549,7 +547,7 @@ private fun EmptyPrivateChatState(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Rounded.MailOutline, null, tint = DesktopColors.TextTertiary, modifier = Modifier.size(42.dp))
+            Icon(MelodiaIcons.Messages, null, tint = DesktopColors.TextTertiary, modifier = Modifier.size(42.dp))
             Text("选择一个会话开始聊天", color = DesktopColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Text("也可从好友主页发私信，或在歌曲菜单中选择「分享」", color = DesktopColors.TextGray, fontSize = 12.sp)
         }
@@ -580,7 +578,7 @@ private fun <T> MessageFeedPane(
             )
             DesktopTooltip("刷新", side = TooltipSide.Bottom) {
                 IconButton(onClick = pager::refresh, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Rounded.Refresh, "刷新", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                    Icon(MelodiaIcons.Refresh, "刷新", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                 }
             }
         }

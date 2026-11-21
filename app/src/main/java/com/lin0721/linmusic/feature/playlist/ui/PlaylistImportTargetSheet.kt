@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +28,7 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 // ────────────────────────────────────────────────────────────────────────────
 // "添加到歌单"批量导入的目标歌单选择：单选即导入，不做逐首"是否已包含"核对
@@ -99,7 +98,7 @@ fun PlaylistImportTargetSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Add,
+                                    imageVector = MelodiaIcons.Plus,
                                     contentDescription = "新建歌单",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)

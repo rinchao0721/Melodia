@@ -16,8 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +42,8 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Group
 
 @Composable
 fun FollowListScreen(
@@ -102,7 +102,7 @@ fun FollowListScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         EmptyState(
-                            icon = Icons.Rounded.People,
+                            icon = MelodiaIcons.Group,
                             title = if (mode == FollowListMode.FOLLOWS) "还没有关注任何人" else "还没有粉丝关注"
                         )
                     }

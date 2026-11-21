@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.recent.data.RecentRepository
 import com.lin0721.linmusic.feature.recent.domain.RecentSong
 import kotlinx.coroutines.async
@@ -21,7 +22,8 @@ private const val TAG = "RecentPlayViewModel"
 class RecentPlayViewModel(
     private val recentRepository: RecentRepository,
     val playerManager: PlaybackController,
-    private val resourceProvider: ResourceProvider
+    private val resourceProvider: ResourceProvider,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RecentPlayUiState>(RecentPlayUiState.Loading)
@@ -58,8 +60,11 @@ class RecentPlayViewModel(
                 return@launch
             }
 
+            val songList = songs.getOrDefault(emptyList())
+            songQualityCache?.prefetch(songList.map { it.track })
+
             _uiState.value = RecentPlayUiState.Success(
-                songs = songs.getOrDefault(emptyList()),
+                songs = songList,
                 playlists = playlists.getOrDefault(emptyList()),
                 albums = albums.getOrDefault(emptyList())
             )

@@ -3,10 +3,6 @@ package com.lin0721.linmusic.feature.artist.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +23,9 @@ import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronLeft
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private val TOP_BAR_HEIGHT = 56.dp
 
@@ -74,7 +73,7 @@ fun ArtistTopBarOverlay(
                 .padding(start = MelodiaSpacing.xs)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                imageVector = MelodiaIcons.ChevronLeft,
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(32.dp)
@@ -89,7 +88,7 @@ fun ArtistTopBarOverlay(
                     .padding(end = MelodiaSpacing.xs)
             ) {
                 Icon(
-                    imageVector = if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
+                    imageVector = if (searchOpen) MelodiaIcons.Close else MelodiaIcons.Search,
                     contentDescription = if (searchOpen) "关闭搜索" else "搜索歌曲",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)

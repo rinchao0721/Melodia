@@ -7,9 +7,11 @@ import com.lin0721.linmusic.core.listentogether.TestController
 import com.lin0721.linmusic.core.listentogether.data.RoomSongSource
 import com.lin0721.linmusic.core.listentogether.domain.RoomPlayback
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -103,5 +105,38 @@ class RoomSongPickerViewModelTest {
         runCurrent()
 
         assertTrue(viewModel.state.value.added.isEmpty())
+    }
+
+    @Test
+    fun `点歌列表发布前先完成最高音质预查`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val fetched = mutableListOf<List<Long>>()
+        val cache = SongQualityCache(
+            enabledFlow = MutableStateFlow(true),
+            fetcher = { ids ->
+                fetched += ids
+                ids.associateWith { "jymaster" }
+            },
+            scope = backgroundScope,
+            batchDelayMs = 300
+        )
+        val session = ListenTogetherSession(
+            FakeRepository(), TestController(), RoomTrackResolver { ids -> ids.map(::item) }, { 2L }, backgroundScope, dispatcher
+        ) { testScheduler.currentTime }
+        val viewModel = RoomSongPickerViewModel(source, session, testResourceProvider, cache)
+
+        viewModel.open()
+        runCurrent()
+        assertEquals(listOf(11L, 12L), viewModel.state.value.tracks.map { it.songId })
+        assertEquals(listOf(listOf(11L, 12L)), fetched)
+        assertEquals("jymaster", cache.levels.value[11L])
+        assertEquals("jymaster", cache.levels.value[12L])
+
+        viewModel.setQuery("yo")
+        advanceTimeBy(500L)
+        assertEquals(listOf(21L), viewModel.state.value.tracks.map { it.songId })
+        assertEquals(listOf(listOf(11L, 12L), listOf(21L)), fetched)
+        assertEquals("jymaster", cache.levels.value[21L])
     }
 }

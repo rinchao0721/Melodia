@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -55,6 +53,8 @@ import java.awt.event.MouseEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import javax.imageio.ImageIO
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private const val TAG = "TrayHost"
 
@@ -215,7 +215,7 @@ private fun MenuRow(label: String, checked: Boolean?, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
-            if (checked == true) Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
+            if (checked == true) Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
         }
         Text(label, color = DesktopColors.TextPrimary, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
     }

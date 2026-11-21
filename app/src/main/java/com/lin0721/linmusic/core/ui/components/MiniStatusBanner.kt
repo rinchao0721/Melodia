@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -24,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 // mini 播放栏上方的通用状态横幅
 @Composable
@@ -101,7 +101,7 @@ fun MiniStatusBanner(
             if (onClose != null) {
                 Spacer(modifier = Modifier.width(MelodiaSpacing.xs))
                 Icon(
-                    imageVector = Icons.Rounded.Close,
+                    imageVector = MelodiaIcons.Close,
                     contentDescription = "关闭",
                     tint = MelodiaColors.TextSecondary,
                     modifier = Modifier

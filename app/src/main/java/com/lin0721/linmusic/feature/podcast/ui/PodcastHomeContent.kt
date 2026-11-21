@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +34,8 @@ import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressEntry
 import com.lin0721.linmusic.feature.podcast.domain.PodcastRadio
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Headphones
 
 // 首页各处交互的出口，状态由 PodcastHomeViewModel 持有
 class PodcastHomeActions(
@@ -225,7 +225,7 @@ private fun LazyListScope.subscribedSections(
             if (subscribed.data.isEmpty()) {
                 item(key = "subs_empty") {
                     EmptyState(
-                        icon = Icons.Rounded.Headphones,
+                        icon = MelodiaIcons.Headphones,
                         title = "还没有订阅的电台",
                         subtitle = "在电台详情页点「订阅」，更新会出现在这里"
                     )

@@ -10,10 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -25,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
+import com.lin0721.linmusic.core.ui.components.CollectToggleIcon
 import com.lin0721.linmusic.core.ui.components.MiniPlayerProgress
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
@@ -33,6 +30,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.playerBackdrop
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
 
 // 播放页顶栏，仅在封面滚出视野后显示歌名与快捷操作
 @Composable
@@ -44,6 +45,8 @@ fun FullPlayerTopBar(
     isPlaying: Boolean = false,
     onTogglePlay: () -> Unit = {},
     isLiked: Boolean = false,
+    // 电台节目显示订阅红心，歌曲显示 ⊕/✓
+    isPodcast: Boolean = false,
     onToggleLike: () -> Unit = {},
     backgroundColor: Color = Color.Transparent,
     currentPositionProvider: () -> Long = { 0L },
@@ -73,7 +76,7 @@ fun FullPlayerTopBar(
             ) {
                 MelodiaIconButton(onClick = onClose) {
                     Icon(
-                        Icons.Rounded.KeyboardArrowDown,
+                        MelodiaIcons.ChevronDown,
                         contentDescription = null,
                         tint = MelodiaColors.TextPrimary,
                         modifier = Modifier.size(32.dp)
@@ -106,12 +109,21 @@ fun FullPlayerTopBar(
                     horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
                 ) {
                     MelodiaIconButton(onClick = onToggleLike) {
-                        Icon(
-                            if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            contentDescription = null,
-                            tint = MelodiaColors.TextPrimary,
-                            modifier = Modifier.size(26.dp)
-                        )
+                        if (isPodcast) {
+                            Icon(
+                                if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                                contentDescription = null,
+                                tint = MelodiaColors.TextPrimary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        } else {
+                            CollectToggleIcon(
+                                collected = isLiked,
+                                size = 26.dp,
+                                tint = MelodiaColors.TextPrimary,
+                                collectedTint = MelodiaColors.OnCoverAccent
+                            )
+                        }
                     }
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
                         PlayPauseIcon(isPlaying, MelodiaColors.TextPrimary)

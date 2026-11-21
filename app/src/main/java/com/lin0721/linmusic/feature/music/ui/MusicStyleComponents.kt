@@ -17,12 +17,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -45,11 +45,14 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.music.domain.MusicStyle
 import com.lin0721.linmusic.feature.music.domain.StyleHead
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 
 internal val MusicEdgePadding = 20.dp
 
 // 服务端没给配色的曲风统一退回中性灰
 private val FallbackStyleColor = Color(0xFF4A4A4A)
+private const val LIGHT_TILE_WHITE_MIX = 0.7f
 
 // 头图高度不含状态栏，容得下大标题加两行简介
 private val StyleHeroHeight = 230.dp
@@ -62,6 +65,12 @@ internal fun String?.toStyleColor(): Color {
 
 // 古典等曲风配色近黑（111111），直接铺在深色背景上看不出色块边界
 internal fun Color.liftedForTile(): Color = if (luminance() < 0.015f) lerp(this, Color.White, 0.12f) else this
+
+// 接口配色多为深色、按白字设计；浅色模式混白成粉彩，配主题深色字
+@Composable
+@ReadOnlyComposable
+internal fun Color.tileBackground(): Color =
+    if (LocalMelodiaPalette.current.isDark) liftedForTile() else lerp(this, Color.White, LIGHT_TILE_WHITE_MIX)
 
 // 二级曲风子筛选。服务端不给二级配色，故一律用描边胶囊
 @Composable
@@ -214,7 +223,7 @@ fun MusicFavouriteSongCard(track: Track, onClick: () -> Unit, modifier: Modifier
         Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Favorite,
+                    imageVector = MelodiaIcons.FavoriteFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(11.dp)

@@ -6,11 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,6 +47,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.ChevronRight
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
 
 private val CoverSize = 52.dp
 private val MutedText: Color @Composable @ReadOnlyComposable get() = MelodiaColors.TextTertiary
@@ -159,7 +159,7 @@ private fun TaskOverviewCard(tasks: List<DownloadTask>, onClick: (DownloadManage
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Download, contentDescription = null, tint = MelodiaColors.Accent, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Download, contentDescription = null, tint = MelodiaColors.Accent, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = "下载任务", color = MelodiaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
@@ -180,7 +180,7 @@ private fun TaskOverviewCard(tasks: List<DownloadTask>, onClick: (DownloadManage
                 )
             }
             Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                MelodiaIcons.ChevronRight,
                 contentDescription = "打开下载任务",
                 tint = MutedText
             )
@@ -218,7 +218,7 @@ private fun DownloadedHeader(records: List<DownloadRecord>, onPlayAll: () -> Uni
                 .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(18.dp))
+            Icon(MelodiaIcons.Play, contentDescription = null, tint = MelodiaColors.OnAccent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
             Text(text = "播放全部", color = MelodiaColors.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
@@ -274,7 +274,7 @@ private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit, onDel
             }
         }
         IconButton(onClick = onDeleteClick) {
-            Icon(Icons.Outlined.Delete, contentDescription = "删除下载", tint = MutedText, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Delete, contentDescription = "删除下载", tint = MutedText, modifier = Modifier.size(20.dp))
         }
     }
 }

@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +59,8 @@ import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
 import org.koin.compose.koinInject
 import java.time.LocalDate
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 封面取色后再压暗，保证白字在任意封面色上都看得清
 private const val SPOTLIGHT_DARKEN_FRACTION = 0.35f
@@ -291,7 +291,7 @@ private fun DailySpotlightCard(
                 containerColor = MelodiaColors.OnCoverCard
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = MelodiaIcons.Play,
                     contentDescription = "播放每日推荐",
                     tint = MelodiaColors.OnCoverCardInverse,
                     modifier = Modifier.size(24.dp)

@@ -1,7 +1,14 @@
 package com.lin0721.linmusic.desktop.ui.player
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -23,39 +30,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeDown
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.geometry.Offset
@@ -63,12 +56,15 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -93,7 +89,7 @@ import com.lin0721.linmusic.core.plugin.rememberLayoutScriptRunner
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
 import com.lin0721.linmusic.core.plugin.layoutFill
-import com.lin0721.linmusic.core.model.getQualityBadgeLabel
+import com.lin0721.linmusic.core.model.playbackQualityLabel
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberLayoutCoverColors
 import androidx.compose.runtime.CompositionLocalProvider
@@ -127,14 +123,37 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Devices
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Fullscreen
+import com.lin0721.linmusic.core.ui.icons.FullscreenExit
+import com.lin0721.linmusic.core.ui.icons.MiniPlayer
+import com.lin0721.linmusic.core.ui.icons.Phone
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Repeat
+import com.lin0721.linmusic.core.ui.icons.RepeatOne
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.VolumeDown
+import com.lin0721.linmusic.core.ui.icons.VolumeOff
+import com.lin0721.linmusic.core.ui.icons.VolumeUp
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircle
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 private const val HOVER_SCALE = 1.1f
 private const val HOVER_SCALE_MS = 150
 private val TransportButtonSize = 36.dp
 private val SideButtonSize = 32.dp
 
-// 右侧与红心按钮的图标比切歌按钮的字形占格更满，缩小图标才能看起来一样大
+// 自绘图标字形占满格子，切歌与右侧统一 20dp 才与圆形播放键比例协调
 private val SideIconSize = 20.dp
+private val PlayIconSize = 18.dp
 private val VolumeSliderWidth = 120.dp
 private val DeviceNameMaxWidth = 160.dp
 private const val DEVICE_ANIM_MS = 220
@@ -163,7 +182,8 @@ fun PlayerBar(
     lyricsViewOpen: Boolean,
     onToggleLyricsView: () -> Unit,
     onEnterMiniPlayer: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    remoteDeviceName: String? = null
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val isPlaying by controller.playWhenReady.collectAsState()
@@ -197,6 +217,7 @@ fun PlayerBar(
         devicesOpen = devicesOpen,
         onToggleDevices = onToggleDevices,
         outputDevice = outputDevice,
+        remoteDeviceName = remoteDeviceName,
         isFullscreen = isFullscreen,
         onToggleFullscreen = onToggleFullscreen,
         lyricVisible = lyricVisible,
@@ -206,30 +227,120 @@ fun PlayerBar(
         onEnterMiniPlayer = onEnterMiniPlayer
     )
     val pluginLayout = LocalPlayerLayouts.current[PlayerLayoutArea.DESKTOP_PLAYER_BAR]
-    if (pluginLayout != null) {
-        PluginPlayerBar(pluginLayout, parts, modifier)
-        return
-    }
-
-    Row(
-        modifier.fillMaxWidth().height(DesktopDimens.PlayerBarHeight).padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(Modifier.weight(0.27f), verticalAlignment = Alignment.CenterVertically) {
-            if (nowPlaying != null) {
-                parts.CoverButton(56.dp)
-                Column(Modifier.weight(1f, fill = false).padding(start = 12.dp)) {
-                    parts.Title(14.sp)
-                    parts.Artists(12.sp)
+    Column(modifier.fillMaxWidth()) {
+        if (pluginLayout != null) {
+            PluginPlayerBar(pluginLayout, parts, Modifier)
+        } else {
+            Row(
+                Modifier.fillMaxWidth().height(DesktopDimens.PlayerBarHeight).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(Modifier.weight(0.27f), verticalAlignment = Alignment.CenterVertically) {
+                    if (nowPlaying != null) {
+                        parts.CoverButton(56.dp)
+                        Column(Modifier.weight(1f, fill = false).padding(start = 12.dp)) {
+                            parts.Title(14.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                parts.QualityBadge()
+                                Box(Modifier.weight(1f, fill = false)) {
+                                    parts.Artists(12.sp)
+                                }
+                            }
+                        }
+                        parts.LikeButton(Modifier.padding(start = 4.dp))
+                    }
                 }
-                parts.LikeButton(Modifier.padding(start = 4.dp))
+                // 进度条位置不变，播放组上移，使栏顶与进度轨道到播放键的留白相等
+                Column(
+                    Modifier.weight(0.4f).fillMaxHeight().padding(top = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    parts.Controls(CONTROL_BUTTONS)
+                    parts.Progress(showTime = true)
+                }
+                parts.Actions(DesktopBarActions, Modifier.weight(0.33f))
             }
         }
-        Column(Modifier.weight(0.4f), horizontalAlignment = Alignment.CenterHorizontally) {
-            parts.Controls(CONTROL_BUTTONS)
-            parts.Progress(showTime = true)
+        // 断开后保留上次设备名，让收起动画期间文字不突变为空
+        var lastRemoteName by remember { mutableStateOf("") }
+        if (!remoteDeviceName.isNullOrBlank()) lastRemoteName = remoteDeviceName
+        val ease = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
+        AnimatedVisibility(
+            visible = !remoteDeviceName.isNullOrBlank(),
+            enter = expandVertically(tween(240, easing = ease), expandFrom = Alignment.Top) +
+                slideInVertically(tween(240, easing = ease)) { it / 2 } +
+                fadeIn(tween(200)),
+            exit = shrinkVertically(tween(180, easing = FastOutLinearInEasing), shrinkTowards = Alignment.Top) +
+                slideOutVertically(tween(180, easing = FastOutLinearInEasing)) { it / 2 } +
+                fadeOut(tween(140))
+        ) {
+            RemotePlaybackStrip(deviceName = lastRemoteName, onClick = onToggleDevices)
         }
-        parts.Actions(DesktopBarActions, Modifier.weight(0.33f))
+    }
+}
+
+// 播放设备为对端时的悬浮提示块；只有右侧图标与文字可点，打开设备面板
+@Composable
+private fun RemotePlaybackStrip(deviceName: String, onClick: (() -> Unit)?) {
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+            .shadow(6.dp, shape)
+            .background(DesktopColors.Accent, shape)
+            .height(28.dp)
+            .padding(horizontal = 3.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val label = @Composable { RemotePlaybackLabel(deviceName, onClick) }
+        if (onClick != null) DesktopTooltip("打开设备面板") { label() } else label()
+    }
+}
+
+@Composable
+private fun RemotePlaybackLabel(deviceName: String, onClick: (() -> Unit)?) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val hoverBg by animateColorAsState(
+        if (hovered && onClick != null) Color.Black.copy(alpha = 0.18f) else Color.Transparent,
+        tween(150)
+    )
+    Row(
+        Modifier
+            .height(22.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(hoverBg)
+            .hoverable(interaction)
+            .then(
+                if (onClick != null) {
+                    Modifier
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            MelodiaIcons.VolumeUp,
+            contentDescription = null,
+            tint = DesktopColors.OnAccent,
+            modifier = Modifier.size(15.dp)
+        )
+        Text(
+            "在 $deviceName 上播放",
+            color = DesktopColors.OnAccent,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 7.dp)
+        )
     }
 }
 
@@ -282,6 +393,7 @@ internal class PlayerBarParts(
     val devicesOpen: Boolean,
     val onToggleDevices: (() -> Unit)?,
     val outputDevice: AudioDevice?,
+    val remoteDeviceName: String?,
     val isFullscreen: Boolean,
     val onToggleFullscreen: () -> Unit,
     val lyricVisible: Boolean,
@@ -361,12 +473,12 @@ internal class PlayerBarParts(
         val podcast by playerViewModel.podcastState.collectAsState()
         val playContext by controller.playContext.collectAsState()
         val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
-        val level by controller.playbackLevel.collectAsState()
+        val playbackQuality by controller.playbackQuality.collectAsState()
         val track = nowPlaying
         val lyrics = songDetail.lyrics
-        val quality = level
-            ?.takeIf { showQuality && !podcast.isPodcast && it.songId.toString() == track?.mediaId }
-            ?.let { getQualityBadgeLabel(it.level) }
+        val quality = playbackQuality
+            ?.takeIf { showQuality && !podcast.isPodcast && it.mediaId == track?.mediaId }
+            ?.let(::playbackQualityLabel)
         return PlayerBindingState(
             title = track?.title.orEmpty(),
             artist = track?.artist.orEmpty(),
@@ -398,6 +510,16 @@ internal class PlayerBarParts(
     }
 
     @Composable
+    fun QualityBadge(modifier: Modifier = Modifier) {
+        val showQuality by playerViewModel.showPlaybackQuality.collectAsState()
+        val playbackQuality by controller.playbackQuality.collectAsState()
+        val track = nowPlaying
+        val quality = playbackQuality
+            ?.takeIf { track != null && showQuality && !isPodcast && it.mediaId == track.mediaId }
+        PlaybackQualityBadge(quality = quality, modifier = modifier)
+    }
+
+    @Composable
     fun Artists(fontSize: TextUnit) {
         val track = nowPlaying ?: return
         NowPlayingArtists(track, playerViewModel, fontSize)
@@ -413,7 +535,7 @@ internal class PlayerBarParts(
         if (podcast.isPodcast) {
             if (podcast.canSubscribe) {
                 BarIconButton(
-                    icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    icon = if (podcast.subscribed) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                     description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
                     active = podcast.subscribed,
                     size = SideButtonSize, iconSize = SideIconSize,
@@ -428,8 +550,8 @@ internal class PlayerBarParts(
 
         Box {
             BarIconButton(
-                icon = if (songDetail.isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
-                description = "收藏到歌单",
+                icon = if (songDetail.isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                description = if (songDetail.isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
                 active = songDetail.isLiked,
                 size = SideButtonSize, iconSize = SideIconSize,
                 modifier = modifier,
@@ -438,8 +560,12 @@ internal class PlayerBarParts(
                         navigator.showMessage("请先登录账号")
                     } else {
                         track.songId?.let { songId ->
-                            playerViewModel.prepareCollectDialog(songId)
-                            showCollectPopup = true
+                            if (songDetail.isLiked) {
+                                playerViewModel.prepareCollectDialog(songId)
+                                showCollectPopup = true
+                            } else {
+                                playerViewModel.quickLike(songId)
+                            }
                         }
                     }
                 }
@@ -477,7 +603,7 @@ internal class PlayerBarParts(
                         FmModeButton(size = transportSize)
                     } else if (!isPodcast) {
                         BarIconButton(
-                            Icons.Rounded.Shuffle,
+                            MelodiaIcons.Shuffle,
                             "随机播放",
                             enabled = hasTrack,
                             active = playMode == PlayMode.SHUFFLE,
@@ -487,7 +613,7 @@ internal class PlayerBarParts(
                         )
                     }
                     "previous" -> BarIconButton(
-                        Icons.Rounded.SkipPrevious, "上一首", enabled = hasTrack && !isPersonalFm, size = transportSize,
+                        MelodiaIcons.SkipPrevious, "上一首", enabled = hasTrack && !isPersonalFm, size = transportSize,
                         onClick = controller::skipToPrevious, modifier = transportOutline
                     )
                     CONTROL_PLAY_PAUSE -> if (variant == ControlVariant.PLAIN) {
@@ -502,7 +628,7 @@ internal class PlayerBarParts(
                     // 列表循环 → 单曲循环 → 随机 → 列表循环
                     CONTROL_PLAY_MODE -> if (isPersonalFm) {
                         BarIconButton(
-                            Icons.Rounded.DeleteOutline,
+                            MelodiaIcons.Delete,
                             "不喜欢",
                             enabled = hasTrack,
                             size = transportSize,
@@ -511,9 +637,9 @@ internal class PlayerBarParts(
                     } else if (!isPodcast) {
                         BarIconButton(
                             when (playMode) {
-                                PlayMode.LIST_LOOP -> Icons.Rounded.Repeat
-                                PlayMode.SINGLE_LOOP -> Icons.Rounded.RepeatOne
-                                PlayMode.SHUFFLE -> Icons.Rounded.Shuffle
+                                PlayMode.LIST_LOOP -> MelodiaIcons.Repeat
+                                PlayMode.SINGLE_LOOP -> MelodiaIcons.RepeatOne
+                                PlayMode.SHUFFLE -> MelodiaIcons.Shuffle
                             },
                             when (playMode) {
                                 PlayMode.LIST_LOOP -> "列表循环"
@@ -526,12 +652,12 @@ internal class PlayerBarParts(
                         )
                     }
                     "next" -> BarIconButton(
-                        Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
+                        MelodiaIcons.SkipNext, "下一首", enabled = hasTrack, size = transportSize,
                         onClick = controller::playNext, modifier = transportOutline
                     )
                     "repeat" -> if (isPersonalFm) {
                         BarIconButton(
-                            Icons.Rounded.DeleteOutline,
+                            MelodiaIcons.Delete,
                             "不喜欢",
                             enabled = hasTrack,
                             size = transportSize,
@@ -539,7 +665,7 @@ internal class PlayerBarParts(
                         )
                     } else if (!isPodcast) {
                         BarIconButton(
-                            if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            if (playMode == PlayMode.SINGLE_LOOP) MelodiaIcons.RepeatOne else MelodiaIcons.Repeat,
                             "循环模式",
                             enabled = hasTrack,
                             active = playMode == PlayMode.SINGLE_LOOP,
@@ -558,7 +684,7 @@ internal class PlayerBarParts(
         var menuOpen by remember { mutableStateOf(false) }
         Box {
             BarIconButton(
-                Icons.Rounded.Tune,
+                MelodiaIcons.Tune,
                 "私人FM模式：${personalFmMode.displayName}",
                 enabled = hasTrack,
                 highlighted = true,
@@ -591,7 +717,7 @@ internal class PlayerBarParts(
             contentAlignment = Alignment.Center
         ) {
             IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
-                PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
+                PlayPauseIcon(isPlaying, if (outlined) playActive else DesktopColors.Pane, size = PlayIconSize, contentDescription = if (isPlaying) "暂停" else "播放")
             }
         }
     }
@@ -624,7 +750,7 @@ internal class PlayerBarParts(
                         onClick = onToggleLyricsView
                     )
                     "queue" -> BarIconButton(
-                        PlayerBarIcons.Queue,
+                        MelodiaIcons.Queue,
                         "播放队列",
                         enabled = hasTrack,
                         active = queueOpen,
@@ -634,16 +760,22 @@ internal class PlayerBarParts(
                     )
                     // 设备名最后测量，只占其余按钮排完后的剩余宽度，窗口窄时自身截断而不挤掉音量等按钮
                     "device" -> if (onToggleDevices != null) {
-                        OutputDeviceButton(outputDevice, devicesOpen, onToggleDevices, Modifier.weight(1f, fill = false))
+                        OutputDeviceButton(
+                            device = outputDevice,
+                            remoteDeviceName = remoteDeviceName,
+                            open = devicesOpen,
+                            onClick = onToggleDevices,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
                     }
                     // 占位播放器没有音量能力时不显示
                     "volume" -> if (volume != null) VolumeControl(volume, lastAudibleVolume, onVolumeChange)
                     "miniPlayer" -> BarIconButton(
-                        Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize,
+                        MelodiaIcons.MiniPlayer, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize,
                         onClick = onEnterMiniPlayer
                     )
                     "fullscreen" -> BarIconButton(
-                        if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
                         if (isFullscreen) "退出全屏" else "全屏",
                         size = SideButtonSize, iconSize = SideIconSize,
                         onClick = onToggleFullscreen
@@ -658,6 +790,9 @@ internal class PlayerBarParts(
     }
 }
 
+private const val VOLUME_THROTTLE_MS = 100L
+private const val VOLUME_HOLD_MS = 450L
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -> Unit) {
@@ -665,6 +800,43 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
     var isScrollingVolume by remember { mutableStateOf(false) }
     var lastScrollPosition by remember { mutableStateOf<Offset?>(null) }
     var controlWidthPx by remember { mutableStateOf(0) }
+
+    var dragVolume by remember { mutableStateOf<Int?>(null) }
+    var isDragging by remember { mutableStateOf(false) }
+    var lastSentAtMs by remember { mutableStateOf(0L) }
+    var pendingEmitVolume by remember { mutableStateOf<Int?>(null) }
+    var holdGeneration by remember { mutableStateOf(0) }
+
+    val displayVolume = dragVolume ?: volume
+    val currentDisplayVolume by rememberUpdatedState(displayVolume)
+    val currentLastAudible by rememberUpdatedState(lastAudible)
+    val currentOnVolumeChange by rememberUpdatedState(onVolumeChange)
+
+    LaunchedEffect(isDragging, volume, dragVolume) {
+        if (!isDragging && dragVolume != null && volume == dragVolume) {
+            dragVolume = null
+        }
+    }
+
+    LaunchedEffect(holdGeneration, isDragging) {
+        if (!isDragging && dragVolume != null) {
+            delay(VOLUME_HOLD_MS)
+            dragVolume = null
+        }
+    }
+
+    LaunchedEffect(pendingEmitVolume, isDragging) {
+        val pending = pendingEmitVolume ?: return@LaunchedEffect
+        if (!isDragging) return@LaunchedEffect
+        val waitMs = (VOLUME_THROTTLE_MS - (System.currentTimeMillis() - lastSentAtMs)).coerceAtLeast(0L)
+        if (waitMs > 0L) delay(waitMs)
+        if (isDragging && pendingEmitVolume != null) {
+            val latest = pendingEmitVolume!!
+            pendingEmitVolume = null
+            lastSentAtMs = System.currentTimeMillis()
+            currentOnVolumeChange(latest)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -681,18 +853,25 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
                 val steps = scrollDeltaAccumulator.toInt()
                 if (steps != 0) {
                     scrollDeltaAccumulator -= steps
+                    val currentVol = currentDisplayVolume
+                    val audible = currentLastAudible
                     val newVolume = if (steps < 0) {
-                        if (volume == 0) {
-                            val base = if (lastAudible > 0) lastAudible else 0
+                        if (currentVol == 0) {
+                            val base = if (audible > 0) audible else 0
                             (base + (-steps - 1) * 5 + if (base == 0) 5 else 0).coerceIn(0, 100)
                         } else {
-                            (volume - steps * 5).coerceIn(0, 100)
+                            (currentVol - steps * 5).coerceIn(0, 100)
                         }
                     } else {
-                        (volume - steps * 5).coerceIn(0, 100)
+                        (currentVol - steps * 5).coerceIn(0, 100)
                     }
-                    if (newVolume != volume) {
-                        onVolumeChange(newVolume)
+                    if (newVolume != currentVol) {
+                        isDragging = false
+                        pendingEmitVolume = null
+                        dragVolume = newVolume
+                        holdGeneration++
+                        lastSentAtMs = System.currentTimeMillis()
+                        currentOnVolumeChange(newVolume)
                     }
                 }
             }
@@ -713,23 +892,47 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
         Row(verticalAlignment = Alignment.CenterVertically) {
             BarIconButton(
                 icon = when {
-                    volume == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
-                    volume < 50 -> Icons.AutoMirrored.Rounded.VolumeDown
-                    else -> Icons.AutoMirrored.Rounded.VolumeUp
+                    displayVolume == 0 -> MelodiaIcons.VolumeOff
+                    displayVolume < 50 -> MelodiaIcons.VolumeDown
+                    else -> MelodiaIcons.VolumeUp
                 },
-                description = if (volume == 0) "取消静音" else "静音",
+                description = if (displayVolume == 0) "取消静音" else "静音",
                 size = SideButtonSize, iconSize = SideIconSize,
                 onClick = {
-                    if (volume > 0) {
-                        onVolumeChange(0)
-                    } else {
-                        onVolumeChange(lastAudible)
-                    }
+                    val newVol = if (displayVolume > 0) 0 else lastAudible
+                    isDragging = false
+                    pendingEmitVolume = null
+                    dragVolume = newVol
+                    holdGeneration++
+                    lastSentAtMs = System.currentTimeMillis()
+                    currentOnVolumeChange(newVol)
                 }
             )
             PlayerSlider(
-                value = volume / 100f,
-                onValueChange = { onVolumeChange((it * 100).roundToInt()) },
+                value = displayVolume / 100f,
+                onValueChange = { fraction ->
+                    val target = (fraction * 100).roundToInt().coerceIn(0, 100)
+                    isDragging = true
+                    dragVolume = target
+                    val now = System.currentTimeMillis()
+                    if (now - lastSentAtMs >= VOLUME_THROTTLE_MS) {
+                        lastSentAtMs = now
+                        pendingEmitVolume = null
+                        currentOnVolumeChange(target)
+                    } else {
+                        pendingEmitVolume = target
+                    }
+                },
+                onValueChangeFinished = {
+                    val finalVol = pendingEmitVolume ?: dragVolume
+                    pendingEmitVolume = null
+                    isDragging = false
+                    holdGeneration++
+                    if (finalVol != null) {
+                        lastSentAtMs = System.currentTimeMillis()
+                        currentOnVolumeChange(finalVol)
+                    }
+                },
                 modifier = Modifier.width(VolumeSliderWidth),
                 previewLabel = { "${(it * 100).roundToInt()}%" },
                 externalActive = isScrollingVolume
@@ -749,25 +952,41 @@ private fun VolumeControl(volume: Int, lastAudible: Int, onVolumeChange: (Int) -
                     }
                 }
             ) {
-                TooltipLabel("$volume%")
+                TooltipLabel("$displayVolume%")
             }
         }
     }
 }
 
-// 手动指定了输出设备时换成对应类型图标并常亮，右侧跟设备名；跟随系统默认时保持通用图标
+// 正在远端设备播放时显示手机图标与对端名并常亮；本机手动指定输出设备时显示对应图标与型号；跟随系统默认时保持通用图标
 @Composable
-private fun OutputDeviceButton(device: AudioDevice?, open: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun OutputDeviceButton(
+    device: AudioDevice?,
+    remoteDeviceName: String?,
+    open: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val motion = LocalUiMotion.current
-    val tooltip = device?.let { "输出设备：${it.description}" } ?: "输出设备"
+    val isRemote = remoteDeviceName != null
+    val icon = when {
+        isRemote -> MelodiaIcons.Phone
+        device != null -> device.icon()
+        else -> MelodiaIcons.Devices
+    }
+    val tooltip = when {
+        isRemote -> "在 $remoteDeviceName 上播放"
+        device != null -> "输出设备：${device.description}"
+        else -> "输出设备"
+    }
     // 多台设备主标题都叫“扬声器”，优先显示括号里的型号
-    val name = device?.let { it.subtitle ?: it.title }
+    val name = remoteDeviceName ?: device?.let { it.subtitle ?: it.title }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         BarIconButton(
-            device?.icon() ?: PlayerBarIcons.Devices,
+            icon,
             tooltip,
             active = open,
-            highlighted = device != null,
+            highlighted = isRemote || device != null,
             showDot = true,
             animateIcon = true,
             size = SideButtonSize, iconSize = SideIconSize,
@@ -854,7 +1073,7 @@ private fun BarIconButton(
     showDot: Boolean = false,
     animateIcon: Boolean = false,
     size: Dp = TransportButtonSize,
-    iconSize: Dp = 24.dp
+    iconSize: Dp = SideIconSize
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -927,6 +1146,7 @@ internal fun rememberPlaybackParts(controller: PlaybackController, playerViewMod
         devicesOpen = false,
         onToggleDevices = null,
         outputDevice = null,
+        remoteDeviceName = null,
         isFullscreen = false,
         onToggleFullscreen = {},
         lyricVisible = false,

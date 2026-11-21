@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.desktop.data.local
 
+import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
 import org.jaudiotagger.audio.AudioFile
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.audio.AudioHeader
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.Tag
 import org.jaudiotagger.tag.images.ArtworkFactory
@@ -17,7 +19,8 @@ data class LocalTagData(
     val year: Int,
     val trackNumber: Int,
     val durationMs: Long,
-    val artwork: ByteArray?
+    val artwork: ByteArray?,
+    val quality: String = ""
 )
 
 // 标签编辑器读写的字段
@@ -38,6 +41,38 @@ sealed interface CoverChange {
 
 internal const val UNKNOWN_ARTIST = "未知歌手"
 
+internal fun resolveDesktopAudioCodec(header: AudioHeader?): String? {
+    if (header == null) return null
+    val encoding = runCatching { header.encodingType }.getOrNull().orEmpty().trim().lowercase()
+    val format = runCatching { header.format }.getOrNull().orEmpty().trim().lowercase()
+    val combined = "$encoding $format"
+    return when {
+        "alac" in combined || "apple lossless" in combined -> "alac"
+        "flac" in combined -> "flac"
+        runCatching { header.isLossless }.getOrDefault(false) -> "flac"
+        "aac" in combined -> "aac"
+        else -> null
+    }
+}
+
+internal fun inferDesktopAudioQuality(
+    extension: String,
+    bitrateKbps: Int,
+    sampleRateHz: Int,
+    bitDepth: Int,
+    sizeBytes: Long,
+    durationMs: Long,
+    codec: String? = null
+): String = inferAudioQuality(
+    extension = extension,
+    codec = codec,
+    bitrateKbps = bitrateKbps,
+    sampleRateHz = sampleRateHz,
+    bitDepth = bitDepth,
+    sizeBytes = sizeBytes,
+    durationMs = durationMs
+).orEmpty()
+
 object LocalTagIo {
 
     init {
@@ -47,19 +82,33 @@ object LocalTagIo {
     fun read(file: File): LocalTagData {
         val audio = readAudio(file)
         val tag = audio?.tag
+        val header = audio?.audioHeader
         val (fallbackArtist, fallbackTitle) = guessFromFileName(file)
-        val durationMs = audio?.audioHeader?.let { header ->
-            runCatching { (header.preciseTrackLength * 1000).toLong() }.getOrNull()
-                ?: (header.trackLength * 1000L)
-        } ?: 0L
+        val durationMs = header?.let {
+            runCatching { (it.preciseTrackLength * 1000).toLong() }.getOrNull()
+                ?: (it.trackLength * 1000L)
+        }?.coerceAtLeast(0L) ?: 0L
+        val bitrateKbps = header?.let { runCatching { it.bitRateAsNumber.toInt() }.getOrNull() }?.takeIf { it > 0 } ?: 0
+        val sampleRateHz = header?.let { runCatching { it.sampleRateAsNumber }.getOrNull() }?.takeIf { it > 0 } ?: 0
+        val bitDepth = header?.let { runCatching { it.bitsPerSample }.getOrNull() }?.takeIf { it > 0 } ?: 0
+        val quality = inferDesktopAudioQuality(
+            extension = file.extension,
+            bitrateKbps = bitrateKbps,
+            sampleRateHz = sampleRateHz,
+            bitDepth = bitDepth,
+            sizeBytes = file.length(),
+            durationMs = durationMs,
+            codec = resolveDesktopAudioCodec(header)
+        )
         return LocalTagData(
             title = tag.field(FieldKey.TITLE).ifBlank { fallbackTitle },
             artist = tag.field(FieldKey.ARTIST).ifBlank { fallbackArtist ?: UNKNOWN_ARTIST },
             album = tag.field(FieldKey.ALBUM),
             year = tag.field(FieldKey.YEAR).take(4).toIntOrNull() ?: 0,
             trackNumber = tag.field(FieldKey.TRACK).substringBefore('/').trim().toIntOrNull() ?: 0,
-            durationMs = durationMs.coerceAtLeast(0L),
-            artwork = runCatching { tag?.firstArtwork?.binaryData }.getOrNull()?.takeIf { it.isNotEmpty() }
+            durationMs = durationMs,
+            artwork = runCatching { tag?.firstArtwork?.binaryData }.getOrNull()?.takeIf { it.isNotEmpty() },
+            quality = quality
         )
     }
 

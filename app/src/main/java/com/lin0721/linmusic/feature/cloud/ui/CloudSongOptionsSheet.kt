@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -44,6 +38,12 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.feature.cloud.domain.CloudSong
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Refresh
 
 // 云盘歌曲的「更多操作」面板
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,7 +127,7 @@ fun CloudSongOptionsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    imageVector = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                     contentDescription = null,
                     tint = if (isLiked) MaterialTheme.colorScheme.primary else MelodiaColors.TextPrimary.copy(alpha = 0.7f)
                 )
@@ -151,7 +151,7 @@ fun CloudSongOptionsSheet(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f))
+                Icon(MelodiaIcons.PlaylistAdd, contentDescription = null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f))
                 Text(
                     text = "添加到歌单",
                     color = MelodiaColors.TextPrimary,
@@ -172,7 +172,7 @@ fun CloudSongOptionsSheet(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f))
+                Icon(MelodiaIcons.Refresh, contentDescription = null, tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f))
                 Text(
                     text = "重新匹配",
                     color = MelodiaColors.TextPrimary,
@@ -193,7 +193,7 @@ fun CloudSongOptionsSheet(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MelodiaColors.Accent)
+                Icon(MelodiaIcons.Delete, contentDescription = null, tint = MelodiaColors.Accent)
                 Text(
                     text = "删除",
                     color = MelodiaColors.AccentText,

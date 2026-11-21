@@ -17,12 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,6 +55,12 @@ import com.lin0721.linmusic.feature.settings.ui.LxPluginSettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowDown
+import com.lin0721.linmusic.core.ui.icons.ArrowUp
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronUp
+import com.lin0721.linmusic.core.ui.icons.Delete
 
 private const val CollapsedPluginCount = 3
 
@@ -357,9 +357,9 @@ private fun PluginRow(
             }
         }
         SettingSwitch(plugin.isEnabled) { onToggle() }
-        PluginIconButton(Icons.Rounded.ArrowUpward, "上移", enabled = index > 0, onClick = onMoveUp)
-        PluginIconButton(Icons.Rounded.ArrowDownward, "下移", enabled = index < count - 1, onClick = onMoveDown)
-        PluginIconButton(Icons.Rounded.Delete, "卸载", enabled = true, danger = true, onClick = onRemove)
+        PluginIconButton(MelodiaIcons.ArrowUp, "上移", enabled = index > 0, onClick = onMoveUp)
+        PluginIconButton(MelodiaIcons.ArrowDown, "下移", enabled = index < count - 1, onClick = onMoveDown)
+        PluginIconButton(MelodiaIcons.Delete, "卸载", enabled = true, danger = true, onClick = onRemove)
     }
 }
 
@@ -376,7 +376,7 @@ private fun PluginExpandToggle(expanded: Boolean, hiddenCount: Int, onToggle: ()
     ) {
         Text(if (expanded) "收起" else "展开其余 $hiddenCount 个插件", color = DesktopColors.TextGray, fontSize = 13.sp)
         Icon(
-            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
             null,
             tint = DesktopColors.TextGray,
             modifier = Modifier.size(18.dp)

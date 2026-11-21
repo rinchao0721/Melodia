@@ -1,13 +1,18 @@
 package com.lin0721.linmusic.desktop.ui.track
 
-import androidx.compose.material.icons.rounded.Extension
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
 import kotlinx.serialization.json.JsonObject
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,23 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Group
 import com.lin0721.linmusic.desktop.ui.listentogether.LocalListenTogetherViewModel
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.HeartBroken
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -47,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,7 +76,6 @@ import com.lin0721.linmusic.core.format.formatDuration
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.QualityBadge
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import com.lin0721.linmusic.core.songquality.LocalSongQualityCache
 import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
 import androidx.compose.foundation.border
@@ -95,6 +84,7 @@ import com.lin0721.linmusic.core.ui.theme.densityScaled
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
+import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.MenuScope
@@ -107,6 +97,26 @@ import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.components.songLink
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.AddCircle
+import com.lin0721.linmusic.core.ui.icons.CheckCircleFilled
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Album
+import com.lin0721.linmusic.core.ui.icons.Group
+import com.lin0721.linmusic.core.ui.icons.HeartBroken
+
+// 控制列表行已喜欢歌曲是否常驻显示 ✓（关闭时仅悬停显示）
+val LocalAlwaysShowLikedBadge = compositionLocalOf { true }
 
 // 双击播放，右键或悬停出现的更多按钮打开操作菜单
 // 离线不可播放的歌曲行置灰程度
@@ -156,8 +166,10 @@ fun TrackRow(
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
     sourcePlatform: MusicPlatform? = null,
-    // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；本地、插件歌曲留空
-    qualitySongId: Long? = null
+    // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；插件歌曲留空
+    qualitySongId: Long? = null,
+    // 本地未匹配歌曲的推断音质等级
+    localQualityLevel: String? = null
 ) {
     val activeActions = actions.takeIf { selection == null }
     val activeMenu = menuContent.takeIf { selection == null }
@@ -251,7 +263,7 @@ fun TrackRow(
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Icon(
-                        Icons.Rounded.PlayArrow,
+                        MelodiaIcons.Play,
                         "播放${track.name}",
                         tint = DesktopColors.TextPrimary,
                         modifier = Modifier.size(22.dp)
@@ -280,13 +292,13 @@ fun TrackRow(
                     if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
                 }
                 val qualityBadge = rememberSongQualityBadge(
-                    LocalSongQualityCache.current,
-                    qualitySongId.takeIf { sourcePlatform == null },
-                    track.privilege?.maxBrLevel,
-                    track.inferredMaxBrLevel()
+                    cache = LocalSongQualityCache.current,
+                    songId = qualitySongId.takeIf { sourcePlatform == null },
+                    exactLevel = track.privilege?.maxBrLevel,
+                    localLevel = localQualityLevel.takeIf { sourcePlatform == null }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (qualityBadge != null) SongQualityBadgeTag(qualityBadge, Modifier.padding(end = 6.dp))
+                    AnimatedSongQualityBadge(qualityBadge)
                     Text(
                         artistLinks(track.ar, navigator.openArtist),
                         color = DesktopColors.TextGray,
@@ -315,19 +327,47 @@ fun TrackRow(
                 )
             }
             if (activeActions != null) {
-                // 已喜欢的红心常亮，其余仅悬停时出现
-                val showLike = hovered || isLiked
-                IconButton(
-                    onClick = { activeActions.onToggleLike(track) },
-                    enabled = showLike,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    if (showLike) {
-                        Icon(
-                            if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            if (isLiked) "取消喜欢" else "喜欢",
-                            tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
-                            modifier = Modifier.size(18.dp)
+                val alwaysShowLiked = LocalAlwaysShowLikedBadge.current
+                var collectPopupOpen by remember(track.id) { mutableStateOf(false) }
+                // 开启“常驻显示已喜欢标记”时已喜欢常亮，关闭后仅悬停（或弹窗展开中）出现
+                val showLike = hovered || collectPopupOpen || (alwaysShowLiked && isLiked)
+                Box {
+                    HoverReveal(revealed = showLike, reserveSpace = true) {
+                        IconButton(
+                            onClick = {
+                                if (!navigator.isLoggedIn) {
+                                    navigator.showMessage("请先登录账号")
+                                } else if (isLiked) {
+                                    activeActions.onPrepareCollect(track)
+                                    collectPopupOpen = true
+                                } else {
+                                    activeActions.onQuickLike(track)
+                                }
+                            },
+                            enabled = showLike,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                if (isLiked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                                if (isLiked) "收藏到歌单" else "添加到“已点赞的歌曲”",
+                                tint = if (isLiked) DesktopColors.Accent else DesktopColors.TextGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (collectPopupOpen) {
+                        CollectToPlaylistPopup(
+                            songId = track.id,
+                            state = activeActions.collectState,
+                            onSave = { items ->
+                                activeActions.onSaveCollect(track, items)
+                                collectPopupOpen = false
+                            },
+                            onCreate = { name ->
+                                activeActions.onCreateAndAdd(track, name)
+                                collectPopupOpen = false
+                            },
+                            onDismiss = { collectPopupOpen = false }
                         )
                     }
                 }
@@ -350,7 +390,7 @@ fun TrackRow(
                         modifier = Modifier.padding(start = 4.dp).size(32.dp)
                     ) {
                         if (hovered || moreMenuOpen) {
-                            Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
+                            Icon(MelodiaIcons.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
                         }
                     }
                     RowMenu(moreMenuOpen, DpOffset.Zero, track, activeActions, activeMenu, onPlay) { moreMenuOpen = false }
@@ -397,34 +437,34 @@ internal fun TrackMenu(
     val isLiked = track.id in actions.likedSongIds
     val artists = track.ar.filter { it.id > 0 }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             onPlay()
         })
-        MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             actions.onPlayNext(track)
         })
         val listenTogether = LocalListenTogetherViewModel.current
         if (listenTogether != null && listenTogether.state.value.active && track.id > 0L) {
-            MenuItem("添加到一起听队列", icon = Icons.Rounded.Group, onClick = {
+            MenuItem("添加到一起听队列", icon = MelodiaIcons.Group, onClick = {
                 onDismiss()
                 listenTogether.addToRoomQueue(listOf(track.id)) { navigator.showMessage(it) }
             })
         }
         if (navigator.isLoggedIn) {
-            SubMenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
+            SubMenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                 CollectSubmenuContent(track, actions, onDismiss)
             }
         } else {
-            MenuItem("收藏到歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+            MenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                 onDismiss()
                 navigator.showMessage("请先登录账号")
             })
         }
         MenuItem(
             if (isLiked) "取消喜欢" else "喜欢",
-            icon = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            icon = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
             onClick = {
                 onDismiss()
                 actions.onToggleLike(track)
@@ -432,7 +472,7 @@ internal fun TrackMenu(
         )
         MenuDivider()
         when {
-            artists.size > 1 -> SubMenuItem("查看歌手", icon = Icons.Rounded.Person) {
+            artists.size > 1 -> SubMenuItem("查看歌手", icon = MelodiaIcons.Person) {
                 artists.forEach { artist ->
                     SimpleMenuItem(artist.name, onClick = {
                         onDismiss()
@@ -440,13 +480,13 @@ internal fun TrackMenu(
                     })
                 }
             }
-            artists.size == 1 -> MenuItem("查看歌手", icon = Icons.Rounded.Person, onClick = {
+            artists.size == 1 -> MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 onDismiss()
                 navigator.openArtist(artists[0].id, artists[0].name)
             })
         }
         if (track.al.id > 0) {
-            MenuItem("查看专辑", icon = Icons.Rounded.Album, onClick = {
+            MenuItem("查看专辑", icon = MelodiaIcons.Album, onClick = {
                 onDismiss()
                 navigator.openAlbum(track.al.id, track.al.name)
             })
@@ -454,19 +494,19 @@ internal fun TrackMenu(
         // 外部平台歌曲没有网易云 id，不能下载与分享网易云链接
         val isExternal = track.id < 0L
         if (!isExternal) {
-            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                 onDismiss()
                 actions.onDownload(track)
             })
         }
         actions.onReduceRecommend?.let { reduce ->
-            MenuItem("减少推荐", icon = Icons.Rounded.HeartBroken, onClick = {
+            MenuItem("减少推荐", icon = MelodiaIcons.HeartBroken, onClick = {
                 onDismiss()
                 reduce(track)
             })
         }
         if (track.id > 0L) {
-            MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+            MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
                 onDismiss()
                 navigator.openSongShareCard(
                     DesktopAppState.ShareSongInfo(
@@ -480,20 +520,20 @@ internal fun TrackMenu(
             })
         }
         if (!isExternal) {
-            MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+            MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
                 onDismiss()
                 val ok = copySongLink(track.id)
                 navigator.showMessage(if (ok) "已复制链接" else "复制失败")
             })
         }
-        MenuItem("复制歌曲信息", icon = Icons.Rounded.ContentCopy, onClick = {
+        MenuItem("复制歌曲信息", icon = MelodiaIcons.Copy, onClick = {
             onDismiss()
             val ok = copyTextToClipboard(songInfoText(track.name, track.ar.joinToString(" / ") { it.name }))
             navigator.showMessage(if (ok) "已复制歌曲信息" else "复制失败")
         })
         actions.onRemove?.let { remove ->
             MenuDivider()
-            MenuItem("从歌单中删除", icon = Icons.Rounded.Delete, danger = true, onClick = {
+            MenuItem("从歌单中删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
                 onDismiss()
                 remove(track)
             })
@@ -502,7 +542,7 @@ internal fun TrackMenu(
         val pluginItems = rememberPluginCommands(PluginMenuLocation.SONG)
         if (pluginItems.isNotEmpty()) MenuDivider()
         pluginItems.forEach { item ->
-            MenuItem(item.title, icon = Icons.Rounded.Extension, onClick = {
+            MenuItem(item.title, icon = MelodiaIcons.Plugin, onClick = {
                 onDismiss()
                 pluginCommands?.run(item, track.toPluginArgs())
             })
@@ -515,6 +555,28 @@ private fun Track.toPluginArgs(): JsonObject =
 
 private val LinkStyles: TextLinkStyles @Composable @ReadOnlyComposable get() = TextLinkStyles(hoveredStyle = SpanStyle(color = DesktopColors.TextPrimary, textDecoration = TextDecoration.Underline))
 
+// 最高音质徽标出现/切换淡入淡出过渡，尊重减少动画设置
+@Composable
+private fun AnimatedSongQualityBadge(badge: QualityBadge?, modifier: Modifier = Modifier) {
+    val motion = LocalUiMotion.current
+    AnimatedContent(
+        targetState = badge,
+        transitionSpec = {
+            motion.transform(
+                (fadeIn(motion.tween(180)) togetherWith fadeOut(motion.tween(150)))
+                    .using(SizeTransform(clip = false) { _, _ -> motion.tween(180) })
+            )
+        },
+        contentAlignment = Alignment.CenterStart,
+        label = "songQualityBadge",
+        modifier = modifier
+    ) { target ->
+        if (target != null) {
+            SongQualityBadgeTag(target, Modifier.padding(end = 6.dp))
+        }
+    }
+}
+
 // 歌手名前的最高音质描边标签
 @Composable
 private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifier) {
@@ -526,6 +588,7 @@ private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifi
         fontSize = 10.sp,
         lineHeight = 12.sp,
         maxLines = 1,
+        softWrap = false,
         modifier = modifier
             .background(color.copy(alpha = 0.1f), shape)
             .border(0.5.dp, color, shape)

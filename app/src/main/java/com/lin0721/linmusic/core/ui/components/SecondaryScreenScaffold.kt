@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -18,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ArrowBack
 
 // 侧边栏二级页通用脚手架。
 // wideLayout 为真时平板上不再限宽，供网格这类需要铺满内容区的页面使用
@@ -44,7 +44,7 @@ fun SecondaryScreenScaffold(
                 navigationIcon = {
                     MelodiaIconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = MelodiaIcons.ArrowBack,
                             contentDescription = "返回",
                             tint = MelodiaColors.TextPrimary
                         )

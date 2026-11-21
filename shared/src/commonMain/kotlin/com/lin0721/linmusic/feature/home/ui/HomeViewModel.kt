@@ -31,6 +31,7 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.playlist.domain.CollectionActionsDelegate
@@ -99,6 +100,8 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showForYou: StateFlow<Boolean> = settingsPreferences.homeForYouEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val showSearchButton: StateFlow<Boolean> = settingsPreferences.homeSearchButtonEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, PersonalFmMode.DEFAULT)
     val recentFmTracks: StateFlow<List<RecentFmTrack>> = playbackPreferences.recentFmTracks
@@ -129,6 +132,7 @@ class HomeViewModel(
     // 用 StateFlow 而不是普通 Set，mini 栏爱心图标要跟着这份数据变化重组
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = songCollectDelegate.collectPromptEvent
 
     // 迷你条的播客订阅按钮，状态与全屏播放页共用
     val podcastState: StateFlow<PodcastPlayerState> = podcastPlayer.state
@@ -178,17 +182,25 @@ class HomeViewModel(
         }
     }
 
+    // 一键收藏到“已点赞的歌曲”
+    fun quickLike(songId: Long) {
+        viewModelScope.launch {
+            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+        }
+    }
+
     fun prepareCollectDialog(songId: Long) {
         viewModelScope.launch {
             songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
         }
     }
 
-    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>) {
+    fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
         viewModelScope.launch {
             songCollectDelegate.save(
                 songId = songId,
                 items = items,
+                silent = silent,
                 likedSongIds = songLikeRepository.likedSongIds.value,
                 onToast = { _toastEvent.emit(it) },
                 onLikedChanged = { newLiked ->

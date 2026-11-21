@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 
 private const val TAG = "KaraokeLyricRow"
 
@@ -177,8 +176,6 @@ fun KaraokeLyricRow(
     textAlign: TextAlign = TextAlign.Start,
     // 关闭流光只移除柔边羽化，仍按逐字时间裁剪并逐帧推进。
     advancedEffect: Boolean = true,
-    // 字词呼吸光晕微光脉冲
-    glowEffect: Boolean = false,
     // 每帧在绘制阶段读播放器时钟；暂停和缓冲时由播放器本身冻结进度。
     isPlaying: Boolean = true,
     fontWeight: FontWeight = FontWeight.ExtraBold,
@@ -196,9 +193,7 @@ fun KaraokeLyricRow(
     // 没有它的话，重绘只能被 50ms 一次的播放器进度轮询触发，逐字扫色会掉到 20Hz。
     var frameTick by remember(line) { mutableLongStateOf(0L) }
 
-    // 加色光晕只在深色底上可见，浅色底上会把文字冲淡
-    val glowVisible = glowEffect && MelodiaColors.IsDark
-    LaunchedEffect(isPlaying, line, isActive, advancedEffect, glowEffect) {
+    LaunchedEffect(isPlaying, line, isActive, advancedEffect) {
         if (isPlaying && isActive) {
             // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
             // withFrameNanos 在协程取消时会抛出 CancellationException，循环自然退出。
@@ -364,24 +359,6 @@ fun KaraokeLyricRow(
                                             size = Size(lineLayout.right - lineLayout.left, lineLayout.bottom - lineLayout.top),
                                             blendMode = BlendMode.DstIn
                                         )
-                                    }
-                                }
-                            }
-                            if (glowVisible) {
-                                // 绘制原版演唱字词的呼吸光晕微光脉冲
-                                info.wordLayouts.forEach { word ->
-                                    if (relativeProgress in word.startMs..word.endMs) {
-                                        val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
-                                        val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
-                                        val pulse = kotlin.math.sin(ratio * kotlin.math.PI).toFloat()
-                                        if (pulse > 0f) {
-                                            drawRect(
-                                                color = Color.White.copy(alpha = 0.22f * pulse),
-                                                topLeft = Offset(word.left, word.top),
-                                                size = Size((word.right - word.left).coerceAtLeast(0f), (word.bottom - word.top).coerceAtLeast(0f)),
-                                                blendMode = BlendMode.Plus
-                                            )
-                                        }
                                     }
                                 }
                             }

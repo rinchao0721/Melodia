@@ -12,6 +12,8 @@ import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
 import com.lin0721.linmusic.core.download.recognition.SONG_ID_TAG
 import com.lin0721.linmusic.core.download.recognition.estimateBitrateKbps
 import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
+import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
+import com.lin0721.linmusic.core.download.recognition.isContainerAudioExtension
 import com.lin0721.linmusic.core.download.recognition.parseDownloadFileName
 import com.lin0721.linmusic.core.download.recognition.parseSongIdTag
 import com.lin0721.linmusic.core.log.AppLogger
@@ -139,13 +141,24 @@ class DownloadFolderScanner(
             ?: fromName?.second ?: return null
         val durationMs = properties?.length?.toLong()?.takeIf { it > 0 } ?: 0L
         val bitrate = properties?.bitrate?.takeIf { it > 0 } ?: estimateBitrateKbps(child.size, durationMs)
+        val isContainer = isContainerAudioExtension(child.extension) || isContainerMimeType(child.mimeType)
+        val extractor = if (isContainer) readExtractorAudioMetrics(context, uri) else ContainerAudioMetrics()
+        val quality = inferAudioQuality(
+            extension = child.extension,
+            codec = extractor.codec,
+            bitrateKbps = extractor.bitrateKbps.takeIf { it > 0 } ?: bitrate,
+            sampleRateHz = extractor.sampleRateHz.takeIf { it > 0 } ?: (properties?.sampleRate ?: 0),
+            bitDepth = extractor.bitDepth,
+            sizeBytes = child.size,
+            durationMs = durationMs
+        ) ?: guessAudioQuality(child.extension, bitrate, properties?.sampleRate ?: 0)
         return LocalAudioEntry(
             uri = uri.toString(),
             title = title,
             artist = artist,
             durationMs = durationMs,
             sizeBytes = child.size,
-            quality = guessAudioQuality(child.extension, bitrate, properties?.sampleRate ?: 0),
+            quality = quality,
             songIdTag = parseSongIdTag(tags[SONG_ID_TAG]?.firstOrNull())
         )
     }

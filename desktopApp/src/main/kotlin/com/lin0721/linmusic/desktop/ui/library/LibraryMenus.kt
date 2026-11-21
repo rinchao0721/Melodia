@@ -20,15 +20,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.FormatListBulleted
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.LibraryAdd
-import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Apps
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.LibraryAdd
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.DropdownMenu
@@ -83,6 +79,9 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.Grid
+import com.lin0721.linmusic.core.ui.icons.List as ListIcon
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 private const val PLAYLIST_NAME_MAX_LENGTH = 40
 internal const val EMPTY_NAME_MESSAGE = "名字不能为空哦！"
@@ -100,10 +99,10 @@ internal fun sortLabel(order: LibrarySortOrder): String = when (order) {
 }
 
 internal fun viewModeIcon(mode: LibraryViewMode): ImageVector = when (mode) {
-    LibraryViewMode.COMPACT_LIST -> Icons.Rounded.Menu
-    LibraryViewMode.LIST -> Icons.Rounded.FormatListBulleted
-    LibraryViewMode.SMALL_GRID -> Icons.Rounded.Apps
-    LibraryViewMode.LARGE_GRID -> Icons.Rounded.GridView
+    LibraryViewMode.COMPACT_LIST -> MelodiaIcons.Menu
+    LibraryViewMode.LIST -> MelodiaIcons.ListIcon
+    LibraryViewMode.SMALL_GRID -> MelodiaIcons.Apps
+    LibraryViewMode.LARGE_GRID -> MelodiaIcons.Grid
 }
 
 private fun viewModeLabel(mode: LibraryViewMode): String = when (mode) {
@@ -214,7 +213,7 @@ internal fun MenuOption(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier.padding(horizontal = 4.dp),
         selected = selected,
         trailing = if (selected) {
-            { Icon(Icons.Rounded.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+            { Icon(MelodiaIcons.Check, null, tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
         } else {
             null
         }
@@ -258,7 +257,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Add, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(18.dp))
+                Icon(MelodiaIcons.Plus, null, tint = DesktopColors.TextPrimary, modifier = Modifier.size(18.dp))
                 Text(
                     "创建",
                     color = DesktopColors.TextPrimary,
@@ -268,13 +267,13 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
                 )
             }
         } else {
-            LibraryIconButton(Icons.Rounded.Add, "创建", filled = true) { menuOpen = true }
+            LibraryIconButton(MelodiaIcons.Plus, "创建", filled = true) { menuOpen = true }
         }
         LibraryPopupMenu(menuOpen, { menuOpen = false }, anchorWidth, CreateMenuWidth) {
             if (isLoggedIn) {
                 SimpleMenuItem(
                     text = "创建歌单",
-                    icon = Icons.Rounded.PlaylistAdd,
+                    icon = MelodiaIcons.PlaylistAdd,
                     modifier = Modifier.padding(horizontal = 4.dp),
                     onClick = {
                         menuOpen = false
@@ -284,7 +283,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             }
             SimpleMenuItem(
                 text = "添加歌单",
-                icon = Icons.Rounded.LibraryAdd,
+                icon = MelodiaIcons.LibraryAdd,
                 modifier = Modifier.padding(horizontal = 4.dp),
                 onClick = {
                     menuOpen = false

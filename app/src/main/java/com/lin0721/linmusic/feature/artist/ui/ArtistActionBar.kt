@@ -7,8 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -31,6 +29,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Shuffle
+import com.lin0721.linmusic.core.ui.icons.MoreVert
 
 // 操作控制行：粉丝数、关注状态、更多菜单与随机/全部播放
 @Composable
@@ -121,7 +123,7 @@ fun ArtistActionBar(
                     onClick = onMoreClick,
                     modifier = Modifier.size(36.dp)
                 ) {
-                    Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Icon(MelodiaIcons.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -136,7 +138,7 @@ fun ArtistActionBar(
                 onClick = onPlayAll,
                 modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.Default.Shuffle, "Shuffle", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                Icon(MelodiaIcons.Shuffle, "Shuffle", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -152,7 +154,7 @@ fun ArtistActionBar(
                     .pressScale(MelodiaPress.Transport, playInteraction)
                     .size(56.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, "Play All", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+                Icon(MelodiaIcons.Play, "Play All", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
             }
         }
     }

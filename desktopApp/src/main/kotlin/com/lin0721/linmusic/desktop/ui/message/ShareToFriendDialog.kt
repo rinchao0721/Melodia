@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -63,6 +61,8 @@ import com.lin0721.linmusic.feature.message.ui.ShareToFriendUiState
 import com.lin0721.linmusic.feature.message.ui.ShareToFriendViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Send
 
 private val ListHeight = 380.dp
 private const val FOLLOW_LOAD_MORE_THRESHOLD = 5
@@ -360,7 +360,7 @@ private fun ShareFriendRow(
             )
         } else if (hovered && enabled) {
             Icon(
-                Icons.AutoMirrored.Rounded.Send,
+                MelodiaIcons.Send,
                 "发送",
                 tint = DesktopColors.AccentText,
                 modifier = Modifier.size(16.dp)

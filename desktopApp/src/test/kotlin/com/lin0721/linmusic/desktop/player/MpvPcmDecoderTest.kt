@@ -1,6 +1,6 @@
 package com.lin0721.linmusic.desktop.player
 
-import com.lin0721.linmusic.core.player.TrackEdges
+import com.lin0721.linmusic.core.player.R128Meter
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -108,11 +108,25 @@ class MpvPcmDecoderTest {
         val file = File(dir, "half.wav").apply { writeBytes(wav(pcm(20 to true, 20 to false))) }
         val decoder = MpvPcmDecoder()
         runBlocking {
-            val early = decoder.decode(file.absolutePath, 0.25, 2_000L)!!
-            assertTrue("片段时长约 2 秒：${early.size}", early.size in 18..22)
-            assertEquals(toneDb, TrackEdges.audibleLoudnessDb(early)!!, 0.5)
-            val late = decoder.decode(file.absolutePath, 0.75, 2_000L)!!
-            assertNull(TrackEdges.audibleLoudnessDb(late))
+            val early = decodeSegment(decoder, file, 0.25)
+            assertTrue("片段时长约 2 秒：${early.second}", early.second in rate * 18 / 10..rate * 22 / 10)
+            assertTrue("25% 处应有声", early.first.analyze() != null)
+            val late = decodeSegment(decoder, file, 0.75)
+            assertNull("75% 处应为静音", late.first.analyze())
         }
+    }
+
+    private suspend fun decodeSegment(decoder: MpvPcmDecoder, file: File, fraction: Double): Pair<R128Meter, Int> {
+        val meter = R128Meter()
+        var frames = 0
+        var segment: R128Meter.Segment? = null
+        val ok = decoder.decode(file.absolutePath, fraction, 2_000L) { samples, count, sampleRate, channels ->
+            val target = segment ?: R128Meter.Segment(sampleRate, channels).also { segment = it }
+            target.process(samples, 0, count)
+            frames += count / channels
+        }
+        assertTrue("解码应成功", ok)
+        segment?.let(meter::addSegment)
+        return meter to frames
     }
 }

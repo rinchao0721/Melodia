@@ -11,7 +11,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -28,7 +31,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.activity.ComponentActivity
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -73,6 +79,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
@@ -92,7 +99,6 @@ import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.back.LocalPredictiveBackEnabled
 import com.lin0721.linmusic.core.ui.back.MelodiaBackHandler
 import com.lin0721.linmusic.core.ui.back.decelerateBackProgress
-import com.lin0721.linmusic.core.ui.back.rememberBackDismissState
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -127,8 +133,12 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
+import com.lin0721.linmusic.feature.player.ui.OutputDeviceSheet
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
@@ -143,6 +153,15 @@ import com.lin0721.linmusic.core.ui.theme.ProvideMelodiaContentSizeClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaSystemBarsConsumed
 import com.lin0721.linmusic.core.ui.badge.DragBadgeOverlayHost
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.FfmpegInstallPrompt
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegCatalogInfo
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
+import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentState
+import com.lin0721.linmusic.core.player.ffmpeg.formatComponentSize
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
+import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
 private val SidebarWidth = 310.dp
@@ -163,7 +182,6 @@ private enum class GlobalBackTarget {
     Undecided,
     PlayerSheet,
     Sidebar,
-    CreateSheet,
     Page,
     Ignored
 }
@@ -212,9 +230,9 @@ fun MelodiaApp() {
     val viewModel: HomeViewModel = koinViewModel()
     val libraryViewModel: LibraryViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
-    val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
     val bottomBarLayout by settingsPreferences.bottomBarLayout.collectAsStateWithLifecycle(initialValue = BottomBarLayout.DEFAULT)
     val bottomBarIconOnly by settingsPreferences.bottomBarIconOnly.collectAsStateWithLifecycle(initialValue = false)
+    val bottomBarGradient by settingsPreferences.bottomBarGradient.collectAsStateWithLifecycle(initialValue = false)
     val playerPageMode by settingsPreferences.playerPageMode
         .collectAsStateWithLifecycle(initialValue = SettingsPreferences.PLAYER_PAGE_MODE_AUTO)
     val sidePlayerPinned by settingsPreferences.sidePlayerPinned.collectAsStateWithLifecycle(initialValue = true)
@@ -222,9 +240,24 @@ fun MelodiaApp() {
         .collectAsStateWithLifecycle(initialValue = SettingsPreferences.SIDE_PLAYER_POSITION_RIGHT)
     val isPanelAtStart = sidePlayerPosition == SettingsPreferences.SIDE_PLAYER_POSITION_LEFT
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
-    // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
+    val sidebarMessageEnabled by settingsPreferences.sidebarMessageEnabled.collectAsStateWithLifecycle(initialValue = true)
+    // 播放队列和状态走 RoutingPlaybackController，系统播放器特有属性（ffmpeg 提示、首选输出设备）保留 PlayerManager
     val playerManager: PlayerManager = koinInject()
-    val currentTrack by playerManager.currentTrack.collectAsStateWithLifecycle()
+    val routingController: RoutingPlaybackController = koinInject()
+    val activeTarget by routingController.activeTarget.collectAsStateWithLifecycle()
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
+    var showMiniDeviceSheet by remember { mutableStateOf(false) }
+    val lanLinkClient: LanLinkAndroidClient = koinInject()
+    val lanLinkEnabled by lanLinkClient.enabled.collectAsStateWithLifecycle()
+    val lanLinkPeer by lanLinkClient.connectedDevice.collectAsStateWithLifecycle()
+    // 迷你条设备按钮只在联动已连接时出现，未连接时本机输出切换走播放页入口
+    val onMiniDeviceClick: (() -> Unit)? = if ((lanLinkEnabled && lanLinkPeer != null) || remoteDeviceName != null) {
+        { showMiniDeviceSheet = true }
+    } else {
+        null
+    }
+    val ffmpegComponentManager: FfmpegComponentManager = koinInject()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val currentQueueIndex by viewModel.playerManager.currentIndex.collectAsStateWithLifecycle()
@@ -272,10 +305,18 @@ fun MelodiaApp() {
             viewModel.toggleSubscribe()
         } else {
             currentTrack?.mediaId?.toLongOrNull()?.let { songId ->
-                miniCollectSongId = songId
-                viewModel.prepareCollectDialog(songId)
+                if (isMiniPlayerLiked) {
+                    miniCollectSongId = songId
+                    viewModel.prepareCollectDialog(songId)
+                } else {
+                    viewModel.quickLike(songId)
+                }
             }
         }
+    }
+    CollectPromptEffect(viewModel.collectPromptEvent) { songId ->
+        miniCollectSongId = songId
+        viewModel.prepareCollectDialog(songId)
     }
 
     val playerSheet = rememberMelodiaPlayerSheetState()
@@ -314,7 +355,6 @@ fun MelodiaApp() {
         coldStartApplied = true
     }
 
-    var showCreateSheet by remember { mutableStateOf(false) }
     // 听歌识曲全屏覆盖层，盖住底栏与迷你播放条
     var showRecognition by remember { mutableStateOf(false) }
     // 点了后台内录的结果通知
@@ -359,8 +399,8 @@ fun MelodiaApp() {
         }
     }
     // 打开侧边栏先显示缓存，再后台刷新私信预览
-    LaunchedEffect(sidebar.isOpen, userProfile?.uid) {
-        if (sidebar.isOpen && userProfile != null) conversationPreviewStore.refresh()
+    LaunchedEffect(sidebar.isOpen, userProfile?.uid, sidebarMessageEnabled) {
+        if (sidebar.isOpen && userProfile != null && sidebarMessageEnabled) conversationPreviewStore.refresh()
     }
     LaunchedEffect(navigation, sidebar) {
         AccountEvents.switched.collect { event ->
@@ -406,7 +446,6 @@ fun MelodiaApp() {
     val latestLyricsFullscreen by rememberUpdatedState(isLyricsFullScreen)
     val latestSidePlayerPinned by rememberUpdatedState(sidePlayerPinned)
     val latestSidebarOpen by rememberUpdatedState(sidebar.isOpen)
-    val latestShowCreateSheet by rememberUpdatedState(showCreateSheet)
     val latestMotion by rememberUpdatedState(motion)
 
     // 单一协程串行消费面板升起/收起与返回跟手进度，防止手势与状态切换并发调用 Animatable
@@ -414,7 +453,7 @@ fun MelodiaApp() {
         snapshotFlow {
             // 直接读状态而非重组后的快照：返回提交改完布尔值的那一帧就要走收起，不能先被判成展开
             val panelVisible = latestUsePanel && isPanelExpanded
-            val canRiseBack = panelVisible && !latestSidePlayerPinned && !latestSidebarOpen && !latestShowCreateSheet
+            val canRiseBack = panelVisible && !latestSidePlayerPinned && !latestSidebarOpen
             when {
                 !latestUsePanel -> PanelRiseIntent.ResetOffPanel
                 !panelVisible -> PanelRiseIntent.Close
@@ -567,7 +606,6 @@ fun MelodiaApp() {
     LaunchedEffect(pendingSleepTimer, currentTrack) {
         if (pendingSleepTimer && currentTrack != null) {
             if (sidebar.isOpen) sidebar.close()
-            showCreateSheet = false
             showRecognition = false
             if (currentUsePanel) {
                 openPanel()
@@ -584,7 +622,6 @@ fun MelodiaApp() {
             when (target) {
                 is SongLinkTarget.Playlist -> {
                     if (sidebar.isOpen) sidebar.close()
-                    showCreateSheet = false
                     if (playerSheet.isOpen) {
                         navigation.resetPlayerNavigation()
                         playerSheet.animateTo(false, 0f)
@@ -594,7 +631,6 @@ fun MelodiaApp() {
                 }
                 is SongLinkTarget.Artist -> {
                     if (sidebar.isOpen) sidebar.close()
-                    showCreateSheet = false
                     if (playerSheet.isOpen) {
                         navigation.resetPlayerNavigation()
                         playerSheet.animateTo(false, 0f)
@@ -608,7 +644,7 @@ fun MelodiaApp() {
                         ToastManager.showToast("这首歌打不开，可能已下架")
                         return@collect
                     }
-                    playerManager.playLinkTrack(track, "链接")
+                    viewModel.playerManager.playLinkTrack(track, "链接")
                     if (currentUsePanel) {
                         openPanel()
                     } else {
@@ -648,18 +684,9 @@ fun MelodiaApp() {
     // 当存在浮层、处于非主页 tab、当前栈深大于 1、或主页未处于「全部」默认分类时均由 handleBack() 逐级处理。
     // 侧栏面板钉住时不随返回键收起，直接交由内容导航处理
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
-            showCreateSheet || navigation.canGoBackToHomeAll
+            navigation.canGoBackToHomeAll
 
     val pageBackGesture = remember { PageBackGestureState() }
-    val createBackDismissState = rememberBackDismissState()
-    val wasCreateMenuVisible = remember { booleanArrayOf(false) }
-    val isCreateMenuVisible = showCreateSheet && !isLoginScreenVisible
-    SideEffect {
-        if (isCreateMenuVisible && !wasCreateMenuVisible[0]) {
-            createBackDismissState.reset()
-        }
-        wasCreateMenuVisible[0] = isCreateMenuVisible
-    }
     val predictiveBackEnabled by rememberUpdatedState(LocalPredictiveBackEnabled.current)
     val gestureSession = remember { object { var target = GlobalBackTarget.Undecided } }
 
@@ -690,10 +717,6 @@ fun MelodiaApp() {
                         gestureSession.target = GlobalBackTarget.Sidebar
                         sidebar.onBackProgress(event.progress)
                     }
-                    showCreateSheet -> {
-                        gestureSession.target = GlobalBackTarget.CreateSheet
-                        createBackDismissState.onProgress(event.progress)
-                    }
                     navigation.canGoBackToHomeAll -> {
                         val target = navigation.peekBackTarget() as? BackTarget.Entry
                         if (target != null) {
@@ -714,7 +737,6 @@ fun MelodiaApp() {
                 when (gestureSession.target) {
                     GlobalBackTarget.PlayerSheet -> playerSheet.onBackProgress(event.progress)
                     GlobalBackTarget.Sidebar -> sidebar.onBackProgress(event.progress)
-                    GlobalBackTarget.CreateSheet -> createBackDismissState.onProgress(event.progress)
                     GlobalBackTarget.Page -> pageBackGesture.update(
                         progress = event.progress,
                         fromLeftEdge = event.fromLeftEdge
@@ -727,7 +749,6 @@ fun MelodiaApp() {
             when (gestureSession.target) {
                 GlobalBackTarget.PlayerSheet -> playerSheet.onBackCancel()
                 GlobalBackTarget.Sidebar -> sidebar.onBackCancel()
-                GlobalBackTarget.CreateSheet -> createBackDismissState.onCancel()
                 GlobalBackTarget.Page -> pageBackGesture.cancel()
                 GlobalBackTarget.Ignored, GlobalBackTarget.Undecided -> Unit
             }
@@ -738,11 +759,10 @@ fun MelodiaApp() {
             gestureSession.target = GlobalBackTarget.Undecided
             when (sessionTarget) {
                 GlobalBackTarget.Page -> pageBackGesture.commit()
-                GlobalBackTarget.CreateSheet -> createBackDismissState.onCommit()
                 GlobalBackTarget.Undecided -> {
                     // 极快轻扫时系统可能跳过 onBackProgressed 直接触发 onBackPressed，补走预见式退场以防回退到原动画
                     if (predictiveBackEnabled && !playerSheet.isOpen &&
-                        (navigation.isNavigatingFromPlayer || (!sidebar.isOpen && !showCreateSheet && navigation.canGoBackToHomeAll))
+                        (navigation.isNavigatingFromPlayer || (!sidebar.isOpen && navigation.canGoBackToHomeAll))
                     ) {
                         val target = navigation.peekBackTarget() as? BackTarget.Entry
                         if (target != null) {
@@ -765,7 +785,6 @@ fun MelodiaApp() {
                 }
                 navigation.isNavigatingFromPlayer -> handleBack()
                 sidebar.isOpen -> sidebar.close()
-                showCreateSheet -> showCreateSheet = false
                 navigation.canGoBackToHomeAll -> handleBack()
             }
         }
@@ -804,11 +823,11 @@ fun MelodiaApp() {
     )
 
     val riseBackSession = remember { object { var state = PanelBackSession.Undecided } }
-    // 侧栏未钉住时返回直接收起面板（含全屏态）；侧边栏、创建菜单等全局浮层先处理
+    // 侧栏未钉住时返回直接收起面板（含全屏态）；侧边栏等全局浮层先处理
     MelodiaBackHandler(
-        enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet,
+        enabled = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen,
         onProgress = { event ->
-            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen
             if (riseBackSession.state == PanelBackSession.Undecided) {
                 if (canHandle) {
                     riseBackSession.state = PanelBackSession.Active
@@ -822,7 +841,7 @@ fun MelodiaApp() {
             }
         },
         onCancel = {
-            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen && !showCreateSheet
+            val canHandle = isPanelVisible && !sidePlayerPinned && !sidebar.isOpen
             val wasActive = riseBackSession.state == PanelBackSession.Active
             riseBackSession.state = PanelBackSession.Undecided
             if (wasActive && canHandle && riseBackPhase == PanelBackPhase.Seeking) {
@@ -842,7 +861,7 @@ fun MelodiaApp() {
     val isSidebarScrimVisible by remember(sidebar) { derivedStateOf { sidebar.progress > 0f } }
     // 主页任意位置右滑拉出侧栏；横向列表滚到最左后的继续右滑由 homeHandoffConnection 接管
     val isHomeSwipeEnabled = navigation.currentScreen == Screen.Home &&
-        !playerSheet.isOpen && !showCreateSheet && !showRecognition &&
+        !playerSheet.isOpen && !showRecognition &&
         !isLoginScreenVisible && !showSidebarWebLogin && !(usePanel && isPanelShown)
     SideEffect { sidebar.isHomeHandoffEnabled = isHomeSwipeEnabled }
     val isDrawerDraggable = sidebar.isOpen || isHomeSwipeEnabled ||
@@ -896,6 +915,7 @@ fun MelodiaApp() {
             ProfileSidebar(
                 userProfile = userProfile,
                 accounts = accounts,
+                showMessageSection = sidebarMessageEnabled,
                 privateUnreadCount = privateUnreadCount,
                 conversationPreview = conversationPreview,
                 onDismissUnread = { privateUnreadMonitor.markAllRead() },
@@ -955,7 +975,7 @@ fun MelodiaApp() {
                 CompositionLocalProvider(
                     LocalBottomOverlayInset provides bottomOverlayHeight,
                     LocalMiniPlayerSuppressor provides miniPlayerSuppressor,
-                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen || showCreateSheet)
+                    LocalGlobalOverlayOpen provides (playerSheet.isOpen || sidebar.isOpen)
                 ) {
                     Box(
                         modifier = Modifier
@@ -1015,22 +1035,10 @@ fun MelodiaApp() {
                             }
                         }
 
-                        // 创建菜单遮罩
-                        if (showCreateSheet) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MelodiaColors.Scrim.copy(alpha = 0.4f))
-                                    .pressable(MelodiaPress.None) { showCreateSheet = false }
-                            )
-                        }
-
                         // 放置在应用了平移 graphicsLayer 的主 Box 内部的底部
                         MelodiaBottomOverlay(
                             modifier = Modifier.align(Alignment.BottomCenter),
                             currentScreen = navigation.currentScreen,
-                            showCreateSheet = showCreateSheet,
-                            createBackDismissState = createBackDismissState,
                             isLoginScreenVisible = isLoginScreenVisible || showSidebarWebLogin,
                             isMiniPlayerHidden = miniPlayerSuppressor.requestCount > 0,
                             isPanelDocked = isPanelDocked,
@@ -1062,17 +1070,17 @@ fun MelodiaApp() {
                             isMiniPlayerLiked = isMiniPlayerLiked,
                             onMiniPlayerLikeClick = onMiniPlayerLikeClick,
                             miniPlayerLikeMode = miniPlayerLikeMode,
-                            onCreateDismiss = { showCreateSheet = false },
+                            remoteDeviceName = remoteDeviceName,
+                            onDeviceClick = onMiniDeviceClick,
                             onNavigate = { screen ->
                                 navigation.openTab(screen)
                                 if (screen == Screen.Library) {
                                     libraryViewModel.loadLibraryData()
                                 }
                             },
-                            onCreateClick = { showCreateSheet = !showCreateSheet },
-                            showCreateEntry = showCreateEntry,
                             bottomBarLayout = bottomBarLayout,
                             bottomBarIconOnly = bottomBarIconOnly,
+                            bottomBarGradient = bottomBarGradient,
                             activeTab = navigation.activeTab,
                             onOverlayHeightChanged = { bottomOverlayHeight = it }
                         )
@@ -1294,6 +1302,8 @@ fun MelodiaApp() {
                         isLiked = isMiniPlayerLiked,
                         onLikeClick = onMiniPlayerLikeClick,
                         likeMode = miniPlayerLikeMode,
+                        remoteDeviceName = remoteDeviceName,
+                        onDeviceClick = onMiniDeviceClick,
                         modifier = modifier
                     )
                 }
@@ -1340,7 +1350,7 @@ fun MelodiaApp() {
                 val current = songLinkRequests.takeClipboard() ?: return@ClipboardLinkFloatingCard
                 val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
                 if (current.target is SongLinkTarget.Song && readyTrack != null) {
-                    playerManager.playLinkTrack(readyTrack, "链接")
+                    viewModel.playerManager.playLinkTrack(readyTrack, "链接")
                     if (currentUsePanel) {
                         openPanel()
                     } else {
@@ -1355,13 +1365,13 @@ fun MelodiaApp() {
                 val songTarget = current.target as? SongLinkTarget.Song ?: return@ClipboardLinkFloatingCard
                 val readyTrack = (clipboardPreviewState as? LinkPreviewState.Ready)?.preview?.track
                 if (readyTrack != null) {
-                    playerManager.enqueueLinkTrackNext(readyTrack)
+                    viewModel.playerManager.enqueueLinkTrackNext(readyTrack)
                     ToastManager.showToast("已添加至下一首播放")
                 } else {
                     scope.launch {
                         val track = playbackRepository.getSongDetail(songTarget.id).first().getOrNull()
                         if (track != null) {
-                            playerManager.enqueueLinkTrackNext(track)
+                            viewModel.playerManager.enqueueLinkTrackNext(track)
                             ToastManager.showToast("已添加至下一首播放")
                         } else {
                             ToastManager.showToast("这首歌打不开，可能已下架")
@@ -1405,15 +1415,142 @@ fun MelodiaApp() {
                 songId = songId,
                 collectState = collectState,
                 onDismiss = { miniCollectSongId = null },
-                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items) },
+                onSaveCollection = { id, items -> viewModel.savePlaylistCollection(id, items, silent = true) },
                 onSaveNewCollection = { name, id -> viewModel.createPlaylistAndAddSong(name, id) }
             )
         }
 
         // 8. 一起听房间全局弹窗，聊天页与播放页共用
         ListenTogetherRoomHost()
+
+        // 迷你播放条设备按钮打开的输出与联动设备弹窗
+        if (showMiniDeviceSheet) {
+            OutputDeviceSheet(
+                onDeviceSelected = { playerManager.setPreferredAudioDevice(it) },
+                onDismiss = { showMiniDeviceSheet = false }
+            )
+        }
+
+        // 9. 系统不支持音频格式时弹窗引导下载 ffmpeg 解码组件
+        val ffmpegPrompt by playerManager.ffmpegInstallPrompt.collectAsStateWithLifecycle()
+        val ffmpegState by ffmpegComponentManager.state.collectAsStateWithLifecycle()
+        val ffmpegCatalogInfo by ffmpegComponentManager.catalogInfo.collectAsStateWithLifecycle()
+        var ffmpegDownloadJob by remember { mutableStateOf<Job?>(null) }
+        ffmpegPrompt?.let { prompt ->
+            FfmpegInstallPromptDialog(
+                prompt = prompt,
+                componentState = ffmpegState,
+                catalogInfo = ffmpegCatalogInfo,
+                onDownloadOrRetry = {
+                    if (ffmpegState !is FfmpegComponentState.Downloading) {
+                        ffmpegDownloadJob = scope.launch {
+                            try {
+                                if (ffmpegComponentManager.installOrUpdate()) {
+                                    playerManager.replayAfterFfmpegInstall()
+                                }
+                            } finally {
+                                ffmpegDownloadJob = null
+                            }
+                        }
+                    }
+                },
+                onCancel = {
+                    ffmpegDownloadJob?.cancel()
+                    ffmpegDownloadJob = null
+                    playerManager.dismissFfmpegInstallPromptAndSkip()
+                }
+            )
+        }
     }
     }
+}
+
+@Composable
+private fun FfmpegInstallPromptDialog(
+    prompt: FfmpegInstallPrompt,
+    componentState: FfmpegComponentState,
+    catalogInfo: FfmpegCatalogInfo,
+    onDownloadOrRetry: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isDownloading = componentState is FfmpegComponentState.Downloading
+    val sizeSuffix = catalogInfo.remoteSizeBytes?.let { "（约 ${formatComponentSize(it)}）" }.orEmpty()
+
+    AlertDialog(
+        onDismissRequest = { if (!isDownloading) onCancel() },
+        title = {
+            Text(
+                text = "需要下载解码组件",
+                color = MelodiaColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "这首歌是 ${prompt.codecLabel} 编码，需要下载 ffmpeg 解码组件${sizeSuffix}才能播放",
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+                when (componentState) {
+                    is FfmpegComponentState.Downloading -> {
+                        val progress = componentState.progress
+                        if (progress != null) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "正在下载… ${(progress * 100).toInt()}%（${formatComponentSize(componentState.downloadedBytes)} / ${formatComponentSize(componentState.totalBytes)}）",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                text = "正在连接下载服务器…",
+                                color = MelodiaColors.TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    is FfmpegComponentState.Failed -> {
+                        Text(
+                            text = componentState.reason,
+                            color = MelodiaColors.Error,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                    else -> Unit
+                }
+            }
+        },
+        confirmButton = {
+            MelodiaTextButton(
+                enabled = !isDownloading,
+                onClick = onDownloadOrRetry
+            ) {
+                val actionText = when (componentState) {
+                    is FfmpegComponentState.Downloading -> "下载中…"
+                    is FfmpegComponentState.Failed -> "重试"
+                    else -> "下载"
+                }
+                Text(
+                    text = actionText,
+                    color = if (isDownloading) MelodiaColors.TextTertiary else MelodiaColors.AccentText,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            MelodiaTextButton(onClick = onCancel) {
+                Text("取消", color = MelodiaColors.TextPrimary)
+            }
+        },
+        containerColor = MelodiaColors.Surface
+    )
 }
 
 // 订阅全局 Toast 事件，展示 2 秒后自动清空

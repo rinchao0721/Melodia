@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
@@ -17,8 +18,11 @@ import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -52,6 +56,40 @@ class SongCollectDelegate(
     private val _state = MutableStateFlow(PlaylistCollectState())
     val state: StateFlow<PlaylistCollectState> = _state.asStateFlow()
 
+    private val _collectPromptEvent = MutableSharedFlow<CollectPromptEvent>(extraBufferCapacity = 8)
+    val collectPromptEvent: SharedFlow<CollectPromptEvent> = _collectPromptEvent.asSharedFlow()
+
+    // 一键收藏到“已点赞的歌曲”（复用现有喜欢接口），成功后发出 CollectPromptEvent
+    suspend fun quickLike(songId: Long, onToast: suspend (String) -> Unit) {
+        val profile = userPreferences.userProfile.first()
+        if (profile == null) {
+            onToast("请先登录账号")
+            return
+        }
+        if (songId == -1L) return
+        if (songId < 0L) {
+            withExternal(songId, onToast) { track -> quickLikeExternal(track, onToast) }
+            return
+        }
+        songLikeRepository.likeSong(songId, like = true).firstOrNull()
+            ?.onSuccess {
+                _collectPromptEvent.emit(CollectPromptEvent(songId))
+            }
+            ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }
+    }
+
+    // 外部平台搜索结果的快速收藏：直接写入本机“我喜欢的音乐”外部条目
+    suspend fun quickLikeExternal(track: ExternalTrack, onToast: suspend (String) -> Unit) {
+        val profile = userPreferences.userProfile.first()
+        if (profile == null) {
+            onToast("请先登录账号")
+            return
+        }
+        externalStore.add(likedExternalKey(profile.uid), listOf(track))
+        songLikeRepository.syncLikedSongIds(songLikeRepository.likedSongIds.value + track.queueSongId)
+        _collectPromptEvent.emit(CollectPromptEvent(track.queueSongId))
+    }
+
     // 拉取当前的歌单并逐个判定是否已包含该歌曲；未缓存歌单异步补齐
     suspend fun prepare(songId: Long, likedSongIds: Set<Long>, onToast: suspend (String) -> Unit) {
         if (songId < 0L) {
@@ -73,7 +111,8 @@ class SongCollectDelegate(
                 playlistName = playlist.name,
                 coverUrl = playlist.coverImgUrl,
                 isInitiallyContains = contains,
-                isContains = contains
+                isContains = contains,
+                trackCount = playlist.trackCount
             )
         }
         _state.update { it.copy(songId = songId, isLoading = false, collectItems = initialItems) }
@@ -158,7 +197,8 @@ class SongCollectDelegate(
                 playlistName = playlist.name,
                 coverUrl = playlist.coverImgUrl,
                 isInitiallyContains = false,
-                isContains = false
+                isContains = false,
+                trackCount = playlist.trackCount
             )
             val contains = entries[externalKeyOf(item, profile.uid)].orEmpty().any { it.track.resolveKey == track.resolveKey }
             item.copy(isInitiallyContains = contains, isContains = contains)
@@ -166,7 +206,13 @@ class SongCollectDelegate(
         _state.update { it.copy(songId = songId, isLoading = false, collectItems = items) }
     }
 
-    suspend fun saveExternal(track: ExternalTrack, items: List<PlaylistCollectItem>, onToast: suspend (String) -> Unit) {
+    // silent 为 true 时不提示成功（Android 弹窗逐项即时保存），失败照常提示
+    suspend fun saveExternal(
+        track: ExternalTrack,
+        items: List<PlaylistCollectItem>,
+        silent: Boolean = false,
+        onToast: suspend (String) -> Unit
+    ) {
         val profile = userPreferences.userProfile.first()
         if (profile == null) {
             onToast("请先登录账号")
@@ -177,7 +223,7 @@ class SongCollectDelegate(
             val key = externalKeyOf(item, profile.uid)
             if (item.isContains) externalStore.add(key, listOf(track)) else externalStore.remove(key, setOf(track.queueSongId))
         }
-        onToast("歌单收藏更新成功")
+        if (!silent) onToast("歌单收藏更新成功")
     }
 
     suspend fun createAndAddExternal(name: String, track: ExternalTrack, onToast: suspend (String) -> Unit) {
@@ -197,10 +243,11 @@ class SongCollectDelegate(
         items: List<PlaylistCollectItem>,
         likedSongIds: Set<Long>,
         onToast: suspend (String) -> Unit,
-        onLikedChanged: (Set<Long>) -> Unit
+        onLikedChanged: (Set<Long>) -> Unit,
+        silent: Boolean = false
     ) {
         if (songId < 0L) {
-            withExternal(songId, onToast) { saveExternal(it, items, onToast) }
+            withExternal(songId, onToast) { saveExternal(it, items, silent, onToast) }
             return
         }
         val profile = userPreferences.userProfile.first()
@@ -228,7 +275,7 @@ class SongCollectDelegate(
                     ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }
             }
         }
-        onToast("歌单收藏更新成功")
+        if (!silent) onToast("歌单收藏更新成功")
     }
 
     // 新建歌单并把歌曲加入，成功后清理自建歌单列表缓存并重新拉取弹窗列表以带出新歌单

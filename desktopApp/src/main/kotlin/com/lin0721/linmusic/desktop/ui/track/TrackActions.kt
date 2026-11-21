@@ -18,12 +18,15 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 @Immutable
 class TrackActions(
     val likedSongIds: Set<Long>,
+    val onQuickLike: (Track) -> Unit,
     val onToggleLike: (Track) -> Unit,
     val onPlayNext: (Track) -> Unit,
-    // 收藏到歌单的二级菜单：展开时准备列表，点选即提交，新建走对话框
+    // 收藏到歌单的二级菜单及 ✓ 按钮弹窗
     val collectState: PlaylistCollectState,
     val onPrepareCollect: (Track) -> Unit,
     val onToggleCollect: (Track, PlaylistCollectItem) -> Unit,
+    val onSaveCollect: (Track, List<PlaylistCollectItem>) -> Unit,
+    val onCreateAndAdd: (Track, String) -> Unit,
     val onCreateCollect: (Track) -> Unit,
     val onDownload: (Track) -> Unit,
     // 仅自建歌单传入，菜单才出现“从歌单中删除”
@@ -38,6 +41,7 @@ class TrackActions(
 fun rememberTrackActions(
     likedSongIds: Set<Long>,
     collectState: PlaylistCollectState,
+    onQuickLike: (songId: Long) -> Unit,
     onToggleLike: (songId: Long, like: Boolean) -> Unit,
     onPlayNext: (Track) -> Unit,
     onPrepareCollect: (songId: Long) -> Unit,
@@ -67,11 +71,14 @@ fun rememberTrackActions(
     }
     return TrackActions(
         likedSongIds = likedSongIds,
+        onQuickLike = { track -> requireLogin { onQuickLike(track.id) } },
         onToggleLike = { track -> requireLogin { onToggleLike(track.id, track.id !in likedSongIds) } },
         onPlayNext = onPlayNext,
         collectState = collectState,
         onPrepareCollect = { track -> onPrepareCollect(track.id) },
         onToggleCollect = { track, item -> onSaveCollect(track.id, listOf(item)) },
+        onSaveCollect = { track, items -> onSaveCollect(track.id, items) },
+        onCreateAndAdd = { track, name -> onCreateAndAdd(name, track.id) },
         onCreateCollect = { track -> requireLogin { creatingFor = track } },
         onDownload = navigator.downloadTrack,
         onRemove = onRemove,

@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,8 +61,10 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.height
+import androidx.compose.ui.semantics.Role
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
-// 首页/音乐/播客三个 tab 共用的单排固定吸顶栏（头像与胶囊同排）
+// 首页/音乐/播客三个 tab 共用的单排固定吸顶栏（头像、胶囊与右侧搜索按钮同排）
 @Composable
 fun HomeSharedHeader(
     userProfile: UserProfile?,
@@ -73,7 +72,9 @@ fun HomeSharedHeader(
     onTabSelected: (Int) -> Unit,
     secondarySelected: Boolean,
     onSecondarySelected: () -> Unit,
-    onAvatarClick: () -> Unit
+    onAvatarClick: () -> Unit,
+    showSearchButton: Boolean = true,
+    onSearchClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -109,7 +110,7 @@ fun HomeSharedHeader(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Person,
+                            MelodiaIcons.Person,
                             contentDescription = "未登录",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
@@ -124,8 +125,27 @@ fun HomeSharedHeader(
                 secondarySelected = secondarySelected,
                 onSecondarySelected = onSecondarySelected,
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(end = 20.dp)
+                contentPadding = PaddingValues(end = if (showSearchButton) 12.dp else 20.dp)
             )
+
+            if (showSearchButton) {
+                Box(modifier = Modifier.padding(end = 20.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .pressable(MelodiaPress.Icon, shape = CircleShape, role = Role.Button, onClick = onSearchClick)
+                            .background(MelodiaColors.FilterPillInactive),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = MelodiaIcons.Search,
+                            contentDescription = "搜索",
+                            tint = MelodiaColors.PillContent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

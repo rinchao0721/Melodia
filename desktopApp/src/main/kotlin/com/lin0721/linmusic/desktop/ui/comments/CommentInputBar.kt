@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +40,8 @@ import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.trackTextInputFocus
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Close
 
 private const val INPUT_MAX_LINES = 4
 
@@ -94,7 +94,7 @@ fun CommentInputBar(
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onClearReplyTarget, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Close, "取消回复", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
+                    Icon(MelodiaIcons.Close, "取消回复", tint = DesktopColors.TextGray, modifier = Modifier.size(16.dp))
                 }
             }
         }

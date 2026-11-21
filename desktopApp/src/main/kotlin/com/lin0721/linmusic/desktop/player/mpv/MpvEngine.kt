@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.player.mpv
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.player.AUTO_AUDIO_DEVICE
 import com.lin0721.linmusic.desktop.player.AudioDevice
 import com.lin0721.linmusic.desktop.player.parseAudioDevices
 import com.sun.jna.Pointer
@@ -12,6 +13,13 @@ private const val TAG = "MpvEngine"
 private const val OBSERVE_TIME_POS = 1L
 private const val OBSERVE_DURATION = 2L
 private const val OBSERVE_PAUSE = 3L
+private const val OBSERVE_AUDIO_CODEC = 4L
+private const val OBSERVE_AUDIO_PARAMS = 5L
+private const val OBSERVE_AUDIO_OUT_PARAMS = 6L
+private const val OBSERVE_AUDIO_BITRATE = 7L
+private const val OBSERVE_CURRENT_AO = 8L
+private const val OBSERVE_AUDIO_DEVICE = 9L
+private const val OBSERVE_TRACK_LIST = 10L
 
 // 纯音频播放内核：只负责“播这个地址/暂停/跳转/音量”，队列与取地址由上层决定
 // 仅测试用：初始化前写入的额外选项
@@ -22,6 +30,7 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         fun onDurationChanged(durationMs: Long)
         fun onPauseChanged(paused: Boolean)
         fun onFileLoaded()
+        fun onAudioInfoChanged(info: MpvAudioInfo) = Unit
 
         // 自然播完或解码失败；主动 stop/替换文件不回调
         fun onEnded(isError: Boolean)
@@ -34,6 +43,9 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
     private val ctx: Pointer = mpv.mpv_create() ?: throw IllegalStateException("mpv_create 返回空句柄")
     private val running = AtomicBoolean(true)
     private val eventThread: Thread
+    @Volatile private var lastAudioInfo: MpvAudioInfo? = null
+    @Volatile private var cachedDeviceListJson: String? = null
+    @Volatile private var afCommandUsable = true
 
     init {
         setOption("vid", "no")
@@ -50,6 +62,13 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         mpv.mpv_observe_property(ctx, OBSERVE_TIME_POS, "time-pos", MpvConst.FORMAT_DOUBLE)
         mpv.mpv_observe_property(ctx, OBSERVE_DURATION, "duration", MpvConst.FORMAT_DOUBLE)
         mpv.mpv_observe_property(ctx, OBSERVE_PAUSE, "pause", MpvConst.FORMAT_FLAG)
+        mpv.mpv_observe_property(ctx, OBSERVE_AUDIO_CODEC, "audio-codec-name", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_AUDIO_PARAMS, "audio-params", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_AUDIO_OUT_PARAMS, "audio-out-params", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_AUDIO_BITRATE, "audio-bitrate", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_CURRENT_AO, "current-ao", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_AUDIO_DEVICE, "audio-device", MpvConst.FORMAT_NONE)
+        mpv.mpv_observe_property(ctx, OBSERVE_TRACK_LIST, "track-list", MpvConst.FORMAT_NONE)
         eventThread = Thread(::eventLoop, "mpv-events").apply {
             isDaemon = true
             start()
@@ -59,6 +78,7 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
     // paused 为真时载入后停在开头，用于预载
     // recordPath 非空时把读到的流录成该文件（容器由扩展名决定），空串关闭录制
     fun load(url: String, startMs: Long, paused: Boolean = false, recordPath: String? = null) {
+        lastAudioInfo = null
         setProperty("stream-record", recordPath.orEmpty())
         // start 为全局选项，对下一个载入的文件生效
         setProperty("start", if (startMs > 0) "+${startMs / 1000.0}" else "none")
@@ -68,6 +88,7 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
 
     // 分析用：start 按 mpv 语法给出，如 "+12.5" 或 "25%"
     fun loadSegment(url: String, start: String) {
+        lastAudioInfo = null
         setProperty("stream-record", "")
         setProperty("start", start)
         setProperty("pause", "no")
@@ -76,6 +97,8 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
 
     // 已载入文件的标签值，mpv 按键名不区分大小写匹配
     fun metadataValue(key: String): String? = getProperty("metadata/by-key/$key")
+
+    fun currentAudioInfo(): MpvAudioInfo? = lastAudioInfo
 
     fun setPaused(paused: Boolean) = setProperty("pause", if (paused) "yes" else "no")
 
@@ -89,11 +112,38 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
     // 仅测试用
     internal fun volume(): Double? = getProperty("volume")?.toDoubleOrNull()
 
+    // 仅测试用
+    internal fun audioFilter(): String? = getProperty("af")
+
+    // gainDb 为空时移除滤镜
+    fun setTrackGainFilter(gainDb: Double?) {
+        afCommandUsable = true
+        setProperty("af", gainDb?.let(MpvGainFilter::buildAfSpec).orEmpty())
+    }
+
+    // 实测 lavfi 滤镜不接受 af-command，失败后不再重试；volume-gain 会与滤镜重复施加，不可用
+    fun tryLiveTrackGain(gainDb: Double): Boolean {
+        if (!running.get() || !afCommandUsable) return false
+        val arg = MpvGainFilter.formatVolumeArg(gainDb)
+        val code = mpv.mpv_command(ctx, arrayOf("af-command", MpvGainFilter.LABEL, MpvGainFilter.COMMAND_VOLUME, arg, null))
+        if (code >= 0) return true
+        afCommandUsable = false
+        AppLogger.d(TAG, "af-command 不可用，改为整体替换 af：${mpv.mpv_error_string(code)}")
+        return false
+    }
+
+    // 会重建滤镜链
+    fun replaceTrackGain(gainDb: Double) {
+        if (!running.get()) return
+        setProperty("af", MpvGainFilter.buildAfSpec(gainDb))
+    }
+
     // 播放中切换会由 mpv 自动重开输出，进度不中断
     fun setExclusive(enabled: Boolean) = setProperty("audio-exclusive", if (enabled) "yes" else "no")
 
     // node 类型属性按字符串读取得到 JSON；读不到返回 null
-    fun audioDevices(): List<AudioDevice> = getProperty("audio-device-list")?.let(::parseAudioDevices).orEmpty()
+    fun audioDevices(): List<AudioDevice> = getProperty("audio-device-list")?.also { cachedDeviceListJson = it }
+        ?.let(::parseAudioDevices).orEmpty()
 
     // 切换失败（设备不存在等）返回 false，原设备保持不变
     fun setAudioDevice(name: String): Boolean {
@@ -103,7 +153,10 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
         return code >= 0
     }
 
-    fun stop() = command("stop")
+    fun stop() {
+        lastAudioInfo = null
+        command("stop")
+    }
 
     fun release() {
         if (!running.compareAndSet(true, false)) return
@@ -119,7 +172,10 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
                 when (event.getInt(MpvConst.EVENT_OFFSET_ID)) {
                     MpvConst.EVENT_NONE -> Unit
                     MpvConst.EVENT_SHUTDOWN -> running.set(false)
-                    MpvConst.EVENT_FILE_LOADED -> listener.onFileLoaded()
+                    MpvConst.EVENT_FILE_LOADED -> {
+                        publishAudioInfo(refreshDevices = true)
+                        listener.onFileLoaded()
+                    }
                     MpvConst.EVENT_END_FILE -> handleEndFile(event)
                     MpvConst.EVENT_PROPERTY_CHANGE -> handlePropertyChange(event)
                 }
@@ -130,6 +186,7 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
     }
 
     private fun handleEndFile(event: Pointer) {
+        lastAudioInfo = null
         val data = event.getPointer(MpvConst.EVENT_OFFSET_DATA) ?: return
         when (data.getInt(0)) {
             MpvConst.END_FILE_REASON_EOF -> listener.onEnded(isError = false)
@@ -159,6 +216,35 @@ class MpvEngine(private val listener: Listener, extraOptions: Map<String, String
             OBSERVE_PAUSE -> if (format == MpvConst.FORMAT_FLAG && value != null) {
                 listener.onPauseChanged(value.getInt(0) != 0)
             }
+            OBSERVE_AUDIO_CODEC,
+            OBSERVE_AUDIO_PARAMS,
+            OBSERVE_AUDIO_OUT_PARAMS,
+            OBSERVE_AUDIO_BITRATE,
+            OBSERVE_TRACK_LIST -> publishAudioInfo(refreshDevices = false)
+            OBSERVE_CURRENT_AO,
+            OBSERVE_AUDIO_DEVICE -> publishAudioInfo(refreshDevices = true)
+        }
+    }
+
+    private fun publishAudioInfo(refreshDevices: Boolean) {
+        val audioDevice = getProperty("audio-device")
+        if (refreshDevices || (cachedDeviceListJson == null && !audioDevice.isNullOrBlank() && audioDevice != AUTO_AUDIO_DEVICE)) {
+            cachedDeviceListJson = getProperty("audio-device-list")
+        }
+        val info = parseMpvAudioInfo(
+            audioCodecName = getProperty("audio-codec-name"),
+            audioParamsJson = getProperty("audio-params"),
+            audioOutParamsJson = getProperty("audio-out-params"),
+            audioBitrateRaw = getProperty("audio-bitrate"),
+            trackListJson = getProperty("track-list"),
+            currentAo = getProperty("current-ao"),
+            audioDevice = audioDevice,
+            audioDeviceListJson = cachedDeviceListJson
+        )
+        if (info.stream == null && info.output == null) return
+        if (info != lastAudioInfo) {
+            lastAudioInfo = info
+            listener.onAudioInfoChanged(info)
         }
     }
 

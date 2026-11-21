@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.feature.listendata.data.ListenDataRepository
 import com.lin0721.linmusic.feature.listendata.data.PERIOD_MONTH
 import com.lin0721.linmusic.feature.listendata.data.PERIOD_WEEK
@@ -22,8 +23,9 @@ private const val TAG = "ListenDataViewModel"
 
 class ListenDataViewModel(
     private val repository: ListenDataRepository,
-    val playerManager: PlayerManager,
-    private val resourceProvider: ResourceProvider
+    val playerManager: PlaybackController,
+    private val resourceProvider: ResourceProvider,
+    private val songQualityCache: SongQualityCache? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ListenDataUiState())
@@ -110,7 +112,10 @@ class ListenDataViewModel(
     private suspend fun loadToday(): ListenDataContent =
         fetch("今日播放") { repository.getTodaySongs().first() }
             .fold(
-                onSuccess = { ListenDataContent.Today(it) },
+                onSuccess = { songs ->
+                    songQualityCache?.prefetchIds(songs.map { it.id })
+                    ListenDataContent.Today(songs)
+                },
                 onFailure = { ListenDataContent.Error(it.toUserMessage(resourceProvider)) }
             )
 
@@ -128,9 +133,13 @@ class ListenDataViewModel(
                 cause?.toUserMessage(resourceProvider) ?: "加载失败，请稍后重试"
             )
         }
+        val rankData = rank.getOrNull()
+        rankData?.songs?.takeIf { it.isNotEmpty() }?.let { songs ->
+            songQualityCache?.prefetchIds(songs.map { it.id })
+        }
         return ListenDataContent.Period(
             report = report.getOrNull(),
-            rank = rank.getOrNull()
+            rank = rankData
         )
     }
 

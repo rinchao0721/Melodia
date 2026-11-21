@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +47,8 @@ import com.lin0721.linmusic.feature.podcast.domain.formatSubCount
 import com.lin0721.linmusic.feature.podcast.ui.PodcastSection
 import com.lin0721.linmusic.feature.podcast.ui.RadioDetailUiState
 import com.lin0721.linmusic.feature.podcast.ui.RadioDetailViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
 
 // 距离列表底部还剩几项时加载下一页节目
 private const val PROGRAM_LOAD_MORE_THRESHOLD = 6
@@ -74,10 +74,10 @@ private fun RadioDetailContent(
     modifier: Modifier
 ) {
     val listState = rememberLazyListState()
-    val shouldLoadMore by remember(state.hasMore, state.isLoadingMore, state.isReloadingPrograms) {
+    val shouldLoadMore by remember(state.hasMore, state.isLoadingMore, state.isReloadingPrograms, state.loadMoreError) {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            state.hasMore && !state.isLoadingMore && !state.isReloadingPrograms &&
+            state.hasMore && !state.isLoadingMore && !state.isReloadingPrograms && state.loadMoreError == null &&
                 lastVisible >= listState.layoutInfo.totalItemsCount - PROGRAM_LOAD_MORE_THRESHOLD
         }
     }
@@ -122,6 +122,12 @@ private fun RadioDetailContent(
                 item(key = "loading_more") {
                     Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = DesktopColors.Accent)
+                    }
+                }
+            } else if (!state.isReloadingPrograms) {
+                state.loadMoreError?.let { message ->
+                    item(key = "load_more_error") {
+                        PodcastInlineError(message = message, onRetry = viewModel::loadMore)
                     }
                 }
             }
@@ -205,10 +211,10 @@ private fun RadioActions(
             enabled = state.programs.isNotEmpty(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = DesktopColors.Accent,
-                contentColor = DesktopColors.TextPrimary
+                contentColor = DesktopColors.OnAccent
             )
         ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Play, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(playLabel, modifier = Modifier.padding(start = 6.dp), fontWeight = FontWeight.SemiBold)
         }
         OutlinedButton(

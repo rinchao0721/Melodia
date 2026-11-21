@@ -89,7 +89,7 @@ data class SongUrlItem(
     val freeTrialInfo: FreeTrialInfo? = null,
     val freeTrialPrivilege: FreeTrialPrivilege? = null,
     val time: Long = 0,
-    // 曲目增益 (dB) 与峰值，换算见 LoudnessPolicy.neteaseGainDb
+    // 曲目增益 (dB) 与峰值，换算见 LoudnessPolicy.fromNetease
     val gain: Double? = null,
     val peak: Double? = null,
 )

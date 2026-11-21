@@ -14,12 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -61,6 +55,12 @@ import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.SimpleMenuItem
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Copy
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.MoreHoriz
+import com.lin0721.linmusic.core.ui.icons.Reply
+import com.lin0721.linmusic.core.ui.icons.ThumbUp
 
 private val AvatarSize = 36.dp
 private val MoreButtonSize = 28.dp
@@ -137,7 +137,7 @@ fun CommentRow(
                     Box {
                         HoverReveal(revealed = revealed) {
                             IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(MoreButtonSize)) {
-                                Icon(Icons.Rounded.MoreHoriz, "更多评论操作", tint = DesktopColors.TextGray)
+                                Icon(MelodiaIcons.MoreHoriz, "更多评论操作", tint = DesktopColors.TextGray)
                             }
                         }
                         CommentMenu(
@@ -210,7 +210,7 @@ private fun LikeButton(comment: CommentItem, interactive: Boolean, onLike: () ->
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(formatLikedCount(comment.likedCount), color = tint.copy(alpha = if (comment.liked) 1f else 0.8f), fontSize = 12.sp)
-        Icon(Icons.Rounded.ThumbUp, if (comment.liked) "取消点赞" else "点赞", tint = tint, modifier = Modifier.size(14.dp))
+        Icon(MelodiaIcons.ThumbUp, if (comment.liked) "取消点赞" else "点赞", tint = tint, modifier = Modifier.size(14.dp))
     }
 }
 
@@ -226,8 +226,8 @@ private fun CommentMenu(
     onDelete: () -> Unit
 ) {
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset, width = 160.dp) {
-        SimpleMenuItem("复制", icon = Icons.Rounded.ContentCopy, onClick = { onDismiss(); onCopy() })
-        if (canReply) SimpleMenuItem("回复", icon = Icons.AutoMirrored.Rounded.Reply, onClick = { onDismiss(); onReply() })
-        if (canDelete) SimpleMenuItem("删除", icon = Icons.Rounded.Delete, danger = true, onClick = { onDismiss(); onDelete() })
+        SimpleMenuItem("复制", icon = MelodiaIcons.Copy, onClick = { onDismiss(); onCopy() })
+        if (canReply) SimpleMenuItem("回复", icon = MelodiaIcons.Reply, onClick = { onDismiss(); onReply() })
+        if (canDelete) SimpleMenuItem("删除", icon = MelodiaIcons.Delete, danger = true, onClick = { onDismiss(); onDelete() })
     }
 }

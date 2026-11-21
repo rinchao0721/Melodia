@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +25,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 // ────────────────────────────────────────────────────────────────────────────
 // "新建歌单" 弹层
@@ -173,7 +173,7 @@ fun LibrarySortMenuSheet(
                     )
                     if (isSelected) {
                         Icon(
-                            imageVector = Icons.Default.Check,
+                            imageVector = MelodiaIcons.Check,
                             contentDescription = "已选择",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)

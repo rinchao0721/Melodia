@@ -20,7 +20,6 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutFrame
 import com.lin0721.linmusic.core.plugin.toShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
-import androidx.compose.material.icons.rounded.SkipPrevious
 import android.media.AudioDeviceInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -29,21 +28,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddBox
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.CloudQueue
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.SkipNext
 import com.lin0721.linmusic.core.preferences.BottomBarItem
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
@@ -80,7 +64,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.media3.common.MediaItem
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.Screen
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -106,7 +90,6 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
-import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
@@ -125,6 +108,14 @@ import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherCoverBadge
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Computer
+import com.lin0721.linmusic.core.ui.icons.Devices
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.Download
 
 //悬浮播放控制卡片
 
@@ -133,7 +124,7 @@ enum class MiniPlayerLikeMode { Collect, Subscribe, Hidden }
 
 @Composable
 fun MiniPlayerCard(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -152,14 +143,16 @@ fun MiniPlayerCard(
     isLiked: Boolean = false,
     onLikeClick: () -> Unit = {},
     likeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
-    expanded: Boolean = false
+    expanded: Boolean = false,
+    remoteDeviceName: String? = null,
+    onDeviceClick: (() -> Unit)? = null
 ) {
     val motion = LocalUiMotion.current
     if (currentTrack == null) return
 
     val context = LocalContext.current
-    val cleanCoverUrl = remember(currentTrack.mediaMetadata.artworkUri) {
-        currentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    val cleanCoverUrl = remember(currentTrack.artworkUri) {
+        currentTrack.artworkUri.orEmpty()
     }
 
     // 切歌时沿用上一首的配色直到新封面取色完成，避免闪回默认底色
@@ -217,8 +210,8 @@ fun MiniPlayerCard(
     }
     val canSwipeToPrevious = displayedPreviousQueueItem != null
     val canSwipeToNext = displayedNextQueueItem != null
-    val displayedCleanCoverUrl = remember(displayedCurrentTrack.mediaMetadata.artworkUri) {
-        displayedCurrentTrack.mediaMetadata.artworkUri?.toString() ?: ""
+    val displayedCleanCoverUrl = remember(displayedCurrentTrack.artworkUri) {
+        displayedCurrentTrack.artworkUri.orEmpty()
     }
     var pendingSlideInKey by remember { mutableStateOf<Any?>(null) }
     if (swipeDirection != null) {
@@ -328,8 +321,8 @@ fun MiniPlayerCard(
             if (pluginSpec != null && !pluginSpec.hostContent) BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
                 val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
-                val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
-                val artist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty()
+                val title = displayedCurrentTrack.title.ifBlank { "未知歌名" }
+                val artist = displayedCurrentTrack.artist
                 val pluginState = rememberMiniPluginState(
                     title = title,
                     artist = artist,
@@ -393,13 +386,14 @@ fun MiniPlayerCard(
                                 node.buttons.forEach { button ->
                                     when (button) {
                                         "previous" -> MelodiaIconButton(onClick = onPrevious) {
-                                            Icon(Icons.Rounded.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                            Icon(MelodiaIcons.SkipPrevious, contentDescription = "上一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
                                         }
                                         "playPause" -> MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {
-                                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, contentDescription = "播放/暂停")
+                                            // 参照 SP：播放三角略高于圆圈，切歌最轻
+                            PlayPauseIcon(displayedIsPlaying, MelodiaColors.OnPlayer, size = 31.dp, contentDescription = "播放/暂停")
                                         }
                                         "next" -> MelodiaIconButton(onClick = onNext) {
-                                            Icon(Icons.Rounded.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
+                                            Icon(MelodiaIcons.SkipNext, contentDescription = "下一首", tint = MelodiaColors.OnPlayer, modifier = Modifier.size(28.dp * scale))
                                         }
                                     }
                                 }
@@ -437,18 +431,29 @@ fun MiniPlayerCard(
                     MiniPlayerSlidingContent(
                         state = swipeState,
                         currentKey = displayedCurrentTrack.mediaId,
-                        currentTitle = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名",
-                        currentArtist = displayedCurrentTrack.mediaMetadata.artist?.toString().orEmpty(),
+                        currentTitle = displayedCurrentTrack.title.ifBlank { "未知歌名" },
+                        currentArtist = displayedCurrentTrack.artist,
                         currentCoverUrl = displayedCleanCoverUrl,
                         previousQueueItem = displayedPreviousQueueItem,
                         nextQueueItem = displayedNextQueueItem,
                         connectedDevice = connectedDevice,
+                        remoteDeviceName = remoteDeviceName,
                         modifier = Modifier
                             .weight(1f)
                             .height(if (expanded) 52.dp else 44.dp)
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
+                        if (onDeviceClick != null) {
+                            MelodiaIconButton(onClick = onDeviceClick) {
+                                Icon(
+                                    imageVector = if (remoteDeviceName != null) MelodiaIcons.Computer else MelodiaIcons.Devices,
+                                    contentDescription = "设备",
+                                    tint = if (remoteDeviceName != null) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
+                                    modifier = Modifier.size(21.dp)
+                                )
+                            }
+                        }
                         // 歌曲：带圈图标弹出选歌单面板，已在喜欢中时着主色显示对勾；播客：♡ 直接订阅电台
                         MiniLikeButton(likeMode, isLiked, onLikeClick)
                         // 播放/暂停按钮
@@ -458,10 +463,10 @@ fun MiniPlayerCard(
                         // 下一首按钮
                         MelodiaIconButton(onClick = onNext) {
                             Icon(
-                                imageVector = Icons.Rounded.SkipNext,
+                                imageVector = MelodiaIcons.SkipNext,
                                 contentDescription = "下一首",
                                 tint = MelodiaColors.OnPlayer,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -513,16 +518,21 @@ private fun MiniLikeButton(
     if (likeMode == MiniPlayerLikeMode.Hidden) return
     val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
     MelodiaIconButton(onClick = onLikeClick, modifier = modifier) {
-        Icon(
-            imageVector = when {
-                subscribe -> if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder
-                isLiked -> Icons.Rounded.CheckCircle
-                else -> Icons.Rounded.AddCircleOutline
-            },
-            contentDescription = if (subscribe) "订阅电台" else if (isLiked) "已收藏到歌单" else "收藏到歌单",
-            tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
-            modifier = Modifier.size(24.dp)
-        )
+        if (subscribe) {
+            Icon(
+                imageVector = if (isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
+                contentDescription = "订阅电台",
+                tint = if (isLiked) MelodiaColors.OnCoverAccent else MelodiaColors.OnPlayer,
+                modifier = Modifier.size(25.dp)
+            )
+        } else {
+            CollectToggleIcon(
+                collected = isLiked,
+                size = 25.dp,
+                tint = MelodiaColors.OnPlayer,
+                collectedTint = MelodiaColors.OnCoverAccent
+            )
+        }
     }
 }
 
@@ -558,6 +568,7 @@ private class MiniPlayerSlideLayer(
     val artist: String,
     val coverUrl: String,
     val connectedDevice: AudioDeviceInfo?,
+    val remoteDeviceName: String?,
     val translationXProvider: () -> Float
 )
 
@@ -572,6 +583,7 @@ private fun MiniPlayerSlidingContent(
     previousQueueItem: QueueItem?,
     nextQueueItem: QueueItem?,
     connectedDevice: AudioDeviceInfo?,
+    remoteDeviceName: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -592,6 +604,7 @@ private fun MiniPlayerSlidingContent(
                             artist = item.artist,
                             coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                             connectedDevice = null,
+                            remoteDeviceName = null,
                             translationXProvider = { state.offsetX - state.containerWidthPx }
                         )
                     )
@@ -604,6 +617,7 @@ private fun MiniPlayerSlidingContent(
                     artist = currentArtist,
                     coverUrl = currentCoverUrl,
                     connectedDevice = connectedDevice,
+                    remoteDeviceName = remoteDeviceName,
                     translationXProvider = { state.offsetX }
                 )
             )
@@ -618,6 +632,7 @@ private fun MiniPlayerSlidingContent(
                             artist = item.artist,
                             coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
                             connectedDevice = null,
+                            remoteDeviceName = null,
                             translationXProvider = { state.offsetX + state.containerWidthPx }
                         )
                     )
@@ -631,6 +646,7 @@ private fun MiniPlayerSlidingContent(
                     artist = layer.artist,
                     coverUrl = layer.coverUrl,
                     connectedDevice = layer.connectedDevice,
+                    remoteDeviceName = layer.remoteDeviceName,
                     translationXProvider = layer.translationXProvider
                 )
             }
@@ -645,9 +661,16 @@ private fun MiniPlayerContentRow(
     artist: String,
     coverUrl: String,
     connectedDevice: AudioDeviceInfo?,
+    remoteDeviceName: String?,
     translationXProvider: () -> Float
 ) {
     val thumbUrl = remember(coverUrl) { miniThumbUrl(coverUrl) }
+    val activeDeviceLabel = remoteDeviceName?.let { "在 $it 上播放" } ?: connectedDevice?.let { deviceLabel(it) }
+    val activeDeviceIcon = when {
+        remoteDeviceName != null -> MelodiaIcons.Computer
+        connectedDevice != null -> deviceIcon(connectedDevice.type)
+        else -> null
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -669,7 +692,7 @@ private fun MiniPlayerContentRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            val titleLine = if (connectedDevice != null && artist.isNotBlank()) "$title · $artist" else title
+            val titleLine = if (activeDeviceLabel != null && artist.isNotBlank()) "$title · $artist" else title
             Text(
                 text = titleLine,
                 color = MelodiaColors.OnPlayer,
@@ -683,18 +706,18 @@ private fun MiniPlayerContentRow(
                 ),
                 modifier = Modifier.basicMarquee()
             )
-            if (connectedDevice != null) {
+            if (activeDeviceLabel != null && activeDeviceIcon != null) {
                 Spacer(modifier = Modifier.height(1.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = deviceIcon(connectedDevice.type),
+                        imageVector = activeDeviceIcon,
                         contentDescription = null,
                         tint = MelodiaColors.OnCoverAccent,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = deviceLabel(connectedDevice),
+                        text = activeDeviceLabel,
                         color = MelodiaColors.OnCoverAccent,
                         fontSize = 11.sp,
                         maxLines = 1,
@@ -757,13 +780,11 @@ fun MiniPlayerProgress(
 fun MelodiaNavigationBar(
     currentScreen: Screen,
     onNavigate: (Screen) -> Unit,
-    onCreateClick: () -> Unit,
-    isCreateMenuOpen: Boolean,
-    showCreateEntry: Boolean = true,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     iconOnly: Boolean = false,
     activeTab: Screen? = null,
     expanded: Boolean = false,
+    transparentBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // 平板宽屏下用 MelodiaColors.Surface + 描边，避免和页面背景融为一体
@@ -771,7 +792,7 @@ fun MelodiaNavigationBar(
     Surface(
         color = when {
             expanded -> MelodiaColors.Surface
-            hasBackdrop -> Color.Transparent
+            hasBackdrop || transparentBackground -> Color.Transparent
             else -> MelodiaColors.NavigationBar
         },
         shape = if (expanded) RoundedCornerShape(InfoCardRadius) else RectangleShape,
@@ -806,66 +827,43 @@ fun MelodiaNavigationBar(
                     }
                 )
                 .padding(
-                    top = if (iconOnly) 4.dp else 12.dp,
-                    bottom = if (iconOnly) 4.dp else 2.dp
+                    top = if (iconOnly) 4.dp else 6.dp,
+                    bottom = if (iconOnly) 4.dp else 4.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val effectiveLayout = if (!showCreateEntry && bottomBarLayout == BottomBarLayout.DEFAULT) {
-                bottomBarLayout.map {
-                    if (it.item == BottomBarItem.CREATE) it.copy(visible = false) else it
-                }
-            } else {
-                bottomBarLayout
-            }
-
-            val navItems = effectiveLayout.filter { it.visible }.map { setting ->
+            val navItems = bottomBarLayout.filter { it.visible }.map { setting ->
                 when (setting.item) {
-                    BottomBarItem.HOME -> Triple("主页", Icons.Default.Home, Screen.Home)
-                    BottomBarItem.SEARCH -> Triple("搜索", Icons.Default.Search, Screen.Search)
-                    BottomBarItem.LIBRARY -> Triple("音乐库", Icons.Default.LibraryMusic, Screen.Library)
-                    BottomBarItem.CREATE -> Triple("创建", if (isCreateMenuOpen) Icons.Rounded.Close else Icons.Default.AddBox, null)
-                    BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", Icons.Default.Folder, Screen.LocalMusic)
-                    BottomBarItem.DOWNLOADS -> Triple("下载管理", Icons.Outlined.FileDownload, Screen.Downloads)
-                    BottomBarItem.CLOUD -> Triple("我的云盘", Icons.Outlined.CloudQueue, Screen.Cloud)
-                    BottomBarItem.PROFILE -> Triple("个人主页", Icons.Default.Person, Screen.MyProfile)
+                    BottomBarItem.HOME -> Triple("主页", MelodiaIcons.Home, Screen.Home)
+                    BottomBarItem.SEARCH -> Triple("搜索", MelodiaIcons.Search, Screen.Search)
+                    BottomBarItem.LIBRARY -> Triple("音乐库", MelodiaIcons.Library, Screen.Library)
+                    BottomBarItem.LOCAL_MUSIC -> Triple("本地音乐", MelodiaIcons.LocalMusic, Screen.LocalMusic)
+                    BottomBarItem.DOWNLOADS -> Triple("下载管理", MelodiaIcons.Download, Screen.Downloads)
+                    BottomBarItem.CLOUD -> Triple("我的云盘", MelodiaIcons.Cloud, Screen.Cloud)
+                    BottomBarItem.PROFILE -> Triple("个人主页", MelodiaIcons.Person, Screen.MyProfile)
                 }
             }
 
             navItems.forEach { (label, icon, targetScreen) ->
-                val isSelected = targetScreen != null && (activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen))
-                
+                val isSelected = activeTab?.let { it == targetScreen } ?: (currentScreen == targetScreen)
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .pressable(MelodiaPress.Tab) {
-                            if (targetScreen != null) {
-                                onNavigate(targetScreen)
-                            } else {
-                                onCreateClick()
-                            }
+                            onNavigate(targetScreen)
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // 药丸形状背景
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) MelodiaColors.NavPillSelected else Color.Transparent)
-                            .padding(
-                                horizontal = MelodiaSpacing.md,
-                                vertical = if (iconOnly) 6.dp else 1.dp
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
-                            modifier = Modifier.size(if (iconOnly) 24.dp else 22.dp)
-                        )
-                    }
+                    // 参照 SP：无药丸底，主页选中切实心
+                    Icon(
+                        imageVector = if (isSelected && targetScreen == Screen.Home) MelodiaIcons.HomeFilled else icon,
+                        contentDescription = label,
+                        tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                    if (!iconOnly) Spacer(modifier = Modifier.height(2.dp))
                     if (!iconOnly) {
                         Text(
                             text = label,

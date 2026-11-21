@@ -1,12 +1,9 @@
 package com.lin0721.linmusic.feature.artist.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +20,9 @@ import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.TrackSelectionUi
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.components.CollectToggleButton
 
 // 音乐 Tab: 默认呈现热门50首歌曲，搜索框有内容时改为呈现该歌手的搜索结果
 fun LazyListScope.artistMusicTab(
@@ -35,6 +35,8 @@ fun LazyListScope.artistMusicTab(
     selectionUi: TrackSelectionUi,
     onPlaySong: (Track, List<Track>) -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    showLikedBadge: Boolean,
     onOpenCollectSheet: (Long) -> Unit,
     onOpenMoreOptions: (Track) -> Unit,
     onRequireLogin: () -> Unit
@@ -66,8 +68,7 @@ fun LazyListScope.artistMusicTab(
                         coverUrl = track.al.picUrl,
                         isVip = track.fee == 1,
                         qualitySongId = track.id,
-                        maxBrLevel = track.privilege?.maxBrLevel,
-                        inferredLevel = track.inferredMaxBrLevel()
+                        maxBrLevel = track.privilege?.maxBrLevel
                     ),
                     isActive = isActive,
                     isPlaying = isPlaying,
@@ -77,23 +78,21 @@ fun LazyListScope.artistMusicTab(
                     onClick = { if (selecting) selectionUi.onToggle(track.id) else onPlaySong(track, songs) },
                     trailingSlot = {
                         if (!selecting) {
-                            val isLiked = track.id in likedSongIds
-                            MelodiaIconButton(
-                                onClick = {
-                                    if (!isLoggedIn) {
-                                        onRequireLogin()
-                                    } else {
-                                        onOpenCollectSheet(track.id)
-                                        onLikeClick(track.id)
-                                    }
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "收藏到歌单",
-                                    tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                            if (showLikedBadge) {
+                                val isLiked = track.id in likedSongIds
+                                CollectToggleButton(
+                                    collected = isLiked,
+                                    onClick = {
+                                        when {
+                                            !isLoggedIn -> onRequireLogin()
+                                            isLiked -> {
+                                                onOpenCollectSheet(track.id)
+                                                onLikeClick(track.id)
+                                            }
+                                            else -> onQuickLike(track.id)
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                             MelodiaIconButton(
@@ -102,7 +101,7 @@ fun LazyListScope.artistMusicTab(
                                 modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
+                                    imageVector = MelodiaIcons.MoreVert,
                                     contentDescription = "更多操作",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)

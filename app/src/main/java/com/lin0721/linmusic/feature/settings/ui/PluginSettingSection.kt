@@ -23,11 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FileUpload
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +69,10 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Restore
+import com.lin0721.linmusic.core.ui.icons.Upload
 
 private val PluginRowShape = RoundedCornerShape(12.dp)
 private const val MAX_REPORT_LINES = 8
@@ -318,21 +317,21 @@ private fun PluginRow(
             }
             if (plugin.previousVersion != null) {
                 IconButton(onClick = onRollback, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.Restore, contentDescription = "回退到上一版本", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Restore, contentDescription = "回退到上一版本", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             if (hasSettings) {
                 IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Settings, contentDescription = "插件设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             if (manifest != null) {
                 IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.FileUpload, contentDescription = "导出插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(MelodiaIcons.Upload, contentDescription = "导出插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
             IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Rounded.Delete, contentDescription = "删除插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
+                Icon(MelodiaIcons.Delete, contentDescription = "删除插件", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(20.dp))
             }
             MelodiaSwitch(
                 checked = plugin.state.enabled,

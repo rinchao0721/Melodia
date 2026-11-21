@@ -128,7 +128,6 @@ fun FullScreenLyricsView(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val fullScreenKaraokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
     val neteaseLyricsEnabled by settingsPreferences.neteaseLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val qqLyricsEnabled by settingsPreferences.qqLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
@@ -357,7 +356,6 @@ fun FullScreenLyricsView(
                         lineSpacing = fullScreenLyricLineSpacing,
                         secondarySpacing = fullScreenLyricSecondarySpacing,
                         advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
-                        karaokeGlowEffect = fullScreenKaraokeGlowEffect,
                         isPlaying = isPlaying,
                         onSeek = handleSeek,
                         onLyricClick = { line ->
@@ -495,10 +493,6 @@ fun FullScreenLyricsView(
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 onAdvancedKaraokeEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
-                },
-                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
-                onKaraokeGlowEffectChange = { enabled ->
-                    scope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(enabled) }
                 },
                 neteaseLyricsEnabled = neteaseLyricsEnabled,
                 onNeteaseLyricsEnabledChange = { enabled ->

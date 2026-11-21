@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -67,6 +64,9 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
 import java.util.Locale
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Fire
 
 private val tagFallbackColors = listOf(
     Color(0xFF1E3264),
@@ -216,7 +216,7 @@ private fun FeaturedHotCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Rounded.Whatshot,
+                        MelodiaIcons.Fire,
                         contentDescription = null,
                         tint = MelodiaColors.OnCoverCard,
                         modifier = Modifier.size(32.dp)
@@ -258,7 +258,7 @@ private fun FeaturedHotCard(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    MelodiaIcons.Play,
                     contentDescription = "播放 ${track.name}",
                     tint = if (isCoverBackdrop(CoverGroup.CARDS)) MelodiaColors.OnCoverCardInverse else coverCardFill(animatedBase, 0.3f),
                     modifier = Modifier.size(24.dp)

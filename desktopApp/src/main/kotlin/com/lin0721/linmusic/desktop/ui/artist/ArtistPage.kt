@@ -35,9 +35,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -102,6 +99,9 @@ import com.lin0721.linmusic.feature.artist.ui.ArtistUiState
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import java.time.Instant
 import java.time.ZoneId
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Checklist
 
 // 距离列表底部还剩几项时加载下一页
 private const val LOAD_MORE_THRESHOLD = 6
@@ -190,6 +190,7 @@ private fun ArtistContent(
     val actions = rememberTrackActions(
         likedSongIds = likedSongIds,
         collectState = collectState,
+        onQuickLike = viewModel::quickLike,
         onToggleLike = viewModel::toggleLikeSong,
         onPlayNext = viewModel::addTrackToPlayNext,
         onPrepareCollect = viewModel::prepareCollectDialog,
@@ -413,7 +414,7 @@ private fun SongsToolbar(query: String, onQueryChange: (String) -> Unit, onEnter
         Spacer(Modifier.weight(1f))
         DesktopTooltip("多选") {
             IconButton(onClick = onEnterSelection) {
-                Icon(Icons.Rounded.Checklist, "多选", tint = DesktopColors.TextGray, modifier = Modifier.size(24.dp))
+                Icon(MelodiaIcons.Checklist, "多选", tint = DesktopColors.TextGray, modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -460,7 +461,7 @@ private fun ArtistStickyBar(
             enter = fadeIn(uiTween(STICKY_BAR_ANIMATION_MS)) + expandHorizontally(uiTween(STICKY_BAR_ANIMATION_MS)),
             exit = fadeOut(uiTween(STICKY_BAR_ANIMATION_MS)) + shrinkHorizontally(uiTween(STICKY_BAR_ANIMATION_MS))
         ) {
-            PlayCircleButton(StickyPlayButtonSize, 28.dp, onPlay, Modifier.padding(end = 12.dp))
+            PlayCircleButton(StickyPlayButtonSize, 21.dp, onPlay, Modifier.padding(end = 12.dp))
         }
         Text(
             name,
@@ -484,7 +485,7 @@ private fun PlayCircleButton(size: Dp, iconSize: Dp, onClick: () -> Unit, modifi
                 .pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.PlayArrow, "播放热门歌曲", tint = DesktopColors.TextPrimary, modifier = Modifier.size(iconSize))
+            Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.OnAccent, modifier = Modifier.size(iconSize))
         }
     }
 }
@@ -549,7 +550,7 @@ private fun ArtistHeader(
                     .clickable(enabled = state.topSongs.isNotEmpty(), onClick = onPlayHot),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.PlayArrow, "播放热门歌曲", tint = DesktopColors.TextPrimary, modifier = Modifier.size(32.dp))
+                Icon(MelodiaIcons.Play, "播放热门歌曲", tint = DesktopColors.OnAccent, modifier = Modifier.size(32.dp))
             }
             HeaderButton(if (state.isFollowed) "已关注" else "关注", onToggleFollow)
             HeaderButton(if (isBlocked) "取消屏蔽" else "屏蔽", onToggleBlock)

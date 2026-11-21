@@ -39,19 +39,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CloseFullscreen
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -106,6 +93,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.components.Cover
@@ -132,6 +120,17 @@ import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
 import com.lin0721.linmusic.feature.library.ui.LibraryUiState
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
+import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
+import com.lin0721.linmusic.core.ui.icons.OpenInFull
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PushPin
+import com.lin0721.linmusic.core.ui.icons.SidebarCollapse
 
 private const val VIEW_SWITCH_MS = 150
 private val SearchHeight = FilterChipDefaults.Height
@@ -174,7 +173,7 @@ fun LibrarySidebar(
             Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 LibraryTitleToggle(
                     baseIcon = null,
-                    hoverIcon = Icons.Rounded.KeyboardDoubleArrowLeft,
+                    hoverIcon = MelodiaIcons.SidebarCollapse,
                     hint = "收起音乐库",
                     showTitle = true,
                     iconRevealed = paneHovered,
@@ -183,7 +182,7 @@ fun LibrarySidebar(
                 LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
                 LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
                 Spacer(Modifier.width(4.dp))
-                LibraryIconButton(Icons.Rounded.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
+                LibraryIconButton(MelodiaIcons.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
             }
         }
         Column(Modifier.weight(1f)) {
@@ -242,7 +241,7 @@ fun LibraryExpanded(
                 LibraryShortcutRow(shortcutsState, Modifier.weight(1f))
                 LibraryCreateButton(viewModel, extras, isLoggedIn, pill = true)
                 Spacer(Modifier.width(8.dp))
-                LibraryIconButton(Icons.Rounded.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
+                LibraryIconButton(MelodiaIcons.CloseFullscreen, "收回音乐库") { onModeChange(LibraryMode.DEFAULT) }
             }
         }
         LibraryBody(
@@ -368,7 +367,7 @@ private fun LibraryCompactToolbar(
                     )
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                        Icon(MelodiaIcons.Search, "搜索", tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -392,7 +391,7 @@ internal fun LibrarySearchInput(
     placeholder: String = "在音乐库中搜索"
 ) {
     Row(modifier.fillMaxSize().padding(start = startPadding), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+        Icon(MelodiaIcons.Search, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (query.isEmpty()) {
@@ -420,7 +419,7 @@ internal fun LibrarySearchInput(
         }
         if (showClear) {
             Icon(
-                Icons.Rounded.Close,
+                MelodiaIcons.Close,
                 "清除搜索",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.padding(horizontal = 8.dp).size(16.dp).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClear)
@@ -762,29 +761,29 @@ private fun LibraryItemMenu(
 ) {
     val navigator = LocalDesktopNavigator.current
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
-        MenuItem("播放", icon = Icons.Rounded.PlayArrow, onClick = {
+        MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
             viewModel.playLibraryItem(item)
         })
-        MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+        MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
             onDismiss()
             viewModel.addLibraryItemToPlayNext(item)
         })
         if (item.type != LibraryItemType.ARTIST) {
-            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                 onDismiss()
                 viewModel.downloadLibraryItem(item, navigator.downloadLevel)
             })
         }
         if (item.isOwnedByMe && !item.isLikedSongs && item.type == LibraryItemType.PLAYLIST) {
-            MenuItem("编辑歌单信息", icon = Icons.Rounded.Edit, onClick = {
+            MenuItem("编辑歌单信息", icon = MelodiaIcons.Edit, onClick = {
                 onDismiss()
                 onEdit()
             })
         }
         MenuItem(
             if (item.isPinned) "取消置顶" else "置顶歌单",
-            icon = Icons.Rounded.PushPin,
+            icon = MelodiaIcons.PushPin,
             onClick = {
                 onDismiss()
                 viewModel.togglePin(item.id)
@@ -796,7 +795,7 @@ private fun LibraryItemMenu(
                 LibraryItemType.ALBUM -> "复制专辑链接"
                 LibraryItemType.ARTIST -> "复制歌手链接"
             },
-            icon = Icons.Rounded.Link,
+            icon = MelodiaIcons.Link,
             onClick = {
                 onDismiss()
                 val ok = copyLibraryItemLink(item)
@@ -808,7 +807,7 @@ private fun LibraryItemMenu(
             val isOwned = item.isOwnedByMe && item.type == LibraryItemType.PLAYLIST
             MenuItem(
                 if (isOwned) "删除歌单" else "从音乐库移除",
-                icon = Icons.Rounded.Delete,
+                icon = MelodiaIcons.Delete,
                 danger = true,
                 onClick = {
                     onDismiss()
@@ -910,7 +909,7 @@ private fun LibraryCompactRow(item: LibraryItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (item.isPinned) {
-            Icon(Icons.Rounded.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
+            Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(6.dp))
         }
         Text(
@@ -1003,7 +1002,7 @@ internal fun LibraryItemTooltipCard(item: LibraryItem) {
 internal fun LibrarySubtitle(item: LibraryItem, lineHeight: TextUnit = TextUnit.Unspecified) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (item.isPinned) {
-            Icon(Icons.Rounded.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
+            Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(4.dp))
         }
         if (item.isLocal) {

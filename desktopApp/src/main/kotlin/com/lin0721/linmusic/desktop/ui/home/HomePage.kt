@@ -38,13 +38,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -125,6 +118,13 @@ import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.time.LocalDate
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.Link
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.core.ui.icons.Share
 
 internal val CardWidth = 168.dp
 
@@ -295,6 +295,7 @@ fun HomePage(
                         uiState = musicState,
                         listState = musicListState,
                         onStyleClick = onStyleClick,
+                        onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = musicViewModel::loadStyles
                     )
                     selectedTab == HOME_TAB_PODCAST -> PodcastTab(
@@ -458,16 +459,16 @@ private fun LazyListScope.homeItems(
                         typeLabel = "歌单",
                         onPlay = { viewModel.playCollection(playlist.id, isAlbum = false) },
                         contextMenuContent = { onDismiss ->
-                            MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                            MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                                 onDismiss()
                                 viewModel.playCollection(playlist.id, isAlbum = false)
                             })
-                            MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                                 onDismiss()
                                 viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
                             })
                             if (!isSubscribed) {
-                                MenuItem("收藏歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                                MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                                     onDismiss()
                                     if (navigator.isLoggedIn) {
                                         viewModel.subscribePlaylist(playlist.id)
@@ -476,11 +477,11 @@ private fun LazyListScope.homeItems(
                                     }
                                 })
                             }
-                            MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+                            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                                 onDismiss()
                                 viewModel.downloadCollection(playlist.id, isAlbum = false, level = navigator.downloadLevel)
                             })
-                            MenuItem("复制链接", icon = Icons.Rounded.Link, onClick = {
+                            MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
                                 onDismiss()
                                 val ok = copyLink("https://music.163.com/playlist?id=${playlist.id}")
                                 navigator.showMessage(if (ok) "已复制链接" else "复制失败")
@@ -631,16 +632,16 @@ private fun RecentTile(
                 offset = contextMenuOffset ?: DpOffset.Zero,
                 onDismiss = { contextMenuOffset = null }
             ) {
-                MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                     contextMenuOffset = null
                     onPlay()
                 })
-                MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                     contextMenuOffset = null
                     viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
                 })
                 if (!isSubscribed) {
-                    MenuItem("收藏歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                    MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                         contextMenuOffset = null
                         if (navigator.isLoggedIn) {
                             viewModel.subscribePlaylist(playlist.id)
@@ -649,11 +650,11 @@ private fun RecentTile(
                         }
                     })
                 }
-                MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+                MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                     contextMenuOffset = null
                     viewModel.downloadCollection(playlist.id, isAlbum = false, level = navigator.downloadLevel)
                 })
-                MenuItem("复制链接", icon = Icons.Rounded.Link, onClick = {
+                MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
                     contextMenuOffset = null
                     val ok = copyLink("https://music.163.com/playlist?id=${playlist.id}")
                     navigator.showMessage(if (ok) "已复制链接" else "复制失败")
@@ -738,7 +739,7 @@ private fun HomePlayButton(
         Modifier.size(size).clip(CircleShape).background(containerColor).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Rounded.PlayArrow, description, tint = iconTint, modifier = Modifier.size(size * 0.6f))
+        Icon(MelodiaIcons.Play, description, tint = iconTint, modifier = Modifier.size(size * 0.6f))
     }
 }
 
@@ -772,16 +773,16 @@ private fun ServerShelf(
             when (card) {
                 is HomeCard.Playlist -> {
                     val isSubscribed = card.id in subscribedPlaylistIds
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addCollectionToPlayNext(card.id, isAlbum = false)
                     })
                     if (!isSubscribed) {
-                        MenuItem("收藏歌单", icon = Icons.AutoMirrored.Rounded.PlaylistAdd, onClick = {
+                        MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
                             onDismiss()
                             if (navigator.isLoggedIn) {
                                 viewModel.subscribePlaylist(card.id)
@@ -790,46 +791,46 @@ private fun ServerShelf(
                             }
                         })
                     }
-                    MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+                    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                         onDismiss()
                         viewModel.downloadCollection(card.id, isAlbum = false, level = navigator.downloadLevel)
                     })
-                    MenuItem("复制链接", icon = Icons.Rounded.Link, onClick = {
+                    MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/playlist?id=${card.id}")
                         navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                     })
                 }
                 is HomeCard.Album -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("全部加入下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addCollectionToPlayNext(card.id, isAlbum = true)
                     })
-                    MenuItem("下载", icon = Icons.Rounded.Download, onClick = {
+                    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                         onDismiss()
                         viewModel.downloadCollection(card.id, isAlbum = true, level = navigator.downloadLevel)
                     })
-                    MenuItem("复制链接", icon = Icons.Rounded.Link, onClick = {
+                    MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/album?id=${card.id}")
                         navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                     })
                 }
                 is HomeCard.Song -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addShelfSongToPlayNext(card)
                     })
                     if (card.id > 0L) {
-                        MenuItem("分享", icon = Icons.Rounded.Share, onClick = {
+                        MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
                             onDismiss()
                             navigator.openSongShareCard(
                                 DesktopAppState.ShareSongInfo(
@@ -841,22 +842,22 @@ private fun ServerShelf(
                             )
                         })
                     }
-                    MenuItem("复制歌曲链接", icon = Icons.Rounded.Link, onClick = {
+                    MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/song?id=${card.id}")
                         navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                     })
                 }
                 is HomeCard.Voice -> {
-                    MenuItem("立即播放", icon = Icons.Rounded.PlayArrow, onClick = {
+                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
                         onDismiss()
                         play()
                     })
-                    MenuItem("下一首播放", icon = Icons.AutoMirrored.Rounded.QueueMusic, onClick = {
+                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
                         onDismiss()
                         viewModel.addShelfVoiceToPlayNext(card)
                     })
-                    MenuItem("复制节目链接", icon = Icons.Rounded.Link, onClick = {
+                    MenuItem("复制节目链接", icon = MelodiaIcons.Link, onClick = {
                         onDismiss()
                         val ok = copyLink("https://music.163.com/program?id=${card.songId}")
                         navigator.showMessage(if (ok) "已复制链接" else "复制失败")

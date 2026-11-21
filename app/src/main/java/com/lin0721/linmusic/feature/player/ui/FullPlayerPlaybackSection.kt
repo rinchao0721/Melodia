@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
@@ -81,7 +82,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
     connectedDevice: AudioDeviceInfo? = null,
+    remoteDeviceName: String? = null,
     qualityLabel: String? = null,
+    onQualityClick: (() -> Unit)? = null,
     showMiniLyric: Boolean = true,
     baseCoverPadding: Dp = MelodiaSpacing.lg,
     itemGap: Dp = 0.dp,
@@ -204,7 +207,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onQueueClick = onQueueClick,
             onShareClick = onShareClick,
             connectedDevice = connectedDevice,
-            qualityLabel = qualityLabel
+            remoteDeviceName = remoteDeviceName,
+            qualityLabel = qualityLabel,
+            onQualityClick = onQualityClick
         )
     }
 

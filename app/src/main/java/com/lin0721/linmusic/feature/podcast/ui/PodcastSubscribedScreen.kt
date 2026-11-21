@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -29,6 +27,8 @@ import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.feature.home.ui.ErrorContent
 import com.lin0721.linmusic.feature.home.ui.LoadingIndicator
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Headphones
 
 // 「我的订阅」二级页：订阅的电台铺成网格，可切换排序，有更新的电台带「新」标记
 @Composable
@@ -44,7 +44,7 @@ fun PodcastSubscribedScreen(
         when (val state = uiState) {
             PodcastSubscribedUiState.Loading -> LoadingIndicator()
             PodcastSubscribedUiState.NotLoggedIn -> EmptyState(
-                icon = Icons.Rounded.Headphones,
+                icon = MelodiaIcons.Headphones,
                 title = "登录后查看订阅的电台"
             )
             is PodcastSubscribedUiState.Error -> ErrorContent(message = state.message, onRetry = viewModel::retry)
@@ -71,7 +71,7 @@ private fun SubscribedContent(
 
     if (state.radios.isEmpty()) {
         EmptyState(
-            icon = Icons.Rounded.Headphones,
+            icon = MelodiaIcons.Headphones,
             title = "还没有订阅的电台",
             subtitle = "在电台详情页点「订阅」，更新会出现在这里"
         )

@@ -22,11 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,6 +71,10 @@ import com.lin0721.linmusic.core.ui.theme.contrastRatio
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
 import com.lin0721.linmusic.core.ui.theme.rememberThemeSwitcher
 import com.lin0721.linmusic.core.ui.theme.themedShadow
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
+import com.lin0721.linmusic.core.ui.icons.Edit
+import com.lin0721.linmusic.core.ui.icons.Sparkle
 
 private val ModeThumbHeight = 72.dp
 private val SwatchSize = 36.dp
@@ -214,7 +213,7 @@ private fun ModeCard(
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f)
                 )
-                if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MelodiaColors.Accent, modifier = Modifier.size(16.dp))
+                if (selected) Icon(MelodiaIcons.Check, contentDescription = null, tint = MelodiaColors.Accent, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -291,7 +290,7 @@ private fun AccentSwatch(color: Color, description: String, selected: Boolean, o
         modifier = Modifier.size(SwatchSize)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (selected) Icon(Icons.Rounded.Check, contentDescription = "$description，已选中", tint = contentColorOn(color), modifier = Modifier.size(18.dp))
+            if (selected) Icon(MelodiaIcons.Check, contentDescription = "$description，已选中", tint = contentColorOn(color), modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -311,7 +310,7 @@ private fun DynamicSwatch(color: Color, selected: Boolean, onClick: () -> Unit) 
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (selected) Icons.Rounded.Check else Icons.Rounded.AutoAwesome,
+                imageVector = if (selected) MelodiaIcons.Check else MelodiaIcons.Sparkle,
                 contentDescription = if (selected) "系统动态色，已选中" else "系统动态色",
                 tint = contentColorOn(color),
                 modifier = Modifier.size(if (selected) 18.dp else 16.dp)
@@ -330,7 +329,7 @@ private fun AddCustomSwatch(onClick: () -> Unit) {
         modifier = Modifier.size(SwatchSize)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Add, contentDescription = "添加自定义主色", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            Icon(MelodiaIcons.Plus, contentDescription = "添加自定义主色", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -345,7 +344,7 @@ private fun EditBadge(onClick: () -> Unit, modifier: Modifier) {
         modifier = modifier.size(20.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Edit, contentDescription = "修改自定义主色", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(12.dp))
+            Icon(MelodiaIcons.Edit, contentDescription = "修改自定义主色", tint = MelodiaColors.TextPrimary, modifier = Modifier.size(12.dp))
         }
     }
 }

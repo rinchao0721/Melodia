@@ -16,33 +16,55 @@ import java.nio.file.StandardCopyOption
 private const val TAG = "LoudnessStore"
 private const val MAX_ENTRIES = 2000
 
-@Serializable
-private data class LoudnessEntry(val id: Long, val db: Double)
+enum class LoudnessSource {
+    NETEASE,
+    TAG,
+    MEASURED_FULL,
+    MEASURED_SAMPLED
+}
+
+data class LoudnessEntry(
+    val lufs: Double,
+    val peak: Double? = null,
+    val source: LoudnessSource
+)
 
 @Serializable
-private data class LoudnessFile(val entries: List<LoudnessEntry> = emptyList())
+private data class StoredLoudnessEntry(
+    val id: Long,
+    val lufs: Double,
+    val peak: Double? = null,
+    val source: LoudnessSource
+)
 
-// 曲目增益的持久缓存，按最近使用淘汰；file 为空时只存内存
+@Serializable
+private data class LoudnessFile(val entries: List<StoredLoudnessEntry> = emptyList())
+
+// 曲目响度与峰值的持久缓存，按最近使用淘汰；file 为空时只存内存
 class LoudnessStore(private val file: File?) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val lock = Mutex()
-    private val entries = object : LinkedHashMap<Long, Double>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Double>?): Boolean = size > MAX_ENTRIES
+    private val entries = object : LinkedHashMap<Long, LoudnessEntry>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, LoudnessEntry>?): Boolean = size > MAX_ENTRIES
     }
     private var loaded = false
 
-    suspend fun get(songId: Long): Double? = lock.withLock {
+    suspend fun get(songId: Long): LoudnessEntry? = lock.withLock {
         ensureLoaded()
         entries[songId]
     }
 
-    suspend fun put(songId: Long, gainDb: Double) {
+    suspend fun put(songId: Long, entry: LoudnessEntry) {
         lock.withLock {
             ensureLoaded()
-            entries[songId] = gainDb
+            entries[songId] = entry
             persist()
         }
+    }
+
+    suspend fun put(songId: Long, lufs: Double, peak: Double?, source: LoudnessSource) {
+        put(songId, LoudnessEntry(lufs = lufs, peak = peak, source = source))
     }
 
     private suspend fun ensureLoaded() {
@@ -59,12 +81,18 @@ class LoudnessStore(private val file: File?) {
                 null
             }
         }
-        stored?.entries?.forEach { entries[it.id] = it.db }
+        stored?.entries?.forEach {
+            entries[it.id] = LoudnessEntry(lufs = it.lufs, peak = it.peak, source = it.source)
+        }
     }
 
     private suspend fun persist() {
         val target = file ?: return
-        val snapshot = LoudnessFile(entries.map { (id, db) -> LoudnessEntry(id, db) })
+        val snapshot = LoudnessFile(
+            entries.map { (id, entry) ->
+                StoredLoudnessEntry(id = id, lufs = entry.lufs, peak = entry.peak, source = entry.source)
+            }
+        )
         withContext(Dispatchers.IO) {
             try {
                 target.parentFile?.mkdirs()

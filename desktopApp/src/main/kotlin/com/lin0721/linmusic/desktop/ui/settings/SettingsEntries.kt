@@ -22,13 +22,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +61,8 @@ import com.lin0721.linmusic.desktop.data.CacheLimits
 import com.lin0721.linmusic.desktop.data.CloseAction
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
+import com.lin0721.linmusic.desktop.data.TitleBarButton
+import com.lin0721.linmusic.desktop.data.TitleBarLayout
 import com.lin0721.linmusic.desktop.data.MiniLyricFontSize
 import com.lin0721.linmusic.desktop.data.MiniLyricSettings
 import com.lin0721.linmusic.desktop.data.MiniPlayerStyle
@@ -93,11 +93,28 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import kotlin.math.roundToInt
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontWeight
+import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
+import com.lin0721.linmusic.core.network.RealIpProvider
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
+import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
+import com.lin0721.linmusic.core.lanlink.PairedLanDevice
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.ChevronDown
+import com.lin0721.linmusic.core.ui.icons.ChevronUp
+import com.lin0721.linmusic.core.ui.icons.Phone
+import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 
 internal enum class SettingsCategory(val label: String) {
     Playback("播放"),
     Source("音源与换源"),
     Storage("存储与下载"),
+    Network("网络"),
     Interface("界面与歌词"),
     System("系统与窗口"),
     Hotkeys("快捷键"),
@@ -147,6 +164,8 @@ private const val DESKTOP_LYRIC_GROUP = "桌面歌词"
 private const val LYRIC_FILTER_GROUP = "歌词过滤"
 private const val MINI_PLAYER_GROUP = "迷你播放器"
 private const val SIMPLIFY_GROUP = "界面精简"
+private const val LAN_LINK_GROUP = "局域网联动"
+private const val NETWORK_ACCESS_GROUP = "网络访问"
 private val DesktopLyricFontSizes = listOf(20, 24, 28, 32, 36, 40, 48)
 private val DesktopLyricBackgroundAlphas = listOf(0, 20, 40, 60, 80)
 
@@ -374,7 +393,8 @@ internal fun settingsEntries(
     plugins: PluginRepository,
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository,
-    downloadScanner: DesktopDownloadFolderScanner
+    downloadScanner: DesktopDownloadFolderScanner,
+    lanLink: LanLinkDesktopHost
 ): List<SettingsEntry> {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
@@ -386,7 +406,9 @@ internal fun settingsEntries(
     val playlistTagsEnabled by common.playlistTagsEnabled.collectAsState()
     val searchSuggestionEnabled by common.searchSuggestionEnabled.collectAsState()
     val homeRecentPlayEnabled by common.homeRecentPlayEnabled.collectAsState()
+    val showPlaybackQuality by common.showPlaybackQuality.collectAsState()
     val showSongMaxQuality by common.showSongMaxQuality.collectAsState()
+    val alwaysShowLikedBadge by common.alwaysShowLikedBadge.collectAsState()
     val lyricFilter by common.lyricFilterConfig.collectAsState()
     val fallbackEnabled by common.fallbackEnabled.collectAsState()
     val communityPriority by common.communityPriority.collectAsState()
@@ -396,6 +418,15 @@ internal fun settingsEntries(
     val unmAutoMatch by common.unmAutoMatch.collectAsState()
     val showDesktopLyric by common.showDesktopLrc.collectAsState()
     val clipboardLinkEnabled by common.clipboardLinkEnabled.collectAsState()
+    val useRealIp by common.useRealIp.collectAsState()
+    val realIpValue by common.realIpValue.collectAsState()
+    val lanLinkEnabled by common.lanLinkEnabled.collectAsState()
+    val lanLinkPlaybackMode by common.lanLinkPlaybackMode.collectAsState()
+    val lanLinkConnectedDevice by lanLink.connectedDevice.collectAsState()
+    val lanLinkSyncState by lanLink.syncState.collectAsState()
+    val lanLinkSyncMessage by lanLink.syncStatusMessage.collectAsState()
+    val lanLinkPairedDevices by lanLink.pairedDevices.collectAsState()
+    val lanLinkPairingDisplay by lanLink.pairingDisplay.collectAsState()
     val logLevelName by common.logLevel.collectAsState()
     val logBytes by desktop.logBytes.collectAsState()
     val cacheMaxSize by common.audioCacheMaxSize.collectAsState()
@@ -426,6 +457,7 @@ internal fun settingsEntries(
     val miniPlayerOnTop by desktop.miniPlayerAlwaysOnTop.collectAsState()
     val miniLyric by desktop.miniLyricSettings.collectAsState()
     val libraryShortcuts by desktop.libraryShortcuts.collectAsState()
+    val titleBarLayout by desktop.titleBarLayout.collectAsState()
     val mediaKeysEnabled by desktop.mediaKeysEnabled.collectAsState()
     val hotkeyMap by desktop.hotkeyMap.collectAsState()
     val failedHotkeys by desktop.failedHotkeys.collectAsState()
@@ -441,6 +473,7 @@ internal fun settingsEntries(
         "歌词 ${formatFileSize(cacheUsage.lyrics)} · 离线数据 ${formatFileSize(cacheUsage.metadata)}）"
     val unmServerSubtitle = unmServerUrl.ifBlank { "未配置" }
     val cardLayoutSubtitle = "拖动调整信息卡片的顺序，关闭开关可隐藏对应卡片"
+    val titleBarButtonsSubtitle = "拖动调整同区域顺序，下拉切换位置，开关控制显隐（也可在标题栏右键自定义）"
     val libraryShortcutsSubtitle = "拖动调整快捷入口顺序，开关控制侧栏显示（也可右键侧栏快捷入口区快速勾选）"
 
     return buildList {
@@ -455,6 +488,15 @@ internal fun settingsEntries(
                     label = { key -> QualityOptions.firstOrNull { it.first == key }?.second ?: key },
                     onSelect = common::updateWifiQuality
                 )
+            }
+        )
+        add(
+            rowEntry(
+                "playbackQuality", SettingsCategory.Playback, "显示实际音质",
+                subtitle = "在播放栏显示当前曲目的实际采样率/码率，悬停或点击查看详情",
+                keywords = listOf("音质", "采样率", "码率", "位深", "播放栏", "标签")
+            ) {
+                SettingSwitch(showPlaybackQuality, onChange = common::updateShowPlaybackQuality)
             }
         )
         add(
@@ -915,6 +957,17 @@ internal fun settingsEntries(
         addAll(miniLyricEntries(miniLyric, desktop))
         add(
             SettingsEntry(
+                key = "titleBarButtons",
+                category = SettingsCategory.Interface,
+                title = "标题栏按钮",
+                subtitle = titleBarButtonsSubtitle,
+                keywords = TitleBarButton.entries.map { it.title } + listOf("标题栏", "顶部", "按钮", "排序", "显示", "隐藏", "编辑")
+            ) {
+                TitleBarButtonsSettingRow(titleBarLayout, titleBarButtonsSubtitle, desktop::updateTitleBarLayout)
+            }
+        )
+        add(
+            SettingsEntry(
                 key = "libraryShortcuts",
                 category = SettingsCategory.Interface,
                 title = "音乐库快捷入口",
@@ -1035,6 +1088,105 @@ internal fun settingsEntries(
                 }
             }
         )
+        add(
+            rowEntry(
+                "useRealIp", SettingsCategory.Network, "使用国内 IP 地址",
+                subtitle = "在海外网络下请求可能受限，开启后伪装国内 IP 访问接口",
+                keywords = listOf("国内", "ip", "海外", "伪装", "realip", "限制"),
+                group = NETWORK_ACCESS_GROUP
+            ) {
+                SettingSwitch(useRealIp, onChange = common::updateUseRealIp)
+            }
+        )
+        if (useRealIp) {
+            add(
+                rowEntry(
+                    "realIpValue", SettingsCategory.Network, "自定义 IP",
+                    subtitle = realIpValue.ifBlank { "未填写，使用随机国内 IP" },
+                    keywords = listOf("国内", "ip", "自定义", "伪装"),
+                    group = NETWORK_ACCESS_GROUP
+                ) {
+                    DesktopRealIpInput(currentIp = realIpValue, onSave = common::updateRealIpValue)
+                }
+            )
+        }
+        add(
+            rowEntry(
+                "lanLinkEnabled", SettingsCategory.Network, "局域网联动",
+                subtitle = "与同一局域网内的手机端配对，双向同步歌单外部歌曲与外部红心，并可互相遥控播放",
+                keywords = listOf("局域网", "联动", "同步", "配对", "手机", "歌单", "红心"),
+                group = LAN_LINK_GROUP
+            ) {
+                SettingSwitch(lanLinkEnabled, onChange = common::updateLanLinkEnabled)
+            }
+        )
+        if (lanLinkEnabled) {
+            add(
+                SettingsEntry(
+                    key = "lanLinkPlaybackMode",
+                    category = SettingsCategory.System,
+                    title = "联动播放模式",
+                    subtitle = "选择多端连接时的播放协作方式，修改后会自动同步到对端",
+                    keywords = listOf("局域网", "联动", "播放模式", "单一播放设备", "各自独立播放", "接力", "同步"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    LanLinkPlaybackModeSection(
+                        current = lanLinkPlaybackMode,
+                        onSelect = common::updateLanLinkPlaybackMode
+                    )
+                }
+            )
+            add(
+                SettingsEntry(
+                    key = "lanLinkStatus",
+                    category = SettingsCategory.Network,
+                    title = "连接与同步状态",
+                    subtitle = lanLinkConnectedDevice?.let { "${it.deviceName} · $lanLinkSyncMessage" } ?: lanLinkSyncMessage,
+                    keywords = listOf("局域网", "联动", "配对码", "配对新设备", "同步", "状态"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    val statusSubtitle = lanLinkConnectedDevice?.let { "${it.deviceName} · $lanLinkSyncMessage" } ?: lanLinkSyncMessage
+                    val mismatch = lanLinkSyncState == LanLinkSyncState.ACCOUNT_MISMATCH
+                    Column {
+                        SettingRow(
+                            title = "连接与同步状态",
+                            subtitle = statusSubtitle,
+                            subtitleColor = if (mismatch) DesktopColors.Accent else DesktopColors.TextGray
+                        ) {
+                            SettingsActionButton("配对新设备", onClick = lanLink::generatePairingCode)
+                        }
+                        lanLinkPairingDisplay?.let { pairing ->
+                            LanLinkPairingDialog(
+                                code = pairing.code,
+                                remainingSeconds = pairing.remainingSeconds,
+                                remainingAttempts = pairing.remainingAttempts,
+                                onRefresh = lanLink::generatePairingCode,
+                                onDismiss = lanLink::cancelPairingCode
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        if (lanLinkEnabled || lanLinkPairedDevices.isNotEmpty()) {
+            add(
+                SettingsEntry(
+                    key = "lanLinkPairedDevices",
+                    category = SettingsCategory.Network,
+                    title = "已配对设备",
+                    subtitle = if (lanLinkPairedDevices.isEmpty()) "暂无已配对手机端设备" else "已配对 ${lanLinkPairedDevices.size} 台设备",
+                    keywords = listOf("局域网", "联动", "已配对", "设备", "取消配对"),
+                    group = LAN_LINK_GROUP
+                ) {
+                    LanLinkPairedDevicesSection(
+                        devices = lanLinkPairedDevices,
+                        connectedDeviceId = lanLinkConnectedDevice?.deviceId,
+                        syncMessage = lanLinkSyncMessage,
+                        onUnpair = lanLink::unpairDevice
+                    )
+                }
+            )
+        }
 
         if (desktop.hotkeysSupported) {
             add(
@@ -1261,7 +1413,7 @@ private fun CardLayoutSetting(
                 Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
             }
             Icon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.size(20.dp)
@@ -1306,7 +1458,7 @@ private fun LibraryShortcutSettingRow(
                 Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
             }
             Icon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 tint = DesktopColors.TextGray,
                 modifier = Modifier.size(20.dp)
@@ -1320,6 +1472,52 @@ private fun LibraryShortcutSettingRow(
             Column {
                 Spacer(Modifier.height(8.dp))
                 LibraryShortcutEditor(layout, onChange)
+            }
+        }
+    }
+}
+
+// 标题栏按钮列表：默认收起，展开可调整顺序、位置与显隐
+@Composable
+private fun TitleBarButtonsSettingRow(
+    layout: TitleBarLayout,
+    expandedSubtitle: String,
+    onChange: (TitleBarLayout) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val visibleCount = TitleBarButton.entries.count { layout.isVisible(it) }
+    val subtitle = if (expanded) {
+        expandedSubtitle
+    } else {
+        "已显示 $visibleCount/${TitleBarButton.entries.size} 项，展开可调整位置与显隐"
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("标题栏按钮", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+                Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp)
+            }
+            Icon(
+                if (expanded) MelodiaIcons.ChevronUp else MelodiaIcons.ChevronDown,
+                contentDescription = if (expanded) "收起" else "展开",
+                tint = DesktopColors.TextGray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(uiTween(CARD_LAYOUT_EXPAND_MS)) + expandVertically(uiTween(CARD_LAYOUT_EXPAND_MS)),
+            exit = fadeOut(uiTween(CARD_LAYOUT_EXPAND_MS)) + shrinkVertically(uiTween(CARD_LAYOUT_EXPAND_MS))
+        ) {
+            Column {
+                Spacer(Modifier.height(8.dp))
+                TitleBarButtonEditor(layout, onChange)
             }
         }
     }
@@ -1443,6 +1641,206 @@ private fun DesktopServerUrlInput(
             )
             // 复制来的地址常带换行，单行输入框只显示首行会像是空的
             DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 https://your-unm-server.com")
+        }
+    }
+}
+
+@Composable
+private fun DesktopRealIpInput(
+    currentIp: String,
+    onSave: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var text by remember(currentIp, showDialog) { mutableStateOf(currentIp) }
+    val trimmed = text.trim()
+    val valid = trimmed.isEmpty() || RealIpProvider.isValidIpv4(trimmed)
+
+    SettingsActionButton("配置 IP", onClick = { showDialog = true })
+
+    if (showDialog) {
+        DesktopDialog(
+            title = "自定义国内 IP",
+            onDismiss = { showDialog = false },
+            width = 400.dp,
+            actions = {
+                DialogButton("清空", {
+                    onSave("")
+                    showDialog = false
+                }, danger = true)
+                DialogButton("取消", { showDialog = false })
+                DialogButton("保存", {
+                    onSave(trimmed)
+                    showDialog = false
+                }, primary = true, enabled = valid)
+            }
+        ) {
+            Text(
+                text = if (valid) "填写一个国内 IPv4 地址，留空则每次启动随机选取：" else "IP 地址格式不正确",
+                color = if (valid) DesktopColors.TextGray else DesktopColors.Accent,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            DialogTextField(value = text, onValueChange = { text = it.filterNot(Char::isWhitespace) }, placeholder = "例如 116.25.1.1")
+        }
+    }
+}
+
+@Composable
+private fun LanLinkPairingDialog(
+    code: String,
+    remainingSeconds: Int,
+    remainingAttempts: Int,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    DesktopDialog(
+        title = "配对新设备",
+        onDismiss = onDismiss,
+        width = 380.dp,
+        actions = {
+            DialogButton("刷新配对码", onRefresh)
+            DialogButton("关闭", onDismiss, primary = true)
+        }
+    ) {
+        Text(
+            text = "请在手机端「网络设置 → 局域网联动」中搜索并选择本机，输入以下 6 位配对码：",
+            color = DesktopColors.TextGray,
+            fontSize = 13.sp
+        )
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(DesktopColors.Surface)
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = code.chunked(3).joinToString(" "),
+                color = DesktopColors.TextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 4.sp
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "有效期剩余 ${remainingSeconds} 秒 · 最多还可错误尝试 ${remainingAttempts} 次",
+            color = DesktopColors.TextGray,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun LanLinkPairedDevicesSection(
+    devices: List<PairedLanDevice>,
+    connectedDeviceId: String?,
+    syncMessage: String,
+    onUnpair: (String) -> Unit
+) {
+    if (devices.isEmpty()) {
+        SettingRow("已配对设备", "暂无已配对手机端设备") {}
+        return
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("已配对设备", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+        Spacer(Modifier.height(6.dp))
+        devices.forEach { device ->
+            val hoverSource = remember { MutableInteractionSource() }
+            val hovered by hoverSource.collectIsHoveredAsState()
+            val isConnected = device.deviceId == connectedDeviceId
+            Row(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .hoverable(hoverSource)
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    MelodiaIcons.Phone,
+                    contentDescription = null,
+                    tint = if (isConnected) DesktopColors.Accent else DesktopColors.TextGray,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(device.deviceName, color = DesktopColors.TextPrimary, fontSize = 13.sp)
+                    Text(
+                        text = if (isConnected) "当前已连接 · $syncMessage" else "已配对",
+                        color = if (isConnected) DesktopColors.AccentText else DesktopColors.TextGray,
+                        fontSize = 11.sp
+                    )
+                }
+                HoverReveal(revealed = hovered) {
+                    SettingsActionButton("取消配对", onClick = { onUnpair(device.deviceId) }, danger = true)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeSection(
+    current: LanLinkPlaybackMode,
+    onSelect: (LanLinkPlaybackMode) -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("联动播放模式", color = DesktopColors.TextPrimary, fontSize = 14.sp)
+        Text(
+            "选择多端连接时的播放协作方式，修改后会自动同步到对端",
+            color = DesktopColors.TextGray,
+            fontSize = 12.sp
+        )
+        LanLinkPlaybackModeOptionRow(
+            title = "单一播放设备",
+            description = "两端同步播放状态，同时仅在一台设备上发声并可跨端接力",
+            selected = current == LanLinkPlaybackMode.SINGLE_DEVICE,
+            onClick = { onSelect(LanLinkPlaybackMode.SINGLE_DEVICE) }
+        )
+        LanLinkPlaybackModeOptionRow(
+            title = "各自独立播放",
+            description = "两端互不打断各自独立播放，仅手动切换输出设备时进行遥控或接力",
+            selected = current == LanLinkPlaybackMode.INDEPENDENT,
+            onClick = { onSelect(LanLinkPlaybackMode.INDEPENDENT) }
+        )
+    }
+}
+
+@Composable
+private fun LanLinkPlaybackModeOptionRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = DesktopColors.CardSurface,
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) DesktopColors.Accent else DesktopColors.Overlay.copy(alpha = 0.1f)
+        ),
+        modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = DesktopColors.Accent,
+                    unselectedColor = DesktopColors.TextGray
+                )
+            )
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text(title, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(2.dp))
+                Text(description, color = DesktopColors.TextGray, fontSize = 11.sp)
+            }
         }
     }
 }

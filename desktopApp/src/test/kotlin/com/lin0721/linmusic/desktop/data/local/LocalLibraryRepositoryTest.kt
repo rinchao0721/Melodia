@@ -161,4 +161,53 @@ class LocalLibraryRepositoryTest {
         assertTrue(saved.tracks.isEmpty())
         assertTrue(music.listFiles()!!.any { it.name == "a.wav" })
     }
+
+    @Test
+    fun legacyQualityVersionRefreshesStaleContainerTrackQuality() = runBlocking {
+        val music = File(dir, "music")
+        music.mkdirs()
+        val m4a = File(music, "Queen - I Want to Break Free.m4a").apply {
+            writeBytes(ByteArray(32) { it.toByte() })
+        }
+        val normalizedPath = normalizePath(m4a.path)
+        val storeFile = File(dir, "lib.json")
+        LocalLibraryStore(storeFile).save(
+            LocalLibraryData(
+                playlists = listOf(
+                    LocalPlaylist(
+                        id = 1L,
+                        name = "测试",
+                        createdAt = 1L,
+                        folders = listOf(normalizePath(music.path))
+                    )
+                ),
+                tracks = listOf(
+                    LocalTrack(
+                        path = normalizedPath,
+                        title = "I Want to Break Free",
+                        artist = "Queen",
+                        size = m4a.length(),
+                        lastModified = m4a.lastModified(),
+                        matchState = LocalMatchState.NOT_FOUND,
+                        quality = "exhigh"
+                    )
+                ),
+                qualityVersion = 0
+            )
+        )
+
+        val repo = LocalLibraryRepository(
+            store = LocalLibraryStore(storeFile),
+            scanner = LocalScanner { File(dir, "covers") },
+            matcher = LocalMatcher(FakeSearch(emptyList())),
+            downloadPreferences = DesktopDownloadPreferences(PreferencesStores.get(File(dir, "download.preferences_pb"))),
+            onlineState = Online,
+            scope = scope
+        )
+
+        awaitCondition { repo.data.value.qualityVersion == CURRENT_LOCAL_QUALITY_VERSION }
+        val refreshed = repo.data.value.tracks.single()
+        // 占位 m4a 无法读出码率，重扫后会覆盖掉旧版误写入的 "exhigh"
+        assertEquals("", refreshed.quality)
+    }
 }

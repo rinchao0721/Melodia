@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.search.ui
 
-import com.lin0721.linmusic.core.model.inferredMaxBrLevel
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
@@ -16,10 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.ui.components.CollectToggleButton
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.EntityCoverShape
 import com.lin0721.linmusic.core.ui.components.EntityRow
@@ -55,6 +51,9 @@ import com.lin0721.linmusic.feature.podcast.domain.podcastSubtitle
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import kotlinx.coroutines.flow.StateFlow
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.MoreVert
+import com.lin0721.linmusic.core.ui.icons.SearchOff
 
 private const val TAB_ENTER_DURATION = 300
 private const val TAB_EXIT_DURATION = 150
@@ -93,6 +92,8 @@ internal fun SearchResultsContent(
     onRetry: () -> Unit,
     onRetryExternal: (MusicPlatform) -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    showLikedBadge: Boolean,
     onOpenMoreOptions: (Track) -> Unit
 ) {
     val motion = LocalUiMotion.current
@@ -149,6 +150,8 @@ internal fun SearchResultsContent(
                             onLoadMore = onLoadMore,
                             onRetry = onRetry,
                             onLikeClick = onLikeClick,
+                            onQuickLike = onQuickLike,
+                            showLikedBadge = showLikedBadge,
                             onOpenMoreOptions = onOpenMoreOptions
                         )
                     }
@@ -192,7 +195,7 @@ private fun ExternalSearchResultsList(
         ExternalSearchUiState.Empty -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Rounded.SearchOff,
+                    icon = MelodiaIcons.SearchOff,
                     title = "在${platform.displayName}未找到相关歌曲"
                 )
             }
@@ -248,7 +251,7 @@ private fun ExternalSearchResultsList(
                                 modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
+                                    imageVector = MelodiaIcons.MoreVert,
                                     contentDescription = "更多操作",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
@@ -295,6 +298,8 @@ private fun SearchResultsList(
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onLikeClick: (Long) -> Unit,
+    onQuickLike: (Long) -> Unit,
+    showLikedBadge: Boolean,
     onOpenMoreOptions: (Track) -> Unit
 ) {
     when (state) {
@@ -306,7 +311,7 @@ private fun SearchResultsList(
         SearchResultsUiState.Empty -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Rounded.SearchOff,
+                    icon = MelodiaIcons.SearchOff,
                     title = "没有找到相关${type.label}"
                 )
             }
@@ -353,33 +358,29 @@ private fun SearchResultsList(
                                     coverUrl = track.al.picUrl,
                                     isVip = track.fee == 1,
                                     qualitySongId = track.id,
-                                    maxBrLevel = track.privilege?.maxBrLevel,
-                                    inferredLevel = track.inferredMaxBrLevel()
+                                    maxBrLevel = track.privilege?.maxBrLevel
                                 ),
                                 isActive = isActive,
                                 isPlaying = isPlaying,
                                 copyable = true,
                                 onClick = { onSongClick(track) },
                                 trailingSlot = {
-                                    if (isLoggedIn && track.id in likedSongIds) {
-                                        MelodiaIconButton(
-                                            onClick = { onLikeClick(track.id) },
+                                    if (isLoggedIn && showLikedBadge) {
+                                        val isLiked = track.id in likedSongIds
+                                        CollectToggleButton(
+                                            collected = isLiked,
+                                            onClick = {
+                                                if (isLiked) onLikeClick(track.id) else onQuickLike(track.id)
+                                            },
                                             modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = "收藏到歌单",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                        )
                                     }
                                     MelodiaIconButton(
                                         onClick = { onOpenMoreOptions(track) },
                                         modifier = Modifier.size(32.dp).padding(end = MelodiaSpacing.xs)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.MoreVert,
+                                            imageVector = MelodiaIcons.MoreVert,
                                             contentDescription = "更多操作",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)

@@ -41,11 +41,6 @@ import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
-import com.lin0721.linmusic.core.preferences.SettingsPreferences
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 /**
  * Koin 网络层依赖注入模块
@@ -86,30 +81,9 @@ val networkModule = module {
 
     // ─── OkHttpClient ───
     single {
-        val settingsPreferences: SettingsPreferences = get()
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            settingsPreferences.useProxy.collectLatest { enabled ->
-                NetworkConfig.useProxy = enabled
-            }
-        }
-
-        val proxySelector = object : java.net.ProxySelector() {
-            override fun select(uri: java.net.URI?): MutableList<java.net.Proxy> {
-                return if (NetworkConfig.useProxy) {
-                    java.net.ProxySelector.getDefault()?.select(uri) ?: mutableListOf(java.net.Proxy.NO_PROXY)
-                } else {
-                    mutableListOf(java.net.Proxy.NO_PROXY)
-                }
-            }
-
-            override fun connectFailed(uri: java.net.URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
-                java.net.ProxySelector.getDefault()?.connectFailed(uri, sa, ioe)
-            }
-        }
-
+        // 固定直连，不跟随系统代理
         OkHttpClient.Builder()
-            .proxySelector(proxySelector)
+            .proxy(java.net.Proxy.NO_PROXY)
             .addInterceptor(get<EmptyBodyInterceptor>())
             .addInterceptor(get<HeaderInterceptor>())
             .addInterceptor(get<CryptoInterceptor>())
@@ -173,9 +147,4 @@ val networkModule = module {
     single<SettingsApi> { get<Retrofit>().create(SettingsApi::class.java) }
     single<ProfileApi> { get<Retrofit>().create(ProfileApi::class.java) }
     single<RecognitionApi> { get<Retrofit>().create(RecognitionApi::class.java) }
-}
-
-object NetworkConfig {
-    @Volatile
-    var useProxy: Boolean = false
 }

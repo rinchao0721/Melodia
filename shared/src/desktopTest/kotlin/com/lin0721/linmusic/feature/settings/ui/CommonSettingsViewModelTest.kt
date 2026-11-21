@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.settings.ui
 
+import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.preferences.PreferencesStores
@@ -56,11 +57,15 @@ class CommonSettingsViewModelTest {
 
     @Test
     fun playbackSettingsArePersisted() {
+        settings.showPlaybackQuality.awaitValue(false)
+
         vm.updateWifiQuality("hires")
+        vm.updateShowPlaybackQuality(true)
         vm.updateCrossfadeEnabled(true)
         vm.updateCrossfadeDurationMs(6_000)
 
         settings.wifiQuality.awaitValue("hires")
+        settings.showPlaybackQuality.awaitValue(true)
         settings.crossfadeEnabled.awaitValue(true)
         settings.crossfadeDurationMs.awaitValue(6_000)
     }
@@ -131,13 +136,17 @@ class CommonSettingsViewModelTest {
     @Test
     fun displaySettingsArePersisted() {
         val reversed = FullPlayerCardLayout.DEFAULT.reversed()
+        settings.alwaysShowLikedBadge.awaitValue(true)
+
         vm.updateDefaultPlaylistPrivate(true)
         vm.updateShowDesktopLrc(true)
         vm.updateFullPlayerCardLayout(reversed)
+        vm.updateAlwaysShowLikedBadge(false)
 
         settings.defaultPlaylistPrivate.awaitValue(true)
         settings.showDesktopLrc.awaitValue(true)
         settings.fullPlayerCardLayout.awaitValue(reversed)
+        settings.alwaysShowLikedBadge.awaitValue(false)
     }
 
     @Test
@@ -152,5 +161,16 @@ class CommonSettingsViewModelTest {
         settings.saveWifiQuality("exhigh")
 
         assertEquals("exhigh", withTimeout(5_000) { vm.wifiQuality.first { it == "exhigh" } })
+    }
+
+    @Test
+    fun lanLinkPlaybackModeIsPersisted() {
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.SINGLE_DEVICE)
+
+        vm.updateLanLinkPlaybackMode(LanLinkPlaybackMode.INDEPENDENT)
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.INDEPENDENT)
+
+        vm.updateLanLinkPlaybackMode(LanLinkPlaybackMode.SINGLE_DEVICE)
+        settings.lanLinkPlaybackMode.awaitValue(LanLinkPlaybackMode.SINGLE_DEVICE)
     }
 }

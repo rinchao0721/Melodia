@@ -7,11 +7,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +32,11 @@ import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Favorite
+import com.lin0721.linmusic.core.ui.icons.Queue
+import com.lin0721.linmusic.core.ui.icons.Download
+import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 
 @Composable
 fun ArtistScreen(
@@ -124,6 +124,8 @@ fun ArtistScreen(
                     onLikeClick = { songId ->
                         viewModel.prepareCollectDialog(songId)
                     },
+                    onQuickLike = { songId -> viewModel.quickLike(songId) },
+                    collectPromptEvents = viewModel.collectPromptEvent,
                     onToggleLike = { songId, like ->
                         viewModel.toggleLikeSong(songId, like)
                     },
@@ -131,7 +133,7 @@ fun ArtistScreen(
                         viewModel.addTrackToPlayNext(track)
                     },
                     onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items)
+                        viewModel.savePlaylistCollection(songId, items, silent = true)
                     },
                     onSaveNewCollection = { name, songId ->
                         viewModel.createPlaylistAndAddSong(name, songId)
@@ -150,8 +152,8 @@ fun ArtistScreen(
                         onToggle = viewModel::toggleSelected
                     ),
                     selectionActions = listOf(
-                        SelectionAction("下一首播放", Icons.AutoMirrored.Filled.QueueMusic) { viewModel.batchPlayNext() },
-                        SelectionAction("添加到歌单", Icons.AutoMirrored.Filled.PlaylistAdd) {
+                        SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() },
+                        SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
                             if (userProfile == null) {
                                 showLoginSheet = true
                             } else {
@@ -159,10 +161,10 @@ fun ArtistScreen(
                                 showBatchTargetSheet = true
                             }
                         },
-                        SelectionAction("喜欢", Icons.Default.FavoriteBorder) {
+                        SelectionAction("喜欢", MelodiaIcons.Favorite) {
                             if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
                         },
-                        SelectionAction("下载", Icons.Default.Download) { showBatchDownloadSheet = true }
+                        SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true }
                     ),
                     onToggleSelectAll = viewModel::toggleSelectAll,
                     onExitSelection = viewModel::exitSelection,

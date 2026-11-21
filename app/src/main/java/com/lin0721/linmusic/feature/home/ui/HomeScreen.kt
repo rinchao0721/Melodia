@@ -69,6 +69,7 @@ fun HomeScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val showRecentPlay by viewModel.showRecentPlay.collectAsStateWithLifecycle()
     val showForYou by viewModel.showForYou.collectAsStateWithLifecycle()
+    val showSearchButton by viewModel.showSearchButton.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
@@ -159,7 +160,9 @@ fun HomeScreen(
                 onTabSelected = onTabSelected,
                 secondarySelected = showNewWorksFeed,
                 onSecondarySelected = { onShowNewWorksFeedChanged(true) },
-                onAvatarClick = onAvatarClick
+                onAvatarClick = onAvatarClick,
+                showSearchButton = showSearchButton,
+                onSearchClick = onSearchClick
             )
 
             Box(modifier = Modifier.weight(1f)) {
@@ -176,7 +179,7 @@ fun HomeScreen(
                                 onToggleLibrary = newWorksViewModel::toggleInLibrary,
                                 onAddToPlayNext = newWorksViewModel::addToPlayNext,
                                 onPrepareCollect = newWorksViewModel::prepareCollectDialog,
-                                onSaveCollection = newWorksViewModel::savePlaylistCollection,
+                                onSaveCollection = { id, items -> newWorksViewModel.savePlaylistCollection(id, items, silent = true) },
                                 onSaveNewCollection = newWorksViewModel::createPlaylistAndAddSong,
                                 onPrepareImportTargets = newWorksViewModel::prepareImportTargets,
                                 onAddToPlaylist = newWorksViewModel::addToPlaylist,
@@ -190,6 +193,7 @@ fun HomeScreen(
                     selectedTab == TAB_MUSIC -> MusicContent(
                         uiState = musicUiState,
                         onStyleClick = onStyleClick,
+                        onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = { musicViewModel.loadStyles() }
                     )
 

@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +34,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.contentColorOn
 import com.lin0721.linmusic.feature.message.domain.MessageUser
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Check
 
 private val PillShape = RoundedCornerShape(PillRadius)
 
@@ -63,7 +62,7 @@ fun FriendAvatarCircle(
                 contentScale = ContentScale.Crop,
                 error = {
                     Icon(
-                        imageVector = Icons.Rounded.Person,
+                        imageVector = MelodiaIcons.Person,
                         contentDescription = null,
                         tint = MelodiaColors.TextSecondary,
                         modifier = Modifier.size(fallbackIconSize)
@@ -73,7 +72,7 @@ fun FriendAvatarCircle(
             )
         } else {
             Icon(
-                imageVector = Icons.Rounded.Person,
+                imageVector = MelodiaIcons.Person,
                 contentDescription = null,
                 tint = MelodiaColors.TextSecondary,
                 modifier = Modifier.size(fallbackIconSize)
@@ -121,7 +120,7 @@ fun ShareSentCapsule(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Check,
+                imageVector = MelodiaIcons.Check,
                 contentDescription = null,
                 tint = contentColorOn(MelodiaColors.Success),
                 modifier = Modifier.size(14.dp)

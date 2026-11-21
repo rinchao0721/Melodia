@@ -23,6 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -31,8 +36,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadProgressBanner
+import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
@@ -42,18 +47,16 @@ import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
-import com.lin0721.linmusic.feature.create.ui.CreatePopupMenu
 import com.lin0721.linmusic.feature.player.ui.FullPlayerScreen
 import com.lin0721.linmusic.feature.settings.ui.UpdateBanner
 import dev.chrisbanes.haze.HazeState
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
+import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaPlayerPanelWidth
-import com.lin0721.linmusic.core.ui.back.BackDismissState
-import com.lin0721.linmusic.core.ui.back.backDismissPreview
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 
 // 悬浮播放卡片 + 底部导航栏的实际占用高度，供各页面计算列表底部留白，避免内容被遮挡
@@ -66,7 +69,7 @@ internal val ExpandedBottomBarHeight = 74.dp
 // 面板让位后 Tab 栏在内容卡片内的最大宽度
 private val ExpandedNavigationBarMaxWidth = 560.dp
 
-// 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
+// 全屏播放器/侧边栏这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
 // 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
 // 导致返回键没有先关掉全局浮层，而是直接改动了浮层底下页面的内部状态
 val LocalGlobalOverlayOpen = compositionLocalOf { false }
@@ -98,20 +101,18 @@ fun SuppressMiniPlayer(active: Boolean) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 底部浮层：创建菜单弹出层 + 悬浮播放卡片 + M3 导航栏
+// 底部浮层：悬浮播放卡片 + M3 导航栏
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MelodiaBottomOverlay(
     modifier: Modifier = Modifier,
     currentScreen: Screen,
-    showCreateSheet: Boolean,
-    createBackDismissState: BackDismissState? = null,
     isLoginScreenVisible: Boolean,
     // 多选等操作态下收起迷你播放器
     isMiniPlayerHidden: Boolean = false,
     // 平板播放面板是否已让位（内容区已收窄、面板常驻一侧）
     isPanelDocked: Boolean = false,
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -129,12 +130,12 @@ fun MelodiaBottomOverlay(
     isMiniPlayerLiked: Boolean = false,
     onMiniPlayerLikeClick: () -> Unit = {},
     miniPlayerLikeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
-    onCreateDismiss: () -> Unit,
+    remoteDeviceName: String? = null,
+    onDeviceClick: (() -> Unit)? = null,
     onNavigate: (Screen) -> Unit,
-    onCreateClick: () -> Unit,
-    showCreateEntry: Boolean = true,
     bottomBarLayout: List<BottomBarItemSetting> = BottomBarLayout.DEFAULT,
     bottomBarIconOnly: Boolean = false,
+    bottomBarGradient: Boolean = false,
     activeTab: Screen? = null,
     onOverlayHeightChanged: (Dp) -> Unit = {}
 ) {
@@ -143,39 +144,6 @@ fun MelodiaBottomOverlay(
         modifier = modifier
             .fillMaxWidth()
     ) {
-        // 0. 创建菜单弹出层
-        AnimatedVisibility(
-            visible = showCreateSheet && !isLoginScreenVisible,
-            enter = slideInVertically(
-                initialOffsetY = { it / 2 },
-                animationSpec = uiTween(250, easing = FastOutSlowInEasing)
-            ) + fadeIn(uiTween(200)),
-            exit = slideOutVertically(
-                targetOffsetY = { it / 2 },
-                animationSpec = uiTween(200, easing = FastOutSlowInEasing)
-            ) + fadeOut(uiTween(150))
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = MelodiaSpacing.md)
-                    .padding(bottom = 12.dp)
-                    .then(
-                        if (createBackDismissState != null) {
-                            Modifier.backDismissPreview(createBackDismissState, TransformOrigin(0.5f, 1f))
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
-                CreatePopupMenu(
-                    onDismiss = onCreateDismiss,
-                    onLoginRequest = {
-                        // TODO: 触发登录流程
-                    }
-                )
-            }
-        }
-
         // 悬浮播放卡片 + 导航栏：实际占用高度上报出去，供页面内容计算底部留白
         val windowSizeClass = LocalMelodiaWindowSizeClass.current
         Box(
@@ -218,9 +186,6 @@ fun MelodiaBottomOverlay(
                                 MelodiaNavigationBar(
                                     currentScreen = currentScreen,
                                     onNavigate = onNavigate,
-                                    onCreateClick = onCreateClick,
-                                    isCreateMenuOpen = showCreateSheet,
-                                    showCreateEntry = showCreateEntry,
                                     bottomBarLayout = bottomBarLayout,
                                     iconOnly = bottomBarIconOnly,
                                     activeTab = activeTab,
@@ -267,6 +232,8 @@ fun MelodiaBottomOverlay(
                                     onLikeClick = onMiniPlayerLikeClick,
                                     likeMode = miniPlayerLikeMode,
                                     expanded = true,
+                                    remoteDeviceName = remoteDeviceName,
+                                    onDeviceClick = onDeviceClick,
                                     // 和展开态面板同宽，两者上下贴齐
                                     modifier = Modifier
                                         .padding(
@@ -298,54 +265,62 @@ fun MelodiaBottomOverlay(
                         }
                     }
                 } else {
-                    // 手机：迷你播放卡在上、导航栏在下，垂直堆叠（现状不变）
-                    AnimatedVisibility(
-                        visible = currentTrack != null && !isLoginScreenVisible && !isMiniPlayerHidden,
-                        // 同时伸缩高度：底栏占用高度随之平滑变化，悬浮在其上的多选操作栏才不会在动画结束时突然掉落
-                        enter = uiEnter(slideInVertically(initialOffsetY = { it }) + expandVertically() + fadeIn()),
-                        exit = uiExit(slideOutVertically(targetOffsetY = { it }) + shrinkVertically() + fadeOut()),
-                        modifier = Modifier.fillMaxWidth()
+                    // 手机：迷你播放卡在上、导航栏在下，垂直堆叠；渐变垫在整个堆叠后面，高度随伸缩动画跟随
+                    // 皮肤背景图下底栏本就透明，不再叠渐变
+                    val gradientActive = bottomBarGradient && !MelodiaColors.HasBackdrop
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (gradientActive) Modifier.bottomBarGradient(MelodiaColors.NavigationBar) else Modifier)
                     ) {
-                        MiniPlayerCard(
-                            hazeState = hazeState,
-                            currentTrack = currentTrack,
-                            isPlaying = isPlaying,
-                            currentPositionProvider = currentPositionProvider,
-                            duration = duration,
-                            onTogglePlay = onTogglePlay,
-                            onNext = onNext,
-                            onClick = onMiniPlayerClick,
-                            onDrag = onMiniPlayerDrag,
-                            onDragEnd = onMiniPlayerDragEnd,
-                            previousQueueItem = previousQueueItem,
-                            nextQueueItem = nextQueueItem,
-                            queueTarget = queueTarget,
-                            onPrevious = onMiniPlayerPrevious,
-                            onCancelPendingSkip = onCancelPendingSkip,
-                            isLiked = isMiniPlayerLiked,
-                            onLikeClick = onMiniPlayerLikeClick,
-                            likeMode = miniPlayerLikeMode,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MelodiaSpacing.sm)
-                        )
-                    }
+                        AnimatedVisibility(
+                            visible = currentTrack != null && !isLoginScreenVisible && !isMiniPlayerHidden,
+                            // 同时伸缩高度：底栏占用高度随之平滑变化，悬浮在其上的多选操作栏才不会在动画结束时突然掉落
+                            enter = uiEnter(slideInVertically(initialOffsetY = { it }) + expandVertically() + fadeIn()),
+                            exit = uiExit(slideOutVertically(targetOffsetY = { it }) + shrinkVertically() + fadeOut()),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            MiniPlayerCard(
+                                hazeState = hazeState,
+                                currentTrack = currentTrack,
+                                isPlaying = isPlaying,
+                                currentPositionProvider = currentPositionProvider,
+                                duration = duration,
+                                onTogglePlay = onTogglePlay,
+                                onNext = onNext,
+                                onClick = onMiniPlayerClick,
+                                onDrag = onMiniPlayerDrag,
+                                onDragEnd = onMiniPlayerDragEnd,
+                                previousQueueItem = previousQueueItem,
+                                nextQueueItem = nextQueueItem,
+                                queueTarget = queueTarget,
+                                onPrevious = onMiniPlayerPrevious,
+                                onCancelPendingSkip = onCancelPendingSkip,
+                                isLiked = isMiniPlayerLiked,
+                                onLikeClick = onMiniPlayerLikeClick,
+                                likeMode = miniPlayerLikeMode,
+                                remoteDeviceName = remoteDeviceName,
+                                onDeviceClick = onDeviceClick,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MelodiaSpacing.sm)
+                            )
+                        }
 
-                    AnimatedVisibility(
-                        visible = !isLoginScreenVisible,
-                        enter = uiEnter(expandVertically() + fadeIn()),
-                        exit = uiExit(shrinkVertically() + fadeOut())
-                    ) {
-                        MelodiaNavigationBar(
-                            currentScreen = currentScreen,
-                            onNavigate = onNavigate,
-                            onCreateClick = onCreateClick,
-                            isCreateMenuOpen = showCreateSheet,
-                            showCreateEntry = showCreateEntry,
-                            bottomBarLayout = bottomBarLayout,
-                            iconOnly = bottomBarIconOnly,
-                            activeTab = activeTab
-                        )
+                        AnimatedVisibility(
+                            visible = !isLoginScreenVisible,
+                            enter = uiEnter(expandVertically() + fadeIn()),
+                            exit = uiExit(shrinkVertically() + fadeOut())
+                        ) {
+                            MelodiaNavigationBar(
+                                currentScreen = currentScreen,
+                                onNavigate = onNavigate,
+                                bottomBarLayout = bottomBarLayout,
+                                iconOnly = bottomBarIconOnly,
+                                activeTab = activeTab,
+                                transparentBackground = gradientActive
+                            )
+                        }
                     }
                 }
             }
@@ -353,6 +328,24 @@ fun MelodiaBottomOverlay(
     }
 }
 
+private val BottomBarGradientExtra = 28.dp
+
+// 向上越出自身边界 BottomBarGradientExtra，中段适度加深，底部不透明
+private fun Modifier.bottomBarGradient(color: Color): Modifier = drawBehind {
+    if (size.height <= 0f) return@drawBehind
+    val extra = BottomBarGradientExtra.toPx()
+    drawRect(
+        brush = Brush.verticalGradient(
+            0f to color.copy(alpha = 0f),
+            0.5f to color.copy(alpha = 0.7f),
+            0.85f to color,
+            startY = -extra,
+            endY = size.height
+        ),
+        topLeft = Offset(0f, -extra),
+        size = Size(size.width, size.height + extra)
+    )
+}
 private val PlayerDragTopCornerShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 private val PlayerBackTransformOrigin = TransformOrigin(0.5f, 1f)
 private const val PlayerBackMinScale = 0.94f
@@ -363,7 +356,7 @@ private const val PlayerBackMaxCornerDp = 28f
 // ────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MelodiaFullPlayerOverlay(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     screenHeightPx: Float,
     isPlayerOpen: Boolean,
     // 位移只在布局阶段读取，展开动画逐帧推进时不会让调用方整体重组

@@ -20,11 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,6 +65,11 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Play
+import com.lin0721.linmusic.core.ui.icons.SkipNext
+import com.lin0721.linmusic.core.ui.icons.SkipPrevious
+import com.lin0721.linmusic.core.ui.icons.Menu
 
 // 通知栏按钮自定义弹层：固定核心播控展示 + 可配置项显隐开关与长按拖动排序
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,16 +181,16 @@ fun NotificationButtonsSheet(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
             FixedNotificationButtonRow(
-                icon = Icons.Default.SkipPrevious,
+                icon = MelodiaIcons.SkipPrevious,
                 title = "上一首",
                 hint = "私人 FM 自动隐藏"
             )
             FixedNotificationButtonRow(
-                icon = Icons.Default.PlayArrow,
+                icon = MelodiaIcons.Play,
                 title = "播放 / 暂停"
             )
             FixedNotificationButtonRow(
-                icon = Icons.Default.SkipNext,
+                icon = MelodiaIcons.SkipNext,
                 title = "下一首"
             )
 
@@ -365,7 +365,7 @@ private fun NotificationButtonEditorRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.Menu,
+            imageVector = MelodiaIcons.Menu,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)

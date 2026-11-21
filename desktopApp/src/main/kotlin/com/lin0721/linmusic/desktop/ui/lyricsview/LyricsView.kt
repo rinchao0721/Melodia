@@ -30,12 +30,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloseFullscreen
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -122,6 +116,12 @@ import com.lin0721.linmusic.feature.player.presentation.lyricsPlaceholder
 import com.lin0721.linmusic.feature.player.presentation.secondaryText
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.CloseFullscreen
+import com.lin0721.linmusic.core.ui.icons.Fullscreen
+import com.lin0721.linmusic.core.ui.icons.FullscreenExit
+import com.lin0721.linmusic.core.ui.icons.Share
+import com.lin0721.linmusic.core.ui.icons.Tune
 
 private const val FADE_MS = 150
 private const val OPEN_MS = 220
@@ -399,9 +399,9 @@ private fun Header(
                 )
             }
         }
-        HeaderButton(Icons.Rounded.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
+        HeaderButton(MelodiaIcons.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
         Box {
-            HeaderButton(Icons.Rounded.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
+            HeaderButton(MelodiaIcons.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
             if (settingsOpen) {
                 Popup(
                     alignment = Alignment.TopEnd,
@@ -412,11 +412,11 @@ private fun Header(
             }
         }
         HeaderButton(
-            if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+            if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
             if (isFullscreen) "退出全屏" else "全屏",
             onToggleFullscreen
         )
-        HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose)
+        HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose)
     }
 }
 
@@ -563,9 +563,7 @@ private fun LyricsRow(
                 lineHeight = fontSize * 1.3f,
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
-                advancedEffect = settings.advancedEffect,
-                // 白色加亮微光只适合深底
-                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight
+                advancedEffect = settings.advancedEffect
             )
         } else {
             Text(
@@ -620,7 +618,6 @@ private fun BackgroundVocal(
                 textAlign = alignment.textAlign,
                 isPlaying = isPlaying,
                 advancedEffect = settings.advancedEffect,
-                glowEffect = settings.glowEffect && !LocalImmersiveColors.current.onLight,
                 fontWeight = FontWeight.Bold
             )
         } else {
@@ -691,12 +688,12 @@ private fun PluginLyricsContent(
             PlayerLayoutView(root, Modifier.fillMaxSize(), binding::prepare) { node, modifier ->
                 when (node.type) {
                     LayoutNodeType.LYRICS_VIEW -> lyricsArea(modifier)
-                    LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
+                    LayoutNodeType.COLLAPSE_BUTTON -> Box(modifier) { HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose) }
                     LayoutNodeType.ACTIONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
                         node.buttons.forEach { button ->
                             when (button) {
                                 LYRICS_SETTINGS -> Box {
-                                    HeaderButton(Icons.Rounded.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
+                                    HeaderButton(MelodiaIcons.Tune, "歌词设置") { onSettingsOpenChange(!settingsOpen) }
                                     if (settingsOpen) {
                                         Popup(
                                             alignment = Alignment.TopEnd,
@@ -707,11 +704,11 @@ private fun PluginLyricsContent(
                                     }
                                 }
                                 "fullscreen" -> HeaderButton(
-                                    if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                    if (isFullscreen) MelodiaIcons.FullscreenExit else MelodiaIcons.Fullscreen,
                                     if (isFullscreen) "退出全屏" else "全屏",
                                     onToggleFullscreen
                                 )
-                                "share" -> HeaderButton(Icons.Rounded.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
+                                "share" -> HeaderButton(MelodiaIcons.Share, "分享歌词") { navigator.openShareCard(ShareCardKind.LYRIC) }
                             }
                         }
                     }
@@ -721,7 +718,7 @@ private fun PluginLyricsContent(
         }
         // 布局里没有一定看得见的收起按钮时由宿主补上，保证随时能关闭歌词页
         if (!root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
-            Box(Modifier.align(Alignment.TopStart).padding(8.dp)) { HeaderButton(Icons.Rounded.CloseFullscreen, "收起", onClose) }
+            Box(Modifier.align(Alignment.TopStart).padding(8.dp)) { HeaderButton(MelodiaIcons.CloseFullscreen, "收起", onClose) }
         }
     }
 }

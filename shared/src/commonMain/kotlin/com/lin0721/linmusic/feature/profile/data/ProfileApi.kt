@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.profile.data
 
 import com.lin0721.linmusic.core.model.EmptyBody
+import com.lin0721.linmusic.core.model.SongPrivilege
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -225,7 +226,8 @@ data class ProfileSong(
     val id: Long = 0L,
     val name: String = "",
     val ar: List<ProfileArtist> = emptyList(),
-    val al: ProfileAlbum? = null
+    val al: ProfileAlbum? = null,
+    val privilege: SongPrivilege? = null
 )
 
 @Serializable

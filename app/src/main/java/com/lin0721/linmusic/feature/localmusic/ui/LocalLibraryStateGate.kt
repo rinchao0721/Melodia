@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +23,7 @@ import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
 private const val SKELETON_ROW_COUNT = 8
 
@@ -58,7 +57,7 @@ fun LocalLibraryStateGate(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(
-                        icon = Icons.Rounded.LibraryMusic,
+                        icon = MelodiaIcons.Library,
                         title = "需要访问设备存储权限",
                         subtitle = if (alreadyDenied) {
                             "才能扫描并展示手机里的音频文件，请到系统设置里手动开启"

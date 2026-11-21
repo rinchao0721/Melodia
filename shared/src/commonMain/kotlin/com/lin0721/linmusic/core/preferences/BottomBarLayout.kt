@@ -5,7 +5,6 @@ enum class BottomBarItem(val key: String, val title: String, val isRoute: Boolea
     HOME("home", "主页", true),
     SEARCH("search", "搜索", true),
     LIBRARY("library", "音乐库", true),
-    CREATE("create", "创建", false),
     LOCAL_MUSIC("local_music", "本地音乐", true),
     DOWNLOADS("downloads", "下载管理", true),
     CLOUD("cloud", "我的云盘", true),
@@ -24,7 +23,7 @@ data class BottomBarItemSetting(
     val visible: Boolean
 )
 
-// 底栏布局持久化与校验逻辑：`home:1,search:1,library:1,create:1,local_music:0,...`
+// 底栏布局持久化与校验逻辑：`home:1,search:1,library:1,local_music:0,...`
 object BottomBarLayout {
     const val MIN_VISIBLE_ITEMS = 2
     const val MAX_VISIBLE_ITEMS = 5
@@ -33,7 +32,6 @@ object BottomBarLayout {
         BottomBarItemSetting(BottomBarItem.HOME, true),
         BottomBarItemSetting(BottomBarItem.SEARCH, true),
         BottomBarItemSetting(BottomBarItem.LIBRARY, true),
-        BottomBarItemSetting(BottomBarItem.CREATE, true),
         BottomBarItemSetting(BottomBarItem.LOCAL_MUSIC, false),
         BottomBarItemSetting(BottomBarItem.DOWNLOADS, false),
         BottomBarItemSetting(BottomBarItem.CLOUD, false),
@@ -43,15 +41,9 @@ object BottomBarLayout {
     fun encode(layout: List<BottomBarItemSetting>): String =
         normalize(layout).joinToString(",") { "${it.item.key}:${if (it.visible) 1 else 0}" }
 
-    fun decode(raw: String?, defaultShowCreate: Boolean? = null): List<BottomBarItemSetting> {
+    fun decode(raw: String?): List<BottomBarItemSetting> {
         if (raw.isNullOrBlank()) {
-            return if (defaultShowCreate != null) {
-                DEFAULT.map {
-                    if (it.item == BottomBarItem.CREATE) it.copy(visible = defaultShowCreate) else it
-                }
-            } else {
-                DEFAULT
-            }
+            return DEFAULT
         }
         val parsed = raw.split(",").mapNotNull { token ->
             val parts = token.trim().split(":", limit = 2)
