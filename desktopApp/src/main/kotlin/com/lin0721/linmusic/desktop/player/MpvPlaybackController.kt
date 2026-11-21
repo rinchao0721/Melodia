@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessPolicy
+import com.lin0721.linmusic.core.player.LoudnessSource
 import com.lin0721.linmusic.core.player.LoudnessStore
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PersonalFmController
@@ -698,9 +699,14 @@ class MpvPlaybackController(
         val songId = loadedSongId ?: return
         val url = loadedUrl ?: return
         loudnessJob = scope.launch {
-            val tagged = LoudnessPolicy.replayGainDb(engine.activeMetadata("REPLAYGAIN_TRACK_GAIN"))
-            if (tagged != null) loudnessMeter.remember(songId, tagged)
-            val gainDb = tagged ?: loudnessMeter.measure(songId, url) ?: return@launch
+            val tagged = LoudnessPolicy.fromReplayGain(
+                engine.activeMetadata("REPLAYGAIN_TRACK_GAIN"),
+                engine.activeMetadata("REPLAYGAIN_TRACK_PEAK")
+            ) ?: LoudnessPolicy.fromR128Tag(engine.activeMetadata("R128_TRACK_GAIN"))
+            if (tagged != null) loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
+            val gainDb = tagged?.let { LoudnessPolicy.gainDb(it) }
+                ?: loudnessMeter.measure(songId, url)
+                ?: return@launch
             if (loudnessEnabled && loadedSongId == songId) engine.setTrackGain(gainDb)
         }
     }
@@ -867,8 +873,11 @@ class MpvPlaybackController(
         val level = offline.preferredLevel ?: settingsPreferences.wifiQuality.first()
         return repository.getSongPlaybackInfo(songId).first().fold(
             onSuccess = { info ->
-                // 网易返回的有效增益优先于自测，覆盖已缓存的值
-                if (loudnessEnabled) info.gainDb?.let { loudnessMeter.remember(songId, it) }
+                // 网易返回的有效响度优先于自测，覆盖已缓存的值
+                if (loudnessEnabled) {
+                    info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
+                        ?: info.gainDb?.let { loudnessMeter.remember(songId, LoudnessPolicy.TARGET_LUFS - it, null, LoudnessSource.NETEASE) }
+                }
                 val record = audioCache?.let { RecordRequest(songId, it.tempFile(songId, level).absolutePath) }
                 Result.success(Playback(info.url, record, declaredLevel = info.level))
             },

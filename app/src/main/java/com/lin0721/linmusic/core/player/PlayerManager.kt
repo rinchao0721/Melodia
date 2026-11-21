@@ -275,7 +275,7 @@ class PlayerManager(
     private val edgeAnalyzer = TrackEdgeAnalyzer(pcmDecoder)
 
     // 音量平衡：每首歌只测一次，结果持久缓存
-    private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_gain.json")), pcmDecoder)
+    private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_v2.json")), pcmDecoder)
     private val replayGainReader = ReplayGainReader(context)
     private var loudnessMeasuredSongId: Long = -1L
     private var loudnessPremeasuredSongId: Long = -1L
@@ -1295,19 +1295,24 @@ class PlayerManager(
             .build()
     }
 
-    // 网易返回的有效增益优先于自测，覆盖已缓存的值
+    // 网易返回的有效响度优先于自测，覆盖已缓存的值
     private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
+        if (!loudnessEnabled) return
+        info.loudness?.let {
+            loudnessMeter.remember(songId, it, LoudnessSource.NETEASE)
+            return
+        }
         val gainDb = info.gainDb ?: return
-        if (loudnessEnabled) loudnessMeter.remember(songId, gainDb)
+        loudnessMeter.remember(songId, LoudnessPolicy.TARGET_LUFS - gainDb, null, LoudnessSource.NETEASE)
     }
 
     // 已知的曲目增益：缓存优先，本地文件再读 ReplayGain 标签；音量平衡关闭时为 null
     private suspend fun knownGainDb(songId: Long, uri: String): Double? {
         if (!loudnessEnabled) return null
         loudnessMeter.cachedGainDb(songId)?.let { return it }
-        val tagged = replayGainReader.trackGainDb(uri) ?: return null
-        loudnessMeter.remember(songId, tagged)
-        return tagged
+        val tagged = replayGainReader.trackLoudness(uri) ?: return null
+        loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
+        return LoudnessPolicy.gainDb(tagged)
     }
 
     // 在线链接仅 Wi-Fi 下解码自测，本地与已下载文件不受限；离线缓存的占位地址无法直接解码

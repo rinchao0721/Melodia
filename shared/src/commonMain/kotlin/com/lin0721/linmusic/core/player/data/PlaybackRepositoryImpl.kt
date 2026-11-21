@@ -58,11 +58,13 @@ class PlaybackRepositoryImpl(
         transform = { response ->
             val item = response.data.first()
             AppLogger.d(TAG, "播放链接响度字段 songId=$songId level=${item.level} gain=${item.gain} peak=${item.peak}")
+            val loudness = LoudnessPolicy.fromNetease(item.gain, item.peak)
             SongPlaybackInfo(
                 url = item.url.orEmpty(),
                 isFreeTrial = item.isTrialAudio,
                 level = item.level?.takeIf { it.isNotBlank() },
-                gainDb = LoudnessPolicy.neteaseGainDb(item.gain, item.peak)
+                gainDb = loudness?.let { LoudnessPolicy.gainDb(it.lufs, it.peak) },
+                loudness = loudness
             )
         }
     )

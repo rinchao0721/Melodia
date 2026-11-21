@@ -150,7 +150,7 @@ private fun createPlaybackController(
         audioCache = audioCache,
         cacheManager = cacheManager,
         externalResolver = externalResolver,
-        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_gain.json")
+        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_v2.json")
     )
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
