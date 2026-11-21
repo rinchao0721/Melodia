@@ -356,12 +356,14 @@ class MelodiaPlaybackService : MediaSessionService() {
             manager.onDeviceDetached = { crossfadePlayer?.pause() }
             this.usbAudio = manager
         }
-        val primaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
+        val primaryGainState = TrackGainState()
+        val secondaryGainState = TrackGainState()
+        val primaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio, primaryGainState))
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(buildMelodiaLoadControl())
             .setHandleAudioBecomingNoisy(true)
             .build()
-        val secondaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
+        val secondaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio, secondaryGainState))
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(buildMelodiaLoadControl())
             .setHandleAudioBecomingNoisy(true)
@@ -370,6 +372,8 @@ class MelodiaPlaybackService : MediaSessionService() {
             primary = primaryPlayer,
             secondary = secondaryPlayer,
             audioAttributes = audioAttributes,
+            primaryGainState = primaryGainState,
+            secondaryGainState = secondaryGainState,
             exclusiveVolume = usbAudio
         )
         sessionPlayer.setMetadataTransformer { base ->
@@ -394,10 +398,14 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.launch {
             settingsPreferences.exclusiveOutput.collect { usbAudio.setEnabled(it) }
         }
-        // 设置页已保证两者互斥，这里再兜底一次，避免淡化时两台播放器争用卸载通道
+        // 卸载会绕过输出层增益，交叉淡化与音量平衡开启时都不能卸载
         serviceScope.launch {
-            combine(settingsPreferences.audioOffload, settingsPreferences.crossfadeEnabled) { offload, crossfade ->
-                offload && !crossfade
+            combine(
+                settingsPreferences.audioOffload,
+                settingsPreferences.crossfadeEnabled,
+                settingsPreferences.loudnessNormalizationEnabled
+            ) { offload, crossfade, loudness ->
+                offload && !crossfade && !loudness
             }.distinctUntilChanged().collect { enabled ->
                 primaryPlayer.setAudioOffloadEnabled(enabled)
                 secondaryPlayer.setAudioOffloadEnabled(enabled)
@@ -1413,7 +1421,8 @@ class MelodiaPlaybackService : MediaSessionService() {
 @OptIn(UnstableApi::class)
 private class MelodiaRenderersFactory(
     context: Context,
-    private val usbAudio: UsbAudioDeviceManager
+    private val usbAudio: UsbAudioDeviceManager,
+    private val gainState: TrackGainState
 ) : DefaultRenderersFactory(context) {
 
     init {
@@ -1424,7 +1433,12 @@ private class MelodiaRenderersFactory(
         DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(true)
             .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-            .setAudioOutputProvider(UsbAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build(), usbAudio))
+            .setAudioOutputProvider(
+                TrackGainAudioOutputProvider(
+                    UsbAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build(), usbAudio),
+                    gainState
+                )
+            )
             .build()
 }
 

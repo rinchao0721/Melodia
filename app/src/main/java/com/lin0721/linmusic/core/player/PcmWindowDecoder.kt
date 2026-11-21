@@ -15,13 +15,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "PcmWindowDecoder"
-// 无损音质在慢速网络下拉取片段需十余秒；整首本地解码给予更宽裕超时
+// 无损音质在慢速网络下拉取片段需十余秒
 private const val DECODE_TIMEOUT_MS = 20_000L
 private const val FULL_DECODE_TIMEOUT_MS = 60_000L
 private const val CODEC_TIMEOUT_US = 10_000L
 private const val PCM_CHUNK_FRAMES = 4096
 
-// 解码音频片段为 100ms 响度窗口或交错 float PCM，首尾分析与响度测量共用
+// 解码为 100ms 响度窗口或交错 float PCM，首尾分析与响度测量共用
 class PcmWindowDecoder(private val context: Context) : SegmentDecoder {
 
     suspend fun decode(uri: String, fromMs: Long, toMs: Long): List<LoudnessWindow>? {
@@ -38,7 +38,7 @@ class PcmWindowDecoder(private val context: Context) : SegmentDecoder {
         return if (ok) accumulator.finish() else null
     }
 
-    // spanMs 为 null 且 startFraction <= 0 时解码整首（用于本地文件 R128 测量）
+    // spanMs 为空且 startFraction <= 0 时解码整首
     override suspend fun decode(uri: String, startFraction: Double, spanMs: Long?, consumer: PcmConsumer): Boolean {
         val timeoutMs = if (spanMs == null) FULL_DECODE_TIMEOUT_MS else DECODE_TIMEOUT_MS
         var chunk = FloatArray(0)

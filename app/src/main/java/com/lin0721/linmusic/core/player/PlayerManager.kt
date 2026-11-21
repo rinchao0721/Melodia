@@ -21,6 +21,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlaybackException
 import java.io.File
 import java.util.Collections
+import kotlin.math.abs
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
@@ -71,6 +72,9 @@ private val NETWORK_RETRY_DELAYS_MS = longArrayOf(2000L, 5000L, 10000L)
 
 // 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
 private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
+
+// 与已下发增益相差小于该值不再修正
+private const val GAIN_SYNC_EPSILON_DB = 0.05
 
 // 播放中自动持久化进度的周期，覆盖直接划掉应用强退场景
 private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
@@ -277,7 +281,10 @@ class PlayerManager(
     // 音量平衡：每首歌只测一次，结果持久缓存
     private val loudnessMeter = TrackLoudnessMeter(LoudnessStore(File(context.filesDir, "loudness_v2.json")), pcmDecoder)
     private val replayGainReader = ReplayGainReader(context)
-    private var loudnessMeasuredSongId: Long = -1L
+    // 已核对增益的当前歌与已下发的增益
+    private var loudnessSyncedSongId: Long = -1L
+    private var appliedGainSongId: Long = -1L
+    private var appliedGainDb: Double = 0.0
     private var loudnessPremeasuredSongId: Long = -1L
 
     // 最近一次下发的播放源 (songId, uri)，供尾部分析读取当前歌的实际音频
@@ -338,10 +345,11 @@ class PlayerManager(
         scope.launch {
             settingsPreferences.loudnessNormalizationEnabled.collect { enabled ->
                 loudnessEnabled = enabled
-                // 关闭时立即恢复原音量；开启后由进度回调为当前歌补测
-                loudnessMeasuredSongId = -1L
+                // 关闭时立即恢复 0 dB；开启后由进度回调补测当前歌
+                loudnessSyncedSongId = -1L
                 loudnessPremeasuredSongId = -1L
-                if (!enabled) controllerHolder.setVolume(1f)
+                if (!enabled) applyGainToPlayer(-1L, 0.0)
+                scheduleQueueLoudness()
             }
         }
 
@@ -452,6 +460,7 @@ class PlayerManager(
         playbackQueue.replaceAll(items, startIndex)
         consecutiveErrors = 0
         saveQueueState()
+        scheduleQueueLoudness()
 
         val currentIndex = playbackQueue.currentIndex.value
         val targetItem = playbackQueue.itemAt(currentIndex)
@@ -1282,7 +1291,11 @@ class PlayerManager(
             startPositionMs = startPosition,
             autoFadeMs = pendingAutoFadeMs
         )
-        val gainDb = if (songId != null && uri != null) knownGainDb(songId, uri) else null
+        val gainDb = if (songId != null && uri != null) startGainDb(songId, uri) else null
+        if (songId != null && gainDb != null) {
+            appliedGainSongId = songId
+            appliedGainDb = gainDb
+        }
         if (fadeMs <= 0L && gainDb == null) return this
         val startOffsetMs = pendingStartOffset?.takeIf { it.first == songId }?.second ?: 0L
         val extras = Bundle(mediaMetadata.extras ?: Bundle()).apply {
@@ -1298,41 +1311,58 @@ class PlayerManager(
     // 网易返回的有效响度优先于自测，覆盖已缓存的值
     private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
         if (!loudnessEnabled) return
-        info.loudness?.let {
-            loudnessMeter.remember(songId, it, LoudnessSource.NETEASE)
-            return
-        }
-        val gainDb = info.gainDb ?: return
-        loudnessMeter.remember(songId, LoudnessPolicy.TARGET_LUFS - gainDb, null, LoudnessSource.NETEASE)
+        info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
     }
 
-    // 已知的曲目增益：缓存优先，本地文件再读 ReplayGain 标签；音量平衡关闭时为 null
+    private fun isRemoteUri(uri: String): Boolean = uri.startsWith("http")
+
+    // 缓存（含网易值）优先，本地文件再读标签；音量平衡关闭时为 null
     private suspend fun knownGainDb(songId: Long, uri: String): Double? {
         if (!loudnessEnabled) return null
         loudnessMeter.cachedGainDb(songId)?.let { return it }
+        if (isRemoteUri(uri)) return null
         val tagged = replayGainReader.trackLoudness(uri) ?: return null
         loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
         return LoudnessPolicy.gainDb(tagged)
     }
 
-    // 在线链接仅 Wi-Fi 下解码自测，本地与已下载文件不受限；离线缓存的占位地址无法直接解码
-    private fun canMeasure(uri: String): Boolean = when {
-        uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX) -> false
-        uri.startsWith("http") -> isWifiConnected()
-        else -> true
+    // 离线缓存的占位地址无法直接解码
+    private fun canMeasure(uri: String): Boolean = !uri.startsWith(OFFLINE_PLACEHOLDER_URI_PREFIX)
+
+    // 已知值优先，否则起播前限时测量；超时用兜底值，结果迟到再平滑修正
+    private suspend fun startGainDb(songId: Long, uri: String): Double? {
+        if (!loudnessEnabled) return null
+        knownGainDb(songId, uri)?.let { return it }
+        if (!canMeasure(uri)) return LoudnessPolicy.FALLBACK_GAIN_DB
+        return loudnessMeter.measureBeforeStart(
+            songId = songId,
+            uri = uri,
+            fullTrack = !isRemoteUri(uri),
+            onDelayedResult = { gainDb -> scope.launch { applyGainToPlayer(songId, gainDb) } }
+        ) ?: LoudnessPolicy.FALLBACK_GAIN_DB
     }
 
-    // 当前歌没有已知增益时补测，测完平滑过渡到目标音量
+    // songId 为 -1 表示无条件复位
+    private fun applyGainToPlayer(songId: Long, gainDb: Double) {
+        if (songId != -1L) {
+            if (!loudnessEnabled || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return
+        }
+        appliedGainSongId = songId
+        appliedGainDb = gainDb
+        controllerHolder.setTrackGainDb(gainDb)
+    }
+
+    // 缓存值与已下发值不一致时修正，没有缓存则补测
     private fun maybeMeasureCurrentLoudness(songId: Long) {
-        if (!loudnessEnabled || loudnessMeasuredSongId == songId) return
+        if (!loudnessEnabled || loudnessSyncedSongId == songId) return
         val uri = requestedSource?.takeIf { it.first == songId }?.second ?: return
-        loudnessMeasuredSongId = songId
+        loudnessSyncedSongId = songId
         scope.launch {
             val gainDb = knownGainDb(songId, uri)
-                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri) else null)
+                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri, fullTrack = !isRemoteUri(uri)) else null)
                 ?: return@launch
-            if (!loudnessEnabled || _currentTrack.value?.mediaId?.toLongOrNull() != songId) return@launch
-            controllerHolder.setVolume(LoudnessPolicy.amplitude(gainDb))
+            val unchanged = appliedGainSongId == songId && abs(appliedGainDb - gainDb) < GAIN_SYNC_EPSILON_DB
+            if (!unchanged) applyGainToPlayer(songId, gainDb)
         }
     }
 
@@ -1345,7 +1375,26 @@ class PlayerManager(
         scope.launch {
             val uri = nextTrackSourceUri(nextItem) ?: return@launch
             if (knownGainDb(nextItem.songId, uri) != null || !canMeasure(uri)) return@launch
-            loudnessMeter.measure(nextItem.songId, uri)
+            loudnessMeter.measure(nextItem.songId, uri, fullTrack = !isRemoteUri(uri))
+        }
+    }
+
+    // 从当前曲往后串行预测本地与已下载歌曲
+    private fun scheduleQueueLoudness() {
+        loudnessMeter.cancelAll()
+        if (!loudnessEnabled) return
+        val items = playbackQueue.items.value
+        if (items.isEmpty()) return
+        val start = playbackQueue.currentIndex.value.coerceIn(0, items.lastIndex)
+        val ordered = items.drop(start) + items.take(start)
+        scope.launch {
+            val requests = ArrayList<LoudnessMeasureRequest>()
+            for (item in ordered) {
+                val uri = item.localUri ?: localRecordOf(item)?.mediaStoreUri ?: continue
+                if (!canMeasure(uri)) continue
+                requests += LoudnessMeasureRequest(item.songId, uri, fullTrack = true)
+            }
+            if (loudnessEnabled) loudnessMeter.enqueue(requests)
         }
     }
 

@@ -111,9 +111,9 @@ class MediaControllerHolder(private val context: Context) {
         commandPlayer?.play()
     }
 
-    // 音量平衡的曲目增益，服务侧平滑过渡
-    fun setVolume(volume: Float) {
-        commandPlayer?.volume = volume
+    // 曲目增益 (dB)，仅本机播放器支持
+    fun setTrackGainDb(gainDb: Double) {
+        (localPlayer as? CrossfadePlayer)?.setTrackGainDb(gainDb)
     }
 
     fun pause() {

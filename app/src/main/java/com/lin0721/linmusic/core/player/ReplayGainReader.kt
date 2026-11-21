@@ -12,7 +12,7 @@ private const val TRACK_GAIN_KEY = "REPLAYGAIN_TRACK_GAIN"
 private const val TRACK_PEAK_KEY = "REPLAYGAIN_TRACK_PEAK"
 private const val R128_TRACK_GAIN_KEY = "R128_TRACK_GAIN"
 
-// 读取本地音频的 ReplayGain / R128 曲目响度标签，在线地址或读取失败返回 null
+// 读取本地音频的 ReplayGain / R128 曲目标签，在线地址或读取失败返回 null
 class ReplayGainReader(private val context: Context) {
 
     suspend fun trackLoudness(sourceUri: String): TrackLoudness? = withContext(Dispatchers.IO) {
@@ -28,9 +28,6 @@ class ReplayGainReader(private val context: Context) {
             }
         }.onFailure { AppLogger.d(TAG, "ReplayGain 标签读取失败 uri=$sourceUri", it) }.getOrNull()
     }
-
-    suspend fun trackGainDb(sourceUri: String): Double? =
-        trackLoudness(sourceUri)?.let { LoudnessPolicy.gainDb(it) }
 
     private fun Map<String, Array<String>>.firstTag(key: String): String? =
         entries.firstOrNull { it.key.equals(key, ignoreCase = true) }?.value?.firstOrNull()
