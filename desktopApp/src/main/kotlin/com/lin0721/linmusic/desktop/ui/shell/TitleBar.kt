@@ -218,6 +218,7 @@ fun WindowScope.TitleBar(
     onAddAccount: () -> Unit = {},
     activeKugouAccount: StoredAccount? = null,
     kugouAccounts: List<StoredAccount> = emptyList(),
+    kugouPlatformEnabled: Boolean = true,
     onKugouLoginClick: () -> Unit = {},
     onKugouSwitchAccount: (AccountId) -> Unit = {},
     onKugouAddAccount: () -> Unit = {},
@@ -436,6 +437,7 @@ fun WindowScope.TitleBar(
                     onAddAccount = onAddAccount,
                     activeKugouAccount = activeKugouAccount,
                     kugouAccounts = kugouAccounts,
+                    kugouPlatformEnabled = kugouPlatformEnabled,
                     onKugouLoginClick = onKugouLoginClick,
                     onKugouSwitchAccount = onKugouSwitchAccount,
                     onKugouAddAccount = onKugouAddAccount,
@@ -939,6 +941,7 @@ private fun AvatarMenu(
     onAddAccount: () -> Unit,
     activeKugouAccount: StoredAccount?,
     kugouAccounts: List<StoredAccount>,
+    kugouPlatformEnabled: Boolean,
     onKugouLoginClick: () -> Unit,
     onKugouSwitchAccount: (AccountId) -> Unit,
     onKugouAddAccount: () -> Unit,
@@ -951,7 +954,11 @@ private fun AvatarMenu(
     onLogoutClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val menuWidth = if (userProfile != null || activeKugouAccount != null) AccountMenuWidth else DefaultMenuWidth
+    val menuWidth = if (userProfile != null || (kugouPlatformEnabled && activeKugouAccount != null)) {
+        AccountMenuWidth
+    } else {
+        DefaultMenuWidth
+    }
     Box(Modifier.padding(end = 12.dp)) {
         Box(
             Modifier.size(32.dp).clip(CircleShape).background(DesktopColors.Surface).clickable { expanded = true },
@@ -959,7 +966,7 @@ private fun AvatarMenu(
         ) {
             if (userProfile != null) {
                 Cover(userProfile.avatarUrl, 32.dp, shape = CircleShape)
-            } else if (activeKugouAccount != null && activeKugouAccount.avatarUrl.isNotBlank()) {
+            } else if (kugouPlatformEnabled && activeKugouAccount != null && activeKugouAccount.avatarUrl.isNotBlank()) {
                 Cover(activeKugouAccount.avatarUrl, 32.dp, shape = CircleShape)
             } else {
                 Icon(MelodiaIcons.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
@@ -1004,50 +1011,48 @@ private fun AvatarMenu(
                 }
             }
 
-            MenuDivider()
-            MenuHeader("酷狗音乐")
-            if (activeKugouAccount != null) {
-                KugouAvatarMenuAccountRow(
-                    account = activeKugouAccount,
-                    isActive = true,
-                    onClick = {},
-                    onLogout = {
-                        expanded = false
-                        onKugouLogoutAccount(activeKugouAccount.accountId)
-                    }
-                )
-                kugouAccounts.filter { it.accountId != activeKugouAccount.accountId }.forEach { account ->
+            if (kugouPlatformEnabled) {
+                MenuDivider()
+                MenuHeader("酷狗音乐")
+                if (activeKugouAccount != null) {
                     KugouAvatarMenuAccountRow(
-                        account = account,
-                        isActive = false,
-                        onClick = {
-                            expanded = false
-                            onKugouSwitchAccount(account.accountId)
-                        },
+                        account = activeKugouAccount,
+                        isActive = true,
+                        onClick = null,
                         onLogout = {
                             expanded = false
-                            onKugouLogoutAccount(account.accountId)
+                            onKugouLogoutAccount(activeKugouAccount.accountId)
                         }
                     )
-                }
-                val canAddKugou = kugouAccounts.size < UserPreferences.MAX_ACCOUNTS
-                MenuItem(
-                    text = if (canAddKugou) "添加酷狗帐号" else "添加酷狗帐号（最多 ${UserPreferences.MAX_ACCOUNTS} 个）",
-                    onClick = {
+                    kugouAccounts.filter { it.accountId != activeKugouAccount.accountId }.forEach { account ->
+                        KugouAvatarMenuAccountRow(
+                            account = account,
+                            isActive = false,
+                            onClick = {
+                                expanded = false
+                                onKugouSwitchAccount(account.accountId)
+                            },
+                            onLogout = {
+                                expanded = false
+                                onKugouLogoutAccount(account.accountId)
+                            }
+                        )
+                    }
+                    val canAddKugou = kugouAccounts.size < UserPreferences.MAX_ACCOUNTS
+                    MenuItem(
+                        text = if (canAddKugou) "添加酷狗帐号" else "添加酷狗帐号（最多 ${UserPreferences.MAX_ACCOUNTS} 个）",
+                        onClick = {
+                            expanded = false
+                            onKugouAddAccount()
+                        },
+                        icon = MelodiaIcons.PersonAdd,
+                        enabled = canAddKugou
+                    )
+                } else {
+                    AvatarMenuItem(MelodiaIcons.Login, "登录酷狗音乐") {
                         expanded = false
-                        onKugouAddAccount()
-                    },
-                    icon = MelodiaIcons.PersonAdd,
-                    enabled = canAddKugou
-                )
-                AvatarMenuItem(MelodiaIcons.Logout, "退出酷狗账户") {
-                    expanded = false
-                    onKugouLogoutAccount(activeKugouAccount.accountId)
-                }
-            } else {
-                AvatarMenuItem(MelodiaIcons.Login, "登录酷狗音乐") {
-                    expanded = false
-                    onKugouLoginClick()
+                        onKugouLoginClick()
+                    }
                 }
             }
 
@@ -1093,7 +1098,7 @@ private val AccountMenuWidth = 224.dp
 private fun KugouAvatarMenuAccountRow(
     account: StoredAccount,
     isActive: Boolean,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     onLogout: () -> Unit
 ) {
     val source = remember { MutableInteractionSource() }
@@ -1104,7 +1109,13 @@ private fun KugouAvatarMenuAccountRow(
             .clip(RoundedCornerShape(4.dp))
             .background(if (hovered) DesktopColors.SurfaceLight else Color.Transparent)
             .hoverable(source)
-            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .then(
+                if (!isActive && onClick != null) {
+                    Modifier.clickable(interactionSource = source, indication = null, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

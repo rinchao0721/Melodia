@@ -39,6 +39,6 @@ fun mapToAppError(e: Throwable): Throwable = when (e) {
     is AppError -> e
     is ApiException -> AppError.RiskControl
     is SerializationException -> AppError.ParseError
-    is IOException -> AppError.NetworkError
+    is IOException -> AppError.NetworkError(e)
     else -> e
 }

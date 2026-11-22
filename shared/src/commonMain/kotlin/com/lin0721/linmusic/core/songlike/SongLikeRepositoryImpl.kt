@@ -30,7 +30,8 @@ class SongLikeRepositoryImpl(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val kugouLikeService: KugouLikeService? = null,
     private val userPreferences: UserPreferences? = null,
-    private val resolveTrackByLegacyId: (suspend (Long) -> ExternalTrack?)? = null
+    private val resolveTrackByLegacyId: (suspend (Long) -> ExternalTrack?)? = null,
+    private val isKugouEnabled: suspend () -> Boolean = { true }
 ) : SongLikeRepository {
 
     private val stateLock = Any()
@@ -60,7 +61,7 @@ class SongLikeRepositoryImpl(
         }
         if (kugouLikeService != null && userPreferences != null) {
             scope.launch {
-                if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() != null) {
+                if (isKugouEnabled() && userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() != null) {
                     syncKugouLikedTracks().first()
                 }
             }
@@ -68,12 +69,13 @@ class SongLikeRepositoryImpl(
                 AccountEvents.platformSwitched.collect { event ->
                     if (event.platform != MusicPlatform.KUGOU) return@collect
                     kugouLikeService.clearCache()
-                    if (event.currentAccountId == null) {
-                        synchronized(stateLock) {
-                            kugouLikedTracks = emptySet()
-                            rebuildStatesLocked()
-                        }
-                    } else {
+                    // 切号或退出时必须先在锁内清空旧号酷狗红心与映射，避免新号同步失败残留旧号状态
+                    synchronized(stateLock) {
+                        kugouLikedTracks = emptySet()
+                        kugouLegacyIdsByTrack.clear()
+                        rebuildStatesLocked()
+                    }
+                    if (event.currentAccountId != null && isKugouEnabled()) {
                         syncKugouLikedTracks().first()
                     }
                 }
@@ -97,8 +99,8 @@ class SongLikeRepositoryImpl(
 
     override fun likeSong(songId: Long, like: Boolean): Flow<Result<Unit>> = flow {
         if (songId < 0L) {
-            // 负数 ID 优先尝试按已登录酷狗云端曲目路由，未登录或非酷狗则平滑回退本机外部红心
-            if (kugouLikeService != null && isKugouLoggedIn()) {
+            // 负数 ID 优先尝试按已登录且启用中的酷狗云端曲目路由，未启用/未登录或非酷狗则平滑回退本机外部红心
+            if (kugouLikeService != null && isKugouEnabled() && isKugouLoggedIn()) {
                 val track = externalLikes?.find(songId) ?: resolveTrackByLegacyId?.invoke(songId)
                 if (track != null && track.platform == MusicPlatform.KUGOU) {
                     val hash = track.hash?.trim()?.takeIf { it.isNotEmpty() } ?: track.id
@@ -120,20 +122,38 @@ class SongLikeRepositoryImpl(
                 }
             }
 
-            val previousLegacy = _likedSongIds.value
-            _likedSongIds.value = if (like) previousLegacy + songId else previousLegacy - songId
+            val (wasExternalBefore, wasManualBefore) = synchronized(stateLock) {
+                val wasExt = songId in localExternalLikedIds
+                val wasMan = songId in manualNegativeIds
+                if (like) {
+                    localExternalLikedIds = localExternalLikedIds + songId
+                } else {
+                    localExternalLikedIds = localExternalLikedIds - songId
+                    manualNegativeIds = manualNegativeIds - songId
+                }
+                rebuildStatesLocked()
+                wasExt to wasMan
+            }
             val result = externalLikes?.setLiked(songId, like)
                 ?: Result.failure(IllegalStateException("该歌曲不支持收藏"))
             if (result.isFailure) {
-                _likedSongIds.value = previousLegacy
+                synchronized(stateLock) {
+                    if (like && !wasExternalBefore && !wasManualBefore) {
+                        localExternalLikedIds = localExternalLikedIds - songId
+                    } else if (!like) {
+                        if (wasExternalBefore) localExternalLikedIds = localExternalLikedIds + songId
+                        if (wasManualBefore) manualNegativeIds = manualNegativeIds + songId
+                    }
+                    rebuildStatesLocked()
+                }
             }
             emit(result)
             return@flow
         }
 
-        val previousNetease = synchronized(stateLock) {
-            val prev = neteaseLikedIds
-            neteaseLikedIds = if (like) prev + songId else prev - songId
+        val wasLikedBefore = synchronized(stateLock) {
+            val prev = songId in neteaseLikedIds
+            neteaseLikedIds = if (like) neteaseLikedIds + songId else neteaseLikedIds - songId
             rebuildStatesLocked()
             prev
         }
@@ -146,7 +166,11 @@ class SongLikeRepositoryImpl(
         ).collect { result ->
             result.onFailure {
                 synchronized(stateLock) {
-                    neteaseLikedIds = previousNetease
+                    neteaseLikedIds = when {
+                        like && !wasLikedBefore -> neteaseLikedIds - songId
+                        !like && wasLikedBefore -> neteaseLikedIds + songId
+                        else -> neteaseLikedIds
+                    }
                     rebuildStatesLocked()
                 }
             }
@@ -168,9 +192,10 @@ class SongLikeRepositoryImpl(
             emit(Result.success(emptySet()))
             return@flow
         }
-        if (!isKugouLoggedIn()) {
+        if (!isKugouEnabled() || !isKugouLoggedIn()) {
             synchronized(stateLock) {
                 kugouLikedTracks = emptySet()
+                kugouLegacyIdsByTrack.clear()
                 rebuildStatesLocked()
             }
             emit(Result.success(emptySet()))
@@ -206,28 +231,58 @@ class SongLikeRepositoryImpl(
             }
 
             MusicPlatform.KUGOU -> {
-                if (kugouLikeService != null && isKugouLoggedIn()) {
+                val kugouEnabled = isKugouEnabled()
+                if (kugouLikeService != null && kugouEnabled && isKugouLoggedIn()) {
                     emit(performKugouLike(trackId, like, title, kugouMeta, legacyExternalId))
                     return@flow
                 }
                 if (legacyExternalId != null && externalLikes != null) {
                     localTrackByLegacyId[legacyExternalId] = trackId
-                    val result = externalLikes.setLiked(legacyExternalId, like)
-                    emit(result)
+                    emit(setExternalLikedLocked(legacyExternalId, like))
                     return@flow
                 }
-                emit(Result.failure(IllegalStateException("请先登录酷狗账号")))
+                val reason = if (!kugouEnabled) "酷狗音乐平台已关闭" else "请先登录酷狗账号"
+                emit(Result.failure(IllegalStateException(reason)))
             }
 
             else -> {
                 if (legacyExternalId != null && externalLikes != null) {
                     localTrackByLegacyId[legacyExternalId] = trackId
-                    emit(externalLikes.setLiked(legacyExternalId, like))
+                    emit(setExternalLikedLocked(legacyExternalId, like))
                 } else {
                     emit(Result.failure(IllegalStateException("该平台歌曲暂不支持云端收藏")))
                 }
             }
         }
+    }
+
+    private suspend fun setExternalLikedLocked(legacyExternalId: Long, like: Boolean): Result<Unit> {
+        val likesStore = externalLikes ?: return Result.failure(IllegalStateException("该歌曲不支持收藏"))
+        val (wasExternalBefore, wasManualBefore) = synchronized(stateLock) {
+            val wasExt = legacyExternalId in localExternalLikedIds
+            val wasMan = legacyExternalId in manualNegativeIds
+            if (like) {
+                localExternalLikedIds = localExternalLikedIds + legacyExternalId
+            } else {
+                localExternalLikedIds = localExternalLikedIds - legacyExternalId
+                manualNegativeIds = manualNegativeIds - legacyExternalId
+            }
+            rebuildStatesLocked()
+            wasExt to wasMan
+        }
+        val result = likesStore.setLiked(legacyExternalId, like)
+        if (result.isFailure) {
+            synchronized(stateLock) {
+                if (like && !wasExternalBefore && !wasManualBefore) {
+                    localExternalLikedIds = localExternalLikedIds - legacyExternalId
+                } else if (!like) {
+                    if (wasExternalBefore) localExternalLikedIds = localExternalLikedIds + legacyExternalId
+                    if (wasManualBefore) manualNegativeIds = manualNegativeIds + legacyExternalId
+                }
+                rebuildStatesLocked()
+            }
+        }
+        return result
     }
 
     private suspend fun performKugouLike(
@@ -240,16 +295,23 @@ class SongLikeRepositoryImpl(
         val service = kugouLikeService ?: return Result.failure(IllegalStateException("酷狗收藏服务未就绪"))
         val effectiveHash = kugouMeta?.hash?.trim()?.takeIf { it.isNotEmpty() } ?: trackId.rawId
         val normalizedTrackId = TrackId.kugou(effectiveHash)
-        if (legacyExternalId != null && legacyExternalId < 0L) {
-            kugouLegacyIdsByTrack.computeIfAbsent(normalizedTrackId) { ConcurrentHashMap.newKeySet() }
-                .add(legacyExternalId)
-        }
 
-        val previousKugou = synchronized(stateLock) {
-            val prev = kugouLikedTracks
-            kugouLikedTracks = if (like) prev + normalizedTrackId else prev - normalizedTrackId
+        val (wasLikedBefore, addedLegacyId) = synchronized(stateLock) {
+            var addedLegacy = false
+            if (legacyExternalId != null && legacyExternalId < 0L) {
+                val legacySet = kugouLegacyIdsByTrack.computeIfAbsent(normalizedTrackId) {
+                    ConcurrentHashMap.newKeySet()
+                }
+                addedLegacy = legacySet.add(legacyExternalId)
+            }
+            val wasLiked = normalizedTrackId in kugouLikedTracks
+            kugouLikedTracks = if (like) {
+                kugouLikedTracks + normalizedTrackId
+            } else {
+                kugouLikedTracks - normalizedTrackId
+            }
             rebuildStatesLocked()
-            prev
+            wasLiked to addedLegacy
         }
 
         val result = if (like) {
@@ -265,7 +327,22 @@ class SongLikeRepositoryImpl(
 
         result.onFailure {
             synchronized(stateLock) {
-                kugouLikedTracks = previousKugou
+                if (like && !wasLikedBefore) {
+                    kugouLikedTracks = kugouLikedTracks - normalizedTrackId
+                    if (addedLegacyId && legacyExternalId != null) {
+                        kugouLegacyIdsByTrack[normalizedTrackId]?.remove(legacyExternalId)
+                        if (kugouLegacyIdsByTrack[normalizedTrackId]?.isEmpty() == true) {
+                            kugouLegacyIdsByTrack.remove(normalizedTrackId)
+                        }
+                    }
+                } else if (!like && wasLikedBefore) {
+                    kugouLikedTracks = kugouLikedTracks + normalizedTrackId
+                    if (legacyExternalId != null && legacyExternalId < 0L) {
+                        kugouLegacyIdsByTrack.computeIfAbsent(normalizedTrackId) {
+                            ConcurrentHashMap.newKeySet()
+                        }.add(legacyExternalId)
+                    }
+                }
                 rebuildStatesLocked()
             }
         }

@@ -23,6 +23,11 @@ data class DownloadRecord(
 ) {
     val effectiveTrackId: TrackId
         get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
+
+    // 持久化去重与删除键：优先使用规范 TrackId，兼容无 trackId 且 songId < 0 的历史记录不互覆
+    val storageKey: String
+        get() = trackId?.canonical
+            ?: if (songId >= 0L) TrackId.netease(songId).canonical else "legacy:$songId"
 }
 
 // 实际下发或当初请求的档位不低于目标即满足

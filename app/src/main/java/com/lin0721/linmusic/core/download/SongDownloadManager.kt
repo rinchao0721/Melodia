@@ -10,6 +10,8 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,12 +75,19 @@ class SongDownloadManager(
         private const val TAG_DOWNLOAD = "song_download"
         private const val TAG_STREAM_CACHE = "stream_cache"
         private const val TAG_SONG_PREFIX = "song_id:"
+        private const val TAG_TRACK_PREFIX = "track_id:"
         // 任务元数据先于 WorkManager 落库，清理时给刚创建的记录留出宽限
         private const val META_GRACE_MS = 60_000L
         // 长期未继续的断点文件按此时长清理
         private const val PARTIAL_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
         private const val CANCEL_SETTLE_MS = 1_000L
         private fun uniqueWorkName(songId: Long) = "song_download_$songId"
+        private fun uniqueWorkName(track: DownloadTrackInfo): String =
+            if (track.trackId == null || track.effectivePlatform == com.lin0721.linmusic.core.source.MusicPlatform.NETEASE) {
+                uniqueWorkName(track.songId)
+            } else {
+                "song_download_${track.effectiveTrackId.canonical}"
+            }
     }
 
     private val workManager get() = WorkManager.getInstance(context)
@@ -95,7 +104,7 @@ class SongDownloadManager(
         scope.launch {
             // 先写元数据再入队，面板不会出现缺少歌名的任务
             taskStore.add(listOf(metaFor(request.id, track, level, batchTag = null, batchLabel = null)))
-            workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.REPLACE, request)
+            workManager.enqueueUniqueWork(uniqueWorkName(track), ExistingWorkPolicy.REPLACE, request)
         }
         return request.id
     }
@@ -103,7 +112,7 @@ class SongDownloadManager(
     // 边听边存入队
     fun enqueueStreamCache(track: DownloadTrackInfo, level: String): UUID {
         val request = buildRequest(track, level, batchTag = TAG_STREAM_CACHE, batchLabel = "边听边存")
-        workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.KEEP, request)
+        workManager.enqueueUniqueWork(uniqueWorkName(track), ExistingWorkPolicy.KEEP, request)
         return request.id
     }
 
@@ -117,24 +126,30 @@ class SongDownloadManager(
         val distinctTracks = tracks.distinctBy { it.effectiveTrackId }
         // 先把目录里已有的同一首补登记，再统一按记录判断跳过
         downloadRecognizer.recognize(distinctTracks.map { it.toRecognitionTarget() })
-        val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
+        val downloadedKeys = downloadPreferences.findVerifiedRecordsForTracks(distinctTracks.map { it.effectiveTrackId })
             .filter { it.skipsDownloadAt(level) }
-            .mapTo(HashSet()) { it.songId }
+            .mapTo(HashSet()) { it.storageKey }
         val infos = currentWorkInfos()
-        val queuedIds = infos.filterNot { it.state.isFinished }.mapNotNullTo(HashSet()) { songIdOf(it) }
-        val pending = distinctTracks.filterNot { it.songId in downloadedIds || it.songId in queuedIds }
+        val queuedKeys = infos.filterNot { it.state.isFinished }.mapNotNullTo(HashSet()) { trackKeyOf(it) }
+        val pending = distinctTracks.filterNot {
+            val key = it.effectiveTrackId.canonical
+            key in downloadedKeys || key in queuedKeys
+        }
 
         val requests = pending.map { track -> track to buildRequest(track, level, batchTag, batchLabel) }
         taskStore.retainExisting(infos.mapTo(HashSet()) { it.id.toString() }, System.currentTimeMillis() - META_GRACE_MS)
         taskStore.add(requests.map { (track, request) -> metaFor(request.id, track, level, batchTag, batchLabel) })
         requests.forEach { (track, request) ->
             // 未带歌曲标签的旧版本任务仍由 KEEP 兜底，不会被打断
-            workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.KEEP, request)
+            workManager.enqueueUniqueWork(uniqueWorkName(track), ExistingWorkPolicy.KEEP, request)
         }
         return BatchEnqueueResult(
             enqueuedCount = pending.size,
-            skippedCount = downloadedIds.size,
-            queuedCount = distinctTracks.count { it.songId in queuedIds && it.songId !in downloadedIds }
+            skippedCount = downloadedKeys.size,
+            queuedCount = distinctTracks.count {
+                val key = it.effectiveTrackId.canonical
+                key in queuedKeys && key !in downloadedKeys
+            }
         )
     }
 
@@ -237,7 +252,7 @@ class SongDownloadManager(
             }
         )
         requests.forEach { (meta, request) ->
-            workManager.enqueueUniqueWork(uniqueWorkName(meta.songId), ExistingWorkPolicy.REPLACE, request)
+            workManager.enqueueUniqueWork(uniqueWorkName(meta.toTrackInfo()), ExistingWorkPolicy.REPLACE, request)
         }
     }
 
@@ -260,6 +275,10 @@ class SongDownloadManager(
 
     private fun songIdOf(info: WorkInfo): Long? =
         info.tags.firstOrNull { it.startsWith(TAG_SONG_PREFIX) }?.removePrefix(TAG_SONG_PREFIX)?.toLongOrNull()
+
+    private fun trackKeyOf(info: WorkInfo): String? =
+        info.tags.firstOrNull { it.startsWith(TAG_TRACK_PREFIX) }?.removePrefix(TAG_TRACK_PREFIX)
+            ?: songIdOf(info)?.takeIf { it >= 0L }?.let { TrackId.netease(it).canonical }
 
     private fun metaFor(
         workId: UUID,
@@ -300,6 +319,7 @@ class SongDownloadManager(
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
         .addTag(TAG_DOWNLOAD)
         .addTag("$TAG_SONG_PREFIX${track.songId}")
+        .addTag("$TAG_TRACK_PREFIX${track.effectiveTrackId.canonical}")
         .apply { batchTag?.let { addTag(it) } }
         .build()
 }

@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.core.kugou
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 // 酷狗客户端模式（默认概念版 LITE，支持运行时切换与单接口覆盖）
 enum class KugouClientMode(
     val appid: Int,
@@ -43,10 +46,33 @@ class KugouConfig(
     // 仅供测试将多域名请求重定向到 MockWebServer，默认原样返回
     internal val baseUrlRewriter: (String) -> String = { it },
     // 仅供端到端加密单测注入可持私钥解密的 RSA 公钥，生产默认 null（使用 mode 内置公钥）
-    internal val overridePublicKeyPem: String? = null
+    internal val overridePublicKeyPem: String? = null,
+    // 首次请求/启动校验前从持久化设置拉取真实协议模式，消除冷启动默认 LITE 竞态
+    private val modeSynchronizer: (suspend () -> KugouClientMode)? = null
 ) {
     @Volatile
     var mode: KugouClientMode = initialMode
+
+    @Volatile
+    private var modeSynced: Boolean = modeSynchronizer == null
+
+    private val modeSyncMutex = Mutex()
+
+    suspend fun ensureModeSynced() {
+        val synchronizer = modeSynchronizer ?: return
+        if (modeSynced) return
+        modeSyncMutex.withLock {
+            if (!modeSynced) {
+                mode = synchronizer()
+                modeSynced = true
+            }
+        }
+    }
+
+    fun updateMode(newMode: KugouClientMode) {
+        mode = newMode
+        modeSynced = true
+    }
 
     fun effectiveAppId(overrideAppId: Int? = null): Int = overrideAppId ?: mode.appid
 

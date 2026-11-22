@@ -62,7 +62,8 @@ class LyricsResolver(
     private val lyricFilterConfig: suspend () -> LyricFilterConfig = { LyricFilterConfig(enabled = false) },
     // 跨平台官方歌词读取（例如酷狗 KRC 逐字歌词），返回空列表时自动回退现有外部歌词源
     private val readPlatformLyrics: suspend (TrackId, KugouTrackMeta?, ExternalTrack?) -> List<LyricLine> = { _, _, _ -> emptyList() },
-    private val kugouMetaOf: (songId: Long) -> KugouTrackMeta? = { null }
+    private val kugouMetaOf: (songId: Long) -> KugouTrackMeta? = { null },
+    private val isKugouEnabled: suspend () -> Boolean = { true }
 ) {
 
     // 规则不变时复用已编译的正则
@@ -162,7 +163,7 @@ class LyricsResolver(
         onlineLyrics(songId, neteaseId = songId, matchNetease = null, readQq = { readQqLyrics(songId) }, external = null)
 
     private fun externalLyricsFor(songId: Long, track: ExternalTrack): Flow<Result<ResolvedLyrics>> = flow {
-        if (track.platform == MusicPlatform.KUGOU) {
+        if (track.platform == MusicPlatform.KUGOU && isKugouEnabled()) {
             val kugouMeta = kugouMetaOf(songId)
             val hash = kugouMeta?.hash?.trim()?.takeIf { it.isNotEmpty() }
                 ?: track.hash?.trim()?.takeIf { it.isNotEmpty() }

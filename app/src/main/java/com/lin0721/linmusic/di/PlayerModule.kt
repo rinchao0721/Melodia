@@ -109,7 +109,8 @@ val playerModule = module {
                     )
                 )?.getOrNull().orEmpty()
             },
-            kugouMetaOf = { songId -> playbackController.queue.value.firstOrNull { it.songId == songId }?.kugouMeta }
+            kugouMetaOf = { songId -> playbackController.queue.value.firstOrNull { it.songId == songId }?.kugouMeta },
+            isKugouEnabled = { settingsPreferences.kugouPlatformEnabled.first() }
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

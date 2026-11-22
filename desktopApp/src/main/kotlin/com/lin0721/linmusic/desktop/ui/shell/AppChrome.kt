@@ -52,6 +52,7 @@ internal fun WindowScope.AppTitleBar(
     val accounts by deps.userPreferences.accounts.collectAsState(initial = emptyList())
     val kugouAccounts by deps.userPreferences.accountsOf(MusicPlatform.KUGOU).collectAsState(initial = emptyList())
     val activeKugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
+    val kugouPlatformEnabled by deps.settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
     val titleBarLayout by deps.desktopSettingsViewModel.titleBarLayout.collectAsState()
     val playContext by deps.playbackController.playContext.collectAsState()
     val currentRoute = state.backStack.current
@@ -196,6 +197,7 @@ internal fun WindowScope.AppTitleBar(
         },
         activeKugouAccount = activeKugouAccount,
         kugouAccounts = kugouAccounts,
+        kugouPlatformEnabled = kugouPlatformEnabled,
         onKugouLoginClick = {
             state.kugouLoginAddAccount = false
             state.showKugouLogin = true

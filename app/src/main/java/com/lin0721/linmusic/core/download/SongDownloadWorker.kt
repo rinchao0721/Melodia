@@ -166,7 +166,7 @@ class SongDownloadWorker(
         }
 
         // 已下载同等或更高音质、或目录里已有识别出的同一首时直接跳过，避免重复下载产生多份文件
-        val existingRecord = downloadPreferences.findVerifiedRecord(songId)
+        val existingRecord = downloadPreferences.findVerifiedRecord(trackId)
             ?: if (songId > 0L) {
                 downloadRecognizer.recognize(
                     listOf(RecognitionTarget(songId, songName, listOf(artistName), durationMs))
@@ -472,7 +472,7 @@ class SongDownloadWorker(
                 }
             }.onFailure { AppLogger.w(TAG, "查询同名文件失败 songId=$songId", it) }.getOrNull()
         } ?: return null
-        return uri.takeUnless { downloadPreferences.isUriClaimedByOtherSong(it.toString(), songId) }
+        return uri.takeUnless { downloadPreferences.isUriClaimedByOtherTrack(it.toString(), effectiveTrackId) }
     }
 
     // 查找自定义目录下可复用的同名文件
@@ -480,7 +480,7 @@ class SongDownloadWorker(
         val doc = withContext(Dispatchers.IO) {
             runCatching { directory.findFile(displayName) }.getOrNull()
         }?.takeIf { it.isFile } ?: return null
-        return doc.takeUnless { downloadPreferences.isUriClaimedByOtherSong(it.uri.toString(), songId) }
+        return doc.takeUnless { downloadPreferences.isUriClaimedByOtherTrack(it.uri.toString(), effectiveTrackId) }
     }
 
     // 覆盖前标记为写入中；非本应用创建的文件无写权限，返回 false 后改为新建

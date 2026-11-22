@@ -37,6 +37,7 @@ class KugouAuthService(
         userid: String? = null,
         token: String? = null
     ): Result<String> = runCatching {
+        config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val effectiveUserId = (userid ?: activeAccount?.effectivePlatformUid ?: "0").toLongOrNull() ?: 0L
@@ -116,6 +117,7 @@ class KugouAuthService(
 
     // 对照 module/login_qr_key.js + module/login_qr_create.js
     suspend fun createQrLogin(isWeb: Boolean = false): Result<KugouQrCreateResult> = runCatching {
+        config.ensureModeSynced()
         val mode = config.mode
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -149,6 +151,7 @@ class KugouAuthService(
 
     // 对照 module/login_qr_check.js：0=过期，1=等待扫码，2=待确认，4=授权登录成功
     suspend fun pollQrLogin(key: String): Result<KugouQrPollResult> = runCatching {
+        config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -221,6 +224,7 @@ class KugouAuthService(
         code: String,
         userid: String? = null
     ): Result<KugouAuthCredentials> = runCatching {
+        config.ensureModeSynced()
         val mode = config.mode
         val device = deviceStore.getOrCreateDeviceIdentity()
         val dateTime = nowMs()
@@ -305,6 +309,7 @@ class KugouAuthService(
         userid: String? = null,
         t1Cookie: String? = null
     ): Result<KugouAuthCredentials> = runCatching {
+        config.ensureModeSynced()
         val mode = config.mode
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
@@ -393,6 +398,7 @@ class KugouAuthService(
         token: String? = null,
         userid: String? = null
     ): Result<KugouUserDetailDto> = runCatching {
+        config.ensureModeSynced()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val effectiveToken = token ?: activeAccount?.credentials?.get("token").orEmpty()
         val effectiveUserId = userid

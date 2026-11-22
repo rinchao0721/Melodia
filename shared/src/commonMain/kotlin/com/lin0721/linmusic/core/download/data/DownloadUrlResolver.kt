@@ -56,7 +56,8 @@ class DownloadUrlResolver(
     private val official: suspend (songId: Long, level: String) -> SongDownloadUrlResponse,
     private val fallbackEnabled: suspend () -> Boolean = { false },
     private val plugins: suspend (query: PluginTrackQuery, level: String) -> PluginDownloadLink? = { _, _ -> null },
-    private val platformResolver: (suspend (trackId: TrackId, level: String, kugouMeta: KugouTrackMeta?, query: PluginTrackQuery) -> SongPlaybackInfo?)? = null
+    private val platformResolver: (suspend (trackId: TrackId, level: String, kugouMeta: KugouTrackMeta?, query: PluginTrackQuery) -> SongPlaybackInfo?)? = null,
+    private val isPlatformEnabled: suspend (MusicPlatform) -> Boolean = { true }
 ) {
 
     suspend fun resolve(songId: Long, level: String, query: PluginTrackQuery): DownloadUrlOutcome {
@@ -82,7 +83,7 @@ class DownloadUrlResolver(
         return resolveFromPlugins(reason, level, query, logKey = "songId=$songId")
     }
 
-    // 跨平台下载直链解析：网易云走官方下载接口；其余平台先查官方播放/下载链路，试听或失败时按设置走插件换源
+    // 跨平台下载直链解析：网易云走官方下载接口；其余平台先查官方播放/下载链路，试听、关闭或失败时按设置走插件换源
     suspend fun resolvePlatform(
         trackId: TrackId,
         level: String,
@@ -94,6 +95,11 @@ class DownloadUrlResolver(
             if (neteaseId != null && neteaseId > 0L) {
                 return resolve(neteaseId, level, query)
             }
+        }
+
+        if (!isPlatformEnabled(trackId.platform)) {
+            AppLogger.i(TAG, "平台总开关已关闭，跳过官方下载解析 trackId=$trackId")
+            return resolveFromPlugins(PLATFORM_DISABLED, level, query, logKey = "trackId=$trackId")
         }
 
         val officialInfo = try {
@@ -179,5 +185,6 @@ class DownloadUrlResolver(
         const val NO_URL = "获取下载链接失败"
         const val TRIAL_ONLY = "该音质仅支持试听，需要 VIP/购买后才能完整下载"
         const val NEED_HIGHER_PLAN = "需要更高会员等级才能下载该音质"
+        const val PLATFORM_DISABLED = "该平台总开关已关闭"
     }
 }

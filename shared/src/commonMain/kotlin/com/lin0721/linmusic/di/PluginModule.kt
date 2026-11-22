@@ -25,6 +25,7 @@ import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.plugin.PluginRuntime
 import com.lin0721.linmusic.core.plugin.PluginStore
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.SourcePreferences
@@ -103,6 +104,13 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
                     ).getOrNull()
                 } else {
                     null
+                }
+            },
+            isPlatformEnabled = { platform ->
+                if (platform == MusicPlatform.KUGOU) {
+                    scope.getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true
+                } else {
+                    true
                 }
             }
         )

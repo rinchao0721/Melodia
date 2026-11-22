@@ -1,10 +1,13 @@
 package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -20,6 +23,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
+
+private const val TAG = "KugouPlaybackService"
 
 // 酷狗播放直链、音质权益、音频元信息、KRC/LRC 歌词与播放历史服务
 // 所有端点参数、请求头与签名逻辑严格对照 F:\dev\KuGouMusicApi\module\ 对应模块
@@ -28,9 +34,15 @@ class KugouPlaybackService(
     private val deviceStore: KugouDeviceStore,
     private val gatewayClient: KugouGatewayClient,
     private val userPreferences: UserPreferences,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    // 老版本持久化或短信登录缺少 auth 时，播前按需校验补齐（失败冷却防抖，不阻塞播放）
+    private val verifyPlaybackAuth: (suspend () -> Result<String>)? = null
 ) {
+    private val authVerifyMutex = Mutex()
+    private val authVerifyLastAttemptByUid = ConcurrentHashMap<String, Long>()
+
     companion object {
+        private const val AUTH_VERIFY_COOLDOWN_MS = 5 * 60_000L
         private val PRIVILEGE_QUALITIES = listOf(
             "128", "320", "flac", "high", "viper_atmos", "viper_tape", "viper_clear", "super", "multitrack"
         )
@@ -59,6 +71,7 @@ class KugouPlaybackService(
         hashes: List<String>,
         albumIds: List<String> = emptyList()
     ): Result<List<KugouPrivilegeResult>> = runCatching {
+        config.ensureModeSynced()
         val hashList = hashes.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         require(hashList.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -127,6 +140,7 @@ class KugouPlaybackService(
         albumAudioId: Long? = null,
         quality: UnifiedAudioQuality = UnifiedAudioQuality.EXHIGH
     ): Result<KugouSongUrlResult> = runCatching {
+        config.ensureModeSynced()
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -140,7 +154,10 @@ class KugouPlaybackService(
         val token = activeAccount?.credentials?.get("token").orEmpty()
         val vipToken = activeAccount?.credentials?.get("vip_token").orEmpty()
         val vipType = activeAccount?.credentials?.get("vip_type")?.toIntOrNull() ?: 0
-        val auth = activeAccount?.credentials?.get("auth").orEmpty()
+        var auth = activeAccount?.credentials?.get("auth").orEmpty()
+        if (activeAccount != null && auth.isBlank() && verifyPlaybackAuth != null) {
+            auth = backfillAuthIfNeeded(userIdStr)
+        }
         val clientTimeMs = nowMs()
 
         val trackerKey = KugouSigner.signKey(
@@ -207,12 +224,42 @@ class KugouPlaybackService(
         parseSongUrlNewResponse(body, cleanHash, quality, albumId)
     }
 
+    // 仅在缺失 auth 时按账号冷却限流补齐，失败静默忽略以免阻塞正常播放直链解析
+    private suspend fun backfillAuthIfNeeded(uid: String): String {
+        val verify = verifyPlaybackAuth ?: return ""
+        if (uid.isBlank() || uid == "0") return ""
+        val lastAttempt = authVerifyLastAttemptByUid[uid]
+        if (lastAttempt != null && (nowMs() - lastAttempt) < AUTH_VERIFY_COOLDOWN_MS) {
+            return ""
+        }
+        return authVerifyMutex.withLock {
+            val latestAuth = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
+                ?.credentials?.get("auth")
+                ?.takeIf { it.isNotBlank() }
+            if (latestAuth != null) return@withLock latestAuth
+
+            val lockedLastAttempt = authVerifyLastAttemptByUid[uid]
+            val currentNow = nowMs()
+            if (lockedLastAttempt != null && (currentNow - lockedLastAttempt) < AUTH_VERIFY_COOLDOWN_MS) {
+                return@withLock ""
+            }
+            authVerifyLastAttemptByUid[uid] = currentNow
+            verify.invoke()
+                .onFailure { err ->
+                    AppLogger.w(TAG, "按需补齐酷狗 auth 失败 uid=$uid", err)
+                }
+                .getOrNull()
+                .orEmpty()
+        }
+    }
+
     // 对照 module/song_url.js：备选回退链路（/v5/url，clientver=11430，encryptKey + notSignature）
     suspend fun getSongUrlLegacy(
         hash: String,
         albumId: String? = null,
         quality: UnifiedAudioQuality = UnifiedAudioQuality.EXHIGH
     ): Result<KugouSongUrlResult> = runCatching {
+        config.ensureModeSynced()
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -264,6 +311,7 @@ class KugouPlaybackService(
 
     // 对照 module/audio.js：批量获取音频元数据（时长、码率、封面、album_audio_id 等）
     suspend fun getAudioMetadata(hashes: List<String>): Result<List<KugouAudioMetadataDto>> = runCatching {
+        config.ensureModeSynced()
         val cleanHashes = hashes.map { it.trim() }.filter { it.isNotEmpty() }
         require(cleanHashes.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -348,6 +396,7 @@ class KugouPlaybackService(
         keyword: String = "",
         durationMs: Long = 0L
     ): Result<List<KugouLyricCandidateDto>> = runCatching {
+        config.ensureModeSynced()
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "GET",

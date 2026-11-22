@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.kugou
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -28,6 +29,7 @@ import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import java.io.IOException
 import java.net.Proxy
+import java.net.URLEncoder
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -123,7 +125,10 @@ class KugouGatewayClient(
 
     // 对照 KuGouMusicApi/util/request.js#createRequest
     suspend fun executeRequest(options: KugouRequestOptions): KugouRawResponse {
+        config.ensureModeSynced()
         val mode = config.mode
+        val effectiveAppId = options.overrideAppId ?: mode.appid
+        val effectiveClientVer = options.overrideClientVer ?: mode.clientver
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = if (options.skipActiveAccountCookies) {
             null
@@ -150,8 +155,8 @@ class KugouGatewayClient(
             mergedParams["dfid"] = dfid
             mergedParams["mid"] = mid
             mergedParams["uuid"] = uuid
-            mergedParams["appid"] = config.effectiveAppId(options.overrideAppId)
-            mergedParams["clientver"] = config.effectiveClientVer(options.overrideClientVer)
+            mergedParams["appid"] = effectiveAppId
+            mergedParams["clientver"] = effectiveClientVer
             mergedParams["clienttime"] = clienttime
             if (token.isNotBlank()) {
                 mergedParams["token"] = token
@@ -171,7 +176,7 @@ class KugouGatewayClient(
             val pMid = mergedParams["mid"]?.toString().orEmpty()
             val pUserId = mergedParams["userid"] ?: 0
             val pAppId = mergedParams["appid"]?.toString()?.toIntOrNull()
-                ?: config.effectiveAppId(options.overrideAppId)
+                ?: effectiveAppId
             mergedParams["key"] = KugouSigner.signKey(
                 hash = hash,
                 mid = pMid,
@@ -221,7 +226,7 @@ class KugouGatewayClient(
         val rawPath = if (options.url.startsWith("/")) options.url else "/${options.url}"
         val fullUrl = if ((options.baseUrl ?: "").contains("openapicdn")) {
             val rawQuery = mergedParams.entries.joinToString("&") { (k, v) ->
-                "$k=${formatParamValue(v)}"
+                "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(formatParamValue(v), "UTF-8")}"
             }
             if (rawQuery.isEmpty()) "$resolvedBase$rawPath" else "$resolvedBase$rawPath?$rawQuery"
         } else {
@@ -294,7 +299,9 @@ class KugouGatewayClient(
         cookieOverrides: Map<String, String> = emptyMap(),
         baseUrl: String? = null
     ): KugouRawResponse {
+        config.ensureModeSynced()
         val mode = config.mode
+        val effectivePublicKeyPem = config.overridePublicKeyPem ?: mode.publicKeyPem
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
 
@@ -322,7 +329,7 @@ class KugouGatewayClient(
             put("uid", uidNumeric)
             put("token", token)
         }.toString()
-        val portrait = KugouCrypto.rsaEncrypt2(portraitPlain, config.effectivePublicKeyPem()).uppercase()
+        val portrait = KugouCrypto.rsaEncrypt2(portraitPlain, effectivePublicKeyPem).uppercase()
 
         val resolvedBase = config.resolveBaseUrl(baseUrl)
         val rawPath = if (url.startsWith("/")) url else "/$url"
@@ -380,7 +387,7 @@ class KugouGatewayClient(
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     if (continuation.isActive) {
-                        continuation.resumeWithException(e)
+                        continuation.resumeWithException(AppError.NetworkError(e))
                     }
                 }
 

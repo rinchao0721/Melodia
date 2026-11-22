@@ -31,7 +31,7 @@ class AccountSwitcher(
                 ?: return false
             playbackControllerProvider()?.stopAndClearQueue()
             if (!userPreferences.switchTo(uid)) return false
-            metadataCache?.clearAll()
+            clearNeteaseCacheScopes(currentUid, uid)
             val profile = targetAccount.toUserProfile()
             AccountEvents.notifySwitched(
                 previousUid = currentUid,
@@ -57,7 +57,7 @@ class AccountSwitcher(
         playbackControllerProvider()?.stopAndClearQueue()
         if (currentUid == null) {
             userPreferences.clearUserProfile()
-            metadataCache?.clearAll()
+            clearNeteaseCacheScopes()
             AccountEvents.notifySwitched(
                 previousUid = null,
                 currentUid = null,
@@ -74,7 +74,7 @@ class AccountSwitcher(
         runCatching { authRepository.logout().first() }
             .onFailure { AppLogger.w(TAG, "服务端退出登录失败，继续移除本地账户 uid=$currentUid", it) }
         val nextUid = userPreferences.removeAccount(currentUid)
-        metadataCache?.clearAll()
+        clearNeteaseCacheScopes(currentUid, nextUid)
         val nextProfile = if (nextUid != null) {
             userPreferences.storedAccounts.first().firstOrNull { it.uid == nextUid }?.toUserProfile()
         } else {
@@ -101,7 +101,7 @@ class AccountSwitcher(
             val switchingFromOther = previousUid != null && previousUid != profile.uid
             if (switchingFromOther) {
                 playbackControllerProvider()?.stopAndClearQueue()
-                metadataCache?.clearAll()
+                clearNeteaseCacheScopes(previousUid, profile.uid)
             }
             AccountEvents.notifySwitched(
                 previousUid = previousUid,
@@ -224,14 +224,30 @@ class AccountSwitcher(
             .onFailure { AppLogger.w(TAG, "登录后同步平台资料失败 accountId=${account.accountId.canonical}", it) }
     }
 
+    private suspend fun clearNeteaseCacheScopes(vararg uids: Long?) {
+        val cache = metadataCache ?: return
+        cache.clearScope(MusicPlatform.NETEASE.key)
+        cache.clearScope("0")
+        uids.filterNotNull().distinct().forEach { uid ->
+            cache.clearScope(uid.toString())
+            cache.clearScope(AccountId.netease(uid).canonical)
+        }
+    }
+
     private suspend fun clearPlatformCacheScopes(
         platform: MusicPlatform,
         vararg accountIds: AccountId?
     ) {
         val cache = metadataCache ?: return
         cache.clearScope(platform.key)
+        if (platform == MusicPlatform.NETEASE) {
+            cache.clearScope("0")
+        }
         accountIds.filterNotNull().distinctBy { it.canonical }.forEach { id ->
             cache.clearScope(id.canonical)
+            if (platform == MusicPlatform.NETEASE) {
+                cache.clearScope(id.rawId)
+            }
         }
     }
 }

@@ -353,6 +353,62 @@ class KugouGatewayAndAuthTest {
         assertTrue(cloudResp.bodyJson?.get("data")?.jsonObject?.get("ok")?.jsonPrimitive?.content == "true")
     }
 
+    @Test
+    fun `冷启动首请求经 modeSynchronizer 同步为 STANDARD 且 openapicdn 参数正确编码并在 IOException 时保留 cause`() = runTest {
+        val syncCalls = java.util.concurrent.atomic.AtomicInteger(0)
+        val baseUrl = server.url("/").toString().trimEnd('/')
+        val standardConfig = KugouConfig(
+            initialMode = KugouClientMode.LITE,
+            gatewayBaseUrl = baseUrl,
+            baseUrlRewriter = { baseUrl },
+            overridePublicKeyPem = testPublicKeyPem,
+            modeSynchronizer = {
+                syncCalls.incrementAndGet()
+                KugouClientMode.STANDARD
+            }
+        )
+        val syncGateway = KugouGatewayClient(
+            config = standardConfig,
+            deviceStore = deviceStore,
+            userPreferences = userPreferences,
+            nowMs = { clockMs }
+        )
+
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"status":1,"error_code":0,"data":{"ok":1}}"""))
+        val resp1 = syncGateway.executeRequest(
+            KugouRequestOptions(
+                method = "GET",
+                url = "/v1/search",
+                baseUrl = "https://openapicdn.kugou.com",
+                params = mapOf("keyword" to "a b&c=1", "album_id" to "中文"),
+                notSignature = true
+            )
+        )
+        assertTrue(resp1.isBizSuccess)
+        assertEquals(KugouClientMode.STANDARD, standardConfig.mode)
+        assertEquals(1, syncCalls.get())
+
+        val req1 = server.takeRequest()
+        assertEquals(KugouClientMode.STANDARD.appid.toString(), req1.requestUrl!!.queryParameter("appid"))
+        assertEquals(KugouClientMode.STANDARD.clientver.toString(), req1.requestUrl!!.queryParameter("clientver"))
+        assertEquals("a b&c=1", req1.requestUrl!!.queryParameter("keyword"))
+        assertEquals("中文", req1.requestUrl!!.queryParameter("album_id"))
+
+        // 第二次请求不应重复调用 modeSynchronizer
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"status":1,"error_code":0}"""))
+        syncGateway.executeRequest(KugouRequestOptions(method = "GET", url = "/v1/ping", notSignature = true))
+        assertEquals(1, syncCalls.get())
+        server.takeRequest()
+
+        // 关闭 server 触发 IOException，应包装为 AppError.NetworkError 且保留原始 cause
+        server.shutdown()
+        val netFailure = runCatching {
+            syncGateway.executeRequest(KugouRequestOptions(method = "GET", url = "/v1/ping", notSignature = true))
+        }.exceptionOrNull()
+        assertTrue(netFailure is com.lin0721.linmusic.core.network.AppError.NetworkError)
+        assertTrue(netFailure?.cause is java.io.IOException)
+    }
+
     private fun rebindClientToServer() {
         val baseUrl = server.url("/").toString().trimEnd('/')
         config = KugouConfig(

@@ -153,7 +153,7 @@ fun WindowScope.MelodiaDesktopApp(
     }
     LaunchedEffect(deps) {
         deps.settingsPreferences.kugouClientMode.collect { mode ->
-            deps.kugouConfig.mode = mode
+            deps.kugouConfig.updateMode(mode)
         }
     }
     LaunchedEffect(state) {

@@ -46,7 +46,9 @@ class SessionMonitor(
     private val playbackControllerProvider: () -> PlaybackController? = { null },
     private val metadataCache: MetadataCache? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
-    private val platformSessionRegistry: PlatformSessionRegistry? = null
+    private val platformSessionRegistry: PlatformSessionRegistry? = null,
+    private val isKugouEnabled: suspend () -> Boolean = { true },
+    private val ensureKugouModeSynced: suspend () -> Unit = {}
 ) {
     constructor(
         userPreferences: UserPreferences,
@@ -58,7 +60,9 @@ class SessionMonitor(
         playbackControllerProvider = { null },
         metadataCache = null,
         nowMs = nowMs,
-        platformSessionRegistry = null
+        platformSessionRegistry = null,
+        isKugouEnabled = { true },
+        ensureKugouModeSynced = {}
     )
 
     private val checkMutex = Mutex()
@@ -137,6 +141,8 @@ class SessionMonitor(
 
     // 启动时校验酷狗活跃账号：超 6 小时或首次校验刷新 token，并拉取最新资料/VIP；仅在明确 token 失效时移除酷狗账号，绝不影响网易云
     private suspend fun verifyKugouAtStartupLocked() {
+        if (!isKugouEnabled()) return
+        ensureKugouModeSynced()
         val provider = platformSessionRegistry?.providerOf(MusicPlatform.KUGOU) ?: return
         val visited = HashSet<String>()
         repeat(UserPreferences.MAX_ACCOUNTS) {
@@ -244,7 +250,7 @@ class SessionMonitor(
         // 必须在 removeAccount 前调用 logout，保证请求仍携带即将失效的账户凭据且不误注销回落账户
         runCatching { authRepository.logout().first() }
         val nextUid = userPreferences.removeAccount(activeUid)
-        metadataCache?.clearAll()
+        clearNeteaseCacheScopes(activeUid, nextUid)
 
         val nextAccount = if (nextUid != null) {
             userPreferences.storedAccounts.first().firstOrNull { it.uid == nextUid }
@@ -294,6 +300,16 @@ class SessionMonitor(
                 }
             }
             .onFailure { AppLogger.w(TAG, "登录续期失败", it) }
+    }
+
+    private suspend fun clearNeteaseCacheScopes(vararg uids: Long?) {
+        val cache = metadataCache ?: return
+        cache.clearScope(MusicPlatform.NETEASE.key)
+        cache.clearScope("0")
+        uids.filterNotNull().distinct().forEach { uid ->
+            cache.clearScope(uid.toString())
+            cache.clearScope(AccountId.netease(uid).canonical)
+        }
     }
 }
 

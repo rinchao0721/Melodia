@@ -53,16 +53,25 @@ fun KugouLoginBottomSheet(
 ) {
     val viewModel: KugouLoginViewModel = koinViewModel()
     var activeTab by remember { mutableStateOf(KugouLoginTab.QR) }
+    val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
+    val stableOnLoginSuccess = remember {
+        { account: StoredAccount -> currentOnLoginSuccess(account) }
+    }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.reset() }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.reset()
+        activeTab = KugouLoginTab.QR
     }
 
     LaunchedEffect(activeTab) {
         if (activeTab == KugouLoginTab.QR) {
             val cur = viewModel.qrState.value
             if (cur is KugouQrState.Idle || cur is KugouQrState.Expired) {
-                viewModel.startQrLogin(onLoginSuccess)
+                viewModel.startQrLogin(stableOnLoginSuccess)
             }
         } else {
             viewModel.stopQrPolling()
@@ -154,14 +163,14 @@ fun KugouLoginBottomSheet(
                     when (tab) {
                         KugouLoginTab.QR -> KugouQrLoginContent(
                             viewModel = viewModel,
-                            onLoginSuccess = onLoginSuccess
+                            onLoginSuccess = stableOnLoginSuccess
                         )
                         KugouLoginTab.PHONE -> KugouPhoneLoginContent(
                             viewModel = viewModel,
-                            onLoginSuccess = onLoginSuccess,
+                            onLoginSuccess = stableOnLoginSuccess,
                             onSwitchToQr = {
                                 activeTab = KugouLoginTab.QR
-                                viewModel.startQrLogin(onLoginSuccess)
+                                viewModel.startQrLogin(stableOnLoginSuccess)
                             }
                         )
                     }

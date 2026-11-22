@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.TrackId
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,12 +57,20 @@ class DownloadPreferences(private val context: Context) {
     var recordsByIdSnapshot by mutableStateOf<Map<Long, DownloadRecord>>(emptyMap())
         private set
 
+    // 按跨平台 TrackId 索引的内存快照
+    var recordsByTrackIdSnapshot by mutableStateOf<Map<TrackId, DownloadRecord>>(emptyMap())
+        private set
+
     init {
         scope.launch {
             records.collect { list ->
                 val byId = list.associateBy { it.songId }
+                val byTrackId = list.mapNotNull { record ->
+                    if (record.trackId != null || record.songId >= 0L) record.effectiveTrackId to record else null
+                }.toMap()
                 Snapshot.withMutableSnapshot {
                     recordsByIdSnapshot = byId
+                    recordsByTrackIdSnapshot = byTrackId
                 }
             }
         }
@@ -84,19 +93,45 @@ class DownloadPreferences(private val context: Context) {
     suspend fun findVerifiedRecord(songId: Long): DownloadRecord? =
         records.first().firstOrNull { it.songId == songId }?.let { verifyOrPurge(it) }
 
+    // 按 TrackId 查询校验通过的下载记录
+    suspend fun findVerifiedRecord(trackId: TrackId): DownloadRecord? =
+        records.first().firstOrNull { it.storageKey == trackId.canonical }?.let { verifyOrPurge(it) }
+
     // 批量查询校验通过的下载记录，失效记录一次性清理
     suspend fun findVerifiedRecords(songIds: Collection<Long>): List<DownloadRecord> {
         val idSet = songIds.toHashSet()
         val candidates = records.first().filter { it.songId in idSet }
+        return verifyAndPurgeCandidates(candidates)
+    }
+
+    // 按 TrackId 批量查询校验通过的下载记录
+    suspend fun findVerifiedRecordsForTracks(trackIds: Collection<TrackId>): List<DownloadRecord> {
+        val keySet = trackIds.mapTo(HashSet()) { it.canonical }
+        return findVerifiedRecordsForKeys(keySet)
+    }
+
+    // 按 storageKey 批量查询校验通过的下载记录
+    suspend fun findVerifiedRecordsForKeys(keys: Collection<String>): List<DownloadRecord> {
+        val keySet = keys.toHashSet()
+        if (keySet.isEmpty()) return emptyList()
+        val candidates = records.first().filter { it.storageKey in keySet }
+        return verifyAndPurgeCandidates(candidates)
+    }
+
+    private suspend fun verifyAndPurgeCandidates(candidates: List<DownloadRecord>): List<DownloadRecord> {
         if (candidates.isEmpty()) return emptyList()
         val (alive, stale) = candidates.partition { fileExists(it.mediaStoreUri) }
-        if (stale.isNotEmpty()) removeRecords(stale.map { it.songId }.toSet())
+        if (stale.isNotEmpty()) removeRecordsByKeys(stale.mapTo(HashSet()) { it.storageKey })
         return alive
     }
 
     // 下载记录中是否有其他歌曲占用该文件，避免覆盖同名的另一首歌
     suspend fun isUriClaimedByOtherSong(uriString: String, songId: Long): Boolean =
         records.first().any { it.mediaStoreUri == uriString && it.songId != songId }
+
+    // 按 TrackId 判断文件是否被其他曲目占用
+    suspend fun isUriClaimedByOtherTrack(uriString: String, trackId: TrackId): Boolean =
+        records.first().any { it.mediaStoreUri == uriString && it.storageKey != trackId.canonical }
 
     // 校验文件存在性并清理失效记录
     private suspend fun verifyOrPurge(record: DownloadRecord): DownloadRecord? =
@@ -105,7 +140,7 @@ class DownloadPreferences(private val context: Context) {
             record
         } else {
             verifiedUris.remove(record.mediaStoreUri)
-            removeRecord(record.songId)
+            removeRecordsByKeys(setOf(record.storageKey))
             null
         }
 
@@ -132,26 +167,26 @@ class DownloadPreferences(private val context: Context) {
     // 删除已下载歌曲：文件删除成功或文件已不存在时一并移除记录
     suspend fun deleteDownload(record: DownloadRecord): Boolean {
         val deleted = deleteFile(record.mediaStoreUri) || !fileExists(record.mediaStoreUri)
-        if (deleted) removeRecord(record.songId)
+        if (deleted) removeRecordsByKeys(setOf(record.storageKey))
         return deleted
     }
 
-    // 添加或更新下载记录
+    // 添加或更新下载记录（按 storageKey 去重）
     suspend fun addRecord(record: DownloadRecord) {
         verifiedUris.add(record.mediaStoreUri)
         context.downloadDataStore.edit { prefs ->
-            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId == record.songId } + record
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey == record.storageKey } + record
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }
 
-    // 批量添加或更新下载记录
+    // 批量添加或更新下载记录（按 storageKey 去重）
     suspend fun addRecords(newRecords: List<DownloadRecord>) {
         if (newRecords.isEmpty()) return
         newRecords.forEach { verifiedUris.add(it.mediaStoreUri) }
-        val ids = newRecords.mapTo(HashSet()) { it.songId }
+        val keys = newRecords.mapTo(HashSet()) { it.storageKey }
         context.downloadDataStore.edit { prefs ->
-            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in ids } + newRecords
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey in keys } + newRecords
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }
@@ -161,6 +196,13 @@ class DownloadPreferences(private val context: Context) {
     private suspend fun removeRecords(songIds: Set<Long>) {
         context.downloadDataStore.edit { prefs ->
             val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in songIds }
+            prefs[KEY_RECORDS] = json.encodeToString(updated)
+        }
+    }
+
+    private suspend fun removeRecordsByKeys(keys: Set<String>) {
+        context.downloadDataStore.edit { prefs ->
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey in keys }
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }

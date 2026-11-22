@@ -26,6 +26,7 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import com.lin0721.linmusic.feature.music.data.MusicRepository
 import com.lin0721.linmusic.feature.music.data.MusicRepositoryImpl
 import com.lin0721.linmusic.feature.home.data.HomeRepository
@@ -118,15 +119,21 @@ val repositoryModule = module {
     single(createdAtStart = true) {
         val api = get<PlaybackApi>()
         val onlineState = getOrNull<com.lin0721.linmusic.core.network.OnlineStateProvider>()
+        val settingsPreferences = get<SettingsPreferences>()
         SongQualityCache(
-            enabledFlow = get<SettingsPreferences>().showSongMaxQuality,
+            enabledFlow = settingsPreferences.showSongMaxQuality,
             fetcher = { ids -> fetchSongMaxQuality(api, ids) },
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
             dataStore = getOrNull(org.koin.core.qualifier.named(com.lin0721.linmusic.core.preferences.PreferencesStores.SONG_QUALITY)),
             isOnline = { onlineState?.isOnline() ?: true },
             platformFetcher = { platform, ids ->
+                val enabled = if (platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU) {
+                    settingsPreferences.kugouPlatformEnabled.first()
+                } else {
+                    true
+                }
                 val router = getOrNull<com.lin0721.linmusic.core.player.PlatformPlaybackRouter>()
-                if (router != null && router.supports(platform)) {
+                if (enabled && router != null && router.supports(platform)) {
                     router.getQualityLevels(ids)
                         .getOrNull()
                         ?.mapValues { (_, quality) -> quality.neteaseCode }
@@ -201,7 +208,8 @@ val repositoryModule = module {
             userPreferences = getOrNull(),
             resolveTrackByLegacyId = { legacyId ->
                 getOrNull<PlaybackController>()?.queue?.value?.firstOrNull { it.songId == legacyId }?.external
-            }
+            },
+            isKugouEnabled = { getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true }
         )
     }
     single<SongLikeRepository> { get<SongLikeRepositoryImpl>() }
@@ -257,7 +265,9 @@ val repositoryModule = module {
             authRepository = get(),
             playbackControllerProvider = { getOrNull<PlaybackController>() },
             metadataCache = getOrNull(),
-            platformSessionRegistry = getOrNull()
+            platformSessionRegistry = getOrNull(),
+            isKugouEnabled = { getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true },
+            ensureKugouModeSynced = { getOrNull<com.lin0721.linmusic.core.kugou.KugouConfig>()?.ensureModeSynced() }
         )
     }
     single {

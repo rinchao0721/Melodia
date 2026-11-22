@@ -12,18 +12,40 @@ import com.lin0721.linmusic.core.kugou.KugouLikeService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
 import com.lin0721.linmusic.core.player.KugouPlaybackProvider
 import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.flow.first
 import org.koin.dsl.module
 
 // 酷狗独立网络/加密/鉴权/播放模块与跨平台会话及播放路由注册表
 val kugouModule = module {
-    single { KugouConfig() }
+    single {
+        KugouConfig(
+            modeSynchronizer = {
+                getOrNull<SettingsPreferences>()?.kugouClientMode?.first() ?: KugouConfig().mode
+            }
+        )
+    }
     single { KugouDeviceStore(get<UserPreferences>().preferencesDataStore) }
     single { KugouGatewayClient(get(), get(), get()) }
     single { KugouAuthService(get(), get(), get(), get()) }
     single { KugouAuthProvider(get(), get()) }
-    single { KugouPlaybackService(get(), get(), get(), get()) }
+    single {
+        KugouPlaybackService(
+            config = get(),
+            deviceStore = get(),
+            gatewayClient = get(),
+            userPreferences = get(),
+            verifyPlaybackAuth = { get<KugouAuthService>().verifyPlaybackAuth() }
+        )
+    }
     single { KugouLikeService(get(), get()) }
-    single { KugouPlaybackProvider(get(), getOrNull()) }
+    single {
+        KugouPlaybackProvider(
+            playbackService = get(),
+            lyricsCache = getOrNull(),
+            isEnabled = { getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true }
+        )
+    }
     single {
         PlatformPlaybackRouter(
             providers = listOf(

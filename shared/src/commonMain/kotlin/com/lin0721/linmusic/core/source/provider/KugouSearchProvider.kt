@@ -36,7 +36,9 @@ class KugouSearchProvider : PlatformSearchProvider {
 
             infoList.mapNotNull { itemElem ->
                 val obj = itemElem.jsonObject
-                val hash = obj["hash"]?.jsonPrimitive?.contentOrNull?.trim() ?: return@mapNotNull null
+                val hash = obj["hash"]?.jsonPrimitive?.contentOrNull?.trim()?.lowercase()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: return@mapNotNull null
                 val songName = obj["songname"]?.jsonPrimitive?.contentOrNull?.trim() ?: return@mapNotNull null
                 val artist = obj["singername"]?.jsonPrimitive?.contentOrNull?.trim() ?: ""
                 val album = obj["album_name"]?.jsonPrimitive?.contentOrNull?.trim() ?: ""

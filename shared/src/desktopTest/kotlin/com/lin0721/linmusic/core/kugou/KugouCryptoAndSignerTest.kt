@@ -169,4 +169,35 @@ class KugouCryptoAndSignerTest {
         )
         assertEquals("", KugouCrypto.decodeKrcLyrics(byteArrayOf(1, 2, 3)))
     }
+
+    @Test
+    fun `KRC 解压体积超过 4MB 上限时拒绝解压并返回空字符串`() {
+        val krcKey = byteArrayOf(
+            64, 71, 97, 119, 94, 50, 116, 71,
+            81, 54, 49, 45, 206.toByte(), 210.toByte(), 110, 105
+        )
+        // 构造 4MB + 4KB 的重复明文（极高压缩比），验证不会被异常膨胀解压
+        val oversized = ByteArray(4 * 1024 * 1024 + 4096) { 'A'.code.toByte() }
+        val deflater = java.util.zip.Deflater()
+        deflater.setInput(oversized)
+        deflater.finish()
+        val deflated = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(4096)
+        while (!deflater.finished()) {
+            val n = deflater.deflate(buf)
+            deflated.write(buf, 0, n)
+        }
+        deflater.end()
+        val compressed = deflated.toByteArray()
+        val payload = ByteArray(4 + compressed.size)
+        payload[0] = 'k'.code.toByte()
+        payload[1] = 'r'.code.toByte()
+        payload[2] = 'c'.code.toByte()
+        payload[3] = '1'.code.toByte()
+        for (i in compressed.indices) {
+            payload[i + 4] = (compressed[i].toInt() xor krcKey[i % krcKey.size].toInt()).toByte()
+        }
+
+        assertEquals("", KugouCrypto.decodeKrcLyrics(payload))
+    }
 }

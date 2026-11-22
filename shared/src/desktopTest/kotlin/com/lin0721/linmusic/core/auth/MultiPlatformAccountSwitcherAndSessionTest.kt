@@ -291,6 +291,82 @@ class MultiPlatformAccountSwitcherAndSessionTest {
 
         assertEquals(kugou.accountId, prefs.activeAccountOf(MusicPlatform.KUGOU).first()?.accountId)
     }
+
+    @Test
+    fun verifyAtStartupSkipsKugouWhenKugouPlatformDisabled() = runTest {
+        val prefs = UserPreferences(InMemoryPreferencesStore(), nowMs = { now })
+        val kugou = StoredAccount(
+            uid = 601L,
+            nickname = "酷狗号",
+            platform = MusicPlatform.KUGOU,
+            platformUid = "601",
+            credentials = mapOf("token" to "tok"),
+            lastLoginRefreshAt = 0L
+        )
+        prefs.upsertPlatformAccount(kugou, activate = true)
+
+        val kugouProvider = RecordingKugouAuthProvider().apply {
+            refreshResult = Result.failure(AppError.BizError(code = 20018, rawMsg = "token invalid"))
+        }
+        val monitor = SessionMonitor(
+            userPreferences = prefs,
+            authRepository = FakeAuthRepository(prefs),
+            nowMs = { now },
+            platformSessionRegistry = PlatformSessionRegistry(listOf(kugouProvider)),
+            isKugouEnabled = { false }
+        )
+
+        monitor.verifyAtStartup {}
+
+        assertEquals(0, kugouProvider.refreshCalls)
+        assertEquals(0, kugouProvider.detailCalls)
+        assertEquals(kugou.accountId, prefs.activeAccountOf(MusicPlatform.KUGOU).first()?.accountId)
+    }
+
+    @Test
+    fun switchNeteaseClearsOnlyNeteaseCacheScopesAndKeepsKugouCache() = runTest {
+        val prefs = UserPreferences(InMemoryPreferencesStore(), nowMs = { now })
+        val netease1 = StoredAccount(uid = 1L, nickname = "网易一", cookies = "MUSIC_U=n1")
+        val netease2 = StoredAccount(uid = 2L, nickname = "网易二", cookies = "MUSIC_U=n2")
+        val kugou = StoredAccount(
+            uid = 101L,
+            nickname = "酷狗一",
+            platform = MusicPlatform.KUGOU,
+            platformUid = "101",
+            credentials = mapOf("token" to "t1")
+        )
+        prefs.upsertAccount(netease1)
+        now += 10
+        prefs.upsertAccount(netease2)
+        now += 10
+        prefs.upsertPlatformAccount(kugou, activate = true)
+
+        val cache = MetadataCache(cacheDir) { prefs.activeUid.first() ?: 0L }
+        val neteaseLegacyDir = File(cacheDir, "2").apply { mkdirs() }
+        File(neteaseLegacyDir, "a.json").writeText("{}")
+        val neteaseScopedDir = File(cacheDir, "netease_2").apply { mkdirs() }
+        File(neteaseScopedDir, "b.json").writeText("{}")
+        val kugouDir = File(cacheDir, "kugou").apply { mkdirs() }
+        File(kugouDir, "keep.json").writeText("{}")
+        val kugouScopedDir = File(cacheDir, "kugou_101").apply { mkdirs() }
+        File(kugouScopedDir, "keep.json").writeText("{}")
+
+        val player = RecordingPlaybackController()
+        val switcher = AccountSwitcher(
+            userPreferences = prefs,
+            authRepository = FakeAuthRepository(prefs).apply {
+                accountResults = listOf(Result.success(loggedInAccount(uid = 1L, nickname = "网易一")))
+            },
+            metadataCache = cache,
+            playbackControllerProvider = { player }
+        )
+
+        assertTrue(switcher.switchTo(1L))
+        assertFalse(neteaseLegacyDir.exists())
+        assertFalse(neteaseScopedDir.exists())
+        assertTrue(File(kugouDir, "keep.json").exists())
+        assertTrue(File(kugouScopedDir, "keep.json").exists())
+    }
 }
 
 private class RecordingKugouAuthProvider : PlatformAuthProvider {

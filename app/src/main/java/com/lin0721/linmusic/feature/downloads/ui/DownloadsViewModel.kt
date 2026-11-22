@@ -29,7 +29,7 @@ class DownloadsViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val downloads: StateFlow<List<DownloadRecord>?> = downloadPreferences.records
         .mapLatest { records ->
-            downloadPreferences.findVerifiedRecords(records.map { it.songId })
+            downloadPreferences.findVerifiedRecordsForKeys(records.map { it.storageKey })
                 .sortedByDescending { it.downloadedAt }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -53,7 +53,7 @@ class DownloadsViewModel(
         val records = downloads.value.orEmpty()
         if (records.isEmpty()) return
         val queue = records.map { it.toQueueItem() }
-        val startIndex = record?.let { target -> records.indexOfFirst { it.songId == target.songId } }
+        val startIndex = record?.let { target -> records.indexOfFirst { it.storageKey == target.storageKey } }
             ?.coerceAtLeast(0) ?: 0
         playerManager.playQueue(queue, startIndex, PLAY_CONTEXT)
     }

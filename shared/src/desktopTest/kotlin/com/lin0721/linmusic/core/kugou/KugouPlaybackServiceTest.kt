@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
@@ -474,6 +475,92 @@ class KugouPlaybackServiceTest {
         // 批量音质路由查询
         val levels = router.getQualityLevels(listOf(trackId)).getOrThrow()
         assertEquals(UnifiedAudioQuality.MASTER, levels[trackId])
+    }
+
+    @Test
+    fun `KugouPlaybackProvider 在 isEnabled 为 false 时跳过全部官方网络请求`() = runTest {
+        val disabledProvider = KugouPlaybackProvider(
+            playbackService = playbackService,
+            lyricsCache = lyricsCache,
+            isEnabled = { false }
+        )
+        val disabledRouter = PlatformPlaybackRouter(listOf(disabledProvider))
+        val trackId = TrackId.kugou("B5E3CA48FC0D01F01DB0B6BBA570480F")
+        val meta = PlaybackTrackMeta(
+            title = "以我",
+            artists = "张赫煊",
+            kugouMeta = KugouTrackMeta(hash = trackId.rawId, mixSongId = 1109118629L)
+        )
+
+        assertTrue(disabledRouter.resolvePlayback(trackId, UnifiedAudioQuality.EXHIGH, meta).isFailure)
+        assertTrue(disabledRouter.getLyrics(trackId, meta).isFailure)
+        assertTrue(disabledRouter.reportPlayEnd(trackId, playedSeconds = 60L, meta = meta).isSuccess)
+        assertTrue(disabledRouter.getQualityLevels(listOf(trackId)).getOrThrow().isEmpty())
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `auth 缺失时 getSongUrlNew 按需补齐 verifyPlaybackAuth 并在失败后进入 5 分钟冷却`() = runTest {
+        // 移除 setUp 预置的含 auth 账号，重新写入无 auth 凭据的酷狗账号，模拟老数据或短信登录缺少 auth
+        userPreferences.removePlatformAccount(AccountId.kugou("889900"))
+        userPreferences.upsertPlatformAccount(
+            StoredAccount(
+                uid = 889900L,
+                nickname = "酷狗测试用户",
+                platform = MusicPlatform.KUGOU,
+                platformUid = "889900",
+                credentials = mapOf(
+                    "userid" to "889900",
+                    "token" to "kg_token_abc",
+                    "vip_token" to "kg_vip_token",
+                    "vip_type" to "6"
+                )
+            ),
+            activate = true
+        )
+
+        val verifyCalls = AtomicInteger(0)
+        var verifyShouldSucceed = false
+        val serviceWithVerify = KugouPlaybackService(
+            config = config,
+            deviceStore = deviceStore,
+            gatewayClient = gatewayClient,
+            userPreferences = userPreferences,
+            nowMs = { clockMs },
+            verifyPlaybackAuth = {
+                if (verifyCalls.incrementAndGet() >= 2 && verifyShouldSucceed) {
+                    Result.success("backfilled_auth_999")
+                } else {
+                    Result.failure(IllegalStateException("临时失败"))
+                }
+            }
+        )
+
+        repeat(2) {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"status":1,"data":{"quality":"128","url":["https://cdn.kugou.com/128.mp3"]}}"""
+                )
+            )
+        }
+
+        // 首次失败触发冷却，1 分钟内第二次不重复请求 verifyPlaybackAuth
+        serviceWithVerify.getSongUrlNew(hash = "B5E3CA48FC0D01F01DB0B6BBA570480F").getOrThrow()
+        assertEquals(1, verifyCalls.get())
+        clockMs += 60_000L
+        serviceWithVerify.getSongUrlNew(hash = "B5E3CA48FC0D01F01DB0B6BBA570480F").getOrThrow()
+        assertEquals(1, verifyCalls.get())
+
+        // 超过 5 分钟冷却后再次触发并成功补齐
+        clockMs += 5 * 60_000L
+        verifyShouldSucceed = true
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"status":1,"data":{"quality":"128","url":["https://cdn.kugou.com/128.mp3"]}}"""
+            )
+        )
+        serviceWithVerify.getSongUrlNew(hash = "B5E3CA48FC0D01F01DB0B6BBA570480F").getOrThrow()
+        assertEquals(2, verifyCalls.get())
     }
 
     private fun encodeKrcBase64(plainText: String): String {

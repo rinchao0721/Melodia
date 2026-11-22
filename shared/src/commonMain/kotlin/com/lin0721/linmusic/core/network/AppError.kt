@@ -2,8 +2,14 @@ package com.lin0721.linmusic.core.network
 
 // Repository 出口统一的错误语义类型，UI 层按类型分流渲染，不携带面向用户的文案
 sealed class AppError : Exception() {
-    // 连接层失败（IOException 等），非 ApiException
-    data object NetworkError : AppError()
+    // 连接层失败（IOException 等），非 ApiException，可选携带原始异常便于日志排查
+    open class NetworkError(override val cause: Throwable? = null) : AppError() {
+        companion object : NetworkError(null)
+
+        override fun equals(other: Any?): Boolean = other is NetworkError
+
+        override fun hashCode(): Int = NetworkError::class.hashCode()
+    }
 
     // 映射自 ApiException（0 字节响应，风控/鉴权失败）
     data object RiskControl : AppError()

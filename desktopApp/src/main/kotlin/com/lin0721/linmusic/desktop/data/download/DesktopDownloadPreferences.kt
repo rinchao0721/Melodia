@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.TrackId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -39,31 +40,49 @@ class DesktopDownloadPreferences(private val dataStore: DataStore<Preferences>) 
     suspend fun findVerifiedRecord(songId: Long): DownloadRecord? =
         findVerifiedRecords(listOf(songId)).firstOrNull()
 
+    suspend fun findVerifiedRecord(trackId: TrackId): DownloadRecord? =
+        findVerifiedRecordsForTracks(listOf(trackId)).firstOrNull()
+
     // 文件被删除的记录一并清理
     suspend fun findVerifiedRecords(songIds: Collection<Long>): List<DownloadRecord> {
         val idSet = songIds.toHashSet()
         val candidates = records.first().filter { it.songId in idSet }
+        return verifyAndPurgeCandidates(candidates)
+    }
+
+    // 按 TrackId 批量查询校验通过的下载记录，失效记录按 storageKey 清理
+    suspend fun findVerifiedRecordsForTracks(trackIds: Collection<TrackId>): List<DownloadRecord> {
+        val keySet = trackIds.mapTo(HashSet()) { it.canonical }
+        if (keySet.isEmpty()) return emptyList()
+        val candidates = records.first().filter { it.storageKey in keySet }
+        return verifyAndPurgeCandidates(candidates)
+    }
+
+    private suspend fun verifyAndPurgeCandidates(candidates: List<DownloadRecord>): List<DownloadRecord> {
         if (candidates.isEmpty()) return emptyList()
         val (alive, stale) = withContext(Dispatchers.IO) { candidates.partition { File(it.mediaStoreUri).isFile } }
-        if (stale.isNotEmpty()) removeRecords(stale.mapTo(HashSet()) { it.songId })
+        if (stale.isNotEmpty()) removeRecordsByKeys(stale.mapTo(HashSet()) { it.storageKey })
         return alive
     }
 
     suspend fun isPathClaimedByOtherSong(path: String, songId: Long): Boolean =
         records.first().any { it.mediaStoreUri == path && it.songId != songId }
 
+    suspend fun isPathClaimedByOtherTrack(path: String, trackId: TrackId): Boolean =
+        records.first().any { it.mediaStoreUri == path && it.storageKey != trackId.canonical }
+
     suspend fun addRecord(record: DownloadRecord) {
         dataStore.edit { prefs ->
-            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId == record.songId } + record
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey == record.storageKey } + record
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }
 
     suspend fun addRecords(newRecords: List<DownloadRecord>) {
         if (newRecords.isEmpty()) return
-        val ids = newRecords.mapTo(HashSet()) { it.songId }
+        val keys = newRecords.mapTo(HashSet()) { it.storageKey }
         dataStore.edit { prefs ->
-            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in ids } + newRecords
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey in keys } + newRecords
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }
@@ -82,9 +101,9 @@ class DesktopDownloadPreferences(private val dataStore: DataStore<Preferences>) 
         dataStore.edit { prefs -> prefs[KEY_TASKS] = json.encodeToString(tasks) }
     }
 
-    private suspend fun removeRecords(songIds: Set<Long>) {
+    private suspend fun removeRecordsByKeys(keys: Set<String>) {
         dataStore.edit { prefs ->
-            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.songId in songIds }
+            val updated = decodeRecords(prefs[KEY_RECORDS]).filterNot { it.storageKey in keys }
             prefs[KEY_RECORDS] = json.encodeToString(updated)
         }
     }

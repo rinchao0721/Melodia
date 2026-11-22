@@ -388,9 +388,9 @@ fun MelodiaApp() {
     val accountScope = rememberCoroutineScope()
     val sessionMonitor: SessionMonitor = koinInject()
     val kugouConfig: KugouConfig = koinInject()
-    val kugouClientMode by settingsPreferences.kugouClientMode.collectAsStateWithLifecycle(initialValue = KugouClientMode.LITE)
+    val kugouClientMode by settingsPreferences.kugouClientMode.collectAsStateWithLifecycle<KugouClientMode?>(initialValue = null)
     LaunchedEffect(kugouClientMode) {
-        kugouConfig.mode = kugouClientMode
+        kugouClientMode?.let(kugouConfig::updateMode)
     }
     var showKugouLoginSheet by remember { mutableStateOf(false) }
     LaunchedEffect(sessionMonitor) {

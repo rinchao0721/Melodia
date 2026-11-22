@@ -60,7 +60,8 @@ interface PlatformPlaybackProvider {
 // 酷狗平台播放提供者：直链主链 /v6/priv_url -> 回退 /v5/url；歌词 search + download + KRC 解析；播放历史上传
 class KugouPlaybackProvider(
     private val playbackService: KugouPlaybackService,
-    private val lyricsCache: LyricsCache? = null
+    private val lyricsCache: LyricsCache? = null,
+    private val isEnabled: suspend () -> Boolean = { true }
 ) : PlatformPlaybackProvider {
 
     override val platform: MusicPlatform = MusicPlatform.KUGOU
@@ -70,6 +71,9 @@ class KugouPlaybackProvider(
         preferredQuality: UnifiedAudioQuality,
         meta: PlaybackTrackMeta?
     ): Result<SongPlaybackInfo> {
+        if (!isEnabled()) {
+            return Result.failure(IllegalStateException("酷狗音乐平台已关闭"))
+        }
         if (trackId.platform != MusicPlatform.KUGOU) {
             return Result.failure(IllegalArgumentException("不支持的平台: ${trackId.platform.key}"))
         }
@@ -116,6 +120,9 @@ class KugouPlaybackProvider(
         trackId: TrackId,
         meta: PlaybackTrackMeta?
     ): Result<String> {
+        if (!isEnabled()) {
+            return Result.failure(IllegalStateException("酷狗音乐平台已关闭"))
+        }
         if (trackId.platform != MusicPlatform.KUGOU) {
             return Result.failure(IllegalArgumentException("不支持的平台: ${trackId.platform.key}"))
         }
@@ -172,11 +179,13 @@ class KugouPlaybackProvider(
         playedSeconds: Long,
         meta: PlaybackTrackMeta?
     ): Result<Unit> {
+        if (!isEnabled()) return Result.success(Unit)
         val mixSongId = meta?.kugouMeta?.mixSongId?.takeIf { it > 0L } ?: return Result.success(Unit)
         return playbackService.uploadPlayHistory(mixSongId = mixSongId, playedSeconds = playedSeconds)
     }
 
     override suspend fun getQualityLevels(tracks: List<TrackId>): Result<Map<TrackId, UnifiedAudioQuality>> = runCatching {
+        if (!isEnabled()) return@runCatching emptyMap()
         val kugouTracks = tracks.filter { it.platform == MusicPlatform.KUGOU }.distinct()
         if (kugouTracks.isEmpty()) return@runCatching emptyMap()
 

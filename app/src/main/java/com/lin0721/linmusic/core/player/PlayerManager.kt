@@ -1388,7 +1388,7 @@ class PlayerManager(
 
     // 已下载记录；没有时查本地扫描索引补登记，不联网
     private suspend fun localRecordOf(item: QueueItem): DownloadRecord? {
-        downloadPreferences.findVerifiedRecord(item.songId)?.let { return it }
+        downloadPreferences.findVerifiedRecord(item.effectiveTrackId)?.let { return it }
         if (item.songId <= 0 || item.radioId != 0L || item.external != null) return null
         val target = RecognitionTarget(item.songId, item.title, listOf(item.artist))
         return downloadRecognizer.recognizeSingle(target)

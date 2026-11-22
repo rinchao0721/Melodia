@@ -83,4 +83,27 @@ class ExternalLyricsResolverTest {
         assertTrue(result.isSuccess)
         assertTrue(result.getOrThrow().lines.isEmpty())
     }
+
+    @Test fun kugouDisabledSkipsPlatformLyricsAndFallsBackToExternalSource() = runTest {
+        var platformCalls = 0
+        val resolver = LyricsResolver(
+            repo(mutableListOf(), Result.success(plain)), { null }, { null },
+            isAmllEnabled = { false },
+            processingDispatcher = StandardTestDispatcher(testScheduler),
+            externalOf = { track },
+            matchNeteaseId = { null },
+            readExternalQqLyrics = { word },
+            readPlatformLyrics = { _, _, _ ->
+                platformCalls++
+                listOf(LyricLine(0, 1000, "酷狗官方歌词"))
+            },
+            isKugouEnabled = { false }
+        )
+
+        val resolved = resolver.lyricsWithSourceFor(songId).toList().last().getOrThrow()
+
+        assertEquals(0, platformCalls)
+        assertEquals(LyricsSource.QQ, resolved.source)
+        assertEquals("QQ逐字", resolved.lines.single().text)
+    }
 }

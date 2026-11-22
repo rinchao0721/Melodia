@@ -884,7 +884,7 @@ class SettingsViewModel(
     }
 
     fun updateKugouClientMode(mode: KugouClientMode) {
-        kugouConfig?.mode = mode
+        kugouConfig?.updateMode(mode)
         launchSave { settingsPreferences.saveKugouClientMode(mode) }
     }
 

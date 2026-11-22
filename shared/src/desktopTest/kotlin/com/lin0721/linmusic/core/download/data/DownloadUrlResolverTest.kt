@@ -203,4 +203,43 @@ class DownloadUrlResolverTest {
         )
         assertEquals("该音质仅支持试听，需要 VIP/购买后才能完整下载", rejectedReason)
     }
+
+    @Test
+    fun `平台总开关关闭时跳过官方下载解析并按换源开关回退插件或拒绝`() = runBlocking {
+        val kugouTrack = TrackId.kugou("aabbccdd")
+        val kugouQuery = PluginTrackQuery("aabbccdd", "酷狗歌", "歌手", "专辑", 200_000, MusicPlatform.KUGOU)
+        var platformCalls = 0
+        var pluginCalls = 0
+
+        val resolverWithFallback = DownloadUrlResolver(
+            official = { _, _ -> SongDownloadUrlResponse(code = -1) },
+            fallbackEnabled = { true },
+            plugins = { _, _ ->
+                pluginCalls++
+                link(url = "https://cdn.example.com/plugin.mp3", quality = "exhigh")
+            },
+            platformResolver = { _, _, _, _ ->
+                platformCalls++
+                SongPlaybackInfo(url = "https://trackercdn.kugou.com/official.mp3")
+            },
+            isPlatformEnabled = { it != MusicPlatform.KUGOU }
+        )
+
+        val fallbackDownload = ready(resolverWithFallback.resolvePlatform(kugouTrack, "exhigh", kugouQuery))
+        assertEquals(0, platformCalls)
+        assertEquals(1, pluginCalls)
+        assertTrue(fallbackDownload.fromPlugin)
+
+        val resolverNoFallback = DownloadUrlResolver(
+            official = { _, _ -> SongDownloadUrlResponse(code = -1) },
+            fallbackEnabled = { false },
+            platformResolver = { _, _, _, _ ->
+                platformCalls++
+                SongPlaybackInfo(url = "https://trackercdn.kugou.com/official.mp3")
+            },
+            isPlatformEnabled = { it != MusicPlatform.KUGOU }
+        )
+        assertEquals("该平台总开关已关闭", rejected(resolverNoFallback.resolvePlatform(kugouTrack, "exhigh", kugouQuery)))
+        assertEquals(0, platformCalls)
+    }
 }

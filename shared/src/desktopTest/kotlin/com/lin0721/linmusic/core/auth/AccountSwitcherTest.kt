@@ -27,7 +27,7 @@ class AccountSwitcherTest {
             accountResults = listOf(Result.success(loggedInAccount(uid = 1L, nickname = "One")))
         }
         val player = RecordingPlaybackController()
-        val monitor = SessionMonitor(prefs, repo) { now }
+        val monitor = SessionMonitor(prefs, repo, nowMs = { now })
         val switcher = AccountSwitcher(
             userPreferences = prefs,
             authRepository = repo,

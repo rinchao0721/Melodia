@@ -27,6 +27,7 @@ data class KugouAesResult(
 object KugouCrypto {
 
     private const val RANDOM_ALPHANUMERIC = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    private const val MAX_KRC_DECOMPRESSED_BYTES = 4 * 1024 * 1024
     private val KRC_XOR_KEY = byteArrayOf(
         64, 71, 97, 119, 94, 50, 116, 71,
         81, 54, 49, 45, 206.toByte(), 210.toByte(), 110, 105
@@ -180,7 +181,7 @@ object KugouCrypto {
         return BigInteger(hex, 16).toString(10)
     }
 
-    // 对照 util/util.js#decodeLyrics（跳过前 4 字节头 -> 16 字节固定密钥 XOR -> zlib 解压）
+    // 对照 util/util.js#decodeLyrics（跳过前 4 字节头 -> 16 字节固定密钥 XOR -> zlib 解压，限制最大解压体积防异常膨胀）
     fun decodeKrcLyrics(rawBytes: ByteArray): String {
         if (rawBytes.size <= 4) return ""
         val xorBytes = ByteArray(rawBytes.size - 4)
@@ -192,12 +193,17 @@ object KugouCrypto {
             inflater.setInput(xorBytes)
             val output = ByteArrayOutputStream()
             val buffer = ByteArray(4096)
+            var totalRead = 0
             while (!inflater.finished()) {
                 val count = inflater.inflate(buffer)
                 if (count == 0) {
                     if (inflater.needsInput() || inflater.needsDictionary()) break
                 } else {
+                    if (totalRead + count > MAX_KRC_DECOMPRESSED_BYTES) {
+                        return ""
+                    }
                     output.write(buffer, 0, count)
+                    totalRead += count
                 }
             }
             output.toString(Charsets.UTF_8.name())
@@ -212,7 +218,7 @@ object KugouCrypto {
         runCatching { decodeKrcLyrics(Base64.getDecoder().decode(base64)) }.getOrDefault("")
 
     fun parsePublicKey(publicKeyPem: String): RSAPublicKey =
-        rsaKeyCache.getOrPut(publicKeyPem) {
+        rsaKeyCache.computeIfAbsent(publicKeyPem) {
             val cleaned = publicKeyPem
                 .replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "")

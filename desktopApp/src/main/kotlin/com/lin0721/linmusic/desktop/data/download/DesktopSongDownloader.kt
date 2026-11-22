@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
 import com.lin0721.linmusic.core.download.skipsDownloadAt
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.player.PlaybackTrackMeta
 import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -143,12 +144,12 @@ class DesktopSongDownloader(
         val distinctTracks = tracks.distinctBy { it.effectiveTrackId }
         // 先把目录里已有的同一首补登记，再统一按记录判断跳过
         recognizer?.recognize(distinctTracks.map { it.toRecognitionTarget() })
-        val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
+        val downloadedTrackIds = downloadPreferences.findVerifiedRecordsForTracks(distinctTracks.map { it.effectiveTrackId })
             .filter { it.skipsDownloadAt(level) }
-            .mapTo(HashSet()) { it.songId }
-        val liveIds = _tasks.value.filter { it.isLive }.mapTo(HashSet()) { it.songId }
-        val queuedIds = distinctTracks.mapNotNullTo(HashSet()) { it.songId.takeIf(liveIds::contains) }
-        val pending = distinctTracks.filterNot { it.songId in downloadedIds || it.songId in queuedIds }
+            .mapTo(HashSet()) { it.effectiveTrackId }
+        val liveTrackIds = _tasks.value.filter { it.isLive }.mapTo(HashSet()) { it.effectiveTrackId }
+        val queuedTrackIds = distinctTracks.mapNotNullTo(HashSet()) { it.effectiveTrackId.takeIf(liveTrackIds::contains) }
+        val pending = distinctTracks.filterNot { it.effectiveTrackId in downloadedTrackIds || it.effectiveTrackId in queuedTrackIds }
 
         val batch = BatchProgress(batchLabel, pending.size)
         pending.forEach { track ->
@@ -158,8 +159,8 @@ class DesktopSongDownloader(
         }
         return BatchEnqueueResult(
             enqueuedCount = pending.size,
-            skippedCount = downloadedIds.size,
-            queuedCount = distinctTracks.count { it.songId in queuedIds && it.songId !in downloadedIds }
+            skippedCount = downloadedTrackIds.size,
+            queuedCount = distinctTracks.count { it.effectiveTrackId in queuedTrackIds && it.effectiveTrackId !in downloadedTrackIds }
         )
     }
 
@@ -329,8 +330,8 @@ class DesktopSongDownloader(
         }
         synchronized(lock) {
             _tasks.update { current ->
-                val liveSongIds = current.mapTo(HashSet()) { it.songId }
-                current + saved.filter { it.songId !in liveSongIds }
+                val liveTrackIds = current.mapTo(HashSet()) { it.effectiveTrackId }
+                current + saved.filter { it.effectiveTrackId !in liveTrackIds }
             }
         }
     }
@@ -386,7 +387,7 @@ class DesktopSongDownloader(
         val songId = track.songId
         val effectiveTrackId = track.effectiveTrackId
         val platform = effectiveTrackId.platform
-        val existing = downloadPreferences.findVerifiedRecord(songId)
+        val existing = downloadPreferences.findVerifiedRecord(effectiveTrackId)
             ?: recognizer?.recognize(listOf(track.toRecognitionTarget()))?.firstOrNull()
         if (existing != null && existing.skipsDownloadAt(level)) return Outcome.Skipped
 
@@ -415,7 +416,11 @@ class DesktopSongDownloader(
                 .onFailure { AppLogger.w(TAG, "写入标签失败，跳过 songId=$songId", it) }
 
             val fileSize = staged.length()
-            val target = resolveTarget(directory, "${sanitizeFileName(track.artistName, track.songName, songId)}.$extension", songId)
+            val target = resolveTarget(
+                directory,
+                "${sanitizeFileName(track.artistName, track.songName, songId)}.$extension",
+                effectiveTrackId
+            )
             withContext(Dispatchers.IO) { moveFile(staged, target) }
 
             downloadPreferences.addRecord(
@@ -452,10 +457,10 @@ class DesktopSongDownloader(
     }
 
     // 同名文件属于同一首歌时覆盖，被另一首歌占用时加时间戳
-    private suspend fun resolveTarget(directory: File, displayName: String, songId: Long): File {
+    private suspend fun resolveTarget(directory: File, displayName: String, trackId: TrackId): File {
         val candidate = File(directory, displayName)
         if (!candidate.exists()) return candidate
-        if (!downloadPreferences.isPathClaimedByOtherSong(candidate.absolutePath, songId)) return candidate
+        if (!downloadPreferences.isPathClaimedByOtherTrack(candidate.absolutePath, trackId)) return candidate
         val dot = displayName.lastIndexOf('.')
         val stamp = System.currentTimeMillis()
         val unique = if (dot > 0) "${displayName.substring(0, dot)}_$stamp${displayName.substring(dot)}" else "${displayName}_$stamp"

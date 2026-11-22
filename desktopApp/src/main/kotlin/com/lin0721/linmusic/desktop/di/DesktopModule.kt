@@ -146,7 +146,7 @@ private fun createPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
         // 没有下载记录时查本地扫描索引补登记，不联网
         localAudioOf = { item ->
-            downloadPreferences.findVerifiedRecord(item.songId)?.mediaStoreUri
+            downloadPreferences.findVerifiedRecord(item.effectiveTrackId)?.mediaStoreUri
                 ?: item.takeIf { it.songId > 0 && it.radioId == 0L }
                     ?.let { recognizer.recognizeSingle(RecognitionTarget(it.songId, it.title, listOf(it.artist))) }
                     ?.mediaStoreUri
@@ -357,7 +357,8 @@ val desktopPlatformModule = module {
                     )
                 )?.getOrNull().orEmpty()
             },
-            kugouMetaOf = { songId -> queueOf().firstOrNull { it.songId == songId }?.kugouMeta }
+            kugouMetaOf = { songId -> queueOf().firstOrNull { it.songId == songId }?.kugouMeta },
+            isKugouEnabled = { settingsPreferences.kugouPlatformEnabled.first() }
         )
     }
 }

@@ -2,7 +2,7 @@ package com.lin0721.linmusic.core.network
 
 // 将 AppError 类型解析为面向用户的提示文案
 fun AppError.toMessage(resourceProvider: ResourceProvider): String = when (this) {
-    AppError.NetworkError -> resourceProvider.getString(AppString.ErrorNetwork)
+    is AppError.NetworkError -> resourceProvider.getString(AppString.ErrorNetwork)
     AppError.RiskControl -> resourceProvider.getString(AppString.ErrorRiskControl)
     AppError.Unauthorized -> resourceProvider.getString(AppString.ErrorUnauthorized)
     AppError.ParseError -> resourceProvider.getString(AppString.ErrorParse)
