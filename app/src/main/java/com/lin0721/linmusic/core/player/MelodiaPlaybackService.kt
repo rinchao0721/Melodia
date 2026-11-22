@@ -47,11 +47,6 @@ import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
-import coil3.SingletonImageLoader
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.allowHardware
-import coil3.toBitmap
 import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -70,6 +65,7 @@ import com.lin0721.linmusic.core.preferences.NotificationButtonLayout
 import com.lin0721.linmusic.core.preferences.NotificationButtonSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
@@ -83,7 +79,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.android.ext.android.inject
 
@@ -196,6 +191,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     private var sessionActivityPendingIntent: PendingIntent? = null
     private var currentCoverBitmap: Bitmap? = null
     private var loadedCoverUrl: String? = null
+    private val coverBitmapLoader by lazy { CoverBitmapLoader(this, serviceScope) }
     private var notificationCallback: MediaNotification.Provider.Callback? = null
 
     private fun ensureNotificationChannel() {
@@ -236,33 +232,26 @@ class MelodiaPlaybackService : MediaSessionService() {
             return
         }
         if (rawUri == loadedCoverUrl && currentCoverBitmap != null) return
+        // 新封面到达前不能沿用上一首的图
+        if (rawUri != loadedCoverUrl) currentCoverBitmap = null
         loadedCoverUrl = rawUri
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                val dataModel: Any = if ((rawUri.startsWith("http://") || rawUri.startsWith("https://")) && !rawUri.contains('?')) {
-                    "$rawUri?param=300y300"
-                } else {
-                    coverUri
-                }
-                val request = ImageRequest.Builder(this@MelodiaPlaybackService)
-                    .data(dataModel)
-                    .size(256, 256)
-                    .memoryCachePolicy(CachePolicy.DISABLED)
-                    .allowHardware(false)
-                    .build()
-                val result = SingletonImageLoader.get(this@MelodiaPlaybackService).execute(request)
-                val bitmap = result.image?.toBitmap()
-                if (bitmap != null && loadedCoverUrl == rawUri) {
+        Futures.addCallback(
+            coverBitmapLoader.loadBitmap(coverUri),
+            object : FutureCallback<Bitmap> {
+                override fun onSuccess(bitmap: Bitmap) {
+                    if (loadedCoverUrl != rawUri) return
                     currentCoverBitmap = bitmap
-                    withContext(Dispatchers.Main) {
-                        updateMediaSessionButtons()
-                        triggerNotificationUpdate()
-                    }
+                    updateMediaSessionButtons()
+                    triggerNotificationUpdate()
                 }
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "加载通知栏封面失败", e)
-            }
-        }
+
+                override fun onFailure(t: Throwable) {
+                    if (t is CancellationException) return
+                    AppLogger.w(TAG, "加载通知栏封面失败", t)
+                }
+            },
+            ContextCompat.getMainExecutor(this)
+        )
     }
 
     @OptIn(UnstableApi::class)
@@ -437,6 +426,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, initialPlayer)
             .setCallback(CustomSessionCallback())
             .setSessionActivity(pendingIntent)
+            .setBitmapLoader(coverBitmapLoader)
             .build()
 
         externalLyricCoordinator.onMetadataChanged = {
