@@ -4,6 +4,8 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.ArtistId
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 // 歌手详情页 UI 状态
 sealed interface ArtistUiState {
@@ -23,7 +25,11 @@ sealed interface ArtistUiState {
         val allSongs: List<Track> = emptyList(),
         val allSongsHasMore: Boolean = false,
         val allSongsLoadingMore: Boolean = false,
-        val allSongsLoaded: Boolean = false
+        val allSongsLoaded: Boolean = false,
+        val artistEntityId: String = if (artist.id > 0L) ArtistId.netease(artist.id).canonical else "",
+        val platform: MusicPlatform = MusicPlatform.NETEASE,
+        val albumEntityIds: Map<Long, String> = emptyMap(),
+        val similarArtistEntityIds: Map<Long, String> = emptyMap()
     ) : ArtistUiState
 
     data class Error(val message: String) : ArtistUiState

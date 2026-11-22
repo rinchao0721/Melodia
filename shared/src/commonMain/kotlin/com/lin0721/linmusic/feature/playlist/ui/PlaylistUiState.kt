@@ -1,9 +1,11 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
+import com.lin0721.linmusic.feature.home.data.DailySong
 
 // 歌单/专辑详情页 UI 状态
 sealed interface PlaylistUiState {
@@ -17,7 +19,14 @@ sealed interface PlaylistUiState {
         // 因为屏蔽歌手过滤、删歌、排序都会让 tracks 条数与 trackIds 脱节
         val pendingTrackIds: List<Long> = emptyList(),
         val isLoadingMoreTracks: Boolean = false,
-        val trackPlayCounts: Map<Long, Int> = emptyMap()
+        val trackPlayCounts: Map<Long, Int> = emptyMap(),
+        val entityId: String = playlist.id.toString(),
+        val platform: MusicPlatform = MusicPlatform.NETEASE,
+        val creatorEntityId: String? = null,
+        val artistEntityIds: Map<Long, String> = emptyMap(),
+        val albumEntityIds: Map<Long, String> = emptyMap(),
+        val listVer: Long = 0L,
+        val isKugouRecent: Boolean = false
     ) : PlaylistUiState {
         val hasMoreTracks: Boolean get() = pendingTrackIds.isNotEmpty()
     }
@@ -36,5 +45,6 @@ data class HistoryRecommendState(
 // "添加到歌单"批量导入目标选择的浏览状态
 data class PlaylistImportState(
     val items: List<UserPlaylist> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val unifiedItems: List<UnifiedUserPlaylist> = emptyList()
 )

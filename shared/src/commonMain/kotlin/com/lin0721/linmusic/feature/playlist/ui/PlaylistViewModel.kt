@@ -1,74 +1,96 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
-import com.lin0721.linmusic.core.plugin.PluginContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.LoginSyncResult
+import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.comment.data.CommentRepository
+import com.lin0721.linmusic.core.comment.data.CommentSortType
+import com.lin0721.linmusic.core.comment.domain.CommentComposerState
+import com.lin0721.linmusic.core.comment.domain.CommentFloorState
+import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
+import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
-import com.lin0721.linmusic.core.model.PlaylistDetail
-import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.offline.OfflinePlayability
-import com.lin0721.linmusic.core.auth.LoginSyncResult
-import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
-import com.lin0721.linmusic.core.player.PlaySource
-import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
-import com.lin0721.linmusic.core.comment.data.CommentRepository
-import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
-import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
-import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
-import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
-import com.lin0721.linmusic.feature.playlist.domain.pendingTrackIds
-import com.lin0721.linmusic.feature.playlist.domain.withLoadedTracks
-import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
-import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
-import com.lin0721.linmusic.feature.home.data.HomeRepository
-import com.lin0721.linmusic.feature.library.data.LibraryRepository
-import com.lin0721.linmusic.core.songlike.SongLikeRepository
-import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
-import com.lin0721.linmusic.core.player.data.PlaybackRepository
-import com.lin0721.linmusic.core.player.PlaybackController
-import com.lin0721.linmusic.core.player.QueueItem
-import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
-import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalEntry
-import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
-import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
-import com.lin0721.linmusic.core.playlistexternal.mergeExternalTracks
-import com.lin0721.linmusic.core.playlistexternal.toQueueItem
-import com.lin0721.linmusic.core.playlistexternal.toTrackIds
-import com.lin0721.linmusic.core.source.ExternalTrack
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import com.lin0721.linmusic.core.comment.ui.CommentsState
-import com.lin0721.linmusic.core.comment.data.CommentSortType
-import com.lin0721.linmusic.core.comment.domain.CommentsSectionController
-import com.lin0721.linmusic.core.comment.domain.CommentComposerState
-import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.model.CommentUser
-import com.lin0721.linmusic.feature.home.data.DailySong
+import com.lin0721.linmusic.core.model.PlaylistDetail
+import com.lin0721.linmusic.core.model.PlaylistTrackId
+import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
+import com.lin0721.linmusic.core.network.ResourceProvider
+import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.offline.OfflinePlayability
+import com.lin0721.linmusic.core.platform.AlbumId
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.repository.CommentTarget
+import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformSearchRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchResultItem
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchType
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
+import com.lin0721.linmusic.core.platform.toDisplayPlaylistDetail
+import com.lin0721.linmusic.core.platform.toDisplayTrack
+import com.lin0721.linmusic.core.platform.toLegacyExternalTrackOrNull
+import com.lin0721.linmusic.core.platform.toUnified
+import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalEntry
+import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
+import com.lin0721.linmusic.core.playlistexternal.PlaylistUnifiedEntry
+import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
+import com.lin0721.linmusic.core.playlistexternal.mergeExternalTracks
+import com.lin0721.linmusic.core.playlistexternal.mergeUnifiedPlaylistTracks
+import com.lin0721.linmusic.core.playlistexternal.toQueueItem
+import com.lin0721.linmusic.core.playlistexternal.toTrackIds
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
+import com.lin0721.linmusic.core.plugin.PluginContent
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
+import com.lin0721.linmusic.core.songlike.SongLikeRepository
+import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
-import com.lin0721.linmusic.core.network.ResourceProvider
-import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.songquality.SongQualityCache
+import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
+import com.lin0721.linmusic.feature.home.data.DailySong
+import com.lin0721.linmusic.feature.home.data.HomeRepository
+import com.lin0721.linmusic.feature.library.data.LibraryRepository
+import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
+import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
+import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
+import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
+import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
+import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
+import com.lin0721.linmusic.feature.playlist.domain.pendingTrackIds
+import com.lin0721.linmusic.feature.playlist.domain.withLoadedTracks
+import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
 import com.lin0721.linmusic.feature.search.data.SearchRepository
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 // 歌单曲目分页补全每批数量，对齐服务端 song/detail 单次上限
 private const val TRACK_PAGE_SIZE = 1000
@@ -96,7 +118,13 @@ class PlaylistViewModel(
     private val externalStore: PlaylistExternalTrackStore,
     private val pluginContent: PluginContent,
     private val downloadRecognizer: DownloadRecognizer,
-    private val songQualityCache: SongQualityCache? = null
+    private val songQualityCache: SongQualityCache? = null,
+    private val platformPlaylistRouter: PlatformPlaylistRouter? = null,
+    private val platformAlbumRouter: PlatformAlbumRouter? = null,
+    private val platformCommentRouter: PlatformCommentRouter? = null,
+    private val platformLibraryRouter: PlatformLibraryRouter? = null,
+    private val platformSearchRouter: PlatformSearchRouter? = null,
+    private val settingsPreferences: SettingsPreferences? = null
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -110,22 +138,46 @@ class PlaylistViewModel(
     private val queueFillScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var queueFillJob: Job? = null
 
-    // 内部只保存网易云曲目，分页补全与接口增删都基于它；外部平台歌曲在对外的 uiState 里按加入时间混排
+    // 内部只保存远端基础曲目，跨平台/外部混排歌曲在 uiState 中动态合并展示
     private val _uiState = MutableStateFlow<PlaylistUiState>(PlaylistUiState.Loading)
 
     private val externalEntries = MutableStateFlow<List<PlaylistExternalEntry>>(emptyList())
+    private val unifiedExternalEntries = MutableStateFlow<List<PlaylistUnifiedEntry>>(emptyList())
+    private val _baseUnifiedTracks = MutableStateFlow<List<UnifiedTrack>>(emptyList())
+    private val _baseKugouTracks = MutableStateFlow<List<UnifiedTrack>>(emptyList())
+    private var kugouPlaylistTrackAddedAt: Map<com.lin0721.linmusic.core.platform.TrackId, Long> = emptyMap()
     private var externalJob: Job? = null
     // 当前歌单的外部歌曲在本机存储里的 key，「我喜欢的音乐」用账号派生 key；不支持混排时为 null
     private var externalKey: Long? = null
+    private var externalPlaylistId: PlaylistId? = null
 
-    val uiState: StateFlow<PlaylistUiState> = combine(_uiState, externalEntries) { state, entries ->
-        withExternalTracks(state, entries)
+    val uiState: StateFlow<PlaylistUiState> = combine(_uiState, externalEntries, unifiedExternalEntries) { state, entries, unifiedEntries ->
+        when {
+            state !is PlaylistUiState.Success -> state
+            state.platform == MusicPlatform.KUGOU -> withKugouUnifiedExternalTracks(state, unifiedEntries)
+            else -> withExternalTracks(state, mergeExternalEntries(entries, unifiedEntries))
+        }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, PlaylistUiState.Loading)
 
+    // 当前歌单的完整跨平台 UnifiedTrack 索引，保留 trackId 与 kugouMeta
+    val unifiedTracks: StateFlow<Map<Long, UnifiedTrack>> = combine(_baseUnifiedTracks, unifiedExternalEntries) { base, entries ->
+        val map = LinkedHashMap<Long, UnifiedTrack>()
+        base.forEach { t -> map[t.toDisplayTrack().id] = t }
+        entries.forEach { e -> map[e.track.toDisplayTrack().id] = e.track }
+        map
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     // 当前歌单里的外部平台歌曲，按展示用的 Track.id 索引，界面据此显示平台角标、隐藏网易云专属操作
-    val externalTracks: StateFlow<Map<Long, ExternalTrack>> = externalEntries
-        .map { entries -> entries.associate { it.track.queueSongId to it.track } }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    val externalTracks: StateFlow<Map<Long, ExternalTrack>> = combine(externalEntries, unifiedExternalEntries) { entries, unifiedEntries ->
+        val map = LinkedHashMap<Long, ExternalTrack>()
+        unifiedEntries.forEach { entry ->
+            entry.track.toLegacyExternalTrackOrNull()?.let { ext ->
+                map[ext.queueSongId] = ext
+            }
+        }
+        entries.forEach { map[it.track.queueSongId] = it.track }
+        map
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     // 离线时本机没有音频的曲目，列表据此置灰；在线时恒为空
     val unplayableIds: StateFlow<Set<Long>> = combine(
@@ -144,6 +196,18 @@ class PlaylistViewModel(
         initialValue = null
     )
 
+    val kugouAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val isKugouEnabled: StateFlow<Boolean> = (settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
     val likedSongIds: StateFlow<Set<Long>> = songLikeRepository.likedSongIds
 
     val collectState: StateFlow<PlaylistCollectState> = songCollectDelegate.state
@@ -153,7 +217,8 @@ class PlaylistViewModel(
         scope = viewModelScope,
         repository = commentRepository,
         onToast = { message -> _toastEvent.emit(message) },
-        resourceProvider = resourceProvider
+        resourceProvider = resourceProvider,
+        platformCommentRouter = platformCommentRouter
     )
     val commentsState: StateFlow<CommentsState> = commentsController.commentsState
     val composerState: StateFlow<CommentComposerState> = commentsController.composerState
@@ -201,6 +266,9 @@ class PlaylistViewModel(
     }
 
     private var requestedPlaylistId: Long? = null
+    private var requestedEntityId: String? = null
+    private var activeKugouPlaylist: com.lin0721.linmusic.core.platform.UnifiedPlaylist? = null
+    private var kugouRemoteTrackCount: Int = 0
 
     // 页面重新进入组合（如从详情页返回）时复用已有数据，仅未加载或失败时才请求
     fun loadPlaylistIfNeeded(id: Long, isAlbum: Boolean = false) {
@@ -210,12 +278,200 @@ class PlaylistViewModel(
         loadPlaylist(id, isAlbum)
     }
 
+    // 按跨平台 entityId（"kugou:..."、"kugou_recent" 或纯数字网易云 ID）加载歌单/专辑
+    fun loadEntityIfNeeded(entityId: String, isAlbum: Boolean = false) {
+        val legacyId = entityId.toLongOrNull()
+        if (legacyId != null) {
+            loadPlaylistIfNeeded(legacyId, isAlbum)
+            return
+        }
+        val state = _uiState.value
+        val inProgressOrLoaded = state is PlaylistUiState.Loading || state is PlaylistUiState.Success
+        if (requestedEntityId == entityId && isAlbumMode == isAlbum && inProgressOrLoaded) return
+        loadEntity(entityId, isAlbum)
+    }
+
+    fun loadEntity(entityId: String, isAlbum: Boolean = false) {
+        val legacyId = entityId.toLongOrNull()
+        if (legacyId != null) {
+            requestedEntityId = entityId
+            loadPlaylist(legacyId, isAlbum)
+            return
+        }
+        if (requestedEntityId != entityId) {
+            _selection.value = TrackSelection()
+            stopExternalTracks()
+        }
+        requestedEntityId = entityId
+        isAlbumMode = isAlbum
+        _uiState.value = PlaylistUiState.Loading
+        allRecommendedTracks = emptyList()
+        _baseUnifiedTracks.value = emptyList()
+        _baseKugouTracks.value = emptyList()
+        activeKugouPlaylist = null
+        kugouRemoteTrackCount = 0
+        loadJob?.cancel()
+        fullTrackJob?.cancel()
+
+        if (entityId == KUGOU_RECENT_PLAYLIST_ID) {
+            requestedPlaylistId = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong()
+            loadJob = viewModelScope.launch {
+                loadKugouRecentTracks()
+            }
+            return
+        }
+
+        val parsedAlbum = if (isAlbum) AlbumId.parseOrNull(entityId) else null
+        val parsedPlaylist = if (!isAlbum) PlaylistId.parseOrNull(entityId) else null
+        val platform = parsedAlbum?.platform ?: parsedPlaylist?.platform
+
+        if (platform != MusicPlatform.KUGOU) {
+            _uiState.value = PlaylistUiState.Error("不支持的歌单或专辑标识: $entityId")
+            return
+        }
+
+        loadJob = viewModelScope.launch {
+            val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+            if (!enabled) {
+                _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
+                return@launch
+            }
+            if (isAlbum) {
+                val albumId = parsedAlbum ?: return@launch
+                val router = platformAlbumRouter
+                if (router == null) {
+                    _uiState.value = PlaylistUiState.Error("酷狗专辑服务不可用")
+                    return@launch
+                }
+                router.getAlbumDetail(albumId).collect { result ->
+                    result.fold(
+                        onSuccess = { albumDetail ->
+                            val displayDetail = albumDetail.toDisplayPlaylistDetail()
+                            requestedPlaylistId = displayDetail.id
+                            _baseUnifiedTracks.value = albumDetail.tracks
+                            val (artistIds, albumIds) = buildEntityIdMaps(albumDetail.tracks, albumDetail.artists)
+                            _uiState.value = PlaylistUiState.Success(
+                                playlist = displayDetail,
+                                isSubscribed = albumDetail.isSubscribed,
+                                entityId = albumDetail.id.canonical,
+                                platform = MusicPlatform.KUGOU,
+                                artistEntityIds = artistIds,
+                                albumEntityIds = albumIds
+                            )
+                        },
+                        onFailure = { error ->
+                            _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
+                        }
+                    )
+                }
+            } else {
+                val playlistId = parsedPlaylist ?: return@launch
+                val router = platformPlaylistRouter
+                if (router == null) {
+                    _uiState.value = PlaylistUiState.Error("酷狗歌单服务不可用")
+                    return@launch
+                }
+                router.getPlaylistDetail(playlistId).collect { result ->
+                    result.fold(
+                        onSuccess = { unifiedPlaylist ->
+                            activeKugouPlaylist = unifiedPlaylist
+                            val localAtLoad = externalStore.entriesOf(playlistId).first()
+                            val localIds = localAtLoad.mapTo(HashSet()) { it.track.id }
+                            val baseRemote = unifiedPlaylist.tracks.filterNot { it.id in localIds }
+                            val removedLocalCount = unifiedPlaylist.tracks.size - baseRemote.size
+                            kugouRemoteTrackCount = (unifiedPlaylist.trackCount - removedLocalCount)
+                                .coerceAtLeast(baseRemote.size)
+                            val basePlaylist = unifiedPlaylist.copy(
+                                tracks = baseRemote,
+                                trackCount = kugouRemoteTrackCount
+                            )
+                            val displayDetail = basePlaylist.toDisplayPlaylistDetail()
+                            requestedPlaylistId = displayDetail.id
+                            _baseKugouTracks.value = baseRemote
+                            _baseUnifiedTracks.value = unifiedPlaylist.tracks
+                            val (artistIds, albumIds) = buildEntityIdMaps(unifiedPlaylist.tracks, unifiedPlaylist.artists)
+                            _uiState.value = PlaylistUiState.Success(
+                                playlist = displayDetail,
+                                isSubscribed = unifiedPlaylist.subscribed,
+                                entityId = unifiedPlaylist.id.canonical,
+                                platform = MusicPlatform.KUGOU,
+                                creatorEntityId = unifiedPlaylist.creator?.id?.canonical,
+                                artistEntityIds = artistIds,
+                                albumEntityIds = albumIds
+                            )
+                            observeKugouExternalTracks(playlistId, displayDetail.id)
+                        },
+                        onFailure = { error ->
+                            _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun loadKugouRecentTracks() {
+        val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+        if (!enabled) {
+            _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
+            return
+        }
+        val account = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
+        if (account == null) {
+            _uiState.value = PlaylistUiState.Error("请先登录酷狗账号")
+            return
+        }
+        val router = platformLibraryRouter
+        if (router == null) {
+            _uiState.value = PlaylistUiState.Error("酷狗最近播放服务不可用")
+            return
+        }
+        router.getUserRecord(account.accountId, 0).collect { result ->
+            result.fold(
+                onSuccess = { records ->
+                    val unifiedList = records.map { it.track }
+                    val displayTracks = unifiedList.map { it.toDisplayTrack() }
+                    _baseUnifiedTracks.value = unifiedList
+                    val (artistIds, albumIds) = buildEntityIdMaps(unifiedList, emptyList())
+                    val legacyId = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong()
+                    requestedPlaylistId = legacyId
+                    val detail = PlaylistDetail(
+                        id = legacyId,
+                        name = "酷狗最近播放",
+                        coverImgUrl = displayTracks.firstOrNull()?.al?.picUrl ?: "",
+                        description = "酷狗最近听歌记录",
+                        playCount = 0L,
+                        tracks = displayTracks,
+                        trackCount = displayTracks.size
+                    )
+                    _uiState.value = PlaylistUiState.Success(
+                        playlist = detail,
+                        trackPlayCounts = records.associate { it.track.toDisplayTrack().id to it.playCount },
+                        entityId = KUGOU_RECENT_PLAYLIST_ID,
+                        platform = MusicPlatform.KUGOU,
+                        artistEntityIds = artistIds,
+                        albumEntityIds = albumIds,
+                        isKugouRecent = true
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
+                }
+            )
+        }
+    }
+
     fun loadPlaylist(id: Long, isAlbum: Boolean = false) {
         if (requestedPlaylistId != id) {
             _selection.value = TrackSelection()
             stopExternalTracks()
         }
         requestedPlaylistId = id
+        requestedEntityId = id.toString()
+        activeKugouPlaylist = null
+        kugouRemoteTrackCount = 0
+        _baseUnifiedTracks.value = emptyList()
+        _baseKugouTracks.value = emptyList()
         isAlbumMode = isAlbum
         _uiState.value = PlaylistUiState.Loading
         allRecommendedTracks = emptyList()
@@ -300,7 +556,9 @@ class PlaylistViewModel(
         externalJob?.cancel()
         externalJob = null
         externalKey = null
+        externalPlaylistId = null
         externalEntries.value = emptyList()
+        unifiedExternalEntries.value = emptyList()
     }
 
     private fun observeExternalTracks(detail: PlaylistDetail) {
@@ -309,11 +567,98 @@ class PlaylistViewModel(
         externalJob = viewModelScope.launch {
             val uid = userPreferences.userProfile.first()?.uid
             val key = if (uid != null && isLikedSongsPlaylist(detail.name, detail.id, uid)) likedExternalKey(uid) else detail.id
+            val pid = PlaylistId.netease(detail.id)
             externalKey = key
-            externalStore.entriesOf(key).collect { entries ->
-                if (requestedPlaylistId == detail.id) externalEntries.value = entries
+            externalPlaylistId = pid
+            combine(
+                externalStore.entriesOf(key),
+                externalStore.entriesOf(pid)
+            ) { legacyEntries, unifiedEntries ->
+                legacyEntries to unifiedEntries
+            }.collect { (legacyEntries, unifiedEntries) ->
+                if (requestedPlaylistId == detail.id) {
+                    externalEntries.value = legacyEntries
+                    unifiedExternalEntries.value = unifiedEntries
+                }
             }
         }
+    }
+
+    private fun observeKugouExternalTracks(playlistId: PlaylistId, legacyId: Long) {
+        externalJob?.cancel()
+        externalJob = viewModelScope.launch {
+            externalPlaylistId = playlistId
+            externalStore.entriesOf(playlistId).collect { entries ->
+                if (requestedPlaylistId == legacyId) {
+                    unifiedExternalEntries.value = entries
+                }
+            }
+        }
+    }
+
+    private fun mergeExternalEntries(
+        legacyEntries: List<PlaylistExternalEntry>,
+        unifiedEntries: List<PlaylistUnifiedEntry>
+    ): List<PlaylistExternalEntry> {
+        if (unifiedEntries.isEmpty()) return legacyEntries
+        val seenKeys = legacyEntries.mapTo(HashSet()) { it.track.queueSongId }
+        val extra = unifiedEntries.mapNotNull { entry ->
+            val ext = entry.track.toLegacyExternalTrackOrNull() ?: return@mapNotNull null
+            if (seenKeys.add(ext.queueSongId)) PlaylistExternalEntry(ext, entry.addedAt) else null
+        }
+        return if (extra.isEmpty()) legacyEntries else legacyEntries + extra
+    }
+
+    private fun withKugouUnifiedExternalTracks(
+        state: PlaylistUiState.Success,
+        entries: List<PlaylistUnifiedEntry>
+    ): PlaylistUiState {
+        if (state.isKugouRecent || isAlbumMode || entries.isEmpty()) return state
+        val baseUnified = _baseKugouTracks.value
+        val mergedUnified = mergeUnifiedPlaylistTracks(
+            baseTracks = baseUnified,
+            trackAddedAt = kugouPlaylistTrackAddedAt,
+            entries = entries,
+            fullyLoaded = true
+        )
+        val mergedDisplay = mergedUnified.map { it.toDisplayTrack() }
+        val unseenCount = (mergedUnified.size - baseUnified.size).coerceAtLeast(0)
+        val (artistIds, albumIds) = buildEntityIdMaps(mergedUnified, emptyList())
+        return state.copy(
+            playlist = state.playlist.copy(
+                tracks = mergedDisplay,
+                trackIds = mergedDisplay.map { PlaylistTrackId(id = it.id) },
+                trackCount = kugouRemoteTrackCount + unseenCount
+            ),
+            artistEntityIds = state.artistEntityIds + artistIds,
+            albumEntityIds = state.albumEntityIds + albumIds
+        )
+    }
+
+    private fun buildEntityIdMaps(
+        tracks: List<UnifiedTrack>,
+        extraArtists: List<com.lin0721.linmusic.core.platform.UnifiedArtist>
+    ): Pair<Map<Long, String>, Map<Long, String>> {
+        val artistIds = LinkedHashMap<Long, String>()
+        val albumIds = LinkedHashMap<Long, String>()
+        extraArtists.forEach { artist ->
+            val id = artist.id ?: return@forEach
+            artistIds[id.toDeterministicLegacyId()] = id.canonical
+        }
+        tracks.forEach { track ->
+            track.artists.forEach { artist ->
+                val id = artist.id ?: return@forEach
+                artistIds[id.toDeterministicLegacyId()] = id.canonical
+            }
+            track.album?.let { album ->
+                album.id?.let { id -> albumIds[id.toDeterministicLegacyId()] = id.canonical }
+                album.artists.forEach { artist ->
+                    val id = artist.id ?: return@forEach
+                    artistIds[id.toDeterministicLegacyId()] = id.canonical
+                }
+            }
+        }
+        return artistIds to albumIds
     }
 
     private fun withExternalTracks(state: PlaylistUiState, entries: List<PlaylistExternalEntry>): PlaylistUiState {
@@ -330,13 +675,24 @@ class PlaylistViewModel(
 
     // 网易云曲目已补全时，按同样规则混入外部歌曲，供起播、下一首播放等需要完整列表的操作使用
     private fun withExternal(neteaseTracks: List<Track>): List<Track> {
-        val trackIds = (_uiState.value as? PlaylistUiState.Success)?.playlist?.trackIds.orEmpty()
-        return mergeExternalTracks(neteaseTracks, trackIds, externalEntries.value, fullyLoaded = true)
+        val state = _uiState.value as? PlaylistUiState.Success
+        if (state?.platform == MusicPlatform.KUGOU) {
+            return (uiState.value as? PlaylistUiState.Success)?.playlist?.tracks ?: neteaseTracks
+        }
+        val trackIds = state?.playlist?.trackIds.orEmpty()
+        val combined = mergeExternalEntries(externalEntries.value, unifiedExternalEntries.value)
+        return mergeExternalTracks(neteaseTracks, trackIds, combined, fullyLoaded = true)
     }
 
-    private fun Track.toQueueItem(separator: String = ", "): QueueItem =
-        (externalTracks.value[id] ?: pluginContent.externalTrack(id))?.toQueueItem()
+    private fun Track.toQueueItem(separator: String = ", "): QueueItem {
+        unifiedTracks.value[id]?.let { unified ->
+            if (unified.platform != MusicPlatform.NETEASE) {
+                return QueueItem.fromUnified(unified)
+            }
+        }
+        return (externalTracks.value[id] ?: pluginContent.externalTrack(id))?.toQueueItem()
             ?: QueueItem(id, name, ar.joinToString(separator) { it.name }, al.picUrl)
+    }
 
     private fun checkAlbumSubscribed(albumId: Long) {
         viewModelScope.launch {
@@ -606,29 +962,57 @@ class PlaylistViewModel(
 
     // 一键收藏到“已点赞的歌曲”
     fun quickLike(songId: Long) {
+        val unified = unifiedTracks.value[songId]
         viewModelScope.launch {
-            songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+            if (unified != null && unified.platform != MusicPlatform.NETEASE) {
+                songCollectDelegate.quickLikeUnified(unified) { _toastEvent.emit(it) }
+            } else {
+                songCollectDelegate.quickLike(songId) { _toastEvent.emit(it) }
+            }
         }
     }
 
     fun prepareCollectDialog(songId: Long) {
+        val unified = unifiedTracks.value[songId]
         viewModelScope.launch {
-            songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            if (unified != null && unified.platform != MusicPlatform.NETEASE) {
+                songCollectDelegate.prepareUnified(unified, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            } else {
+                songCollectDelegate.prepare(songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            }
         }
     }
 
     fun savePlaylistCollection(songId: Long, items: List<PlaylistCollectItem>, silent: Boolean = false) {
+        val unified = unifiedTracks.value[songId]
         viewModelScope.launch {
-            songCollectDelegate.save(
-                songId = songId,
-                items = items,
-                silent = silent,
-                likedSongIds = songLikeRepository.likedSongIds.value,
-                onToast = { _toastEvent.emit(it) },
-                onLikedChanged = { newLiked ->
-                    songLikeRepository.syncLikedSongIds(newLiked)
-                }
-            )
+            val useUnified = unified != null && (
+                unified.platform != MusicPlatform.NETEASE ||
+                    items.any { it.platform != MusicPlatform.NETEASE }
+                )
+            if (useUnified) {
+                songCollectDelegate.saveUnified(
+                    track = unified!!,
+                    items = items,
+                    silent = silent,
+                    likedSongIds = songLikeRepository.likedSongIds.value,
+                    onToast = { _toastEvent.emit(it) },
+                    onLikedChanged = { newLiked ->
+                        songLikeRepository.syncLikedSongIds(newLiked)
+                    }
+                )
+            } else {
+                songCollectDelegate.save(
+                    songId = songId,
+                    items = items,
+                    silent = silent,
+                    likedSongIds = songLikeRepository.likedSongIds.value,
+                    onToast = { _toastEvent.emit(it) },
+                    onLikedChanged = { newLiked ->
+                        songLikeRepository.syncLikedSongIds(newLiked)
+                    }
+                )
+            }
             // 停留在“我喜欢的音乐”歌单时需重新拉取列表，使被取消红心的歌曲从当前页消失
             val successState = _uiState.value as? PlaylistUiState.Success
             val profile = userPreferences.userProfile.first()
@@ -639,8 +1023,31 @@ class PlaylistViewModel(
     }
 
     fun createPlaylistAndAddSong(name: String, songId: Long) {
+        val unified = unifiedTracks.value[songId]
         viewModelScope.launch {
-            songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            if (unified != null && unified.platform != MusicPlatform.NETEASE) {
+                songCollectDelegate.createAndAddUnified(
+                    name = name,
+                    track = unified,
+                    likedSongIds = songLikeRepository.likedSongIds.value,
+                    onToast = { _toastEvent.emit(it) }
+                )
+            } else {
+                songCollectDelegate.createAndAdd(name, songId, songLikeRepository.likedSongIds.value) { _toastEvent.emit(it) }
+            }
+        }
+    }
+
+    fun createPlaylistAndAddSongForPlatform(platform: MusicPlatform, name: String, songId: Long) {
+        val unified = unifiedTracks.value[songId] ?: return createPlaylistAndAddSong(name, songId)
+        viewModelScope.launch {
+            songCollectDelegate.createAndAddUnified(
+                name = name,
+                track = unified,
+                likedSongIds = songLikeRepository.likedSongIds.value,
+                targetPlatform = platform,
+                onToast = { _toastEvent.emit(it) }
+            )
         }
     }
 
@@ -765,10 +1172,29 @@ class PlaylistViewModel(
 
     // 从当前歌单中删除一首歌，仅限歌单创建者可调用（由调用方按 UI 状态判断是否展示入口）
     fun removeTrackFromPlaylist(playlistId: Long, trackId: Long) {
-        if (trackId < 0L) {
-            val key = externalKey ?: return
+        val currentState = _uiState.value as? PlaylistUiState.Success
+        if (currentState != null && currentState.platform == MusicPlatform.KUGOU) {
+            val pid = PlaylistId.parseOrNull(currentState.entityId) ?: return
+            val router = platformPlaylistRouter ?: return
+            val unified = unifiedTracks.value[trackId] ?: return
             viewModelScope.launch {
-                externalStore.remove(key, setOf(trackId))
+                router.removeTracksFromPlaylist(pid, listOf(unified)).first().onSuccess {
+                    _toastEvent.emit("已从歌单中删除")
+                    dropTracksFromState(playlistId, setOf(trackId))
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+            return
+        }
+        if (trackId < 0L) {
+            val key = externalKey
+            val pid = externalPlaylistId
+            val unified = unifiedTracks.value[trackId]
+            if (key == null && pid == null) return
+            viewModelScope.launch {
+                if (key != null) externalStore.remove(key, setOf(trackId))
+                if (pid != null && unified != null) externalStore.remove(pid, setOf(unified.id))
                 _toastEvent.emit("已从歌单中删除")
             }
             return
@@ -800,21 +1226,44 @@ class PlaylistViewModel(
     }
 
     private fun dropTracksFromState(playlistId: Long, trackIds: Set<Long>) {
+        if (trackIds.isNotEmpty()) {
+            _baseKugouTracks.update { list -> list.filterNot { it.toDisplayTrack().id in trackIds } }
+            _baseUnifiedTracks.update { list -> list.filterNot { it.toDisplayTrack().id in trackIds } }
+        }
         _uiState.update { state ->
             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
                 val updatedTracks = state.playlist.tracks.filter { it.id !in trackIds }
                 val updatedIds = state.playlist.trackIds.filter { it.id !in trackIds }
-                state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackIds = updatedIds))
+                val updatedCount = if (state.platform == MusicPlatform.KUGOU) {
+                    kugouRemoteTrackCount = (kugouRemoteTrackCount - trackIds.size).coerceAtLeast(updatedTracks.size)
+                    kugouRemoteTrackCount
+                } else {
+                    state.playlist.trackCount
+                }
+                state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackIds = updatedIds, trackCount = updatedCount))
             } else state
         }
     }
 
     // 拉取当前用户自建的歌单，供"添加到歌单"批量导入选择目标；排除当前歌单本身与"我喜欢的音乐"
-    fun prepareImportTargets(excludePlaylistId: Long) {
+    fun prepareImportTargets(excludePlaylistId: Long, excludeEntityId: String? = null) {
         viewModelScope.launch {
             _importState.update { it.copy(isLoading = true) }
-            val items = trackBatchActions.loadTargetPlaylists(excludePlaylistId) { _toastEvent.emit(it) }
-            _importState.value = PlaylistImportState(items = items ?: _importState.value.items, isLoading = false)
+            val excludePid = excludeEntityId?.let { PlaylistId.parseOrNull(it) }
+                ?: excludePlaylistId.takeIf { it > 0L }?.let { PlaylistId.netease(it) }
+            val unifiedItems = trackBatchActions.loadTargetUnifiedPlaylists(excludePid) { }
+            val legacyItems = if (userProfile.value != null) {
+                trackBatchActions.loadTargetPlaylists(excludePlaylistId) {
+                    if (unifiedItems.isNullOrEmpty()) _toastEvent.emit(it)
+                }
+            } else {
+                emptyList()
+            }
+            _importState.value = PlaylistImportState(
+                items = legacyItems ?: _importState.value.items,
+                isLoading = false,
+                unifiedItems = unifiedItems ?: _importState.value.unifiedItems
+            )
         }
     }
 
@@ -844,7 +1293,7 @@ class PlaylistViewModel(
         val tracks = selectedTracks()
         if (tracks.isEmpty()) return
         viewModelScope.launch {
-            if (needLogin && userPreferences.userProfile.first() == null) {
+            if (needLogin && !hasActiveBatchAccount()) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
@@ -852,20 +1301,37 @@ class PlaylistViewModel(
         }
     }
 
+    private suspend fun hasActiveBatchAccount(): Boolean {
+        if (userPreferences.userProfile.first() != null) return true
+        val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+        return enabled && userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() != null
+    }
+
     fun batchPlayNext() = runBatch { tracks ->
-        trackBatchActions.playNext(tracks, unplayableIds.value, externalTracks.value) { _toastEvent.emit(it) }
+        trackBatchActions.playNext(tracks, unplayableIds.value, externalTracks.value, unifiedTracks.value) { _toastEvent.emit(it) }
     }
 
     fun batchAddToPlaylist(targetPlaylistId: Long) = runBatch(needLogin = true) { tracks ->
-        trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externalTracks.value) { _toastEvent.emit(it) }
+        trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externalTracks.value, unifiedTracks.value) { _toastEvent.emit(it) }
     }
 
-    fun batchCreatePlaylistAndAdd(name: String, isPrivate: Boolean = false) = runBatch(needLogin = true) { tracks ->
-        trackBatchActions.createPlaylistAndAdd(name, playlistPrivacyOf(isPrivate), tracks, externalTracks.value) { _toastEvent.emit(it) }
+    fun batchAddToUnifiedPlaylist(targetPlaylistId: PlaylistId) = runBatch(needLogin = true) { tracks ->
+        trackBatchActions.addToUnifiedPlaylist(targetPlaylistId, tracks, externalTracks.value, unifiedTracks.value) { _toastEvent.emit(it) }
+    }
+
+    fun batchCreatePlaylistAndAdd(name: String, isPrivate: Boolean = false, targetPlatform: MusicPlatform = MusicPlatform.NETEASE) = runBatch(needLogin = true) { tracks ->
+        trackBatchActions.createPlaylistAndAdd(
+            name = name,
+            privacy = playlistPrivacyOf(isPrivate),
+            tracks = tracks,
+            externals = externalTracks.value,
+            unifiedTracks = unifiedTracks.value,
+            targetPlatform = targetPlatform
+        ) { _toastEvent.emit(it) }
     }
 
     fun batchLike() = runBatch(needLogin = true) { tracks ->
-        trackBatchActions.like(tracks) { _toastEvent.emit(it) } > 0
+        trackBatchActions.like(tracks, unifiedTracks.value) { _toastEvent.emit(it) } > 0
     }
 
     fun batchDownload(level: String) = runBatch { tracks ->
@@ -875,8 +1341,14 @@ class PlaylistViewModel(
 
     // 仅限歌单创建者可调用（由调用方按 UI 状态判断是否展示入口）
     fun batchRemove() = runBatch(needLogin = true) { tracks ->
-        val playlistId = (_uiState.value as? PlaylistUiState.Success)?.playlist?.id ?: return@runBatch false
-        val removed = trackBatchActions.removeFromPlaylist(playlistId, tracks, externalKey ?: playlistId) { _toastEvent.emit(it) }
+        val state = _uiState.value as? PlaylistUiState.Success ?: return@runBatch false
+        val playlistId = state.playlist.id
+        val removed = if (state.platform == MusicPlatform.KUGOU) {
+            val pid = PlaylistId.parseOrNull(state.entityId) ?: return@runBatch false
+            trackBatchActions.removeFromUnifiedPlaylist(pid, tracks, unifiedTracks.value) { _toastEvent.emit(it) }
+        } else {
+            trackBatchActions.removeFromPlaylist(playlistId, tracks, externalKey ?: playlistId, unifiedTracks.value) { _toastEvent.emit(it) }
+        }
         if (removed) dropTracksFromState(playlistId, tracks.map { it.id }.toSet())
         removed
     }
@@ -886,8 +1358,23 @@ class PlaylistViewModel(
         ensureAllTracksLoaded { tracks ->
             if (tracks.isEmpty()) return@ensureAllTracksLoaded
             val externals = externalTracks.value
+            val unified = unifiedTracks.value
             viewModelScope.launch {
-                val ok = trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externals) { message ->
+                val ok = trackBatchActions.addToPlaylist(targetPlaylistId, tracks, externals, unified) { message ->
+                    if (!message.startsWith("已添加")) _toastEvent.emit(message)
+                }
+                if (ok) _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
+            }
+        }
+    }
+
+    fun importAllTracksToUnified(targetPlaylistId: PlaylistId) {
+        ensureAllTracksLoaded { tracks ->
+            if (tracks.isEmpty()) return@ensureAllTracksLoaded
+            val externals = externalTracks.value
+            val unified = unifiedTracks.value
+            viewModelScope.launch {
+                val ok = trackBatchActions.addToUnifiedPlaylist(targetPlaylistId, tracks, externals, unified) { message ->
                     if (!message.startsWith("已添加")) _toastEvent.emit(message)
                 }
                 if (ok) _toastEvent.emit("已导入 ${tracks.size} 首歌曲")
@@ -896,9 +1383,27 @@ class PlaylistViewModel(
     }
 
     // 新建歌单并把当前歌单全部歌曲导入进去
-    fun createPlaylistAndImportAll(name: String, isPrivate: Boolean = false) {
+    fun createPlaylistAndImportAll(name: String, isPrivate: Boolean = false, targetPlatform: MusicPlatform = MusicPlatform.NETEASE) {
         ensureAllTracksLoaded { tracks ->
+            if (tracks.isEmpty()) return@ensureAllTracksLoaded
             val externals = externalTracks.value
+            val unified = unifiedTracks.value
+            if (targetPlatform == MusicPlatform.KUGOU || tracks.any { unified[it.id]?.platform == MusicPlatform.KUGOU }) {
+                viewModelScope.launch {
+                    val ok = trackBatchActions.createPlaylistAndAdd(
+                        name = name,
+                        privacy = playlistPrivacyOf(isPrivate),
+                        tracks = tracks,
+                        externals = externals,
+                        unifiedTracks = unified,
+                        targetPlatform = targetPlatform
+                    ) { message ->
+                        if (!message.startsWith("已创建")) _toastEvent.emit(message)
+                    }
+                    if (ok) _toastEvent.emit("已创建歌单并导入 ${tracks.size} 首歌曲")
+                }
+                return@ensureAllTracksLoaded
+            }
             val (externalRows, neteaseTracks) = tracks.partition { it.id in externals }
             viewModelScope.launch {
                 createPlaylistAndAddSongUseCase(name, neteaseTracks.map { it.id }, playlistPrivacyOf(isPrivate)).collect { result ->
@@ -918,6 +1423,26 @@ class PlaylistViewModel(
         val id = successState.playlist.id
         val targetSubscribe = !successState.isSubscribed
         val resourceLabel = if (isAlbumMode) "专辑" else "歌单"
+        if (successState.platform == MusicPlatform.KUGOU) {
+            if (isAlbumMode) {
+                viewModelScope.launch { _toastEvent.emit("酷狗暂不支持收藏专辑") }
+                return
+            }
+            val pid = PlaylistId.parseOrNull(successState.entityId) ?: return
+            val router = platformPlaylistRouter ?: return
+            viewModelScope.launch {
+                router.subscribePlaylist(pid, targetSubscribe).first().onSuccess {
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success) state.copy(isSubscribed = targetSubscribe) else state
+                    }
+                    playlistMutationBus.emit(PlaylistMutationEvent.Subscribed(0L, targetSubscribe, entityId = pid))
+                    _toastEvent.emit(if (targetSubscribe) "已收藏$resourceLabel" else "已取消收藏$resourceLabel")
+                }.onFailure { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                }
+            }
+            return
+        }
         viewModelScope.launch {
             val flow = if (isAlbumMode) {
                 playlistRepository.subscribeAlbum(id, targetSubscribe)
@@ -944,16 +1469,49 @@ class PlaylistViewModel(
     private fun commentThreadId(id: Long): String = if (isAlbumMode) "R_AL_3_$id" else "A_PL_0_$id"
 
     fun loadPlaylistComments(playlistId: Long) {
+        val currentState = _uiState.value as? PlaylistUiState.Success
+        if (currentState != null && currentState.platform == MusicPlatform.KUGOU) {
+            loadEntityComments()
+            return
+        }
         commentsController.load(commentThreadId(playlistId))
+    }
+
+    fun loadEntityComments() {
+        val currentState = _uiState.value as? PlaylistUiState.Success ?: return
+        if (currentState.platform != MusicPlatform.KUGOU) {
+            commentsController.load(commentThreadId(currentState.playlist.id))
+            return
+        }
+        if (currentState.isKugouRecent) return
+        val target = if (isAlbumMode) {
+            AlbumId.parseOrNull(currentState.entityId)?.let { CommentTarget.AlbumTarget(albumId = it) }
+        } else {
+            PlaylistId.parseOrNull(currentState.entityId)?.let { CommentTarget.PlaylistTarget(playlistId = it) }
+        } ?: return
+        commentsController.loadTarget(target)
     }
 
     fun retryComments() {
         commentsController.retry()
     }
 
+    private suspend fun activeCommentUser(): CommentUser? {
+        return when (commentsController.activePlatform) {
+            MusicPlatform.KUGOU -> {
+                val acc = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() ?: return null
+                CommentUser(userId = acc.uid, nickname = acc.nickname, avatarUrl = acc.avatarUrl)
+            }
+            else -> {
+                val profile = userPreferences.userProfile.first() ?: return null
+                CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl)
+            }
+        }
+    }
+
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
-            if (userProfile.value == null) {
+            if (activeCommentUser() == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }
@@ -964,13 +1522,25 @@ class PlaylistViewModel(
     fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
     fun loadMoreComments() = commentsController.loadMore()
     fun submitComment(content: String) {
-        val profile = userProfile.value ?: return
-        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+        viewModelScope.launch {
+            val user = activeCommentUser()
+            if (user == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            commentsController.submitComment(content, user)
+        }
     }
 
     fun submitCommentReply(parentCommentId: Long, content: String) {
-        val profile = userProfile.value ?: return
-        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+        viewModelScope.launch {
+            val user = activeCommentUser()
+            if (user == null) {
+                _toastEvent.emit("请先登录账号")
+                return@launch
+            }
+            commentsController.submitReply(parentCommentId, content, user)
+        }
     }
     fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
     fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)
@@ -1193,6 +1763,83 @@ class PlaylistViewModel(
         }
     }
 
+    fun updatePlaylistInfoByEntity(
+        entityId: String,
+        originalName: String,
+        newName: String,
+        originalDesc: String?,
+        newDesc: String,
+        coverBytes: ByteArray?,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val legacyId = entityId.toLongOrNull()
+        if (legacyId != null) {
+            updatePlaylistInfo(legacyId, originalName, newName, originalDesc, newDesc, coverBytes, onComplete)
+            return
+        }
+        val pid = PlaylistId.parseOrNull(entityId)
+        val router = platformPlaylistRouter
+        if (pid == null || router == null) {
+            onComplete(false)
+            return
+        }
+        if (_isSavingInfo.value) return
+        val nameChanged = newName.isNotBlank() && newName != originalName
+        val descChanged = newDesc != (originalDesc ?: "")
+        if (!nameChanged && !descChanged && coverBytes == null) {
+            onComplete(true)
+            return
+        }
+        viewModelScope.launch {
+            _isSavingInfo.value = true
+            try {
+                if (coverBytes != null) {
+                    val newCoverUrl = router.updatePlaylistCover(pid, coverBytes).first().getOrElse { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                        onComplete(false)
+                        return@launch
+                    }
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                            state.copy(playlist = state.playlist.copy(coverImgUrl = newCoverUrl))
+                        } else state
+                    }
+                    playlistMutationBus.emit(PlaylistMutationEvent.CoverUpdated(0L, newCoverUrl, entityId = pid))
+                }
+                if (nameChanged) {
+                    router.renamePlaylist(pid, newName).first().getOrElse { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                        onComplete(false)
+                        return@launch
+                    }
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                            state.copy(playlist = state.playlist.copy(name = newName))
+                        } else state
+                    }
+                    playlistMutationBus.emit(PlaylistMutationEvent.Renamed(0L, newName, entityId = pid))
+                }
+                if (descChanged) {
+                    router.updateDescription(pid, newDesc).first().getOrElse { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                        onComplete(false)
+                        return@launch
+                    }
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                            state.copy(playlist = state.playlist.copy(description = newDesc))
+                        } else state
+                    }
+                    playlistMutationBus.emit(PlaylistMutationEvent.DescriptionUpdated(0L, newDesc, entityId = pid))
+                }
+                _toastEvent.emit("歌单信息已更新")
+                onComplete(true)
+            } finally {
+                _isSavingInfo.value = false
+            }
+        }
+    }
+
     // 删除歌单
     fun deletePlaylist(id: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -1212,6 +1859,29 @@ class PlaylistViewModel(
         }
     }
 
+    fun deletePlaylistByEntity(entityId: String, onSuccess: () -> Unit) {
+        val legacyId = entityId.toLongOrNull()
+        if (legacyId != null) {
+            deletePlaylist(legacyId, onSuccess)
+            return
+        }
+        val pid = PlaylistId.parseOrNull(entityId) ?: return
+        val router = platformPlaylistRouter ?: return
+        viewModelScope.launch {
+            router.deletePlaylist(pid).first().fold(
+                onSuccess = {
+                    externalStore.clearPlaylist(pid)
+                    playlistMutationBus.emit(PlaylistMutationEvent.Deleted(0L, entityId = pid))
+                    _toastEvent.emit("歌单已删除")
+                    onSuccess()
+                },
+                onFailure = { error ->
+                    _toastEvent.emit(error.toUserMessage(resourceProvider))
+                }
+            )
+        }
+    }
+
     // ==================== 半屏添加音乐搜索与添加 ====================
 
     private val _addMusicSearchQuery = MutableStateFlow("")
@@ -1220,7 +1890,32 @@ class PlaylistViewModel(
     private val _addMusicSearchState = MutableStateFlow<AddMusicSearchState>(AddMusicSearchState.Idle)
     val addMusicSearchState: StateFlow<AddMusicSearchState> = _addMusicSearchState.asStateFlow()
 
+    private val _addMusicSource = MutableStateFlow(MusicPlatform.NETEASE)
+    val addMusicSource: StateFlow<MusicPlatform> = _addMusicSource.asStateFlow()
+
+    val availableAddMusicSources: StateFlow<List<MusicPlatform>> = isKugouEnabled
+        .map { enabled ->
+            if (enabled && platformSearchRouter != null) listOf(MusicPlatform.NETEASE, MusicPlatform.KUGOU)
+            else listOf(MusicPlatform.NETEASE)
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(MusicPlatform.NETEASE))
+
+    private val _addMusicUnifiedTracks = LinkedHashMap<Long, UnifiedTrack>()
     private var addMusicSearchJob: Job? = null
+
+    fun setAddMusicSource(platform: MusicPlatform) {
+        val target = if (platform == MusicPlatform.KUGOU && (!isKugouEnabled.value || platformSearchRouter == null)) {
+            MusicPlatform.NETEASE
+        } else {
+            platform
+        }
+        if (_addMusicSource.value == target) return
+        _addMusicSource.value = target
+        val current = _addMusicSearchQuery.value
+        if (current.isNotBlank()) {
+            updateAddMusicSearchQuery(current)
+        }
+    }
 
     fun updateAddMusicSearchQuery(query: String) {
         _addMusicSearchQuery.value = query
@@ -1233,17 +1928,39 @@ class PlaylistViewModel(
         addMusicSearchJob = viewModelScope.launch {
             delay(300)
             _addMusicSearchState.value = AddMusicSearchState.Loading
-            searchRepository.search(trimmed, SearchType.SONG, offset = 0, limit = 30).collect { result ->
-                result.fold(
-                    onSuccess = { pageResult ->
-                        val tracks = pageResult.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
-                        songQualityCache?.prefetch(tracks)
-                        _addMusicSearchState.value = AddMusicSearchState.Success(tracks)
-                    },
-                    onFailure = { error ->
-                        _addMusicSearchState.value = AddMusicSearchState.Error(error.toUserMessage(resourceProvider))
+            val source = _addMusicSource.value
+            val kugouEnabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+            if (source == MusicPlatform.KUGOU && kugouEnabled && platformSearchRouter != null) {
+                platformSearchRouter.search(MusicPlatform.KUGOU, trimmed, UnifiedSearchType.SONG, offset = 0, limit = 30)
+                    .collect { result ->
+                        result.fold(
+                            onSuccess = { pageResult ->
+                                val unifiedList = pageResult.items
+                                    .filterIsInstance<UnifiedSearchResultItem.SongItem>()
+                                    .map { it.track }
+                                val displayTracks = unifiedList.map { unified ->
+                                    unified.toDisplayTrack().also { _addMusicUnifiedTracks[it.id] = unified }
+                                }
+                                _addMusicSearchState.value = AddMusicSearchState.Success(displayTracks)
+                            },
+                            onFailure = { error ->
+                                _addMusicSearchState.value = AddMusicSearchState.Error(error.toUserMessage(resourceProvider))
+                            }
+                        )
                     }
-                )
+            } else {
+                searchRepository.search(trimmed, SearchType.SONG, offset = 0, limit = 30).collect { result ->
+                    result.fold(
+                        onSuccess = { pageResult ->
+                            val tracks = pageResult.items.filterIsInstance<SearchResultItem.SongItem>().map { it.track }
+                            songQualityCache?.prefetch(tracks)
+                            _addMusicSearchState.value = AddMusicSearchState.Success(tracks)
+                        },
+                        onFailure = { error ->
+                            _addMusicSearchState.value = AddMusicSearchState.Error(error.toUserMessage(resourceProvider))
+                        }
+                    )
+                }
             }
         }
     }
@@ -1252,9 +1969,20 @@ class PlaylistViewModel(
         addMusicSearchJob?.cancel()
         _addMusicSearchQuery.value = ""
         _addMusicSearchState.value = AddMusicSearchState.Idle
+        _addMusicUnifiedTracks.clear()
     }
 
     fun addTrackToPlaylist(playlistId: Long, track: Track, onComplete: (Boolean) -> Unit = {}) {
+        val currentState = _uiState.value as? PlaylistUiState.Success
+        if (currentState != null && currentState.platform == MusicPlatform.KUGOU) {
+            addTrackToEntityPlaylist(currentState.entityId, track, onComplete)
+            return
+        }
+        val unified = _addMusicUnifiedTracks[track.id]
+        if (unified != null && unified.platform != MusicPlatform.NETEASE && platformPlaylistRouter != null) {
+            addTrackToEntityPlaylist(playlistId.toString(), track, onComplete)
+            return
+        }
         viewModelScope.launch {
             playlistRepository.manipulatePlaylistTracks("add", playlistId, listOf(track.id)).collect { result ->
                 result.onSuccess {
@@ -1278,10 +2006,68 @@ class PlaylistViewModel(
         }
     }
 
+    fun addTrackToEntityPlaylist(entityId: String, track: Track, onComplete: (Boolean) -> Unit = {}) {
+        val pid = entityId.toLongOrNull()?.let { PlaylistId.netease(it) } ?: PlaylistId.parseOrNull(entityId)
+        val router = platformPlaylistRouter
+        if (pid == null || router == null) {
+            val legacyId = entityId.toLongOrNull()
+            if (legacyId != null) {
+                addTrackToPlaylist(legacyId, track, onComplete)
+            } else {
+                onComplete(false)
+            }
+            return
+        }
+        val unified = _addMusicUnifiedTracks[track.id]
+            ?: unifiedTracks.value[track.id]
+            ?: externalTracks.value[track.id]?.toUnified()
+            ?: track.toUnified()
+        if (pid.platform == MusicPlatform.NETEASE && unified.platform == MusicPlatform.NETEASE) {
+            addTrackToPlaylist(pid.neteaseIdOrNull()!!, track, onComplete)
+            return
+        }
+        viewModelScope.launch {
+            router.addTracksToPlaylist(pid, listOf(unified)).first().fold(
+                onSuccess = {
+                    _toastEvent.emit("已添加到歌单")
+                    if (unified.platform == pid.platform) {
+                        _baseUnifiedTracks.update { list ->
+                            if (list.any { it.id == unified.id }) list else list + unified
+                        }
+                        if (pid.platform == MusicPlatform.KUGOU) {
+                            _baseKugouTracks.update { list ->
+                                if (list.any { it.id == unified.id }) list else list + unified
+                            }
+                            _uiState.update { state ->
+                                if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                                    val updatedTracks = state.playlist.tracks.toMutableList().apply {
+                                        if (none { it.id == track.id }) add(track)
+                                    }
+                                    kugouRemoteTrackCount = maxOf(kugouRemoteTrackCount + 1, updatedTracks.size)
+                                    state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackCount = updatedTracks.size))
+                                } else state
+                            }
+                        }
+                    }
+                    onComplete(true)
+                },
+                onFailure = { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    onComplete(false)
+                }
+            )
+        }
+    }
+
     // ==================== 拖拽排序保存 ====================
 
     // 外部歌曲的位置由加入时间决定，不参与网易云的顺序覆盖
     fun updateTrackOrder(playlistId: Long, orderedTracks: List<Track>, onComplete: (Boolean) -> Unit) {
+        val currentState = _uiState.value as? PlaylistUiState.Success
+        if (currentState != null && currentState.platform == MusicPlatform.KUGOU) {
+            updateTrackOrderByEntity(currentState.entityId, orderedTracks, onComplete)
+            return
+        }
         val newTracks = orderedTracks.filter { it.id > 0L }
         // op=update 是全量覆盖，空列表会把整个歌单清空
         if (newTracks.isEmpty()) {
@@ -1303,6 +2089,48 @@ class PlaylistViewModel(
                     onComplete(false)
                 }
             }
+        }
+    }
+
+    fun updateTrackOrderByEntity(entityId: String, orderedTracks: List<Track>, onComplete: (Boolean) -> Unit) {
+        val legacyId = entityId.toLongOrNull()
+        if (legacyId != null) {
+            updateTrackOrder(legacyId, orderedTracks, onComplete)
+            return
+        }
+        val pid = PlaylistId.parseOrNull(entityId)
+        val router = platformPlaylistRouter
+        if (pid == null || router == null) {
+            onComplete(false)
+            return
+        }
+        val currentUnifiedMap = unifiedTracks.value
+        val samePlatformUnified = orderedTracks.mapNotNull { track ->
+            currentUnifiedMap[track.id]?.takeIf { it.platform == pid.platform }
+        }
+        if (samePlatformUnified.isEmpty()) {
+            onComplete(false)
+            return
+        }
+        val listVer = (_uiState.value as? PlaylistUiState.Success)?.listVer ?: 0L
+        viewModelScope.launch {
+            router.sortPlaylistTracks(pid, samePlatformUnified, listVer).first().fold(
+                onSuccess = {
+                    _toastEvent.emit("歌曲顺序已更新")
+                    _baseKugouTracks.value = samePlatformUnified
+                    val displayList = samePlatformUnified.map { it.toDisplayTrack() }
+                    _uiState.update { state ->
+                        if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                            state.copy(playlist = state.playlist.copy(tracks = displayList))
+                        } else state
+                    }
+                    onComplete(true)
+                },
+                onFailure = { e ->
+                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    onComplete(false)
+                }
+            )
         }
     }
 

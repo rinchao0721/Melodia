@@ -15,9 +15,9 @@ fun formatLikedCount(count: Int): String = when {
     else -> count.toString()
 }
 
-// 评论流：热评在前，按评论 id 去重
+// 评论流：热评在前，按评论 key/id 去重
 fun allComments(state: CommentsState.Success): List<CommentItem> =
-    (state.hotComments + state.comments).distinctBy { it.commentId }
+    (state.hotComments + state.comments).distinctBy { it.commentKey.ifBlank { it.commentId.toString() } }
 
 // 面板预览卡里展示的前几条评论
 fun previewComments(state: CommentsState.Success): List<CommentItem> = allComments(state).take(PREVIEW_COUNT)

@@ -3,10 +3,21 @@ package com.lin0721.linmusic.feature.search.ui
 import com.lin0721.linmusic.core.deeplink.LinkPreviewState
 import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchType
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
+
+// 酷狗搜索结果分类
+enum class KugouSearchType(val unifiedType: UnifiedSearchType, val label: String) {
+    COMPLEX(UnifiedSearchType.COMPLEX, "综合"),
+    SONG(UnifiedSearchType.SONG, "单曲"),
+    PLAYLIST(UnifiedSearchType.PLAYLIST, "歌单"),
+    ALBUM(UnifiedSearchType.ALBUM, "专辑"),
+    ARTIST(UnifiedSearchType.ARTIST, "歌手")
+}
 
 // 发现页（默认词/热搜/精品歌单）状态
 sealed interface DiscoveryUiState {
@@ -27,7 +38,8 @@ sealed interface SearchResultsUiState {
         val items: List<SearchResultItem>,
         val totalCount: Int,
         val hasMore: Boolean,
-        val isLoadingMore: Boolean = false
+        val isLoadingMore: Boolean = false,
+        val entityIds: Map<String, String> = emptyMap()
     ) : SearchResultsUiState
     data object Empty : SearchResultsUiState
     data class Error(val message: String) : SearchResultsUiState
@@ -55,6 +67,14 @@ fun ExternalSearchUiState.tabBadge(): String? = when (this) {
     is ExternalSearchUiState.Success -> if (hasMore) "${tracks.size}+" else "${tracks.size}"
 }
 
+fun SearchResultsUiState.tabBadge(): String? = when (this) {
+    SearchResultsUiState.Idle -> null
+    SearchResultsUiState.Loading -> "加载中"
+    SearchResultsUiState.Empty -> "0"
+    is SearchResultsUiState.Error -> "失败"
+    is SearchResultsUiState.Success -> if (hasMore) "${items.size}+" else "${items.size}"
+}
+
 enum class SearchMode { Discovery, Typing, Results }
 
 // 搜索框中识别出的网易云链接直达卡片数据
@@ -71,7 +91,10 @@ data class SearchInputState(
     val suggestionQuery: String = "",
     val songHits: List<Track> = emptyList(),
     val songHitsQuery: String = "",
-    val linkHit: SearchLinkHit? = null
+    val linkHit: SearchLinkHit? = null,
+    val platform: MusicPlatform = MusicPlatform.NETEASE,
+    val suggestionArtistEntityIds: Map<Long, String> = emptyMap(),
+    val suggestionAlbumEntityIds: Map<Long, String> = emptyMap()
 ) {
     val currentSuggestions: List<SearchSuggestion>
         get() = if (suggestionQuery == query) suggestions else emptyList()

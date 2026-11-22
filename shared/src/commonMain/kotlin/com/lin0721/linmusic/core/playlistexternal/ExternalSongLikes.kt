@@ -46,7 +46,21 @@ class ExternalSongLikes(
     }
 
     suspend fun find(songId: Long): ExternalTrack? {
-        queueSnapshot().firstOrNull { it.songId == songId }?.external?.let { return it }
+        queueSnapshot().firstOrNull { it.songId == songId }?.let { item ->
+            item.external?.let { return it }
+            if (item.effectivePlatform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU) {
+                val trackId = item.effectiveTrackId
+                return ExternalTrack(
+                    id = trackId.rawId,
+                    name = item.title,
+                    artists = item.artist,
+                    albumId = item.kugouMeta?.albumId.orEmpty(),
+                    coverUrl = item.coverUrl,
+                    platform = com.lin0721.linmusic.core.source.MusicPlatform.KUGOU,
+                    hash = item.kugouMeta?.hash ?: trackId.rawId
+                )
+            }
+        }
         return store.all.first().values.asSequence().flatten()
             .firstOrNull { it.track.queueSongId == songId }?.track
     }

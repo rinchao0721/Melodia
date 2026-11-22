@@ -1,17 +1,33 @@
 package com.lin0721.linmusic.core.playlistmutation
 
+import com.lin0721.linmusic.core.platform.PlaylistId
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 sealed interface PlaylistMutationEvent {
-    data class Created(val playlistId: Long) : PlaylistMutationEvent
-    data class Subscribed(val playlistId: Long, val isSubscribed: Boolean) : PlaylistMutationEvent
-    data class Renamed(val playlistId: Long, val newName: String) : PlaylistMutationEvent
-    data class DescriptionUpdated(val playlistId: Long, val newDesc: String) : PlaylistMutationEvent
-    data class Deleted(val playlistId: Long) : PlaylistMutationEvent
-    data class CoverUpdated(val playlistId: Long, val newCoverUrl: String) : PlaylistMutationEvent
+    val entityId: PlaylistId?
+    val resolvedPlaylistId: PlaylistId
+
+    data class Created(val playlistId: Long, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
+    data class Subscribed(val playlistId: Long, val isSubscribed: Boolean, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
+    data class Renamed(val playlistId: Long, val newName: String, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
+    data class DescriptionUpdated(val playlistId: Long, val newDesc: String, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
+    data class Deleted(val playlistId: Long, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
+    data class CoverUpdated(val playlistId: Long, val newCoverUrl: String, override val entityId: PlaylistId? = null) : PlaylistMutationEvent {
+        override val resolvedPlaylistId: PlaylistId get() = entityId ?: PlaylistId.netease(playlistId)
+    }
 }
 
 // 跨模块歌单变更事件总线

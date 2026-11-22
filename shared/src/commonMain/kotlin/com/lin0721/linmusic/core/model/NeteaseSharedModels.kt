@@ -183,7 +183,10 @@ data class CommentItem(
     val beReplied: List<BeRepliedComment>? = null,
     // 该评论下的子回复总数，用于"展开 N 条回复"入口的显示条件
     val replyCount: Int = 0,
-    val parentCommentId: Long = 0
+    val parentCommentId: Long = 0,
+    // 跨平台评论原始字符串 ID 与父评论 ID（酷狗评论需保留原始 ID 用于楼层/回复/删除）
+    val commentKey: String = "",
+    val parentCommentKey: String = ""
 )
 
 @Serializable

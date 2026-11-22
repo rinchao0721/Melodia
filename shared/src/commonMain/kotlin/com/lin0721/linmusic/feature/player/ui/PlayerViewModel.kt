@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
@@ -63,6 +64,9 @@ import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.platform.repository.CommentTarget
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 // 单个艺人的完整状态数据
 data class ArtistCardItem(
@@ -124,7 +128,8 @@ class PlayerViewModel(
     private val songDownloadManager: SongDownloader,
     private val lyricsResolver: LyricsResolver,
     private val podcastPlayer: PodcastPlayerController,
-    private val qqSongIdResolver: QQSongIdResolver
+    private val qqSongIdResolver: QQSongIdResolver,
+    private val platformCommentRouter: PlatformCommentRouter? = null
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -241,13 +246,20 @@ class PlayerViewModel(
         scope = viewModelScope,
         repository = commentRepository,
         onToast = { message -> _toastEvent.emit(message) },
-        resourceProvider = resourceProvider
+        resourceProvider = resourceProvider,
+        platformCommentRouter = platformCommentRouter
     )
     val commentsState: StateFlow<CommentsState> = commentsController.commentsState
     val composerState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentComposerState> = commentsController.composerState
     val floorState: StateFlow<com.lin0721.linmusic.core.comment.domain.CommentFloorState> = commentsController.floorState
 
     val userProfile = userPreferences.userProfile.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val kugouAccount: StateFlow<StoredAccount?> = userPreferences.activeAccountOf(MusicPlatform.KUGOU).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
@@ -276,10 +288,15 @@ class PlayerViewModel(
     private fun observeLikedState() {
         viewModelScope.launch {
             combine(
-                playerManager.nowPlaying.map { it?.songId ?: -1L },
-                songLikeRepository.likedSongIds
-            ) { songId, likedIds ->
-                (songId > 0L || isExternalSong(songId)) && songId in likedIds
+                playerManager.currentQueueItem,
+                playerManager.nowPlaying,
+                songLikeRepository.likedSongIds,
+                songLikeRepository.likedTrackIds
+            ) { queueItem, nowPlaying, likedIds, likedTrackIds ->
+                val songId = queueItem?.songId ?: nowPlaying?.songId ?: -1L
+                val trackId = queueItem?.effectiveTrackId
+                (trackId != null && trackId in likedTrackIds) ||
+                    ((songId > 0L || isExternalSong(songId)) && songId in likedIds)
             }.distinctUntilChanged()
                 .collect { isLiked ->
                     _songDetailState.update { it.copy(isLiked = isLiked) }
@@ -297,17 +314,32 @@ class PlayerViewModel(
         }
     }
 
-    // 负数 id 里只有外部平台歌曲能喜欢，本地文件的占位 id 不行
+    // 负数 id 里只有外部平台/酷狗歌曲能喜欢，本地文件的占位 id 不行
     private fun isExternalSong(songId: Long): Boolean =
-        songId < 0L && playerManager.queue.value.any { it.songId == songId && it.external != null }
+        songId < 0L && playerManager.queue.value.any {
+            it.songId == songId && (it.external != null || it.trackId?.platform == MusicPlatform.KUGOU)
+        }
 
     fun toggleLike() {
         val songId = currentSongId
         if (songId <= 0L && !isExternalSong(songId)) return
 
+        val currentItem = playerManager.currentQueueItem.value?.takeIf { it.songId == songId }
+            ?: playerManager.queue.value.firstOrNull { it.songId == songId }
         val newLiked = !_songDetailState.value.isLiked
         viewModelScope.launch {
-            songLikeRepository.likeSong(songId, newLiked).collect { result ->
+            val flow = if (currentItem != null && currentItem.effectivePlatform == MusicPlatform.KUGOU) {
+                songLikeRepository.likeTrack(
+                    trackId = currentItem.effectiveTrackId,
+                    like = newLiked,
+                    title = currentItem.title,
+                    kugouMeta = currentItem.kugouMeta,
+                    legacyExternalId = currentItem.songId
+                )
+            } else {
+                songLikeRepository.likeSong(songId, newLiked)
+            }
+            flow.collect { result ->
                 result.onFailure {
                     _toastEvent.emit(it.toUserMessage(resourceProvider))
                 }
@@ -359,10 +391,14 @@ class PlayerViewModel(
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
-                        val isLiked = (songId > 0L || isExternalSong(songId)) && songId in songLikeRepository.likedSongIds.value
+                        val currentItem = playerManager.currentQueueItem.value?.takeIf { it.songId == songId }
+                            ?: playerManager.queue.value.firstOrNull { it.songId == songId }
+                        val external = currentItem?.external
+                        val isKugouTrack = currentItem?.effectivePlatform == MusicPlatform.KUGOU
+                        val isLiked = (currentItem?.effectiveTrackId in songLikeRepository.likedTrackIds.value) ||
+                            ((songId > 0L || isExternalSong(songId)) && songId in songLikeRepository.likedSongIds.value)
                         val isLocalOnly = songId <= 0L
-                        val external = playerManager.queue.value.firstOrNull { it.songId == songId }?.external
-                        clearState(isLiked, isLocalOnly, isExternal = external != null)
+                        clearState(isLiked, isLocalOnly, isExternal = external != null || isKugouTrack)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
@@ -373,8 +409,18 @@ class PlayerViewModel(
                                 launch { loadSongWiki(songId) }
                                 launch { loadChorus(songId) }
                                 launch { commentsController.load("R_SO_4_$songId") }
-                            }
-                            if (external != null) {
+                            } else if (isKugouTrack && settingsPreferences.kugouPlatformEnabled.first() && platformCommentRouter != null) {
+                                launch {
+                                    commentsController.loadTarget(
+                                        CommentTarget.TrackTarget(
+                                            trackId = currentItem!!.effectiveTrackId,
+                                            kugouMixSongId = currentItem.kugouMeta?.mixSongId,
+                                            title = currentItem.title,
+                                            artists = currentItem.artist
+                                        )
+                                    )
+                                }
+                            } else if (external != null) {
                                 launch { commentsController.load(qqSongThreadId(qqSongIdResolver.resolve(external) ?: 0L)) }
                             }
                         }
@@ -575,8 +621,35 @@ class PlayerViewModel(
         commentsController.retry()
     }
 
+    private suspend fun resolveCommentAuthor(): CommentUser? {
+        return when (commentsController.activePlatform) {
+            MusicPlatform.KUGOU -> {
+                val account = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
+                if (account == null) {
+                    _toastEvent.emit("请先登录酷狗账号")
+                    null
+                } else {
+                    CommentUser(userId = account.uid, nickname = account.nickname, avatarUrl = account.avatarUrl)
+                }
+            }
+            else -> {
+                val profile = userProfile.value
+                if (profile == null) {
+                    _toastEvent.emit("请先登录账号")
+                    null
+                } else {
+                    CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl)
+                }
+            }
+        }
+    }
+
     fun likeComment(comment: CommentItem) {
         viewModelScope.launch {
+            if (commentsController.activePlatform == MusicPlatform.KUGOU) {
+                commentsController.like(comment)
+                return@launch
+            }
             if (userProfile.value == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
@@ -588,13 +661,17 @@ class PlayerViewModel(
     fun changeCommentSort(sortType: CommentSortType) = commentsController.changeSort(sortType)
     fun loadMoreComments() = commentsController.loadMore()
     fun submitComment(content: String) {
-        val profile = userProfile.value ?: return
-        commentsController.submitComment(content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+        viewModelScope.launch {
+            val author = resolveCommentAuthor() ?: return@launch
+            commentsController.submitComment(content, author)
+        }
     }
 
     fun submitCommentReply(parentCommentId: Long, content: String) {
-        val profile = userProfile.value ?: return
-        commentsController.submitReply(parentCommentId, content, CommentUser(userId = profile.uid, nickname = profile.nickname, avatarUrl = profile.avatarUrl))
+        viewModelScope.launch {
+            val author = resolveCommentAuthor() ?: return@launch
+            commentsController.submitReply(parentCommentId, content, author)
+        }
     }
     fun deleteCommentItem(comment: CommentItem) = commentsController.deleteComment(comment)
     fun openCommentFloor(comment: CommentItem) = commentsController.openFloor(comment)

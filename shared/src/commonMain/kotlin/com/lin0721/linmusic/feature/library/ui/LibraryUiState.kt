@@ -10,7 +10,9 @@ sealed interface LibraryUiState {
         val filteredItems: List<LibraryItem>,
         val artistCount: Int,
         val playlistCount: Int,
-        val albumCount: Int
+        val albumCount: Int,
+        val kugouPlaylistCount: Int = 0,
+        val kugouArtistCount: Int = 0
     ) : LibraryUiState
 
     data class Error(val message: String) : LibraryUiState
