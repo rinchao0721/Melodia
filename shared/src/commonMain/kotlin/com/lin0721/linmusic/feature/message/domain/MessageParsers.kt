@@ -17,6 +17,8 @@ private const val NOTICE_TYPE_TRACK = 1
 private const val NOTICE_TYPE_PLAYLIST = 2
 private const val NOTICE_TYPE_COMMENT = 6
 private const val PRIVATE_TYPE_TEXT = 6
+// 「官方号消息」聚合入口的虚拟 uid
+private const val OFFICIAL_FOLDER_UID = 8888L
 
 private val parserJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -210,7 +212,7 @@ fun parsePrivateConversation(obj: JsonObject, selfUid: Long): PrivateConversatio
     val fromUserId = user.long("fromUserId") ?: 0L
     val toUserId = user.long("toUserId") ?: 0L
     val peerUid = if (fromUserId == selfUid) toUserId else fromUserId
-    if (peerUid <= 0L) return null
+    if (peerUid <= 0L || peerUid == OFFICIAL_FOLDER_UID) return null
     val peerProfile = obj.obj("fromUser")?.takeIf { it.long("userId") == peerUid }
         ?: obj.obj("toUser")?.takeIf { it.long("userId") == peerUid }
         ?: return null
