@@ -3,21 +3,57 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.auth.NeteaseAuthProvider
 import com.lin0721.linmusic.core.auth.PlatformSessionRegistry
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouAlbumService
+import com.lin0721.linmusic.core.kugou.KugouArtistService
 import com.lin0721.linmusic.core.kugou.KugouAuthProvider
 import com.lin0721.linmusic.core.kugou.KugouAuthService
+import com.lin0721.linmusic.core.kugou.KugouCommentService
 import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.kugou.KugouDeviceStore
 import com.lin0721.linmusic.core.kugou.KugouGatewayClient
 import com.lin0721.linmusic.core.kugou.KugouLikeService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
+import com.lin0721.linmusic.core.kugou.KugouPlaylistService
+import com.lin0721.linmusic.core.kugou.KugouSearchService
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformAlbumRepository
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformArtistRepository
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformCommentRepository
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformLibraryRepository
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformPlaylistRepository
+import com.lin0721.linmusic.core.platform.repository.KugouPlatformSearchRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformAlbumRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformArtistRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformCommentRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformLibraryRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformPlaylistRepository
+import com.lin0721.linmusic.core.platform.repository.NeteasePlatformSearchRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformArtistRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformArtistRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformSearchRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformSearchRouter
+import com.lin0721.linmusic.core.platform.repository.QQPlatformCommentRepository
 import com.lin0721.linmusic.core.player.KugouPlaybackProvider
 import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.QQCommentApi
+import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import kotlinx.coroutines.flow.first
 import org.koin.dsl.module
 
-// 酷狗独立网络/加密/鉴权/播放模块与跨平台会话及播放路由注册表
+// 酷狗独立网络/加密/鉴权/播放/业务服务模块与跨平台路由注册表
 val kugouModule = module {
+    val isKugouEnabled: org.koin.core.scope.Scope.() -> (suspend () -> Boolean) = {
+        { getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true }
+    }
+
     single {
         KugouConfig(
             modeSynchronizer = {
@@ -39,11 +75,16 @@ val kugouModule = module {
         )
     }
     single { KugouLikeService(get(), get()) }
+    single { KugouPlaylistService(get(), get(), get()) }
+    single { KugouSearchService(get(), get()) }
+    single { KugouArtistService(get(), get(), get(), get()) }
+    single { KugouAlbumService(get()) }
+    single { KugouCommentService(get(), get(), get(), get()) }
     single {
         KugouPlaybackProvider(
             playbackService = get(),
             lyricsCache = getOrNull(),
-            isEnabled = { getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true }
+            isEnabled = isKugouEnabled()
         )
     }
     single {
@@ -62,4 +103,83 @@ val kugouModule = module {
             )
         )
     }
+
+    single { NeteasePlatformLibraryRepository(get(), get(), get()) }
+    single { KugouPlatformLibraryRepository(get(), get(), get(), isKugouEnabled()) }
+    single {
+        PlatformLibraryRouter(
+            netease = get<NeteasePlatformLibraryRepository>(),
+            kugou = get<KugouPlatformLibraryRepository>(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformLibraryRepository> { get<PlatformLibraryRouter>() }
+
+    single {
+        NeteasePlatformPlaylistRepository(
+            playlistRepository = get(),
+            createRepository = get(),
+            playerRepository = get(),
+            coverUploader = { playlistId, imageBytes ->
+                getOrNull<UpdatePlaylistCoverUseCase>()?.invoke(playlistId, imageBytes)
+                    ?: Result.failure(IllegalStateException("未注册网易云封面上传用例"))
+            }
+        )
+    }
+    single { KugouPlatformPlaylistRepository(get(), isKugouEnabled()) }
+    single {
+        PlatformPlaylistRouter(
+            netease = get<NeteasePlatformPlaylistRepository>(),
+            kugou = get<KugouPlatformPlaylistRepository>(),
+            externalStore = get(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformPlaylistRepository> { get<PlatformPlaylistRouter>() }
+
+    single { NeteasePlatformSearchRepository(get()) }
+    single { KugouPlatformSearchRepository(get(), isKugouEnabled()) }
+    single {
+        PlatformSearchRouter(
+            netease = get<NeteasePlatformSearchRepository>(),
+            kugou = get<KugouPlatformSearchRepository>(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformSearchRepository> { get<PlatformSearchRouter>() }
+
+    single { NeteasePlatformArtistRepository(get()) }
+    single { KugouPlatformArtistRepository(get(), isKugouEnabled()) }
+    single {
+        PlatformArtistRouter(
+            netease = get<NeteasePlatformArtistRepository>(),
+            kugou = get<KugouPlatformArtistRepository>(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformArtistRepository> { get<PlatformArtistRouter>() }
+
+    single { NeteasePlatformAlbumRepository(get()) }
+    single { KugouPlatformAlbumRepository(get(), isKugouEnabled()) }
+    single {
+        PlatformAlbumRouter(
+            netease = get<NeteasePlatformAlbumRepository>(),
+            kugou = get<KugouPlatformAlbumRepository>(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformAlbumRepository> { get<PlatformAlbumRouter>() }
+
+    single { NeteasePlatformCommentRepository(get()) }
+    single { KugouPlatformCommentRepository(get(), get(), isKugouEnabled()) }
+    single { QQPlatformCommentRepository(QQCommentApi()) }
+    single {
+        PlatformCommentRouter(
+            netease = get<NeteasePlatformCommentRepository>(),
+            kugou = get<KugouPlatformCommentRepository>(),
+            qq = get<QQPlatformCommentRepository>(),
+            isKugouEnabled = isKugouEnabled()
+        )
+    }
+    single<PlatformCommentRepository> { get<PlatformCommentRouter>() }
 }
