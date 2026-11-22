@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.TrackId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -41,10 +42,15 @@ data class DownloadTaskMeta(
     val skipped: Boolean = false,
     val finishedAt: Long = 0,
     // 用户调整过的排队顺序，0 表示按创建时间排队
-    val sortOrder: Long = 0
+    val sortOrder: Long = 0,
+    // P2 跨平台歌曲标识；老数据缺失时按 songId 推导网易云 TrackId
+    val trackId: TrackId? = null
 ) {
     // 排队顺序，越小越先下载
     val queueOrder: Long get() = if (sortOrder != 0L) sortOrder else createdAt
+
+    val effectiveTrackId: TrackId
+        get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
 
     fun toTrackInfo() = DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear)
 }
@@ -64,8 +70,8 @@ class DownloadTaskStore(private val context: Context) {
     // 追加任务；同一首歌只保留最新一条，避免重试或重新下载后列表出现重复
     suspend fun add(metas: List<DownloadTaskMeta>) {
         if (metas.isEmpty()) return
-        val songIds = metas.mapTo(HashSet()) { it.songId }
-        update { list -> trimFinished(list.filterNot { it.songId in songIds } + metas) }
+        val incomingTrackIds = metas.mapTo(HashSet()) { it.effectiveTrackId }
+        update { list -> trimFinished(list.filterNot { it.effectiveTrackId in incomingTrackIds } + metas) }
     }
 
     suspend fun remove(workIds: Set<String>) {

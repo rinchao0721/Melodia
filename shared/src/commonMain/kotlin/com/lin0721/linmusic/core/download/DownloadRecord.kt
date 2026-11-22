@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.download
 
 import com.lin0721.linmusic.core.model.qualityRank
+import com.lin0721.linmusic.core.platform.TrackId
 import kotlinx.serialization.Serializable
 
 // 下载记录实体；mediaStoreUri 在 Android 为 content Uri，桌面端为文件绝对路径
@@ -16,8 +17,13 @@ data class DownloadRecord(
     // 发起下载时请求的音质，服务端降级下发时据此判断无需重下
     val requestedLevel: String = "",
     // 扫描识别补登记的已有文件，不再按音质重下
-    val recognized: Boolean = false
-)
+    val recognized: Boolean = false,
+    // P2 跨平台歌曲标识；老数据反序列化缺失时回退 songId 推导网易云 TrackId
+    val trackId: TrackId? = null
+) {
+    val effectiveTrackId: TrackId
+        get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
+}
 
 // 实际下发或当初请求的档位不低于目标即满足
 fun DownloadRecord.satisfies(level: String): Boolean {

@@ -15,7 +15,7 @@ import com.lin0721.linmusic.core.download.recognition.guessAudioQuality
 import com.lin0721.linmusic.core.download.recognition.inferAudioQuality
 import com.lin0721.linmusic.core.download.recognition.isContainerAudioExtension
 import com.lin0721.linmusic.core.download.recognition.parseDownloadFileName
-import com.lin0721.linmusic.core.download.recognition.parseSongIdTag
+import com.lin0721.linmusic.core.download.recognition.parseTrackIdTag
 import com.lin0721.linmusic.core.log.AppLogger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -152,6 +152,7 @@ class DownloadFolderScanner(
             sizeBytes = child.size,
             durationMs = durationMs
         ) ?: guessAudioQuality(child.extension, bitrate, properties?.sampleRate ?: 0)
+        val trackIdTag = parseTrackIdTag(tags[SONG_ID_TAG]?.firstOrNull())
         return LocalAudioEntry(
             uri = uri.toString(),
             title = title,
@@ -159,7 +160,8 @@ class DownloadFolderScanner(
             durationMs = durationMs,
             sizeBytes = child.size,
             quality = quality,
-            songIdTag = parseSongIdTag(tags[SONG_ID_TAG]?.firstOrNull())
+            songIdTag = trackIdTag?.neteaseIdOrNull()?.takeIf { it > 0L },
+            trackIdTag = trackIdTag
         )
     }
 

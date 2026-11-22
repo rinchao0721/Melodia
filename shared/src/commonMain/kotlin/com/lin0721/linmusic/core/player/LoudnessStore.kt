@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.core.player
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -31,7 +33,8 @@ data class LoudnessEntry(
 
 @Serializable
 private data class StoredLoudnessEntry(
-    val id: Long,
+    val id: Long? = null,
+    val trackId: String? = null,
     val lufs: Double,
     val peak: Double? = null,
     val source: LoudnessSource
@@ -45,20 +48,37 @@ class LoudnessStore(private val file: File?) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val lock = Mutex()
-    private val entries = object : LinkedHashMap<Long, LoudnessEntry>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, LoudnessEntry>?): Boolean = size > MAX_ENTRIES
+    private val entries = object : LinkedHashMap<String, LoudnessEntry>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, LoudnessEntry>?): Boolean = size > MAX_ENTRIES
     }
     private var loaded = false
 
+    suspend fun get(trackId: TrackId): LoudnessEntry? = lock.withLock {
+        ensureLoaded()
+        entries[trackId.canonical]
+    }
+
     suspend fun get(songId: Long): LoudnessEntry? = lock.withLock {
         ensureLoaded()
-        entries[songId]
+        entries[legacyNeteaseKey(songId)]
+    }
+
+    suspend fun put(trackId: TrackId, entry: LoudnessEntry) {
+        lock.withLock {
+            ensureLoaded()
+            entries[trackId.canonical] = entry
+            persist()
+        }
+    }
+
+    suspend fun put(trackId: TrackId, lufs: Double, peak: Double?, source: LoudnessSource) {
+        put(trackId, LoudnessEntry(lufs = lufs, peak = peak, source = source))
     }
 
     suspend fun put(songId: Long, entry: LoudnessEntry) {
         lock.withLock {
             ensureLoaded()
-            entries[songId] = entry
+            entries[legacyNeteaseKey(songId)] = entry
             persist()
         }
     }
@@ -66,6 +86,9 @@ class LoudnessStore(private val file: File?) {
     suspend fun put(songId: Long, lufs: Double, peak: Double?, source: LoudnessSource) {
         put(songId, LoudnessEntry(lufs = lufs, peak = peak, source = source))
     }
+
+    private fun legacyNeteaseKey(songId: Long): String =
+        if (songId >= 0L) TrackId.netease(songId).canonical else "${MusicPlatform.NETEASE.key}:$songId"
 
     private suspend fun ensureLoaded() {
         if (loaded) return
@@ -81,16 +104,35 @@ class LoudnessStore(private val file: File?) {
                 null
             }
         }
-        stored?.entries?.forEach {
-            entries[it.id] = LoudnessEntry(lufs = it.lufs, peak = it.peak, source = it.source)
+        stored?.entries?.forEach { storedEntry ->
+            val key = storedEntry.trackId
+                ?.let { TrackId.parseOrNull(it)?.canonical ?: it.takeIf(String::isNotBlank) }
+                ?: storedEntry.id?.let(::legacyNeteaseKey)
+                ?: return@forEach
+            entries[key] = LoudnessEntry(
+                lufs = storedEntry.lufs,
+                peak = storedEntry.peak,
+                source = storedEntry.source
+            )
         }
     }
 
     private suspend fun persist() {
         val target = file ?: return
         val snapshot = LoudnessFile(
-            entries.map { (id, entry) ->
-                StoredLoudnessEntry(id = id, lufs = entry.lufs, peak = entry.peak, source = entry.source)
+            entries.map { (key, entry) ->
+                val parsed = TrackId.parseOrNull(key)
+                val legacyId = parsed?.neteaseIdOrNull()
+                    ?: key.takeIf { it.startsWith("${MusicPlatform.NETEASE.key}:") }
+                        ?.substringAfter(':')
+                        ?.toLongOrNull()
+                StoredLoudnessEntry(
+                    id = legacyId,
+                    trackId = key,
+                    lufs = entry.lufs,
+                    peak = entry.peak,
+                    source = entry.source
+                )
             }
         )
         withContext(Dispatchers.IO) {

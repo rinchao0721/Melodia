@@ -6,8 +6,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.player.data.PlaybackApi
 import com.lin0721.linmusic.core.player.data.SongDetailRequest
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -72,7 +75,8 @@ class SongQualityCache(
     private val ttlMs: Long = SONG_QUALITY_TTL_MS,
     private val nowMs: () -> Long = System::currentTimeMillis,
     private val isOnline: () -> Boolean = { true },
-    private val prefetchTimeoutMs: Long = PREFETCH_TIMEOUT_MS
+    private val prefetchTimeoutMs: Long = PREFETCH_TIMEOUT_MS,
+    private val platformFetcher: (suspend (MusicPlatform, List<TrackId>) -> Map<TrackId, String>)? = null
 ) {
     private data class CacheEntry(val level: String, val updatedAt: Long)
 
@@ -86,25 +90,69 @@ class SongQualityCache(
     private val _levels = MutableStateFlow<Map<Long, String>>(emptyMap())
     val levels: StateFlow<Map<Long, String>> = _levels.asStateFlow()
 
+    private val trackEntries = ConcurrentHashMap<TrackId, CacheEntry>()
+    private val _trackLevels = MutableStateFlow<Map<TrackId, String>>(emptyMap())
+    val trackLevels: StateFlow<Map<TrackId, String>> = _trackLevels.asStateFlow()
+
     private val stateMutex = Mutex()
     private val queried = HashSet<Long>()
     private val inFlight = HashSet<Long>()
     private val requests = Channel<Long>(Channel.UNLIMITED)
+
+    private val trackQueried = HashSet<TrackId>()
+    private val trackInFlight = HashSet<TrackId>()
+    private val trackRequests = Channel<TrackId>(Channel.UNLIMITED)
+
     private val loadJob: Job
 
     init {
         loadJob = scope.launch { loadPersisted() }
         scope.launch { consume() }
+        scope.launch { consumeTracks() }
     }
+
+    private fun TrackId.isValidKey(): Boolean = when (platform) {
+        MusicPlatform.NETEASE -> (neteaseIdOrNull() ?: -1L) > 0L
+        MusicPlatform.LOCAL -> false
+        else -> rawId.isNotBlank()
+    }
+
+    private fun persistenceKeyFor(trackId: TrackId): String =
+        if (trackId.platform == MusicPlatform.NETEASE) {
+            "$KEY_PREFIX${trackId.rawId}"
+        } else {
+            "$KEY_PREFIX${trackId.canonical}"
+        }
 
     private fun isFresh(songId: Long, now: Long = nowMs()): Boolean {
         val entry = entries[songId] ?: return false
         return now - entry.updatedAt < ttlMs
     }
 
+    private fun isTrackFresh(trackId: TrackId, now: Long = nowMs()): Boolean {
+        val entry = trackEntries[trackId] ?: return false
+        return now - entry.updatedAt < ttlMs
+    }
+
+    fun get(trackId: TrackId): String? = trackEntries[trackId]?.level
+
+    suspend fun put(trackId: TrackId, level: String) {
+        seedTracks(mapOf(trackId to level))
+    }
+
     fun request(songId: Long) {
         if (songId <= 0 || !enabled.value || !isOnline() || isFresh(songId)) return
         requests.trySend(songId)
+    }
+
+    fun request(trackId: TrackId) {
+        if (!trackId.isValidKey() || !enabled.value || !isOnline() || isTrackFresh(trackId)) return
+        if (trackId.platform == MusicPlatform.NETEASE) {
+            trackId.neteaseIdOrNull()?.let(::request)
+            return
+        }
+        if (platformFetcher == null) return
+        trackRequests.trySend(trackId)
     }
 
     // 列表展示前批量预查缺失最高音质的曲目：未命中的同步等待补查，已过期缓存直接复用并后台刷新；失败或取消不抛业务异常
@@ -116,6 +164,21 @@ class SongQualityCache(
         if (known.isNotEmpty()) seed(known)
         val ids = tracksNeedingQualityPrefetch(tracks)
         if (ids.isNotEmpty()) prefetchIds(ids)
+    }
+
+    suspend fun prefetchTracks(tracks: Collection<UnifiedTrack>) {
+        val known = tracks.mapNotNull { track ->
+            val level = track.maxQuality?.neteaseCode?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            if (!track.id.isValidKey()) return@mapNotNull null
+            track.id to level
+        }.toMap()
+        if (known.isNotEmpty()) seedTracks(known)
+        val missing = tracks.asSequence()
+            .filter { it.maxQuality == null && it.id.isValidKey() }
+            .map { it.id }
+            .distinct()
+            .toList()
+        if (missing.isNotEmpty()) prefetchTrackIds(missing)
     }
 
     suspend fun seed(levels: Map<Long, String>) {
@@ -130,13 +193,47 @@ class SongQualityCache(
                 if (current != null && current.level == level && now - current.updatedAt < ttlMs / 2) return@forEach
                 val entry = CacheEntry(level, now)
                 entries[id] = entry
+                trackEntries[TrackId.netease(id)] = entry
                 changed[id] = entry
             }
             changed
         }
         if (updates.isEmpty()) return
-        _levels.update { current -> current + updates.mapValues { it.value.level } }
-        persistEntries(updates)
+        val levelStrings = updates.mapValues { it.value.level }
+        val trackUpdates = updates.entries.associate { (id, entry) -> TrackId.netease(id) to entry }
+        _levels.update { current -> current + levelStrings }
+        _trackLevels.update { current -> current + trackUpdates.mapValues { it.value.level } }
+        persistTrackEntries(trackUpdates)
+    }
+
+    suspend fun seedTracks(levels: Map<TrackId, String>) {
+        loadJob.join()
+        val now = nowMs()
+        val updates = stateMutex.withLock {
+            val changed = LinkedHashMap<TrackId, CacheEntry>()
+            levels.forEach { (trackId, level) ->
+                if (!trackId.isValidKey() || level.isBlank()) return@forEach
+                val current = trackEntries[trackId]
+                if (current != null && current.level == level && now - current.updatedAt < ttlMs / 2) return@forEach
+                val entry = CacheEntry(level, now)
+                trackEntries[trackId] = entry
+                if (trackId.platform == MusicPlatform.NETEASE) {
+                    trackId.neteaseIdOrNull()?.takeIf { it > 0L }?.let { entries[it] = entry }
+                }
+                changed[trackId] = entry
+            }
+            changed
+        }
+        if (updates.isEmpty()) return
+        val trackLevelStrings = updates.mapValues { it.value.level }
+        _trackLevels.update { current -> current + trackLevelStrings }
+        val neteaseUpdates = updates.entries.mapNotNull { (trackId, entry) ->
+            trackId.neteaseIdOrNull()?.takeIf { it > 0L }?.let { it to entry.level }
+        }.toMap()
+        if (neteaseUpdates.isNotEmpty()) {
+            _levels.update { current -> current + neteaseUpdates }
+        }
+        persistTrackEntries(updates)
     }
 
     suspend fun prefetchIds(ids: Collection<Long>) {
@@ -186,22 +283,81 @@ class SongQualityCache(
         }
     }
 
+    suspend fun prefetchTrackIds(ids: Collection<TrackId>) {
+        val candidates = ids.asSequence().filter { it.isValidKey() }.distinct().toList()
+        if (candidates.isEmpty()) return
+
+        val neteaseIds = candidates.mapNotNull { trackId ->
+            if (trackId.platform == MusicPlatform.NETEASE) trackId.neteaseIdOrNull() else null
+        }
+        if (neteaseIds.isNotEmpty()) {
+            prefetchIds(neteaseIds)
+        }
+
+        val otherByPlatform = candidates
+            .filter { it.platform != MusicPlatform.NETEASE }
+            .groupBy { it.platform }
+        if (otherByPlatform.isEmpty() || platformFetcher == null) return
+
+        loadJob.join()
+        enabledReady.await()
+        if (!enabled.value || !isOnline()) return
+
+        for ((platform, platformIds) in otherByPlatform) {
+            val now = nowMs()
+            val missing = ArrayList<TrackId>()
+            val stale = ArrayList<TrackId>()
+
+            stateMutex.withLock {
+                for (trackId in platformIds) {
+                    if (isTrackFresh(trackId, now)) continue
+                    if (trackEntries.containsKey(trackId)) {
+                        if (trackId !in trackQueried && trackId !in trackInFlight) stale += trackId
+                    } else if (trackId !in trackQueried && trackId !in trackInFlight) {
+                        trackInFlight += trackId
+                        trackQueried += trackId
+                        missing += trackId
+                    }
+                }
+            }
+
+            stale.forEach { trackRequests.trySend(it) }
+            if (missing.isEmpty()) continue
+
+            val chunks = missing.chunked(MAX_BATCH_SIZE)
+            var processedCount = 0
+            try {
+                withTimeoutOrNull(prefetchTimeoutMs) {
+                    for (chunk in chunks) {
+                        if (!enabled.value || !isOnline()) break
+                        processedCount += chunk.size
+                        fetchTracksAndStore(platform, chunk)
+                    }
+                }
+            } finally {
+                if (processedCount < missing.size) {
+                    val remaining = missing.drop(processedCount)
+                    withContext(NonCancellable) { releaseTrackFailedOrCancelled(remaining) }
+                }
+            }
+        }
+    }
+
     private suspend fun loadPersisted() {
         val store = dataStore ?: return
         val now = nowMs()
         val discarded = ArrayList<Preferences.Key<*>>()
         val loaded = try {
             store.data.first().asMap().mapNotNull { (key, value) ->
-                val rawId = key.name.removePrefix(KEY_PREFIX)
-                val id = if (rawId != key.name) rawId.toLongOrNull() else null
+                if (!key.name.startsWith(KEY_PREFIX)) return@mapNotNull null
+                val raw = key.name.removePrefix(KEY_PREFIX)
+                val trackId = parsePersistedTrackId(raw) ?: return@mapNotNull null
                 val entry = (value as? String)?.let(::parseEntry)
-                when {
-                    id == null || id <= 0 -> null
-                    entry == null || now - entry.updatedAt >= ttlMs * PRUNE_TTL_MULTIPLIER -> {
-                        discarded += key
-                        null
-                    }
-                    else -> id to entry
+                if (entry == null || now - entry.updatedAt >= ttlMs * PRUNE_TTL_MULTIPLIER) {
+                    discarded += key
+                    null
+                } else {
+                    trackId to entry
                 }
             }.toMap()
         } catch (e: CancellationException) {
@@ -212,9 +368,28 @@ class SongQualityCache(
         }
         pruneKeys(store, discarded)
         if (loaded.isEmpty()) return
-        loaded.forEach { (id, entry) -> entries.putIfAbsent(id, entry) }
+        val neteaseLoaded = LinkedHashMap<Long, CacheEntry>()
+        loaded.forEach { (trackId, entry) ->
+            trackEntries.putIfAbsent(trackId, entry)
+            trackId.neteaseIdOrNull()?.takeIf { it > 0L }?.let { neteaseId ->
+                entries.putIfAbsent(neteaseId, entry)
+                neteaseLoaded[neteaseId] = entry
+            }
+        }
         // 加载期间内存已写入的新等级优先
-        _levels.update { current -> loaded.mapValues { it.value.level } + current }
+        _trackLevels.update { current -> loaded.mapValues { it.value.level } + current }
+        if (neteaseLoaded.isNotEmpty()) {
+            _levels.update { current -> neteaseLoaded.mapValues { it.value.level } + current }
+        }
+    }
+
+    private fun parsePersistedTrackId(raw: String): TrackId? {
+        if (raw.isBlank()) return null
+        if (':' in raw) {
+            return TrackId.parseOrNull(raw)?.takeIf { it.isValidKey() }
+        }
+        val legacyId = raw.toLongOrNull()?.takeIf { it > 0L } ?: return null
+        return TrackId.netease(legacyId)
     }
 
     private suspend fun consume() {
@@ -239,9 +414,38 @@ class SongQualityCache(
         }
     }
 
+    private suspend fun consumeTracks() {
+        loadJob.join()
+        while (true) {
+            val first = trackRequests.receive()
+            if (!canQueryTrackInBackground(first)) continue
+            delay(batchDelayMs)
+            val batch = LinkedHashSet<TrackId>()
+            if (canQueryTrackInBackground(first)) batch += first
+            while (true) {
+                val next = trackRequests.tryReceive().getOrNull() ?: break
+                if (canQueryTrackInBackground(next)) batch += next
+            }
+            if (batch.isEmpty() || platformFetcher == null) continue
+            for ((platform, ids) in batch.groupBy { it.platform }) {
+                for (chunk in ids.chunked(MAX_BATCH_SIZE)) {
+                    if (!enabled.value || !isOnline()) break
+                    val claimed = claimTracksForFetch(chunk)
+                    if (claimed.isEmpty()) continue
+                    fetchTracksAndStore(platform, claimed)
+                }
+            }
+        }
+    }
+
     private suspend fun canQueryInBackground(songId: Long): Boolean {
         if (songId <= 0 || isFresh(songId)) return false
         return stateMutex.withLock { songId !in queried && songId !in inFlight }
+    }
+
+    private suspend fun canQueryTrackInBackground(trackId: TrackId): Boolean {
+        if (!trackId.isValidKey() || isTrackFresh(trackId)) return false
+        return stateMutex.withLock { trackId !in trackQueried && trackId !in trackInFlight }
     }
 
     private suspend fun claimForFetch(ids: List<Long>): List<Long> {
@@ -252,6 +456,18 @@ class SongQualityCache(
             }.also { claimed ->
                 inFlight += claimed
                 queried += claimed
+            }
+        }
+    }
+
+    private suspend fun claimTracksForFetch(ids: List<TrackId>): List<TrackId> {
+        val now = nowMs()
+        return stateMutex.withLock {
+            ids.filter { id ->
+                id.isValidKey() && !isTrackFresh(id, now) && id !in trackQueried && id !in trackInFlight
+            }.also { claimed ->
+                trackInFlight += claimed
+                trackQueried += claimed
             }
         }
     }
@@ -275,11 +491,56 @@ class SongQualityCache(
         }
         stateMutex.withLock {
             inFlight -= chunk.toSet()
-            valid.forEach { (id, entry) -> entries[id] = entry }
+            valid.forEach { (id, entry) ->
+                entries[id] = entry
+                trackEntries[TrackId.netease(id)] = entry
+            }
         }
         if (valid.isNotEmpty()) {
+            val trackUpdates = valid.entries.associate { (id, entry) -> TrackId.netease(id) to entry }
             _levels.update { current -> current + valid.mapValues { it.value.level } }
-            persistEntries(valid)
+            _trackLevels.update { current -> current + trackUpdates.mapValues { it.value.level } }
+            persistTrackEntries(trackUpdates)
+        }
+    }
+
+    private suspend fun fetchTracksAndStore(platform: MusicPlatform, chunk: List<TrackId>) {
+        val customFetcher = platformFetcher ?: run {
+            releaseTrackFailedOrCancelled(chunk)
+            return
+        }
+        val result = try {
+            customFetcher(platform, chunk)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { releaseTrackFailedOrCancelled(chunk) }
+            throw e
+        } catch (e: Exception) {
+            releaseTrackFailedOrCancelled(chunk)
+            AppLogger.w(TAG, "补查跨平台最高音质失败：platform=${platform.key}, count=${chunk.size}", e)
+            return
+        }
+
+        val now = nowMs()
+        val valid = LinkedHashMap<TrackId, CacheEntry>(result.size)
+        result.forEach { (trackId, level) ->
+            if (trackId.isValidKey() && level.isNotBlank()) valid[trackId] = CacheEntry(level, now)
+        }
+        stateMutex.withLock {
+            trackInFlight -= chunk.toSet()
+            valid.forEach { (trackId, entry) ->
+                trackEntries[trackId] = entry
+                trackId.neteaseIdOrNull()?.takeIf { it > 0L }?.let { entries[it] = entry }
+            }
+        }
+        if (valid.isNotEmpty()) {
+            _trackLevels.update { current -> current + valid.mapValues { it.value.level } }
+            val neteaseUpdates = valid.entries.mapNotNull { (trackId, entry) ->
+                trackId.neteaseIdOrNull()?.takeIf { it > 0L }?.let { it to entry.level }
+            }.toMap()
+            if (neteaseUpdates.isNotEmpty()) {
+                _levels.update { current -> current + neteaseUpdates }
+            }
+            persistTrackEntries(valid)
         }
     }
 
@@ -292,13 +553,22 @@ class SongQualityCache(
         }
     }
 
-    private suspend fun persistEntries(updates: Map<Long, CacheEntry>) {
+    private suspend fun releaseTrackFailedOrCancelled(ids: List<TrackId>) {
+        if (ids.isEmpty()) return
+        val idSet = ids.toSet()
+        stateMutex.withLock {
+            trackInFlight -= idSet
+            trackQueried -= idSet
+        }
+    }
+
+    private suspend fun persistTrackEntries(updates: Map<TrackId, CacheEntry>) {
         val store = dataStore ?: return
         if (updates.isEmpty()) return
         try {
             store.edit { prefs ->
-                updates.forEach { (id, entry) ->
-                    prefs[stringPreferencesKey("$KEY_PREFIX$id")] = "${entry.level}|${entry.updatedAt}"
+                updates.forEach { (trackId, entry) ->
+                    prefs[stringPreferencesKey(persistenceKeyFor(trackId))] = "${entry.level}|${entry.updatedAt}"
                 }
             }
         } catch (e: CancellationException) {

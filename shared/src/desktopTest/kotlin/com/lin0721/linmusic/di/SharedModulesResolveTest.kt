@@ -114,6 +114,9 @@ class SharedModulesResolveTest {
                 com.lin0721.linmusic.core.kugou.KugouGatewayClient::class,
                 com.lin0721.linmusic.core.kugou.KugouAuthService::class,
                 com.lin0721.linmusic.core.kugou.KugouAuthProvider::class,
+                com.lin0721.linmusic.core.kugou.KugouPlaybackService::class,
+                com.lin0721.linmusic.core.player.KugouPlaybackProvider::class,
+                com.lin0721.linmusic.core.player.PlatformPlaybackRouter::class,
                 com.lin0721.linmusic.core.auth.NeteaseAuthProvider::class,
                 com.lin0721.linmusic.core.auth.PlatformSessionRegistry::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }

@@ -91,6 +91,7 @@ class DesktopDownloadFolderScanner(private val indexStore: LocalAudioIndexStore)
             sizeBytes = size,
             durationMs = durationMs
         ) ?: guessAudioQuality(file.extension, bitrate, sampleRate, bitDepth)
+        val trackIdTag = runCatching { tag?.readTrackId() }.getOrNull()
         return LocalAudioEntry(
             uri = normalizePath(file.path),
             title = title,
@@ -98,7 +99,8 @@ class DesktopDownloadFolderScanner(private val indexStore: LocalAudioIndexStore)
             durationMs = durationMs,
             sizeBytes = size,
             quality = quality,
-            songIdTag = runCatching { tag?.readSongId() }.getOrNull()
+            songIdTag = trackIdTag?.neteaseIdOrNull()?.takeIf { it > 0L },
+            trackIdTag = trackIdTag
         )
     }
 }
