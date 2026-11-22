@@ -22,7 +22,10 @@ class MediaControllerHolder(private val context: Context) {
 
     private var controller: MediaController? = null
     private var localPlayer: Player? = null
-    private var registeredListener: Player.Listener? = null
+    private val listenerBinding = PlayerListenerBinding()
+
+    // 服务销毁导致会话断开时回调
+    var onDisconnected: (() -> Unit)? = null
 
     private val commandPlayer: Player? get() = localPlayer ?: controller
 
@@ -41,21 +44,32 @@ class MediaControllerHolder(private val context: Context) {
 
     val currentTracks: Tracks get() = commandPlayer?.currentTracks ?: Tracks.EMPTY
 
-    // 直连服务内本机播放器，避免 MediaSession 切到远程播放器后反控远端状态
+    // 直连服务内本机播放器，避免 MediaSession 切到远程播放器后反控远端状态；
+    // 服务可能先于 connect 创建（联动唤醒），监听统一经 rebindListener 挂载
     fun attachLocalPlayer(player: Player?) {
-        val oldTarget = localPlayer ?: controller
-        val listener = registeredListener
-        if (oldTarget !== player && listener != null) {
-            oldTarget?.removeListener(listener)
-        }
         localPlayer = player
-        val newTarget = localPlayer ?: controller
-        if (listener != null && newTarget != null && oldTarget !== newTarget) {
-            newTarget.addListener(listener)
-        }
+        rebindListener()
     }
 
-    // 建立连接，onReady 在控制器就绪后、字段赋值前回调，用于同步初始状态
+    private fun rebindListener() {
+        listenerBinding.bindTo(localPlayer ?: controller)
+    }
+
+    private fun dropController(target: MediaController) {
+        if (controller !== target) return
+        controller = null
+        rebindListener()
+        target.release()
+    }
+
+    private fun handleControllerDisconnected(disconnected: MediaController) {
+        if (controller !== disconnected) return
+        AppLogger.w(TAG, "MediaController 已断开")
+        dropController(disconnected)
+        onDisconnected?.invoke()
+    }
+
+    // 建立连接，onReady 在控制器就绪且监听挂好后回调，用于同步初始状态
     suspend fun connect(listener: Player.Listener, onReady: (Player) -> Unit) {
         if (controller != null) return
 
@@ -64,21 +78,30 @@ class MediaControllerHolder(private val context: Context) {
             ComponentName(context, MelodiaPlaybackService::class.java)
         )
 
-        registeredListener = listener
-        controller = suspendCancellableCoroutine { continuation ->
-            val factory = MediaController.Builder(context, sessionToken).buildAsync()
+        listenerBinding.setListener(listener)
+        rebindListener()
+        suspendCancellableCoroutine { continuation ->
+            val factory = MediaController.Builder(context, sessionToken)
+                .setListener(object : MediaController.Listener {
+                    override fun onDisconnected(controller: MediaController) {
+                        handleControllerDisconnected(controller)
+                    }
+                })
+                .buildAsync()
             factory.addListener(
                 {
+                    var connected: MediaController? = null
                     try {
                         val mediaController = factory.get()
-                        if (localPlayer == null) {
-                            mediaController.addListener(listener)
-                        }
+                        connected = mediaController
+                        controller = mediaController
+                        rebindListener()
                         AppLogger.i(TAG, "MediaController 连接成功")
                         onReady(localPlayer ?: mediaController)
-                        continuation.resume(mediaController)
+                        continuation.resume(Unit)
                     } catch (e: Exception) {
                         AppLogger.e(TAG, "MediaController 连接失败", e)
+                        connected?.let(::dropController)
                         continuation.resumeWithException(e)
                     }
                 },
@@ -144,13 +167,10 @@ class MediaControllerHolder(private val context: Context) {
 
     // 主动断开控制器连接，确保关闭服务时无残留绑定阻碍服务销毁
     fun disconnect() {
-        val listener = registeredListener
-        if (listener != null) {
-            localPlayer?.removeListener(listener)
-            controller?.removeListener(listener)
-        }
-        registeredListener = null
-        controller?.release()
+        listenerBinding.setListener(null)
+        // 先置空，release 触发的 onDisconnected 不再走被动断开流程
+        val released = controller
         controller = null
+        released?.release()
     }
 }

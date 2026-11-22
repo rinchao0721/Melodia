@@ -828,8 +828,7 @@ class MelodiaPlaybackService : MediaSessionService() {
         externalLyricCoordinator.onMetadataChanged = null
         externalLyricCoordinator.onTickerChanged = null
         externalLyricCoordinator.release()
-        playerManager.release()
-        playerManager.saveState()
+        playerManager.onServiceDestroyed()
         serviceScope.cancel()
         notificationCallback = null
         currentCoverBitmap = null
@@ -1051,6 +1050,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             playerManager.pause()
             crossfadePlayer?.pause()
             playerManager.saveStateNowAndDisconnect()
+            playerManager.release()
             crossfadePlayer?.stop()
             isKeepaliveForegroundActive = false
             currentKeepalivePeerName = null
