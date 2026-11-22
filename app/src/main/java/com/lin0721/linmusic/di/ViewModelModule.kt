@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
+import com.lin0721.linmusic.core.kugou.KugouAuthProvider
 import com.lin0721.linmusic.feature.settings.ui.SettingsViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
@@ -85,6 +87,7 @@ val viewModelModule = module {
     viewModelOf(::PlayerViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::LoginViewModel)
+    viewModel { KugouLoginViewModel(get<KugouAuthProvider>(), get(), get()) }
 
     viewModelOf(::MessageViewModel)
     viewModelOf(::PrivateChatViewModel)

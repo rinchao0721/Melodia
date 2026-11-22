@@ -10,7 +10,10 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.TitleBarButton
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
@@ -47,6 +50,8 @@ internal fun WindowScope.AppTitleBar(
     val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
     val privateUnreadCount by deps.privateUnreadMonitor.unreadCount.collectAsState()
     val accounts by deps.userPreferences.accounts.collectAsState(initial = emptyList())
+    val kugouAccounts by deps.userPreferences.accountsOf(MusicPlatform.KUGOU).collectAsState(initial = emptyList())
+    val activeKugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
     val titleBarLayout by deps.desktopSettingsViewModel.titleBarLayout.collectAsState()
     val playContext by deps.playbackController.playContext.collectAsState()
     val currentRoute = state.backStack.current
@@ -188,6 +193,32 @@ internal fun WindowScope.AppTitleBar(
         onAddAccount = {
             state.loginAddAccount = true
             state.showLogin = true
+        },
+        activeKugouAccount = activeKugouAccount,
+        kugouAccounts = kugouAccounts,
+        onKugouLoginClick = {
+            state.kugouLoginAddAccount = false
+            state.showKugouLogin = true
+        },
+        onKugouSwitchAccount = { accountId ->
+            accountScope.launch {
+                val target = kugouAccounts.firstOrNull { it.accountId == accountId }
+                if (deps.accountSwitcher.switchPlatformAccount(accountId) && target != null) {
+                    state.showMessage("已切换酷狗账号至 ${target.nickname.ifBlank { target.effectivePlatformUid }}")
+                }
+            }
+        },
+        onKugouAddAccount = {
+            state.kugouLoginAddAccount = true
+            state.showKugouLogin = true
+        },
+        onKugouLogoutAccount = { accountId ->
+            accountScope.launch {
+                val target = kugouAccounts.firstOrNull { it.accountId == accountId }
+                deps.accountSwitcher.logoutPlatformAccount(accountId)
+                val name = target?.nickname?.ifBlank { target.effectivePlatformUid }.orEmpty()
+                state.showMessage(if (name.isNotEmpty()) "已退出酷狗账号 $name" else "已退出酷狗账号")
+            }
         },
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
         onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },

@@ -80,6 +80,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
+import com.lin0721.linmusic.core.ui.components.KugouLoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
@@ -92,6 +93,8 @@ import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import com.lin0721.linmusic.core.deeplink.SongLinkTarget
 import com.lin0721.linmusic.core.deeplink.enqueueLinkTrackNext
 import com.lin0721.linmusic.core.deeplink.playLinkTrack
+import com.lin0721.linmusic.core.kugou.KugouClientMode
+import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
@@ -133,6 +136,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.lanlink.PlaybackTarget
 import com.lin0721.linmusic.core.lanlink.LanLinkAndroidClient
 import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
@@ -383,6 +387,12 @@ fun MelodiaApp() {
     val conversationPreview by conversationPreviewStore.state.collectAsStateWithLifecycle()
     val accountScope = rememberCoroutineScope()
     val sessionMonitor: SessionMonitor = koinInject()
+    val kugouConfig: KugouConfig = koinInject()
+    val kugouClientMode by settingsPreferences.kugouClientMode.collectAsStateWithLifecycle(initialValue = KugouClientMode.LITE)
+    LaunchedEffect(kugouClientMode) {
+        kugouConfig.mode = kugouClientMode
+    }
+    var showKugouLoginSheet by remember { mutableStateOf(false) }
     LaunchedEffect(sessionMonitor) {
         sessionMonitor.watch {}
     }
@@ -395,6 +405,19 @@ fun MelodiaApp() {
                 ToastManager.showToast("登录已过期，请重新登录")
                 sidebarLoginAddAccount = false
                 showSidebarLoginSheet = true
+            }
+        }
+    }
+    LaunchedEffect(sessionMonitor) {
+        sessionMonitor.platformExpiredNotices.collect { notice ->
+            if (notice.platform == MusicPlatform.KUGOU) {
+                val nextAccount = notice.nextAccount
+                if (nextAccount != null) {
+                    ToastManager.showToast("酷狗账号登录已过期，已切换至 ${nextAccount.nickname.ifBlank { nextAccount.effectivePlatformUid }}")
+                } else {
+                    ToastManager.showToast("酷狗账号登录已过期，请重新登录")
+                    showKugouLoginSheet = true
+                }
             }
         }
     }
@@ -1322,6 +1345,16 @@ fun MelodiaApp() {
                     viewModel.handleLoginSuccess(cookies)
                 },
                 addAccount = sidebarLoginAddAccount
+            )
+        }
+
+        if (showKugouLoginSheet) {
+            KugouLoginBottomSheet(
+                onDismiss = { showKugouLoginSheet = false },
+                onLoginSuccess = { account ->
+                    showKugouLoginSheet = false
+                    ToastManager.showToast("已登录酷狗：${account.nickname.ifBlank { account.effectivePlatformUid }}")
+                }
             )
         }
 

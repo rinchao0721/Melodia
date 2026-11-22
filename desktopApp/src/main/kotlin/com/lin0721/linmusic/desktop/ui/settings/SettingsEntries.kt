@@ -99,18 +99,27 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.font.FontWeight
+import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.StoredAccount
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouClientMode
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.network.RealIpProvider
 import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
 import com.lin0721.linmusic.core.lanlink.PairedLanDevice
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ChevronDown
 import com.lin0721.linmusic.core.ui.icons.ChevronUp
 import com.lin0721.linmusic.core.ui.icons.Phone
+import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
+import androidx.compose.ui.text.style.TextOverflow
 
 internal enum class SettingsCategory(val label: String) {
+    Account("多平台账号"),
     Playback("播放"),
     Source("音源与换源"),
     Storage("存储与下载"),
@@ -394,10 +403,25 @@ internal fun settingsEntries(
     updateChecker: UpdateChecker,
     localLibrary: LocalLibraryRepository,
     downloadScanner: DesktopDownloadFolderScanner,
-    lanLink: LanLinkDesktopHost
+    lanLink: LanLinkDesktopHost,
+    userPreferences: UserPreferences? = null,
+    accountSwitcher: AccountSwitcher? = null,
+    onOpenNeteaseLogin: (addAccount: Boolean) -> Unit = {},
+    onOpenKugouLogin: (addAccount: Boolean) -> Unit = {}
 ): List<SettingsEntry> {
     val navigator = LocalDesktopNavigator.current
     val scope = rememberCoroutineScope()
+
+    val neteaseAccounts by (userPreferences?.accountsOf(MusicPlatform.NETEASE) ?: flowOf(emptyList()))
+        .collectAsState(initial = emptyList())
+    val activeNetease by (userPreferences?.activeAccountOf(MusicPlatform.NETEASE) ?: flowOf(null))
+        .collectAsState(initial = null)
+    val kugouAccounts by (userPreferences?.accountsOf(MusicPlatform.KUGOU) ?: flowOf(emptyList()))
+        .collectAsState(initial = emptyList())
+    val activeKugou by (userPreferences?.activeAccountOf(MusicPlatform.KUGOU) ?: flowOf(null))
+        .collectAsState(initial = null)
+    val kugouPlatformEnabled by common.kugouPlatformEnabled.collectAsState()
+    val kugouClientMode by common.kugouClientMode.collectAsState()
 
     val quality by common.wifiQuality.collectAsState()
     val searchAggregationEnabled by common.searchAggregationEnabled.collectAsState()
@@ -477,6 +501,110 @@ internal fun settingsEntries(
     val libraryShortcutsSubtitle = "拖动调整快捷入口顺序，开关控制侧栏显示（也可右键侧栏快捷入口区快速勾选）"
 
     return buildList {
+        if (userPreferences != null) {
+            add(
+                SettingsEntry(
+                    key = "accountNeteaseList",
+                    category = SettingsCategory.Account,
+                    title = "网易云音乐账号",
+                    keywords = listOf("账号", "网易云", "切换", "退出", "登录"),
+                    group = "网易云音乐"
+                ) {
+                    MultiPlatformAccountListSection(
+                        title = "已登录网易云账号",
+                        emptyText = "尚未登录网易云音乐账号",
+                        accounts = neteaseAccounts,
+                        activeAccountId = activeNetease?.accountId,
+                        addButtonText = if (neteaseAccounts.isEmpty()) "登录网易云" else "添加网易云帐号",
+                        canAddAccount = neteaseAccounts.size < UserPreferences.MAX_ACCOUNTS,
+                        onAddAccount = { onOpenNeteaseLogin(neteaseAccounts.isNotEmpty()) },
+                        onSwitch = { account ->
+                            val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
+                            scope.launch {
+                                val name = account.nickname.ifBlank { account.effectivePlatformUid }
+                                if (switcher.switchPlatformAccount(account.accountId)) {
+                                    navigator.showMessage("已切换网易云账号至 $name")
+                                }
+                            }
+                        },
+                        onLogout = { account ->
+                            val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
+                            scope.launch {
+                                val name = account.nickname.ifBlank { account.effectivePlatformUid }
+                                switcher.logoutPlatformAccount(account.accountId)
+                                navigator.showMessage("已退出网易云账号 $name")
+                            }
+                        }
+                    )
+                }
+            )
+            add(
+                SettingsEntry(
+                    key = "accountKugouList",
+                    category = SettingsCategory.Account,
+                    title = "酷狗音乐账号",
+                    keywords = listOf("账号", "酷狗", "kugou", "vip", "切换", "退出", "登录"),
+                    group = "酷狗音乐"
+                ) {
+                    MultiPlatformAccountListSection(
+                        title = "已登录酷狗账号",
+                        emptyText = "尚未登录酷狗音乐账号，登录后可使用酷狗收藏与 VIP 音源解析",
+                        accounts = kugouAccounts,
+                        activeAccountId = activeKugou?.accountId,
+                        addButtonText = if (kugouAccounts.isEmpty()) "登录酷狗音乐" else "添加酷狗帐号",
+                        canAddAccount = kugouAccounts.size < UserPreferences.MAX_ACCOUNTS,
+                        onAddAccount = { onOpenKugouLogin(kugouAccounts.isNotEmpty()) },
+                        onSwitch = { account ->
+                            val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
+                            scope.launch {
+                                val name = account.nickname.ifBlank { account.effectivePlatformUid }
+                                if (switcher.switchPlatformAccount(account.accountId)) {
+                                    navigator.showMessage("已切换酷狗账号至 $name")
+                                }
+                            }
+                        },
+                        onLogout = { account ->
+                            val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
+                            scope.launch {
+                                val name = account.nickname.ifBlank { account.effectivePlatformUid }
+                                switcher.logoutPlatformAccount(account.accountId)
+                                navigator.showMessage("已退出酷狗账号 $name")
+                            }
+                        }
+                    )
+                }
+            )
+        }
+        add(
+            rowEntry(
+                key = "kugouPlatformEnabled",
+                category = SettingsCategory.Account,
+                title = "启用酷狗音乐平台",
+                subtitle = "关闭后搜索与播放降级将跳过酷狗音乐源，已保存账号保留在本地",
+                keywords = listOf("酷狗", "kugou", "启用", "开关", "平台"),
+                group = "酷狗平台配置"
+            ) {
+                SettingSwitch(kugouPlatformEnabled, onChange = common::updateKugouPlatformEnabled)
+            }
+        )
+        add(
+            rowEntry(
+                key = "kugouClientMode",
+                category = SettingsCategory.Account,
+                title = "酷狗客户端模式",
+                subtitle = "切换酷狗概念版（LITE）或正式版（STANDARD）协议身份",
+                keywords = listOf("酷狗", "kugou", "概念版", "正式版", "lite", "standard", "客户端"),
+                group = "酷狗平台配置"
+            ) {
+                SettingsDropdown(
+                    options = KugouClientMode.entries,
+                    current = kugouClientMode,
+                    label = ::kugouClientModeLabel,
+                    onSelect = common::updateKugouClientMode,
+                    menuWidth = 200.dp
+                )
+            }
+        )
         add(
             rowEntry(
                 "quality", SettingsCategory.Playback, "在线播放音质",
@@ -1840,6 +1968,116 @@ private fun LanLinkPlaybackModeOptionRow(
                 Text(title, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(2.dp))
                 Text(description, color = DesktopColors.TextGray, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+private fun kugouClientModeLabel(mode: KugouClientMode): String = when (mode) {
+    KugouClientMode.LITE -> "概念版 (LITE)"
+    KugouClientMode.STANDARD -> "正式版 (STANDARD)"
+}
+
+@Composable
+private fun MultiPlatformAccountListSection(
+    title: String,
+    emptyText: String,
+    accounts: List<StoredAccount>,
+    activeAccountId: AccountId?,
+    addButtonText: String,
+    canAddAccount: Boolean,
+    onAddAccount: () -> Unit,
+    onSwitch: (StoredAccount) -> Unit,
+    onLogout: (StoredAccount) -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = DesktopColors.TextPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            SettingsActionButton(
+                text = addButtonText,
+                onClick = onAddAccount,
+                enabled = canAddAccount
+            )
+        }
+        if (accounts.isEmpty()) {
+            Text(emptyText, color = DesktopColors.TextGray, fontSize = 12.sp)
+        } else {
+            accounts.forEach { account ->
+                val hoverSource = remember { MutableInteractionSource() }
+                val hovered by hoverSource.collectIsHoveredAsState()
+                val isActive = account.accountId == activeAccountId
+                val displayName = account.nickname.ifBlank { "用户 ${account.effectivePlatformUid}" }
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (hovered) DesktopColors.Surface else Color.Transparent)
+                        .hoverable(hoverSource)
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (account.avatarUrl.isNotBlank()) {
+                        Cover(account.avatarUrl, 34.dp, shape = CircleShape)
+                    } else {
+                        Box(
+                            Modifier.size(34.dp).clip(CircleShape).background(DesktopColors.SurfaceLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(MelodiaIcons.Person, null, tint = DesktopColors.TextGray, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = displayName,
+                                color = DesktopColors.TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (isActive) {
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(4.dp))
+                                        .background(DesktopColors.Accent.copy(alpha = 0.16f))
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text("当前活跃", color = DesktopColors.AccentText, fontSize = 10.sp)
+                                }
+                            }
+                            if (account.vipLabel.isNotBlank()) {
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(4.dp))
+                                        .background(DesktopColors.SurfaceLight)
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(account.vipLabel, color = DesktopColors.TextGray, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                        Text(
+                            text = "ID: ${account.effectivePlatformUid}",
+                            color = DesktopColors.TextGray,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    HoverReveal(revealed = hovered, reserveSpace = false) {
+                        Row(horizontalArrangement = ActionSpacing) {
+                            if (!isActive) {
+                                SettingsActionButton("切换", onClick = { onSwitch(account) })
+                            }
+                            SettingsActionButton("退出", onClick = { onLogout(account) }, danger = true)
+                        }
+                    }
+                }
             }
         }
     }

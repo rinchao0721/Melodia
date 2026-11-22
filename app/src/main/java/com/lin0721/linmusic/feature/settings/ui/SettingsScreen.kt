@@ -62,6 +62,7 @@ import com.lin0721.linmusic.core.ui.icons.Wifi
 
 // 定义多级菜单类型。sectionTitles 与子页面 SettingsGroupCard 的标题及顺序一致，子页面按下标引用；主菜单预览取前两项
 enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, val icon: ImageVector) {
+    ACCOUNT("多平台账号", listOf("网易云音乐账号", "酷狗音乐账号", "酷狗平台设置"), MelodiaIcons.Person),
     PLAYBACK("播放", listOf("播放参数"), MelodiaIcons.PlayCircleOutline),
     QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), MelodiaIcons.HighQuality),
     DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), MelodiaIcons.Storage),
@@ -326,6 +327,7 @@ private fun SubMenuContent(
             .padding(horizontal = MelodiaSpacing.md)
     ) {
         when (subMenu) {
+            SettingsSubMenu.ACCOUNT -> MultiPlatformAccountSettingsView(viewModel)
             SettingsSubMenu.PLAYBACK -> PlaybackSettingsView(viewModel)
             SettingsSubMenu.QUALITY_SOURCES -> SettingsMergedPage {
                 AudioQualitySettingsView(viewModel)

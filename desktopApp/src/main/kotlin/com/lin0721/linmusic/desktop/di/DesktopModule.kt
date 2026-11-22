@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.desktop.di
 
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
+import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouAuthProvider
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.contentfilter.ContentFilter
 import com.lin0721.linmusic.core.download.SongDownloader
@@ -344,6 +346,7 @@ val desktopPlatformModule = module {
 // 单窗口应用，页面级 ViewModel 随窗口常驻
 val desktopViewModelModule = module {
     singleOf(::LoginViewModel)
+    single { KugouLoginViewModel(get<KugouAuthProvider>(), get(), get()) }
     singleOf(::HomeViewModel)
     singleOf(::MusicViewModel)
     factoryOf(::StyleDetailViewModel)
@@ -388,7 +391,7 @@ val desktopViewModelModule = module {
     factoryOf(::PrivateChatViewModel)
     factoryOf(::ShareToFriendViewModel)
     factoryOf(::ArtistViewModel)
-    singleOf(::CommonSettingsViewModel)
+    single { CommonSettingsViewModel(get(), get(), get(), getOrNull()) }
     singleOf(::LxPluginSettingsViewModel)
     single { DesktopSettingsViewModel(get(), get(), get(), get(), get(), get()) }
 }

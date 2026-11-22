@@ -150,6 +150,16 @@ internal fun RouteContent(
             localLibrary = deps.localMusic.repository,
             downloadScanner = deps.downloadScanner,
             lanLink = deps.lanLink,
+            userPreferences = deps.userPreferences,
+            accountSwitcher = deps.accountSwitcher,
+            onOpenNeteaseLogin = { addAccount ->
+                state.loginAddAccount = addAccount
+                state.showLogin = true
+            },
+            onOpenKugouLogin = { addAccount ->
+                state.kugouLoginAddAccount = addAccount
+                state.showKugouLogin = true
+            },
             focusCategory = state.settingsFocus,
             onFocusConsumed = { state.settingsFocus = null }
         )

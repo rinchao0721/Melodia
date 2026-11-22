@@ -23,6 +23,8 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         newWorksViewModel = get(),
         libraryViewModel = get(),
         loginViewModel = get(),
+        kugouLoginViewModel = get(),
+        kugouConfig = get(),
         playerViewModel = get(),
         searchViewModel = get(),
         commonSettingsViewModel = get(),

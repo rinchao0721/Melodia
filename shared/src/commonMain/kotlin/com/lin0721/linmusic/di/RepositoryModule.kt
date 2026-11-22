@@ -235,7 +235,8 @@ val repositoryModule = module {
             userPreferences = get(),
             authRepository = get(),
             playbackControllerProvider = { getOrNull<PlaybackController>() },
-            metadataCache = getOrNull()
+            metadataCache = getOrNull(),
+            platformSessionRegistry = getOrNull()
         )
     }
     single {
@@ -244,7 +245,8 @@ val repositoryModule = module {
             authRepository = get(),
             metadataCache = getOrNull(),
             playbackControllerProvider = { getOrNull<PlaybackController>() },
-            sessionMonitorProvider = { getOrNull<SessionMonitor>() }
+            sessionMonitorProvider = { getOrNull<SessionMonitor>() },
+            platformSessionRegistry = getOrNull()
         )
     }
 

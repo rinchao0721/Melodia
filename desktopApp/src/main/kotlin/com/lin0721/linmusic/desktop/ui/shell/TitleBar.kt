@@ -106,8 +106,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.zIndex
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginCommandItem
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
@@ -138,6 +140,7 @@ import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DefaultMenuWidth
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
+import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
@@ -153,6 +156,7 @@ import com.lin0721.linmusic.desktop.ui.library.MenuOption
 import com.lin0721.linmusic.desktop.ui.settings.icon
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
+import com.lin0721.linmusic.desktop.ui.track.DangerColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -212,6 +216,12 @@ fun WindowScope.TitleBar(
     accounts: List<UserProfile> = emptyList(),
     onSwitchAccount: (uid: Long) -> Unit = {},
     onAddAccount: () -> Unit = {},
+    activeKugouAccount: StoredAccount? = null,
+    kugouAccounts: List<StoredAccount> = emptyList(),
+    onKugouLoginClick: () -> Unit = {},
+    onKugouSwitchAccount: (AccountId) -> Unit = {},
+    onKugouAddAccount: () -> Unit = {},
+    onKugouLogoutAccount: (AccountId) -> Unit = {},
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -424,6 +434,12 @@ fun WindowScope.TitleBar(
                     onLoginClick = onLoginClick,
                     onSwitchAccount = onSwitchAccount,
                     onAddAccount = onAddAccount,
+                    activeKugouAccount = activeKugouAccount,
+                    kugouAccounts = kugouAccounts,
+                    onKugouLoginClick = onKugouLoginClick,
+                    onKugouSwitchAccount = onKugouSwitchAccount,
+                    onKugouAddAccount = onKugouAddAccount,
+                    onKugouLogoutAccount = onKugouLogoutAccount,
                     onProfileClick = onProfileClick,
                     onRecentClick = onRecentClick,
                     onCloudClick = onCloudClick,
@@ -921,6 +937,12 @@ private fun AvatarMenu(
     onLoginClick: () -> Unit,
     onSwitchAccount: (uid: Long) -> Unit,
     onAddAccount: () -> Unit,
+    activeKugouAccount: StoredAccount?,
+    kugouAccounts: List<StoredAccount>,
+    onKugouLoginClick: () -> Unit,
+    onKugouSwitchAccount: (AccountId) -> Unit,
+    onKugouAddAccount: () -> Unit,
+    onKugouLogoutAccount: (AccountId) -> Unit,
     onProfileClick: () -> Unit,
     onRecentClick: () -> Unit,
     onCloudClick: () -> Unit,
@@ -929,6 +951,7 @@ private fun AvatarMenu(
     onLogoutClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuWidth = if (userProfile != null || activeKugouAccount != null) AccountMenuWidth else DefaultMenuWidth
     Box(Modifier.padding(end = 12.dp)) {
         Box(
             Modifier.size(32.dp).clip(CircleShape).background(DesktopColors.Surface).clickable { expanded = true },
@@ -936,6 +959,8 @@ private fun AvatarMenu(
         ) {
             if (userProfile != null) {
                 Cover(userProfile.avatarUrl, 32.dp, shape = CircleShape)
+            } else if (activeKugouAccount != null && activeKugouAccount.avatarUrl.isNotBlank()) {
+                Cover(activeKugouAccount.avatarUrl, 32.dp, shape = CircleShape)
             } else {
                 Icon(MelodiaIcons.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
@@ -944,7 +969,7 @@ private fun AvatarMenu(
         DesktopMenu(
             expanded = expanded,
             onDismiss = { expanded = false },
-            width = if (userProfile != null) AccountMenuWidth else DefaultMenuWidth
+            width = menuWidth
         ) {
             if (userProfile != null) {
                 AvatarMenuHeader(userProfile) {
@@ -972,6 +997,61 @@ private fun AvatarMenu(
                     icon = MelodiaIcons.PersonAdd,
                     enabled = canAddAccount
                 )
+            } else {
+                AvatarMenuItem(MelodiaIcons.Login, "登录") {
+                    expanded = false
+                    onLoginClick()
+                }
+            }
+
+            MenuDivider()
+            MenuHeader("酷狗音乐")
+            if (activeKugouAccount != null) {
+                KugouAvatarMenuAccountRow(
+                    account = activeKugouAccount,
+                    isActive = true,
+                    onClick = {},
+                    onLogout = {
+                        expanded = false
+                        onKugouLogoutAccount(activeKugouAccount.accountId)
+                    }
+                )
+                kugouAccounts.filter { it.accountId != activeKugouAccount.accountId }.forEach { account ->
+                    KugouAvatarMenuAccountRow(
+                        account = account,
+                        isActive = false,
+                        onClick = {
+                            expanded = false
+                            onKugouSwitchAccount(account.accountId)
+                        },
+                        onLogout = {
+                            expanded = false
+                            onKugouLogoutAccount(account.accountId)
+                        }
+                    )
+                }
+                val canAddKugou = kugouAccounts.size < UserPreferences.MAX_ACCOUNTS
+                MenuItem(
+                    text = if (canAddKugou) "添加酷狗帐号" else "添加酷狗帐号（最多 ${UserPreferences.MAX_ACCOUNTS} 个）",
+                    onClick = {
+                        expanded = false
+                        onKugouAddAccount()
+                    },
+                    icon = MelodiaIcons.PersonAdd,
+                    enabled = canAddKugou
+                )
+                AvatarMenuItem(MelodiaIcons.Logout, "退出酷狗账户") {
+                    expanded = false
+                    onKugouLogoutAccount(activeKugouAccount.accountId)
+                }
+            } else {
+                AvatarMenuItem(MelodiaIcons.Login, "登录酷狗音乐") {
+                    expanded = false
+                    onKugouLoginClick()
+                }
+            }
+
+            if (userProfile != null) {
                 MenuDivider()
                 AvatarMenuItem(MelodiaIcons.History, "最近播放") {
                     expanded = false
@@ -982,10 +1062,7 @@ private fun AvatarMenu(
                     onCloudClick()
                 }
             } else {
-                AvatarMenuItem(MelodiaIcons.Login, "登录") {
-                    expanded = false
-                    onLoginClick()
-                }
+                MenuDivider()
             }
             MenuItem(
                 "设置",
@@ -1011,6 +1088,77 @@ private fun AvatarMenu(
 }
 
 private val AccountMenuWidth = 224.dp
+
+@Composable
+private fun KugouAvatarMenuAccountRow(
+    account: StoredAccount,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val source = remember { MutableInteractionSource() }
+    val hovered by source.collectIsHoveredAsState()
+    val displayName = account.nickname.ifBlank { "酷狗用户 ${account.effectivePlatformUid}" }
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (hovered) DesktopColors.SurfaceLight else Color.Transparent)
+            .hoverable(source)
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (account.avatarUrl.isNotBlank()) {
+            Cover(account.avatarUrl, 22.dp, shape = CircleShape)
+        } else {
+            Box(
+                Modifier.size(22.dp).clip(CircleShape).background(DesktopColors.Surface),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(MelodiaIcons.Person, null, tint = DesktopColors.TextGray, modifier = Modifier.size(14.dp))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = displayName,
+                color = DesktopColors.TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val subText = buildList {
+                if (isActive) add("当前活跃")
+                if (account.vipLabel.isNotBlank()) add(account.vipLabel)
+            }.joinToString(" · ")
+            if (subText.isNotEmpty()) {
+                Text(
+                    text = subText,
+                    color = if (isActive) DesktopColors.AccentText else DesktopColors.TextGray,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        HoverReveal(revealed = hovered, reserveSpace = false) {
+            Box(
+                Modifier.size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onLogout),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    MelodiaIcons.Logout,
+                    contentDescription = "退出酷狗账户",
+                    tint = DangerColor,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
 
 // 头像菜单头部：大头像 + 昵称，点击进个人主页
 @Composable

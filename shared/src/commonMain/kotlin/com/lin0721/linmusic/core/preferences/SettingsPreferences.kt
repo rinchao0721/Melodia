@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouClientMode
 import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeState
 import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackModeStore
@@ -231,6 +232,9 @@ class SettingsPreferences(
         // 局域网联动播放模式与修改时间戳
         private val KEY_LAN_LINK_PLAYBACK_MODE = stringPreferencesKey("lan_link_playback_mode")
         private val KEY_LAN_LINK_PLAYBACK_MODE_UPDATED_AT_MS = longPreferencesKey("lan_link_playback_mode_updated_at_ms")
+        // 酷狗音乐平台启用开关（默认开启）与客户端模式（默认概念版 LITE）
+        private val KEY_KUGOU_PLATFORM_ENABLED = booleanPreferencesKey("kugou_platform_enabled")
+        private val KEY_KUGOU_CLIENT_MODE = stringPreferencesKey("kugou_client_mode")
 
         private fun personalFmModeKeyFor(uid: Long?) =
             stringPreferencesKey(if (uid != null) "personal_fm_mode_$uid" else "personal_fm_mode_anon")
@@ -1323,6 +1327,31 @@ class SettingsPreferences(
             prefs[targetKey] = legacy
         }
         prefs.remove(KEY_PERSONAL_FM_MODE)
+    }
+
+    // 酷狗音乐平台总开关，默认开启
+    val kugouPlatformEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_KUGOU_PLATFORM_ENABLED] ?: true
+    }.distinctUntilChanged()
+
+    suspend fun saveKugouPlatformEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_KUGOU_PLATFORM_ENABLED] = enabled
+        }
+    }
+
+    // 酷狗客户端模式（概念版 LITE / 标准版 STANDARD），默认 LITE
+    val kugouClientMode: Flow<KugouClientMode> = dataStore.data.map { prefs ->
+        runCatching {
+            val raw = prefs[KEY_KUGOU_CLIENT_MODE] ?: return@runCatching KugouClientMode.LITE
+            KugouClientMode.valueOf(raw)
+        }.getOrDefault(KugouClientMode.LITE)
+    }.distinctUntilChanged()
+
+    suspend fun saveKugouClientMode(mode: KugouClientMode) {
+        dataStore.edit { prefs ->
+            prefs[KEY_KUGOU_CLIENT_MODE] = mode.name
+        }
     }
 }
 

@@ -42,6 +42,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
 import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
@@ -73,6 +75,10 @@ fun SettingsPage(
     downloadScanner: DesktopDownloadFolderScanner,
     lanLink: LanLinkDesktopHost,
     modifier: Modifier = Modifier,
+    userPreferences: UserPreferences? = null,
+    accountSwitcher: AccountSwitcher? = null,
+    onOpenNeteaseLogin: (addAccount: Boolean) -> Unit = {},
+    onOpenKugouLogin: (addAccount: Boolean) -> Unit = {},
     // SettingsCategory.name，从外部入口打开时定位到该分区
     focusCategory: String? = null,
     onFocusConsumed: () -> Unit = {}
@@ -86,7 +92,20 @@ fun SettingsPage(
     LaunchedEffect(desktop) { desktop.messages.collect { navigator.showMessage(it) } }
     LaunchedEffect(lanLink) { lanLink.messages.collect { navigator.showMessage(it) } }
 
-    val entries = settingsEntries(common, desktop, lxPlugins, plugins, updateChecker, localLibrary, downloadScanner, lanLink)
+    val entries = settingsEntries(
+        common = common,
+        desktop = desktop,
+        lxPlugins = lxPlugins,
+        plugins = plugins,
+        updateChecker = updateChecker,
+        localLibrary = localLibrary,
+        downloadScanner = downloadScanner,
+        lanLink = lanLink,
+        userPreferences = userPreferences,
+        accountSwitcher = accountSwitcher,
+        onOpenNeteaseLogin = onOpenNeteaseLogin,
+        onOpenKugouLogin = onOpenKugouLogin
+    )
     var query by remember { mutableStateOf("") }
     val searching = query.isNotBlank()
     val sections = SettingsCategory.entries.mapNotNull { category ->

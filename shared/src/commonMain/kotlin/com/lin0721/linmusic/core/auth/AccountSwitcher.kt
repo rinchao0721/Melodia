@@ -2,7 +2,9 @@ package com.lin0721.linmusic.core.auth
 
 import com.lin0721.linmusic.core.cache.MetadataCache
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,7 +17,8 @@ class AccountSwitcher(
     private val authRepository: AuthRepository,
     private val metadataCache: MetadataCache? = null,
     private val playbackControllerProvider: () -> PlaybackController? = { null },
-    private val sessionMonitorProvider: () -> SessionMonitor? = { null }
+    private val sessionMonitorProvider: () -> SessionMonitor? = { null },
+    private val platformSessionRegistry: PlatformSessionRegistry? = null
 ) {
     private val switchMutex = Mutex()
 
@@ -33,6 +36,12 @@ class AccountSwitcher(
             AccountEvents.notifySwitched(
                 previousUid = currentUid,
                 currentUid = profile.uid,
+                reason = AccountSwitchReason.SWITCHED
+            )
+            AccountEvents.notifyPlatformSwitched(
+                platform = MusicPlatform.NETEASE,
+                previousAccountId = currentUid?.let { AccountId.netease(it) },
+                currentAccountId = AccountId.netease(profile.uid),
                 reason = AccountSwitchReason.SWITCHED
             )
             profile
@@ -54,6 +63,12 @@ class AccountSwitcher(
                 currentUid = null,
                 reason = AccountSwitchReason.LOGGED_OUT
             )
+            AccountEvents.notifyPlatformSwitched(
+                platform = MusicPlatform.NETEASE,
+                previousAccountId = null,
+                currentAccountId = null,
+                reason = AccountSwitchReason.LOGGED_OUT
+            )
             return@withLock null
         }
         runCatching { authRepository.logout().first() }
@@ -68,6 +83,12 @@ class AccountSwitcher(
         AccountEvents.notifySwitched(
             previousUid = currentUid,
             currentUid = nextProfile?.uid,
+            reason = AccountSwitchReason.LOGGED_OUT
+        )
+        AccountEvents.notifyPlatformSwitched(
+            platform = MusicPlatform.NETEASE,
+            previousAccountId = AccountId.netease(currentUid),
+            currentAccountId = nextProfile?.uid?.let { AccountId.netease(it) },
             reason = AccountSwitchReason.LOGGED_OUT
         )
         AppLogger.i(TAG, "已退出账户 uid=$currentUid, 切换至 nextUid=$nextUid")
@@ -87,6 +108,130 @@ class AccountSwitcher(
                 currentUid = profile.uid,
                 reason = AccountSwitchReason.ADDED
             )
+            AccountEvents.notifyPlatformSwitched(
+                platform = MusicPlatform.NETEASE,
+                previousAccountId = previousUid?.let { AccountId.netease(it) },
+                currentAccountId = AccountId.netease(profile.uid),
+                reason = AccountSwitchReason.ADDED
+            )
+        }
+    }
+
+    // 切换指定平台活跃账号：网易云走完整切号链路；其他平台仅切换对应平台并清理该平台缓存命名空间，不影响其他平台
+    suspend fun switchPlatformAccount(accountId: AccountId): Boolean {
+        if (accountId.platform == MusicPlatform.NETEASE) {
+            val uid = accountId.rawId.toLongOrNull() ?: return false
+            return switchTo(uid)
+        }
+        val switched = switchMutex.withLock {
+            val current = userPreferences.activeAccountOf(accountId.platform).first()
+            if (current?.accountId == accountId) return false
+            val target = userPreferences.accountsOf(accountId.platform).first()
+                .firstOrNull { it.accountId == accountId }
+                ?: return false
+            if (!userPreferences.switchPlatformAccount(accountId)) return false
+            clearPlatformCacheScopes(accountId.platform, current?.accountId, accountId)
+            AccountEvents.notifyPlatformSwitched(
+                platform = accountId.platform,
+                previousAccountId = current?.accountId,
+                currentAccountId = target.accountId,
+                reason = AccountSwitchReason.SWITCHED
+            )
+            true
+        }
+        if (switched) {
+            AppLogger.i(TAG, "已切换平台账户 accountId=${accountId.canonical}")
+        }
+        return switched
+    }
+
+    // 独立退出指定平台账号：调用对应平台 Provider 的 logout 后移除本地凭据并广播事件，绝不影响其他平台登录态
+    suspend fun logoutPlatformAccount(accountId: AccountId): AccountId? {
+        if (accountId.platform == MusicPlatform.NETEASE) {
+            val uid = accountId.rawId.toLongOrNull()
+            val activeNeteaseUid = userPreferences.activeUid.first()
+            if (uid != null && uid == activeNeteaseUid) {
+                return logoutCurrent()?.uid?.let { AccountId.netease(it) }
+            }
+            return switchMutex.withLock {
+                val target = userPreferences.accountsOf(MusicPlatform.NETEASE).first()
+                    .firstOrNull { it.accountId == accountId }
+                    ?: return@withLock null
+                runCatching { platformSessionRegistry?.providerOf(MusicPlatform.NETEASE)?.logout(target) }
+                    .onFailure { AppLogger.w(TAG, "服务端退出非活跃网易账号失败 accountId=${accountId.canonical}", it) }
+                val nextId = userPreferences.removePlatformAccount(accountId)
+                clearPlatformCacheScopes(MusicPlatform.NETEASE, accountId, nextId)
+                AccountEvents.notifyPlatformSwitched(
+                    platform = MusicPlatform.NETEASE,
+                    previousAccountId = accountId,
+                    currentAccountId = nextId,
+                    reason = AccountSwitchReason.LOGGED_OUT
+                )
+                nextId
+            }
+        }
+
+        return switchMutex.withLock {
+            val target = userPreferences.accountsOf(accountId.platform).first()
+                .firstOrNull { it.accountId == accountId }
+                ?: return@withLock null
+            runCatching { platformSessionRegistry?.providerOf(accountId.platform)?.logout(target) }
+                .onFailure { AppLogger.w(TAG, "平台服务端退出失败，继续移除本地账户 accountId=${accountId.canonical}", it) }
+            val nextId = userPreferences.removePlatformAccount(accountId)
+            clearPlatformCacheScopes(accountId.platform, accountId, nextId)
+            AccountEvents.notifyPlatformSwitched(
+                platform = accountId.platform,
+                previousAccountId = accountId,
+                currentAccountId = nextId,
+                reason = AccountSwitchReason.LOGGED_OUT
+            )
+            AppLogger.i(TAG, "已退出平台账户 accountId=${accountId.canonical}, nextAccountId=${nextId?.canonical}")
+            nextId
+        }
+    }
+
+    // 非网易平台登录成功收尾：广播 ADDED 事件并在已注册 Provider 时同步最新用户资料/VIP 标签
+    suspend fun onPlatformAccountLoggedIn(account: StoredAccount, previousAccountId: AccountId?) {
+        if (account.platform == MusicPlatform.NETEASE) {
+            onAccountActivatedAfterLogin(account.toUserProfile(), previousAccountId?.rawId?.toLongOrNull())
+            return
+        }
+        switchMutex.withLock {
+            if (previousAccountId != null && previousAccountId != account.accountId) {
+                clearPlatformCacheScopes(account.platform, previousAccountId, account.accountId)
+            }
+            AccountEvents.notifyPlatformSwitched(
+                platform = account.platform,
+                previousAccountId = previousAccountId,
+                currentAccountId = account.accountId,
+                reason = AccountSwitchReason.ADDED
+            )
+        }
+        val provider = platformSessionRegistry?.providerOf(account.platform) ?: return
+        runCatching { provider.fetchUserDetail(account).getOrNull() }
+            .onSuccess { detail ->
+                if (detail != null) {
+                    val enriched = account.copy(
+                        nickname = detail.nickname.ifBlank { account.nickname },
+                        avatarUrl = detail.avatarUrl.ifBlank { account.avatarUrl },
+                        vipLabel = detail.vipLabel.ifBlank { account.vipLabel }
+                    )
+                    if (enriched != account) {
+                        userPreferences.upsertPlatformAccount(enriched, activate = false)
+                    }
+                }
+            }
+            .onFailure { AppLogger.w(TAG, "登录后同步平台资料失败 accountId=${account.accountId.canonical}", it) }
+    }
+
+    private suspend fun clearPlatformCacheScopes(
+        platform: MusicPlatform,
+        vararg accountIds: AccountId?
+    ) {
+        val cache = metadataCache ?: return
+        cache.clearScope(platform.key)
+        accountIds.filterNotNull().distinctBy { it.canonical }.forEach { id ->
+            cache.clearScope(id.canonical)
         }
     }
 }

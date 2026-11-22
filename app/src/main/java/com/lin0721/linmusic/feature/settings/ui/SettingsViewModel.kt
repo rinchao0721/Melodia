@@ -17,6 +17,9 @@ import com.lin0721.linmusic.core.preferences.ThemeMode
 import com.lin0721.linmusic.core.preferences.ThemeSettings
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouClientMode
+import com.lin0721.linmusic.core.kugou.KugouConfig
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
@@ -64,7 +67,8 @@ class SettingsViewModel(
     private val resourceProvider: ResourceProvider,
     val skins: SkinRepository,
     private val ffmpegComponentManager: FfmpegComponentManager,
-    private val lanLinkClient: LanLinkAndroidClient
+    private val lanLinkClient: LanLinkAndroidClient,
+    private val kugouConfig: KugouConfig? = null
 ) : ViewModel() {
 
     // DataStore 的偏好流统一以相同策略转为 StateFlow，避免每项重复五行样板
@@ -864,5 +868,38 @@ class SettingsViewModel(
 
     fun triggerLanReconnect() {
         lanLinkClient.triggerReconnectNow()
+    }
+
+    // ─── 多平台账号与酷狗平台设置 ───
+
+    val neteaseAccounts = userPreferences.accountsOf(MusicPlatform.NETEASE).asState(emptyList())
+    val activeNeteaseAccount = userPreferences.activeAccountOf(MusicPlatform.NETEASE).asState(null)
+    val kugouAccounts = userPreferences.accountsOf(MusicPlatform.KUGOU).asState(emptyList())
+    val activeKugouAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).asState(null)
+    val kugouPlatformEnabled = settingsPreferences.kugouPlatformEnabled.asState(true)
+    val kugouClientMode = settingsPreferences.kugouClientMode.asState(KugouClientMode.LITE)
+
+    fun updateKugouPlatformEnabled(enabled: Boolean) = launchSave {
+        settingsPreferences.saveKugouPlatformEnabled(enabled)
+    }
+
+    fun updateKugouClientMode(mode: KugouClientMode) {
+        kugouConfig?.mode = mode
+        launchSave { settingsPreferences.saveKugouClientMode(mode) }
+    }
+
+    fun switchPlatformAccount(accountId: AccountId, displayName: String) {
+        viewModelScope.launch {
+            if (accountSwitcher.switchPlatformAccount(accountId)) {
+                _toastEvent.emit("已切换至 $displayName")
+            }
+        }
+    }
+
+    fun logoutPlatformAccount(accountId: AccountId, displayName: String) {
+        viewModelScope.launch {
+            accountSwitcher.logoutPlatformAccount(accountId)
+            _toastEvent.emit("已退出 $displayName")
+        }
     }
 }

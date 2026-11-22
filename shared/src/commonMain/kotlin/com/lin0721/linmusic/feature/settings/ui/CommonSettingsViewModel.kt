@@ -2,6 +2,8 @@ package com.lin0721.linmusic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.kugou.KugouClientMode
+import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.lanlink.LanLinkPlaybackMode
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.CrossfadePolicy
@@ -25,7 +27,8 @@ import kotlinx.coroutines.launch
 class CommonSettingsViewModel(
     private val settingsPreferences: SettingsPreferences,
     private val sourcePreferences: SourcePreferences,
-    val skins: SkinRepository
+    val skins: SkinRepository,
+    private val kugouConfig: KugouConfig? = null
 ) : ViewModel() {
 
     private fun <T> Flow<T>.asState(initial: T): StateFlow<T> = stateIn(
@@ -84,6 +87,8 @@ class CommonSettingsViewModel(
     val useRealIp = settingsPreferences.useRealIp.asState(false)
     val realIpValue = settingsPreferences.realIpValue.asState("")
     val lanLinkPlaybackMode = settingsPreferences.lanLinkPlaybackMode.asState(LanLinkPlaybackMode.SINGLE_DEVICE)
+    val kugouPlatformEnabled = settingsPreferences.kugouPlatformEnabled.asState(true)
+    val kugouClientMode = settingsPreferences.kugouClientMode.asState(KugouClientMode.LITE)
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 
@@ -184,5 +189,14 @@ class CommonSettingsViewModel(
 
     fun updateLanLinkPlaybackMode(mode: LanLinkPlaybackMode) = launchSave {
         settingsPreferences.saveLanLinkPlaybackMode(mode)
+    }
+
+    fun updateKugouPlatformEnabled(enabled: Boolean) = launchSave {
+        settingsPreferences.saveKugouPlatformEnabled(enabled)
+    }
+
+    fun updateKugouClientMode(mode: KugouClientMode) {
+        kugouConfig?.mode = mode
+        launchSave { settingsPreferences.saveKugouClientMode(mode) }
     }
 }

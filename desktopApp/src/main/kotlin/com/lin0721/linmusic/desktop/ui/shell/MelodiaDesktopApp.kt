@@ -55,6 +55,7 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.AccountEvents
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.deeplink.ClipboardLink
 import com.lin0721.linmusic.core.deeplink.LinkPreviewState
 import com.lin0721.linmusic.core.deeplink.NeteaseLink
@@ -71,6 +72,7 @@ import com.lin0721.linmusic.desktop.ui.components.registerClipboardCopyObserver
 import com.lin0721.linmusic.desktop.ui.components.uiEnter
 import com.lin0721.linmusic.desktop.ui.components.uiExit
 import com.lin0721.linmusic.desktop.ui.deeplink.ClipboardLinkBanner
+import com.lin0721.linmusic.desktop.ui.login.KugouLoginDialog
 import com.lin0721.linmusic.desktop.ui.login.LoginDialog
 import com.lin0721.linmusic.desktop.ui.lyricsview.CHROME_ANIM_MS
 import com.lin0721.linmusic.desktop.ui.lyricsview.LyricsViewState
@@ -149,6 +151,11 @@ fun WindowScope.MelodiaDesktopApp(
     LaunchedEffect(state) {
         deps.sessionMonitor.watch {}
     }
+    LaunchedEffect(deps) {
+        deps.settingsPreferences.kugouClientMode.collect { mode ->
+            deps.kugouConfig.mode = mode
+        }
+    }
     LaunchedEffect(state) {
         deps.sessionMonitor.expiredNotices.collect { notice ->
             val nextProfile = notice.nextProfile
@@ -157,6 +164,21 @@ fun WindowScope.MelodiaDesktopApp(
             } else {
                 state.showMessage("登录已过期，请重新登录")
                 state.showLogin = true
+            }
+        }
+    }
+    LaunchedEffect(state) {
+        deps.sessionMonitor.platformExpiredNotices.collect { notice ->
+            if (notice.platform == MusicPlatform.KUGOU) {
+                val nextAccount = notice.nextAccount
+                if (nextAccount != null) {
+                    val nextName = nextAccount.nickname.ifBlank { nextAccount.effectivePlatformUid }
+                    state.showMessage("酷狗账号登录已过期，已切换至 $nextName")
+                } else {
+                    state.showMessage("酷狗账号登录已过期，请重新登录")
+                    state.kugouLoginAddAccount = false
+                    state.showKugouLogin = true
+                }
             }
         }
     }
@@ -516,6 +538,23 @@ fun WindowScope.MelodiaDesktopApp(
                 state.loginAddAccount = false
             },
             addAccount = state.loginAddAccount
+        )
+    }
+
+    if (state.showKugouLogin) {
+        KugouLoginDialog(
+            viewModel = deps.kugouLoginViewModel,
+            onLoginSuccess = { account ->
+                state.showKugouLogin = false
+                state.kugouLoginAddAccount = false
+                val name = account.nickname.ifBlank { account.effectivePlatformUid }
+                state.showMessage("酷狗账号 $name 登录成功")
+            },
+            onDismiss = {
+                state.showKugouLogin = false
+                state.kugouLoginAddAccount = false
+            },
+            addAccount = state.kugouLoginAddAccount
         )
     }
 }

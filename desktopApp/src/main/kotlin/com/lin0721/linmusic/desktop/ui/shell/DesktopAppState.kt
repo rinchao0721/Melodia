@@ -39,6 +39,9 @@ class DesktopAppState(
     var showLogin by mutableStateOf(false)
     // 登录弹窗以「添加帐号」模式打开
     var loginAddAccount by mutableStateOf(false)
+    var showKugouLogin by mutableStateOf(false)
+    // 酷狗登录弹窗以「添加帐号」模式打开
+    var kugouLoginAddAccount by mutableStateOf(false)
 
     // 非空时显示分享卡片对话框；song 为 null 时分享当前正在播放的歌曲
     var shareCardTarget by mutableStateOf<ShareCardTarget?>(null)

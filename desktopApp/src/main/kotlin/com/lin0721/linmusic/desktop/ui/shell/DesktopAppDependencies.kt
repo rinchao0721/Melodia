@@ -7,9 +7,11 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.SessionMonitor
+import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.deeplink.LinkPreviewResolver
 import com.lin0721.linmusic.core.deeplink.SongLinkRequests
 import com.lin0721.linmusic.core.lanlink.LanLinkDesktopHost
@@ -63,6 +65,8 @@ class DesktopAppDependencies(
     val newWorksViewModel: NewWorksViewModel,
     val libraryViewModel: LibraryViewModel,
     val loginViewModel: LoginViewModel,
+    val kugouLoginViewModel: KugouLoginViewModel,
+    val kugouConfig: KugouConfig,
     val playerViewModel: PlayerViewModel,
     val searchViewModel: SearchViewModel,
     val commonSettingsViewModel: CommonSettingsViewModel,
