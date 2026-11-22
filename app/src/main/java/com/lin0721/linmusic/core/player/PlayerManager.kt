@@ -51,6 +51,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -312,6 +313,7 @@ class PlayerManager(
         AppLogger.i(TAG, "PlayerManager 初始化 instanceId=${System.identityHashCode(this)}")
         networkGuard.register()
         registerAudioDeviceCallback()
+        controllerHolder.onDisconnected = ::onControllerDisconnected
 
         scope.launch {
             playbackQueue.setPlayMode(stateStore.loadPlayMode())
@@ -390,6 +392,7 @@ class PlayerManager(
 
     override suspend fun initController() {
         networkGuard.register()
+        registerAudioDeviceCallback()
         if (controllerHolder.isConnected) return
 
         val lastTrack = stateStore.loadLastTrack()
@@ -415,6 +418,28 @@ class PlayerManager(
             mediaController.repeatMode = if (playbackQueue.playMode.value == PlayMode.SINGLE_LOOP)
                 Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         }
+    }
+
+    // 服务被回收后控制器断开，下发指令前重连拉起新服务
+    private suspend fun ensureControllerConnected() {
+        if (controllerHolder.isConnected) return
+        try {
+            initController()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "重连 MediaController 失败", e)
+        }
+    }
+
+    // 新服务的播放器是空的，去掉播放地址让下次播放走重新取链
+    private fun onControllerDisconnected() {
+        updatePlaybackStateAndSyncClock(false)
+        val item = _currentTrack.value
+        if (item?.localConfiguration != null) {
+            setCurrentTrack(item.buildUpon().setUri(null as android.net.Uri?).build())
+        }
+        saveState()
     }
 
     suspend fun loadLastTrack(): PlaybackState? = stateStore.loadLastTrack()
@@ -494,7 +519,15 @@ class PlayerManager(
         unplayableAudioHandledMediaId = null
 
         externalInterruptionResumeController.onExplicitUserPlay()
-        controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
+        val mediaItem = item.toMediaItem(url, playContext)
+        if (controllerHolder.isConnected) {
+            controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+        } else {
+            scope.launch {
+                ensureControllerConnected()
+                controllerHolder.playItem(mediaItem, playbackQueue.playMode.value, startPosition)
+            }
+        }
     }
 
     // 批量插播歌曲到“下一首”播放位置
@@ -862,6 +895,7 @@ class PlayerManager(
         }
 
         activePlayJob = scope.launch {
+            ensureControllerConnected()
             if (_currentTrack.value?.mediaId != null && _currentTrack.value?.mediaId == declaredQualityLevel?.first) {
                 previousDeclaredQualityLevel = declaredQualityLevel
             }
@@ -982,6 +1016,7 @@ class PlayerManager(
     }
 
     private fun registerAudioDeviceCallback() {
+        if (audioDeviceCallback != null) return
         val manager = audioManager ?: return
         val callback = object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
@@ -1450,8 +1485,18 @@ class PlayerManager(
         publishDisplayTrack()
     }
 
+    // 服务随时可能被系统回收，单例资源与在途任务要留给后续重连
+    fun onServiceDestroyed() {
+        reportPlayedTrack()
+        // 已结算的时长不能在下次切歌时重复上报
+        resetTrackTiming(startPlaying = false)
+        saveState()
+    }
+
+    // 仅用于用户主动关闭应用
     fun release() {
         reportPlayedTrack()
+        resetTrackTiming(startPlaying = false)
         networkGuard.unregister()
         audioDeviceCallback?.let { callback ->
             runCatching { audioManager?.unregisterAudioDeviceCallback(callback) }

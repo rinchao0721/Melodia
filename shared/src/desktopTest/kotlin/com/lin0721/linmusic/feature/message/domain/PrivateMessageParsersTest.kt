@@ -60,6 +60,21 @@ class PrivateMessageParsersTest {
     }
 
     @Test
+    fun `官方号消息聚合会话被过滤`() {
+        val folder = parseJsonObject(
+            """
+            {
+              "fromUser": {"userId": 8888, "nickname": "官方号消息", "avatarUrl": null},
+              "user": {"id": 1, "fromUserId": 8888, "toUserId": 100, "newMsgCount": 2},
+              "lastMsg": "{\"msg\":\"查看成就海报\",\"type\":6}"
+            }
+            """.trimIndent()
+        )
+
+        assertNull(parsePrivateConversation(folder, selfUid = 100L))
+    }
+
+    @Test
     fun `会话lastMsg支持双层msgId嵌套与歌曲摘要`() {
         val wrapped = parseJsonObject(
             """
