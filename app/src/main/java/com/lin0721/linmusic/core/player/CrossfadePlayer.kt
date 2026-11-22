@@ -45,7 +45,7 @@ class CrossfadePlayer(
     // 静音前的独占音量，取消静音时恢复
     private var levelBeforeMute = 0
     private val exclusiveVolumeListener: () -> Unit = { handler.post { invalidateState() } }
-    private var metadataTransformer: ((MediaMetadata) -> MediaMetadata)? = null
+    private var metadataTransformer: ((String?, MediaMetadata) -> MediaMetadata)? = null
 
     private var pendingIncoming: ExoPlayer? = null
     private var pendingFuture: SettableFuture<Unit>? = null
@@ -109,7 +109,7 @@ class CrossfadePlayer(
         applyTrackGain(LoudnessPolicy.amplitude(gainDb), immediate)
     }
 
-    fun setMetadataTransformer(transformer: ((MediaMetadata) -> MediaMetadata)?) {
+    fun setMetadataTransformer(transformer: ((String?, MediaMetadata) -> MediaMetadata)?) {
         metadataTransformer = transformer
         invalidateState()
     }
@@ -144,8 +144,9 @@ class CrossfadePlayer(
         val transformer = metadataTransformer
         if (transformer != null && !base.timeline.isEmpty) {
             val activeIndex = active.currentMediaItemIndex
+            val activeMediaId = active.currentMediaItem?.mediaId
             val transformedTimeline = TransformedTimeline(base.timeline, activeIndex, transformer)
-            val transformedMetadata = transformer(base.currentMetadata)
+            val transformedMetadata = transformer(activeMediaId, base.currentMetadata)
             builder.setPlaylist(transformedTimeline, base.currentTracks, transformedMetadata)
         }
         return builder.build()
@@ -409,7 +410,7 @@ class CrossfadePlayer(
 private class TransformedTimeline(
     private val timeline: Timeline,
     private val activeMediaItemIndex: Int,
-    private val transformer: (MediaMetadata) -> MediaMetadata
+    private val transformer: (String?, MediaMetadata) -> MediaMetadata
 ) : Timeline() {
 
     override fun getWindowCount(): Int = timeline.windowCount
@@ -439,7 +440,7 @@ private class TransformedTimeline(
         if (windowIndex == activeMediaItemIndex || activeMediaItemIndex == -1) {
             val originalItem = w.mediaItem
             w.mediaItem = originalItem.buildUpon()
-                .setMediaMetadata(transformer(originalItem.mediaMetadata))
+                .setMediaMetadata(transformer(originalItem.mediaId, originalItem.mediaMetadata))
                 .build()
         }
         return w

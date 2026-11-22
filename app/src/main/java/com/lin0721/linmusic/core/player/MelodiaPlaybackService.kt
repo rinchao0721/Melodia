@@ -365,8 +365,8 @@ class MelodiaPlaybackService : MediaSessionService() {
             secondaryGainState = secondaryGainState,
             exclusiveVolume = usbAudio
         )
-        sessionPlayer.setMetadataTransformer { base ->
-            externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
+        sessionPlayer.setMetadataTransformer { mediaId, base ->
+            externalLyricCoordinator.applyToMediaMetadata(mediaId, base.buildUpon(), base)
         }
         crossfadePlayer = sessionPlayer
         playerManager.attachLocalPlayer(sessionPlayer)
