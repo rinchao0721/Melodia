@@ -656,7 +656,7 @@ class KugouPlaylistService(
             }.orEmpty().filter { it.isNotEmpty() }
         }
         return KugouPlaylistDetailDto(
-            globalCollectionId = obj.firstNonBlank("global_collection_id", "specialid").ifBlank { fallbackGid },
+            globalCollectionId = obj.string("global_collection_id").trim().ifBlank { fallbackGid },
             listId = obj.firstPositiveLong("listid", "list_id", "specialid"),
             name = obj.firstNonBlank("name", "specialname"),
             coverUrl = normalizeKugouCoverUrl(obj.firstNonBlank("pic", "imgurl", "flexible_cover")),

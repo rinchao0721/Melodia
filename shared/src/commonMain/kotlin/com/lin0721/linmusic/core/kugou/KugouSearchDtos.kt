@@ -73,7 +73,9 @@ data class KugouSearchPlaylistDto(
     val intro: String = ""
 ) {
     fun toUnifiedPlaylist(): UnifiedPlaylist {
-        val rawId = globalCollectionId.ifBlank { specialId.toString() }
+        val rawId = globalCollectionId.trim().ifBlank {
+            if (specialId > 0L) "special:$specialId" else ""
+        }
         return UnifiedPlaylist(
             id = PlaylistId.kugou(rawId),
             name = name,

@@ -30,8 +30,11 @@ import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedAlbum
 import com.lin0721.linmusic.core.platform.UnifiedArtist
+import com.lin0721.linmusic.core.platform.UnifiedComment
+import com.lin0721.linmusic.core.platform.UnifiedCreator
 import com.lin0721.linmusic.core.platform.UnifiedPlaylist
 import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.toDisplayTrack
 import com.lin0721.linmusic.core.platform.repository.NeteasePlatformCommentRepository
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRepository
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
@@ -50,6 +53,7 @@ import com.lin0721.linmusic.core.platform.repository.UnifiedArtistAlbumsPage
 import com.lin0721.linmusic.core.platform.repository.UnifiedArtistDetail
 import com.lin0721.linmusic.core.platform.repository.UnifiedArtistSongsPage
 import com.lin0721.linmusic.core.platform.repository.UnifiedCollectedAlbum
+import com.lin0721.linmusic.core.platform.repository.UnifiedCommentsPage
 import com.lin0721.linmusic.core.platform.repository.UnifiedHotSearch
 import com.lin0721.linmusic.core.platform.repository.UnifiedSearchPageResult
 import com.lin0721.linmusic.core.platform.repository.UnifiedSearchResultItem
@@ -553,12 +557,247 @@ class Phase4BViewModelsTest {
         assertEquals(detailCallsBefore, kugouArtistRepo.detailCalls)
     }
 
+    @Test
+    fun `PlaylistViewModel 酷狗歌单加歌回填 fileid、混排重排保留外链并尊重 addtime 时序`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore())
+        val externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
+        val pid = PlaylistId.kugou("3001")
+
+        val baseTrack1 = kugouTrack("HASH_BASE_1", "基础歌1").copy(
+            kugouMeta = KugouTrackMeta(hash = "hash_base_1", playlistFileId = 101L, playlistAddTimeMs = 2_000_000_000_000L)
+        )
+        val baseTrack2 = kugouTrack("HASH_NEW_2", "新加酷狗歌").copy(
+            kugouMeta = KugouTrackMeta(hash = "hash_new_2", playlistFileId = 202L, playlistAddTimeMs = 1_500_000_000_000L)
+        )
+        // 外链添加时间介于 baseTrack1 (2e12) 与 baseTrack2 (1.5e12) 之间，验证不会全部强制置顶
+        val neteaseExtra = UnifiedTrack(
+            id = TrackId.netease(9988L),
+            name = "异源网易插曲",
+            artistNames = "歌手N"
+        )
+        externalStore.add(pid, listOf(neteaseExtra), now = 1_800_000_000_000L)
+
+        var currentTracks = listOf(baseTrack1)
+        var currentVer = 10L
+        val kugouPlaylistRepo = FakeKugouPlaylistRepo().apply {
+            detailProvider = {
+                UnifiedPlaylist(
+                    id = pid,
+                    name = "酷狗混排单",
+                    tracks = currentTracks,
+                    trackCount = currentTracks.size,
+                    listVer = currentVer
+                )
+            }
+        }
+        val vm = buildPlaylistViewModel(prefs, settings, externalStore, kugouPlaylistRepo, FakeKugouAlbumRepo())
+        advanceUntilIdle()
+
+        vm.loadEntity("kugou:3001", isAlbum = false)
+        advanceUntilIdle()
+
+        val initial = vm.uiState.value as PlaylistUiState.Success
+        assertEquals(listOf("基础歌1", "异源网易插曲"), initial.playlist.tracks.map { it.name })
+        assertEquals(10L, initial.listVer)
+
+        // 加歌后静默刷新详情回填 playlistFileId 与 listVer
+        currentTracks = listOf(baseTrack1, baseTrack2)
+        currentVer = 11L
+        val newInputWithoutFileId = kugouTrack("HASH_NEW_2", "新加酷狗歌").copy(
+            kugouMeta = KugouTrackMeta(hash = "hash_new_2", playlistFileId = null)
+        )
+        var addOk = false
+        vm.addTrackToEntityPlaylist(
+            entityId = "kugou:3001",
+            track = newInputWithoutFileId.toDisplayTrack(),
+            onComplete = { addOk = it },
+            unifiedTrack = newInputWithoutFileId
+        )
+        advanceUntilIdle()
+        assertTrue(addOk)
+
+        val afterAdd = vm.uiState.value as PlaylistUiState.Success
+        assertEquals(listOf("基础歌1", "异源网易插曲", "新加酷狗歌"), afterAdd.playlist.tracks.map { it.name })
+        assertEquals(11L, afterAdd.listVer)
+        assertEquals(3, afterAdd.playlist.trackCount)
+
+        // 重排酷狗曲目顺序时携带回填的 fileid=202/101，且保留混排外链不被覆盖丢失
+        val reorderedDisplay = listOf(
+            afterAdd.playlist.tracks.first { it.name == "新加酷狗歌" },
+            afterAdd.playlist.tracks.first { it.name == "基础歌1" }
+        )
+        var sortOk = false
+        vm.updateTrackOrderByEntity("kugou:3001", reorderedDisplay) { sortOk = it }
+        advanceUntilIdle()
+        assertTrue(sortOk)
+        val (submittedTracks, submittedVer) = kugouPlaylistRepo.sortCalls.single()
+        assertEquals(11L, submittedVer)
+        assertEquals(listOf(202L, 101L), submittedTracks.map { it.kugouMeta?.playlistFileId })
+
+        val afterSort = vm.uiState.value as PlaylistUiState.Success
+        assertTrue(afterSort.playlist.tracks.any { it.name == "异源网易插曲" })
+        assertEquals(3, afterSort.playlist.trackCount)
+    }
+
+    @Test
+    fun `PlaylistViewModel 酷狗歌单评论发布使用 KUGOU 身份且移除外链曲目不误扣远端数量`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore())
+        val externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
+        prefs.upsertPlatformAccount(kugouAccount("889900"))
+
+        val pid = PlaylistId.kugou("3001")
+        val neteaseExtra = UnifiedTrack(id = TrackId.netease(7766L), name = "混排网易歌")
+        externalStore.add(pid, listOf(neteaseExtra), now = 1_900_000_000_000L)
+
+        val kg1 = kugouTrack("HASH_R1", "酷狗1").copy(kugouMeta = KugouTrackMeta(hash = "hash_r1", playlistAddTimeMs = 1_000_000_000_000L))
+        val kg2 = kugouTrack("HASH_R2", "酷狗2").copy(kugouMeta = KugouTrackMeta(hash = "hash_r2", playlistAddTimeMs = 900_000_000_000L))
+        val kugouPlaylistRepo = FakeKugouPlaylistRepo().apply {
+            detail = UnifiedPlaylist(id = pid, name = "酷狗歌单", tracks = listOf(kg1, kg2), trackCount = 2)
+        }
+        val recordingCommentRepo = object : PlatformCommentRepository {
+            override fun getComments(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, pageNo: Int, pageSize: Int, cursor: String, sortType: CommentSortType) =
+                flowOf(Result.success(UnifiedCommentsPage(emptyList())))
+            override fun getFloorComments(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, parentCommentId: String, cursorOrTime: Long, pageNo: Int, limit: Int, kugouSpecialId: String?) =
+                flowOf(Result.success(com.lin0721.linmusic.core.platform.repository.UnifiedFloorCommentsPage(emptyList())))
+            override fun addComment(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, content: String) =
+                flowOf(Result.success<UnifiedComment?>(null))
+            override fun replyComment(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, commentId: String, content: String, pid: String, replyUserName: String?, replyContent: String?, kugouSpecialId: String?) =
+                flowOf(Result.success<UnifiedComment?>(null))
+            override fun deleteComment(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, commentId: String, tid: String?, kugouSpecialId: String?) =
+                flowOf(Result.success(Unit))
+            override fun likeComment(target: com.lin0721.linmusic.core.platform.repository.CommentTarget, commentId: String, like: Boolean) =
+                flowOf(Result.success(Unit))
+        }
+
+        val vm = buildPlaylistViewModel(prefs, settings, externalStore, kugouPlaylistRepo, FakeKugouAlbumRepo(), recordingCommentRepo)
+        vm.loadEntity("kugou:3001", isAlbum = false)
+        advanceUntilIdle()
+
+        // 评论提交：乐观插入的 CommentItem.user.platform 必须是 KUGOU
+        vm.loadEntityComments()
+        advanceUntilIdle()
+        vm.submitComment("酷狗歌单评论测试")
+        advanceUntilIdle()
+        val cState = vm.commentsState.value as com.lin0721.linmusic.core.comment.ui.CommentsState.Success
+        assertEquals(MusicPlatform.KUGOU, cState.comments.first().user.platform)
+
+        // 批量移除混排外链曲目后，kugouRemoteTrackCount 保持为 2，不被误减为 1
+        val stateBeforeRemove = vm.uiState.value as PlaylistUiState.Success
+        assertEquals(3, stateBeforeRemove.playlist.trackCount)
+        vm.enterSelection(neteaseExtra.toDisplayTrack().id)
+        vm.batchRemove()
+        advanceUntilIdle()
+
+        val stateAfterRemove = vm.uiState.value as PlaylistUiState.Success
+        assertEquals(2, stateAfterRemove.playlist.tracks.size)
+        assertEquals(2, stateAfterRemove.playlist.trackCount)
+    }
+
+    @Test
+    fun `PlaylistViewModel 与 ArtistViewModel 在酷狗开关关闭和切号时实时联动清理或刷新`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore())
+        val externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
+        prefs.upsertPlatformAccount(kugouAccount("1001"), activate = true)
+
+        val pid = PlaylistId.kugou("3001")
+        val kugouPlaylistRepo = FakeKugouPlaylistRepo().apply {
+            detail = UnifiedPlaylist(id = pid, name = "酷狗云歌单", tracks = listOf(kugouTrack("HASH_L1", "七里香")), trackCount = 1)
+        }
+        val pVm = buildPlaylistViewModel(prefs, settings, externalStore, kugouPlaylistRepo, FakeKugouAlbumRepo())
+        pVm.loadEntity("kugou:3001", isAlbum = false)
+        advanceUntilIdle()
+        assertTrue(pVm.uiState.value is PlaylistUiState.Success)
+        val callsAfterLoad = kugouPlaylistRepo.detailCalls
+
+        // 切换酷狗账号 -> 自动刷新当前正在浏览的酷狗歌单
+        prefs.upsertPlatformAccount(kugouAccount("2002"), activate = true)
+        advanceUntilIdle()
+        assertEquals(callsAfterLoad + 1, kugouPlaylistRepo.detailCalls)
+
+        // 关闭酷狗总开关 -> 正在浏览酷狗歌单时立即进入关闭错误态
+        settings.saveKugouPlatformEnabled(false)
+        advanceUntilIdle()
+        val pError = pVm.uiState.value as PlaylistUiState.Error
+        assertTrue(pError.message.contains("关闭"))
+
+        // 验证 ArtistViewModel 切号更新关注状态、关开关清空并报错
+        settings.saveKugouPlatformEnabled(true)
+        val artistPrefs = UserPreferences(InMemoryPreferencesStore())
+        val artistSettings = SettingsPreferences(InMemoryPreferencesStore())
+        artistPrefs.upsertPlatformAccount(kugouAccount("1001"), activate = true)
+        val likeRepo = RecordingSongLikeRepository()
+        val playlistRepo = FakePlaylistRepository()
+        val kugouArtistRepo = FakeKugouArtistRepo(kugouTrack("HASH_A1", "夜曲"))
+        val artistRouter = PlatformArtistRouter(StubPlatformArtistRepo(), kugouArtistRepo) {
+            artistSettings.kugouPlatformEnabled.first()
+        }
+        val aVm = trackVm {
+            ArtistViewModel(
+                songCollectDelegate = SongCollectDelegate(
+                    userPlaylistRepository = FakeUserPlaylistRepository(),
+                    playlistRepository = playlistRepo,
+                    songLikeRepository = likeRepo,
+                    createPlaylistAndAddSongUseCase = CreatePlaylistAndAddSongUseCase(
+                        FakeCreateRepository(), playlistRepo, PlaylistMutationBus()
+                    ),
+                    userPreferences = artistPrefs,
+                    resourceProvider = testResourceProvider,
+                    externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore()),
+                    externalSongLikes = ExternalSongLikes(PlaylistExternalTrackStore(InMemoryPreferencesStore()), artistPrefs) { emptyList() },
+                    settingsPreferences = artistSettings
+                ),
+                syncProfileAfterLoginUseCase = SyncProfileAfterLoginUseCase(artistPrefs, FakeAuthRepository()),
+                loadLikedSongIdsUseCase = LoadLikedSongIdsUseCase(artistPrefs, likeRepo),
+                artistRepository = StubArtistRepo(),
+                songLikeRepository = likeRepo,
+                playerManager = FakePlaybackController(),
+                userPreferences = artistPrefs,
+                resourceProvider = testResourceProvider,
+                searchRepository = StubNeteaseSearchRepo(),
+                trackBatchActions = TrackBatchActionsDelegate(
+                    playlistRepository = playlistRepo,
+                    playerManager = FakePlaybackController(),
+                    songDownloadManager = FakeSongDownloader(),
+                    songLikeRepository = likeRepo,
+                    createPlaylistAndAddSongUseCase = CreatePlaylistAndAddSongUseCase(
+                        FakeCreateRepository(), playlistRepo, PlaylistMutationBus()
+                    ),
+                    userPlaylistRepository = FakeUserPlaylistRepository(),
+                    userPreferences = artistPrefs,
+                    resourceProvider = testResourceProvider,
+                    externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore()),
+                    settingsPreferences = artistSettings
+                ),
+                platformArtistRouter = artistRouter,
+                settingsPreferences = artistSettings
+            )
+        }
+        aVm.loadArtistData("kugou:3520")
+        advanceUntilIdle()
+        assertFalse((aVm.uiState.value as ArtistUiState.Success).isFollowed)
+        assertTrue(aVm.unifiedTracks.value.isNotEmpty())
+
+        kugouArtistRepo.followedResult = true
+        artistPrefs.upsertPlatformAccount(kugouAccount("3003"), activate = true)
+        advanceUntilIdle()
+        assertTrue((aVm.uiState.value as ArtistUiState.Success).isFollowed)
+
+        artistSettings.saveKugouPlatformEnabled(false)
+        advanceUntilIdle()
+        assertTrue(aVm.unifiedTracks.value.isEmpty())
+        assertTrue((aVm.uiState.value as ArtistUiState.Error).message.contains("关闭"))
+    }
+
     private fun buildPlaylistViewModel(
         prefs: UserPreferences,
         settings: SettingsPreferences,
         externalStore: PlaylistExternalTrackStore,
         kugouPlaylistRepo: PlatformPlaylistRepository,
-        kugouAlbumRepo: PlatformAlbumRepository
+        kugouAlbumRepo: PlatformAlbumRepository,
+        kugouCommentRepo: PlatformCommentRepository = StubPlatformCommentRepo()
     ): PlaylistViewModel {
         val likeRepo = RecordingSongLikeRepository()
         val playlistRepo = FakePlaylistRepository()
@@ -573,7 +812,7 @@ class Phase4BViewModelsTest {
         }
         val commentRouter = PlatformCommentRouter(
             netease = NeteasePlatformCommentRepository(StubCommentRepo()),
-            kugou = StubPlatformCommentRepo(),
+            kugou = kugouCommentRepo,
             qq = StubPlatformCommentRepo(),
             isKugouEnabled = { settings.kugouPlatformEnabled.first() }
         )
@@ -739,12 +978,15 @@ private class StubPlatformLibraryRepo : PlatformLibraryRepository {
 
 private class FakeKugouPlaylistRepo : PlatformPlaylistRepository {
     var detail = UnifiedPlaylist(id = PlaylistId.kugou("3001"), name = "酷狗歌单")
+    var detailProvider: (() -> UnifiedPlaylist)? = null
     var detailCalls = 0
     val createdNames = mutableListOf<String>()
+    val addedCalls = mutableListOf<List<UnifiedTrack>>()
+    val sortCalls = mutableListOf<Pair<List<UnifiedTrack>, Long>>()
 
     override fun getPlaylistDetail(playlistId: PlaylistId): Flow<Result<UnifiedPlaylist>> {
         detailCalls++
-        return flowOf(Result.success(detail))
+        return flowOf(Result.success(detailProvider?.invoke() ?: detail))
     }
     override fun loadMoreTracks(trackIds: List<TrackId>) = flowOf(Result.success(emptyList<UnifiedTrack>()))
     override fun loadAllTracks(detail: UnifiedPlaylist) = flowOf(Result.success(detail.tracks))
@@ -753,13 +995,19 @@ private class FakeKugouPlaylistRepo : PlatformPlaylistRepository {
         return flowOf(Result.success(UnifiedPlaylist(id = PlaylistId.kugou("4002"), name = name)))
     }
     override fun subscribePlaylist(playlistId: PlaylistId, subscribe: Boolean) = flowOf(Result.success(Unit))
-    override fun addTracksToPlaylist(playlistId: PlaylistId, tracks: List<UnifiedTrack>) = flowOf(Result.success(Unit))
+    override fun addTracksToPlaylist(playlistId: PlaylistId, tracks: List<UnifiedTrack>): Flow<Result<Unit>> {
+        addedCalls += tracks
+        return flowOf(Result.success(Unit))
+    }
     override fun removeTracksFromPlaylist(playlistId: PlaylistId, tracks: List<UnifiedTrack>) = flowOf(Result.success(Unit))
     override fun renamePlaylist(playlistId: PlaylistId, name: String) = flowOf(Result.success(Unit))
     override fun updateDescription(playlistId: PlaylistId, description: String) = flowOf(Result.success(Unit))
     override fun deletePlaylist(playlistId: PlaylistId) = flowOf(Result.success(Unit))
     override fun updatePlaylistCover(playlistId: PlaylistId, imageBytes: ByteArray) = flowOf(Result.success(""))
-    override fun sortPlaylistTracks(playlistId: PlaylistId, orderedTracks: List<UnifiedTrack>, listVer: Long) = flowOf(Result.success(Unit))
+    override fun sortPlaylistTracks(playlistId: PlaylistId, orderedTracks: List<UnifiedTrack>, listVer: Long): Flow<Result<Unit>> {
+        sortCalls += orderedTracks to listVer
+        return flowOf(Result.success(Unit))
+    }
 }
 
 private class StubPlatformPlaylistRepo : PlatformPlaylistRepository {
@@ -839,6 +1087,7 @@ private class StubPlatformSearchRepo : PlatformSearchRepository {
 
 private class FakeKugouArtistRepo(private val topTrack: UnifiedTrack) : PlatformArtistRepository {
     var detailCalls = 0
+    var followedResult = false
     val subscribeCalls = mutableListOf<Pair<ArtistId, Boolean>>()
 
     override fun getArtistDetail(artistId: ArtistId): Flow<Result<UnifiedArtistDetail>> {
@@ -870,7 +1119,7 @@ private class FakeKugouArtistRepo(private val topTrack: UnifiedTrack) : Platform
         return flowOf(Result.success(Unit))
     }
 
-    override fun checkArtistFollowed(artistId: ArtistId): Flow<Result<Boolean>> = flowOf(Result.success(false))
+    override fun checkArtistFollowed(artistId: ArtistId): Flow<Result<Boolean>> = flowOf(Result.success(followedResult))
     override fun getArtistFansCount(artistId: ArtistId): Flow<Result<Long>> = flowOf(Result.success(999L))
     override fun getSimilarArtists(artistId: ArtistId): Flow<Result<List<UnifiedArtist>>> = flowOf(Result.success(emptyList()))
 }

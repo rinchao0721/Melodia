@@ -28,6 +28,7 @@ import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.offline.OfflinePlayability
 import com.lin0721.linmusic.core.platform.AlbumId
 import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.CommentTarget
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
@@ -145,7 +146,7 @@ class PlaylistViewModel(
     private val unifiedExternalEntries = MutableStateFlow<List<PlaylistUnifiedEntry>>(emptyList())
     private val _baseUnifiedTracks = MutableStateFlow<List<UnifiedTrack>>(emptyList())
     private val _baseKugouTracks = MutableStateFlow<List<UnifiedTrack>>(emptyList())
-    private var kugouPlaylistTrackAddedAt: Map<com.lin0721.linmusic.core.platform.TrackId, Long> = emptyMap()
+    private var kugouPlaylistTrackAddedAt: Map<TrackId, Long> = emptyMap()
     private var externalJob: Job? = null
     // 当前歌单的外部歌曲在本机存储里的 key，「我喜欢的音乐」用账号派生 key；不支持混排时为 null
     private var externalKey: Long? = null
@@ -246,6 +247,80 @@ class PlaylistViewModel(
     init {
         loadLikedSongIds()
         observeTracksForLocalFiles()
+        observeKugouLifecycle()
+    }
+
+    private fun isViewingKugouContent(): Boolean {
+        if ((_uiState.value as? PlaylistUiState.Success)?.platform == MusicPlatform.KUGOU) return true
+        val target = requestedEntityId ?: return false
+        if (target == KUGOU_RECENT_PLAYLIST_ID) return true
+        return (PlaylistId.parseOrNull(target)?.platform ?: AlbumId.parseOrNull(target)?.platform) == MusicPlatform.KUGOU
+    }
+
+    private fun observeKugouLifecycle() {
+        settingsPreferences?.kugouPlatformEnabled
+            ?.drop(1)
+            ?.onEach { enabled ->
+                if (!enabled && isViewingKugouContent()) {
+                    loadJob?.cancel()
+                    fullTrackJob?.cancel()
+                    stopExternalTracks()
+                    _baseUnifiedTracks.value = emptyList()
+                    _baseKugouTracks.value = emptyList()
+                    kugouPlaylistTrackAddedAt = emptyMap()
+                    activeKugouPlaylist = null
+                    kugouRemoteTrackCount = 0
+                    _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
+                }
+            }
+            ?.launchIn(viewModelScope)
+
+        userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+            .map { it?.accountId }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach {
+                if (isViewingKugouContent() && (settingsPreferences?.kugouPlatformEnabled?.first() ?: true)) {
+                    val target = requestedEntityId ?: return@onEach
+                    loadEntity(target, isAlbum = isAlbumMode)
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    internal fun buildKugouTrackAddedAt(
+        tracks: List<UnifiedTrack>,
+        previous: Map<TrackId, Long> = emptyMap(),
+        nowMs: Long = System.currentTimeMillis()
+    ): Map<TrackId, Long> {
+        if (tracks.isEmpty()) return emptyMap()
+        val raw = tracks.map { track ->
+            track.kugouMeta?.playlistAddTimeMs?.takeIf { it > 0L }
+                ?: previous[track.id]?.takeIf { it > 0L }
+                ?: 0L
+        }
+        if (raw.all { it <= 0L }) {
+            return tracks.mapIndexed { index, track ->
+                track.id to (nowMs - index * 1000L).coerceAtLeast(1L)
+            }.toMap()
+        }
+        val result = LinkedHashMap<TrackId, Long>(tracks.size)
+        tracks.forEachIndexed { index, track ->
+            val direct = raw[index]
+            val resolved = if (direct > 0L) {
+                direct
+            } else {
+                val prevIdx = (index - 1 downTo 0).firstOrNull { raw[it] > 0L }
+                val nextIdx = (index + 1 until raw.size).firstOrNull { raw[it] > 0L }
+                when {
+                    prevIdx != null -> (raw[prevIdx] - (index - prevIdx) * 1000L).coerceAtLeast(1L)
+                    nextIdx != null -> raw[nextIdx] + (nextIdx - index) * 1000L
+                    else -> (nowMs - index * 1000L).coerceAtLeast(1L)
+                }
+            }
+            result[track.id] = resolved
+        }
+        return result
     }
 
     // 曲目加载后把本地已有的同名文件补登记为已下载
@@ -308,6 +383,7 @@ class PlaylistViewModel(
         allRecommendedTracks = emptyList()
         _baseUnifiedTracks.value = emptyList()
         _baseKugouTracks.value = emptyList()
+        kugouPlaylistTrackAddedAt = emptyMap()
         activeKugouPlaylist = null
         kugouRemoteTrackCount = 0
         loadJob?.cancel()
@@ -387,6 +463,7 @@ class PlaylistViewModel(
                             )
                             val displayDetail = basePlaylist.toDisplayPlaylistDetail()
                             requestedPlaylistId = displayDetail.id
+                            kugouPlaylistTrackAddedAt = buildKugouTrackAddedAt(baseRemote)
                             _baseKugouTracks.value = baseRemote
                             _baseUnifiedTracks.value = unifiedPlaylist.tracks
                             val (artistIds, albumIds) = buildEntityIdMaps(unifiedPlaylist.tracks, unifiedPlaylist.artists)
@@ -397,7 +474,8 @@ class PlaylistViewModel(
                                 platform = MusicPlatform.KUGOU,
                                 creatorEntityId = unifiedPlaylist.creator?.id?.canonical,
                                 artistEntityIds = artistIds,
-                                albumEntityIds = albumIds
+                                albumEntityIds = albumIds,
+                                listVer = unifiedPlaylist.listVer
                             )
                             observeKugouExternalTracks(playlistId, displayDetail.id)
                         },
@@ -472,6 +550,7 @@ class PlaylistViewModel(
         kugouRemoteTrackCount = 0
         _baseUnifiedTracks.value = emptyList()
         _baseKugouTracks.value = emptyList()
+        kugouPlaylistTrackAddedAt = emptyMap()
         isAlbumMode = isAlbum
         _uiState.value = PlaylistUiState.Loading
         allRecommendedTracks = emptyList()
@@ -1226,21 +1305,32 @@ class PlaylistViewModel(
     }
 
     private fun dropTracksFromState(playlistId: Long, trackIds: Set<Long>) {
+        val removedBaseCount = _baseKugouTracks.value.count { it.toDisplayTrack().id in trackIds }
         if (trackIds.isNotEmpty()) {
             _baseKugouTracks.update { list -> list.filterNot { it.toDisplayTrack().id in trackIds } }
             _baseUnifiedTracks.update { list -> list.filterNot { it.toDisplayTrack().id in trackIds } }
+            kugouPlaylistTrackAddedAt = kugouPlaylistTrackAddedAt.filterKeys { tid ->
+                tid.toDeterministicLegacyId() !in trackIds && tid.neteaseIdOrNull() !in trackIds
+            }
         }
         _uiState.update { state ->
             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
-                val updatedTracks = state.playlist.tracks.filter { it.id !in trackIds }
-                val updatedIds = state.playlist.trackIds.filter { it.id !in trackIds }
-                val updatedCount = if (state.platform == MusicPlatform.KUGOU) {
-                    kugouRemoteTrackCount = (kugouRemoteTrackCount - trackIds.size).coerceAtLeast(updatedTracks.size)
-                    kugouRemoteTrackCount
+                if (state.platform == MusicPlatform.KUGOU && !state.isKugouRecent && !isAlbumMode) {
+                    val baseDisplay = _baseKugouTracks.value.map { it.toDisplayTrack() }
+                    kugouRemoteTrackCount = (kugouRemoteTrackCount - removedBaseCount).coerceAtLeast(baseDisplay.size)
+                    val updatedBase = state.copy(
+                        playlist = state.playlist.copy(
+                            tracks = baseDisplay,
+                            trackIds = baseDisplay.map { PlaylistTrackId(id = it.id) },
+                            trackCount = kugouRemoteTrackCount
+                        )
+                    )
+                    updatedBase
                 } else {
-                    state.playlist.trackCount
+                    val updatedTracks = state.playlist.tracks.filter { it.id !in trackIds }
+                    val updatedIds = state.playlist.trackIds.filter { it.id !in trackIds }
+                    state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackIds = updatedIds))
                 }
-                state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackIds = updatedIds, trackCount = updatedCount))
             } else state
         }
     }
@@ -1500,7 +1590,12 @@ class PlaylistViewModel(
         return when (commentsController.activePlatform) {
             MusicPlatform.KUGOU -> {
                 val acc = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() ?: return null
-                CommentUser(userId = acc.uid, nickname = acc.nickname, avatarUrl = acc.avatarUrl)
+                CommentUser(
+                    userId = acc.uid,
+                    nickname = acc.nickname,
+                    avatarUrl = acc.avatarUrl,
+                    platform = MusicPlatform.KUGOU
+                )
             }
             else -> {
                 val profile = userPreferences.userProfile.first() ?: return null
@@ -1975,12 +2070,12 @@ class PlaylistViewModel(
     fun addTrackToPlaylist(playlistId: Long, track: Track, onComplete: (Boolean) -> Unit = {}) {
         val currentState = _uiState.value as? PlaylistUiState.Success
         if (currentState != null && currentState.platform == MusicPlatform.KUGOU) {
-            addTrackToEntityPlaylist(currentState.entityId, track, onComplete)
+            addTrackToEntityPlaylist(currentState.entityId, track, onComplete = onComplete)
             return
         }
         val unified = _addMusicUnifiedTracks[track.id]
         if (unified != null && unified.platform != MusicPlatform.NETEASE && platformPlaylistRouter != null) {
-            addTrackToEntityPlaylist(playlistId.toString(), track, onComplete)
+            addTrackToEntityPlaylist(playlistId.toString(), track, onComplete = onComplete)
             return
         }
         viewModelScope.launch {
@@ -2006,7 +2101,12 @@ class PlaylistViewModel(
         }
     }
 
-    fun addTrackToEntityPlaylist(entityId: String, track: Track, onComplete: (Boolean) -> Unit = {}) {
+    fun addTrackToEntityPlaylist(
+        entityId: String,
+        track: Track,
+        unifiedTrack: UnifiedTrack? = null,
+        onComplete: (Boolean) -> Unit = {}
+    ) {
         val pid = entityId.toLongOrNull()?.let { PlaylistId.netease(it) } ?: PlaylistId.parseOrNull(entityId)
         val router = platformPlaylistRouter
         if (pid == null || router == null) {
@@ -2018,10 +2118,15 @@ class PlaylistViewModel(
             }
             return
         }
-        val unified = _addMusicUnifiedTracks[track.id]
+        val unified = unifiedTrack
+            ?: _addMusicUnifiedTracks[track.id]
             ?: unifiedTracks.value[track.id]
             ?: externalTracks.value[track.id]?.toUnified()
-            ?: track.toUnified()
+            ?: runCatching { track.toUnified() }.getOrElse {
+                viewModelScope.launch { _toastEvent.emit("暂不支持添加该曲目") }
+                onComplete(false)
+                return
+            }
         if (pid.platform == MusicPlatform.NETEASE && unified.platform == MusicPlatform.NETEASE) {
             addTrackToPlaylist(pid.neteaseIdOrNull()!!, track, onComplete)
             return
@@ -2035,17 +2140,58 @@ class PlaylistViewModel(
                             if (list.any { it.id == unified.id }) list else list + unified
                         }
                         if (pid.platform == MusicPlatform.KUGOU) {
-                            _baseKugouTracks.update { list ->
-                                if (list.any { it.id == unified.id }) list else list + unified
-                            }
-                            _uiState.update { state ->
-                                if (state is PlaylistUiState.Success && state.entityId == entityId) {
-                                    val updatedTracks = state.playlist.tracks.toMutableList().apply {
-                                        if (none { it.id == track.id }) add(track)
-                                    }
-                                    kugouRemoteTrackCount = maxOf(kugouRemoteTrackCount + 1, updatedTracks.size)
-                                    state.copy(playlist = state.playlist.copy(tracks = updatedTracks, trackCount = updatedTracks.size))
-                                } else state
+                            val refreshed = runCatching { router.getPlaylistDetail(pid).first().getOrNull() }.getOrNull()
+                            if (refreshed != null) {
+                                activeKugouPlaylist = refreshed
+                                val localIds = unifiedExternalEntries.value.mapTo(HashSet()) { it.track.id }
+                                val refreshedBase = refreshed.tracks.filterNot { it.id in localIds }.let { list ->
+                                    if (list.any { it.id == unified.id }) list else list + unified
+                                }
+                                val removedLocalCount = refreshed.tracks.size - refreshed.tracks.count { it.id !in localIds }
+                                kugouRemoteTrackCount = maxOf(
+                                    (refreshed.trackCount - removedLocalCount).coerceAtLeast(refreshedBase.size),
+                                    refreshedBase.size
+                                )
+                                kugouPlaylistTrackAddedAt = buildKugouTrackAddedAt(refreshedBase, kugouPlaylistTrackAddedAt)
+                                _baseKugouTracks.value = refreshedBase
+                                _baseUnifiedTracks.value = refreshed.tracks.let { list ->
+                                    if (list.any { it.id == unified.id }) list else list + unified
+                                }
+                                val (artistIds, albumIds) = buildEntityIdMaps(refreshedBase, refreshed.artists)
+                                _uiState.update { state ->
+                                    if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                                        val baseDisplay = refreshedBase.map { it.toDisplayTrack() }
+                                        state.copy(
+                                            playlist = state.playlist.copy(
+                                                tracks = baseDisplay,
+                                                trackIds = baseDisplay.map { PlaylistTrackId(id = it.id) },
+                                                trackCount = kugouRemoteTrackCount
+                                            ),
+                                            artistEntityIds = state.artistEntityIds + artistIds,
+                                            albumEntityIds = state.albumEntityIds + albumIds,
+                                            listVer = refreshed.listVer
+                                        )
+                                    } else state
+                                }
+                            } else {
+                                _baseKugouTracks.update { list ->
+                                    if (list.any { it.id == unified.id }) list else list + unified
+                                }
+                                val latestBase = _baseKugouTracks.value
+                                kugouPlaylistTrackAddedAt = buildKugouTrackAddedAt(latestBase, kugouPlaylistTrackAddedAt)
+                                kugouRemoteTrackCount = maxOf(kugouRemoteTrackCount + 1, latestBase.size)
+                                _uiState.update { state ->
+                                    if (state is PlaylistUiState.Success && state.entityId == entityId) {
+                                        val baseDisplay = latestBase.map { it.toDisplayTrack() }
+                                        state.copy(
+                                            playlist = state.playlist.copy(
+                                                tracks = baseDisplay,
+                                                trackIds = baseDisplay.map { PlaylistTrackId(id = it.id) },
+                                                trackCount = kugouRemoteTrackCount
+                                            )
+                                        )
+                                    } else state
+                                }
                             }
                         }
                     }
@@ -2118,10 +2264,24 @@ class PlaylistViewModel(
                 onSuccess = {
                     _toastEvent.emit("歌曲顺序已更新")
                     _baseKugouTracks.value = samePlatformUnified
-                    val displayList = samePlatformUnified.map { it.toDisplayTrack() }
+                    _baseUnifiedTracks.update { current ->
+                        samePlatformUnified + current.filter { it.platform != pid.platform }
+                    }
+                    kugouRemoteTrackCount = samePlatformUnified.size
+                    val (artistIds, albumIds) = buildEntityIdMaps(samePlatformUnified, emptyList())
                     _uiState.update { state ->
                         if (state is PlaylistUiState.Success && state.entityId == entityId) {
-                            state.copy(playlist = state.playlist.copy(tracks = displayList))
+                            val baseDisplay = samePlatformUnified.map { it.toDisplayTrack() }
+                            state.copy(
+                                playlist = state.playlist.copy(
+                                    tracks = baseDisplay,
+                                    trackIds = baseDisplay.map { PlaylistTrackId(id = it.id) },
+                                    trackCount = kugouRemoteTrackCount
+                                ),
+                                artistEntityIds = state.artistEntityIds + artistIds,
+                                albumEntityIds = state.albumEntityIds + albumIds,
+                                listVer = if (state.listVer > 0L) state.listVer + 1L else state.listVer
+                            )
                         } else state
                     }
                     onComplete(true)

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.comment.presentation.formatLikedCount
 import com.lin0721.linmusic.core.comment.presentation.quotedReplyText
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
@@ -91,7 +92,7 @@ fun CommentRow(
     val revealed = interactive && (hovered || menuOpen || contextMenuOffset != null)
     val navigator = if (interactive) LocalDesktopNavigator.current else null
     val userId = comment.user.userId
-    val userClick = if (navigator != null && userId > 0) {
+    val userClick = if (navigator != null && comment.user.platform == MusicPlatform.NETEASE && userId > 0) {
         Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { navigator.openProfile(userId) }
     } else {
         Modifier

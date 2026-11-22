@@ -29,6 +29,7 @@ import com.lin0721.linmusic.core.ui.skin.BUILTIN_SKIN_ID
 import com.lin0721.linmusic.core.ui.theme.ThemeAccents
 import com.lin0721.linmusic.core.ui.theme.parseRgbHex
 import com.lin0721.linmusic.core.ui.theme.toRgbHex
+import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -1337,6 +1338,9 @@ class SettingsPreferences(
     suspend fun saveKugouPlatformEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_KUGOU_PLATFORM_ENABLED] = enabled
+        }
+        if (!enabled) {
+            SongCollectDelegate.clearKugouCache()
         }
     }
 

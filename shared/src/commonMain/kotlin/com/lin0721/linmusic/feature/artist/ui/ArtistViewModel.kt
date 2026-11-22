@@ -118,9 +118,42 @@ class ArtistViewModel(
     private var currentEntityId: ArtistId? = null
     private var albumOffset = 0
     private var allSongsOffset = 0
+    private var loadJob: Job? = null
 
     init {
         loadLikedSongIds()
+        observeKugouLifecycle()
+    }
+
+    private fun observeKugouLifecycle() {
+        settingsPreferences?.kugouPlatformEnabled
+            ?.drop(1)
+            ?.onEach { enabled ->
+                if (!enabled && currentEntityId?.platform == MusicPlatform.KUGOU) {
+                    loadJob?.cancel()
+                    _unifiedTracks.value = emptyMap()
+                    _uiState.value = ArtistUiState.Error("酷狗音乐平台已关闭")
+                }
+            }
+            ?.launchIn(viewModelScope)
+
+        userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+            .map { it?.accountId }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { accountId ->
+                val entityId = currentEntityId ?: return@onEach
+                if (entityId.platform != MusicPlatform.KUGOU) return@onEach
+                if (!(settingsPreferences?.kugouPlatformEnabled?.first() ?: true)) return@onEach
+                val state = _uiState.value as? ArtistUiState.Success ?: return@onEach
+                val followed = if (accountId == null) {
+                    false
+                } else {
+                    platformArtistRouter?.checkArtistFollowed(entityId)?.first()?.getOrDefault(false) ?: false
+                }
+                _uiState.value = state.copy(isFollowed = followed)
+            }
+            .launchIn(viewModelScope)
     }
 
     fun loadLikedSongIds() {
@@ -199,8 +232,9 @@ class ArtistViewModel(
         allSongsOffset = 0
         _unifiedTracks.value = emptyMap()
         _uiState.value = ArtistUiState.Loading
+        loadJob?.cancel()
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             if (!(settingsPreferences?.kugouPlatformEnabled?.first() ?: true)) {
                 _uiState.value = ArtistUiState.Error("酷狗音乐平台已关闭")
                 return@launch
@@ -274,7 +308,8 @@ class ArtistViewModel(
         allSongsOffset = 0
         _unifiedTracks.value = emptyMap()
         _uiState.value = ArtistUiState.Loading
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             try {
                 // 并行发起网络请求以提供极速的界面预加载
                 val detailDeferred = async { artistRepository.getArtistDetail(artistId).first() }

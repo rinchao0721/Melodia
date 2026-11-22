@@ -12,7 +12,8 @@ data class KugouTrackMeta(
     val mixSongId: Long? = null,
     val albumAudioId: Long? = null,
     val albumId: String? = null,
-    val playlistFileId: Long? = null
+    val playlistFileId: Long? = null,
+    val playlistAddTimeMs: Long? = null
 )
 
 // 跨平台统一音质档位枚举，串联网易音质码、酷狗音质码与 UI 徽标/排序
@@ -154,7 +155,8 @@ data class UnifiedPlaylist(
     val artists: List<UnifiedArtist> = emptyList(),
     val isPublic: Boolean = true,
     val isAlbum: Boolean = false,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val listVer: Long = 0L
 ) {
     val platform: MusicPlatform
         get() = id.platform

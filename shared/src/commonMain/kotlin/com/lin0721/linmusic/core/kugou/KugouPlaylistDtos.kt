@@ -44,7 +44,8 @@ data class KugouTrackItemDto(
     val maxQuality: UnifiedAudioQuality? = null,
     val fee: Int = 0,
     val playable: Boolean = true,
-    val publishTimeMs: Long = 0L
+    val publishTimeMs: Long = 0L,
+    val addTimeMs: Long = 0L
 ) {
     fun toUnifiedTrack(): UnifiedTrack {
         val unifiedArtists = artists.map { it.toUnifiedArtist() }
@@ -74,7 +75,8 @@ data class KugouTrackItemDto(
                 mixSongId = mixSongId.takeIf { it > 0L },
                 albumAudioId = albumAudioId.takeIf { it > 0L },
                 albumId = albumId.takeIf { it.isNotBlank() && it != "0" },
-                playlistFileId = fileId.takeIf { it > 0L }
+                playlistFileId = fileId.takeIf { it > 0L },
+                playlistAddTimeMs = addTimeMs.takeIf { it > 0L }
             )
         )
     }
@@ -133,7 +135,9 @@ data class KugouPlaylistDetailDto(
     val isCollected: Boolean = false
 ) {
     fun toUnifiedPlaylist(tracks: List<UnifiedTrack> = emptyList()): UnifiedPlaylist {
-        val rawId = globalCollectionId.ifBlank { listId.toString() }
+        val rawId = globalCollectionId.trim().ifBlank {
+            if (listId > 0L) "special:$listId" else ""
+        }
         return UnifiedPlaylist(
             id = PlaylistId.kugou(rawId),
             name = name,
@@ -154,7 +158,8 @@ data class KugouPlaylistDetailDto(
             trackCount = trackCount.takeIf { it > 0 } ?: tracks.size,
             trackIds = tracks.map { it.id },
             isPublic = !isPrivate,
-            tags = tags
+            tags = tags,
+            listVer = listVer
         )
     }
 }

@@ -567,7 +567,8 @@ class CommentsSectionController(
             user = CommentUser(
                 userId = author.id?.rawId?.toLongOrNull() ?: 0L,
                 nickname = author.nickname,
-                avatarUrl = author.avatarUrl
+                avatarUrl = author.avatarUrl,
+                platform = author.id?.platform ?: platform
             ),
             content = content,
             time = timeMs,
@@ -580,7 +581,8 @@ class CommentsSectionController(
                         CommentUser(
                             userId = a.id?.rawId?.toLongOrNull() ?: 0L,
                             nickname = a.nickname,
-                            avatarUrl = a.avatarUrl
+                            avatarUrl = a.avatarUrl,
+                            platform = a.id?.platform ?: platform
                         )
                     },
                     content = replied.content,

@@ -248,7 +248,9 @@ internal fun parseKugouTrackItem(obj: JsonObject): KugouTrackItemDto? {
         ).firstOrNull { it.isNotBlank() }
     )
 
-    val publishTimeMs = parseKugouDateTimeMs(obj.firstNonBlank("publish_date", "publish_time", "addtime"))
+    val addTimeMs = parseKugouDateTimeMs(obj.firstNonBlank("addtime", "add_time"))
+    val publishTimeMs = parseKugouDateTimeMs(obj.firstNonBlank("publish_date", "publish_time"))
+        .takeIf { it > 0L } ?: addTimeMs
     val privilege = obj.int("privilege", -1)
     val fee = if (privilege != 0 && obj.int("pay_type", 0) > 0) 1 else 0
 
@@ -266,6 +268,7 @@ internal fun parseKugouTrackItem(obj: JsonObject): KugouTrackItemDto? {
         maxQuality = resolveKugouMaxQualityFromObj(obj),
         fee = fee,
         playable = obj.int("status", 1) != 0,
-        publishTimeMs = publishTimeMs
+        publishTimeMs = publishTimeMs,
+        addTimeMs = addTimeMs
     )
 }

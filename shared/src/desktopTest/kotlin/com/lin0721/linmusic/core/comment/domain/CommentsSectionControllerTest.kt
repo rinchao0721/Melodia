@@ -8,10 +8,28 @@ import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.model.CommentUser
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.AppString
+import com.lin0721.linmusic.core.comment.data.QQAwareCommentRepository
+import com.lin0721.linmusic.core.comment.data.qqSongThreadId
 import com.lin0721.linmusic.core.network.ResourceProvider
+import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedComment
+import com.lin0721.linmusic.core.platform.UnifiedCreator
+import com.lin0721.linmusic.core.platform.UnifiedRepliedComment
+import com.lin0721.linmusic.core.platform.repository.CommentTarget
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedCommentsPage
+import com.lin0721.linmusic.core.platform.repository.UnifiedFloorCommentsPage
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.source.QQCommentApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -365,6 +383,92 @@ class CommentsSectionControllerTest {
         val restoredState = controller.commentsState.value as CommentsState.Success
         assertEquals(CommentSortType.RECOMMEND, restoredState.sortType)
         assertEquals(101L, restoredState.comments.first().commentId)
+    }
+
+    @Test
+    fun `酷狗评论与楼层回复映射会保留 CommentUser platform 为 KUGOU`() = runTest {
+        val kugouCommentsRepo = object : PlatformCommentRepository {
+            override fun getComments(target: CommentTarget, pageNo: Int, pageSize: Int, cursor: String, sortType: CommentSortType) =
+                flowOf(
+                    Result.success(
+                        UnifiedCommentsPage(
+                            comments = listOf(
+                                UnifiedComment(
+                                    id = "7001",
+                                    platform = MusicPlatform.KUGOU,
+                                    author = UnifiedCreator(id = AccountId.kugou(123L), nickname = "酷狗主评"),
+                                    content = "主评论",
+                                    repliedTo = listOf(
+                                        UnifiedRepliedComment(
+                                            author = UnifiedCreator(id = AccountId.kugou(456L), nickname = "酷狗被回复人"),
+                                            content = "原句",
+                                            commentId = "7000"
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            override fun getFloorComments(target: CommentTarget, parentCommentId: String, cursorOrTime: Long, pageNo: Int, limit: Int, kugouSpecialId: String?) =
+                flowOf(Result.success(UnifiedFloorCommentsPage(emptyList())))
+            override fun addComment(target: CommentTarget, content: String) = flowOf(Result.success<UnifiedComment?>(null))
+            override fun replyComment(target: CommentTarget, commentId: String, content: String, pid: String, replyUserName: String?, replyContent: String?, kugouSpecialId: String?) =
+                flowOf(Result.success<UnifiedComment?>(null))
+            override fun deleteComment(target: CommentTarget, commentId: String, tid: String?, kugouSpecialId: String?) = flowOf(Result.success(Unit))
+            override fun likeComment(target: CommentTarget, commentId: String, like: Boolean) = flowOf(Result.success(Unit))
+        }
+        val stubRepo = object : PlatformCommentRepository {
+            override fun getComments(target: CommentTarget, pageNo: Int, pageSize: Int, cursor: String, sortType: CommentSortType) =
+                flowOf(Result.success(UnifiedCommentsPage(emptyList())))
+            override fun getFloorComments(target: CommentTarget, parentCommentId: String, cursorOrTime: Long, pageNo: Int, limit: Int, kugouSpecialId: String?) =
+                flowOf(Result.success(UnifiedFloorCommentsPage(emptyList())))
+            override fun addComment(target: CommentTarget, content: String) = flowOf(Result.success<UnifiedComment?>(null))
+            override fun replyComment(target: CommentTarget, commentId: String, content: String, pid: String, replyUserName: String?, replyContent: String?, kugouSpecialId: String?) =
+                flowOf(Result.success<UnifiedComment?>(null))
+            override fun deleteComment(target: CommentTarget, commentId: String, tid: String?, kugouSpecialId: String?) = flowOf(Result.success(Unit))
+            override fun likeComment(target: CommentTarget, commentId: String, like: Boolean) = flowOf(Result.success(Unit))
+        }
+        val router = PlatformCommentRouter(netease = stubRepo, kugou = kugouCommentsRepo, qq = stubRepo)
+        val controller = CommentsSectionController(
+            scope = this,
+            repository = FakeCommentRepository(),
+            onToast = {},
+            resourceProvider = fakeResourceProvider,
+            platformCommentRouter = router
+        )
+
+        controller.loadTarget(CommentTarget.TrackTarget(TrackId.kugou("KG_CMT_1")))
+        advanceUntilIdle()
+
+        val state = controller.commentsState.value as CommentsState.Success
+        val item = state.comments.single()
+        assertEquals(MusicPlatform.KUGOU, item.user.platform)
+        assertEquals(123L, item.user.userId)
+        assertEquals(MusicPlatform.KUGOU, item.beReplied?.single()?.user?.platform)
+    }
+
+    @Test
+    fun `QQAwareCommentRepository 解析出的 CommentUser platform 为 QQ`() = runTest {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"code": 0, "comment": {"commenttotal": 1, "commentlist": [{"commentid": "q1", "nick": "Q友", "rootcommentcontent": "真好听", "time": 1700000000, "praisenum": 3}]}}"""
+            )
+        )
+        server.start()
+        try {
+            val qqRepo = QQAwareCommentRepository(
+                netease = FakeCommentRepository(),
+                qqApi = QQCommentApi(baseUrl = server.url("/fcgi-bin/music_global_comment.fcg").toString())
+            )
+            val flow = qqRepo.getCommentsV2(qqSongThreadId(12345L), 1, 20, "", CommentSortType.LATEST)
+            var result: CommentsV2Data? = null
+            flow.collect { result = it.getOrThrow() }
+            assertEquals(MusicPlatform.QQ, result?.comments?.single()?.user?.platform)
+        } finally {
+            server.shutdown()
+        }
     }
 }
 

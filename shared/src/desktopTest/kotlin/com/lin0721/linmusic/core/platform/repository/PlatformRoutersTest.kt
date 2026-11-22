@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.kugou.KugouArtistService
 import com.lin0721.linmusic.core.kugou.KugouClientMode
 import com.lin0721.linmusic.core.kugou.KugouCommentService
 import com.lin0721.linmusic.core.kugou.KugouConfig
+import com.lin0721.linmusic.core.kugou.KugouCrypto
 import com.lin0721.linmusic.core.kugou.KugouDeviceStore
 import com.lin0721.linmusic.core.kugou.KugouGatewayClient
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -42,13 +44,18 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.security.KeyPairGenerator
+import java.security.interfaces.RSAPrivateKey
+import java.util.Base64
 import java.util.concurrent.atomic.AtomicInteger
+import javax.crypto.Cipher
 
 class PlatformRoutersTest {
 
@@ -56,6 +63,7 @@ class PlatformRoutersTest {
     private lateinit var store: InMemoryPreferencesStore
     private lateinit var userPreferences: UserPreferences
     private lateinit var deviceStore: KugouDeviceStore
+    private lateinit var testPrivateKey: RSAPrivateKey
     private lateinit var config: KugouConfig
     private lateinit var gatewayClient: KugouGatewayClient
     private lateinit var externalStore: PlaylistExternalTrackStore
@@ -67,11 +75,17 @@ class PlatformRoutersTest {
     fun setUp() = runTest {
         server = MockWebServer()
         server.start()
+        val keyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(1024) }.generateKeyPair()
+        testPrivateKey = keyPair.private as RSAPrivateKey
+        val publicKeyPem = "-----BEGIN PUBLIC KEY-----\n" +
+            Base64.getEncoder().encodeToString(keyPair.public.encoded) +
+            "\n-----END PUBLIC KEY-----"
         val baseUrl = server.url("/").toString().trimEnd('/')
         config = KugouConfig(
             initialMode = KugouClientMode.LITE,
             gatewayBaseUrl = baseUrl,
-            baseUrlRewriter = { baseUrl }
+            baseUrlRewriter = { baseUrl },
+            overridePublicKeyPem = publicKeyPem
         )
         store = InMemoryPreferencesStore()
         userPreferences = UserPreferences(store, nowMs = { clockMs })
@@ -96,6 +110,27 @@ class PlatformRoutersTest {
     @After
     fun tearDown() {
         server.shutdown()
+    }
+
+    private fun decryptPkcs1Hex(hexCipher: String): String {
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, testPrivateKey)
+        return cipher.doFinal(KugouCrypto.hexToBytes(hexCipher)).toString(Charsets.UTF_8)
+    }
+
+    private fun handleCloudEncryptedRequest(
+        request: RecordedRequest,
+        handler: (kotlinx.serialization.json.JsonObject) -> Unit
+    ): MockResponse {
+        val pObj = json.parseToJsonElement(decryptPkcs1Hex(request.requestUrl!!.queryParameter("p")!!)).jsonObject
+        val aesSecret = pObj["aes"]!!.jsonPrimitive.content
+        val aesMd5 = KugouCrypto.md5Hex(aesSecret)
+        val keyBytes = aesMd5.substring(0, 16).toByteArray(Charsets.UTF_8)
+        val ivBytes = aesMd5.substring(16, 32).toByteArray(Charsets.UTF_8)
+        val plainReq = KugouCrypto.aesCbcDecryptBytes(request.body.readByteArray(), keyBytes, ivBytes).toString(Charsets.UTF_8)
+        handler(json.parseToJsonElement(plainReq).jsonObject)
+        val respCipher = KugouCrypto.aesCbcEncryptBytes("""{"status": 1, "error_code": 0}""".toByteArray(), keyBytes, ivBytes)
+        return MockResponse().setResponseCode(200).setBody(Buffer().write(respCipher))
     }
 
     @Test
@@ -392,5 +427,161 @@ class PlatformRoutersTest {
         assertTrue(artistRouter.getArtistDetail(ArtistId.kugou("3520")).first().isFailure)
         assertTrue(albumRouter.getAlbumDetail(AlbumId.kugou("1001")).first().isFailure)
         assertTrue(commentRouter.getComments(CommentTarget.TrackTarget(TrackId.kugou("AUTO_MIX"))).first().isFailure)
+    }
+
+    @Test
+    fun `KugouPlatformPlaylistRepository 严格隔离 special 前缀与未匹配裸数字，不误调私有云歌单接口`() = runTest {
+        val cloudTrackCalls = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when (request.requestUrl?.encodedPath) {
+                    "/v7/get_all_list" -> MockResponse().setResponseCode(200).setBody(
+                        """{"status": 1, "data": {"info": [{"listid": 3001, "name": "酷狗云歌单", "count": 1, "list_ver": 7}]}}"""
+                    )
+                    "/v4/get_list_all_file_v3" -> {
+                        cloudTrackCalls.incrementAndGet()
+                        MockResponse().setResponseCode(200).setBody(
+                            """{"status": 1, "data": {"count": 1, "list_ver": 7, "info": [{"hash": "KG_CLOUD_A", "fileid": 111, "name": "云歌曲", "timelen": 180000}]}}"""
+                        )
+                    }
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+
+        val kugouRepo = KugouPlatformPlaylistRepository(KugouPlaylistService(config, gatewayClient, userPreferences)) { true }
+
+        // 1. special:<id> 不得误调云歌单接口
+        val specialDetail = kugouRepo.getPlaylistDetail(PlaylistId.kugou("special:98765")).first()
+        assertTrue(specialDetail.isFailure)
+        assertEquals(0, cloudTrackCalls.get())
+        val specialAll = kugouRepo.loadAllTracks(UnifiedPlaylist(id = PlaylistId.kugou("special:98765"), name = "x")).first()
+        assertTrue(specialAll.isFailure)
+        assertEquals(0, cloudTrackCalls.get())
+
+        // 2. 不属于当前用户云歌单的裸纯数字也不得误调 /v4/get_list_all_file_v3
+        val unmatchedBare = kugouRepo.getPlaylistDetail(PlaylistId.kugou("999999")).first()
+        assertTrue(unmatchedBare.isFailure)
+        assertEquals(0, cloudTrackCalls.get())
+        val unmatchedAll = kugouRepo.loadAllTracks(UnifiedPlaylist(id = PlaylistId.kugou("999999"), name = "y")).first()
+        assertTrue(unmatchedAll.isFailure)
+        assertEquals(0, cloudTrackCalls.get())
+
+        // 3. 显式 list:<id> 正常走路径 A
+        val explicitCloud = kugouRepo.getPlaylistDetail(PlaylistId.kugou("list:3001")).first().getOrThrow()
+        assertEquals("酷狗云歌单", explicitCloud.name)
+        assertEquals(1, cloudTrackCalls.get())
+    }
+
+    @Test
+    fun `KugouPlatformPlaylistRepository sortPlaylistTracks 自动多页补齐 fileid，仍缺失时明确报错不丢曲`() = runTest {
+        val sortRequests = mutableListOf<Pair<Long, List<Pair<Long, Int>>>>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when (request.requestUrl?.encodedPath) {
+                    "/v7/get_all_list" -> MockResponse().setResponseCode(200).setBody(
+                        """{"status": 1, "data": {"info": [{"listid": 3001, "name": "云歌单", "type": 0, "count": 301, "list_ver": 11}]}}"""
+                    )
+                    "/v4/get_list_all_file_v3" -> {
+                        val reqObj = json.parseToJsonElement(request.body.readUtf8()).jsonObject
+                        val page = reqObj["page"]!!.jsonPrimitive.int
+                        if (page == 1) {
+                            val items = (1..300).joinToString(",") { idx ->
+                                """{"hash": "H_$idx", "fileid": ${1000 + idx}, "name": "曲$idx", "timelen": 1000}"""
+                            }
+                            MockResponse().setResponseCode(200).setBody(
+                                """{"status": 1, "data": {"count": 301, "list_ver": 15, "info": [$items]}}"""
+                            )
+                        } else {
+                            MockResponse().setResponseCode(200).setBody(
+                                """{"status": 1, "data": {"count": 301, "list_ver": 15, "info": [{"hash": "H_301", "fileid": 2301, "name": "第301首", "timelen": 1000}]}}"""
+                            )
+                        }
+                    }
+                    "/v1/modify_song_sort" -> handleCloudEncryptedRequest(request) { bodyObj ->
+                        val ver = bodyObj["list_ver"]!!.jsonPrimitive.long
+                        val pairs = bodyObj["data"]!!.jsonArray.map { elem ->
+                            val o = elem.jsonObject
+                            o["fileid"]!!.jsonPrimitive.long to o["sort"]!!.jsonPrimitive.int
+                        }
+                        sortRequests += ver to pairs
+                    }
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+
+        val kugouRepo = KugouPlatformPlaylistRepository(KugouPlaylistService(config, gatewayClient, userPreferences)) { true }
+
+        // 缺失 playlistFileId 的曲目会跨页刷新并补全第 2 页 fileid=2301
+        val track1 = UnifiedTrack(TrackId.kugou("h_301"), "第301首")
+        val track2 = UnifiedTrack(TrackId.kugou("h_1"), "曲1")
+        kugouRepo.sortPlaylistTracks(PlaylistId.kugou("3001"), listOf(track1, track2), listVer = 0L).first().getOrThrow()
+        assertEquals(1, sortRequests.size)
+        assertEquals(15L, sortRequests.single().first)
+        assertEquals(listOf(2301L to 1, 1001L to 2), sortRequests.single().second)
+
+        // 若刷新后仍有曲目缺失 fileid，必须失败而不静默丢弃并提交残缺列表
+        val ghost = UnifiedTrack(TrackId.kugou("missing_hash"), "幽灵曲")
+        val failRes = kugouRepo.sortPlaylistTracks(PlaylistId.kugou("3001"), listOf(track1, ghost), listVer = 15L).first()
+        assertTrue(failRes.isFailure)
+        assertEquals(1, sortRequests.size)
+    }
+
+    @Test
+    fun `KugouPlatformLibraryRepository 支持超过 100 个歌单分页拉取，且置顶操作完整保留元信息`() = runTest {
+        val modifyPayloads = mutableListOf<kotlinx.serialization.json.JsonObject>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when (request.requestUrl?.encodedPath) {
+                    "/v7/get_all_list" -> {
+                        val reqObj = json.parseToJsonElement(request.body.readUtf8()).jsonObject
+                        val page = reqObj["page"]!!.jsonPrimitive.int
+                        val pageSize = reqObj["pagesize"]!!.jsonPrimitive.int
+                        assertEquals(100, pageSize)
+                        if (page == 1) {
+                            val items = (1..100).joinToString(",") { idx ->
+                                """{"listid": $idx, "name": "歌单$idx", "count": 1, "type": 0, "total_ver": 888}"""
+                            }
+                            MockResponse().setResponseCode(200).setBody(
+                                """{"status": 1, "data": {"total_ver": 888, "info": [$items]}}"""
+                            )
+                        } else {
+                            MockResponse().setResponseCode(200).setBody(
+                                """{"status": 1, "data": {"total_ver": 888, "info": [{"listid": 2500, "name": "第101个歌单", "intro": "保留简介", "tags": "流行,怀旧", "count": 3, "type": 1, "total_ver": 888, "list_ver": 33}]}}"""
+                            )
+                        }
+                    }
+                    "/v4/follow_list" -> MockResponse().setResponseCode(200).setBody("""{"status": 1, "data": {"list": []}}""")
+                    "/v1/modify_list" -> handleCloudEncryptedRequest(request) { bodyObj ->
+                        modifyPayloads += bodyObj
+                    }
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+
+        val playlistSvc = KugouPlaylistService(config, gatewayClient, userPreferences)
+        val artistSvc = KugouArtistService(config, deviceStore, gatewayClient, userPreferences)
+        val playbackSvc = KugouPlaybackService(config, deviceStore, gatewayClient, userPreferences)
+        val kugouLib = KugouPlatformLibraryRepository(playlistSvc, artistSvc, playbackSvc) { true }
+
+        val allPlaylists = kugouLib.getUserPlaylists(AccountId.kugou(889900L), limit = 1000).first().getOrThrow()
+        assertEquals(101, allPlaylists.size)
+        assertEquals(PlaylistId.kugou("2500"), allPlaylists.last().id)
+
+        val subcount = kugouLib.getUserSubcount(MusicPlatform.KUGOU).first().getOrThrow()
+        assertEquals(100, subcount.createdPlaylistCount)
+        assertEquals(1, subcount.subPlaylistCount)
+
+        kugouLib.setPlaylistTop(PlaylistId.kugou("2500"), top = true).first().getOrThrow()
+        val payload = modifyPayloads.single()
+        assertEquals(2500L, payload["listid"]!!.jsonPrimitive.long)
+        assertEquals(1, payload["sort"]!!.jsonPrimitive.int)
+        assertEquals(888L, payload["total_ver"]!!.jsonPrimitive.long)
+        assertEquals(1, payload["type"]!!.jsonPrimitive.int)
+        assertEquals("第101个歌单", payload["name"]!!.jsonPrimitive.content)
+        assertEquals("保留简介", payload["intro"]!!.jsonPrimitive.content)
+        assertEquals("流行,怀旧", payload["tags"]!!.jsonPrimitive.content)
     }
 }

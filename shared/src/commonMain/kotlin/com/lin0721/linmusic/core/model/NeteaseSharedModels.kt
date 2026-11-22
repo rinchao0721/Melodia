@@ -193,7 +193,8 @@ data class CommentItem(
 data class CommentUser(
     val userId: Long = 0,
     val nickname: String = "",
-    val avatarUrl: String = ""
+    val avatarUrl: String = "",
+    val platform: com.lin0721.linmusic.core.source.MusicPlatform = com.lin0721.linmusic.core.source.MusicPlatform.NETEASE
 )
 
 @Serializable

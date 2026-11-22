@@ -188,53 +188,40 @@ class KugouPlatformLibraryRepository(
             emit(Result.failure(IllegalStateException("酷狗音乐平台已关闭")))
             return@flow
         }
-        val pageSize = limit.coerceIn(1, 100)
-        val collected = ArrayList<KugouUserPlaylistDto>()
-        var page = 1
-        var failure: Throwable? = null
-        while (page <= 20 && collected.size < limit) {
-            val res = playlistService.getUserPlaylists(page = page, pageSize = pageSize)
-            val pageData = res.getOrElse {
-                failure = it
-                break
-            }
-            collected += pageData.playlists
-            if (!pageData.hasMore || pageData.playlists.isEmpty()) break
-            page++
+        val safeLimit = limit.coerceAtLeast(1)
+        val collected = fetchAllUserPlaylists(maxCount = safeLimit).getOrElse {
+            emit(Result.failure(it))
+            return@flow
         }
-        if (collected.isEmpty() && failure != null) {
-            emit(Result.failure(failure!!))
-        } else {
-            emit(
-                Result.success(
-                    collected.take(limit).map { dto ->
-                        UnifiedUserPlaylist(
-                            id = dto.preferredPlaylistId(),
-                            name = dto.name,
-                            coverUrl = dto.coverUrl,
-                            trackCount = dto.trackCount,
-                            ownerId = dto.createUserId.takeIf { it > 0L }?.let { AccountId.kugou(it) } ?: accountId,
-                            creator = if (dto.createUsername.isNotBlank() || dto.createUserId > 0L) {
-                                UnifiedCreator(
-                                    id = dto.createUserId.takeIf { it > 0L }?.let { AccountId.kugou(it) },
-                                    nickname = dto.createUsername
-                                )
-                            } else {
-                                null
-                            },
-                            isTop = dto.sort > 0,
-                            isLikedPlaylist = dto.isDefaultLike,
-                            isPrivate = dto.isPrivate,
-                            isCollected = dto.isCollected,
-                            listId = dto.listId,
-                            globalCollectionId = dto.globalCollectionId.takeIf { it.isNotBlank() },
-                            listVer = dto.listVer,
-                            totalVer = dto.totalVer
-                        )
-                    }
-                )
+        emit(
+            Result.success(
+                collected.take(safeLimit).map { dto ->
+                    UnifiedUserPlaylist(
+                        id = dto.preferredPlaylistId(),
+                        name = dto.name,
+                        coverUrl = dto.coverUrl,
+                        trackCount = dto.trackCount,
+                        ownerId = dto.createUserId.takeIf { it > 0L }?.let { AccountId.kugou(it) } ?: accountId,
+                        creator = if (dto.createUsername.isNotBlank() || dto.createUserId > 0L) {
+                            UnifiedCreator(
+                                id = dto.createUserId.takeIf { it > 0L }?.let { AccountId.kugou(it) },
+                                nickname = dto.createUsername
+                            )
+                        } else {
+                            null
+                        },
+                        isTop = dto.sort > 0,
+                        isLikedPlaylist = dto.isDefaultLike,
+                        isPrivate = dto.isPrivate,
+                        isCollected = dto.isCollected,
+                        listId = dto.listId,
+                        globalCollectionId = dto.globalCollectionId.takeIf { it.isNotBlank() },
+                        listVer = dto.listVer,
+                        totalVer = dto.totalVer
+                    )
+                }
             )
-        }
+        )
     }
 
     override fun getFavoriteArtists(platform: MusicPlatform): Flow<Result<List<UnifiedArtist>>> = flow {
@@ -298,13 +285,13 @@ class KugouPlatformLibraryRepository(
             emit(Result.failure(IllegalStateException("酷狗音乐平台已关闭")))
             return@flow
         }
-        val playlists = playlistService.getUserPlaylists(page = 1, pageSize = 100).getOrElse {
+        val playlists = fetchAllUserPlaylists().getOrElse {
             emit(Result.failure(it))
             return@flow
         }
         val artists = artistService.getUserFollowedArtists().getOrDefault(emptyList())
-        val createdCount = playlists.playlists.count { !it.isCollected }
-        val subCount = playlists.playlists.count { it.isCollected }
+        val createdCount = playlists.count { !it.isCollected }
+        val subCount = playlists.count { it.isCollected }
         emit(
             Result.success(
                 UnifiedUserSubcount(
@@ -324,12 +311,59 @@ class KugouPlatformLibraryRepository(
             emit(Result.failure(IllegalStateException("酷狗音乐平台已关闭")))
             return@flow
         }
-        val listId = playlistId.rawId.toLongOrNull()
+        val target = parseKugouPlaylistTarget(playlistId.rawId)
+        val allPlaylists = fetchAllUserPlaylists().getOrNull().orEmpty()
+        val meta = when (target) {
+            is KugouPlaylistTarget.CloudList -> allPlaylists.firstOrNull { it.listId == target.listId }
+            is KugouPlaylistTarget.BareNumeric -> allPlaylists.firstOrNull { it.listId == target.numericId }
+            is KugouPlaylistTarget.PublicCollection -> allPlaylists.firstOrNull {
+                it.globalCollectionId.equals(target.globalCollectionId, ignoreCase = true) ||
+                    it.createGid.equals(target.globalCollectionId, ignoreCase = true)
+            }
+            is KugouPlaylistTarget.PublicSpecial,
+            is KugouPlaylistTarget.Unknown -> null
+        }
+        val listId = when (target) {
+            is KugouPlaylistTarget.CloudList -> target.listId
+            is KugouPlaylistTarget.BareNumeric -> target.numericId
+            else -> meta?.listId
+        }
         if (listId == null || listId <= 0L) {
             emit(Result.failure(IllegalArgumentException("无效酷狗云歌单 listid: ${playlistId.rawId}")))
             return@flow
         }
-        emit(playlistService.updatePlaylist(listId = listId, sort = if (top) 1 else 0))
+        emit(
+            playlistService.updatePlaylist(
+                listId = listId,
+                totalVer = meta?.totalVer ?: 0L,
+                type = meta?.type ?: 0,
+                name = meta?.name,
+                intro = meta?.intro.orEmpty(),
+                tags = meta?.tags.orEmpty(),
+                sort = if (top) 1 else 0
+            )
+        )
+    }
+
+    private suspend fun fetchAllUserPlaylists(maxCount: Int = Int.MAX_VALUE): Result<List<KugouUserPlaylistDto>> {
+        val pageSize = minOf(maxCount.coerceAtLeast(1), USER_PLAYLIST_PAGE_SIZE)
+        val collected = ArrayList<KugouUserPlaylistDto>()
+        var page = 1
+        while (page <= MAX_USER_PLAYLIST_PAGES && collected.size < maxCount) {
+            val res = playlistService.getUserPlaylists(page = page, pageSize = pageSize)
+            val pageData = res.getOrElse { err ->
+                return if (collected.isEmpty()) Result.failure(err) else Result.success(collected)
+            }
+            collected += pageData.playlists
+            if (!pageData.hasMore || pageData.playlists.isEmpty()) break
+            page++
+        }
+        return Result.success(collected)
+    }
+
+    private companion object {
+        private const val USER_PLAYLIST_PAGE_SIZE = 100
+        private const val MAX_USER_PLAYLIST_PAGES = 20
     }
 }
 

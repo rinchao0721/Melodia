@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
@@ -253,7 +254,7 @@ fun CommentRowItem(
     onExpandFloorClick: () -> Unit = {},
     onDeleteClick: (() -> Unit)? = null
 ) {
-    val userClickModifier = if (comment.user.userId > 0L) {
+    val userClickModifier = if (comment.user.platform == MusicPlatform.NETEASE && comment.user.userId > 0L) {
         Modifier.clickable { onUserClick(comment.user.userId) }
     } else {
         Modifier

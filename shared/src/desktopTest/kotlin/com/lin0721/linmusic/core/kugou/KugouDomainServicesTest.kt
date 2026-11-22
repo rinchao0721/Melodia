@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import kotlinx.coroutines.test.runTest
@@ -202,7 +203,8 @@ class KugouDomainServicesTest {
                                 "name": "林俊杰 - 江南",
                                 "timelen": 267000,
                                 "mixsongid": 92002,
-                                "album_id": 8802
+                                "album_id": 8802,
+                                "addtime": 1700001234
                               }
                             ]
                           }
@@ -232,9 +234,37 @@ class KugouDomainServicesTest {
         val cloudTracks = playlistService.getCloudPlaylistTracks(2001L).getOrThrow()
         assertEquals(46L, cloudTracks.listVer)
         assertEquals(778899L, cloudTracks.tracks.first().fileId)
+        assertEquals(1700001234_000L, cloudTracks.tracks.first().addTimeMs)
+        assertEquals(1700001234_000L, cloudTracks.tracks.first().toUnifiedTrack().kugouMeta?.playlistAddTimeMs)
         assertEquals("ccdd3344", cloudTracks.tracks.first().hash)
 
         assertTrue(requests.any { it.requestUrl?.encodedPath == "/v7/get_all_list" && it.getHeader("x-router") == "cloudlist.service.kugou.com" })
+    }
+
+    @Test
+    fun `无 global_collection_id 的酷狗公开歌单 DTO 兜底使用 special 前缀而非裸数字 listId`() {
+        val searchDto = KugouSearchPlaylistDto(
+            globalCollectionId = "",
+            specialId = 98765L,
+            name = "无GID公开单",
+            trackCount = 10
+        )
+        val unifiedFromSearch = searchDto.toUnifiedPlaylist()
+        assertEquals(PlaylistId.kugou("special:98765"), unifiedFromSearch.id)
+
+        val detailDto = KugouPlaylistDetailDto(
+            globalCollectionId = "",
+            listId = 98765L,
+            name = "无GID公开单"
+        )
+        assertEquals(PlaylistId.kugou("special:98765"), detailDto.toUnifiedPlaylist().id)
+
+        val withGid = KugouSearchPlaylistDto(
+            globalCollectionId = "collection_3_555_9_0",
+            specialId = 98765L,
+            name = "有GID公开单"
+        )
+        assertEquals(PlaylistId.kugou("collection_3_555_9_0"), withGid.toUnifiedPlaylist().id)
     }
 
     @Test

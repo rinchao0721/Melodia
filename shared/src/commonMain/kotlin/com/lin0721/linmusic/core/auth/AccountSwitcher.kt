@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -225,6 +226,7 @@ class AccountSwitcher(
     }
 
     private suspend fun clearNeteaseCacheScopes(vararg uids: Long?) {
+        SongCollectDelegate.clearNeteaseCache()
         val cache = metadataCache ?: return
         cache.clearScope(MusicPlatform.NETEASE.key)
         cache.clearScope("0")
@@ -238,6 +240,11 @@ class AccountSwitcher(
         platform: MusicPlatform,
         vararg accountIds: AccountId?
     ) {
+        when (platform) {
+            MusicPlatform.KUGOU -> SongCollectDelegate.clearKugouCache()
+            MusicPlatform.NETEASE -> SongCollectDelegate.clearNeteaseCache()
+            else -> Unit
+        }
         val cache = metadataCache ?: return
         cache.clearScope(platform.key)
         if (platform == MusicPlatform.NETEASE) {

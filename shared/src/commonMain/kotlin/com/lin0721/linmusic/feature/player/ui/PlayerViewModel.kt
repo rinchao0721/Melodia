@@ -629,7 +629,12 @@ class PlayerViewModel(
                     _toastEvent.emit("请先登录酷狗账号")
                     null
                 } else {
-                    CommentUser(userId = account.uid, nickname = account.nickname, avatarUrl = account.avatarUrl)
+                    CommentUser(
+                        userId = account.uid,
+                        nickname = account.nickname,
+                        avatarUrl = account.avatarUrl,
+                        platform = MusicPlatform.KUGOU
+                    )
                 }
             }
             else -> {

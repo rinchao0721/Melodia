@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.comment.data
 
 import com.lin0721.linmusic.core.model.CommentItem
 import com.lin0721.linmusic.core.model.CommentUser
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.QQComment
 import com.lin0721.linmusic.core.source.QQCommentApi
 import kotlinx.coroutines.CancellationException
@@ -87,7 +88,7 @@ class QQAwareCommentRepository(
     private fun QQComment.toCommentItem(today: LocalDate): CommentItem = CommentItem(
         // QQ 评论 id 是字符串，界面只用它做列表 key
         commentId = commentid.hashCode().toLong() and 0xFFFFFFFFL,
-        user = CommentUser(nickname = nick, avatarUrl = avatarurl),
+        user = CommentUser(nickname = nick, avatarUrl = avatarurl, platform = MusicPlatform.QQ),
         content = rootcommentcontent.replace(QQ_EMOJI_CODE, "").trim(),
         time = time * 1000,
         timeStr = formatDate(time, today),

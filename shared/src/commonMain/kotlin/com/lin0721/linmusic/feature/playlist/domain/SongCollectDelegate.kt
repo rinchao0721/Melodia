@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedTrack
@@ -64,15 +65,26 @@ class SongCollectDelegate(
         private val userPlaylistsCache = ConcurrentHashMap<Long, List<UserPlaylist>>()
         // 歌单包含歌曲 ID 集合缓存 (歌单 id -> 歌曲 ID Set)
         private val playlistTrackIdsCache = ConcurrentHashMap<Long, MutableSet<Long>>()
-        // 酷狗自建歌单及曲目缓存 (按 accountKey / playlist canonical 隔离)
+        // 酷狗自建歌单及曲目缓存 (按 accountKey / account+playlist 隔离)
         private val kugouPlaylistsCache = ConcurrentHashMap<String, List<UnifiedUserPlaylist>>()
         private val kugouPlaylistTrackKeysCache = ConcurrentHashMap<String, MutableSet<String>>()
 
-        fun clearCache() {
-            userPlaylistsCache.clear()
-            playlistTrackIdsCache.clear()
+        private fun kugouTrackCacheKey(accountId: AccountId, playlistId: PlaylistId): String =
+            "${accountId.canonical}|${playlistId.canonical}"
+
+        fun clearKugouCache() {
             kugouPlaylistsCache.clear()
             kugouPlaylistTrackKeysCache.clear()
+        }
+
+        fun clearNeteaseCache() {
+            userPlaylistsCache.clear()
+            playlistTrackIdsCache.clear()
+        }
+
+        fun clearCache() {
+            clearNeteaseCache()
+            clearKugouCache()
         }
     }
 
@@ -202,8 +214,8 @@ class SongCollectDelegate(
         val trackId = TrackId.netease(songId)
         val unifiedEntries = if (kugouPlaylists.isNotEmpty()) externalStore.allUnified.first() else emptyMap()
         val kugouItems = kugouPlaylists.map { playlist ->
-            val key = playlist.id.canonical
-            val contains = (kugouPlaylistTrackKeysCache[key]?.contains(trackId.canonical) == true) ||
+            val key = kugouAccount?.let { kugouTrackCacheKey(it.accountId, playlist.id) }
+            val contains = (key != null && kugouPlaylistTrackKeysCache[key]?.contains(trackId.canonical) == true) ||
                 unifiedEntries[playlist.id].orEmpty().any { it.track.id == trackId }
             PlaylistCollectItem(
                 playlistId = kugouUiPlaylistId(playlist.id),
@@ -323,11 +335,12 @@ class SongCollectDelegate(
         }
 
         val likedTracks = songLikeRepository.likedTrackIds.value
+        val kugouAccountId = kugouAccount?.accountId
         val kugouItems = kugouPlaylists.map { playlist ->
-            val key = playlist.id.canonical
+            val key = kugouAccountId?.let { kugouTrackCacheKey(it, playlist.id) }
             val contains = when {
                 playlist.isLikedPlaylist && track.platform == MusicPlatform.KUGOU -> track.id in likedTracks
-                else -> (kugouPlaylistTrackKeysCache[key]?.contains(track.id.canonical) == true) ||
+                else -> (key != null && kugouPlaylistTrackKeysCache[key]?.contains(track.id.canonical) == true) ||
                     unifiedEntries[playlist.id].orEmpty().any { it.track.id == track.id }
             }
             PlaylistCollectItem(
@@ -353,19 +366,21 @@ class SongCollectDelegate(
         }
 
         // 对未缓存的酷狗歌单后台补齐是否已包含该酷狗曲目
-        val unvisitedKugou = if (track.platform == MusicPlatform.KUGOU) {
-            kugouPlaylists.filter { !it.isLikedPlaylist && !kugouPlaylistTrackKeysCache.containsKey(it.id.canonical) }
+        val unvisitedKugou = if (track.platform == MusicPlatform.KUGOU && kugouAccountId != null) {
+            kugouPlaylists.filter {
+                !it.isLikedPlaylist && !kugouPlaylistTrackKeysCache.containsKey(kugouTrackCacheKey(kugouAccountId, it.id))
+            }
         } else {
             emptyList()
         }
         val router = platformPlaylistRouter
-        if (unvisitedKugou.isEmpty() || router == null) return
+        if (unvisitedKugou.isEmpty() || router == null || kugouAccountId == null) return
         coroutineScope {
             unvisitedKugou.forEach { playlist ->
                 launch {
                     val detail = router.getPlaylistDetail(playlist.id).firstOrNull()?.getOrNull() ?: return@launch
                     val trackKeys = Collections.synchronizedSet(detail.tracks.mapTo(HashSet()) { it.id.canonical })
-                    kugouPlaylistTrackKeysCache[playlist.id.canonical] = trackKeys
+                    kugouPlaylistTrackKeysCache[kugouTrackCacheKey(kugouAccountId, playlist.id)] = trackKeys
                     if (trackKeys.contains(track.id.canonical)) {
                         _state.update { state ->
                             if (state.trackId != track.id) return@update state
@@ -399,7 +414,7 @@ class SongCollectDelegate(
         return fetched
     }
 
-    private suspend fun ownKugouPlaylists(accountId: com.lin0721.linmusic.core.platform.AccountId, songId: Long): List<UnifiedUserPlaylist> {
+    private suspend fun ownKugouPlaylists(accountId: AccountId, songId: Long): List<UnifiedUserPlaylist> {
         val router = platformLibraryRouter ?: return emptyList()
         kugouPlaylistsCache[accountId.canonical]?.let { return it }
         val fetched = router.getUserPlaylists(accountId).firstOrNull()?.getOrNull()
@@ -504,6 +519,7 @@ class SongCollectDelegate(
             }
         }
         val profile = userPreferences.userProfile.first()
+        val kugouAccountId = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()?.accountId
         val router = platformPlaylistRouter
         var liked = likedSongIds
 
@@ -526,7 +542,7 @@ class SongCollectDelegate(
                         router.removeTracksFromPlaylist(targetPlaylistId, listOf(track)).firstOrNull()
                     }
                     res?.onSuccess {
-                        val cached = kugouPlaylistTrackKeysCache[targetPlaylistId.canonical]
+                        val cached = kugouAccountId?.let { kugouPlaylistTrackKeysCache[kugouTrackCacheKey(it, targetPlaylistId)] }
                         if (cached != null) {
                             if (item.isContains) cached.add(track.id.canonical) else cached.remove(track.id.canonical)
                         }

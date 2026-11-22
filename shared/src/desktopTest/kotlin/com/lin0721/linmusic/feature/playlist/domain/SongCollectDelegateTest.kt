@@ -1,12 +1,33 @@
 package com.lin0721.linmusic.feature.playlist.domain
 
+import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.FakeAuthRepository
+import com.lin0721.linmusic.core.auth.PlatformSessionRegistry
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedArtist
+import com.lin0721.linmusic.core.platform.UnifiedPlaylist
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformArtistRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedCollectedAlbum
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserRecordTrack
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserSubcount
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.playlistexternal.ExternalSongLikes
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.playlistexternal.likedExternalKey
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
@@ -14,11 +35,14 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -254,5 +278,119 @@ class SongCollectDelegateTest {
 
         assertTrue(toasts.isEmpty())
         assertEquals(1, env.externalStore.all.first()[2L].orEmpty().size)
+    }
+
+    @Test
+    fun `酷狗歌单曲目缓存按账号隔离，关闭开关与切号退登时正确清理`() = runBlocking {
+        SongCollectDelegate.clearCache()
+        val prefsStore = InMemoryPreferencesStore()
+        val userPreferences = UserPreferences(prefsStore)
+        val settings = SettingsPreferences(prefsStore)
+        val likeRepo = FakeSongLikeRepository()
+        val playlistRepo = FakePlaylistRepository()
+        val externalStore = PlaylistExternalTrackStore(prefsStore)
+
+        val accountA = StoredAccount(
+            uid = 101L,
+            nickname = "酷狗A",
+            platform = MusicPlatform.KUGOU,
+            platformUid = "101",
+            credentials = mapOf("token" to "ta", "userid" to "101")
+        )
+        val accountB = StoredAccount(
+            uid = 102L,
+            nickname = "酷狗B",
+            platform = MusicPlatform.KUGOU,
+            platformUid = "102",
+            credentials = mapOf("token" to "tb", "userid" to "102")
+        )
+        userPreferences.upsertPlatformAccount(accountA, activate = true)
+        userPreferences.upsertPlatformAccount(accountB, activate = false)
+
+        val sharedPlaylistId = PlaylistId.kugou("3001")
+        val targetTrack = UnifiedTrack(id = TrackId.kugou("KG_ISO_1"), name = "晴天")
+        var detailCalls = 0
+        var playlistsCalls = 0
+        val kugouLib = object : PlatformLibraryRepository {
+            override fun getUserPlaylists(accountId: AccountId, limit: Int): Flow<Result<List<UnifiedUserPlaylist>>> {
+                playlistsCalls++
+                return flowOf(Result.success(listOf(UnifiedUserPlaylist(id = sharedPlaylistId, name = "共用名歌单", trackCount = 1))))
+            }
+            override fun getFavoriteArtists(platform: MusicPlatform) = flowOf(Result.success(emptyList<UnifiedArtist>()))
+            override fun getCollectedAlbums(platform: MusicPlatform, limit: Int) = flowOf(Result.success(emptyList<UnifiedCollectedAlbum>()))
+            override fun getUserRecord(accountId: AccountId, type: Int) = flowOf(Result.success(emptyList<UnifiedUserRecordTrack>()))
+            override fun getUserSubcount(platform: MusicPlatform) = flowOf(Result.success(UnifiedUserSubcount()))
+            override fun updatePlaylistOrder(platform: MusicPlatform, playlistIds: List<PlaylistId>) = flowOf(Result.success(Unit))
+            override fun setPlaylistTop(playlistId: PlaylistId, top: Boolean) = flowOf(Result.success(Unit))
+        }
+        val kugouPlaylistRepo = object : PlatformPlaylistRepository {
+            override fun getPlaylistDetail(playlistId: PlaylistId): Flow<Result<UnifiedPlaylist>> {
+                detailCalls++
+                val activeUid = kotlinx.coroutines.runBlocking { userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()?.uid }
+                val tracks = if (activeUid == 101L) listOf(targetTrack) else emptyList()
+                return flowOf(Result.success(UnifiedPlaylist(id = playlistId, name = "共用名歌单", tracks = tracks, trackCount = tracks.size)))
+            }
+            override fun loadMoreTracks(trackIds: List<TrackId>) = flowOf(Result.success(emptyList<UnifiedTrack>()))
+            override fun loadAllTracks(detail: UnifiedPlaylist) = flowOf(Result.success(detail.tracks))
+            override fun createPlaylist(platform: MusicPlatform, name: String, isPrivate: Boolean) = flowOf(Result.failure<UnifiedPlaylist>(UnsupportedOperationException()))
+            override fun subscribePlaylist(playlistId: PlaylistId, subscribe: Boolean) = flowOf(Result.success(Unit))
+            override fun addTracksToPlaylist(playlistId: PlaylistId, tracks: List<UnifiedTrack>) = flowOf(Result.success(Unit))
+            override fun removeTracksFromPlaylist(playlistId: PlaylistId, tracks: List<UnifiedTrack>) = flowOf(Result.success(Unit))
+            override fun renamePlaylist(playlistId: PlaylistId, name: String) = flowOf(Result.success(Unit))
+            override fun updateDescription(playlistId: PlaylistId, description: String) = flowOf(Result.success(Unit))
+            override fun deletePlaylist(playlistId: PlaylistId) = flowOf(Result.success(Unit))
+            override fun updatePlaylistCover(playlistId: PlaylistId, imageBytes: ByteArray) = flowOf(Result.success(""))
+            override fun sortPlaylistTracks(playlistId: PlaylistId, orderedTracks: List<UnifiedTrack>, listVer: Long) = flowOf(Result.success(Unit))
+        }
+        val stubLib = object : PlatformLibraryRepository by kugouLib {}
+        val stubPl = object : PlatformPlaylistRepository by kugouPlaylistRepo {}
+        val delegate = SongCollectDelegate(
+            userPlaylistRepository = FakeUserPlaylistRepository(),
+            playlistRepository = playlistRepo,
+            songLikeRepository = likeRepo,
+            createPlaylistAndAddSongUseCase = CreatePlaylistAndAddSongUseCase(FakeCreateRepository(), playlistRepo, PlaylistMutationBus()),
+            userPreferences = userPreferences,
+            resourceProvider = testResourceProvider,
+            externalStore = externalStore,
+            externalSongLikes = ExternalSongLikes(externalStore, userPreferences) { emptyList() },
+            platformLibraryRouter = PlatformLibraryRouter(stubLib, kugouLib) { runBlocking { settings.kugouPlatformEnabled.first() } },
+            platformPlaylistRouter = PlatformPlaylistRouter(stubPl, kugouPlaylistRepo, externalStore) { runBlocking { settings.kugouPlatformEnabled.first() } },
+            settingsPreferences = settings
+        )
+
+        // 1. 账号 A 命中包含该曲目
+        delegate.prepareUnified(targetTrack, emptySet()) {}
+        assertTrue(delegate.state.value.collectItems.single().isContains)
+        assertEquals(1, detailCalls)
+
+        // 2. 切到账号 B：即使不显式清缓存也不应串用账号 A 的 contains 结果
+        userPreferences.switchPlatformAccount(accountB.accountId)
+        delegate.prepareUnified(targetTrack, emptySet()) {}
+        assertFalse(delegate.state.value.collectItems.single().isContains)
+        assertEquals(2, detailCalls)
+
+        // 3. 切回账号 A 命中缓存不重复请求；再通过 AccountSwitcher 切换（metadataCache=null）应清掉酷狗缓存
+        userPreferences.switchPlatformAccount(accountA.accountId)
+        delegate.prepareUnified(targetTrack, emptySet()) {}
+        assertEquals(2, detailCalls)
+
+        val switcher = AccountSwitcher(
+            userPreferences = userPreferences,
+            authRepository = FakeAuthRepository(userPreferences),
+            metadataCache = null,
+            platformSessionRegistry = PlatformSessionRegistry(emptyList())
+        )
+        assertTrue(switcher.switchPlatformAccount(accountB.accountId))
+        assertTrue(switcher.switchPlatformAccount(accountA.accountId))
+        delegate.prepareUnified(targetTrack, emptySet()) {}
+        assertEquals(3, detailCalls)
+
+        // 4. 关闭酷狗开关会清空酷狗歌单与曲目缓存，重新打开后需重新拉取
+        settings.saveKugouPlatformEnabled(false)
+        settings.saveKugouPlatformEnabled(true)
+        val playlistsBeforeDisable = playlistsCalls
+        delegate.prepareUnified(targetTrack, emptySet()) {}
+        assertTrue(playlistsCalls > playlistsBeforeDisable)
+        assertEquals(4, detailCalls)
     }
 }
