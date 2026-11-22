@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.data.CoverImage
 import com.lin0721.linmusic.desktop.data.chooseImageFile
@@ -57,6 +59,7 @@ import com.lin0721.linmusic.desktop.ui.components.DialogLabel
 import com.lin0721.linmusic.desktop.ui.components.DialogTextField
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.PlatformBadge
 import com.lin0721.linmusic.feature.playlist.ui.AddMusicSearchState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
@@ -163,10 +166,13 @@ internal fun AddSongsDialog(
     playlistId: Long,
     existingIds: Set<Long>,
     viewModel: PlaylistViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    entityId: String? = null
 ) {
     val query by viewModel.addMusicSearchQuery.collectAsState()
     val searchState by viewModel.addMusicSearchState.collectAsState()
+    val availableSources by viewModel.availableAddMusicSources.collectAsState()
+    val activeSource by viewModel.addMusicSource.collectAsState()
     var adding by remember { mutableStateOf(emptySet<Long>()) }
     DisposableEffect(Unit) { onDispose { viewModel.clearAddMusicSearch() } }
 
@@ -176,6 +182,33 @@ internal fun AddSongsDialog(
         width = 440.dp,
         actions = { DialogButton("完成", onDismiss, primary = true) }
     ) {
+        if (availableSources.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(8.dp))
+                    .background(DesktopColors.Pane).padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                availableSources.forEach { source ->
+                    val selected = source == activeSource
+                    val label = if (source == MusicPlatform.KUGOU) "酷狗音乐" else "网易云音乐"
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                            .background(if (selected) DesktopColors.SurfaceLight else Color.Transparent)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable { viewModel.setAddMusicSource(source) }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            color = if (selected) DesktopColors.TextPrimary else DesktopColors.TextGray,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
         DialogTextField(
             value = query,
             onValueChange = viewModel::updateAddMusicSearchQuery,
@@ -199,7 +232,11 @@ internal fun AddSongsDialog(
                                 busy = track.id in adding,
                                 onAdd = {
                                     adding = adding + track.id
-                                    viewModel.addTrackToPlaylist(playlistId, track) { adding = adding - track.id }
+                                    if (entityId != null) {
+                                        viewModel.addTrackToEntityPlaylist(entityId, track) { adding = adding - track.id }
+                                    } else {
+                                        viewModel.addTrackToPlaylist(playlistId, track) { adding = adding - track.id }
+                                    }
                                 }
                             )
                         }
@@ -215,8 +252,11 @@ internal fun ImportToPlaylistDialog(
     state: PlaylistImportState,
     onPick: (UserPlaylist) -> Unit,
     onCreate: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onPickUnified: ((UnifiedUserPlaylist) -> Unit)? = null
 ) {
+    val useUnified = state.unifiedItems.isNotEmpty() && onPickUnified != null
+    val isEmpty = if (useUnified) state.unifiedItems.isEmpty() else state.items.isEmpty()
     DesktopDialog(
         title = "添加到歌单",
         onDismiss = onDismiss,
@@ -247,22 +287,46 @@ internal fun ImportToPlaylistDialog(
                             )
                         }
                     }
-                    items(state.items, key = { it.id }) { playlist ->
-                        ImportTargetRow(onClick = { onPick(playlist) }) {
-                            Cover(playlist.coverImgUrl, 40.dp)
-                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                                Text(
-                                    playlist.name,
-                                    color = DesktopColors.TextPrimary,
-                                    fontSize = 14.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text("${playlist.trackCount} 首", color = DesktopColors.TextGray, fontSize = 12.sp)
+                    if (useUnified) {
+                        items(state.unifiedItems, key = { it.id.canonical }) { playlist ->
+                            ImportTargetRow(onClick = { onPickUnified(playlist) }) {
+                                Cover(playlist.coverUrl, 40.dp)
+                                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            playlist.name,
+                                            color = DesktopColors.TextPrimary,
+                                            fontSize = 14.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        if (playlist.id.platform == MusicPlatform.KUGOU) {
+                                            PlatformBadge(MusicPlatform.KUGOU, Modifier.padding(start = 6.dp))
+                                        }
+                                    }
+                                    Text("${playlist.trackCount} 首", color = DesktopColors.TextGray, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    } else {
+                        items(state.items, key = { it.id }) { playlist ->
+                            ImportTargetRow(onClick = { onPick(playlist) }) {
+                                Cover(playlist.coverImgUrl, 40.dp)
+                                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                    Text(
+                                        playlist.name,
+                                        color = DesktopColors.TextPrimary,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text("${playlist.trackCount} 首", color = DesktopColors.TextGray, fontSize = 12.sp)
+                                }
                             }
                         }
                     }
-                    if (state.items.isEmpty()) {
+                    if (isEmpty) {
                         item(key = "empty") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 Text("还没有自建歌单", color = DesktopColors.TextGray, fontSize = 13.sp)

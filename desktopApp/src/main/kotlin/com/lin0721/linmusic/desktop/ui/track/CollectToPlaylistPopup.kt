@@ -68,6 +68,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.theme.themedShadow
@@ -381,14 +382,23 @@ private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: ()
         verticalAlignment = Alignment.CenterVertically
     ) {
         Cover(item.coverUrl, 40.dp, shape = RoundedCornerShape(4.dp))
-        Text(
-            item.playlistName,
-            color = DesktopColors.TextPrimary,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
-        )
+        Row(
+            Modifier.weight(1f).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                item.playlistName,
+                color = DesktopColors.TextPrimary,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (item.platform == MusicPlatform.KUGOU) {
+                PlatformBadge(MusicPlatform.KUGOU)
+            }
+        }
         Icon(
             if (checked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.Unchecked,
             if (checked) "已加入" else "未加入",

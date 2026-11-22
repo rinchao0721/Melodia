@@ -130,6 +130,8 @@ fun WindowScope.MelodiaDesktopApp(
     val state = session.state
 
     val userProfile by deps.homeViewModel.userProfile.collectAsState()
+    val kugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
+    val isKugouEnabled by deps.settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
     val downloadLevel by deps.settingsPreferences.wifiQuality.collectAsState(initial = "standard")
     val defaultPlaylistPrivate by deps.settingsPreferences.defaultPlaylistPrivate.collectAsState(initial = false)
     val nowPlaying by controller.nowPlaying.collectAsState()
@@ -208,7 +210,15 @@ fun WindowScope.MelodiaDesktopApp(
     }
     LaunchedEffect(state) { appMessages(deps, state).collect { snackbarHostState.showSnackbar(it) } }
 
-    val navigator = desktopNavigator(state, deps, userProfile != null, downloadLevel, defaultPlaylistPrivate)
+    val navigator = desktopNavigator(
+        state = state,
+        deps = deps,
+        isLoggedIn = userProfile != null,
+        downloadLevel = downloadLevel,
+        defaultPlaylistPrivate = defaultPlaylistPrivate,
+        isKugouLoggedIn = kugouAccount != null,
+        isKugouEnabled = isKugouEnabled
+    )
     val frameHost = session.frameHost
     val liveEntryIds = state.backStack.liveEntryIds
     LaunchedEffect(liveEntryIds) { frameHost.reconcile() }

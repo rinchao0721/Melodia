@@ -551,7 +551,7 @@ private fun QueueItemMenu(
             onPlayNext()
         })
         if (actions != null) {
-            if (navigator.isLoggedIn) {
+            if (navigator.hasCloudAccount) {
                 SubMenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                     CollectSubmenuContent(track, actions, onDismiss)
                 }

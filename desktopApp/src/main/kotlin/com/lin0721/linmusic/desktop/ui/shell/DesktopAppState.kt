@@ -4,6 +4,11 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lin0721.linmusic.core.platform.AlbumId
+import com.lin0721.linmusic.core.platform.ArtistId
+import com.lin0721.linmusic.core.platform.PlatformEntityId
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.ui.components.CollectPromptEvent
 import com.lin0721.linmusic.desktop.data.LibraryMode
@@ -16,6 +21,7 @@ import com.lin0721.linmusic.desktop.ui.lyricsview.LyricsViewState
 import com.lin0721.linmusic.desktop.ui.navigation.BackStack
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 import com.lin0721.linmusic.desktop.ui.nowplaying.DockOverlay
+import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
 import com.lin0721.linmusic.feature.library.ui.LibraryFilter
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
@@ -183,16 +189,66 @@ class DesktopAppState(
     fun selectNewWorks(selected: Boolean) = record { showNewWorks = selected }
 
     fun openLibraryItem(item: LibraryItem) {
-        val route = item.id.toLongOrNull()?.let { id ->
-            when (item.type) {
-                LibraryItemType.PLAYLIST -> DesktopRoute.Playlist(id, item.title)
-                LibraryItemType.ALBUM -> DesktopRoute.Playlist(id, item.title, isAlbum = true)
-                LibraryItemType.ARTIST -> DesktopRoute.Artist(id, item.title)
-            }
-        }
+        val rawEntity = item.entityId.ifBlank { item.id }
+        val route = when (item.type) {
+            LibraryItemType.PLAYLIST -> playlistRouteForEntity(rawEntity, item.title, isAlbum = false)
+            LibraryItemType.ALBUM -> playlistRouteForEntity(rawEntity, item.title, isAlbum = true)
+            LibraryItemType.ARTIST -> artistRouteForEntity(rawEntity, item.title)
+        } ?: return
         record(route) {
             if (pane.libraryMode == LibraryMode.EXPANDED) applyLibraryMode(LibraryMode.DEFAULT)
         }
+    }
+
+    fun openPlaylistEntity(entityId: String, title: String, isAlbum: Boolean = false) {
+        playlistRouteForEntity(entityId, title, isAlbum)?.let { navigate(it) }
+    }
+
+    fun openArtistEntity(entityId: String, name: String) {
+        artistRouteForEntity(entityId, name)?.let { navigate(it) }
+    }
+
+    private fun playlistRouteForEntity(entityId: String, title: String, isAlbum: Boolean): DesktopRoute.Playlist? {
+        if (!isAlbum && entityId == KUGOU_RECENT_PLAYLIST_ID) {
+            return DesktopRoute.Playlist(
+                id = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong(),
+                title = title,
+                isAlbum = false,
+                entityId = KUGOU_RECENT_PLAYLIST_ID
+            )
+        }
+        val parsed: PlatformEntityId? = if (isAlbum) AlbumId.parseOrNull(entityId) else PlaylistId.parseOrNull(entityId)
+        parsed?.neteaseIdOrNull()?.let { neteaseId ->
+            return DesktopRoute.Playlist(neteaseId, title, isAlbum = isAlbum, entityId = null)
+        }
+        if (parsed != null) {
+            return DesktopRoute.Playlist(
+                id = parsed.toDeterministicLegacyId(),
+                title = title,
+                isAlbum = isAlbum,
+                entityId = parsed.canonical
+            )
+        }
+        val numeric = entityId.toLongOrNull()
+        if (numeric != null && numeric >= 0L) {
+            return DesktopRoute.Playlist(numeric, title, isAlbum = isAlbum, entityId = null)
+        }
+        return null
+    }
+
+    private fun artistRouteForEntity(entityId: String, name: String): DesktopRoute.Artist? {
+        val parsed = ArtistId.parseOrNull(entityId)
+        parsed?.neteaseIdOrNull()?.let { neteaseId ->
+            return DesktopRoute.Artist(neteaseId, name, entityId = null)
+        }
+        if (parsed != null) {
+            return DesktopRoute.Artist(parsed.toDeterministicLegacyId(), name, entityId = parsed.canonical)
+        }
+        val numeric = entityId.toLongOrNull()
+        if (numeric != null && numeric >= 0L) {
+            return DesktopRoute.Artist(numeric, name, entityId = null)
+        }
+        return null
     }
 
     // ─── 歌词界面 ───

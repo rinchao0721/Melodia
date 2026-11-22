@@ -219,8 +219,16 @@ fun SearchDropdown(
             is DropdownEntry.Literal -> onSearch(entry.query)
             is DropdownEntry.Keyword -> onSearch(entry.text)
             is DropdownEntry.SongHit -> viewModel.playSongHit(entry.track)
-            is DropdownEntry.ArtistHit -> navigator.openArtist(entry.id, entry.name)
-            is DropdownEntry.AlbumHit -> navigator.openAlbum(entry.id, entry.name)
+            is DropdownEntry.ArtistHit -> {
+                val eid = input.suggestionArtistEntityIds[entry.id]
+                if (eid != null) navigator.openArtistEntity(eid, entry.name)
+                else navigator.openArtist(entry.id, entry.name)
+            }
+            is DropdownEntry.AlbumHit -> {
+                val eid = input.suggestionAlbumEntityIds[entry.id]
+                if (eid != null) navigator.openPlaylistEntity(eid, entry.name, true)
+                else navigator.openAlbum(entry.id, entry.name)
+            }
             is DropdownEntry.LinkHit -> {
                 val preview = (entry.hit.previewState as? LinkPreviewState.Ready)?.preview
                 when (val target = entry.hit.target) {

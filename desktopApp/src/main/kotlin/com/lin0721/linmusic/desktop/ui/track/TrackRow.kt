@@ -169,7 +169,10 @@ fun TrackRow(
     // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；插件歌曲留空
     qualitySongId: Long? = null,
     // 本地未匹配歌曲的推断音质等级
-    localQualityLevel: String? = null
+    localQualityLevel: String? = null,
+    // 跨平台歌手/专辑 entityId 映射，供非网易云条目点击跳转
+    artistEntityIds: Map<Long, String> = emptyMap(),
+    albumEntityIds: Map<Long, String> = emptyMap()
 ) {
     val activeActions = actions.takeIf { selection == null }
     val activeMenu = menuContent.takeIf { selection == null }
@@ -300,7 +303,14 @@ fun TrackRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AnimatedSongQualityBadge(qualityBadge)
                     Text(
-                        artistLinks(track.ar, navigator.openArtist),
+                        artistLinks(
+                            artists = track.ar,
+                            onClick = { id, name ->
+                                val eid = artistEntityIds[id]
+                                if (eid != null) navigator.openArtistEntity(eid, name) else navigator.openArtist(id, name)
+                            },
+                            clickableIds = artistEntityIds.keys
+                        ),
                         color = DesktopColors.TextGray,
                         fontSize = 13.sp,
                         maxLines = 1,
@@ -309,7 +319,14 @@ fun TrackRow(
                 }
             }
             Text(
-                albumLink(track, navigator.openAlbum),
+                albumLink(
+                    track = track,
+                    onClick = { id, name ->
+                        val eid = albumEntityIds[id]
+                        if (eid != null) navigator.openPlaylistEntity(eid, name, true) else navigator.openAlbum(id, name)
+                    },
+                    clickableIds = albumEntityIds.keys
+                ),
                 color = DesktopColors.TextGray,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -335,7 +352,7 @@ fun TrackRow(
                     HoverReveal(revealed = showLike, reserveSpace = true) {
                         IconButton(
                             onClick = {
-                                if (!navigator.isLoggedIn) {
+                                if (!navigator.hasCloudAccount) {
                                     navigator.showMessage("请先登录账号")
                                 } else if (isLiked) {
                                     activeActions.onPrepareCollect(track)
@@ -393,12 +410,14 @@ fun TrackRow(
                             Icon(MelodiaIcons.MoreHoriz, "更多有关《${track.name}》的选项", tint = DesktopColors.TextGray)
                         }
                     }
-                    RowMenu(moreMenuOpen, DpOffset.Zero, track, activeActions, activeMenu, onPlay) { moreMenuOpen = false }
+                    RowMenu(moreMenuOpen, DpOffset.Zero, track, activeActions, activeMenu, artistEntityIds, albumEntityIds, onPlay) {
+                        moreMenuOpen = false
+                    }
                 }
             }
         }
         if (hasMenu) {
-            RowMenu(contextMenuOffset != null, contextMenuOffset ?: DpOffset.Zero, track, activeActions, activeMenu, onPlay) {
+            RowMenu(contextMenuOffset != null, contextMenuOffset ?: DpOffset.Zero, track, activeActions, activeMenu, artistEntityIds, albumEntityIds, onPlay) {
                 contextMenuOffset = null
             }
         }
@@ -412,12 +431,14 @@ private fun RowMenu(
     track: Track,
     actions: TrackActions?,
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)?,
+    artistEntityIds: Map<Long, String>,
+    albumEntityIds: Map<Long, String>,
     onPlay: () -> Unit,
     onDismiss: () -> Unit
 ) {
     when {
         menuContent != null -> DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) { menuContent(onDismiss) }
-        actions != null -> TrackMenu(expanded, offset, track, actions, onPlay, onDismiss)
+        actions != null -> TrackMenu(expanded, offset, track, actions, onPlay, onDismiss, artistEntityIds, albumEntityIds)
     }
 }
 
@@ -430,12 +451,14 @@ internal fun TrackMenu(
     track: Track,
     actions: TrackActions,
     onPlay: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    artistEntityIds: Map<Long, String> = emptyMap(),
+    albumEntityIds: Map<Long, String> = emptyMap()
 ) {
     val navigator = LocalDesktopNavigator.current
     val pluginCommands = LocalPluginCommands.current
     val isLiked = track.id in actions.likedSongIds
-    val artists = track.ar.filter { it.id > 0 }
+    val artists = track.ar.filter { it.id > 0 || it.id in artistEntityIds }
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
         MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
@@ -452,7 +475,7 @@ internal fun TrackMenu(
                 listenTogether.addToRoomQueue(listOf(track.id)) { navigator.showMessage(it) }
             })
         }
-        if (navigator.isLoggedIn) {
+        if (navigator.hasCloudAccount) {
             SubMenuItem("收藏到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = { actions.onPrepareCollect(track) }) {
                 CollectSubmenuContent(track, actions, onDismiss)
             }
@@ -476,19 +499,23 @@ internal fun TrackMenu(
                 artists.forEach { artist ->
                     SimpleMenuItem(artist.name, onClick = {
                         onDismiss()
-                        navigator.openArtist(artist.id, artist.name)
+                        val eid = artistEntityIds[artist.id]
+                        if (eid != null) navigator.openArtistEntity(eid, artist.name) else navigator.openArtist(artist.id, artist.name)
                     })
                 }
             }
             artists.size == 1 -> MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 onDismiss()
-                navigator.openArtist(artists[0].id, artists[0].name)
+                val artist = artists[0]
+                val eid = artistEntityIds[artist.id]
+                if (eid != null) navigator.openArtistEntity(eid, artist.name) else navigator.openArtist(artist.id, artist.name)
             })
         }
-        if (track.al.id > 0) {
+        if (track.al.id > 0 || track.al.id in albumEntityIds) {
             MenuItem("查看专辑", icon = MelodiaIcons.Album, onClick = {
                 onDismiss()
-                navigator.openAlbum(track.al.id, track.al.name)
+                val eid = albumEntityIds[track.al.id]
+                if (eid != null) navigator.openPlaylistEntity(eid, track.al.name, true) else navigator.openAlbum(track.al.id, track.al.name)
             })
         }
         // 外部平台歌曲没有网易云 id，不能下载与分享网易云链接
@@ -606,10 +633,20 @@ fun PlatformBadge(platform: MusicPlatform, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun artistLinks(artists: List<Artist>, onClick: (Long, String) -> Unit): AnnotatedString = buildAnnotatedString {
+fun artistLinks(
+    artists: List<Artist>,
+    onClick: (Long, String) -> Unit
+): AnnotatedString = artistLinks(artists, onClick, emptySet())
+
+@Composable
+fun artistLinks(
+    artists: List<Artist>,
+    onClick: (Long, String) -> Unit,
+    clickableIds: Set<Long>
+): AnnotatedString = buildAnnotatedString {
     artists.forEachIndexed { i, artist ->
         if (i > 0) append(" / ")
-        if (artist.id > 0) {
+        if (artist.id > 0 || artist.id in clickableIds) {
             withLink(LinkAnnotation.Clickable("artist_${artist.id}", LinkStyles) { onClick(artist.id, artist.name) }) {
                 append(artist.name)
             }
@@ -620,8 +657,12 @@ fun artistLinks(artists: List<Artist>, onClick: (Long, String) -> Unit): Annotat
 }
 
 @Composable
-private fun albumLink(track: Track, onClick: (Long, String) -> Unit): AnnotatedString = buildAnnotatedString {
-    if (track.al.id > 0) {
+private fun albumLink(
+    track: Track,
+    onClick: (Long, String) -> Unit,
+    clickableIds: Set<Long> = emptySet()
+): AnnotatedString = buildAnnotatedString {
+    if (track.al.id > 0 || track.al.id in clickableIds) {
         withLink(LinkAnnotation.Clickable("album_${track.al.id}", LinkStyles) { onClick(track.al.id, track.al.name) }) {
             append(track.al.name)
         }

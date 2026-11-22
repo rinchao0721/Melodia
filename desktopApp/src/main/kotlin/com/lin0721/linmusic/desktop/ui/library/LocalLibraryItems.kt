@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.library
 
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.Edit
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Text
@@ -106,7 +107,12 @@ private fun localOrder(sort: LibrarySortOrder): Comparator<LibraryItem> = when (
 }
 
 @Composable
-internal fun rememberLibraryDisplayItems(viewModel: LibraryViewModel, extras: LibraryExtrasEntry, isLoggedIn: Boolean): List<LibraryItem>? {
+internal fun rememberLibraryDisplayItems(
+    viewModel: LibraryViewModel,
+    extras: LibraryExtrasEntry,
+    isLoggedIn: Boolean,
+    hasCloudAccount: Boolean = isLoggedIn
+): List<LibraryItem>? {
     val uiState by viewModel.uiState.collectAsState()
     val summaries by extras.local.repository.summaries.collectAsState()
     val filter by viewModel.selectedFilter.collectAsState()
@@ -122,12 +128,12 @@ internal fun rememberLibraryDisplayItems(viewModel: LibraryViewModel, extras: Li
             if (!isLoggedIn) emptyList() else listOf(cloudLibraryItem(cloudDrive)).filter { query.isBlank() || it.title.contains(query, ignoreCase = true) }
         }
     }
-    // 未登录时只剩本地歌单；云端仍在加载或出错时返回 null，交给原有状态展示
+    // 未登录任一云端账号时只剩本地歌单；云端仍在加载或出错时返回 null，交给原有状态展示
     val cloud = when {
-        !isLoggedIn -> emptyList()
+        !hasCloudAccount -> emptyList()
         else -> (uiState as? LibraryUiState.Success)?.filteredItems
     }
-    val localOnly = extras.selected == LibraryExtraFilter.LOCAL || !isLoggedIn
+    val localOnly = extras.selected == LibraryExtraFilter.LOCAL || !hasCloudAccount
     return remember(cloud, summaries, filter, query, sort, localOnly) {
         if (cloud == null && !localOnly) null else mergeLibraryItems(cloud.orEmpty(), summaries, filter, localOnly, query, sort)
     }
@@ -137,6 +143,13 @@ internal fun rememberLibraryDisplayItems(viewModel: LibraryViewModel, extras: Li
 internal fun LocalPlaylistBadge(modifier: Modifier = Modifier) {
     Badge(modifier = modifier, containerColor = DesktopColors.SurfaceLight, contentColor = DesktopColors.TextGray) {
         Text("本地歌单", fontSize = 10.sp)
+    }
+}
+
+@Composable
+internal fun KugouItemBadge(modifier: Modifier = Modifier) {
+    Badge(modifier = modifier, containerColor = DesktopColors.SurfaceLight, contentColor = DesktopColors.TextGray) {
+        Text("酷狗", fontSize = 10.sp)
     }
 }
 

@@ -75,6 +75,7 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
@@ -90,6 +91,7 @@ import com.lin0721.linmusic.desktop.ui.library.CreatePlaylistDialog
 import com.lin0721.linmusic.desktop.ui.library.EMPTY_NAME_MESSAGE
 import com.lin0721.linmusic.desktop.ui.library.LibrarySearchInput
 import com.lin0721.linmusic.feature.playlist.presentation.TrackSelection
+import com.lin0721.linmusic.desktop.ui.track.PlatformBadge
 import com.lin0721.linmusic.desktop.ui.track.TrackActions
 import com.lin0721.linmusic.desktop.ui.track.TrackRowSelection
 import com.lin0721.linmusic.desktop.ui.track.TrackSelectionBar
@@ -125,10 +127,12 @@ fun ArtistPage(
     artistId: Long,
     viewModel: ArtistViewModel,
     controller: PlaybackController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    entityId: String? = null
 ) {
-    LaunchedEffect(artistId) {
-        viewModel.loadArtistDataIfNeeded(artistId)
+    LaunchedEffect(artistId, entityId) {
+        if (entityId != null) viewModel.loadArtistDataIfNeeded(entityId)
+        else viewModel.loadArtistDataIfNeeded(artistId)
     }
     val uiState by viewModel.uiState.collectAsState()
 
@@ -137,14 +141,22 @@ fun ArtistPage(
         is ArtistUiState.Error -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(state.message, color = DesktopColors.TextGray)
-                TextButton(onClick = { viewModel.loadArtistData(artistId) }) {
+                TextButton(onClick = {
+                    if (entityId != null) viewModel.loadArtistData(entityId)
+                    else viewModel.loadArtistData(artistId)
+                }) {
                     Text("重试", color = DesktopColors.TextPrimary)
                 }
             }
         }
         is ArtistUiState.Success -> {
             // 单例 ViewModel 在切换歌手的瞬间仍持有上一位歌手，避免闪现旧内容
-            if (state.artist.id != artistId) {
+            val stale = if (entityId != null) {
+                state.artistEntityId != entityId
+            } else {
+                state.artist.id != artistId
+            }
+            if (stale) {
                 Loading(modifier)
                 return
             }
@@ -170,18 +182,36 @@ private fun ArtistContent(
 ) {
     val navigator = LocalDesktopNavigator.current
     val nowPlaying by controller.nowPlaying.collectAsState()
+    val profile by viewModel.userProfile.collectAsState()
+    val kugouAccount by viewModel.kugouAccount.collectAsState()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
     val blockedIds by viewModel.blockedArtistIds.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val collectState by viewModel.collectState.collectAsState()
     val songSearch by viewModel.songSearch.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val importState by viewModel.importState.collectAsState()
-    var showBatchCreate by remember(state.artist.id) { mutableStateOf(false) }
-    var tab by rememberSaveable(state.artist.id) { mutableStateOf(ArtistTab.SONGS) }
+
+    val isKugou = state.platform == MusicPlatform.KUGOU
+    val activeKugou = kugouAccount?.takeIf { isKugouEnabled }
+    val availableCreatePlatforms = remember(profile, activeKugou) {
+        buildList {
+            if (profile != null) add(MusicPlatform.NETEASE)
+            if (activeKugou != null) add(MusicPlatform.KUGOU)
+        }
+    }
+    val pageKey = state.artistEntityId.ifBlank { state.artist.id.toString() }
+
+    var showBatchCreate by remember(pageKey) { mutableStateOf(false) }
+    var tab by rememberSaveable(pageKey) { mutableStateOf(ArtistTab.SONGS) }
     val songsShown = if (songSearch.active) songSearch.results else state.topSongs
 
     val onToggleFollow = {
-        if (navigator.isLoggedIn) viewModel.toggleFollow(state.artist.id) else navigator.showMessage("请先登录账号")
+        if (isKugou) {
+            if (activeKugou != null) viewModel.toggleFollow(state.artist.id) else navigator.showMessage("请先登录酷狗账号")
+        } else {
+            if (navigator.isLoggedIn) viewModel.toggleFollow(state.artist.id) else navigator.showMessage("请先登录账号")
+        }
     }
     val onPlayHot = {
         state.topSongs.firstOrNull()?.let { viewModel.playSongInList(it, state.topSongs) } ?: Unit
@@ -199,7 +229,7 @@ private fun ArtistContent(
     )
 
     val backdropUrl = remember(state.artist) { state.artist.cover.ifBlank { state.artist.avatar } }
-    var heroBase by remember(state.artist.id) { mutableStateOf(FallbackCoverPalette.base) }
+    var heroBase by remember(pageKey) { mutableStateOf(FallbackCoverPalette.base) }
     LaunchedEffect(backdropUrl) {
         if (backdropUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(backdropUrl).base
     }
@@ -210,8 +240,8 @@ private fun ArtistContent(
     val barHeightPx = with(density) { StickyBarHeight.roundToPx() }
     val playButtonBottomPx = with(density) { (ActionBarVerticalPadding + PlayButtonSize).roundToPx() }
     // 恢复页面现场时列表直接停在中间，大标题不会再测一次，高度要随现场保存
-    var backdropHeightPx by rememberSaveable(state.artist.id) { mutableIntStateOf(0) }
-    var headerHeightPx by rememberSaveable(state.artist.id) { mutableIntStateOf(0) }
+    var backdropHeightPx by rememberSaveable(pageKey) { mutableIntStateOf(0) }
+    var headerHeightPx by rememberSaveable(pageKey) { mutableIntStateOf(0) }
 
     val showTitleBar by remember(barHeightPx) {
         derivedStateOf { backdropHeightPx > 0 && listState.scrolledPast(backdropHeightPx - barHeightPx) }
@@ -285,10 +315,14 @@ private fun ArtistContent(
                                     onImportTo = { target -> viewModel.batchAddToPlaylist(target.id) },
                                     onCreateImport = { showBatchCreate = true },
                                     onLike = viewModel::batchLike,
-                                    onDownload = { viewModel.batchDownload(navigator.downloadLevel) },
+                                    onDownload = {
+                                        if (isKugou) navigator.showMessage("酷狗歌曲暂不支持下载")
+                                        else viewModel.batchDownload(navigator.downloadLevel)
+                                    },
                                     onRemove = {},
                                     onExit = viewModel::exitSelection,
-                                    modifier = Modifier.padding(horizontal = ContentPadding - 16.dp)
+                                    modifier = Modifier.padding(horizontal = ContentPadding - 16.dp),
+                                    onImportToUnified = { target -> viewModel.batchAddToUnifiedPlaylist(target.id) }
                                 )
                             } else {
                                 SongsToolbar(
@@ -303,7 +337,14 @@ private fun ArtistContent(
                             songSearch.active && songSearch.errorMessage != null ->
                                 emptyItem("songs_search_error", songSearch.errorMessage.orEmpty())
                             songsShown.isEmpty() -> emptyItem("songs_empty", if (songSearch.active) "没有找到相关歌曲" else "暂无歌曲")
-                            else -> trackItems(songsShown, nowPlaying?.songId, actions, selection, viewModel::toggleSelected) {
+                            else -> trackItems(
+                                tracks = songsShown,
+                                currentSongId = nowPlaying?.songId,
+                                actions = actions,
+                                selection = selection,
+                                albumEntityIds = state.albumEntityIds,
+                                onToggleSelected = viewModel::toggleSelected
+                            ) {
                                 viewModel.playSongInList(it, songsShown)
                             }
                         }
@@ -317,7 +358,14 @@ private fun ArtistContent(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 rows[rowIndex].forEach { album ->
-                                    AlbumCard(album) { navigator.openAlbum(album.id, album.name) }
+                                    val albumEntityId = state.albumEntityIds[album.id]
+                                    AlbumCard(album) {
+                                        if (albumEntityId != null) {
+                                            navigator.openPlaylistEntity(albumEntityId, album.name, true)
+                                        } else {
+                                            navigator.openAlbum(album.id, album.name)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -326,7 +374,14 @@ private fun ArtistContent(
                     }
                     ArtistTab.ABOUT -> {
                         item(key = "about") {
-                            AboutSection(state.artist.briefDesc, state.similarArtists) { navigator.openArtist(it.id, it.name) }
+                            AboutSection(state.artist.briefDesc, state.similarArtists) { similar ->
+                                val eid = state.similarArtistEntityIds[similar.id]
+                                if (eid != null) {
+                                    navigator.openArtistEntity(eid, similar.name)
+                                } else {
+                                    navigator.openArtist(similar.id, similar.name)
+                                }
+                            }
                         }
                     }
                 }
@@ -336,9 +391,15 @@ private fun ArtistContent(
                     onDismiss = { showBatchCreate = false },
                     onCreate = { name, isPrivate ->
                         showBatchCreate = false
-                        viewModel.batchCreatePlaylistAndAdd(name, isPrivate)
+                        val target = availableCreatePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                        viewModel.batchCreatePlaylistAndAdd(name, isPrivate, target)
                     },
-                    onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+                    onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) },
+                    availablePlatforms = availableCreatePlatforms,
+                    onCreateForPlatform = { name, isPrivate, targetPlatform ->
+                        showBatchCreate = false
+                        viewModel.batchCreatePlaylistAndAdd(name, isPrivate, targetPlatform)
+                    }
                 )
             }
             Box(Modifier.fillMaxWidth().clipToBounds()) {
@@ -367,6 +428,7 @@ private fun LazyListScope.trackItems(
     currentSongId: Long?,
     actions: TrackActions,
     selection: TrackSelection,
+    albumEntityIds: Map<Long, String>,
     onToggleSelected: (Long) -> Unit,
     onPlay: (Track) -> Unit
 ) {
@@ -374,7 +436,7 @@ private fun LazyListScope.trackItems(
         TrackRow(
             index = index,
             track = track,
-            qualitySongId = track.id,
+            qualitySongId = track.id.takeIf { it > 0L },
             isCurrent = currentSongId == track.id,
             onPlay = { onPlay(track) },
             actions = actions,
@@ -386,7 +448,8 @@ private fun LazyListScope.trackItems(
                 )
             } else {
                 null
-            }
+            },
+            albumEntityIds = albumEntityIds
         )
     }
 }
@@ -507,9 +570,10 @@ private fun ArtistHeader(
                 .onSizeChanged { onBackdropHeightChanged(it.height) }
         ) {
             val backdrop = artist.cover.ifBlank { artist.avatar }
+            val isKugou = state.platform == MusicPlatform.KUGOU
             if (backdrop.isNotBlank()) {
                 AsyncImage(
-                    model = if (backdrop.startsWith("http") && !backdrop.contains("?")) "$backdrop?param=1200y600" else backdrop,
+                    model = if (!isKugou && backdrop.startsWith("http") && !backdrop.contains("?")) "$backdrop?param=1200y600" else backdrop,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -521,14 +585,20 @@ private fun ArtistHeader(
                 )
             )
             Column(Modifier.align(Alignment.BottomStart).padding(ContentPadding)) {
-                Text(
-                    artist.name,
-                    color = DesktopColors.TextPrimary,
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        artist.name,
+                        color = DesktopColors.TextPrimary,
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (isKugou) {
+                        PlatformBadge(MusicPlatform.KUGOU, Modifier.padding(start = 12.dp))
+                    }
+                }
                 val subtitle = listOfNotNull(
                     artist.trans?.takeIf { it.isNotBlank() },
                     artist.alias?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }?.joinToString(" / "),

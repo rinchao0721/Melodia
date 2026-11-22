@@ -11,7 +11,9 @@ internal fun desktopNavigator(
     deps: DesktopAppDependencies,
     isLoggedIn: Boolean,
     downloadLevel: String,
-    defaultPlaylistPrivate: Boolean
+    defaultPlaylistPrivate: Boolean,
+    isKugouLoggedIn: Boolean = false,
+    isKugouEnabled: Boolean = false
 ): DesktopNavigator {
     val downloadAt: (Track, String) -> Unit = { track, level ->
         deps.downloader.enqueueSingle(
@@ -22,8 +24,12 @@ internal fun desktopNavigator(
     }
     return DesktopNavigator(
         isLoggedIn = isLoggedIn,
+        isKugouLoggedIn = isKugouLoggedIn,
+        isKugouEnabled = isKugouEnabled,
         openArtist = { id, name -> state.navigate(DesktopRoute.Artist(id, name)) },
+        openArtistEntity = state::openArtistEntity,
         openPlaylist = { id, name -> state.navigate(DesktopRoute.Playlist(id, name)) },
+        openPlaylistEntity = state::openPlaylistEntity,
         openAlbum = { id, name -> state.navigate(DesktopRoute.Playlist(id, name, isAlbum = true)) },
         openRadio = { id -> state.navigate(DesktopRoute.Radio(id)) },
         openProfile = { uid -> state.navigate(DesktopRoute.Profile(uid)) },
@@ -32,6 +38,10 @@ internal fun desktopNavigator(
         openPodcastToplist = { state.navigate(DesktopRoute.PodcastToplist) },
         openPodcastCategory = { id, name -> state.navigate(DesktopRoute.PodcastCategory(id, name)) },
         openLogin = { state.showLogin = true },
+        openKugouLogin = {
+            state.kugouLoginAddAccount = false
+            state.showKugouLogin = true
+        },
         downloadLevel = downloadLevel,
         defaultPlaylistPrivate = defaultPlaylistPrivate,
         downloadTrack = { track -> downloadAt(track, downloadLevel) },

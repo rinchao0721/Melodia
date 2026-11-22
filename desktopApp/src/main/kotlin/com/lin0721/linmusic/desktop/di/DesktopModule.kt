@@ -399,7 +399,9 @@ val desktopViewModelModule = module {
             artistRepository = get(),
             podcastRepository = get(),
             linkPreviewResolver = getOrNull(),
-            songQualityCache = getOrNull()
+            songQualityCache = getOrNull(),
+            platformSearchRouter = getOrNull(),
+            platformArtistRouter = getOrNull()
         )
     }
     factoryOf(::PlaylistCategoryViewModel)

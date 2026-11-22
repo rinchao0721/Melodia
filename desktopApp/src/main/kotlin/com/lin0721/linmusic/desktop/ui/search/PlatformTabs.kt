@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.search.ui.ExternalSearchUiState
+import com.lin0721.linmusic.feature.search.ui.SearchResultsUiState
 import com.lin0721.linmusic.feature.search.ui.tabBadge
 import kotlinx.coroutines.flow.StateFlow
 
@@ -32,7 +33,8 @@ internal fun PlatformTabs(
     selected: MusicPlatform,
     externalResults: Map<MusicPlatform, StateFlow<ExternalSearchUiState>>,
     onSelect: (MusicPlatform) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    kugouResults: StateFlow<SearchResultsUiState>? = null
 ) {
     PrimaryScrollableTabRow(
         selectedTabIndex = platforms.indexOf(selected).coerceAtLeast(0),
@@ -43,8 +45,10 @@ internal fun PlatformTabs(
         divider = { HorizontalDivider(color = DesktopColors.Surface) }
     ) {
         platforms.forEach { platform ->
-            val state = externalResults[platform]?.collectAsState()?.value
-            val badge = state?.tabBadge()
+            val kugouState = if (platform == MusicPlatform.KUGOU) kugouResults?.collectAsState()?.value else null
+            val externalState = if (kugouState == null) externalResults[platform]?.collectAsState()?.value else null
+            val badge = kugouState?.tabBadge() ?: externalState?.tabBadge()
+            val isError = kugouState is SearchResultsUiState.Error || externalState is ExternalSearchUiState.Error
             Tab(
                 selected = platform == selected,
                 onClick = { onSelect(platform) },
@@ -68,7 +72,7 @@ internal fun PlatformTabs(
                             Text(
                                 text = badge,
                                 fontSize = 11.sp,
-                                color = if (state is ExternalSearchUiState.Error) DesktopColors.AccentText else DesktopColors.TextGray
+                                color = if (isError) DesktopColors.AccentText else DesktopColors.TextGray
                             )
                         }
                     }

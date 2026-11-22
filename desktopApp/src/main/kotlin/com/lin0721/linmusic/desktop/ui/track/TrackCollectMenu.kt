@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.desktop.ui.track
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -26,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.LocalSubMenuMaxHeight
@@ -70,14 +74,25 @@ internal fun CollectSubmenuContent(track: Track, actions: TrackActions, onDismis
             else -> SubmenuList {
                 visible.forEach { item ->
                     val contains = overrides[item.playlistId] ?: item.isContains
+                    val isKugou = item.platform == MusicPlatform.KUGOU
                     SimpleMenuItem(
                         text = item.playlistName,
                         onClick = {
                             overrides[item.playlistId] = !contains
                             actions.onToggleCollect(track, item.copy(isInitiallyContains = contains, isContains = !contains))
                         },
-                        trailing = if (contains) {
-                            { Icon(MelodiaIcons.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp)) }
+                        trailing = if (isKugou || contains) {
+                            {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    if (isKugou) PlatformBadge(MusicPlatform.KUGOU)
+                                    if (contains) {
+                                        Icon(MelodiaIcons.Check, "已在歌单中", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
                         } else {
                             null
                         }
@@ -90,9 +105,23 @@ internal fun CollectSubmenuContent(track: Track, actions: TrackActions, onDismis
 
 // “添加到歌单”二级菜单内容：查找框、新建歌单、自建歌单列表，点选即整张导入
 @Composable
-internal fun ImportSubmenuContent(state: PlaylistImportState, onImportTo: (UserPlaylist) -> Unit, onCreate: () -> Unit) {
+internal fun ImportSubmenuContent(
+    state: PlaylistImportState,
+    onImportTo: (UserPlaylist) -> Unit,
+    onCreate: () -> Unit,
+    onImportUnifiedTo: ((UnifiedUserPlaylist) -> Unit)? = null
+) {
     var query by remember { mutableStateOf("") }
-    val visible = state.items.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    val useUnified = state.unifiedItems.isNotEmpty() && onImportUnifiedTo != null
+    val trimmed = query.trim()
+    val visibleUnified = if (useUnified) {
+        state.unifiedItems.filter { trimmed.isBlank() || it.name.contains(trimmed, ignoreCase = true) }
+    } else {
+        emptyList()
+    }
+    val visible = if (useUnified) emptyList() else state.items.filter { trimmed.isBlank() || it.name.contains(trimmed, ignoreCase = true) }
+    val totalEmpty = if (useUnified) state.unifiedItems.isEmpty() else state.items.isEmpty()
+    val visibleEmpty = if (useUnified) visibleUnified.isEmpty() else visible.isEmpty()
     Column(Modifier.padding(vertical = 2.dp)) {
         SubmenuSearchBox(query) { query = it }
         SimpleMenuItem("新建歌单", icon = MelodiaIcons.Plus, onClick = onCreate)
@@ -101,8 +130,21 @@ internal fun ImportSubmenuContent(state: PlaylistImportState, onImportTo: (UserP
             state.isLoading -> Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(18.dp), color = DesktopColors.TextGray, strokeWidth = 2.dp)
             }
-            visible.isEmpty() -> Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
-                Text(if (state.items.isEmpty()) "还没有自建歌单" else "没有匹配的歌单", color = DesktopColors.TextGray, fontSize = 12.sp)
+            visibleEmpty -> Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                Text(if (totalEmpty) "还没有自建歌单" else "没有匹配的歌单", color = DesktopColors.TextGray, fontSize = 12.sp)
+            }
+            useUnified -> SubmenuList {
+                visibleUnified.forEach { playlist ->
+                    SimpleMenuItem(
+                        text = playlist.name,
+                        onClick = { onImportUnifiedTo(playlist) },
+                        trailing = if (playlist.id.platform == MusicPlatform.KUGOU) {
+                            { PlatformBadge(MusicPlatform.KUGOU) }
+                        } else {
+                            null
+                        }
+                    )
+                }
             }
             else -> SubmenuList {
                 visible.forEach { playlist -> SimpleMenuItem(playlist.name, onClick = { onImportTo(playlist) }) }

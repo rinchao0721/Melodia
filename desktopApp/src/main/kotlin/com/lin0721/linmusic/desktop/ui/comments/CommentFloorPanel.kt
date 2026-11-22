@@ -49,12 +49,15 @@ fun CommentFloorPanel(
     currentUserId: Long?,
     host: CommentsHost,
     onRequestDelete: (CommentItem) -> Unit,
+    canLike: Boolean = true,
+    isKugou: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val navigator = LocalDesktopNavigator.current
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
     val ownerComment = (floorState as? CommentFloorState.Success)?.ownerComment ?: owner
+    val loginMessage = if (isKugou) "请先登录酷狗账号" else "请先登录账号"
 
     Column(modifier.fillMaxSize().padding(top = 16.dp)) {
         OverlayPanelHeader(
@@ -87,9 +90,10 @@ fun CommentFloorPanel(
                     state = floorState,
                     currentUserId = currentUserId,
                     host = host,
+                    canLike = canLike,
                     onReply = { comment ->
                         if (currentUserId == null) {
-                            navigator.showMessage("请先登录账号")
+                            navigator.showMessage(loginMessage)
                         } else {
                             replyTarget = comment
                             focusRequester.requestFocus()
@@ -108,7 +112,7 @@ fun CommentFloorPanel(
                 onClearReplyTarget = { replyTarget = null },
                 onSubmit = { content ->
                     if (currentUserId == null) {
-                        navigator.showMessage("请先登录账号")
+                        navigator.showMessage(loginMessage)
                     } else {
                         // 未指定回复对象时回复楼主
                         val parentId = replyTarget?.commentId ?: floorState.ownerComment.commentId
@@ -126,6 +130,7 @@ private fun FloorList(
     state: CommentFloorState.Success,
     currentUserId: Long?,
     host: CommentsHost,
+    canLike: Boolean,
     onReply: (CommentItem) -> Unit,
     onRequestDelete: (CommentItem) -> Unit
 ) {
@@ -142,7 +147,9 @@ private fun FloorList(
     }
 
     fun deleteAction(comment: CommentItem): (() -> Unit)? =
-        if (comment.user.userId == currentUserId) ({ onRequestDelete(comment) }) else null
+        if (currentUserId != null && currentUserId > 0L && comment.user.userId == currentUserId) {
+            { onRequestDelete(comment) }
+        } else null
 
     HoverScrollbarBox(listState) {
         LazyColumn(
@@ -153,6 +160,7 @@ private fun FloorList(
             item(key = "owner") {
                 CommentRow(
                     comment = state.ownerComment,
+                    canLike = canLike,
                     onLike = { host.like(state.ownerComment) },
                     onReply = { onReply(state.ownerComment) },
                     onDelete = deleteAction(state.ownerComment)
@@ -168,6 +176,7 @@ private fun FloorList(
             items(state.replies, key = { it.commentId }) { reply ->
                 CommentRow(
                     comment = reply,
+                    canLike = canLike,
                     onLike = { host.like(reply) },
                     onReply = { onReply(reply) },
                     onDelete = deleteAction(reply)

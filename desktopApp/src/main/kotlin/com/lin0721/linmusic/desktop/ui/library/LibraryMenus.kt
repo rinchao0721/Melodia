@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
@@ -249,6 +250,12 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
     var localDialogOpen by remember { mutableStateOf(false) }
     var anchorWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
+    val availablePlatforms = remember(isLoggedIn, navigator.isKugouEnabled, navigator.isKugouLoggedIn) {
+        buildList {
+            if (isLoggedIn) add(MusicPlatform.NETEASE)
+            if (navigator.isKugouEnabled && navigator.isKugouLoggedIn) add(MusicPlatform.KUGOU)
+        }
+    }
     Box(Modifier.onSizeChanged { anchorWidth = with(density) { it.width.toDp() } }) {
         if (pill) {
             Row(
@@ -270,7 +277,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             LibraryIconButton(MelodiaIcons.Plus, "创建", filled = true) { menuOpen = true }
         }
         LibraryPopupMenu(menuOpen, { menuOpen = false }, anchorWidth, CreateMenuWidth) {
-            if (isLoggedIn) {
+            if (availablePlatforms.isNotEmpty()) {
                 SimpleMenuItem(
                     text = "创建歌单",
                     icon = MelodiaIcons.PlaylistAdd,
@@ -309,9 +316,19 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, extras: LibraryExt
             onDismiss = { dialogOpen = false },
             onCreate = { name, isPrivate ->
                 dialogOpen = false
-                viewModel.createPlaylist(name, isPrivate) { id, playlistName -> navigator.openPlaylist(id, playlistName) }
+                val target = availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                viewModel.createPlaylistForPlatform(target, name, isPrivate) { entityId, playlistName ->
+                    navigator.openPlaylistEntity(entityId, playlistName, false)
+                }
             },
-            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) },
+            availablePlatforms = availablePlatforms,
+            onCreateForPlatform = { name, isPrivate, platform ->
+                dialogOpen = false
+                viewModel.createPlaylistForPlatform(platform, name, isPrivate) { entityId, playlistName ->
+                    navigator.openPlaylistEntity(entityId, playlistName, false)
+                }
+            }
         )
     }
 }
@@ -322,16 +339,28 @@ internal fun CreatePlaylistDialog(
     onCreate: (name: String, isPrivate: Boolean) -> Unit,
     onEmptyName: () -> Unit,
     // 仅创建后顺带加歌的入口不支持隐私选项
-    showPrivacy: Boolean = true
+    showPrivacy: Boolean = true,
+    availablePlatforms: List<MusicPlatform> = emptyList(),
+    onCreateForPlatform: ((name: String, isPrivate: Boolean, platform: MusicPlatform) -> Unit)? = null
 ) {
     val defaultPrivate = LocalDesktopNavigator.current.defaultPlaylistPrivate
     var name by remember { mutableStateOf("") }
     var isPrivate by remember(defaultPrivate) { mutableStateOf(defaultPrivate) }
+    var selectedPlatform by remember(availablePlatforms) {
+        mutableStateOf(availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE)
+    }
+    val effectiveShowPrivacy = showPrivacy && selectedPlatform == MusicPlatform.NETEASE
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
     val submit = {
         val trimmed = name.trim()
-        if (trimmed.isEmpty()) onEmptyName() else onCreate(trimmed, showPrivacy && isPrivate)
+        if (trimmed.isEmpty()) {
+            onEmptyName()
+        } else if (onCreateForPlatform != null) {
+            onCreateForPlatform(trimmed, effectiveShowPrivacy && isPrivate, selectedPlatform)
+        } else {
+            onCreate(trimmed, effectiveShowPrivacy && isPrivate)
+        }
     }
     DesktopDialog(
         title = "新建歌单",
@@ -342,6 +371,32 @@ internal fun CreatePlaylistDialog(
             DialogButton("创建", submit, primary = true)
         }
     ) {
+        if (availablePlatforms.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(10.dp))
+                    .background(DesktopColors.Pane).padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                availablePlatforms.forEach { platform ->
+                    val selected = platform == selectedPlatform
+                    val label = if (platform == MusicPlatform.KUGOU) "酷狗音乐" else "网易云音乐"
+                    Box(
+                        Modifier.weight(1f).height(32.dp).clip(RoundedCornerShape(8.dp))
+                            .background(if (selected) DesktopColors.SurfaceLight else Color.Transparent)
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clickable { selectedPlatform = platform },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            color = if (selected) DesktopColors.TextPrimary else DesktopColors.TextGray,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
         DialogTextField(
             value = name,
             onValueChange = { name = it.take(PLAYLIST_NAME_MAX_LENGTH) },
@@ -349,7 +404,7 @@ internal fun CreatePlaylistDialog(
             focusRequester = focusRequester,
             onEnter = submit
         )
-        if (showPrivacy) {
+        if (effectiveShowPrivacy) {
             Row(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -364,4 +419,3 @@ internal fun CreatePlaylistDialog(
         }
     }
 }
-

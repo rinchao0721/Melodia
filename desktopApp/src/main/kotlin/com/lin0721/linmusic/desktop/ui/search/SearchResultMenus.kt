@@ -39,6 +39,14 @@ private fun DesktopNavigator.requireLogin(action: () -> Unit) {
     if (isLoggedIn) action() else showMessage("请先登录账号")
 }
 
+private fun DesktopNavigator.requireCloudFor(isKugou: Boolean, action: () -> Unit) {
+    if (isKugou) {
+        if (isKugouEnabled && isKugouLoggedIn) action() else showMessage("请先登录酷狗账号")
+    } else {
+        requireLogin(action)
+    }
+}
+
 // 歌单与专辑共用：整体播放、下一首、下载，歌单可收藏，专辑可跳到署名歌手
 @Composable
 internal fun MenuScope.CollectionMenuItems(
@@ -46,62 +54,87 @@ internal fun MenuScope.CollectionMenuItems(
     isAlbum: Boolean,
     albumArtists: List<Artist>,
     viewModel: SearchViewModel,
-    dismiss: () -> Unit
+    dismiss: () -> Unit,
+    entityId: String? = null,
+    entityIds: Map<String, String> = emptyMap()
 ) {
     val navigator = LocalDesktopNavigator.current
+    val isKugou = entityId?.startsWith("kugou:") == true || id < 0L
     MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
         dismiss()
-        viewModel.playCollection(id, isAlbum)
+        if (entityId != null) viewModel.playCollectionEntity(entityId, isAlbum)
+        else viewModel.playCollection(id, isAlbum)
     })
     MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
         dismiss()
-        viewModel.addCollectionToPlayNext(id, isAlbum)
+        if (entityId != null) viewModel.addCollectionEntityToPlayNext(entityId, isAlbum)
+        else viewModel.addCollectionToPlayNext(id, isAlbum)
     })
     if (!isAlbum) {
         MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
             dismiss()
-            navigator.requireLogin { viewModel.subscribePlaylist(id) }
+            navigator.requireCloudFor(isKugou) {
+                if (entityId != null) viewModel.subscribePlaylistEntity(entityId)
+                else viewModel.subscribePlaylist(id)
+            }
         })
     }
-    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
-        dismiss()
-        viewModel.downloadCollection(id, isAlbum, navigator.downloadLevel)
-    })
-    val artists = albumArtists.filter { it.id > 0 }
+    if (!isKugou && id > 0L) {
+        MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
+            dismiss()
+            viewModel.downloadCollection(id, isAlbum, navigator.downloadLevel)
+        })
+    }
+    val artists = albumArtists.filter { it.id > 0L || entityIds.containsKey("artist_${it.id}") }
     if (isAlbum && artists.isNotEmpty()) {
         MenuDivider()
         if (artists.size > 1) {
             SubMenuItem("查看歌手", icon = MelodiaIcons.Person) {
                 artists.forEach { artist ->
+                    val artistEid = entityIds["artist_${artist.id}"]
                     SimpleMenuItem(artist.name, onClick = {
                         dismiss()
-                        navigator.openArtist(artist.id, artist.name)
+                        if (artistEid != null) navigator.openArtistEntity(artistEid, artist.name)
+                        else navigator.openArtist(artist.id, artist.name)
                     })
                 }
             }
         } else {
+            val artist = artists[0]
+            val artistEid = entityIds["artist_${artist.id}"]
             MenuItem("查看歌手", icon = MelodiaIcons.Person, onClick = {
                 dismiss()
-                navigator.openArtist(artists[0].id, artists[0].name)
+                if (artistEid != null) navigator.openArtistEntity(artistEid, artist.name)
+                else navigator.openArtist(artist.id, artist.name)
             })
         }
     }
-    MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = MelodiaIcons.Link, onClick = {
-        dismiss()
-        navigator.copyLink("$NETEASE_WEB/${if (isAlbum) "album" else "playlist"}?id=$id")
-    })
+    if (!isKugou && id > 0L) {
+        MenuItem(if (isAlbum) "复制专辑链接" else "复制歌单链接", icon = MelodiaIcons.Link, onClick = {
+            dismiss()
+            navigator.copyLink("$NETEASE_WEB/${if (isAlbum) "album" else "playlist"}?id=$id")
+        })
+    }
 }
 
 // 关注状态在菜单展开时才查询，查到之前“关注”置灰
 @Composable
-internal fun MenuScope.ArtistMenuItems(artist: Artist, viewModel: SearchViewModel, dismiss: () -> Unit) {
+internal fun MenuScope.ArtistMenuItems(
+    artist: Artist,
+    viewModel: SearchViewModel,
+    dismiss: () -> Unit,
+    entityId: String? = null
+) {
     val navigator = LocalDesktopNavigator.current
-    val followed by produceState<Boolean?>(null, artist.id, navigator.isLoggedIn) {
-        value = if (navigator.isLoggedIn) viewModel.isArtistFollowed(artist.id) else false
+    val isKugou = entityId?.startsWith("kugou:") == true || artist.id < 0L
+    val accountReady = if (isKugou) navigator.isKugouEnabled && navigator.isKugouLoggedIn else navigator.isLoggedIn
+    val followed by produceState<Boolean?>(null, artist.id, entityId, accountReady) {
+        value = if (accountReady) viewModel.isArtistFollowed(artist.id, entityId) else false
     }
     MenuItem("打开歌手", icon = MelodiaIcons.Person, onClick = {
         dismiss()
-        navigator.openArtist(artist.id, artist.name)
+        if (entityId != null) navigator.openArtistEntity(entityId, artist.name)
+        else navigator.openArtist(artist.id, artist.name)
     })
     MenuItem(
         if (followed == true) "取消关注" else "关注",
@@ -109,13 +142,15 @@ internal fun MenuScope.ArtistMenuItems(artist: Artist, viewModel: SearchViewMode
         enabled = followed != null,
         onClick = {
             dismiss()
-            navigator.requireLogin { viewModel.setArtistFollowed(artist.id, followed != true) }
+            navigator.requireCloudFor(isKugou) { viewModel.setArtistFollowed(artist.id, followed != true, entityId) }
         }
     )
-    MenuItem("复制歌手链接", icon = MelodiaIcons.Link, onClick = {
-        dismiss()
-        navigator.copyLink("$NETEASE_WEB/artist?id=${artist.id}")
-    })
+    if (!isKugou && artist.id > 0L) {
+        MenuItem("复制歌手链接", icon = MelodiaIcons.Link, onClick = {
+            dismiss()
+            navigator.copyLink("$NETEASE_WEB/artist?id=${artist.id}")
+        })
+    }
 }
 
 @Composable

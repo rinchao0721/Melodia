@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.components.HoverScrollbarBox
 import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.home.CardTile
@@ -67,37 +70,73 @@ fun BrowsePage(
     onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state by viewModel.discoveryState.collectAsState()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
+    val searchPlatforms by viewModel.searchPlatforms.collectAsState()
+    val selectedPlatform by viewModel.selectedPlatform.collectAsState()
+    val showKugouSwitch = isKugouEnabled && MusicPlatform.KUGOU in searchPlatforms
+    val activePlatform = if (showKugouSwitch && selectedPlatform == MusicPlatform.KUGOU) {
+        MusicPlatform.KUGOU
+    } else {
+        MusicPlatform.NETEASE
+    }
+    val neteaseState by viewModel.discoveryState.collectAsState()
+    val kugouState by viewModel.kugouDiscoveryState.collectAsState()
+    val state = if (activePlatform == MusicPlatform.KUGOU) kugouState else neteaseState
     val discoveryGridState = rememberLazyGridState()
-    when (val s = state) {
-        DiscoveryUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = DesktopColors.Accent)
-        }
-        is DiscoveryUiState.Error -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(s.message, color = DesktopColors.TextGray)
-                TextButton(onClick = viewModel::retryDiscovery) { Text("重试", color = DesktopColors.TextPrimary) }
+
+    Column(modifier.fillMaxSize()) {
+        if (showKugouSwitch) {
+            Row(
+                Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(MusicPlatform.NETEASE, MusicPlatform.KUGOU).forEach { platform ->
+                    FilterChip(
+                        selected = activePlatform == platform,
+                        onClick = { viewModel.selectPlatform(platform) },
+                        label = { Text(platform.shortName) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = DesktopColors.Surface,
+                            labelColor = DesktopColors.TextPrimary,
+                            selectedContainerColor = DesktopColors.TextPrimary,
+                            selectedLabelColor = DesktopColors.Pane
+                        ),
+                        border = null
+                    )
+                }
             }
         }
-        is DiscoveryUiState.Success -> HoverScrollbarBox(discoveryGridState) {
-            LazyVerticalGrid(
-                state = discoveryGridState,
-                columns = GridCells.Adaptive(180.dp),
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                if (s.hotSearches.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("热搜榜") }
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        HotSearchColumns(s.hotSearches.take(HOT_SEARCH_SHOWN), onHotSearchClick)
-                    }
+        when (val s = state) {
+            DiscoveryUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = DesktopColors.Accent)
+            }
+            is DiscoveryUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(s.message, color = DesktopColors.TextGray)
+                    TextButton(onClick = viewModel::retryDiscovery) { Text("重试", color = DesktopColors.TextPrimary) }
                 }
-                if (s.playlistTags.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("歌单分类") }
-                    itemsIndexed(s.playlistTags, key = { _, tag -> tag.name }) { index, tag ->
-                        TagTile(tag, TagColors[index % TagColors.size]) { onCategoryClick(tag.name) }
+            }
+            is DiscoveryUiState.Success -> HoverScrollbarBox(discoveryGridState) {
+                LazyVerticalGrid(
+                    state = discoveryGridState,
+                    columns = GridCells.Adaptive(180.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (s.hotSearches.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("热搜榜") }
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            HotSearchColumns(s.hotSearches.take(HOT_SEARCH_SHOWN), onHotSearchClick)
+                        }
+                    }
+                    if (s.playlistTags.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("歌单分类") }
+                        itemsIndexed(s.playlistTags, key = { _, tag -> tag.name }) { index, tag ->
+                            TagTile(tag, TagColors[index % TagColors.size]) { onCategoryClick(tag.name) }
+                        }
                     }
                 }
             }

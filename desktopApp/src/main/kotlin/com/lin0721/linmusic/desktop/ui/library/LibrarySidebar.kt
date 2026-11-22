@@ -113,6 +113,8 @@ import com.lin0721.linmusic.desktop.ui.playlist.EditPlaylistDialog
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
 import com.lin0721.linmusic.feature.library.ui.LibraryFilter
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
@@ -278,10 +280,12 @@ private fun LibraryBody(
     cardMinWidth: Dp,
     smallTileMinWidth: Dp
 ) {
-    // 未登录时仍可使用本地歌单
-    if (!isLoggedIn) {
+    val navigator = LocalDesktopNavigator.current
+    val hasCloudAccount = isLoggedIn || navigator.hasCloudAccount
+    // 未登录任一云端账号时仍可使用本地歌单
+    if (!hasCloudAccount) {
         LoginPrompt(onLoginClick)
-        LibraryItems(viewModel, extras, false, onItemClick, edgePadding, cardMinWidth, smallTileMinWidth, LibraryViewMode.LIST)
+        LibraryItems(viewModel, extras, isLoggedIn, hasCloudAccount, onItemClick, edgePadding, cardMinWidth, smallTileMinWidth, LibraryViewMode.LIST)
         return
     }
     if (wideSearch) {
@@ -311,7 +315,7 @@ private fun LibraryBody(
         Box(Modifier.padding(start = edgePadding, end = edgePadding, top = 12.dp)) { LibraryFilterChips(viewModel, extras, onFilterToggle) }
         LibraryCompactToolbar(viewModel, edgePadding, viewMode, onViewModeChange, onSortOrderChange)
     }
-    LibraryItems(viewModel, extras, true, onItemClick, edgePadding, cardMinWidth, smallTileMinWidth, viewMode)
+    LibraryItems(viewModel, extras, isLoggedIn, hasCloudAccount, onItemClick, edgePadding, cardMinWidth, smallTileMinWidth, viewMode)
 }
 
 // 窄版工具行：搜索图标点击后展开成输入框（排序标签让位），清空或失焦且无内容时收回
@@ -483,6 +487,7 @@ private fun LibraryItems(
     viewModel: LibraryViewModel,
     extras: LibraryExtrasEntry,
     isLoggedIn: Boolean,
+    hasCloudAccount: Boolean,
     onItemClick: (LibraryItem) -> Unit,
     edgePadding: Dp,
     cardMinWidth: Dp,
@@ -491,7 +496,7 @@ private fun LibraryItems(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
-    val displayItems = rememberLibraryDisplayItems(viewModel, extras, isLoggedIn)
+    val displayItems = rememberLibraryDisplayItems(viewModel, extras, isLoggedIn, hasCloudAccount)
     val handlers = rememberLibraryItemHandlers(viewModel, extras)
     val openItem: (LibraryItem) -> Unit = { item -> extras.open(item, onItemClick) }
 
@@ -563,8 +568,8 @@ internal fun rememberLibraryItemHandlers(viewModel: LibraryViewModel, extras: Li
     var isSavingEdit by remember { mutableStateOf(false) }
 
     editingItem?.let { item ->
-        val id = item.id.toLongOrNull()
-        if (id != null) {
+        val entityId = item.entityId.ifBlank { item.id }
+        if (entityId != KUGOU_RECENT_PLAYLIST_ID && (entityId.toLongOrNull() != null || entityId.contains(':'))) {
             EditPlaylistDialog(
                 initialName = item.title,
                 initialDescription = "",
@@ -573,7 +578,7 @@ internal fun rememberLibraryItemHandlers(viewModel: LibraryViewModel, extras: Li
                 onDismiss = { editingItem = null },
                 onConfirm = { name, desc, coverBytes ->
                     isSavingEdit = true
-                    viewModel.updatePlaylistInfo(id, item.title, name, null, desc, coverBytes) { success ->
+                    viewModel.updatePlaylistInfoByEntity(entityId, item.title, name, null, desc, coverBytes) { success ->
                         isSavingEdit = false
                         if (success) editingItem = null
                     }
@@ -583,15 +588,15 @@ internal fun rememberLibraryItemHandlers(viewModel: LibraryViewModel, extras: Li
     }
 
     deletingItem?.let { item ->
-        val id = item.id.toLongOrNull()
-        if (id != null) {
+        val entityId = item.entityId.ifBlank { item.id }
+        if (entityId != KUGOU_RECENT_PLAYLIST_ID) {
             AlertDialog(
                 onDismissRequest = { deletingItem = null },
                 title = { Text("删除歌单", color = DesktopColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
                 text = { Text("确定要删除歌单「${item.title}」吗？", color = DesktopColors.TextGray, fontSize = 13.sp) },
                 confirmButton = {
                     TextButton(onClick = {
-                        viewModel.deletePlaylist(id)
+                        viewModel.deleteLibraryPlaylist(item)
                         deletingItem = null
                     }) {
                         Text("删除", color = DangerColor)
@@ -636,13 +641,7 @@ internal fun rememberLibraryItemHandlers(viewModel: LibraryViewModel, extras: Li
                 if (item.isOwnedByMe && item.type == LibraryItemType.PLAYLIST) {
                     deletingItem = item
                 } else {
-                    item.id.toLongOrNull()?.let { id ->
-                        when (item.type) {
-                            LibraryItemType.PLAYLIST -> viewModel.unsubscribePlaylist(id)
-                            LibraryItemType.ALBUM -> viewModel.unsubscribeAlbum(id)
-                            LibraryItemType.ARTIST -> viewModel.unsubscribeArtist(id)
-                        }
-                    }
+                    viewModel.unsubscribeLibraryItem(item)
                 }
             },
             onRenameLocal = { renamingLocal = it },
@@ -760,6 +759,8 @@ private fun LibraryItemMenu(
     onDismiss: () -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
+    val isKugouRecent = item.entityId == KUGOU_RECENT_PLAYLIST_ID || item.id == KUGOU_RECENT_PLAYLIST_ID
+    val isNetease = item.platform == MusicPlatform.NETEASE
     DesktopMenu(expanded = expanded, onDismiss = onDismiss, offset = offset) {
         MenuItem("播放", icon = MelodiaIcons.Play, onClick = {
             onDismiss()
@@ -769,13 +770,13 @@ private fun LibraryItemMenu(
             onDismiss()
             viewModel.addLibraryItemToPlayNext(item)
         })
-        if (item.type != LibraryItemType.ARTIST) {
+        if (item.type != LibraryItemType.ARTIST && isNetease && !isKugouRecent) {
             MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                 onDismiss()
                 viewModel.downloadLibraryItem(item, navigator.downloadLevel)
             })
         }
-        if (item.isOwnedByMe && !item.isLikedSongs && item.type == LibraryItemType.PLAYLIST) {
+        if (item.isOwnedByMe && !item.isLikedSongs && !isKugouRecent && item.type == LibraryItemType.PLAYLIST) {
             MenuItem("编辑歌单信息", icon = MelodiaIcons.Edit, onClick = {
                 onDismiss()
                 onEdit()
@@ -789,20 +790,22 @@ private fun LibraryItemMenu(
                 viewModel.togglePin(item.id)
             }
         )
-        MenuItem(
-            when (item.type) {
-                LibraryItemType.PLAYLIST -> "复制歌单链接"
-                LibraryItemType.ALBUM -> "复制专辑链接"
-                LibraryItemType.ARTIST -> "复制歌手链接"
-            },
-            icon = MelodiaIcons.Link,
-            onClick = {
-                onDismiss()
-                val ok = copyLibraryItemLink(item)
-                navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-            }
-        )
-        if (!item.isLikedSongs) {
+        if (isNetease && item.id.toLongOrNull() != null) {
+            MenuItem(
+                when (item.type) {
+                    LibraryItemType.PLAYLIST -> "复制歌单链接"
+                    LibraryItemType.ALBUM -> "复制专辑链接"
+                    LibraryItemType.ARTIST -> "复制歌手链接"
+                },
+                icon = MelodiaIcons.Link,
+                onClick = {
+                    onDismiss()
+                    val ok = copyLibraryItemLink(item)
+                    navigator.showMessage(if (ok) "已复制链接" else "复制失败")
+                }
+            )
+        }
+        if (!item.isLikedSongs && !isKugouRecent && (isNetease || item.type != LibraryItemType.ALBUM)) {
             MenuDivider()
             val isOwned = item.isOwnedByMe && item.type == LibraryItemType.PLAYLIST
             MenuItem(
@@ -903,6 +906,8 @@ private fun LibraryRow(item: LibraryItem, onClick: () -> Unit) {
 // 紧凑列表：单行标题 + 类型，无封面
 @Composable
 private fun LibraryCompactRow(item: LibraryItem, onClick: () -> Unit) {
+    val showKugouBadge = !item.isLocal && !item.isCloud &&
+        item.platform == MusicPlatform.KUGOU && LocalDesktopNavigator.current.isKugouEnabled
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(36.dp).clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick).padding(horizontal = 8.dp),
@@ -924,6 +929,10 @@ private fun LibraryCompactRow(item: LibraryItem, onClick: () -> Unit) {
             Spacer(Modifier.width(LocalBadgeSpacing))
             LocalPlaylistBadge()
         } else {
+            if (showKugouBadge) {
+                Spacer(Modifier.width(LocalBadgeSpacing))
+                KugouItemBadge()
+            }
             Text(" · ${typeLabel(item.type)}", color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, softWrap = false)
         }
     }
@@ -1000,6 +1009,8 @@ internal fun LibraryItemTooltipCard(item: LibraryItem) {
 // 置顶项在副标题前显示置顶标记
 @Composable
 internal fun LibrarySubtitle(item: LibraryItem, lineHeight: TextUnit = TextUnit.Unspecified) {
+    val showKugouBadge = !item.isLocal && !item.isCloud &&
+        item.platform == MusicPlatform.KUGOU && LocalDesktopNavigator.current.isKugouEnabled
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (item.isPinned) {
             Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))
@@ -1007,6 +1018,9 @@ internal fun LibrarySubtitle(item: LibraryItem, lineHeight: TextUnit = TextUnit.
         }
         if (item.isLocal) {
             LocalPlaylistBadge()
+            Spacer(Modifier.width(LocalBadgeSpacing))
+        } else if (showKugouBadge) {
+            KugouItemBadge()
             Spacer(Modifier.width(LocalBadgeSpacing))
         }
         Text(

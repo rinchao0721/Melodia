@@ -556,7 +556,7 @@ internal class PlayerBarParts(
                 size = SideButtonSize, iconSize = SideIconSize,
                 modifier = modifier,
                 onClick = {
-                    if (!navigator.isLoggedIn) {
+                    if (!navigator.hasCloudAccount) {
                         navigator.showMessage("请先登录账号")
                     } else {
                         track.songId?.let { songId ->

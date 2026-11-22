@@ -77,13 +77,17 @@ fun CommentsPanel(
     val state by host.commentsState.collectAsState()
     val composerState by host.composerState.collectAsState()
     val floorState by host.floorState.collectAsState()
+    val userProfile by host.userProfile.collectAsState()
+    val kugouAccount by host.kugouAccount.collectAsState()
     var floorOwner by remember { mutableStateOf<CommentItem?>(null) }
-    val currentUserId = host.userProfile.collectAsState().value?.uid
+    val successState = state as? CommentsState.Success
+    val isKugou = successState?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
+    val currentUserId = if (isKugou) kugouAccount?.uid else userProfile?.uid
     val total = state.totalCount ?: 0
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     var deleteTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
-    val requireLogin = { navigator.showMessage("请先登录账号") }
+    val requireLogin = { navigator.showMessage(if (isKugou) "请先登录酷狗账号" else "请先登录账号") }
     // 面板撤掉时一并收起楼层，下次打开回到评论列表
     DisposableEffect(Unit) { onDispose { host.closeFloor() } }
     val startReply: (CommentItem) -> Unit = { comment ->
@@ -103,15 +107,17 @@ fun CommentsPanel(
                 onClose = onClose,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-            // 排序栏常驻顶部，不受内容区加载态影响
-            TabBar(
-                tabs = SortTypes,
-                selected = state.sortType,
-                label = ::sortLabel,
-                onSelect = host::changeSort,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                small = true
-            )
+            // 排序栏常驻顶部，不受内容区加载态影响；不支持排序的平台隐藏
+            if (successState?.supportsSort != false) {
+                TabBar(
+                    tabs = SortTypes,
+                    selected = state.sortType,
+                    label = ::sortLabel,
+                    onSelect = host::changeSort,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    small = true
+                )
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (val current = state) {
                     is CommentsState.Loading -> CenteredSpinner()
@@ -141,7 +147,7 @@ fun CommentsPanel(
                 }
             }
             // 输入栏常驻底部，不因中间内容状态消失；只读评论不提供
-            if ((state as? CommentsState.Success)?.readOnly != true) CommentInputBar(
+            if (successState?.readOnly != true) CommentInputBar(
                 replyTarget = replyTarget,
                 composerState = composerState,
                 focusRequester = focusRequester,
@@ -174,6 +180,8 @@ fun CommentsPanel(
                 currentUserId = currentUserId,
                 host = host,
                 onRequestDelete = { comment -> deleteTarget = comment },
+                canLike = successState?.canLike ?: true,
+                isKugou = isKugou,
                 modifier = Modifier.paneBackdrop(DesktopColors.Pane).clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -245,11 +253,13 @@ private fun CommentList(
             items(comments, key = { it.commentId }) { comment ->
                 CommentRow(
                     comment = comment,
-                    canLike = !state.readOnly,
+                    canLike = state.canLike,
                     onLike = { host.like(comment) },
-                    onReply = if (state.readOnly) null else ({ onReply(comment) }),
-                    onExpandFloor = if (state.readOnly) null else ({ onExpandFloor(comment) }),
-                    onDelete = if (comment.user.userId == currentUserId) ({ onDelete(comment) }) else null
+                    onReply = if (state.readOnly || !state.canReply) null else ({ onReply(comment) }),
+                    onExpandFloor = if (state.readOnly || !state.supportsFloor) null else ({ onExpandFloor(comment) }),
+                    onDelete = if (state.canDelete && currentUserId != null && currentUserId > 0L && comment.user.userId == currentUserId) {
+                        { onDelete(comment) }
+                    } else null
                 )
             }
             if (state.isLoadingMore) {

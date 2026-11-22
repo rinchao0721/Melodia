@@ -318,6 +318,11 @@ fun main(args: Array<String>) {
         val isPlaying by controller.playWhenReady.collectAsState()
         val nowPlaying by controller.nowPlaying.collectAsState()
         val userProfile by appDependencies.homeViewModel.userProfile.collectAsState()
+        val kugouAccount by appDependencies.userPreferences
+            .activeAccountOf(com.lin0721.linmusic.core.source.MusicPlatform.KUGOU)
+            .collectAsState(initial = null)
+        val kugouPlatformEnabled by settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
+        val hasCloudAccount = userProfile != null || (kugouPlatformEnabled && kugouAccount != null)
 
         val setDesktopLyric: (Boolean) -> Unit = { enabled ->
             scope.launch { settingsPreferences.saveShowDesktopLrc(enabled) }
@@ -614,7 +619,7 @@ fun main(args: Array<String>) {
                 uiMotion = uiMotion,
                 windowEffects = windowEffects,
                 icon = appIcon,
-                isLoggedIn = userProfile != null,
+                isLoggedIn = hasCloudAccount,
                 playerViewModel = playerViewModel,
                 controller = controller,
                 desktopPreferences = desktopPreferences,

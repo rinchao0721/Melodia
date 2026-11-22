@@ -44,7 +44,8 @@ fun LibraryRail(
     shortcutsState: LibraryShortcutsState,
     modifier: Modifier = Modifier
 ) {
-    val displayItems = rememberLibraryDisplayItems(viewModel, extras, isLoggedIn)
+    val hasCloudAccount = com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator.current.hasCloudAccount || isLoggedIn
+    val displayItems = rememberLibraryDisplayItems(viewModel, extras, isLoggedIn, hasCloudAccount)
     val handlers = rememberLibraryItemHandlers(viewModel, extras)
 
     Column(modifier.fillMaxSize().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {

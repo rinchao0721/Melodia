@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatDuration
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -45,6 +47,7 @@ import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
 import com.lin0721.linmusic.feature.search.ui.ExternalSearchUiState
+import com.lin0721.linmusic.feature.search.ui.KugouSearchType
 import com.lin0721.linmusic.feature.search.ui.SearchMode
 import com.lin0721.linmusic.feature.search.ui.SearchResultsUiState
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -79,8 +82,12 @@ private fun ResultsContent(
 ) {
     val selectedPlatform by viewModel.selectedPlatform.collectAsState()
     val searchPlatforms by viewModel.searchPlatforms.collectAsState()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
     val results by viewModel.resultsByType.getValue(selectedType).collectAsState()
+    val kugouSelectedType by viewModel.kugouSelectedType.collectAsState()
+    val kugouResults by viewModel.kugouResultsByType.getValue(kugouSelectedType).collectAsState()
+    val unifiedTracks by viewModel.unifiedTracks.collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val collectState by viewModel.collectState.collectAsState()
@@ -102,64 +109,134 @@ private fun ResultsContent(
                 selected = selectedPlatform,
                 externalResults = viewModel.externalResults,
                 onSelect = viewModel::selectPlatform,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = 4.dp),
+                kugouResults = viewModel.kugouResultsByType.getValue(kugouSelectedType).takeIf { isKugouEnabled }
             )
         }
 
-        if (selectedPlatform == MusicPlatform.NETEASE) {
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SearchType.entries.forEach { type ->
-                    FilterChip(
-                        selected = selectedType == type,
-                        onClick = { viewModel.selectType(type) },
-                        label = { Text(type.label) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = DesktopColors.Surface,
-                            labelColor = DesktopColors.TextPrimary,
-                            selectedContainerColor = DesktopColors.TextPrimary,
-                            selectedLabelColor = DesktopColors.Pane
-                        ),
-                        border = null
-                    )
+        when {
+            selectedPlatform == MusicPlatform.NETEASE -> {
+                Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SearchType.entries.forEach { type ->
+                        SearchTypeFilterChip(
+                            selected = selectedType == type,
+                            label = type.label,
+                            onClick = { viewModel.selectType(type) }
+                        )
+                    }
+                }
+                UnifiedResultsList(
+                    state = results,
+                    currentSongId = nowPlaying?.songId,
+                    viewModel = viewModel,
+                    actions = actions,
+                    unifiedTracks = unifiedTracks,
+                    onLoadMore = viewModel::loadMore,
+                    onRetry = viewModel::retrySearch,
+                    onOpenPlaylist = onOpenPlaylist
+                )
+            }
+            selectedPlatform == MusicPlatform.KUGOU && isKugouEnabled -> {
+                Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KugouSearchType.entries.forEach { type ->
+                        SearchTypeFilterChip(
+                            selected = kugouSelectedType == type,
+                            label = type.label,
+                            onClick = { viewModel.selectKugouType(type) }
+                        )
+                    }
+                }
+                UnifiedResultsList(
+                    state = kugouResults,
+                    currentSongId = nowPlaying?.songId,
+                    viewModel = viewModel,
+                    actions = actions,
+                    unifiedTracks = unifiedTracks,
+                    onLoadMore = viewModel::loadMoreKugou,
+                    onRetry = viewModel::retrySearch,
+                    onOpenPlaylist = onOpenPlaylist
+                )
+            }
+            else -> {
+                ExternalResultsContent(viewModel, selectedPlatform, nowPlaying?.songId, actions)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchTypeFilterChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        shape = RoundedCornerShape(16.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = DesktopColors.Surface,
+            labelColor = DesktopColors.TextPrimary,
+            selectedContainerColor = DesktopColors.TextPrimary,
+            selectedLabelColor = DesktopColors.Pane
+        ),
+        border = null
+    )
+}
+
+@Composable
+private fun UnifiedResultsList(
+    state: SearchResultsUiState,
+    currentSongId: Long?,
+    viewModel: SearchViewModel,
+    actions: TrackActions,
+    unifiedTracks: Map<Long, UnifiedTrack>,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    onOpenPlaylist: (Long, String, Boolean) -> Unit
+) {
+    when (state) {
+        SearchResultsUiState.Idle, SearchResultsUiState.Loading ->
+            Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
+        SearchResultsUiState.Empty -> Centered { Text("没有找到相关结果", color = DesktopColors.TextGray) }
+        is SearchResultsUiState.Error -> Centered {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(state.message, color = DesktopColors.TextGray)
+                TextButton(onClick = onRetry) { Text("重试", color = DesktopColors.TextPrimary) }
+            }
+        }
+        is SearchResultsUiState.Success -> {
+            val listState = rememberLazyListState()
+            val shouldLoadMore by remember(state) {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    state.hasMore && !state.isLoadingMore &&
+                        lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
                 }
             }
-            when (val state = results) {
-                SearchResultsUiState.Idle, SearchResultsUiState.Loading ->
-                    Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
-                SearchResultsUiState.Empty -> Centered { Text("没有找到相关结果", color = DesktopColors.TextGray) }
-                is SearchResultsUiState.Error -> Centered {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(state.message, color = DesktopColors.TextGray)
-                        TextButton(onClick = viewModel::retrySearch) { Text("重试", color = DesktopColors.TextPrimary) }
+            LaunchedEffect(shouldLoadMore) {
+                if (shouldLoadMore) onLoadMore()
+            }
+            HoverScrollbarBox(listState) {
+                LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                    itemsIndexed(state.items, key = { _, item -> item.stableKey }) { index, item ->
+                        ResultEntry(
+                            index = index,
+                            item = item,
+                            currentSongId = currentSongId,
+                            viewModel = viewModel,
+                            actions = actions,
+                            entityIds = state.entityIds,
+                            unifiedTracks = unifiedTracks,
+                            onOpenPlaylist = onOpenPlaylist
+                        )
                     }
-                }
-                is SearchResultsUiState.Success -> {
-                    val listState = rememberLazyListState()
-                    val shouldLoadMore by remember(state) {
-                        derivedStateOf {
-                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                            state.hasMore && !state.isLoadingMore &&
-                                lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
-                        }
-                    }
-                    LaunchedEffect(shouldLoadMore) {
-                        if (shouldLoadMore) viewModel.loadMore()
-                    }
-                    HoverScrollbarBox(listState) {
-                        LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                            itemsIndexed(state.items, key = { _, item -> item.stableKey }) { index, item ->
-                                ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
-                            }
-                            if (state.isLoadingMore) {
-                                item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
-                            }
-                        }
+                    if (state.isLoadingMore) {
+                        item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
                     }
                 }
             }
-        } else {
-            ExternalResultsContent(viewModel, selectedPlatform, nowPlaying?.songId, actions)
         }
     }
 }
@@ -267,44 +344,100 @@ private fun ResultEntry(
     currentSongId: Long?,
     viewModel: SearchViewModel,
     actions: TrackActions,
+    entityIds: Map<String, String> = emptyMap(),
+    unifiedTracks: Map<Long, UnifiedTrack> = emptyMap(),
     onOpenPlaylist: (Long, String, Boolean) -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
     when (item) {
-        is SearchResultItem.SongItem -> TrackRow(
-            index = index,
-            track = item.track,
-            qualitySongId = item.track.id,
-            isCurrent = currentSongId == item.track.id,
-            onPlay = { viewModel.playSong(item.track) },
-            actions = actions
-        )
-        is SearchResultItem.PlaylistItem -> SearchResultRow(
-            coverUrl = item.playlist.coverImgUrl,
-            coverSize = 56.dp,
-            title = item.playlist.name,
-            subtitle = "${item.playlist.trackCount} 首 · ${item.playlist.creator?.nickname.orEmpty()}",
-            onClick = { onOpenPlaylist(item.playlist.id, item.playlist.name, false) },
-            menu = { dismiss -> CollectionMenuItems(item.playlist.id, false, emptyList(), viewModel, dismiss) }
-        )
-        is SearchResultItem.AlbumItem -> SearchResultRow(
-            coverUrl = item.album.picUrl,
-            coverSize = 56.dp,
-            title = item.album.name,
-            subtitle = listOf("专辑", item.album.artists.joinToString(" / ") { it.name }).filter { it.isNotBlank() }
-                .joinToString(" · "),
-            onClick = { onOpenPlaylist(item.album.id, item.album.name, true) },
-            menu = { dismiss -> CollectionMenuItems(item.album.id, true, item.album.artists, viewModel, dismiss) }
-        )
-        is SearchResultItem.ArtistItem -> SearchResultRow(
-            coverUrl = item.artist.picUrl,
-            coverSize = 56.dp,
-            circleCover = true,
-            title = item.artist.name,
-            subtitle = "歌手",
-            onClick = { navigator.openArtist(item.artist.id, item.artist.name) },
-            menu = { dismiss -> ArtistMenuItems(item.artist, viewModel, dismiss) }
-        )
+        is SearchResultItem.SongItem -> {
+            val unified = unifiedTracks[item.track.id]
+            val artistEntityIds = remember(unified) {
+                unified?.artists?.mapNotNull { artist ->
+                    artist.id?.let { aid -> aid.toDeterministicLegacyId() to aid.canonical }
+                }?.toMap().orEmpty()
+            }
+            val albumEntityIds = remember(unified) {
+                unified?.album?.id?.let { aid ->
+                    mapOf(aid.toDeterministicLegacyId() to aid.canonical)
+                }.orEmpty()
+            }
+            TrackRow(
+                index = index,
+                track = item.track,
+                sourcePlatform = unified?.platform?.takeIf { it == MusicPlatform.KUGOU },
+                qualitySongId = item.track.id.takeIf { it > 0L },
+                isCurrent = currentSongId == item.track.id,
+                onPlay = { viewModel.playSong(item.track) },
+                actions = actions,
+                artistEntityIds = artistEntityIds,
+                albumEntityIds = albumEntityIds
+            )
+        }
+        is SearchResultItem.PlaylistItem -> {
+            val eid = entityIds[item.stableKey]
+            SearchResultRow(
+                coverUrl = item.playlist.coverImgUrl,
+                coverSize = 56.dp,
+                title = item.playlist.name,
+                subtitle = "${item.playlist.trackCount} 首 · ${item.playlist.creator?.nickname.orEmpty()}",
+                onClick = {
+                    if (eid != null) navigator.openPlaylistEntity(eid, item.playlist.name, false)
+                    else onOpenPlaylist(item.playlist.id, item.playlist.name, false)
+                },
+                menu = { dismiss ->
+                    CollectionMenuItems(
+                        id = item.playlist.id,
+                        isAlbum = false,
+                        albumArtists = emptyList(),
+                        viewModel = viewModel,
+                        dismiss = dismiss,
+                        entityId = eid,
+                        entityIds = entityIds
+                    )
+                }
+            )
+        }
+        is SearchResultItem.AlbumItem -> {
+            val eid = entityIds[item.stableKey]
+            SearchResultRow(
+                coverUrl = item.album.picUrl,
+                coverSize = 56.dp,
+                title = item.album.name,
+                subtitle = listOf("专辑", item.album.artists.joinToString(" / ") { it.name }).filter { it.isNotBlank() }
+                    .joinToString(" · "),
+                onClick = {
+                    if (eid != null) navigator.openPlaylistEntity(eid, item.album.name, true)
+                    else onOpenPlaylist(item.album.id, item.album.name, true)
+                },
+                menu = { dismiss ->
+                    CollectionMenuItems(
+                        id = item.album.id,
+                        isAlbum = true,
+                        albumArtists = item.album.artists,
+                        viewModel = viewModel,
+                        dismiss = dismiss,
+                        entityId = eid,
+                        entityIds = entityIds
+                    )
+                }
+            )
+        }
+        is SearchResultItem.ArtistItem -> {
+            val eid = entityIds[item.stableKey]
+            SearchResultRow(
+                coverUrl = item.artist.picUrl,
+                coverSize = 56.dp,
+                circleCover = true,
+                title = item.artist.name,
+                subtitle = "歌手",
+                onClick = {
+                    if (eid != null) navigator.openArtistEntity(eid, item.artist.name)
+                    else navigator.openArtist(item.artist.id, item.artist.name)
+                },
+                menu = { dismiss -> ArtistMenuItems(item.artist, viewModel, dismiss, entityId = eid) }
+            )
+        }
         is SearchResultItem.RadioItem -> SearchResultRow(
             coverUrl = item.radio.picUrl,
             coverSize = 56.dp,

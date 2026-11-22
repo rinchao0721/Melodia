@@ -69,6 +69,7 @@ internal fun RouteContent(
         is DesktopRoute.Playlist -> PlaylistPage(
             playlistId = route.id,
             isAlbum = route.isAlbum,
+            entityId = route.entityId,
             viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }, collectPrompts = { it.collectPromptEvent }),
             controller = controller
         )
@@ -99,6 +100,7 @@ internal fun RouteContent(
         )
         is DesktopRoute.Artist -> ArtistPage(
             artistId = route.id,
+            entityId = route.entityId,
             viewModel = frameHost.pageViewModel(entry, factory, toasts = { it.toastEvent }, collectPrompts = { it.collectPromptEvent }),
             controller = controller
         )

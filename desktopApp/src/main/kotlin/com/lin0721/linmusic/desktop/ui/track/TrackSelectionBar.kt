@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
@@ -54,7 +55,8 @@ fun TrackSelectionBar(
     onDownload: () -> Unit,
     onRemove: () -> Unit,
     onExit: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onImportToUnified: ((UnifiedUserPlaylist) -> Unit)? = null
 ) {
     val navigator = LocalDesktopNavigator.current
     val hasSelection = count > 0
@@ -75,7 +77,7 @@ fun TrackSelectionBar(
         SelectionActionButton(MelodiaIcons.Queue, "下一首播放", hasSelection, onClick = onPlayNext)
         Box {
             SelectionActionButton(MelodiaIcons.PlaylistAdd, "添加到歌单", hasSelection) {
-                if (navigator.isLoggedIn) {
+                if (navigator.hasCloudAccount) {
                     onPrepareImport()
                     importMenuOpen = true
                 } else {
@@ -83,17 +85,27 @@ fun TrackSelectionBar(
                 }
             }
             DesktopMenu(expanded = importMenuOpen, onDismiss = { importMenuOpen = false }) {
-                ImportSubmenuContent(importState, onImportTo = {
-                    importMenuOpen = false
-                    onImportTo(it)
-                }, onCreate = {
-                    importMenuOpen = false
-                    onCreateImport()
-                })
+                ImportSubmenuContent(
+                    state = importState,
+                    onImportTo = {
+                        importMenuOpen = false
+                        onImportTo(it)
+                    },
+                    onCreate = {
+                        importMenuOpen = false
+                        onCreateImport()
+                    },
+                    onImportUnifiedTo = onImportToUnified?.let { callback ->
+                        { target ->
+                            importMenuOpen = false
+                            callback(target)
+                        }
+                    }
+                )
             }
         }
         SelectionActionButton(MelodiaIcons.Favorite, "喜欢", hasSelection) {
-            if (navigator.isLoggedIn) onLike() else navigator.showMessage("请先登录账号")
+            if (navigator.hasCloudAccount) onLike() else navigator.showMessage("请先登录账号")
         }
         SelectionActionButton(MelodiaIcons.Download, "下载", hasSelection, onClick = onDownload)
         if (canRemove) {

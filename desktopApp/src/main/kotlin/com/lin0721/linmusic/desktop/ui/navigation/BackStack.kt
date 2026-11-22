@@ -8,13 +8,13 @@ import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 
 sealed interface DesktopRoute {
     data object Home : DesktopRoute
-    data class Playlist(val id: Long, val title: String, val isAlbum: Boolean = false) : DesktopRoute
+    data class Playlist(val id: Long, val title: String, val isAlbum: Boolean = false, val entityId: String? = null) : DesktopRoute
     data class LocalPlaylist(val id: Long, val title: String) : DesktopRoute
     data object Cloud : DesktopRoute
     data object Search : DesktopRoute
     data object Browse : DesktopRoute
     data class PlaylistCategory(val name: String) : DesktopRoute
-    data class Artist(val id: Long, val name: String) : DesktopRoute
+    data class Artist(val id: Long, val name: String, val entityId: String? = null) : DesktopRoute
     data class Style(val id: Long, val name: String) : DesktopRoute
     data class Radio(val id: Long) : DesktopRoute
     data object PodcastSubscribed : DesktopRoute

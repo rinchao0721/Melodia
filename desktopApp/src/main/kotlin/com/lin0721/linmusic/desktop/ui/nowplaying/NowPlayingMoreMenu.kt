@@ -197,9 +197,9 @@ internal fun NowPlayingMoreMenu(
             MenuDivider()
         }
 
-        // 外部平台歌曲没有网易云数据，收藏与红心只存本机
+        // 外部平台歌曲（酷狗走云端收藏，其余平台存本机）
         if (!podcast.isPodcast && detailState.isExternal && songId != null) {
-            if (navigator.isLoggedIn) {
+            if (navigator.hasCloudAccount) {
                 SubMenuItem(
                     "收藏到歌单",
                     icon = MelodiaIcons.PlaylistAdd,
@@ -218,7 +218,7 @@ internal fun NowPlayingMoreMenu(
                 icon = if (detailState.isLiked) MelodiaIcons.FavoriteFilled else MelodiaIcons.Favorite,
                 onClick = {
                     onDismiss()
-                    if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
+                    if (navigator.hasCloudAccount) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
                 }
             )
             MenuDivider()

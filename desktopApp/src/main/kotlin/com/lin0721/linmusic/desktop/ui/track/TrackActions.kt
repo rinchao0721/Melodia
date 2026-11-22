@@ -67,7 +67,7 @@ fun rememberTrackActions(
     }
 
     val requireLogin: (() -> Unit) -> Unit = { action ->
-        if (navigator.isLoggedIn) action() else navigator.showMessage("请先登录账号")
+        if (navigator.hasCloudAccount) action() else navigator.showMessage("请先登录账号")
     }
     return TrackActions(
         likedSongIds = likedSongIds,

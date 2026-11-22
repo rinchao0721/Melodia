@@ -46,6 +46,8 @@ internal fun WindowScope.AppTitleBar(
     val searchViewModel = deps.searchViewModel
     val searchInput by searchViewModel.inputState.collectAsState()
     val discovery by searchViewModel.discoveryState.collectAsState()
+    val kugouDiscovery by searchViewModel.kugouDiscoveryState.collectAsState()
+    val selectedSearchPlatform by searchViewModel.selectedPlatform.collectAsState()
     val downloadTasks by deps.downloader.tasks.collectAsState()
     val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
     val privateUnreadCount by deps.privateUnreadMonitor.unreadCount.collectAsState()
@@ -64,7 +66,13 @@ internal fun WindowScope.AppTitleBar(
     LaunchedEffect(Unit) {
         deps.cloudMusic.uploadRunner.batchFinished.collect { state.showMessage(uploadBatchMessage(it.succeeded, it.failed)) }
     }
-    val defaultKeyword = (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
+    val activeDiscovery = if (selectedSearchPlatform == MusicPlatform.KUGOU && kugouPlatformEnabled) {
+        kugouDiscovery
+    } else {
+        discovery
+    }
+    val defaultKeyword = (activeDiscovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
+        .ifBlank { (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty() }
     val isMaximized = windowState.placement == WindowPlacement.Maximized
     val openSearch = { state.navigate(DesktopRoute.Search) }
 

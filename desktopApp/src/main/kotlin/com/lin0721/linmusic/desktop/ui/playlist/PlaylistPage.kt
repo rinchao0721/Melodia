@@ -78,7 +78,9 @@ import androidx.compose.ui.zIndex
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.theme.paneBackdrop
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.desktop.ui.comments.asCommentsHost
@@ -109,6 +111,7 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.ADDED_COLUMN_WIDTH
 import com.lin0721.linmusic.desktop.ui.track.ImportSubmenuContent
+import com.lin0721.linmusic.desktop.ui.track.PlatformBadge
 import com.lin0721.linmusic.desktop.ui.track.TrackReorder
 import com.lin0721.linmusic.desktop.ui.track.TrackRowSelection
 import com.lin0721.linmusic.core.player.PlayMode
@@ -176,10 +179,15 @@ fun PlaylistPage(
     isAlbum: Boolean,
     viewModel: PlaylistViewModel,
     controller: PlaybackController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    entityId: String? = null
 ) {
-    LaunchedEffect(playlistId, isAlbum) {
-        viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
+    LaunchedEffect(playlistId, isAlbum, entityId) {
+        if (entityId != null) {
+            viewModel.loadEntityIfNeeded(entityId, isAlbum)
+        } else {
+            viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
+        }
     }
     val uiState by viewModel.uiState.collectAsState()
 
@@ -190,14 +198,22 @@ fun PlaylistPage(
         is PlaylistUiState.Error -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(state.message, color = DesktopColors.TextGray)
-                TextButton(onClick = { viewModel.loadPlaylist(playlistId, isAlbum) }) {
+                TextButton(onClick = {
+                    if (entityId != null) viewModel.loadEntity(entityId, isAlbum)
+                    else viewModel.loadPlaylist(playlistId, isAlbum)
+                }) {
                     Text("重试", color = DesktopColors.TextPrimary)
                 }
             }
         }
         is PlaylistUiState.Success -> {
             // 单例 ViewModel 在切换歌单的瞬间仍持有上一个歌单，避免闪现旧内容
-            if (state.playlist.id != playlistId && !isAlbum) {
+            val stale = if (entityId != null) {
+                state.entityId != entityId
+            } else {
+                state.playlist.id != playlistId && !isAlbum
+            }
+            if (stale) {
                 Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = DesktopColors.Accent)
                 }
@@ -218,12 +234,14 @@ private class PlaylistDialogState {
 }
 
 @Composable
-private fun rememberPlaylistDialogState(playlistId: Long): PlaylistDialogState =
-    remember(playlistId) { PlaylistDialogState() }
+private fun rememberPlaylistDialogState(key: Any): PlaylistDialogState =
+    remember(key) { PlaylistDialogState() }
 
 @Composable
 private fun PlaylistDialogsHost(
     playlist: PlaylistDetail,
+    entityId: String,
+    availablePlatforms: List<MusicPlatform>,
     viewModel: PlaylistViewModel,
     dialogState: PlaylistDialogState
 ) {
@@ -237,8 +255,8 @@ private fun PlaylistDialogsHost(
             isSaving = isSavingInfo,
             onDismiss = { dialogState.showEdit = false },
             onConfirm = { name, description, coverBytes ->
-                viewModel.updatePlaylistInfo(
-                    playlist.id, playlist.name, name, playlist.description, description, coverBytes
+                viewModel.updatePlaylistInfoByEntity(
+                    entityId, playlist.name, name, playlist.description, description, coverBytes
                 ) { success -> if (success) dialogState.showEdit = false }
             }
         )
@@ -248,7 +266,8 @@ private fun PlaylistDialogsHost(
             playlistId = playlist.id,
             existingIds = remember(playlist.tracks) { playlist.tracks.mapTo(HashSet()) { it.id } },
             viewModel = viewModel,
-            onDismiss = { dialogState.showAddSongs = false }
+            onDismiss = { dialogState.showAddSongs = false },
+            entityId = entityId
         )
     }
     if (dialogState.showCreateImport) {
@@ -256,9 +275,15 @@ private fun PlaylistDialogsHost(
             onDismiss = { dialogState.showCreateImport = false },
             onCreate = { name, isPrivate ->
                 dialogState.showCreateImport = false
-                viewModel.createPlaylistAndImportAll(name, isPrivate)
+                val target = availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                viewModel.createPlaylistAndImportAll(name, isPrivate, target)
             },
-            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) },
+            availablePlatforms = availablePlatforms,
+            onCreateForPlatform = { name, isPrivate, targetPlatform ->
+                dialogState.showCreateImport = false
+                viewModel.createPlaylistAndImportAll(name, isPrivate, targetPlatform)
+            }
         )
     }
     if (dialogState.showBatchCreate) {
@@ -266,9 +291,15 @@ private fun PlaylistDialogsHost(
             onDismiss = { dialogState.showBatchCreate = false },
             onCreate = { name, isPrivate ->
                 dialogState.showBatchCreate = false
-                viewModel.batchCreatePlaylistAndAdd(name, isPrivate)
+                val target = availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                viewModel.batchCreatePlaylistAndAdd(name, isPrivate, target)
             },
-            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) }
+            onEmptyName = { navigator.showMessage(EMPTY_NAME_MESSAGE) },
+            availablePlatforms = availablePlatforms,
+            onCreateForPlatform = { name, isPrivate, targetPlatform ->
+                dialogState.showBatchCreate = false
+                viewModel.batchCreatePlaylistAndAdd(name, isPrivate, targetPlatform)
+            }
         )
     }
     if (dialogState.showBatchRemove) {
@@ -297,7 +328,7 @@ private fun PlaylistDialogsHost(
                 DialogButton("取消", { dialogState.showDelete = false })
                 DialogButton("删除", {
                     dialogState.showDelete = false
-                    viewModel.deletePlaylist(playlist.id) { navigator.goBack() }
+                    viewModel.deletePlaylistByEntity(entityId) { navigator.goBack() }
                 }, danger = true)
             }
         ) {
@@ -397,6 +428,8 @@ private fun PlaylistContent(
     val navigator = LocalDesktopNavigator.current
     val playlist = state.playlist
     val profile by viewModel.userProfile.collectAsState()
+    val kugouAccount by viewModel.kugouAccount.collectAsState()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
     val likedSongIds by viewModel.likedSongIds.collectAsState()
     val unplayableIds by viewModel.unplayableIds.collectAsState()
@@ -404,11 +437,31 @@ private fun PlaylistContent(
     val importState by viewModel.importState.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val externalTracks by viewModel.externalTracks.collectAsState()
+    val unifiedTracks by viewModel.unifiedTracks.collectAsState()
+
+    val isKugou = state.platform == MusicPlatform.KUGOU
+    val activeKugou = kugouAccount?.takeIf { isKugouEnabled }
+    val hasCloudAccount = profile != null || activeKugou != null
+    val availableCreatePlatforms = remember(profile, activeKugou) {
+        buildList {
+            if (profile != null) add(MusicPlatform.NETEASE)
+            if (activeKugou != null) add(MusicPlatform.KUGOU)
+        }
+    }
 
     val uid = profile?.uid
-    val isLikedView = uid != null && !isAlbum && isLikedSongsPlaylist(playlist.name, playlist.id, uid)
-    val isOwned = uid != null && !isAlbum && playlist.id > 0 && playlist.creator?.userId == uid && !isLikedView
-    val canSubscribe = playlist.id > 0 && !isOwned && !isLikedView
+    val isLikedView = !isKugou && uid != null && !isAlbum && isLikedSongsPlaylist(playlist.name, playlist.id, uid)
+    val isOwned = if (isKugou) {
+        !state.isKugouRecent && !isAlbum && activeKugou != null &&
+            (state.creatorEntityId == activeKugou.accountId.canonical || playlist.creator?.userId == activeKugou.uid)
+    } else {
+        uid != null && !isAlbum && playlist.id > 0 && playlist.creator?.userId == uid && !isLikedView
+    }
+    val canSubscribe = !state.isKugouRecent && !isOwned && !isLikedView &&
+        (if (isKugou) !isAlbum else playlist.id > 0 && !isPluginCollectionId(playlist.id))
+    val showComments = !state.isKugouRecent && (isKugou || playlist.id > 0)
+    val canCopyLink = !isKugou && playlist.id > 0
+    val canDownload = !isKugou && !isPluginCollectionId(playlist.id)
 
     val removeTrack: ((Track) -> Unit)? = if (isOwned) {
         fun(track: Track) = viewModel.removeTrackFromPlaylist(playlist.id, track.id)
@@ -425,7 +478,7 @@ private fun PlaylistContent(
         onSaveCollect = viewModel::savePlaylistCollection,
         onCreateAndAdd = viewModel::createPlaylistAndAddSong,
         onRemove = removeTrack,
-        onReduceRecommend = if (playlist.id == DAILY_RECOMMEND_ID && navigator.isLoggedIn) {
+        onReduceRecommend = if (!isKugou && playlist.id == DAILY_RECOMMEND_ID && navigator.isLoggedIn) {
             { track -> viewModel.reduceDailyRecommend(track.id) }
         } else {
             null
@@ -434,9 +487,10 @@ private fun PlaylistContent(
 
     val commentsHost = remember(viewModel) { viewModel.asCommentsHost() }
     val commentsOpen = navigator.isCommentsPanelOpen(commentsHost)
-    val dialogState = rememberPlaylistDialogState(playlist.id)
-    var query by remember(playlist.id) { mutableStateOf("") }
-    var order by remember(playlist.id) { mutableStateOf(PlaylistSortOrder()) }
+    val pageKey = state.entityId
+    val dialogState = rememberPlaylistDialogState(pageKey)
+    var query by remember(pageKey) { mutableStateOf("") }
+    var order by remember(pageKey) { mutableStateOf(PlaylistSortOrder()) }
     val addedAt = remember(playlist.trackIds) { playlist.trackIds.associate { it.id to it.at } }
     val hasDates = remember(addedAt) { addedAt.values.any { it > 0 } }
     val customView = order.key == PlaylistSortKey.CUSTOM && query.isBlank()
@@ -456,14 +510,14 @@ private fun PlaylistContent(
     )
 
     // 排序与搜索针对全部曲目，自建歌单的拖动调序按全量提交，都需要把没加载的补齐
-    LaunchedEffect(customView, isOwned, playlist.id, state.hasMoreTracks) {
+    LaunchedEffect(customView, isOwned, pageKey, state.hasMoreTracks) {
         if ((!customView || isOwned) && state.hasMoreTracks && !state.isLoadingMoreTracks) viewModel.ensureAllTracksLoaded { }
     }
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var draft by remember(playlist.id) { mutableStateOf<List<Track>?>(null) }
-    var savingOrder by remember(playlist.id) { mutableStateOf(false) }
+    var draft by remember(pageKey) { mutableStateOf<List<Track>?>(null) }
+    var savingOrder by remember(pageKey) { mutableStateOf(false) }
     val canReorder = isOwned && customView && !state.hasMoreTracks && !state.isLoadingMoreTracks && !savingOrder
     val shown = draft ?: displayed
     val reorder = rememberQueueReorderState(
@@ -480,7 +534,7 @@ private fun PlaylistContent(
         val reordered = draft
         if (reordered != null && reordered != playlist.tracks) {
             savingOrder = true
-            viewModel.updateTrackOrder(playlist.id, reordered) {
+            viewModel.updateTrackOrderByEntity(state.entityId, reordered) {
                 savingOrder = false
                 draft = null
             }
@@ -505,7 +559,7 @@ private fun PlaylistContent(
     }
     val totalMs = if (state.hasMoreTracks) null else playlist.tracks.sumOf { it.dt }
 
-    var heroBase by remember(playlist.id) { mutableStateOf(FallbackCoverPalette.base) }
+    var heroBase by remember(pageKey) { mutableStateOf(FallbackCoverPalette.base) }
     LaunchedEffect(playlist.coverImgUrl) {
         if (playlist.coverImgUrl.isNotBlank()) heroBase = extractCoverPaletteFromUrl(playlist.coverImgUrl).base
     }
@@ -515,8 +569,8 @@ private fun PlaylistContent(
     val barHeightPx = with(density) { StickyBarHeight.roundToPx() }
     val playButtonBottomPx = with(density) { (ActionBarVerticalPadding + PlayButtonSize).roundToPx() }
     // 恢复页面现场时列表直接停在中间，大标题不会再测一次，高度要随现场保存
-    var heroHeightPx by rememberSaveable(playlist.id) { mutableIntStateOf(0) }
-    var headerHeightPx by rememberSaveable(playlist.id) { mutableIntStateOf(0) }
+    var heroHeightPx by rememberSaveable(pageKey) { mutableIntStateOf(0) }
+    var headerHeightPx by rememberSaveable(pageKey) { mutableIntStateOf(0) }
     // 大标题整体滑到横栏之下时出现歌单名，操作栏的播放按钮滑到横栏之下时再出现播放按钮
     val showTitleBar by remember(barHeightPx) {
         derivedStateOf { heroHeightPx > 0 && listState.scrolledPast(heroHeightPx - barHeightPx) }
@@ -548,7 +602,7 @@ private fun PlaylistContent(
                         .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
-                        PlaylistHero(playlist, isAlbum, count, totalMs)
+                        PlaylistHero(playlist, isAlbum, isKugou, state.isKugouRecent, count, totalMs)
                     }
                     PlaylistActionBar(
                         isAlbum = isAlbum,
@@ -559,10 +613,13 @@ private fun PlaylistContent(
                         showAdded = hasDates,
                         canDelete = isOwned,
                         onDelete = { dialogState.showDelete = true },
-                        showComments = playlist.id > 0,
+                        showComments = showComments,
                         commentsOpen = commentsOpen,
                         onToggleComments = {
-                            if (!commentsOpen) viewModel.loadPlaylistComments(playlist.id)
+                            if (!commentsOpen) {
+                                if (isKugou) viewModel.loadEntityComments()
+                                else viewModel.loadPlaylistComments(playlist.id)
+                            }
                             navigator.toggleCommentsPanel(commentsHost)
                         },
                         isPlaying = playbackState.isCurrentlyPlayingThis,
@@ -570,16 +627,17 @@ private fun PlaylistContent(
                         isShuffleActive = playbackState.isShuffleActive,
                         onToggleShuffle = controller::toggleShuffle,
                         onToggleSubscribe = {
-                            if (navigator.isLoggedIn) viewModel.toggleSubscribePlaylist() else navigator.showMessage("请先登录账号")
+                            if (hasCloudAccount) viewModel.toggleSubscribePlaylist() else navigator.showMessage("请先登录账号")
                         },
                         onDownload = { viewModel.downloadPlaylist(playlist.id, playlist.name, navigator.downloadLevel) },
                         onPlayNextAll = viewModel::addAllTracksToPlayNext,
                         importState = importState,
-                        onPrepareImport = { viewModel.prepareImportTargets(playlist.id) },
+                        onPrepareImport = { viewModel.prepareImportTargets(playlist.id, state.entityId) },
                         onImportTo = { target -> viewModel.importAllTracksTo(target.id) },
+                        onImportToUnified = { target -> viewModel.importAllTracksToUnified(target.id) },
                         onCreateImport = { dialogState.showCreateImport = true },
-                        canCopyLink = playlist.id > 0,
-                        canDownload = !isPluginCollectionId(playlist.id),
+                        canCopyLink = canCopyLink,
+                        canDownload = canDownload,
                         onCopyLink = {
                             navigator.showMessage(if (copyPlaylistLink(isAlbum, playlist.id)) "已复制链接" else "复制失败")
                         },
@@ -618,13 +676,14 @@ private fun PlaylistContent(
                                 canRemove = isOwned,
                                 onToggleAll = { viewModel.toggleSelectAll(shownIds) },
                                 onPlayNext = viewModel::batchPlayNext,
-                                onPrepareImport = { viewModel.prepareImportTargets(playlist.id) },
+                                onPrepareImport = { viewModel.prepareImportTargets(playlist.id, state.entityId) },
                                 onImportTo = { target -> viewModel.batchAddToPlaylist(target.id) },
                                 onCreateImport = { dialogState.showBatchCreate = true },
                                 onLike = viewModel::batchLike,
                                 onDownload = { viewModel.batchDownload(navigator.downloadLevel) },
                                 onRemove = { dialogState.showBatchRemove = true },
-                                onExit = viewModel::exitSelection
+                                onExit = viewModel::exitSelection,
+                                onImportToUnified = { target -> viewModel.batchAddToUnifiedPlaylist(target.id) }
                             )
                         }
                         TrackColumnHeader(order, hasDates) { order = order.toggled(it) }
@@ -634,10 +693,17 @@ private fun PlaylistContent(
             itemsIndexed(shown, key = { index, _ -> rowKeys[index] }) { index, track ->
                 val dragging = reorder.draggedIndex == index
                 val settling = reorder.settlingIndex == index
+                val isNativeReorderable = if (isKugou) {
+                    unifiedTracks[track.id]?.platform == MusicPlatform.KUGOU
+                } else {
+                    track.id > 0L
+                }
+                val trackSourcePlatform = externalTracks[track.id]?.platform
+                    ?: unifiedTracks[track.id]?.platform?.takeIf { it != state.platform }
                 TrackRow(
                     index = index,
                     track = track,
-                    qualitySongId = track.id,
+                    qualitySongId = track.id.takeIf { it > 0L },
                     isCurrent = nowPlaying?.songId == track.id,
                     onPlay = { playbackState.playFrom(track) },
                     actions = actions,
@@ -655,9 +721,9 @@ private fun PlaylistContent(
                     modifier = Modifier.padding(horizontal = 16.dp)
                         .then(if (dragging || settling) Modifier.zIndex(1f) else if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier),
                     addedAtText = if (hasDates) formatAddedDate(addedAt[track.id] ?: 0L) else null,
-                    sourcePlatform = externalTracks[track.id]?.platform,
+                    sourcePlatform = trackSourcePlatform,
                     // 外部歌曲的位置跟随加入时间，不参与拖动调序
-                    reorder = if (!selection.active && track.id > 0L && (canReorder || dragging)) {
+                    reorder = if (!selection.active && isNativeReorderable && (canReorder || dragging)) {
                         TrackReorder(
                             dragging = dragging,
                             offsetY = reorder.offsetOf(index),
@@ -670,7 +736,9 @@ private fun PlaylistContent(
                         )
                     } else {
                         null
-                    }
+                    },
+                    artistEntityIds = state.artistEntityIds,
+                    albumEntityIds = state.albumEntityIds
                 )
             }
             if (shown.isEmpty() && query.isNotBlank() && !state.isLoadingMoreTracks) {
@@ -680,7 +748,7 @@ private fun PlaylistContent(
                     }
                 }
             }
-            if (isOwned && query.isBlank() && state.recommendedSongs.isNotEmpty()) {
+            if (isOwned && !isKugou && query.isBlank() && state.recommendedSongs.isNotEmpty()) {
                 item(key = "recommend_header") {
                     Row(
                         Modifier.fillMaxWidth().padding(start = HeaderPadding, end = HeaderPadding, top = 32.dp, bottom = 8.dp),
@@ -737,16 +805,27 @@ private fun PlaylistContent(
 
     PlaylistDialogsHost(
         playlist = playlist,
+        entityId = state.entityId,
+        availablePlatforms = availableCreatePlatforms,
         viewModel = viewModel,
         dialogState = dialogState
     )
 }
 
 @Composable
-private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int, totalMs: Long?) {
+private fun PlaylistHero(
+    playlist: PlaylistDetail,
+    isAlbum: Boolean,
+    isKugou: Boolean,
+    isKugouRecent: Boolean,
+    count: Int,
+    totalMs: Long?
+) {
     val typeLabel = when {
+        isKugouRecent -> "最近播放"
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"
+        isKugou -> if (playlist.privacy == PRIVATE_PLAYLIST) "隐私歌单" else "公开歌单"
         isPluginCollectionId(playlist.id) -> "歌单"
         playlist.privacy == PRIVATE_PLAYLIST -> "隐私歌单"
         else -> "公开歌单"
@@ -754,7 +833,7 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
     val navigator = LocalDesktopNavigator.current
     val owner = if (isAlbum) playlist.artists.joinToString(" / ") { it.name } else playlist.creator?.nickname.orEmpty()
     val avatarUrl = if (isAlbum) null else playlist.creator?.avatarUrl
-    val creatorId = playlist.creator?.userId?.takeIf { !isAlbum && it > 0 }
+    val creatorId = playlist.creator?.userId?.takeIf { !isAlbum && !isKugou && it > 0 }
     val summary = buildString {
         append("$count 首歌曲")
         if (totalMs != null) append("，${formatTotalDuration(totalMs)}")
@@ -762,7 +841,10 @@ private fun PlaylistHero(playlist: PlaylistDetail, isAlbum: Boolean, count: Int,
     Row(Modifier.fillMaxWidth().padding(HeaderPadding), verticalAlignment = Alignment.Bottom) {
         Cover(playlist.coverImgUrl, 200.dp, shape = RoundedCornerShape(6.dp))
         Column(Modifier.weight(1f).padding(start = HeaderPadding)) {
-            Text(typeLabel, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(typeLabel, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (isKugou) PlatformBadge(MusicPlatform.KUGOU, Modifier.padding(start = 8.dp))
+            }
             Text(
                 playlist.name,
                 color = DesktopColors.TextPrimary,
@@ -897,6 +979,7 @@ private fun PlaylistActionBar(
     importState: PlaylistImportState,
     onPrepareImport: () -> Unit,
     onImportTo: (UserPlaylist) -> Unit,
+    onImportToUnified: ((UnifiedUserPlaylist) -> Unit)?,
     onCreateImport: () -> Unit,
     canCopyLink: Boolean,
     canDownload: Boolean,
@@ -937,7 +1020,7 @@ private fun PlaylistActionBar(
         if (canDownload) ActionIcon(MelodiaIcons.Download, "下载$resourceLabel", onClick = onDownload)
         PlaylistMoreMenu(
             resourceLabel, canDelete, canCopyLink, onPlayNextAll,
-            importState, onPrepareImport, onImportTo, onCreateImport, onCopyLink, onDelete
+            importState, onPrepareImport, onImportTo, onImportToUnified, onCreateImport, onCopyLink, onDelete
         )
         Spacer(Modifier.weight(1f))
         ActionIcon(MelodiaIcons.Checklist, "多选", iconSize = 20.dp, onClick = onEnterSelection)
@@ -972,6 +1055,7 @@ private fun PlaylistMoreMenu(
     importState: PlaylistImportState,
     onPrepareImport: () -> Unit,
     onImportTo: (UserPlaylist) -> Unit,
+    onImportToUnified: ((UnifiedUserPlaylist) -> Unit)?,
     onCreateImport: () -> Unit,
     onCopyLink: () -> Unit,
     onDelete: () -> Unit
@@ -985,15 +1069,25 @@ private fun PlaylistMoreMenu(
                 expanded = false
                 onPlayNextAll()
             })
-            if (navigator.isLoggedIn) {
+            if (navigator.hasCloudAccount) {
                 SubMenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onOpen = onPrepareImport) {
-                    ImportSubmenuContent(importState, onImportTo = {
-                        expanded = false
-                        onImportTo(it)
-                    }, onCreate = {
-                        expanded = false
-                        onCreateImport()
-                    })
+                    ImportSubmenuContent(
+                        state = importState,
+                        onImportTo = {
+                            expanded = false
+                            onImportTo(it)
+                        },
+                        onCreate = {
+                            expanded = false
+                            onCreateImport()
+                        },
+                        onImportUnifiedTo = onImportToUnified?.let { callback ->
+                            { target ->
+                                expanded = false
+                                callback(target)
+                            }
+                        }
+                    )
                 }
             } else {
                 MenuItem("添加到歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {

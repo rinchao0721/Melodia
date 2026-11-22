@@ -11,8 +11,12 @@ import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 @Immutable
 class DesktopNavigator(
     val isLoggedIn: Boolean,
+    val isKugouLoggedIn: Boolean = false,
+    val isKugouEnabled: Boolean = false,
     val openArtist: (id: Long, name: String) -> Unit,
+    val openArtistEntity: (entityId: String, name: String) -> Unit = { _, _ -> },
     val openPlaylist: (id: Long, name: String) -> Unit,
+    val openPlaylistEntity: (entityId: String, name: String, isAlbum: Boolean) -> Unit = { _, _, _ -> },
     val openAlbum: (id: Long, name: String) -> Unit,
     val openRadio: (id: Long) -> Unit,
     val openProfile: (uid: Long) -> Unit,
@@ -21,6 +25,7 @@ class DesktopNavigator(
     val openPodcastToplist: () -> Unit,
     val openPodcastCategory: (id: Long, name: String) -> Unit,
     val openLogin: () -> Unit,
+    val openKugouLogin: () -> Unit = {},
     // 下载音质跟随播放音质设置
     val downloadLevel: String,
     // 新建歌单对话框里隐私开关的初始值
@@ -41,7 +46,9 @@ class DesktopNavigator(
     // 当前页面是否为一起听房间页，状态标识据此在打开与返回间切换
     val isListenTogetherOpen: Boolean = false,
     val openMessages: (peerUid: Long?, peerName: String, peerAvatar: String) -> Unit = { _, _, _ -> }
-)
+) {
+    val hasCloudAccount: Boolean get() = isLoggedIn || (isKugouEnabled && isKugouLoggedIn)
+}
 
 val LocalDesktopNavigator = compositionLocalOf<DesktopNavigator> {
     error("DesktopNavigator 未提供")
