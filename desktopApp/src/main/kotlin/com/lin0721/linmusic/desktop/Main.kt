@@ -104,6 +104,7 @@ import com.lin0721.linmusic.desktop.ui.theme.rememberDesktopPalette
 import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
 import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
+import com.lin0721.linmusic.di.kugouModule
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.pluginModule
 import com.lin0721.linmusic.di.repositoryModule
@@ -180,7 +181,7 @@ fun main(args: Array<String>) {
     val koin = startKoin {
         modules(
             platformModuleFor(System.getProperty("os.name").orEmpty()),
-            desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule,
+            desktopPlatformModule, networkModule, repositoryModule, kugouModule, sourceModule, desktopViewModelModule,
             updateModule(AppInfo.versionCode), pluginModule { File(DesktopPaths.dataDir, "plugins") },
             listenTogetherModule(Dispatchers.Main)
         )

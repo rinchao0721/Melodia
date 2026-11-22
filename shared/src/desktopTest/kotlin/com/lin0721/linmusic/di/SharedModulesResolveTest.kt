@@ -91,7 +91,7 @@ class SharedModulesResolveTest {
             single { MetadataCache(File(dir, "meta_cache")) { 0L } }
             single<CachedAudioIndex> { CachedAudioIndex { emptySet() } }
         }
-        val koin = koinApplication { modules(platformModule, networkModule, repositoryModule) }.koin
+        val koin = koinApplication { modules(platformModule, networkModule, repositoryModule, kugouModule) }.koin
         try {
             listOf(
                 AuthRepositoryImpl::class, AccountSwitcher::class, SessionMonitor::class, HomeRepositoryImpl::class, MusicRepositoryImpl::class,
@@ -109,6 +109,13 @@ class SharedModulesResolveTest {
                 SongQualityCache::class, MessageRepositoryImpl::class, PrivateUnreadMonitor::class,
                 com.lin0721.linmusic.core.deeplink.LinkPreviewResolver::class,
                 com.lin0721.linmusic.core.deeplink.SongLinkRequests::class,
+                com.lin0721.linmusic.core.kugou.KugouConfig::class,
+                com.lin0721.linmusic.core.kugou.KugouDeviceStore::class,
+                com.lin0721.linmusic.core.kugou.KugouGatewayClient::class,
+                com.lin0721.linmusic.core.kugou.KugouAuthService::class,
+                com.lin0721.linmusic.core.kugou.KugouAuthProvider::class,
+                com.lin0721.linmusic.core.auth.NeteaseAuthProvider::class,
+                com.lin0721.linmusic.core.auth.PlatformSessionRegistry::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

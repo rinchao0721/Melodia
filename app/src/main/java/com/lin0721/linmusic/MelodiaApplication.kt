@@ -29,6 +29,7 @@ import com.lin0721.linmusic.core.update.UpdateChecker
 import com.lin0721.linmusic.core.vehicle.LeapmotorMediaClaim
 import com.lin0721.linmusic.core.vehicle.LeapmotorSteeringControl
 import com.lin0721.linmusic.di.downloadModule
+import com.lin0721.linmusic.di.kugouModule
 import com.lin0721.linmusic.di.localModule
 import com.lin0721.linmusic.di.localMusicModule
 import com.lin0721.linmusic.di.lxPluginModule
@@ -107,7 +108,7 @@ class MelodiaApplication : Application() {
             androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
             androidContext(this@MelodiaApplication)
             modules(
-                networkModule, localModule, repositoryModule, sourceModule, lxPluginModule, viewModelModule, playerModule,
+                networkModule, localModule, repositoryModule, kugouModule, sourceModule, lxPluginModule, viewModelModule, playerModule,
                 updateModule(BuildConfig.VERSION_CODE), downloadModule, localMusicModule, recognitionModule,
                 pluginModule { File(androidContext().filesDir, "plugins") },
                 listenTogetherModule(Dispatchers.Main)
