@@ -1,10 +1,15 @@
 package com.lin0721.linmusic.core.playlistexternal
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.toUnified
 import com.lin0721.linmusic.core.source.ExternalTrack
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -33,7 +38,17 @@ data class PlaylistExternalSnapshot(
     val tombstones: List<PlaylistExternalTombstone> = emptyList()
 )
 
-// 混排进网易云歌单的外部平台歌曲，只存本机不同步云端；每个歌单内最近加入的在前
+@Serializable
+data class PlaylistUnifiedEntry(val track: UnifiedTrack, val addedAt: Long)
+
+@Serializable
+data class PlaylistUnifiedTombstone(
+    val playlistId: PlaylistId,
+    val trackKey: String,
+    val removedAt: Long
+)
+
+// 跨平台歌单混排本地持久化仓库，同时保持与旧版网易云 Long 键与 LanLink 快照的双向兼容
 class PlaylistExternalTrackStore(
     private val dataStore: DataStore<Preferences>,
     private val nowMs: () -> Long = { System.currentTimeMillis() }
@@ -42,12 +57,21 @@ class PlaylistExternalTrackStore(
     companion object {
         private val KEY_ENTRIES = stringPreferencesKey("playlist_external_entries")
         private val KEY_TOMBSTONES = stringPreferencesKey("playlist_external_tombstones")
+        private val KEY_UNIFIED_ENTRIES = stringPreferencesKey("playlist_unified_entries")
+        private val KEY_UNIFIED_TOMBSTONES = stringPreferencesKey("playlist_unified_tombstones")
         private val json = Json { ignoreUnknownKeys = true }
     }
 
     val all: Flow<Map<Long, List<PlaylistExternalEntry>>> = dataStore.data.map { prefs ->
         decodeEntries(prefs[KEY_ENTRIES])
     }
+
+    val allUnified: Flow<Map<PlaylistId, List<PlaylistUnifiedEntry>>> = dataStore.data.map { prefs ->
+        mergeLegacyAndUnifiedEntries(
+            legacy = decodeEntries(prefs[KEY_ENTRIES]),
+            unified = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+        )
+    }.distinctUntilChanged()
 
     val snapshotFlow: Flow<PlaylistExternalSnapshot> = dataStore.data.map { prefs ->
         val entries = decodeEntries(prefs[KEY_ENTRIES])
@@ -60,8 +84,14 @@ class PlaylistExternalTrackStore(
     fun entriesOf(playlistId: Long): Flow<List<PlaylistExternalEntry>> =
         all.map { it[playlistId].orEmpty() }.distinctUntilChanged()
 
+    fun entriesOf(playlistId: PlaylistId): Flow<List<PlaylistUnifiedEntry>> =
+        allUnified.map { it[playlistId].orEmpty() }.distinctUntilChanged()
+
     suspend fun contains(playlistId: Long, track: ExternalTrack): Boolean =
         all.first()[playlistId].orEmpty().any { it.track.resolveKey == track.resolveKey }
+
+    suspend fun contains(playlistId: PlaylistId, trackId: TrackId): Boolean =
+        allUnified.first()[playlistId].orEmpty().any { it.track.id == trackId }
 
     // 返回实际新增的数量，已在歌单里的按 resolveKey 去重跳过，并清除同名墓碑
     suspend fun add(playlistId: Long, tracks: List<ExternalTrack>, now: Long = nowMs()): Int {
@@ -80,6 +110,58 @@ class PlaylistExternalTrackStore(
                     now
                 )
                 writeTombstonesIfNeeded(prefs, currentTombstones, updatedTombstones)
+            }
+        }
+        return added
+    }
+
+    // 向任意平台歌单添加跨平台曲目（支持 UnifiedTrack 与 KugouTrackMeta），按 TrackId.canonical 去重
+    suspend fun add(playlistId: PlaylistId, tracks: List<UnifiedTrack>, now: Long = nowMs()): Int {
+        if (tracks.isEmpty()) return 0
+        var added = 0
+        dataStore.edit { prefs ->
+            val currentUnified = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+            val currentLegacy = decodeEntries(prefs[KEY_ENTRIES])
+            val canonicalKey = playlistId.canonical
+            val existingUnified = currentUnified[canonicalKey].orEmpty()
+            val neteaseId = playlistId.neteaseIdOrNull()
+            val legacyKeys = if (neteaseId != null) {
+                currentLegacy[neteaseId].orEmpty().mapTo(HashSet()) { it.track.toUnified().id.canonical }
+            } else {
+                emptySet()
+            }
+
+            val existingKeys = existingUnified.mapTo(HashSet()) { it.track.id.canonical }
+            existingKeys.addAll(legacyKeys)
+
+            val fresh = tracks.distinctBy { it.id.canonical }
+                .filter { existingKeys.add(it.id.canonical) }
+                .map { PlaylistUnifiedEntry(track = it, addedAt = now) }
+            added = fresh.size
+            if (added > 0) {
+                val updatedList = fresh + existingUnified
+                prefs[KEY_UNIFIED_ENTRIES] = json.encodeToString(currentUnified + (canonicalKey to updatedList))
+
+                val addedKeys = fresh.mapTo(HashSet()) { it.track.id.canonical }
+                val currentUnifiedTombstones = decodeUnifiedTombstones(prefs[KEY_UNIFIED_TOMBSTONES])
+                val updatedUnifiedTombstones = pruneExpiredUnifiedTombstones(
+                    currentUnifiedTombstones.filterNot {
+                        it.playlistId == playlistId && it.trackKey in addedKeys
+                    },
+                    now
+                )
+                writeUnifiedTombstonesIfNeeded(prefs, currentUnifiedTombstones, updatedUnifiedTombstones)
+
+                if (neteaseId != null) {
+                    val currentLegacyTombstones = decodeTombstones(prefs[KEY_TOMBSTONES])
+                    val updatedLegacyTombstones = pruneExpiredTombstones(
+                        currentLegacyTombstones.filterNot {
+                            it.playlistId == neteaseId && it.resolveKey in addedKeys
+                        },
+                        now
+                    )
+                    writeTombstonesIfNeeded(prefs, currentLegacyTombstones, updatedLegacyTombstones)
+                }
             }
         }
         return added
@@ -107,6 +189,52 @@ class PlaylistExternalTrackStore(
         }
     }
 
+    // 从指定跨平台歌单移出本地混排曲目（同步清理可能存在于旧版 Long 存储里的同源条目）
+    suspend fun remove(playlistId: PlaylistId, trackIds: Set<TrackId>) {
+        if (trackIds.isEmpty()) return
+        val now = nowMs()
+        dataStore.edit { prefs ->
+            val canonicalKey = playlistId.canonical
+            val currentUnified = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+            val unifiedList = currentUnified[canonicalKey]
+            if (unifiedList != null) {
+                val removedUnified = unifiedList.filter { it.track.id in trackIds }
+                if (removedUnified.isNotEmpty()) {
+                    val remaining = unifiedList.filterNot { it.track.id in trackIds }
+                    val updated = if (remaining.isEmpty()) currentUnified - canonicalKey else currentUnified + (canonicalKey to remaining)
+                    prefs[KEY_UNIFIED_ENTRIES] = json.encodeToString(updated)
+
+                    val currentTombstones = decodeUnifiedTombstones(prefs[KEY_UNIFIED_TOMBSTONES])
+                    val newTombstones = removedUnified.map {
+                        PlaylistUnifiedTombstone(playlistId = playlistId, trackKey = it.track.id.canonical, removedAt = now)
+                    }
+                    val updatedTombstones = pruneExpiredUnifiedTombstones(currentTombstones + newTombstones, now)
+                    writeUnifiedTombstonesIfNeeded(prefs, currentTombstones, updatedTombstones)
+                }
+            }
+
+            val neteaseId = playlistId.neteaseIdOrNull()
+            if (neteaseId != null) {
+                val currentLegacy = decodeEntries(prefs[KEY_ENTRIES])
+                val legacyList = currentLegacy[neteaseId]
+                if (legacyList != null) {
+                    val removedLegacy = legacyList.filter { it.track.toUnified().id in trackIds }
+                    if (removedLegacy.isNotEmpty()) {
+                        val remaining = legacyList.filterNot { it.track.toUnified().id in trackIds }
+                        val updated = if (remaining.isEmpty()) currentLegacy - neteaseId else currentLegacy + (neteaseId to remaining)
+                        prefs[KEY_ENTRIES] = json.encodeToString(updated)
+
+                        val currentTombstones = decodeTombstones(prefs[KEY_TOMBSTONES])
+                        val newTombstones = removedLegacy.map {
+                            PlaylistExternalTombstone(playlistId = neteaseId, resolveKey = it.track.resolveKey, removedAt = now)
+                        }
+                        prefs[KEY_TOMBSTONES] = json.encodeToString(mergeTombstones(currentTombstones, newTombstones, now))
+                    }
+                }
+            }
+        }
+    }
+
     suspend fun clearPlaylist(playlistId: Long) {
         val now = nowMs()
         dataStore.edit { prefs ->
@@ -120,6 +248,41 @@ class PlaylistExternalTrackStore(
             }
             val updatedTombstones = mergeTombstones(currentTombstones, newTombstones, now)
             prefs[KEY_TOMBSTONES] = json.encodeToString(updatedTombstones)
+        }
+    }
+
+    suspend fun clearPlaylist(playlistId: PlaylistId) {
+        val now = nowMs()
+        dataStore.edit { prefs ->
+            val canonicalKey = playlistId.canonical
+            val currentUnified = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+            val unifiedList = currentUnified[canonicalKey]
+            if (unifiedList != null) {
+                prefs[KEY_UNIFIED_ENTRIES] = json.encodeToString(currentUnified - canonicalKey)
+                val currentTombstones = decodeUnifiedTombstones(prefs[KEY_UNIFIED_TOMBSTONES])
+                val newTombstones = unifiedList.map {
+                    PlaylistUnifiedTombstone(playlistId = playlistId, trackKey = it.track.id.canonical, removedAt = now)
+                }
+                writeUnifiedTombstonesIfNeeded(
+                    prefs,
+                    currentTombstones,
+                    pruneExpiredUnifiedTombstones(currentTombstones + newTombstones, now)
+                )
+            }
+
+            val neteaseId = playlistId.neteaseIdOrNull()
+            if (neteaseId != null) {
+                val currentLegacy = decodeEntries(prefs[KEY_ENTRIES])
+                val legacyList = currentLegacy[neteaseId]
+                if (legacyList != null) {
+                    prefs[KEY_ENTRIES] = json.encodeToString(currentLegacy - neteaseId)
+                    val currentTombstones = decodeTombstones(prefs[KEY_TOMBSTONES])
+                    val newTombstones = legacyList.map {
+                        PlaylistExternalTombstone(playlistId = neteaseId, resolveKey = it.track.resolveKey, removedAt = now)
+                    }
+                    prefs[KEY_TOMBSTONES] = json.encodeToString(mergeTombstones(currentTombstones, newTombstones, now))
+                }
+            }
         }
     }
 
@@ -152,8 +315,41 @@ class PlaylistExternalTrackStore(
         return changed
     }
 
+    private fun mergeLegacyAndUnifiedEntries(
+        legacy: Map<Long, List<PlaylistExternalEntry>>,
+        unified: Map<String, List<PlaylistUnifiedEntry>>
+    ): Map<PlaylistId, List<PlaylistUnifiedEntry>> {
+        val result = LinkedHashMap<PlaylistId, MutableList<PlaylistUnifiedEntry>>()
+
+        unified.forEach { (rawPlaylistId, entries) ->
+            val pid = PlaylistId.parseOrNull(rawPlaylistId) ?: return@forEach
+            val bucket = result.getOrPut(pid) { ArrayList() }
+            bucket.addAll(entries)
+        }
+
+        legacy.forEach { (legacyId, entries) ->
+            if (legacyId < 0L) return@forEach
+            val pid = PlaylistId.netease(legacyId)
+            val bucket = result.getOrPut(pid) { ArrayList() }
+            val existingKeys = bucket.mapTo(HashSet()) { it.track.id.canonical }
+            entries.forEach { entry ->
+                val unifiedTrack = entry.track.toUnified()
+                if (existingKeys.add(unifiedTrack.id.canonical)) {
+                    bucket.add(PlaylistUnifiedEntry(track = unifiedTrack, addedAt = entry.addedAt))
+                }
+            }
+        }
+
+        return result.mapValues { (_, list) ->
+            list.sortedWith(
+                compareByDescending<PlaylistUnifiedEntry> { it.addedAt }
+                    .thenBy { it.track.id.canonical }
+            )
+        }
+    }
+
     private fun writeTombstonesIfNeeded(
-        prefs: androidx.datastore.preferences.core.MutablePreferences,
+        prefs: MutablePreferences,
         before: List<PlaylistExternalTombstone>,
         after: List<PlaylistExternalTombstone>
     ) {
@@ -162,6 +358,19 @@ class PlaylistExternalTrackStore(
             prefs.remove(KEY_TOMBSTONES)
         } else {
             prefs[KEY_TOMBSTONES] = json.encodeToString(after)
+        }
+    }
+
+    private fun writeUnifiedTombstonesIfNeeded(
+        prefs: MutablePreferences,
+        before: List<PlaylistUnifiedTombstone>,
+        after: List<PlaylistUnifiedTombstone>
+    ) {
+        if (before == after) return
+        if (after.isEmpty()) {
+            prefs.remove(KEY_UNIFIED_TOMBSTONES)
+        } else {
+            prefs[KEY_UNIFIED_TOMBSTONES] = json.encodeToString(after)
         }
     }
 
@@ -184,6 +393,45 @@ class PlaylistExternalTrackStore(
             emptyList()
         }
     }
+
+    private fun decodeUnifiedEntries(raw: String?): Map<String, List<PlaylistUnifiedEntry>> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return try {
+            json.decodeFromString<Map<String, List<PlaylistUnifiedEntry>>>(raw)
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "跨平台歌单混排歌曲反序列化失败", e)
+            emptyMap()
+        }
+    }
+
+    private fun decodeUnifiedTombstones(raw: String?): List<PlaylistUnifiedTombstone> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return try {
+            json.decodeFromString<List<PlaylistUnifiedTombstone>>(raw)
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "跨平台歌单混排墓碑反序列化失败", e)
+            emptyList()
+        }
+    }
+}
+
+private fun pruneExpiredUnifiedTombstones(
+    tombstones: List<PlaylistUnifiedTombstone>,
+    now: Long
+): List<PlaylistUnifiedTombstone> {
+    if (tombstones.isEmpty()) return emptyList()
+    val deduped = HashMap<Pair<PlaylistId, String>, PlaylistUnifiedTombstone>()
+    for (tombstone in tombstones) {
+        if (now - tombstone.removedAt > PLAYLIST_EXTERNAL_TOMBSTONE_TTL_MS) continue
+        val key = tombstone.playlistId to tombstone.trackKey
+        val existing = deduped[key]
+        if (existing == null || tombstone.removedAt > existing.removedAt) {
+            deduped[key] = tombstone
+        }
+    }
+    return deduped.values.sortedWith(
+        compareBy<PlaylistUnifiedTombstone> { it.playlistId.canonical }.thenBy { it.trackKey }
+    )
 }
 
 internal fun prependEntries(
@@ -305,4 +553,3 @@ private fun hasSameSemanticState(
     }
     return a.tombstones.toSet() == b.tombstones.toSet()
 }
-

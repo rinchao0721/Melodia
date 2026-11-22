@@ -4,6 +4,8 @@ import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.PlaylistTrackId
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.source.ExternalTrack
 
@@ -48,3 +50,32 @@ fun mergeExternalTracks(
 
 fun List<PlaylistExternalEntry>.toTrackIds(): List<PlaylistTrackId> =
     map { PlaylistTrackId(id = it.track.queueSongId, at = it.addedAt) }
+
+// 跨平台歌单统一混排合并：支持任意平台歌单混入任意平台 UnifiedTrack
+fun mergeUnifiedPlaylistTracks(
+    baseTracks: List<UnifiedTrack>,
+    trackAddedAt: Map<TrackId, Long> = emptyMap(),
+    entries: List<PlaylistUnifiedEntry>,
+    fullyLoaded: Boolean = true
+): List<UnifiedTrack> {
+    if (entries.isEmpty()) return baseTracks
+    val seenIds = baseTracks.mapTo(HashSet()) { it.id }
+    val pending = entries
+        .filter { it.track.id !in seenIds }
+        .sortedByDescending { it.addedAt }
+        .toMutableList()
+    if (pending.isEmpty()) return baseTracks
+
+    val result = ArrayList<UnifiedTrack>(baseTracks.size + pending.size)
+    for (track in baseTracks) {
+        val at = trackAddedAt[track.id] ?: 0L
+        while (pending.isNotEmpty() && pending.first().addedAt > at) {
+            result.add(pending.removeAt(0).track)
+        }
+        result.add(track)
+    }
+    if (fullyLoaded) {
+        pending.forEach { result.add(it.track) }
+    }
+    return result
+}
