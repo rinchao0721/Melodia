@@ -71,6 +71,7 @@ fun SongMoreOptionsSheet(
     currentQuality: String,
     // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
     isLocalOnly: Boolean,
+    isExternal: Boolean = false,
     // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
     isPodcast: Boolean = false,
     showMiniLyric: Boolean = true,
@@ -170,7 +171,7 @@ fun SongMoreOptionsSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
-            if (isLocalOnly) {
+            if (isLocalOnly && !isExternal) {
                 Text(
                     text = "本地歌曲未匹配到云端信息，仅支持部分操作",
                     color = MelodiaColors.TextSecondary,
@@ -209,9 +210,11 @@ fun SongMoreOptionsSheet(
 
 
                 }
+            }
 
-                // 3. 收藏到歌单
-                if (!isPodcast) OptionRow(
+            // 3. 收藏到歌单（网易云与酷狗/外部曲目均可收藏）
+            if ((!isLocalOnly || isExternal) && !isPodcast) {
+                OptionRow(
                     icon = MelodiaIcons.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
@@ -265,6 +268,21 @@ fun SongMoreOptionsSheet(
                 )
             }
 
+            // 6. 分享（网易云与外部平台歌曲均支持生成分享卡片）
+            if (!isLocalOnly || isExternal) {
+                OptionRow(
+                    icon = MelodiaIcons.Share,
+                    text = "分享",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onShareClick()
+                        }
+                    }
+                )
+            }
+
             if (!isLocalOnly) {
                 if (!isPodcast) {
                     // 5. 开始相似歌曲漫游
@@ -310,19 +328,6 @@ fun SongMoreOptionsSheet(
                         }
                     )
                 }
-
-                // 6. 分享
-                OptionRow(
-                    icon = MelodiaIcons.Share,
-                    text = "分享",
-                    onClick = {
-                        scope.launch {
-                            sheetState.hide()
-                            onDismiss()
-                            onShareClick()
-                        }
-                    }
-                )
 
                 if (!isPodcast) {
                     // 下载

@@ -19,7 +19,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 fun LazyListScope.artistAlbumTab(
     albums: List<ArtistAlbum>,
     loadingMore: Boolean,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    albumEntityIds: Map<Long, String> = emptyMap(),
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     if (albums.isEmpty() && !loadingMore) {
         item(key = "empty_albums") {
@@ -35,7 +37,11 @@ fun LazyListScope.artistAlbumTab(
         }
     } else {
         items(albums, key = { it.id }) { album ->
-            ArtistAlbumRow(album = album, onClick = { onAlbumClick(album.id) })
+            ArtistAlbumRow(album = album, onClick = {
+                val eid = albumEntityIds[album.id]
+                if (eid != null && onAlbumEntityClick != null) onAlbumEntityClick(eid)
+                else onAlbumClick(album.id)
+            })
         }
         if (loadingMore) {
             item(key = "albums_loading_more") {

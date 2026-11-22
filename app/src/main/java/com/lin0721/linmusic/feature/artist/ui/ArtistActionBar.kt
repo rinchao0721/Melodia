@@ -81,8 +81,13 @@ fun ArtistActionBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 圆角头像小缩略图
+                val avatarModel = if (artist.id > 0L && artist.avatar.isNotEmpty() && !artist.avatar.contains("?")) {
+                    "${artist.avatar}?param=100y100"
+                } else {
+                    artist.avatar
+                }
                 AsyncImage(
-                    model = "${artist.avatar}?param=100y100",
+                    model = avatarModel,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

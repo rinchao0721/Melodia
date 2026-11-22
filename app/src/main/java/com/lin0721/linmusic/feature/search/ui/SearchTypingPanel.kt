@@ -77,7 +77,11 @@ internal fun SearchTypingPanel(
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onRemoveHistory: (String) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    suggestionArtistEntityIds: Map<Long, String> = emptyMap(),
+    suggestionAlbumEntityIds: Map<Long, String> = emptyMap(),
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     val contentPadding = PaddingValues(bottom = LocalBottomOverlayInset.current + MelodiaSpacing.md)
 
@@ -168,14 +172,28 @@ internal fun SearchTypingPanel(
             }
             when (suggestion) {
                 is SearchSuggestion.ArtistMatch -> PanelRow(
-                    onClick = { onArtistClick(suggestion.id) },
+                    onClick = {
+                        val entityId = suggestionArtistEntityIds[suggestion.id]
+                        if (entityId != null && onArtistEntityClick != null) {
+                            onArtistEntityClick(entityId)
+                        } else {
+                            onArtistClick(suggestion.id)
+                        }
+                    },
                     leading = { SuggestionCover(suggestion.avatarUrl, MelodiaIcons.Person, circle = true) },
                     title = title,
                     subtitle = "歌手",
                     trailing = fillButton
                 )
                 is SearchSuggestion.AlbumMatch -> PanelRow(
-                    onClick = { onAlbumClick(suggestion.id) },
+                    onClick = {
+                        val entityId = suggestionAlbumEntityIds[suggestion.id]
+                        if (entityId != null && onAlbumEntityClick != null) {
+                            onAlbumEntityClick(entityId)
+                        } else {
+                            onAlbumClick(suggestion.id)
+                        }
+                    },
                     leading = { SuggestionCover(null, MelodiaIcons.Album, circle = false) },
                     title = title,
                     subtitle = listOf("专辑", suggestion.artistName).filter { it.isNotBlank() }.joinToString(" · "),
@@ -348,8 +366,13 @@ private fun SuggestionCover(url: String?, fallbackIcon: ImageVector, circle: Boo
         if (url.isNullOrBlank()) {
             placeholder()
         } else {
+            val coverModel = if ('?' !in url && "param=" !in url && ("126.net" in url || "163.com" in url)) {
+                "$url?param=120y120"
+            } else {
+                url
+            }
             SubcomposeAsyncImage(
-                model = "$url?param=120y120",
+                model = coverModel,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 loading = { placeholder() },

@@ -58,6 +58,8 @@ fun MelodiaNavHost(
     onLoginScreenVisibilityChanged: (Boolean) -> Unit,
     onNavigateToPlaylist: (id: Long, isAlbum: Boolean) -> Unit,
     onNavigateToArtist: (Long) -> Unit,
+    onNavigateToPlaylistEntity: (entityId: String, isAlbum: Boolean) -> Unit = { _, _ -> },
+    onNavigateToArtistEntity: (entityId: String) -> Unit = {},
     onNavigateToRadio: (Long) -> Unit,
     onNavigateToPlaylistCategory: (String) -> Unit,
     onNavigateToProfile: (Long) -> Unit,
@@ -165,9 +167,12 @@ fun MelodiaNavHost(
                     com.lin0721.linmusic.feature.playlist.ui.PlaylistScreen(
                         playlistId = screen.id,
                         isAlbum = screen.isAlbum,
+                        entityId = screen.entityId,
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
                         onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                        onArtistEntityClick = onNavigateToArtistEntity,
+                        onAlbumEntityClick = { eid -> onNavigateToPlaylistEntity(eid, true) },
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToPrivateChat = onNavigateToPrivateChat
                     )
@@ -181,7 +186,9 @@ fun MelodiaNavHost(
                         onRadioClick = onNavigateToRadio,
                         onPlaylistCategoryClick = onNavigateToPlaylistCategory,
                         onOpenRecognition = onOpenRecognition,
-                        onNavigateToPrivateChat = onNavigateToPrivateChat
+                        onNavigateToPrivateChat = onNavigateToPrivateChat,
+                        onPlaylistEntityClick = onNavigateToPlaylistEntity,
+                        onArtistEntityClick = onNavigateToArtistEntity
                     )
                 }
                 is Screen.Library -> {
@@ -192,7 +199,10 @@ fun MelodiaNavHost(
                         onBack = onBack,
                         onOpenSidebar = onOpenSidebar,
                         onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged,
-                        onNavigateToLocalMusic = onNavigateToLocalMusic
+                        onNavigateToLocalMusic = onNavigateToLocalMusic,
+                        onPlaylistEntityClick = { entityId -> onNavigateToPlaylistEntity(entityId, false) },
+                        onArtistEntityClick = onNavigateToArtistEntity,
+                        onAlbumEntityClick = { entityId -> onNavigateToPlaylistEntity(entityId, true) }
                     )
                 }
                 is Screen.LocalMusic -> LocalMusicHomeScreen(navigation = localMusicNavigation)
@@ -253,10 +263,14 @@ fun MelodiaNavHost(
                 is Screen.Artist -> {
                     com.lin0721.linmusic.feature.artist.ui.ArtistScreen(
                         artistId = screen.id,
+                        entityId = screen.entityId,
                         onBack = onBack,
                         onArtistClick = onNavigateToArtist,
                         onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) },
                         onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                        onArtistEntityClick = onNavigateToArtistEntity,
+                        onPlaylistEntityClick = { eid -> onNavigateToPlaylistEntity(eid, false) },
+                        onAlbumEntityClick = { eid -> onNavigateToPlaylistEntity(eid, true) },
                         onNavigateToPrivateChat = onNavigateToPrivateChat
                     )
                 }

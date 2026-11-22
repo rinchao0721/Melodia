@@ -24,7 +24,9 @@ fun LazyListScope.artistAboutTab(
     artist: ArtistDetailInfo,
     similarArtists: List<ArtistInfo>,
     onShowBioDialog: () -> Unit,
-    onArtistClick: (Long) -> Unit
+    onArtistClick: (Long) -> Unit,
+    similarArtistEntityIds: Map<Long, String> = emptyMap(),
+    onArtistEntityClick: ((String) -> Unit)? = null
 ) {
     item(key = "bio_content") {
         Column(
@@ -90,7 +92,11 @@ fun LazyListScope.artistAboutTab(
                     horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.md)
                 ) {
                     items(similarArtists, key = { it.id }) { artistInfo ->
-                        SimilarArtistCard(artist = artistInfo, onClick = { onArtistClick(artistInfo.id) })
+                        SimilarArtistCard(artist = artistInfo, onClick = {
+                            val eid = similarArtistEntityIds[artistInfo.id]
+                            if (eid != null && onArtistEntityClick != null) onArtistEntityClick(eid)
+                            else onArtistClick(artistInfo.id)
+                        })
                     }
                 }
             }

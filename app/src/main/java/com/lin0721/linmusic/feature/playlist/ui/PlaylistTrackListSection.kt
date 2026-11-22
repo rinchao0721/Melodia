@@ -73,7 +73,7 @@ fun LazyListScope.playlistTrackItems(
                 isVip = track.fee == 1,
                 platformTag = platform?.badgeName,
                 platformTagColorArgb = platform?.brandColorArgb,
-                qualitySongId = track.id.takeIf { platform == null },
+                qualitySongId = track.id.takeIf { platform == null && track.id > 0L },
                 maxBrLevel = track.privilege?.maxBrLevel
             )
         }

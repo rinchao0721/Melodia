@@ -52,6 +52,7 @@ import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
@@ -75,7 +76,10 @@ fun AddMusicToPlaylistSheet(
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     onAddTrack: (Track, onComplete: () -> Unit) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    availableSources: List<MusicPlatform> = listOf(MusicPlatform.NETEASE),
+    selectedSource: MusicPlatform = MusicPlatform.NETEASE,
+    onSourceChange: (MusicPlatform) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -118,6 +122,26 @@ fun AddMusicToPlaylistSheet(
                         contentDescription = "关闭",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            // 多平台搜索源切换
+            if (availableSources.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MelodiaSpacing.md)
+                        .padding(bottom = MelodiaSpacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+                ) {
+                    availableSources.forEach { source ->
+                        val label = if (source == MusicPlatform.KUGOU) "酷狗音乐" else "网易云音乐"
+                        androidx.compose.material3.FilterChip(
+                            selected = selectedSource == source,
+                            onClick = { onSourceChange(source) },
+                            label = { Text(label, fontSize = 12.sp) }
+                        )
+                    }
                 }
             }
 
@@ -176,7 +200,7 @@ fun AddMusicToPlaylistSheet(
             // 搜索内容展示区
             when (searchState) {
                 is AddMusicSearchState.Idle -> {
-                    if (recommendedSongs.isEmpty()) {
+                    if (recommendedSongs.isEmpty() || selectedSource != MusicPlatform.NETEASE) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

@@ -96,7 +96,12 @@ fun ArtistContent(
     selectionActions: List<SelectionAction>,
     onToggleSelectAll: (List<Long>) -> Unit,
     onExitSelection: () -> Unit,
-    onNavigateToPrivateChat: (Long) -> Unit = {}
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    isKugou: Boolean = false,
+    albumEntityIds: Map<Long, String> = emptyMap(),
+    similarArtistEntityIds: Map<Long, String> = emptyMap(),
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     val density = LocalDensity.current
     val listState = rememberLazyListState()
@@ -214,7 +219,7 @@ fun ArtistContent(
                             enter = uiEnter(fadeIn() + expandVertically(expandFrom = Alignment.Top)),
                             exit = uiExit(fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top))
                         ) {
-                            ArtistNameSection(artist = artist, progress = progress, tintColor = dominantColor)
+                            ArtistNameSection(artist = artist, progress = progress, tintColor = dominantColor, isKugou = isKugou)
                         }
                     }
                 }
@@ -266,21 +271,23 @@ fun ArtistContent(
                         onQuickLike = onQuickLike,
                         showLikedBadge = showLikedBadge,
                         onOpenCollectSheet = { collectSongId = it },
-                        onOpenMoreOptions = { track ->
-                            if (!isLoggedIn) onRequireLogin() else optionsTrack = track
-                        },
+                        onOpenMoreOptions = { track -> optionsTrack = track },
                         onRequireLogin = onRequireLogin
                     )
                     1 -> artistAlbumTab(
                         albums = albums,
                         loadingMore = albumsLoadingMore,
-                        onAlbumClick = onAlbumClick
+                        onAlbumClick = onAlbumClick,
+                        albumEntityIds = albumEntityIds,
+                        onAlbumEntityClick = onAlbumEntityClick
                     )
                     2 -> artistAboutTab(
                         artist = artist,
                         similarArtists = similarArtists,
                         onShowBioDialog = { showBioDialog = true },
-                        onArtistClick = onArtistClick
+                        onArtistClick = onArtistClick,
+                        similarArtistEntityIds = similarArtistEntityIds,
+                        onArtistEntityClick = onArtistEntityClick
                     )
                 }
 
@@ -353,14 +360,17 @@ fun ArtistContent(
                 onAlbumClick = onAlbumClick,
                 onRequireLogin = onRequireLogin,
                 showArtistOption = false,
-                onShareClick = { shareTarget = it }
+                showAlbumOption = if (isKugou) track.al.id in albumEntityIds else true,
+                onShareClick = { shareTarget = it },
+                albumEntityIds = albumEntityIds,
+                onAlbumEntityClick = onAlbumEntityClick
             )
         }
 
         shareTarget?.let { target ->
             com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
                 track = target,
-                isNetease = target.id > 0L,
+                isNetease = target.id > 0L && !isKugou,
                 onDismiss = { shareTarget = null },
                 onNavigateToPrivateChat = onNavigateToPrivateChat
             )

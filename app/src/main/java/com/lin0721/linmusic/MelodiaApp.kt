@@ -1035,6 +1035,8 @@ fun MelodiaApp() {
                                     onLoginScreenVisibilityChanged = { isLoginScreenVisible = it },
                                     onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
                                     onNavigateToArtist = { id -> navigation.openArtist(id) },
+                                    onNavigateToPlaylistEntity = { entityId, isAlbum -> navigation.openPlaylistEntity(entityId, isAlbum) },
+                                    onNavigateToArtistEntity = { entityId -> navigation.openArtistEntity(entityId) },
                                     onNavigateToRadio = { id -> navigation.openRadio(id) },
                                     onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
                                     onNavigateToProfile = { uid -> navigation.openProfile(uid) },

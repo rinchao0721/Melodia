@@ -67,6 +67,7 @@ import com.lin0721.linmusic.core.ui.components.ProfileSidebar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.ArrowBack
 import com.lin0721.linmusic.core.ui.icons.Close
@@ -83,12 +84,19 @@ fun LibraryScreen(
     onBack: () -> Unit,
     onOpenSidebar: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {},
-    onNavigateToLocalMusic: () -> Unit = {}
+    onNavigateToLocalMusic: () -> Unit = {},
+    onPlaylistEntityClick: (String) -> Unit = {},
+    onArtistEntityClick: (String) -> Unit = {},
+    onAlbumEntityClick: (String) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val viewModel: LibraryViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val effectiveKugouLoggedIn = isKugouEnabled && kugouAccount != null
+    val hasCloudAccount = userProfile != null || effectiveKugouLoggedIn
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
     val selectedPlaylistOwnerFilter by viewModel.selectedPlaylistOwnerFilter.collectAsStateWithLifecycle()
     val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
@@ -137,6 +145,34 @@ fun LibraryScreen(
             putExtra(Intent.EXTRA_TEXT, shareText)
         }
         context.startActivity(Intent.createChooser(intent, "分享$typeLabel"))
+    }
+
+    fun openLibraryItem(item: LibraryItem) {
+        val entityId = item.entityId.ifBlank { item.id }
+        val legacyId = entityId.toLongOrNull()
+        when (item.type) {
+            LibraryItemType.PLAYLIST -> {
+                if (item.platform == MusicPlatform.NETEASE && legacyId != null) {
+                    onPlaylistClick(legacyId)
+                } else {
+                    onPlaylistEntityClick(entityId)
+                }
+            }
+            LibraryItemType.ARTIST -> {
+                if (item.platform == MusicPlatform.NETEASE && legacyId != null) {
+                    onArtistClick(legacyId)
+                } else {
+                    onArtistEntityClick(entityId)
+                }
+            }
+            LibraryItemType.ALBUM -> {
+                if (item.platform == MusicPlatform.NETEASE && legacyId != null) {
+                    onAlbumClick(legacyId)
+                } else {
+                    onAlbumEntityClick(entityId)
+                }
+            }
+        }
     }
 
     val scope = rememberCoroutineScope()
@@ -243,10 +279,10 @@ fun LibraryScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 用户头像
-                        val avatarUrl = userProfile?.avatarUrl
+                        val avatarUrl = userProfile?.avatarUrl ?: kugouAccount?.avatarUrl?.takeIf { effectiveKugouLoggedIn && it.isNotBlank() }
                         if (avatarUrl != null) {
                             AsyncImage(
-                                model = "$avatarUrl?param=100y100",
+                                model = if (userProfile != null) "$avatarUrl?param=100y100" else avatarUrl,
                                 contentDescription = "用户头像",
                                 modifier = Modifier
                                     .size(32.dp)
@@ -287,7 +323,7 @@ fun LibraryScreen(
                         }
 
                         MelodiaIconButton(onClick = {
-                            if (userProfile != null) {
+                            if (hasCloudAccount) {
                                 showCreateDialog = true
                             } else {
                                 com.lin0721.linmusic.core.ui.components.ToastManager.showToast("请先登录以创建歌单！")
@@ -311,12 +347,12 @@ fun LibraryScreen(
                 onClear = { viewModel.clearFilter() },
                 selectedPlaylistOwnerFilter = selectedPlaylistOwnerFilter,
                 onSelectPlaylistOwnerFilter = { viewModel.togglePlaylistOwnerFilter(it) },
-                showCategoryFilters = userProfile != null,
+                showCategoryFilters = hasCloudAccount,
                 onLocalMusicClick = onNavigateToLocalMusic
             )
 
             // 用户登录状态条件渲染
-            if (userProfile == null) {
+            if (!hasCloudAccount) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     NotLoggedInView(
                         onLoginClick = { showLoginSheet = true }
@@ -391,15 +427,7 @@ fun LibraryScreen(
                                                 LibraryGridItem(
                                                     item = item,
                                                     modifier = Modifier.weight(1f),
-                                                    onClick = {
-                                                        if (item.type == LibraryItemType.PLAYLIST) {
-                                                            onPlaylistClick(item.id.toLong())
-                                                        } else if (item.type == LibraryItemType.ARTIST) {
-                                                            onArtistClick(item.id.toLong())
-                                                        } else {
-                                                            onAlbumClick(item.id.toLong())
-                                                        }
-                                                    },
+                                                    onClick = { openLibraryItem(item) },
                                                     onLongClick = {
                                                         if (item.id != "-2") {
                                                             activeOptionsItem = item
@@ -431,15 +459,7 @@ fun LibraryScreen(
                                     items(state.filteredItems, key = { "${it.type}_${it.id}" }) { item ->
                                         LibraryItemRow(
                                             item = item,
-                                            onClick = {
-                                                if (item.type == LibraryItemType.PLAYLIST) {
-                                                    onPlaylistClick(item.id.toLong())
-                                                } else if (item.type == LibraryItemType.ARTIST) {
-                                                    onArtistClick(item.id.toLong())
-                                                } else {
-                                                    onAlbumClick(item.id.toLong())
-                                                }
-                                            },
+                                            onClick = { openLibraryItem(item) },
                                             onLongClick = {
                                                 if (item.id != "-2") {
                                                     activeOptionsItem = item
@@ -477,10 +497,20 @@ fun LibraryScreen(
 
         // 创建歌单对话框
         if (showCreateDialog) {
+            val availablePlatforms = buildList {
+                if (userProfile != null) add(MusicPlatform.NETEASE)
+                if (effectiveKugouLoggedIn) add(MusicPlatform.KUGOU)
+            }
             LibraryCreatePlaylistSheet(
                 onDismiss = { showCreateDialog = false },
                 onCreate = { name ->
-                    viewModel.createPlaylist(name)
+                    val target = availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                    viewModel.createPlaylistForPlatform(target, name)
+                    showCreateDialog = false
+                },
+                availablePlatforms = availablePlatforms,
+                onCreateForPlatform = { name, platform ->
+                    viewModel.createPlaylistForPlatform(platform, name)
                     showCreateDialog = false
                 }
             )
@@ -556,6 +586,12 @@ fun LibraryScreen(
                 },
                 onUnsubscribeArtist = { artistId ->
                     viewModel.unsubscribeArtist(artistId)
+                },
+                onDeleteItem = { item ->
+                    deletePlaylistTarget = item
+                },
+                onUnsubscribeItem = { item ->
+                    viewModel.unsubscribeLibraryItem(item)
                 }
             )
         }
@@ -584,7 +620,7 @@ fun LibraryScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            target.id.toLongOrNull()?.let { viewModel.deletePlaylist(it) }
+                            viewModel.deleteLibraryPlaylist(target)
                             deletePlaylistTarget = null
                         }
                     ) {

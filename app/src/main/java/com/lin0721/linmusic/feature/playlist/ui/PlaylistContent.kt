@@ -123,7 +123,16 @@ fun PlaylistContent(
     selectionActions: List<SelectionAction> = emptyList(),
     onToggleSelectAll: (List<Long>) -> Unit = {},
     onExitSelection: () -> Unit = {},
-    onNavigateToPrivateChat: (Long) -> Unit = {}
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    artistEntityIds: Map<Long, String> = emptyMap(),
+    albumEntityIds: Map<Long, String> = emptyMap(),
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null,
+    canSubscribe: Boolean? = null,
+    canComment: Boolean? = null,
+    canShare: Boolean? = null,
+    isKugou: Boolean = false,
+    isKugouRecent: Boolean = false
 ) {
     val motion = LocalUiMotion.current
     val density = LocalDensity.current
@@ -304,7 +313,12 @@ fun PlaylistContent(
                                 if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
                                     playButtonBaselineYPx = y
                                 }
-                            }
+                            },
+                            canSubscribe = canSubscribe ?: (!isLikedSongsPlaylistView && !canRemoveFromPlaylist && !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id)),
+                            canComment = canComment ?: !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id),
+                            canShare = canShare ?: !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id),
+                            isKugou = isKugou,
+                            isKugouRecent = isKugouRecent
                         )
                     }
                 }
@@ -527,8 +541,11 @@ fun PlaylistContent(
 
     if (activeSongMoreOptions != null) {
         val track = activeSongMoreOptions!!
-        // 外部平台歌曲没有网易云歌手、专辑与下载
+        // 外部混排或酷狗曲目不走网易云下载/好友分享
         val isExternal = track.id in externalPlatforms
+        val isKugouOrExternal = isExternal || isKugou || track.id < 0L
+        val hasLinkedArtist = track.ar.any { it.id > 0L || it.id in artistEntityIds }
+        val hasLinkedAlbum = track.al.id > 0L || track.al.id in albumEntityIds
         PlaylistSongOptionsSheet(
             track = track,
             isLiked = track.id in likedSongIds,
@@ -545,17 +562,21 @@ fun PlaylistContent(
             onRequireLogin = onRequireLogin,
             canRemoveFromPlaylist = canRemoveFromPlaylist,
             onRemoveFromPlaylist = onRemoveFromPlaylist,
-            onDownloadClick = onDownloadSongClick.takeIf { !isExternal },
-            showArtistOption = !isExternal,
-            showAlbumOption = !isExternal,
+            onDownloadClick = onDownloadSongClick.takeIf { !isKugouOrExternal },
+            showArtistOption = if (isKugou) hasLinkedArtist else !isExternal,
+            showAlbumOption = if (isKugou) hasLinkedAlbum else !isExternal,
             onReduceRecommend = if (playlist.id == -1L && selectedHistoryDate == "今天" && isLoggedIn) {
                 { onReduceRecommend(it.id) }
             } else {
                 null
             },
             onShareClick = { clickedTrack ->
-                shareTarget = clickedTrack to (!isExternal && clickedTrack.id > 0L)
-            }
+                shareTarget = clickedTrack to !isKugouOrExternal
+            },
+            artistEntityIds = artistEntityIds,
+            albumEntityIds = albumEntityIds,
+            onArtistEntityClick = onArtistEntityClick,
+            onAlbumEntityClick = onAlbumEntityClick
         )
     }
 

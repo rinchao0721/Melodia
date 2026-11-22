@@ -58,7 +58,8 @@ fun CommentFloorScreen(
     onDeleteClick: (CommentItem) -> Unit,
     onLikeClick: (CommentItem) -> Unit,
     onRetry: () -> Unit,
-    onUserClick: (Long) -> Unit
+    onUserClick: (Long) -> Unit,
+    isLikeClickable: Boolean = true
 ) {
     var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
     val focusRequester = remember { FocusRequester() }
@@ -137,6 +138,7 @@ fun CommentFloorScreen(
                     item {
                         CommentRowItem(
                             comment = floorState.ownerComment,
+                            isLikeClickable = isLikeClickable,
                             onLikeClick = { onLikeClick(floorState.ownerComment) },
                             onUserClick = onUserClick,
                             onReplyClick = {
@@ -148,7 +150,7 @@ fun CommentFloorScreen(
                                     focusRequester.requestFocus()
                                 }
                             },
-                            onDeleteClick = if (floorState.ownerComment.user.userId == currentUserId) {
+                            onDeleteClick = if (currentUserId != null && currentUserId > 0L && floorState.ownerComment.user.userId == currentUserId) {
                                 { onDeleteClick(floorState.ownerComment) }
                             } else null
                         )
@@ -166,6 +168,7 @@ fun CommentFloorScreen(
                     items(floorState.replies, key = { it.commentId }) { reply ->
                         CommentRowItem(
                             comment = reply,
+                            isLikeClickable = isLikeClickable,
                             onLikeClick = { onLikeClick(reply) },
                             onUserClick = onUserClick,
                             onReplyClick = {
@@ -177,7 +180,7 @@ fun CommentFloorScreen(
                                     focusRequester.requestFocus()
                                 }
                             },
-                            onDeleteClick = if (reply.user.userId == currentUserId) {
+                            onDeleteClick = if (currentUserId != null && currentUserId > 0L && reply.user.userId == currentUserId) {
                                 { onDeleteClick(reply) }
                             } else null
                         )

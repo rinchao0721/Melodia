@@ -43,8 +43,13 @@ fun SimilarArtistCard(
             .pressable(MelodiaPress.Card, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val avatarModel = if (artist.id > 0L && artist.avatarUrl.isNotEmpty() && !artist.avatarUrl.contains("?")) {
+            "${artist.avatarUrl}?param=150y150"
+        } else {
+            artist.avatarUrl
+        }
         AsyncImage(
-            model = "${artist.avatarUrl}?param=150y150",
+            model = avatarModel,
             contentDescription = artist.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -80,8 +85,13 @@ fun ArtistAlbumRow(
             .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val picModel = if (album.id > 0L && album.picUrl.isNotEmpty() && !album.picUrl.contains("?")) {
+            "${album.picUrl}?param=150y150"
+        } else {
+            album.picUrl
+        }
         SubcomposeAsyncImage(
-            model = "${album.picUrl}?param=150y150",
+            model = picModel,
             contentDescription = album.name,
             contentScale = ContentScale.Crop,
             loading = { CoverPlaceholder() },

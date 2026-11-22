@@ -21,6 +21,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
+import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.CreatePlaylistDialog
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -30,16 +33,17 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 
-// ────────────────────────────────────────────────────────────────────────────
 // "添加到歌单"批量导入的目标歌单选择：单选即导入，不做逐首"是否已包含"核对
-// ────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistImportTargetSheet(
     importState: PlaylistImportState,
     onDismiss: () -> Unit,
     onSelectTarget: (Long) -> Unit,
-    onCreateAndImport: (String) -> Unit
+    onCreateAndImport: (String) -> Unit,
+    onSelectUnifiedTarget: ((PlaylistId) -> Unit)? = null,
+    availablePlatforms: List<MusicPlatform> = emptyList(),
+    onCreateForPlatformAndImport: ((String, MusicPlatform) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -76,6 +80,7 @@ fun PlaylistImportTargetSheet(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else {
+                val useUnified = importState.unifiedItems.isNotEmpty() && onSelectUnifiedTarget != null
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -114,7 +119,7 @@ fun PlaylistImportTargetSheet(
                         }
                     }
 
-                    if (importState.items.isEmpty()) {
+                    if (!useUnified && importState.items.isEmpty()) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -123,6 +128,55 @@ fun PlaylistImportTargetSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text("暂无其他可用歌单", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            }
+                        }
+                    } else if (useUnified) {
+                        items(importState.unifiedItems, key = { it.id.canonical }) { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelectUnifiedTarget?.invoke(item.id) }
+                                    .padding(vertical = MelodiaSpacing.sm),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val coverModel = if (item.coverUrl.isNotBlank() && item.id.platform == MusicPlatform.NETEASE) {
+                                    "${item.coverUrl}?param=100y100"
+                                } else {
+                                    item.coverUrl.ifBlank { null }
+                                }
+                                SubcomposeAsyncImage(
+                                    model = coverModel,
+                                    contentDescription = item.name,
+                                    contentScale = ContentScale.Crop,
+                                    loading = { CoverPlaceholder() },
+                                    error = { CoverPlaceholder() },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(RadiusCompact))
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = item.name,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (item.id.platform == MusicPlatform.KUGOU) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    val brand = Color(MusicPlatform.KUGOU.brandColorArgb)
+                                    Text(
+                                        text = MusicPlatform.KUGOU.badgeName,
+                                        color = brand,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(brand.copy(alpha = 0.14f))
+                                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -161,7 +215,9 @@ fun PlaylistImportTargetSheet(
             if (showCreatePlaylistDialog) {
                 CreatePlaylistDialog(
                     onDismiss = { showCreatePlaylistDialog = false },
-                    onCreate = { name -> onCreateAndImport(name) }
+                    onCreate = { name -> onCreateAndImport(name) },
+                    availablePlatforms = availablePlatforms,
+                    onCreateForPlatform = onCreateForPlatformAndImport
                 )
             }
         }

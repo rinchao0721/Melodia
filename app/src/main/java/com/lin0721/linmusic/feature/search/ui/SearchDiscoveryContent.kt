@@ -44,10 +44,12 @@ import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.AdaptiveContentWidth
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.DiscoverySectionSkeleton
 import com.lin0721.linmusic.core.ui.components.ErrorState
+import com.lin0721.linmusic.core.ui.components.FilterChipsRow
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
@@ -91,65 +93,78 @@ internal fun SearchDiscoveryContent(
     onHotSearchClick: (String) -> Unit,
     onPlayFeatured: () -> Unit,
     onPlaylistTagClick: (String) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    discoveryPlatforms: List<MusicPlatform> = emptyList(),
+    selectedDiscoveryPlatform: MusicPlatform = MusicPlatform.NETEASE,
+    onSelectDiscoveryPlatform: ((MusicPlatform) -> Unit)? = null
 ) {
-    when (state) {
-        DiscoveryUiState.Loading -> {
-            Column(modifier = Modifier.fillMaxSize().padding(top = MelodiaSpacing.md)) {
-                DiscoverySectionSkeleton()
-                Spacer(Modifier.height(MelodiaSpacing.lg))
-                DiscoverySectionSkeleton()
-            }
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (discoveryPlatforms.size > 1 && onSelectDiscoveryPlatform != null) {
+            FilterChipsRow(
+                items = remember(discoveryPlatforms) { discoveryPlatforms.map { it.shortName } },
+                selectedIndex = discoveryPlatforms.indexOf(selectedDiscoveryPlatform).coerceAtLeast(0),
+                onSelected = { idx -> discoveryPlatforms.getOrNull(idx)?.let(onSelectDiscoveryPlatform) },
+                modifier = Modifier.padding(top = MelodiaSpacing.xs, bottom = MelodiaSpacing.xs)
+            )
         }
-        is DiscoveryUiState.Error -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                ErrorState(message = state.message, onRetry = onRetry)
+        when (state) {
+            DiscoveryUiState.Loading -> {
+                Column(modifier = Modifier.fillMaxSize().padding(top = MelodiaSpacing.md)) {
+                    DiscoverySectionSkeleton()
+                    Spacer(Modifier.height(MelodiaSpacing.lg))
+                    DiscoverySectionSkeleton()
+                }
             }
-        }
-        is DiscoveryUiState.Success -> {
-            val hotSearches = state.hotSearches.take(HOT_LIST_SIZE)
-            val tagGroups = state.playlistTags.chunked(3)
-            AdaptiveContentWidth {
-                LazyColumn(
-                    contentPadding = PaddingValues(
-                        start = MelodiaSpacing.md,
-                        end = MelodiaSpacing.md,
-                        top = MelodiaSpacing.sm,
-                        bottom = LocalBottomOverlayInset.current + MelodiaSpacing.md
-                    ),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    hotSearches.firstOrNull()?.let { top ->
-                        item(key = "hot_featured") {
-                            FeaturedHotCard(
-                                hot = top,
-                                track = featuredTrack,
-                                onClick = { onHotSearchClick(top.keyword) },
-                                onPlay = onPlayFeatured
-                            )
+            is DiscoveryUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    ErrorState(message = state.message, onRetry = onRetry)
+                }
+            }
+            is DiscoveryUiState.Success -> {
+                val hotSearches = state.hotSearches.take(HOT_LIST_SIZE)
+                val tagGroups = state.playlistTags.chunked(3)
+                AdaptiveContentWidth {
+                    LazyColumn(
+                        contentPadding = PaddingValues(
+                            start = MelodiaSpacing.md,
+                            end = MelodiaSpacing.md,
+                            top = MelodiaSpacing.sm,
+                            bottom = LocalBottomOverlayInset.current + MelodiaSpacing.md
+                        ),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        hotSearches.firstOrNull()?.let { top ->
+                            item(key = "hot_featured") {
+                                FeaturedHotCard(
+                                    hot = top,
+                                    track = featuredTrack,
+                                    onClick = { onHotSearchClick(top.keyword) },
+                                    onPlay = onPlayFeatured
+                                )
+                            }
                         }
-                    }
 
-                    if (hotSearches.size > 1) {
-                        item(key = "hot_header") { SectionHeader("热搜榜") }
-                        itemsIndexed(hotSearches.drop(1), key = { index, _ -> "hot_${index + 2}" }) { index, hot ->
-                            HotSearchRow(
-                                rank = index + 2,
-                                item = hot,
-                                onClick = { onHotSearchClick(hot.keyword) }
-                            )
+                        if (hotSearches.size > 1) {
+                            item(key = "hot_header") { SectionHeader("热搜榜") }
+                            itemsIndexed(hotSearches.drop(1), key = { index, _ -> "hot_${index + 2}" }) { index, hot ->
+                                HotSearchRow(
+                                    rank = index + 2,
+                                    item = hot,
+                                    onClick = { onHotSearchClick(hot.keyword) }
+                                )
+                            }
                         }
-                    }
 
-                    if (tagGroups.isNotEmpty()) {
-                        item(key = "tags_header") { SectionHeader("精品歌单") }
-                        itemsIndexed(tagGroups, key = { index, _ -> "tag_group_$index" }) { groupIndex, group ->
-                            PlaylistTagGroup(
-                                tags = group,
-                                groupIndex = groupIndex,
-                                onClick = onPlaylistTagClick,
-                                modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
-                            )
+                        if (tagGroups.isNotEmpty()) {
+                            item(key = "tags_header") { SectionHeader("精品歌单") }
+                            itemsIndexed(tagGroups, key = { index, _ -> "tag_group_$index" }) { groupIndex, group ->
+                                PlaylistTagGroup(
+                                    tags = group,
+                                    groupIndex = groupIndex,
+                                    onClick = onPlaylistTagClick,
+                                    modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
+                                )
+                            }
                         }
                     }
                 }
@@ -202,8 +217,15 @@ private fun FeaturedHotCard(
             contentAlignment = Alignment.Center
         ) {
             if (coverUrl != null) {
+                val modelUrl = remember(coverUrl) {
+                    if ('?' !in coverUrl && "param=" !in coverUrl && ("126.net" in coverUrl || "163.com" in coverUrl)) {
+                        "$coverUrl?param=200y200"
+                    } else {
+                        coverUrl
+                    }
+                }
                 SubcomposeAsyncImage(
-                    model = "$coverUrl?param=200y200",
+                    model = modelUrl,
                     contentDescription = hot.keyword,
                     contentScale = ContentScale.Crop,
                     loading = { CoverPlaceholder() },

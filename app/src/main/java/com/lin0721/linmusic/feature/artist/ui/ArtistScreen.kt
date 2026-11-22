@@ -26,8 +26,10 @@ import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistImportTargetSheet
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
@@ -46,12 +48,18 @@ fun ArtistScreen(
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
-    onNavigateToPrivateChat: (Long) -> Unit = {}
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    entityId: String? = null,
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onPlaylistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
 
@@ -59,16 +67,26 @@ fun ArtistScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
 
+    val activeKugou = kugouAccount?.takeIf { isKugouEnabled }
+    val hasCloudAccount = userProfile != null || activeKugou != null
+    val availableCreatePlatforms = remember(userProfile, activeKugou) {
+        buildList {
+            if (userProfile != null) add(MusicPlatform.NETEASE)
+            if (activeKugou != null) add(MusicPlatform.KUGOU)
+        }
+    }
+
     var showLoginSheet by remember { mutableStateOf(false) }
     var showWebViewLogin by remember { mutableStateOf(false) }
     var showBatchTargetSheet by remember { mutableStateOf(false) }
     var showBatchDownloadSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
-        viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
+        viewModel.toastEvent.collect { ToastManager.showToast(it) }
     }
-    LaunchedEffect(artistId) {
-        viewModel.loadArtistDataIfNeeded(artistId)
+    LaunchedEffect(artistId, entityId) {
+        if (entityId != null) viewModel.loadArtistDataIfNeeded(entityId)
+        else viewModel.loadArtistDataIfNeeded(artistId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MelodiaColors.PageFill)) {
@@ -86,7 +104,10 @@ fun ArtistScreen(
                         Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         Spacer(Modifier.height(MelodiaSpacing.md))
                         MelodiaButton(
-                            onClick = { viewModel.loadArtistData(artistId) },
+                            onClick = {
+                                if (entityId != null) viewModel.loadArtistData(entityId)
+                                else viewModel.loadArtistData(artistId)
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("重试", color = MaterialTheme.colorScheme.onPrimary)
@@ -96,80 +117,103 @@ fun ArtistScreen(
                 }
             }
             is ArtistUiState.Success -> {
-                val blockedArtistIds by viewModel.blockedArtistIds.collectAsStateWithLifecycle()
-                ArtistContent(
-                    artist = state.artist,
-                    isFollowed = state.isFollowed,
-                    fansCount = state.fansCount,
-                    topSongs = state.topSongs,
-                    albums = state.albums,
-                    albumsHasMore = state.albumsHasMore,
-                    albumsLoadingMore = state.albumsLoadingMore,
-                    similarArtists = state.similarArtists,
-                    likedSongIds = likedSongIds,
-                    blockedArtistIds = blockedArtistIds,
-                    currentTrackId = currentTrack?.mediaId,
-                    isPlaying = isPlaying,
-                    collectState = collectState,
-                    isLoggedIn = userProfile != null,
-                    onBack = onBack,
-                    onArtistClick = onArtistClick,
-                    onPlaylistClick = onPlaylistClick,
-                    onAlbumClick = onAlbumClick,
-                    onFollowClick = { viewModel.toggleFollow(artistId) },
-                    onBlockClick = { viewModel.toggleBlockArtist(artistId) },
-                    onPlaySong = { track, queue ->
-                        viewModel.playSongInList(track, queue)
-                    },
-                    onLikeClick = { songId ->
-                        viewModel.prepareCollectDialog(songId)
-                    },
-                    onQuickLike = { songId -> viewModel.quickLike(songId) },
-                    collectPromptEvents = viewModel.collectPromptEvent,
-                    onToggleLike = { songId, like ->
-                        viewModel.toggleLikeSong(songId, like)
-                    },
-                    onAddToPlayNext = { track ->
-                        viewModel.addTrackToPlayNext(track)
-                    },
-                    onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items, silent = true)
-                    },
-                    onSaveNewCollection = { name, songId ->
-                        viewModel.createPlaylistAndAddSong(name, songId)
-                    },
-                    onRequireLogin = {
-                        showLoginSheet = true
-                    },
-                    onLoadMoreAlbums = { viewModel.loadMoreAlbums() },
-                    songSearch = songSearch,
-                    onSongSearchQueryChange = viewModel::updateSongSearchQuery,
-                    onLoadMoreSongSearch = viewModel::loadMoreSongSearch,
-                    selectionUi = TrackSelectionUi(
-                        active = selection.active,
-                        selectedIds = selection.selectedIds,
-                        onEnter = viewModel::enterSelection,
-                        onToggle = viewModel::toggleSelected
-                    ),
-                    selectionActions = listOf(
-                        SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() },
-                        SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
-                            if (userProfile == null) {
-                                showLoginSheet = true
-                            } else {
-                                viewModel.prepareImportTargets()
-                                showBatchTargetSheet = true
+                val stale = if (entityId != null) {
+                    state.artistEntityId != entityId
+                } else {
+                    state.artist.id != artistId
+                }
+                if (stale) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else {
+                    val isKugou = state.platform == MusicPlatform.KUGOU
+                    val blockedArtistIds by viewModel.blockedArtistIds.collectAsStateWithLifecycle()
+                    ArtistContent(
+                        artist = state.artist,
+                        isFollowed = state.isFollowed,
+                        fansCount = state.fansCount,
+                        topSongs = state.topSongs,
+                        albums = state.albums,
+                        albumsHasMore = state.albumsHasMore,
+                        albumsLoadingMore = state.albumsLoadingMore,
+                        similarArtists = state.similarArtists,
+                        likedSongIds = likedSongIds,
+                        blockedArtistIds = blockedArtistIds,
+                        currentTrackId = currentTrack?.mediaId,
+                        isPlaying = isPlaying,
+                        collectState = collectState,
+                        isLoggedIn = hasCloudAccount,
+                        onBack = onBack,
+                        onArtistClick = onArtistClick,
+                        onPlaylistClick = onPlaylistClick,
+                        onAlbumClick = onAlbumClick,
+                        onFollowClick = { viewModel.toggleFollow(state.artist.id) },
+                        onBlockClick = { viewModel.toggleBlockArtist(state.artist.id) },
+                        onPlaySong = { track, queue ->
+                            viewModel.playSongInList(track, queue)
+                        },
+                        onLikeClick = { songId ->
+                            viewModel.prepareCollectDialog(songId)
+                        },
+                        onQuickLike = { songId -> viewModel.quickLike(songId) },
+                        collectPromptEvents = viewModel.collectPromptEvent,
+                        onToggleLike = { songId, like ->
+                            viewModel.toggleLikeSong(songId, like)
+                        },
+                        onAddToPlayNext = { track ->
+                            viewModel.addTrackToPlayNext(track)
+                        },
+                        onSaveCollection = { songId, items ->
+                            viewModel.savePlaylistCollection(songId, items, silent = true)
+                        },
+                        onSaveNewCollection = { name, songId ->
+                            viewModel.createPlaylistAndAddSong(name, songId)
+                        },
+                        onRequireLogin = {
+                            if (isKugou) ToastManager.showToast("请先登录账号") else showLoginSheet = true
+                        },
+                        onLoadMoreAlbums = { viewModel.loadMoreAlbums() },
+                        songSearch = songSearch,
+                        onSongSearchQueryChange = viewModel::updateSongSearchQuery,
+                        onLoadMoreSongSearch = viewModel::loadMoreSongSearch,
+                        selectionUi = TrackSelectionUi(
+                            active = selection.active,
+                            selectedIds = selection.selectedIds,
+                            onEnter = viewModel::enterSelection,
+                            onToggle = viewModel::toggleSelected
+                        ),
+                        selectionActions = buildList {
+                            add(SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() })
+                            add(SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
+                                if (!hasCloudAccount) {
+                                    if (isKugou) ToastManager.showToast("请先登录账号") else showLoginSheet = true
+                                } else {
+                                    viewModel.prepareImportTargets()
+                                    showBatchTargetSheet = true
+                                }
+                            })
+                            add(SelectionAction("喜欢", MelodiaIcons.Favorite) {
+                                if (!hasCloudAccount) {
+                                    if (isKugou) ToastManager.showToast("请先登录账号") else showLoginSheet = true
+                                } else {
+                                    viewModel.batchLike()
+                                }
+                            })
+                            if (!isKugou) {
+                                add(SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true })
                             }
                         },
-                        SelectionAction("喜欢", MelodiaIcons.Favorite) {
-                            if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
-                        },
-                        SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true }
-                    ),
-                    onToggleSelectAll = viewModel::toggleSelectAll,
-                    onExitSelection = viewModel::exitSelection,
-                    onNavigateToPrivateChat = onNavigateToPrivateChat
-                )
+                        onToggleSelectAll = viewModel::toggleSelectAll,
+                        onExitSelection = viewModel::exitSelection,
+                        onNavigateToPrivateChat = onNavigateToPrivateChat,
+                        isKugou = isKugou,
+                        albumEntityIds = state.albumEntityIds,
+                        similarArtistEntityIds = state.similarArtistEntityIds,
+                        onArtistEntityClick = onArtistEntityClick,
+                        onAlbumEntityClick = onAlbumEntityClick
+                    )
+                }
             }
         }
 
@@ -182,7 +226,17 @@ fun ArtistScreen(
                     showBatchTargetSheet = false
                 },
                 onCreateAndImport = { name ->
-                    viewModel.batchCreatePlaylistAndAdd(name)
+                    val target = availableCreatePlatforms.firstOrNull() ?: MusicPlatform.NETEASE
+                    viewModel.batchCreatePlaylistAndAdd(name, targetPlatform = target)
+                    showBatchTargetSheet = false
+                },
+                onSelectUnifiedTarget = { targetId ->
+                    viewModel.batchAddToUnifiedPlaylist(targetId)
+                    showBatchTargetSheet = false
+                },
+                availablePlatforms = availableCreatePlatforms,
+                onCreateForPlatformAndImport = { name, platform ->
+                    viewModel.batchCreatePlaylistAndAdd(name, targetPlatform = platform)
                     showBatchTargetSheet = false
                 }
             )

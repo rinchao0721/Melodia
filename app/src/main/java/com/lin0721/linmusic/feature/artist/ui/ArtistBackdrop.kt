@@ -42,9 +42,10 @@ fun BoxScope.ArtistBackdrop(
             .fillMaxWidth()
             .height(380.dp)
     ) {
+        val imageUrl = if (bgUrl.isNotEmpty() && !bgUrl.contains("?") && artist.id > 0L) "$bgUrl?param=640y640" else bgUrl
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
-                .data(if (bgUrl.isNotEmpty()) "$bgUrl?param=640y640" else "")
+                .data(imageUrl)
                 .allowHardware(false)
                 .crossfade(true)
                 .build(),

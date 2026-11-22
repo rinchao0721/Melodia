@@ -116,6 +116,7 @@ fun FullPlayerSheets(
             sleepTimerRemaining = sleepTimerRemaining,
             currentQuality = activeQuality,
             isLocalOnly = songState.isLocalOnly,
+            isExternal = songState.isExternal,
             songId = currentSongId,
             isPodcast = isPodcast,
             showMiniLyric = showMiniLyric,

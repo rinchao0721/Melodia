@@ -87,7 +87,12 @@ fun PlaylistHeaderItem(
     selectedHistoryDate: String = "今天",
     onCreatorClick: (Long) -> Unit = {},
     // 播放按钮在根坐标系下的实时位置（用于顶层叠加的按钮跟手滑动、到位后锁停）
-    onPlayButtonPositioned: (Float) -> Unit = {}
+    onPlayButtonPositioned: (Float) -> Unit = {},
+    canSubscribe: Boolean = !isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id),
+    canComment: Boolean = !isPluginCollectionId(playlist.id),
+    canShare: Boolean = !isPluginCollectionId(playlist.id),
+    isKugou: Boolean = false,
+    isKugouRecent: Boolean = false
 ) {
     var showDescriptionSheet by remember { mutableStateOf(false) }
     var hasDescOverflow by remember(playlist.description) { mutableStateOf(false) }
@@ -169,11 +174,15 @@ fun PlaylistHeaderItem(
                     Spacer(Modifier.height(6.dp))
                     if (playlist.id == -1L) {
                         Text(displayDateStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                    } else if (playlist.id == -2L) {
-                        Text("网易云个人听歌记录统计", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    } else if (playlist.id == -2L || isKugouRecent) {
+                        Text(
+                            if (isKugouRecent) "酷狗最近听歌记录" else "网易云个人听歌记录统计",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
                     } else {
                         val creator = playlist.creator
-                        val creatorModifier = if (creator != null && creator.userId > 0L) {
+                        val creatorModifier = if (!isKugou && creator != null && creator.userId > 0L) {
                             Modifier.clickable { onCreatorClick(creator.userId) }
                         } else {
                             Modifier
@@ -184,7 +193,7 @@ fun PlaylistHeaderItem(
                         ) {
                             if (creator != null) {
                                 AsyncImage(
-                                    model = "${creator.avatarUrl}?param=50y50",
+                                    model = if (isKugou) creator.avatarUrl.ifBlank { null } else "${creator.avatarUrl}?param=50y50",
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(20.dp)
@@ -195,7 +204,21 @@ fun PlaylistHeaderItem(
                             } else {
                                 Icon(MelodiaIcons.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text(if (isKugou) "酷狗音乐" else "为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            }
+                            if (isKugou) {
+                                Spacer(Modifier.width(6.dp))
+                                val brand = Color(com.lin0721.linmusic.core.source.MusicPlatform.KUGOU.brandColorArgb)
+                                Text(
+                                    text = com.lin0721.linmusic.core.source.MusicPlatform.KUGOU.badgeName,
+                                    color = brand,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(brand.copy(alpha = 0.14f))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
                             }
                         }
                         val description = playlist.description
@@ -258,9 +281,7 @@ fun PlaylistHeaderItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                            // 收藏对系统歌单和自建歌单都没有意义：前者本来就是自己的红心集合，
-                            // 后者不能收藏自己创建的东西
-                            if (!isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id)) {
+                            if (canSubscribe) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
                                         imageVector = if (isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
@@ -270,7 +291,7 @@ fun PlaylistHeaderItem(
                                     )
                                 }
                             }
-                            if (!isPluginCollectionId(playlist.id)) {
+                            if (canComment) {
                                 MelodiaIconButton(onClick = onCommentsClick) {
                                     Icon(
                                         imageVector = MelodiaIcons.Comment,
@@ -279,6 +300,8 @@ fun PlaylistHeaderItem(
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
+                            }
+                            if (canShare) {
                                 MelodiaIconButton(onClick = onShareClick) {
                                     Icon(
                                         imageVector = MelodiaIcons.Share,
@@ -289,7 +312,7 @@ fun PlaylistHeaderItem(
                                 }
                             }
                             // 订阅他人的歌单不在顶部放下载入口，收进"更多"里；系统歌单和自建歌单顶部保留
-                            if (isLikedSongsPlaylistView || isOwnedPlaylist) {
+                            if ((isLikedSongsPlaylistView || isOwnedPlaylist) && !isKugou) {
                                 MelodiaIconButton(onClick = onDownloadClick) {
                                     Icon(
                                         imageVector = MelodiaIcons.Download,

@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.model.isLikedSongsPlaylist
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.FavoriteFilled
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Sort
@@ -122,7 +123,10 @@ fun PlaylistCollectSheet(
     val stateMatches = collectState.songId == songId
     val loading = collectState.isLoading || !stateMatches
     val allItems = if (stateMatches) collectState.collectItems else emptyList()
-    val likedItem = allItems.firstOrNull { isLikedSongsPlaylist(it.playlistName, it.playlistId, null) }
+    val hasMixedPlatforms = remember(allItems) { allItems.map { it.platform }.distinct().size > 1 }
+    val likedItem = allItems.firstOrNull {
+        it.platform == MusicPlatform.NETEASE && (it.isLikedPlaylist || isLikedSongsPlaylist(it.playlistName, it.playlistId, null))
+    } ?: allItems.firstOrNull { it.isLikedPlaylist || isLikedSongsPlaylist(it.playlistName, it.playlistId, null) }
     val playlists = allItems.filter { it.playlistId != likedItem?.playlistId }
     val visiblePlaylists = remember(playlists, query, sortMode) {
         val keyword = query.trim()
@@ -258,9 +262,14 @@ fun PlaylistCollectSheet(
                 }
 
                 if (likedItem != null) {
+                    val likedSubtitle = if (hasMixedPlatforms || likedItem.platform == MusicPlatform.KUGOU) {
+                        "${likedItem.platform.displayName} · ${displayCount(likedItem)} 首歌曲"
+                    } else {
+                        "${displayCount(likedItem)} 首歌曲"
+                    }
                     CollectTargetRow(
                         title = "已点赞的歌曲",
-                        subtitle = "${displayCount(likedItem)} 首歌曲",
+                        subtitle = likedSubtitle,
                         checked = isChecked(likedItem),
                         onToggle = { toggle(likedItem) },
                         cover = { LikedSongsMiniCover(size = RowCoverSize) }
@@ -307,14 +316,19 @@ fun PlaylistCollectSheet(
                             contentPadding = PaddingValues(bottom = with(density) { navBottomPx.toDp() } + DoneBarHeight * progress)
                         ) {
                             items(visiblePlaylists, key = { it.playlistId }) { item ->
+                                val subtitle = if (hasMixedPlatforms || item.platform == MusicPlatform.KUGOU) {
+                                    "${item.platform.displayName} · ${displayCount(item)} 首歌曲"
+                                } else {
+                                    "${displayCount(item)} 首歌曲"
+                                }
                                 CollectTargetRow(
                                     title = item.playlistName,
-                                    subtitle = "${displayCount(item)} 首歌曲",
+                                    subtitle = subtitle,
                                     checked = isChecked(item),
                                     onToggle = { toggle(item) },
                                     cover = {
                                         SubcomposeAsyncImage(
-                                            model = "${item.coverUrl}?param=100y100",
+                                            model = collectCoverModel(item.coverUrl),
                                             contentDescription = item.playlistName,
                                             contentScale = ContentScale.Crop,
                                             loading = { CoverPlaceholder() },
@@ -537,5 +551,16 @@ private fun LikedSongsMiniCover(size: Dp) {
         contentAlignment = Alignment.Center
     ) {
         Icon(MelodiaIcons.FavoriteFilled, null, tint = Color.White, modifier = Modifier.size(size * 0.45f))
+    }
+}
+
+private fun collectCoverModel(url: String): String? {
+    val trimmed = url.trim()
+    if (trimmed.isEmpty()) return null
+    val isNetease = trimmed.contains("126.net", ignoreCase = true) || trimmed.contains("163.com", ignoreCase = true)
+    return if (isNetease && '?' !in trimmed && "param=" !in trimmed) {
+        "$trimmed?param=100y100"
+    } else {
+        trimmed
     }
 }

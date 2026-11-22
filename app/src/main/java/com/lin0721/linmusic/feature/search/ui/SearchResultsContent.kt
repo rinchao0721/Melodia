@@ -94,10 +94,19 @@ internal fun SearchResultsContent(
     onLikeClick: (Long) -> Unit,
     onQuickLike: (Long) -> Unit,
     showLikedBadge: Boolean,
-    onOpenMoreOptions: (Track) -> Unit
+    onOpenMoreOptions: (Track) -> Unit,
+    isKugouEnabled: Boolean = false,
+    kugouSelectedType: KugouSearchType = KugouSearchType.SONG,
+    kugouResultsByType: Map<KugouSearchType, StateFlow<SearchResultsUiState>> = emptyMap(),
+    kugouListStates: Map<KugouSearchType, LazyListState> = emptyMap(),
+    onSelectKugouType: (KugouSearchType) -> Unit = {},
+    onLoadMoreKugou: () -> Unit = {},
+    onPlaylistEntityClick: (entityId: String, isAlbum: Boolean) -> Unit = { _, _ -> },
+    onArtistEntityClick: (entityId: String) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val types = SearchType.entries
+    val kugouTypes = KugouSearchType.entries
     Column(modifier = Modifier.fillMaxSize()) {
         if (searchPlatforms.size > 1) {
             PlatformTabRow(
@@ -105,7 +114,8 @@ internal fun SearchResultsContent(
                 selected = selectedPlatform,
                 externalResults = externalResults,
                 onSelect = onSelectPlatform,
-                modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
+                modifier = Modifier.padding(bottom = MelodiaSpacing.xs),
+                kugouResults = kugouResultsByType[kugouSelectedType]?.takeIf { isKugouEnabled }
             )
         }
         AnimatedContent(
@@ -116,59 +126,108 @@ internal fun SearchResultsContent(
             },
             label = "search_platform_switch"
         ) { platform ->
-            if (platform == MusicPlatform.NETEASE) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    FilterChipsRow(
-                        items = remember { types.map { it.label } },
-                        selectedIndex = types.indexOf(selectedType),
-                        onSelected = { index -> types.getOrNull(index)?.let(onSelectType) },
-                        modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
-                    )
-                    AnimatedContent(
-                        targetState = selectedType,
-                        transitionSpec = {
-                            fadeIn(motion.tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
-                                .togetherWith(fadeOut(motion.tween(TAB_EXIT_DURATION)))
-                        },
-                        label = "search_type_tab_switch"
-                    ) { type ->
-                        val resultsState by resultsByType.getValue(type).collectAsStateWithLifecycle()
-                        SearchResultsList(
-                            state = resultsState,
-                            type = type,
-                            listState = listStates.getValue(type),
-                            currentTrackId = currentTrackId,
-                            isPlaying = isPlaying,
-                            likedSongIds = likedSongIds,
-                            isLoggedIn = isLoggedIn,
-                            onSongClick = onSongClick,
-                            onAlbumClick = onAlbumClick,
-                            onArtistClick = onArtistClick,
-                            onPlaylistClick = onPlaylistClick,
-                            onRadioClick = onRadioClick,
-                            onProgramClick = onProgramClick,
-                            onLoadMore = onLoadMore,
-                            onRetry = onRetry,
-                            onLikeClick = onLikeClick,
-                            onQuickLike = onQuickLike,
-                            showLikedBadge = showLikedBadge,
-                            onOpenMoreOptions = onOpenMoreOptions
+            when {
+                platform == MusicPlatform.NETEASE -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        FilterChipsRow(
+                            items = remember { types.map { it.label } },
+                            selectedIndex = types.indexOf(selectedType),
+                            onSelected = { index -> types.getOrNull(index)?.let(onSelectType) },
+                            modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
                         )
+                        AnimatedContent(
+                            targetState = selectedType,
+                            transitionSpec = {
+                                fadeIn(motion.tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
+                                    .togetherWith(fadeOut(motion.tween(TAB_EXIT_DURATION)))
+                            },
+                            label = "search_type_tab_switch"
+                        ) { type ->
+                            val resultsState by resultsByType.getValue(type).collectAsStateWithLifecycle()
+                            SearchResultsList(
+                                state = resultsState,
+                                typeLabel = type.label,
+                                listState = listStates.getValue(type),
+                                currentTrackId = currentTrackId,
+                                isPlaying = isPlaying,
+                                likedSongIds = likedSongIds,
+                                isLoggedIn = isLoggedIn,
+                                onSongClick = onSongClick,
+                                onAlbumClick = onAlbumClick,
+                                onArtistClick = onArtistClick,
+                                onPlaylistClick = onPlaylistClick,
+                                onRadioClick = onRadioClick,
+                                onProgramClick = onProgramClick,
+                                onLoadMore = onLoadMore,
+                                onRetry = onRetry,
+                                onLikeClick = onLikeClick,
+                                onQuickLike = onQuickLike,
+                                showLikedBadge = showLikedBadge,
+                                onOpenMoreOptions = onOpenMoreOptions,
+                                onPlaylistEntityClick = onPlaylistEntityClick,
+                                onArtistEntityClick = onArtistEntityClick
+                            )
+                        }
                     }
                 }
-            } else {
-                val resultsStateFlow = externalResults[platform]
-                val resultsState = resultsStateFlow?.collectAsStateWithLifecycle()?.value ?: ExternalSearchUiState.Idle
-                ExternalSearchResultsList(
-                    state = resultsState,
-                    platform = platform,
-                    currentTrackId = currentTrackId,
-                    isPlaying = isPlaying,
-                    onSongClick = onExternalSongClick,
-                    onOpenOptions = onOpenExternalOptions,
-                    onLoadMore = { onLoadMoreExternal(platform) },
-                    onRetry = { onRetryExternal(platform) }
-                )
+                platform == MusicPlatform.KUGOU && isKugouEnabled && kugouResultsByType.isNotEmpty() -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        FilterChipsRow(
+                            items = remember { kugouTypes.map { it.label } },
+                            selectedIndex = kugouTypes.indexOf(kugouSelectedType),
+                            onSelected = { index -> kugouTypes.getOrNull(index)?.let(onSelectKugouType) },
+                            modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
+                        )
+                        AnimatedContent(
+                            targetState = kugouSelectedType,
+                            transitionSpec = {
+                                fadeIn(motion.tween(TAB_ENTER_DURATION, easing = FastOutSlowInEasing))
+                                    .togetherWith(fadeOut(motion.tween(TAB_EXIT_DURATION)))
+                            },
+                            label = "search_kugou_type_tab_switch"
+                        ) { kType ->
+                            val resultsState by kugouResultsByType.getValue(kType).collectAsStateWithLifecycle()
+                            val listState = kugouListStates[kType] ?: remember(kType) { LazyListState() }
+                            SearchResultsList(
+                                state = resultsState,
+                                typeLabel = kType.label,
+                                listState = listState,
+                                currentTrackId = currentTrackId,
+                                isPlaying = isPlaying,
+                                likedSongIds = likedSongIds,
+                                isLoggedIn = isLoggedIn,
+                                onSongClick = onSongClick,
+                                onAlbumClick = onAlbumClick,
+                                onArtistClick = onArtistClick,
+                                onPlaylistClick = onPlaylistClick,
+                                onRadioClick = onRadioClick,
+                                onProgramClick = onProgramClick,
+                                onLoadMore = onLoadMoreKugou,
+                                onRetry = onRetry,
+                                onLikeClick = onLikeClick,
+                                onQuickLike = onQuickLike,
+                                showLikedBadge = showLikedBadge,
+                                onOpenMoreOptions = onOpenMoreOptions,
+                                onPlaylistEntityClick = onPlaylistEntityClick,
+                                onArtistEntityClick = onArtistEntityClick
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    val resultsStateFlow = externalResults[platform]
+                    val resultsState = resultsStateFlow?.collectAsStateWithLifecycle()?.value ?: ExternalSearchUiState.Idle
+                    ExternalSearchResultsList(
+                        state = resultsState,
+                        platform = platform,
+                        currentTrackId = currentTrackId,
+                        isPlaying = isPlaying,
+                        onSongClick = onExternalSongClick,
+                        onOpenOptions = onOpenExternalOptions,
+                        onLoadMore = { onLoadMoreExternal(platform) },
+                        onRetry = { onRetryExternal(platform) }
+                    )
+                }
             }
         }
     }
@@ -283,7 +342,7 @@ private fun ExternalSearchResultsList(
 @Composable
 private fun SearchResultsList(
     state: SearchResultsUiState,
-    type: SearchType,
+    typeLabel: String,
     listState: LazyListState,
     currentTrackId: String?,
     isPlaying: Boolean,
@@ -300,7 +359,9 @@ private fun SearchResultsList(
     onLikeClick: (Long) -> Unit,
     onQuickLike: (Long) -> Unit,
     showLikedBadge: Boolean,
-    onOpenMoreOptions: (Track) -> Unit
+    onOpenMoreOptions: (Track) -> Unit,
+    onPlaylistEntityClick: (String, Boolean) -> Unit = { _, _ -> },
+    onArtistEntityClick: (String) -> Unit = {}
 ) {
     when (state) {
         SearchResultsUiState.Idle, SearchResultsUiState.Loading -> {
@@ -312,7 +373,7 @@ private fun SearchResultsList(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
                     icon = MelodiaIcons.SearchOff,
-                    title = "没有找到相关${type.label}"
+                    title = "没有找到相关$typeLabel"
                 )
             }
         }
@@ -338,7 +399,7 @@ private fun SearchResultsList(
             ) {
                 item(key = "header") {
                     Text(
-                        "找到 ${state.totalCount} 个${type.label}",
+                        "找到 ${state.totalCount} 个$typeLabel",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
@@ -357,7 +418,7 @@ private fun SearchResultsList(
                                     artist = track.ar.joinToString(" / ") { it.name },
                                     coverUrl = track.al.picUrl,
                                     isVip = track.fee == 1,
-                                    qualitySongId = track.id,
+                                    qualitySongId = track.id.takeIf { it > 0L },
                                     maxBrLevel = track.privilege?.maxBrLevel
                                 ),
                                 isActive = isActive,
@@ -397,7 +458,10 @@ private fun SearchResultsList(
                                 coverUrl = item.album.picUrl,
                                 coverShape = EntityCoverShape.Rounded
                             ),
-                            onClick = { onAlbumClick(item.album.id) }
+                            onClick = {
+                                val entityId = state.entityIds[item.stableKey]
+                                if (entityId != null) onPlaylistEntityClick(entityId, true) else onAlbumClick(item.album.id)
+                            }
                         )
                         is SearchResultItem.ArtistItem -> EntityRow(
                             data = EntityRowData(
@@ -406,7 +470,10 @@ private fun SearchResultsList(
                                 coverUrl = item.artist.picUrl,
                                 coverShape = EntityCoverShape.Circle
                             ),
-                            onClick = { onArtistClick(item.artist.id) }
+                            onClick = {
+                                val entityId = state.entityIds[item.stableKey]
+                                if (entityId != null) onArtistEntityClick(entityId) else onArtistClick(item.artist.id)
+                            }
                         )
                         is SearchResultItem.PlaylistItem -> EntityRow(
                             data = EntityRowData(
@@ -419,7 +486,10 @@ private fun SearchResultsList(
                                 coverUrl = item.playlist.coverImgUrl,
                                 coverShape = EntityCoverShape.Rounded
                             ),
-                            onClick = { onPlaylistClick(item.playlist.id) }
+                            onClick = {
+                                val entityId = state.entityIds[item.stableKey]
+                                if (entityId != null) onPlaylistEntityClick(entityId, false) else onPlaylistClick(item.playlist.id)
+                            }
                         )
                         is SearchResultItem.RadioItem -> EntityRow(
                             data = EntityRowData(

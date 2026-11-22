@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
@@ -53,7 +54,9 @@ fun LibraryItemOptionsSheet(
     onDeletePlaylist: (Long) -> Unit,
     onUnsubscribePlaylist: (Long) -> Unit,
     onUnsubscribeAlbum: (Long) -> Unit,
-    onUnsubscribeArtist: (Long) -> Unit
+    onUnsubscribeArtist: (Long) -> Unit,
+    onDeleteItem: ((LibraryItem) -> Unit)? = null,
+    onUnsubscribeItem: ((LibraryItem) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -132,55 +135,24 @@ fun LibraryItemOptionsSheet(
             )
 
             // 2. 根据条目类型构建菜单项列表
+            val isNetease = item.platform == MusicPlatform.NETEASE
+            val isKugouRecent = item.entityId == KUGOU_RECENT_PLAYLIST_ID || item.id == KUGOU_RECENT_PLAYLIST_ID
             val menuItems = buildList {
                 val pinTitle = if (item.isPinned) "取消置顶" else "置顶"
 
                 when (item.type) {
                     LibraryItemType.PLAYLIST -> {
-                        if (item.isLikedSongs) {
-                            // "我喜欢的音乐"：不提供删除，支持置顶、分享与下载
-                            add(
-                                LibraryOptionsMenuItem(
-                                    icon = MelodiaIcons.PushPin,
-                                    title = pinTitle,
-                                    onClick = {
-                                        onDismiss()
-                                        onTogglePin(item.id)
-                                    }
-                                )
+                        add(
+                            LibraryOptionsMenuItem(
+                                icon = MelodiaIcons.PushPin,
+                                title = pinTitle,
+                                onClick = {
+                                    onDismiss()
+                                    onTogglePin(item.id)
+                                }
                             )
-                            add(
-                                LibraryOptionsMenuItem(
-                                    icon = MelodiaIcons.Share,
-                                    title = "分享歌单",
-                                    onClick = {
-                                        onDismiss()
-                                        onShare(item)
-                                    }
-                                )
-                            )
-                            add(
-                                LibraryOptionsMenuItem(
-                                    icon = MelodiaIcons.Download,
-                                    title = "下载歌单",
-                                    onClick = {
-                                        onDismiss()
-                                        onDownload(item)
-                                    }
-                                )
-                            )
-                        } else {
-                            // 普通歌单：置顶、修改位置、分享、下载、删除/取消收藏
-                            add(
-                                LibraryOptionsMenuItem(
-                                    icon = MelodiaIcons.PushPin,
-                                    title = pinTitle,
-                                    onClick = {
-                                        onDismiss()
-                                        onTogglePin(item.id)
-                                    }
-                                )
-                            )
+                        )
+                        if (!item.isLikedSongs && isNetease && !isKugouRecent) {
                             add(
                                 LibraryOptionsMenuItem(
                                     icon = MelodiaIcons.Sort,
@@ -191,6 +163,8 @@ fun LibraryItemOptionsSheet(
                                     }
                                 )
                             )
+                        }
+                        if (isNetease && !isKugouRecent && item.id.toLongOrNull() != null) {
                             add(
                                 LibraryOptionsMenuItem(
                                     icon = MelodiaIcons.Share,
@@ -201,6 +175,8 @@ fun LibraryItemOptionsSheet(
                                     }
                                 )
                             )
+                        }
+                        if (isNetease && !isKugouRecent) {
                             add(
                                 LibraryOptionsMenuItem(
                                     icon = MelodiaIcons.Download,
@@ -211,6 +187,8 @@ fun LibraryItemOptionsSheet(
                                     }
                                 )
                             )
+                        }
+                        if (!item.isLikedSongs && !isKugouRecent) {
                             if (item.isOwnedByMe) {
                                 add(
                                     LibraryOptionsMenuItem(
@@ -219,7 +197,11 @@ fun LibraryItemOptionsSheet(
                                         isDestructive = true,
                                         onClick = {
                                             onDismiss()
-                                            item.id.toLongOrNull()?.let { onDeletePlaylist(it) }
+                                            if (onDeleteItem != null) {
+                                                onDeleteItem(item)
+                                            } else {
+                                                item.id.toLongOrNull()?.let { onDeletePlaylist(it) }
+                                            }
                                         }
                                     )
                                 )
@@ -231,7 +213,11 @@ fun LibraryItemOptionsSheet(
                                         isDestructive = true,
                                         onClick = {
                                             onDismiss()
-                                            item.id.toLongOrNull()?.let { onUnsubscribePlaylist(it) }
+                                            if (onUnsubscribeItem != null) {
+                                                onUnsubscribeItem(item)
+                                            } else {
+                                                item.id.toLongOrNull()?.let { onUnsubscribePlaylist(it) }
+                                            }
                                         }
                                     )
                                 )
@@ -240,7 +226,6 @@ fun LibraryItemOptionsSheet(
                     }
 
                     LibraryItemType.ALBUM -> {
-                        // 专辑：置顶、取消收藏、分享、下载
                         add(
                             LibraryOptionsMenuItem(
                                 icon = MelodiaIcons.PushPin,
@@ -251,41 +236,48 @@ fun LibraryItemOptionsSheet(
                                 }
                             )
                         )
-                        add(
-                            LibraryOptionsMenuItem(
-                                icon = MelodiaIcons.FavoriteFilled,
-                                title = "取消收藏专辑",
-                                isDestructive = true,
-                                onClick = {
-                                    onDismiss()
-                                    item.id.toLongOrNull()?.let { onUnsubscribeAlbum(it) }
-                                }
+                        if (isNetease) {
+                            add(
+                                LibraryOptionsMenuItem(
+                                    icon = MelodiaIcons.FavoriteFilled,
+                                    title = "取消收藏专辑",
+                                    isDestructive = true,
+                                    onClick = {
+                                        onDismiss()
+                                        if (onUnsubscribeItem != null) {
+                                            onUnsubscribeItem(item)
+                                        } else {
+                                            item.id.toLongOrNull()?.let { onUnsubscribeAlbum(it) }
+                                        }
+                                    }
+                                )
                             )
-                        )
-                        add(
-                            LibraryOptionsMenuItem(
-                                icon = MelodiaIcons.Share,
-                                title = "分享专辑",
-                                onClick = {
-                                    onDismiss()
-                                    onShare(item)
-                                }
+                            if (item.id.toLongOrNull() != null) {
+                                add(
+                                    LibraryOptionsMenuItem(
+                                        icon = MelodiaIcons.Share,
+                                        title = "分享专辑",
+                                        onClick = {
+                                            onDismiss()
+                                            onShare(item)
+                                        }
+                                    )
+                                )
+                            }
+                            add(
+                                LibraryOptionsMenuItem(
+                                    icon = MelodiaIcons.Download,
+                                    title = "下载专辑",
+                                    onClick = {
+                                        onDismiss()
+                                        onDownload(item)
+                                    }
+                                )
                             )
-                        )
-                        add(
-                            LibraryOptionsMenuItem(
-                                icon = MelodiaIcons.Download,
-                                title = "下载专辑",
-                                onClick = {
-                                    onDismiss()
-                                    onDownload(item)
-                                }
-                            )
-                        )
+                        }
                     }
 
                     LibraryItemType.ARTIST -> {
-                        // 歌手：置顶、取消关注、分享
                         add(
                             LibraryOptionsMenuItem(
                                 icon = MelodiaIcons.PushPin,
@@ -303,20 +295,26 @@ fun LibraryItemOptionsSheet(
                                 isDestructive = true,
                                 onClick = {
                                     onDismiss()
-                                    item.id.toLongOrNull()?.let { onUnsubscribeArtist(it) }
+                                    if (onUnsubscribeItem != null) {
+                                        onUnsubscribeItem(item)
+                                    } else {
+                                        item.id.toLongOrNull()?.let { onUnsubscribeArtist(it) }
+                                    }
                                 }
                             )
                         )
-                        add(
-                            LibraryOptionsMenuItem(
-                                icon = MelodiaIcons.Share,
-                                title = "分享歌手",
-                                onClick = {
-                                    onDismiss()
-                                    onShare(item)
-                                }
+                        if (isNetease && item.id.toLongOrNull() != null) {
+                            add(
+                                LibraryOptionsMenuItem(
+                                    icon = MelodiaIcons.Share,
+                                    title = "分享歌手",
+                                    onClick = {
+                                        onDismiss()
+                                        onShare(item)
+                                    }
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }

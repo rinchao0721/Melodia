@@ -19,6 +19,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -35,9 +36,14 @@ import com.lin0721.linmusic.core.ui.icons.Check
 @Composable
 fun LibraryCreatePlaylistSheet(
     onDismiss: () -> Unit,
-    onCreate: (String) -> Unit
+    onCreate: (String) -> Unit,
+    availablePlatforms: List<MusicPlatform> = emptyList(),
+    onCreateForPlatform: ((String, MusicPlatform) -> Unit)? = null
 ) {
     var playlistNameInput by remember { mutableStateOf("") }
+    var selectedPlatform by remember(availablePlatforms) {
+        mutableStateOf(availablePlatforms.firstOrNull() ?: MusicPlatform.NETEASE)
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -60,6 +66,39 @@ fun LibraryCreatePlaylistSheet(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = MelodiaSpacing.md)
             )
+            if (availablePlatforms.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    availablePlatforms.forEach { platform ->
+                        val selected = platform == selectedPlatform
+                        val label = if (platform == MusicPlatform.KUGOU) "酷狗音乐" else "网易云音乐"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.background
+                                )
+                                .clickable { selectedPlatform = platform },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
             Text(
                 text = "请输入新歌单的名称：",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -100,7 +139,11 @@ fun LibraryCreatePlaylistSheet(
                 MelodiaButton(
                     onClick = {
                         if (playlistNameInput.isNotBlank()) {
-                            onCreate(playlistNameInput)
+                            if (onCreateForPlatform != null) {
+                                onCreateForPlatform(playlistNameInput, selectedPlatform)
+                            } else {
+                                onCreate(playlistNameInput)
+                            }
                         } else {
                             ToastManager.showToast("名字不能为空哦！")
                         }

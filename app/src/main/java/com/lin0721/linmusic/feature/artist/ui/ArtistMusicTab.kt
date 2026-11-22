@@ -67,7 +67,7 @@ fun LazyListScope.artistMusicTab(
                         artist = track.ar.joinToString(" • ") { it.name },
                         coverUrl = track.al.picUrl,
                         isVip = track.fee == 1,
-                        qualitySongId = track.id,
+                        qualitySongId = track.id.takeIf { it > 0L },
                         maxBrLevel = track.privilege?.maxBrLevel
                     ),
                     isActive = isActive,

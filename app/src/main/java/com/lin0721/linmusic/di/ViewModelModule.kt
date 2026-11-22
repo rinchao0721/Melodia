@@ -71,7 +71,9 @@ val viewModelModule = module {
             settingsPreferences = getOrNull(),
             sourcePreferences = getOrNull(),
             linkPreviewResolver = getOrNull(),
-            songQualityCache = getOrNull()
+            songQualityCache = getOrNull(),
+            platformSearchRouter = getOrNull(),
+            platformArtistRouter = getOrNull()
         )
     }
     viewModelOf(::PlaylistCategoryViewModel)

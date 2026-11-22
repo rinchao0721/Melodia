@@ -29,8 +29,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalGlobalOverlayOpen
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
@@ -60,16 +62,23 @@ fun SearchScreen(
     onRadioClick: (id: Long) -> Unit = {},
     onPlaylistCategoryClick: (category: String) -> Unit = {},
     onOpenRecognition: () -> Unit = {},
-    onNavigateToPrivateChat: (Long) -> Unit = {}
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    onPlaylistEntityClick: (entityId: String, isAlbum: Boolean) -> Unit = { _, _ -> },
+    onArtistEntityClick: (entityId: String) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val discoveryState by viewModel.discoveryState.collectAsStateWithLifecycle()
+    val kugouDiscoveryState by viewModel.kugouDiscoveryState.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     val featuredTrack by viewModel.featuredTrack.collectAsStateWithLifecycle()
     val inputState by viewModel.inputState.collectAsStateWithLifecycle()
     val mode by viewModel.mode.collectAsStateWithLifecycle()
     val searchPlatforms by viewModel.searchPlatforms.collectAsStateWithLifecycle()
     val selectedPlatform by viewModel.selectedPlatform.collectAsStateWithLifecycle()
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
+    val kugouSelectedType by viewModel.kugouSelectedType.collectAsStateWithLifecycle()
+    val unifiedTracks by viewModel.unifiedTracks.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
@@ -79,8 +88,12 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
 
+    val activeKugou = kugouAccount?.takeIf { isKugouEnabled }
+    val hasCloudAccount = userProfile != null || activeKugou != null
+
     // 每个 Tab 各自持有滚动位置，切换 Tab 时不丢失浏览进度
     val resultListStates = remember { SearchType.entries.associateWith { LazyListState() } }
+    val kugouResultListStates = remember { KugouSearchType.entries.associateWith { LazyListState() } }
 
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
     var externalOptionsTrack by remember { mutableStateOf<ExternalTrack?>(null) }
@@ -114,8 +127,27 @@ fun SearchScreen(
         viewModel.cancelSearch()
     }
 
-    // 网易返回的真实推荐词，仅用于兜底触发搜索；未加载或已关闭推荐词时为 null，不能拿占位文案当关键词去搜
-    val remoteDefaultKeyword = (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword?.takeIf { it.isNotBlank() }
+    val discoveryPlatforms = remember(isKugouEnabled, searchPlatforms) {
+        if (isKugouEnabled && MusicPlatform.KUGOU in searchPlatforms) {
+            listOf(MusicPlatform.NETEASE, MusicPlatform.KUGOU)
+        } else {
+            listOf(MusicPlatform.NETEASE)
+        }
+    }
+    val activeDiscoveryPlatform = if (selectedPlatform == MusicPlatform.KUGOU && isKugouEnabled) {
+        MusicPlatform.KUGOU
+    } else {
+        MusicPlatform.NETEASE
+    }
+    val activeDiscoveryState = if (activeDiscoveryPlatform == MusicPlatform.KUGOU) {
+        kugouDiscoveryState
+    } else {
+        discoveryState
+    }
+
+    // 返回的真实推荐词，仅用于兜底触发搜索；未加载或已关闭推荐词时为 null，不能拿占位文案当关键词去搜
+    val remoteDefaultKeyword = (activeDiscoveryState as? DiscoveryUiState.Success)?.defaultKeyword?.takeIf { it.isNotBlank() }
+        ?: (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword?.takeIf { it.isNotBlank() }
     val placeholder = remoteDefaultKeyword ?: "搜索你想听的"
 
     Column(
@@ -162,12 +194,15 @@ fun SearchScreen(
             ) { targetMode ->
                 when (targetMode) {
                     SearchMode.Discovery -> SearchDiscoveryContent(
-                        state = discoveryState,
-                        featuredTrack = featuredTrack,
+                        state = activeDiscoveryState,
+                        featuredTrack = if (activeDiscoveryPlatform == MusicPlatform.KUGOU) null else featuredTrack,
                         onHotSearchClick = viewModel::searchWithKeyword,
                         onPlayFeatured = viewModel::playFeaturedTrack,
                         onPlaylistTagClick = onPlaylistCategoryClick,
-                        onRetry = viewModel::retryDiscovery
+                        onRetry = viewModel::retryDiscovery,
+                        discoveryPlatforms = discoveryPlatforms,
+                        selectedDiscoveryPlatform = activeDiscoveryPlatform,
+                        onSelectDiscoveryPlatform = viewModel::selectPlatform
                     )
                     SearchMode.Typing -> SearchTypingPanel(
                         query = inputState.query,
@@ -194,7 +229,11 @@ fun SearchScreen(
                         onArtistClick = onArtistClick,
                         onAlbumClick = { id -> onPlaylistClick(id, true) },
                         onRemoveHistory = viewModel::removeHistory,
-                        onClearHistory = viewModel::clearHistory
+                        onClearHistory = viewModel::clearHistory,
+                        suggestionArtistEntityIds = inputState.suggestionArtistEntityIds,
+                        suggestionAlbumEntityIds = inputState.suggestionAlbumEntityIds,
+                        onArtistEntityClick = onArtistEntityClick,
+                        onAlbumEntityClick = { eid -> onPlaylistEntityClick(eid, true) }
                     )
                     SearchMode.Results -> SearchResultsContent(
                         searchPlatforms = searchPlatforms,
@@ -206,7 +245,7 @@ fun SearchScreen(
                         currentTrackId = currentTrack?.mediaId,
                         isPlaying = isPlaying,
                         likedSongIds = likedSongIds,
-                        isLoggedIn = userProfile != null,
+                        isLoggedIn = hasCloudAccount,
                         onSelectPlatform = viewModel::selectPlatform,
                         onSelectType = viewModel::selectType,
                         onSongClick = viewModel::playSong,
@@ -227,9 +266,15 @@ fun SearchScreen(
                         },
                         onQuickLike = viewModel::quickLike,
                         showLikedBadge = showLikedBadge,
-                        onOpenMoreOptions = { track ->
-                            if (userProfile == null) showLoginSheet = true else optionsTrack = track
-                        }
+                        onOpenMoreOptions = { track -> optionsTrack = track },
+                        isKugouEnabled = isKugouEnabled,
+                        kugouSelectedType = kugouSelectedType,
+                        kugouResultsByType = viewModel.kugouResultsByType,
+                        kugouListStates = kugouResultListStates,
+                        onSelectKugouType = viewModel::selectKugouType,
+                        onLoadMoreKugou = viewModel::loadMoreKugou,
+                        onPlaylistEntityClick = onPlaylistEntityClick,
+                        onArtistEntityClick = onArtistEntityClick
                     )
                 }
             }
@@ -238,10 +283,22 @@ fun SearchScreen(
         var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }
 
         optionsTrack?.let { track ->
+            val unified = unifiedTracks[track.id]
+            val isKugouTrack = unified?.platform == MusicPlatform.KUGOU
+            val artistEntityIds = remember(unified) {
+                unified?.artists?.mapNotNull { artist ->
+                    artist.id?.let { aid -> aid.toDeterministicLegacyId() to aid.canonical }
+                }?.toMap().orEmpty()
+            }
+            val albumEntityIds = remember(unified) {
+                unified?.album?.id?.let { aid ->
+                    mapOf(aid.toDeterministicLegacyId() to aid.canonical)
+                }.orEmpty()
+            }
             PlaylistSongOptionsSheet(
                 track = track,
                 isLiked = track.id in likedSongIds,
-                isLoggedIn = userProfile != null,
+                isLoggedIn = hasCloudAccount,
                 onDismiss = { optionsTrack = null },
                 onAddToPlayNext = { viewModel.addTrackToPlayNext(it) },
                 onToggleLike = { songId, like -> viewModel.toggleLikeSong(songId, like) },
@@ -251,8 +308,16 @@ fun SearchScreen(
                 },
                 onArtistClick = onArtistClick,
                 onAlbumClick = { id -> onPlaylistClick(id, true) },
-                onRequireLogin = { showLoginSheet = true },
-                onShareClick = { shareTarget = it to (it.id > 0L) }
+                onRequireLogin = {
+                    if (isKugouTrack) ToastManager.showToast("请先登录酷狗账号") else showLoginSheet = true
+                },
+                showArtistOption = if (unified != null) artistEntityIds.isNotEmpty() else track.ar.any { it.id > 0L },
+                showAlbumOption = if (unified != null) albumEntityIds.isNotEmpty() else track.al.id > 0L,
+                onShareClick = { shareTarget = it to (it.id > 0L) },
+                artistEntityIds = artistEntityIds,
+                albumEntityIds = albumEntityIds,
+                onArtistEntityClick = onArtistEntityClick,
+                onAlbumEntityClick = { eid -> onPlaylistEntityClick(eid, true) }
             )
         }
 
@@ -260,7 +325,7 @@ fun SearchScreen(
             PlaylistSongOptionsSheet(
                 track = external.toPlaylistTrack(),
                 isLiked = false,
-                isLoggedIn = userProfile != null,
+                isLoggedIn = hasCloudAccount,
                 onDismiss = { externalOptionsTrack = null },
                 onAddToPlayNext = { viewModel.addExternalToPlayNext(external) },
                 onToggleLike = { _, _ -> },

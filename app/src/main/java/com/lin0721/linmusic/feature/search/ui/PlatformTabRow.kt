@@ -31,7 +31,8 @@ internal fun PlatformTabRow(
     selected: MusicPlatform,
     externalResults: Map<MusicPlatform, StateFlow<ExternalSearchUiState>>,
     onSelect: (MusicPlatform) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    kugouResults: StateFlow<SearchResultsUiState>? = null
 ) {
     PrimaryScrollableTabRow(
         selectedTabIndex = platforms.indexOf(selected).coerceAtLeast(0),
@@ -42,8 +43,10 @@ internal fun PlatformTabRow(
         divider = { HorizontalDivider(color = MelodiaColors.Divider) }
     ) {
         platforms.forEach { platform ->
-            val state = externalResults[platform]?.collectAsStateWithLifecycle()?.value
-            val badge = state?.tabBadge()
+            val kugouState = if (platform == MusicPlatform.KUGOU) kugouResults?.collectAsStateWithLifecycle()?.value else null
+            val externalState = if (kugouState == null) externalResults[platform]?.collectAsStateWithLifecycle()?.value else null
+            val badge = kugouState?.tabBadge() ?: externalState?.tabBadge()
+            val isError = kugouState is SearchResultsUiState.Error || externalState is ExternalSearchUiState.Error
             Tab(
                 selected = platform == selected,
                 onClick = { onSelect(platform) },
@@ -67,7 +70,7 @@ internal fun PlatformTabRow(
                             Text(
                                 text = badge,
                                 fontSize = 11.sp,
-                                color = if (state is ExternalSearchUiState.Error) {
+                                color = if (isError) {
                                     MelodiaColors.AccentText
                                 } else {
                                     MelodiaColors.HintText

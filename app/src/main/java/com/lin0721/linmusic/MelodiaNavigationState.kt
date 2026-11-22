@@ -10,9 +10,15 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
+import com.lin0721.linmusic.core.platform.AlbumId
+import com.lin0721.linmusic.core.platform.ArtistId
+import com.lin0721.linmusic.core.platform.PlatformEntityId
+import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.feature.home.ui.TAB_ALL
 import com.lin0721.linmusic.feature.home.ui.TAB_MUSIC
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
+import kotlin.math.absoluteValue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -23,7 +29,7 @@ sealed class Screen {
     @Serializable
     data object Home : Screen()
     @Serializable
-    data class Playlist(val id: Long, val isAlbum: Boolean) : Screen()
+    data class Playlist(val id: Long, val isAlbum: Boolean, val entityId: String? = null) : Screen()
     @Serializable
     data object Search : Screen()
     @Serializable
@@ -31,7 +37,7 @@ sealed class Screen {
     @Serializable
     data object Settings : Screen()
     @Serializable
-    data class Artist(val id: Long) : Screen()
+    data class Artist(val id: Long, val entityId: String? = null) : Screen()
     @Serializable
     data class Radio(val id: Long) : Screen()
     // 「播客」tab 的二级页
@@ -314,8 +320,56 @@ class MelodiaNavigationState(
         navigateTo(Screen.Playlist(id, isAlbum))
     }
 
+    fun openPlaylistEntity(entityId: String, isAlbum: Boolean) {
+        navigateTo(playlistScreenForEntity(entityId, isAlbum))
+    }
+
     fun openArtist(id: Long) {
         navigateTo(Screen.Artist(id))
+    }
+
+    fun openArtistEntity(entityId: String) {
+        navigateTo(artistScreenForEntity(entityId))
+    }
+
+    private fun playlistScreenForEntity(entityId: String, isAlbum: Boolean): Screen.Playlist {
+        val parsed: PlatformEntityId? = if (isAlbum) {
+            AlbumId.parseOrNull(entityId)
+        } else {
+            PlaylistId.parseOrNull(entityId)
+        }
+        parsed?.neteaseIdOrNull()?.let { neteaseId ->
+            return Screen.Playlist(id = neteaseId, isAlbum = isAlbum, entityId = null)
+        }
+        if (parsed != null) {
+            return Screen.Playlist(
+                id = parsed.toDeterministicLegacyId(),
+                isAlbum = isAlbum,
+                entityId = parsed.canonical
+            )
+        }
+        val numeric = entityId.toLongOrNull()
+        if (numeric != null && numeric >= 0L) {
+            return Screen.Playlist(id = numeric, isAlbum = isAlbum, entityId = null)
+        }
+        val legacyId = -1L - entityId.hashCode().toLong().absoluteValue
+        return Screen.Playlist(id = legacyId, isAlbum = isAlbum, entityId = entityId)
+    }
+
+    private fun artistScreenForEntity(entityId: String): Screen.Artist {
+        val parsed = ArtistId.parseOrNull(entityId)
+        parsed?.neteaseIdOrNull()?.let { neteaseId ->
+            return Screen.Artist(id = neteaseId, entityId = null)
+        }
+        if (parsed != null) {
+            return Screen.Artist(id = parsed.toDeterministicLegacyId(), entityId = parsed.canonical)
+        }
+        val numeric = entityId.toLongOrNull()
+        if (numeric != null && numeric >= 0L) {
+            return Screen.Artist(id = numeric, entityId = null)
+        }
+        val legacyId = -1L - entityId.hashCode().toLong().absoluteValue
+        return Screen.Artist(id = legacyId, entityId = entityId)
     }
 
     fun selectHomeTab(index: Int) {

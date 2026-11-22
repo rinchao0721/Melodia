@@ -106,12 +106,14 @@ fun CommentFullScreen(
             Box(modifier = Modifier.size(40.dp))
         }
 
-        // 排序胶囊栏：常驻顶部，不受内容区加载态影响
-        CommentSortTabs(
-            current = commentsState.sortType,
-            onSelect = onSortChange,
-            modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
-        )
+        // 排序胶囊栏：不支持排序的平台隐藏
+        if ((commentsState as? CommentsState.Success)?.supportsSort != false) {
+            CommentSortTabs(
+                current = commentsState.sortType,
+                onSelect = onSortChange,
+                modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+            )
+        }
 
         // 中间内容与列表区
         Box(
@@ -186,8 +188,9 @@ fun CommentFullScreen(
                             items(allComments, key = { it.commentId }) { comment ->
                                 CommentRowItem(
                                     comment = comment,
-                                    isLikeClickable = !commentsState.readOnly,
-                                    allowReply = !commentsState.readOnly,
+                                    isLikeClickable = commentsState.canLike,
+                                    allowReply = !commentsState.readOnly && commentsState.canReply,
+                                    supportsFloor = !commentsState.readOnly && commentsState.supportsFloor,
                                     onLikeClick = { onLikeComment(comment) },
                                     onUserClick = onUserClick,
                                     onReplyClick = {
@@ -201,7 +204,7 @@ fun CommentFullScreen(
                                         }
                                     },
                                     onExpandFloorClick = { onExpandFloor(comment) },
-                                    onDeleteClick = if (comment.user.userId == currentUserId) {
+                                    onDeleteClick = if (commentsState.canDelete && currentUserId != null && currentUserId > 0L && comment.user.userId == currentUserId) {
                                         { onDeleteClick(comment) }
                                     } else null
                                 )

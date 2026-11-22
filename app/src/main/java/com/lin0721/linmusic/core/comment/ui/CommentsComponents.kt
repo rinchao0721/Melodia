@@ -246,6 +246,7 @@ fun CommentRowItem(
     isLikeClickable: Boolean = true,
     // 只读评论（QQ 音乐）不能回复，也没有楼层
     allowReply: Boolean = true,
+    supportsFloor: Boolean = allowReply,
     onLikeClick: () -> Unit = {},
     onUserClick: (Long) -> Unit = {},
     onReplyClick: () -> Unit = {},
@@ -436,7 +437,7 @@ fun CommentRowItem(
                 }
             }
 
-            if (isInteractive && allowReply && comment.replyCount > 0) {
+            if (isInteractive && supportsFloor && comment.replyCount > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "展开 ${comment.replyCount} 条回复 ›",

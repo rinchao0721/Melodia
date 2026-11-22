@@ -35,6 +35,8 @@ import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
+import com.lin0721.linmusic.core.comment.ui.CommentsState
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.model.CommentItem
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -108,7 +110,10 @@ fun PlaylistScreen(
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
     onNavigateToProfile: (Long) -> Unit = {},
-    onNavigateToPrivateChat: (Long) -> Unit = {}
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    entityId: String? = null,
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     val motion = LocalUiMotion.current
     val settingsPreferences = koinInject<com.lin0721.linmusic.core.preferences.SettingsPreferences>()
@@ -121,9 +126,28 @@ fun PlaylistScreen(
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val unplayableIds by viewModel.unplayableIds.collectAsStateWithLifecycle()
     val externalTracks by viewModel.externalTracks.collectAsStateWithLifecycle()
-    val externalPlatforms = remember(externalTracks) { externalTracks.mapValues { it.value.platform } }
+    val unifiedTracks by viewModel.unifiedTracks.collectAsStateWithLifecycle()
+    val externalPlatforms = remember(externalTracks, unifiedTracks, uiState) {
+        val currentPlatform = (uiState as? PlaylistUiState.Success)?.platform ?: com.lin0721.linmusic.core.source.MusicPlatform.NETEASE
+        val map = LinkedHashMap<Long, com.lin0721.linmusic.core.source.MusicPlatform>()
+        unifiedTracks.forEach { (id, u) -> if (u.platform != currentPlatform) map[id] = u.platform }
+        externalTracks.forEach { (id, ext) -> map[id] = ext.platform }
+        map
+    }
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile  by viewModel.userProfile.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val activeKugou = kugouAccount?.takeIf { isKugouEnabled }
+    val hasCloudAccount = userProfile != null || activeKugou != null
+    val availableCreatePlatforms = remember(userProfile, activeKugou) {
+        buildList {
+            if (userProfile != null) add(com.lin0721.linmusic.core.source.MusicPlatform.NETEASE)
+            if (activeKugou != null) add(com.lin0721.linmusic.core.source.MusicPlatform.KUGOU)
+        }
+    }
+    val availableAddMusicSources by viewModel.availableAddMusicSources.collectAsStateWithLifecycle()
+    val addMusicSource by viewModel.addMusicSource.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
     val historyRecommendState by viewModel.historyRecommendState.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
@@ -208,7 +232,14 @@ fun PlaylistScreen(
     // reorderedTracks 是引用不变的 SnapshotStateList，remember(keys) 感知不到其内容变化，必须用 derivedStateOf 才能正确响应拖拽
     val isOrderChanged by remember {
         derivedStateOf {
-            val current = (uiState as? PlaylistUiState.Success)?.playlist?.tracks.orEmpty().filter { it.id > 0L }
+            val s = uiState as? PlaylistUiState.Success
+            val current = s?.playlist?.tracks.orEmpty().filter { track ->
+                if (s?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU) {
+                    unifiedTracks[track.id]?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
+                } else {
+                    track.id > 0L
+                }
+            }
             reorderedTracks.isNotEmpty() && reorderedTracks != current
         }
     }
@@ -249,10 +280,14 @@ fun PlaylistScreen(
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
     }
-    LaunchedEffect(playlistId, isAlbum) {
-        viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
-        if (playlistId == -1L) {
-            viewModel.loadHistoryDates()
+    LaunchedEffect(playlistId, isAlbum, entityId) {
+        if (entityId != null) {
+            viewModel.loadEntityIfNeeded(entityId, isAlbum)
+        } else {
+            viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
+            if (playlistId == -1L) {
+                viewModel.loadHistoryDates()
+            }
         }
     }
 
@@ -269,7 +304,10 @@ fun PlaylistScreen(
                         Spacer(Modifier.height(MelodiaSpacing.sm))
                         Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         Spacer(Modifier.height(MelodiaSpacing.md))
-                        MelodiaButton(onClick = { viewModel.loadPlaylist(playlistId, isAlbum) },
+                        MelodiaButton(onClick = {
+                            if (entityId != null) viewModel.loadEntity(entityId, isAlbum)
+                            else viewModel.loadPlaylist(playlistId, isAlbum)
+                        },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                             Text("重试", color = MaterialTheme.colorScheme.onPrimary)
                         }
@@ -277,13 +315,35 @@ fun PlaylistScreen(
                     }
                 }
             is PlaylistUiState.Success -> {
+                val isStale = if (entityId != null) {
+                    state.entityId != entityId
+                } else {
+                    state.playlist.id != playlistId && !isAlbum
+                }
+                if (isStale) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else {
+                val isKugou = state.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
                 val profile = userProfile
-                val isLikedSongsPlaylistView = profile != null &&
+                val isLikedSongsPlaylistView = !isKugou && profile != null &&
                     isLikedSongsPlaylist(state.playlist.name, state.playlist.id, profile.uid)
-                val isOwnedPlaylist = profile != null &&
-                    state.playlist.id > 0L &&
-                    state.playlist.creator?.userId == profile.uid &&
-                    !isLikedSongsPlaylistView
+                val isOwnedPlaylist = if (isKugou) {
+                    !state.isKugouRecent && !isAlbum && activeKugou != null &&
+                        (state.creatorEntityId == activeKugou.accountId.canonical || state.playlist.creator?.userId == activeKugou.uid)
+                } else {
+                    profile != null &&
+                        !isAlbum &&
+                        state.playlist.id > 0L &&
+                        state.playlist.creator?.userId == profile.uid &&
+                        !isLikedSongsPlaylistView
+                }
+                val canSubscribe = !state.isKugouRecent && !isOwnedPlaylist && !isLikedSongsPlaylistView && (
+                    if (isKugou) !isAlbum else state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)
+                )
+                val canComment = !state.isKugouRecent && (isKugou || (state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)))
+                val canShare = !isKugou && !state.isKugouRecent && state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)
                 val isShuffleActive = playMode == PlayMode.SHUFFLE
                 // 当前播放队列的来源是否就是这个歌单（playContext 存的是歌单名）
                 val isThisPlaylistContext = playContext == state.playlist.name
@@ -475,7 +535,7 @@ fun PlaylistScreen(
                                     draggedIndex = -1
                                     dragOffset = 0f
                                     settlingIndex = -1
-                                    viewModel.updateTrackOrder(state.playlist.id, reorderedTracks.toList()) { success ->
+                                    viewModel.updateTrackOrderByEntity(state.entityId, reorderedTracks.toList()) { success ->
                                         isSavingOrder = false
                                         if (success) {
                                             isReorderMode = false
@@ -510,7 +570,7 @@ fun PlaylistScreen(
                                             title = item.name,
                                             artist = item.ar.joinToString("/") { it.name },
                                             coverUrl = item.al.picUrl,
-                                            qualitySongId = item.id,
+                                            qualitySongId = item.id.takeIf { it > 0L },
                                             maxBrLevel = item.privilege?.maxBrLevel
                                         ),
                                         isCurrent = currentTrack?.mediaId == item.id.toString(),
@@ -578,8 +638,17 @@ fun PlaylistScreen(
                             // 排序保存是全量覆盖，必须先补全未加载的曲目，否则会把服务端剩余部分删掉
                             viewModel.ensureAllTracksLoaded { allTracks ->
                                 reorderedTracks.clear()
-                                // 外部歌曲的位置跟随加入时间，不参与手动排序
-                                reorderedTracks.addAll(allTracks.filter { it.id > 0L })
+                                val currentUnified = viewModel.unifiedTracks.value
+                                // 外部混排歌曲的位置跟随加入时间，不参与手动排序
+                                reorderedTracks.addAll(
+                                    allTracks.filter { track ->
+                                        if (isKugou) {
+                                            currentUnified[track.id]?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
+                                        } else {
+                                            track.id > 0L
+                                        }
+                                    }
+                                )
                                 isReorderMode = true
                             }
                         },
@@ -589,123 +658,135 @@ fun PlaylistScreen(
                         onLoadMoreTracks = { viewModel.loadMoreTracks() },
                         onLocateTrack = { trackId -> viewModel.ensureTrackLoaded(trackId) },
                         currentTrackId = currentTrack?.mediaId,
-                    isPlaying      = isPlaying,
-                    likedSongIds   = likedSongIds,
-                    unplayableIds  = unplayableIds,
-                    externalPlatforms = externalPlatforms,
-                    showTrackIndex = showTrackIndex,
-                    collectState   = collectState,
-                    isLoggedIn     = userProfile != null,
-                    recommendedSongs = state.recommendedSongs,
-                    onBack         = onBack,
-                    onArtistClick  = onArtistClick,
-                    onAlbumClick   = onAlbumClick,
-                    onToggleLike   = viewModel::toggleLikeSong,
-                    onPlaySong     = { track ->
-                        // 队列需包含歌单全部曲目，超过1000首时会先补全未加载的部分
-                        viewModel.playTrackInPlaylist(track)
-                    },
-                    onPlayRecommendedSong = viewModel::playRecommendedTrack,
-                    onAddToPlayNext = { track ->
-                        viewModel.addTrackToPlayNext(track)
-                    },
-                    onPlayAll = {
-                        if (isThisPlaylistContext) {
-                            // 已经是当前播放队列，播放键只做暂停/继续切换
-                            viewModel.playerManager.togglePlayPause()
-                        } else {
-                            // 随机开关是全局播放模式，起播时按当前开关状态决定顺序播放还是打乱播放；
-                            // 超过1000首的歌单会先补全未加载的曲目再起播
-                            viewModel.playAll(shuffle = isShuffleActive)
-                        }
-                    },
-                    isShuffleActive = isShuffleActive,
-                    isCurrentlyPlayingThis = isCurrentlyPlayingThis,
-                    onShuffleToggle = {
-                        // 纯开关，不直接触发播放；复用全局播放模式，跟全屏播放器的随机按钮保持一致
-                        viewModel.playerManager.toggleShuffle()
-                    },
-                    onLikeClick = { songId ->
-                        viewModel.prepareCollectDialog(songId)
-                    },
-                    onQuickLike = viewModel::quickLike,
-                    collectPromptEvents = viewModel.collectPromptEvent,
-                    onSaveCollection = { songId, items ->
-                        viewModel.savePlaylistCollection(songId, items, silent = true)
-                    },
-                    onSaveNewCollection = { name, songId ->
-                        viewModel.createPlaylistAndAddSong(name, songId)
-                    },
-                    onRequireLogin = {
-                        showLoginSheet = true
-                    },
-                    onRefreshRecommendations = {
-                        viewModel.refreshRecommendations()
-                    },
-                    onAddRecommendSong = { track ->
-                        viewModel.addRecommendSongToPlaylist(state.playlist.id, track)
-                    },
-                    isSubscribed = state.isSubscribed,
-                    onSubscribeClick = {
-                        if (userProfile == null) {
+                        isPlaying      = isPlaying,
+                        likedSongIds   = likedSongIds,
+                        unplayableIds  = unplayableIds,
+                        externalPlatforms = externalPlatforms,
+                        showTrackIndex = showTrackIndex,
+                        collectState   = collectState,
+                        isLoggedIn     = hasCloudAccount,
+                        recommendedSongs = state.recommendedSongs,
+                        onBack         = onBack,
+                        onArtistClick  = onArtistClick,
+                        onAlbumClick   = onAlbumClick,
+                        onToggleLike   = viewModel::toggleLikeSong,
+                        onPlaySong     = { track ->
+                            // 队列需包含歌单全部曲目，超过1000首时会先补全未加载的部分
+                            viewModel.playTrackInPlaylist(track)
+                        },
+                        onPlayRecommendedSong = viewModel::playRecommendedTrack,
+                        onAddToPlayNext = { track ->
+                            viewModel.addTrackToPlayNext(track)
+                        },
+                        onPlayAll = {
+                            if (isThisPlaylistContext) {
+                                // 已经是当前播放队列，播放键只做暂停/继续切换
+                                viewModel.playerManager.togglePlayPause()
+                            } else {
+                                // 随机开关是全局播放模式，起播时按当前开关状态决定顺序播放还是打乱播放；
+                                // 超过1000首的歌单会先补全未加载的曲目再起播
+                                viewModel.playAll(shuffle = isShuffleActive)
+                            }
+                        },
+                        isShuffleActive = isShuffleActive,
+                        isCurrentlyPlayingThis = isCurrentlyPlayingThis,
+                        onShuffleToggle = {
+                            // 纯开关，不直接触发播放；复用全局播放模式，跟全屏播放器的随机按钮保持一致
+                            viewModel.playerManager.toggleShuffle()
+                        },
+                        onLikeClick = { songId ->
+                            viewModel.prepareCollectDialog(songId)
+                        },
+                        onQuickLike = viewModel::quickLike,
+                        collectPromptEvents = viewModel.collectPromptEvent,
+                        onSaveCollection = { songId, items ->
+                            viewModel.savePlaylistCollection(songId, items, silent = true)
+                        },
+                        onSaveNewCollection = { name, songId ->
+                            viewModel.createPlaylistAndAddSong(name, songId)
+                        },
+                        onRequireLogin = {
                             showLoginSheet = true
-                        } else {
-                            viewModel.toggleSubscribePlaylist()
-                        }
-                    },
-                    onCommentsClick = {
-                        showCommentsSheet = true
-                        viewModel.loadPlaylistComments(playlistId)
-                    },
-                    onMoreClick = {
-                        showMoreMenuSheet = true
-                    },
-                    isLikedSongsPlaylistView = isLikedSongsPlaylistView,
-                    onShareClick = { sharePlaylistOrAlbum(state.playlist.name, state.playlist.id) },
-                    onDownloadClick = { showDownloadQualitySheet = true },
-                    onDownloadSongClick = { pendingDownloadTrack = it },
-                    onHistoryClick = {},
-                    historyDates = historyRecommendState.dates,
-                    historySongsLoading = historyRecommendState.songsLoading,
-                    showHistoryDatePicker = true,
-                    selectedHistoryDate = selectedHistoryDate,
-                    onSelectedHistoryDateChange = { selectedHistoryDate = it },
-                    onLoadHistoryDetail = { viewModel.loadHistoryDetail(it) },
-                    onLoadDailyRecommend = { viewModel.loadPlaylist(-1L) },
-                    onReduceRecommend = viewModel::reduceDailyRecommend,
-                    onCreatorClick = onNavigateToProfile,
-                    selectionUi = TrackSelectionUi(
-                        active = selection.active,
-                        selectedIds = selection.selectedIds,
-                        onEnter = viewModel::enterSelection,
-                        onToggle = viewModel::toggleSelected
-                    ),
-                    selectionActions = buildList {
-                        add(SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() })
-                        add(SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
-                            if (userProfile == null) {
+                        },
+                        onRefreshRecommendations = {
+                            viewModel.refreshRecommendations()
+                        },
+                        onAddRecommendSong = { track ->
+                            viewModel.addRecommendSongToPlaylist(state.playlist.id, track)
+                        },
+                        isSubscribed = state.isSubscribed,
+                        onSubscribeClick = {
+                            if (!hasCloudAccount) {
                                 showLoginSheet = true
                             } else {
-                                viewModel.prepareImportTargets(state.playlist.id)
-                                showBatchTargetSheet = true
+                                viewModel.toggleSubscribePlaylist()
                             }
-                        })
-                        add(SelectionAction("喜欢", MelodiaIcons.Favorite) {
-                            if (userProfile == null) showLoginSheet = true else viewModel.batchLike()
-                        })
-                        add(SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true })
-                        if (isOwnedPlaylist) {
-                            add(SelectionAction("删除", MelodiaIcons.Delete) { showBatchRemoveConfirm = true })
-                        }
-                    },
-                    onToggleSelectAll = viewModel::toggleSelectAll,
-                    onExitSelection = viewModel::exitSelection,
-                    onNavigateToPrivateChat = onNavigateToPrivateChat
-                )
-            }
+                        },
+                        onCommentsClick = {
+                            showCommentsSheet = true
+                            if (isKugou) viewModel.loadEntityComments() else viewModel.loadPlaylistComments(playlistId)
+                        },
+                        onMoreClick = {
+                            showMoreMenuSheet = true
+                        },
+                        isLikedSongsPlaylistView = isLikedSongsPlaylistView,
+                        onShareClick = { sharePlaylistOrAlbum(state.playlist.name, state.playlist.id) },
+                        onDownloadClick = { showDownloadQualitySheet = true },
+                        onDownloadSongClick = { pendingDownloadTrack = it },
+                        onHistoryClick = {},
+                        historyDates = historyRecommendState.dates,
+                        historySongsLoading = historyRecommendState.songsLoading,
+                        showHistoryDatePicker = true,
+                        selectedHistoryDate = selectedHistoryDate,
+                        onSelectedHistoryDateChange = { selectedHistoryDate = it },
+                        onLoadHistoryDetail = { viewModel.loadHistoryDetail(it) },
+                        onLoadDailyRecommend = { viewModel.loadPlaylist(-1L) },
+                        onReduceRecommend = viewModel::reduceDailyRecommend,
+                        onCreatorClick = onNavigateToProfile,
+                        selectionUi = TrackSelectionUi(
+                            active = selection.active,
+                            selectedIds = selection.selectedIds,
+                            onEnter = viewModel::enterSelection,
+                            onToggle = viewModel::toggleSelected
+                        ),
+                        selectionActions = buildList {
+                            add(SelectionAction("下一首播放", MelodiaIcons.Queue) { viewModel.batchPlayNext() })
+                            add(SelectionAction("添加到歌单", MelodiaIcons.PlaylistAdd) {
+                                if (!hasCloudAccount) {
+                                    showLoginSheet = true
+                                } else {
+                                    viewModel.prepareImportTargets(state.playlist.id, state.entityId)
+                                    showBatchTargetSheet = true
+                                }
+                            })
+                            add(SelectionAction("喜欢", MelodiaIcons.Favorite) {
+                                if (!hasCloudAccount) showLoginSheet = true else viewModel.batchLike()
+                            })
+                            if (!isKugou) {
+                                add(SelectionAction("下载", MelodiaIcons.Download) { showBatchDownloadSheet = true })
+                            }
+                            if (isOwnedPlaylist) {
+                                add(SelectionAction("删除", MelodiaIcons.Delete) { showBatchRemoveConfirm = true })
+                            }
+                        },
+                        onToggleSelectAll = viewModel::toggleSelectAll,
+                        onExitSelection = viewModel::exitSelection,
+                        onNavigateToPrivateChat = onNavigateToPrivateChat,
+                        artistEntityIds = state.artistEntityIds,
+                        albumEntityIds = state.albumEntityIds,
+                        onArtistEntityClick = onArtistEntityClick,
+                        onAlbumEntityClick = onAlbumEntityClick,
+                        canSubscribe = canSubscribe,
+                        canComment = canComment,
+                        canShare = canShare,
+                        isKugou = isKugou,
+                        isKugouRecent = state.isKugouRecent
+                    )
+                }
+                }
+                }
             }
         }
-    }
 
     if (showLoginSheet) {
             LoginBottomSheet(
@@ -735,6 +816,21 @@ fun PlaylistScreen(
             )
         }
 
+        val commentSuccess = commentsState as? CommentsState.Success
+        val isKugouComment = (uiState as? PlaylistUiState.Success)?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
+        val currentCommentUserId = if (isKugouComment) {
+            activeKugou?.uid
+        } else {
+            userProfile?.uid
+        }
+        val requireCommentLogin: () -> Unit = {
+            if (isKugouComment) {
+                ToastManager.showToast("请先登录酷狗账号")
+            } else {
+                showLoginSheet = true
+            }
+        }
+
         AnimatedVisibility(
             visible = showCommentsSheet,
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
@@ -747,7 +843,7 @@ fun PlaylistScreen(
             ) {
                 CommentFullScreen(
                     commentsState = commentsState,
-                    currentUserId = userProfile?.uid,
+                    currentUserId = currentCommentUserId,
                     composerState = composerState,
                     onBack = { showCommentsSheet = false },
                     onSortChange = viewModel::changeCommentSort,
@@ -765,9 +861,15 @@ fun PlaylistScreen(
                             viewModel.submitComment(content)
                         }
                     },
-                    onRequireLogin = { showLoginSheet = true },
+                    onRequireLogin = requireCommentLogin,
                     onLoadMore = viewModel::loadMoreComments,
-                    onRetry = { viewModel.loadPlaylistComments(playlistId) },
+                    onRetry = {
+                        if (isKugouComment) {
+                            viewModel.loadEntityComments()
+                        } else {
+                            viewModel.loadPlaylistComments(playlistId)
+                        }
+                    },
                     bottomOverlayInset = LocalBottomOverlayInset.current
                 )
             }
@@ -785,18 +887,19 @@ fun PlaylistScreen(
             ) {
                 CommentFloorScreen(
                     floorState = floorState,
-                    currentUserId = userProfile?.uid,
+                    currentUserId = currentCommentUserId,
                     composerState = composerState,
                     onBack = { showCommentFloor = false },
                     onLoadMore = viewModel::loadMoreCommentFloor,
                     onSubmitReply = { parentCommentId, content ->
                         viewModel.submitCommentReply(parentCommentId, content)
                     },
-                    onRequireLogin = { showLoginSheet = true },
+                    onRequireLogin = requireCommentLogin,
                     onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
                     onLikeClick = { comment -> viewModel.likeComment(comment) },
                     onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
-                    onUserClick = onNavigateToProfile
+                    onUserClick = onNavigateToProfile,
+                    isLikeClickable = commentSuccess?.canLike ?: true
                 )
             }
         }
@@ -832,6 +935,15 @@ fun PlaylistScreen(
                 },
                 onCreateAndImport = { name ->
                     viewModel.batchCreatePlaylistAndAdd(name)
+                    showBatchTargetSheet = false
+                },
+                onSelectUnifiedTarget = { targetPid ->
+                    viewModel.batchAddToUnifiedPlaylist(targetPid)
+                    showBatchTargetSheet = false
+                },
+                availablePlatforms = availableCreatePlatforms,
+                onCreateForPlatformAndImport = { name, platform ->
+                    viewModel.batchCreatePlaylistAndAdd(name, targetPlatform = platform)
                     showBatchTargetSheet = false
                 }
             )
@@ -903,12 +1015,14 @@ fun PlaylistScreen(
             ArtistPickerSheet(
                 artists = artistPickerEntries,
                 onArtistClick = onArtistClick,
-                onDismiss = { artistPickerEntries = emptyList() }
+                onDismiss = { artistPickerEntries = emptyList() },
+                onArtistEntityClick = onArtistEntityClick
             )
         }
 
         if (showMoreMenuSheet && successState != null) {
             val playlist = successState.playlist
+            val isKugou = successState.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
             val moreMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showMoreMenuSheet = false },
@@ -926,7 +1040,7 @@ fun PlaylistScreen(
                     // 优先用专辑署名歌手，旧数据/歌单退回首曲歌手；多位时全部保留供选择
                     val linkedArtists = playlist.artists
                         .ifEmpty { playlist.tracks.firstOrNull()?.ar.orEmpty() }
-                        .filter { it.id > 0L }
+                        .filter { it.id > 0L || it.id in successState.artistEntityIds }
                         .distinctBy { it.id }
                     val artistName = linkedArtists.joinToString(" / ") { it.name }.ifBlank { "未知歌手" }
                     val resourceLabel = if (isAlbum) "专辑" else "歌单"
@@ -950,7 +1064,9 @@ fun PlaylistScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SubcomposeAsyncImage(
-                            model = if (playlist.coverImgUrl.isNotEmpty()) "${playlist.coverImgUrl}?param=150y150" else null,
+                            model = if (playlist.coverImgUrl.isNotEmpty()) {
+                                if (isKugou) playlist.coverImgUrl else "${playlist.coverImgUrl}?param=150y150"
+                            } else null,
                             contentDescription = playlist.name,
                             contentScale = ContentScale.Crop,
                             loading = { CoverPlaceholder() },
@@ -987,25 +1103,35 @@ fun PlaylistScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
                     )
 
-                    val isManageable = !isAlbum && userProfile != null &&
-                        playlist.creator?.userId == userProfile?.uid &&
-                        playlist.id > 0L &&
-                        playlist.id != userProfile?.uid
+                    val isManageable = if (isKugou) {
+                        !successState.isKugouRecent && !isAlbum && activeKugou != null &&
+                            (successState.creatorEntityId == activeKugou.accountId.canonical || playlist.creator?.userId == activeKugou.uid)
+                    } else {
+                        !isAlbum && userProfile != null &&
+                            playlist.creator?.userId == userProfile?.uid &&
+                            playlist.id > 0L &&
+                            playlist.id != userProfile?.uid
+                    }
+                    val canSubscribeMore = !successState.isKugouRecent && !isManageable && (
+                        if (isKugou) !isAlbum else playlist.id > 0L && !isPluginCollectionId(playlist.id)
+                    )
 
                     val menuItems = buildList {
-                        add(
-                            PlaylistMenuItem(
-                                icon = if (successState.isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
-                                title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                if (userProfile == null) {
-                                    showLoginSheet = true
-                                } else {
-                                    viewModel.toggleSubscribePlaylist()
+                        if (canSubscribeMore) {
+                            add(
+                                PlaylistMenuItem(
+                                    icon = if (successState.isSubscribed) MelodiaIcons.CheckCircleFilled else MelodiaIcons.AddCircle,
+                                    title = if (successState.isSubscribed) "取消收藏$resourceLabel" else "收藏$resourceLabel"
+                                ) {
+                                    showMoreMenuSheet = false
+                                    if (!hasCloudAccount) {
+                                        showLoginSheet = true
+                                    } else {
+                                        viewModel.toggleSubscribePlaylist()
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                         add(
                             PlaylistMenuItem(
                                 icon = MelodiaIcons.Person,
@@ -1014,12 +1140,21 @@ fun PlaylistScreen(
                                 showMoreMenuSheet = false
                                 when (linkedArtists.size) {
                                     0 -> com.lin0721.linmusic.core.ui.components.ToastManager.showToast("未找到关联艺人信息")
-                                    1 -> onArtistClick(linkedArtists.first().id)
+                                    1 -> {
+                                        val first = linkedArtists.first()
+                                        val eid = successState.artistEntityIds[first.id]
+                                        if (eid != null && onArtistEntityClick != null) {
+                                            onArtistEntityClick(eid)
+                                        } else {
+                                            onArtistClick(first.id)
+                                        }
+                                    }
                                     else -> artistPickerEntries = linkedArtists.map { artist ->
                                         ArtistPickerEntry(
                                             id = artist.id,
                                             name = artist.name,
-                                            avatarUrl = artist.picUrl.ifBlank { artist.img1v1Url }.takeIf { it.isNotBlank() }
+                                            avatarUrl = artist.picUrl.ifBlank { artist.img1v1Url }.takeIf { it.isNotBlank() },
+                                            entityId = successState.artistEntityIds[artist.id]
                                         )
                                     }
                                 }
@@ -1040,15 +1175,15 @@ fun PlaylistScreen(
                                 title = "添加到歌单"
                             ) {
                                 showMoreMenuSheet = false
-                                if (userProfile == null) {
+                                if (!hasCloudAccount) {
                                     showLoginSheet = true
                                 } else {
-                                    viewModel.prepareImportTargets(playlist.id)
+                                    viewModel.prepareImportTargets(playlist.id, successState.entityId)
                                     showImportTargetSheet = true
                                 }
                             }
                         )
-                        if (!isPluginCollectionId(playlist.id)) {
+                        if (!isKugou && !successState.isKugouRecent && !isPluginCollectionId(playlist.id)) {
                             add(
                                 PlaylistMenuItem(
                                     icon = MelodiaIcons.Share,
@@ -1144,6 +1279,15 @@ fun PlaylistScreen(
                 onCreateAndImport = { name ->
                     viewModel.createPlaylistAndImportAll(name)
                     showImportTargetSheet = false
+                },
+                onSelectUnifiedTarget = { targetPid ->
+                    viewModel.importAllTracksToUnified(targetPid)
+                    showImportTargetSheet = false
+                },
+                availablePlatforms = availableCreatePlatforms,
+                onCreateForPlatformAndImport = { name, platform ->
+                    viewModel.createPlaylistAndImportAll(name, targetPlatform = platform)
+                    showImportTargetSheet = false
                 }
             )
         }
@@ -1160,12 +1304,15 @@ fun PlaylistScreen(
                 onQueryChange = viewModel::updateAddMusicSearchQuery,
                 onClearQuery = viewModel::clearAddMusicSearch,
                 onAddTrack = { track, onComplete ->
-                    viewModel.addTrackToPlaylist(playlist.id, track) { onComplete() }
+                    viewModel.addTrackToEntityPlaylist(successState.entityId, track) { onComplete() }
                 },
                 onDismiss = {
                     showAddMusicSheet = false
                     viewModel.clearAddMusicSearch()
-                }
+                },
+                availableSources = availableAddMusicSources,
+                selectedSource = addMusicSource,
+                onSourceChange = viewModel::setAddMusicSource
             )
         }
 
@@ -1194,8 +1341,8 @@ fun PlaylistScreen(
                             com.lin0721.linmusic.core.ui.components.ToastManager.showToast("读取裁剪后的图片失败")
                             return@launch
                         }
-                        viewModel.updatePlaylistInfo(
-                            id = playlist.id,
+                        viewModel.updatePlaylistInfoByEntity(
+                            entityId = successState.entityId,
                             originalName = playlist.name,
                             newName = newName,
                             originalDesc = playlist.description,
@@ -1234,7 +1381,7 @@ fun PlaylistScreen(
                     MelodiaTextButton(
                         onClick = {
                             showDeleteConfirmDialog = false
-                            viewModel.deletePlaylist(playlist.id) {
+                            viewModel.deletePlaylistByEntity(successState.entityId) {
                                 onBack()
                             }
                         },

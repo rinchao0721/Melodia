@@ -26,6 +26,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import com.lin0721.linmusic.core.comment.domain.CommentFloorState
 import com.lin0721.linmusic.core.comment.ui.CommentFloorScreen
 import com.lin0721.linmusic.core.comment.ui.CommentFullScreen
+import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
@@ -293,6 +294,7 @@ private fun FullPlayerScreenContent(
     val composerState by viewModel.composerState.collectAsStateWithLifecycle()
     val floorState by viewModel.floorState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     // 未收藏一键喜欢，已收藏打开加入歌单弹窗
     val openCollectSheet: (Long) -> Unit = { songId ->
@@ -1300,6 +1302,13 @@ private fun FullPlayerScreenContent(
             onOutputDeviceDismiss = { showOutputDeviceSheet = false }
         )
 
+        val commentSuccess = commentsState as? CommentsState.Success
+        val isKugouComment = commentSuccess?.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
+        val currentCommentUserId = if (isKugouComment) kugouAccount?.uid else userProfile?.uid
+        val requireCommentLogin = {
+            ToastManager.showToast(if (isKugouComment) "请先登录酷狗账号" else "请先登录账号")
+        }
+
         AnimatedVisibility(
             visible = showCommentsSheet,
             enter = slideInVertically(uiTween(ScreenSlideDurationMs)) { it } + fadeIn(uiTween(ScreenSlideDurationMs)),
@@ -1312,7 +1321,7 @@ private fun FullPlayerScreenContent(
             ) {
                 CommentFullScreen(
                     commentsState = commentsState,
-                    currentUserId = userProfile?.uid,
+                    currentUserId = currentCommentUserId,
                     composerState = composerState,
                     onBack = { showCommentsSheet = false },
                     onSortChange = viewModel::changeCommentSort,
@@ -1333,7 +1342,7 @@ private fun FullPlayerScreenContent(
                             viewModel.submitComment(content)
                         }
                     },
-                    onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                    onRequireLogin = requireCommentLogin,
                     onLoadMore = viewModel::loadMoreComments,
                     onRetry = { viewModel.retryComments() }
                 )
@@ -1352,18 +1361,19 @@ private fun FullPlayerScreenContent(
             ) {
                 CommentFloorScreen(
                     floorState = floorState,
-                    currentUserId = userProfile?.uid,
+                    currentUserId = currentCommentUserId,
                     composerState = composerState,
                     onBack = { showCommentFloor = false },
                     onLoadMore = viewModel::loadMoreCommentFloor,
                     onSubmitReply = { parentCommentId, content ->
                         viewModel.submitCommentReply(parentCommentId, content)
                     },
-                    onRequireLogin = { ToastManager.showToast("请先登录账号") },
+                    onRequireLogin = requireCommentLogin,
                     onDeleteClick = { comment -> viewModel.deleteCommentItem(comment) },
                     onLikeClick = { comment -> viewModel.likeComment(comment) },
                     onRetry = { (floorState as? CommentFloorState.Success)?.ownerComment?.let(viewModel::openCommentFloor) },
-                    onUserClick = onNavigateToProfile
+                    onUserClick = onNavigateToProfile,
+                    isLikeClickable = commentSuccess?.canLike ?: true
                 )
             }
         }

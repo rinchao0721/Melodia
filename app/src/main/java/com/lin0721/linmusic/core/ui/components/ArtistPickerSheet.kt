@@ -23,7 +23,8 @@ import kotlinx.coroutines.launch
 data class ArtistPickerEntry(
     val id: Long,
     val name: String,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val entityId: String? = null
 )
 
 // 多歌手合唱时的歌手选择面板：点名字/“歌手”入口不再只能进第一位歌手主页
@@ -32,7 +33,8 @@ data class ArtistPickerEntry(
 fun ArtistPickerSheet(
     artists: List<ArtistPickerEntry>,
     onArtistClick: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onArtistEntityClick: ((String) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -69,7 +71,12 @@ fun ArtistPickerSheet(
                     onClick = {
                         scope.launch { sheetState.hide() }.invokeOnCompletion {
                             onDismiss()
-                            onArtistClick(artist.id)
+                            val eid = artist.entityId
+                            if (eid != null && onArtistEntityClick != null) {
+                                onArtistEntityClick(eid)
+                            } else {
+                                onArtistClick(artist.id)
+                            }
                         }
                     }
                 )

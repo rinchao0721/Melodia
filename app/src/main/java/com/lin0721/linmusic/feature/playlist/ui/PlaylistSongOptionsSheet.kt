@@ -74,7 +74,11 @@ fun PlaylistSongOptionsSheet(
     // 统一分享入口（打开分享卡片页，非网易云歌曲不展示好友快发条）
     onShareClick: ((Track) -> Unit)? = null,
     // 额外操作项
-    extraOptions: @Composable ColumnScope.() -> Unit = {}
+    extraOptions: @Composable ColumnScope.() -> Unit = {},
+    artistEntityIds: Map<Long, String> = emptyMap(),
+    albumEntityIds: Map<Long, String> = emptyMap(),
+    onArtistEntityClick: ((String) -> Unit)? = null,
+    onAlbumEntityClick: ((String) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -233,7 +237,7 @@ fun PlaylistSongOptionsSheet(
                 }
 
                 if (showArtistOption) {
-                    val linkedArtists = track.ar.filter { it.id > 0 }.distinctBy { it.id }
+                    val linkedArtists = track.ar.filter { it.id > 0 || it.id in artistEntityIds }.distinctBy { it.id }
                     if (linkedArtists.size > 1) {
                         // 多歌手逐个列出，避免只能进入第一位歌手主页
                         linkedArtists.forEach { artist ->
@@ -242,7 +246,12 @@ fun PlaylistSongOptionsSheet(
                                 text = "歌手: ${artist.name}",
                                 onClick = {
                                     onDismiss()
-                                    onArtistClick(artist.id)
+                                    val eid = artistEntityIds[artist.id]
+                                    if (eid != null && onArtistEntityClick != null) {
+                                        onArtistEntityClick(eid)
+                                    } else {
+                                        onArtistClick(artist.id)
+                                    }
                                 }
                             )
                         }
@@ -253,9 +262,12 @@ fun PlaylistSongOptionsSheet(
                             text = "歌手: $artistsText",
                             onClick = {
                                 onDismiss()
-                                val artistId = linkedArtists.firstOrNull()?.id ?: 0L
-                                if (artistId > 0) {
-                                    onArtistClick(artistId)
+                                val artist = linkedArtists.firstOrNull()
+                                val eid = artist?.let { artistEntityIds[it.id] }
+                                if (eid != null && onArtistEntityClick != null) {
+                                    onArtistEntityClick(eid)
+                                } else if (artist != null && artist.id > 0) {
+                                    onArtistClick(artist.id)
                                 } else {
                                     ToastManager.showToast("暂无歌手信息")
                                 }
@@ -281,7 +293,10 @@ fun PlaylistSongOptionsSheet(
                         text = "专辑: ${track.al.name}",
                         onClick = {
                             onDismiss()
-                            if (track.al.id > 0) {
+                            val albumEid = albumEntityIds[track.al.id]
+                            if (albumEid != null && onAlbumEntityClick != null) {
+                                onAlbumEntityClick(albumEid)
+                            } else if (track.al.id > 0) {
                                 onAlbumClick(track.al.id)
                             } else {
                                 ToastManager.showToast("暂无专辑信息")
