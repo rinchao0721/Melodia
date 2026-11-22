@@ -6,6 +6,7 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import okhttp3.OkHttpClient
@@ -20,7 +21,8 @@ class DownloadWorkerFactory(
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate,
     private val downloadRecognizer: DownloadRecognizer,
-    private val urlResolver: DownloadUrlResolver
+    private val urlResolver: DownloadUrlResolver,
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -39,7 +41,8 @@ class DownloadWorkerFactory(
             taskStore,
             queueGate,
             downloadRecognizer,
-            urlResolver
+            urlResolver,
+            platformPlaybackRouter
         )
         else -> null
     }

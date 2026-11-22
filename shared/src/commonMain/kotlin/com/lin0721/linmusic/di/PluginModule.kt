@@ -3,8 +3,11 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.download.data.DownloadApi
 import com.lin0721.linmusic.core.download.data.DownloadUrlResolver
 import com.lin0721.linmusic.core.download.data.SongDownloadUrlRequest
+import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.plugin.PlayerCardSource
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PlaybackTrackMeta
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.plugin.PluginAudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginCommands
@@ -82,7 +85,26 @@ fun pluginModule(directory: Scope.() -> File): Module = module {
         DownloadUrlResolver(
             official = { id, level -> scope.get<DownloadApi>().getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = level)) },
             fallbackEnabled = { scope.get<SourcePreferences>().fallbackEnabled.first() },
-            plugins = scope.get<PluginDownloadSources>()::resolve
+            plugins = scope.get<PluginDownloadSources>()::resolve,
+            platformResolver = { trackId, level, kugouMeta, query ->
+                val router = scope.getOrNull<PlatformPlaybackRouter>()
+                if (router != null && router.supports(trackId.platform)) {
+                    val quality = UnifiedAudioQuality.fromCode(level, trackId.platform) ?: UnifiedAudioQuality.EXHIGH
+                    router.resolvePlayback(
+                        trackId = trackId,
+                        preferredQuality = quality,
+                        meta = PlaybackTrackMeta(
+                            title = query.title,
+                            artists = query.artists,
+                            albumName = query.album,
+                            durationMs = query.durationMs,
+                            kugouMeta = kugouMeta
+                        )
+                    ).getOrNull()
+                } else {
+                    null
+                }
+            }
         )
     }
     single {

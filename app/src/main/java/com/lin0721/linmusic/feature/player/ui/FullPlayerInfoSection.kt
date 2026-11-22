@@ -242,7 +242,7 @@ private fun FullPlayerInfoCard(
                 base = colors.base,
                 animateMesh = animateLyricsMesh,
                 isAmll = songState.lyricsSource == LyricsSource.AMLL,
-                isQrc = songState.lyricsSource == LyricsSource.QQ && songState.lyrics.any { it.words.isNotEmpty() },
+                isQrc = (songState.lyricsSource == LyricsSource.QQ || songState.lyricsSource == LyricsSource.KUGOU) && songState.lyrics.any { it.words.isNotEmpty() },
                 onOpenFullScreen = onOpenFullScreenLyrics
             )
         }

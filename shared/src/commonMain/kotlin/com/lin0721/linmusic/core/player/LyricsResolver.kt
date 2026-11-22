@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.core.player
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricFilterConfig
 import com.lin0721.linmusic.core.player.domain.LyricFilterRules
@@ -10,6 +12,7 @@ import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.player.domain.LyricTimeline
 import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
 import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 // 启用的各源同时查询：首个有效结果立即发出，其后每 250ms 按最新快照择优，保留最后一批结果。
-enum class LyricsSource { AMLL, NETEASE, LOCAL, QQ, PLUGIN }
+enum class LyricsSource { AMLL, NETEASE, LOCAL, QQ, KUGOU, PLUGIN }
 
 data class ResolvedLyrics(val lines: List<LyricLine>, val source: LyricsSource)
 
@@ -56,7 +59,10 @@ class LyricsResolver(
     private val hasPluginLyrics: () -> Boolean = { false },
     private val readPluginLyrics: suspend (songId: Long, external: ExternalTrack?) -> List<LyricLine> = { _, _ -> emptyList() },
     // 歌词首尾信息行过滤配置，每首歌开始解析时读取一次
-    private val lyricFilterConfig: suspend () -> LyricFilterConfig = { LyricFilterConfig(enabled = false) }
+    private val lyricFilterConfig: suspend () -> LyricFilterConfig = { LyricFilterConfig(enabled = false) },
+    // 跨平台官方歌词读取（例如酷狗 KRC 逐字歌词），返回空列表时自动回退现有外部歌词源
+    private val readPlatformLyrics: suspend (TrackId, KugouTrackMeta?, ExternalTrack?) -> List<LyricLine> = { _, _, _ -> emptyList() },
+    private val kugouMetaOf: (songId: Long) -> KugouTrackMeta? = { null }
 ) {
 
     // 规则不变时复用已编译的正则
@@ -155,29 +161,64 @@ class LyricsResolver(
     private fun onlineLyricsFor(songId: Long): Flow<Result<ResolvedLyrics>> =
         onlineLyrics(songId, neteaseId = songId, matchNetease = null, readQq = { readQqLyrics(songId) }, external = null)
 
-    private fun externalLyricsFor(songId: Long, track: ExternalTrack): Flow<Result<ResolvedLyrics>> =
-        onlineLyrics(
-            songId,
-            neteaseId = null,
-            matchNetease = {
-                try {
-                    matchNeteaseId(track).also {
-                        AppLogger.i("LyricsResolver", "外部歌曲《${track.name}》匹配网易云 id=${it ?: "无"}")
+    private fun externalLyricsFor(songId: Long, track: ExternalTrack): Flow<Result<ResolvedLyrics>> = flow {
+        if (track.platform == MusicPlatform.KUGOU) {
+            val kugouMeta = kugouMetaOf(songId)
+            val hash = kugouMeta?.hash?.trim()?.takeIf { it.isNotEmpty() }
+                ?: track.hash?.trim()?.takeIf { it.isNotEmpty() }
+                ?: track.id
+            if (hash.isNotBlank()) {
+                val trackId = TrackId.kugou(hash)
+                val effectiveMeta = kugouMeta ?: KugouTrackMeta(
+                    hash = trackId.rawId,
+                    albumId = track.albumId.takeIf { it.isNotBlank() }
+                )
+                val platformLines = fetchPlatformLines(trackId, effectiveMeta, track)
+                val filtered = activeFilter()?.online(platformLines) ?: platformLines
+                if (filtered.isNotEmpty()) {
+                    AppLogger.i("LyricsResolver", "酷狗歌曲《${track.name}》命中官方歌词 ${filtered.size} 行")
+                    emit(Result.success(ResolvedLyrics(LyricTimeline.prepareLines(filtered), LyricsSource.KUGOU)))
+                    return@flow
+                }
+            }
+        }
+        emitAll(
+            onlineLyrics(
+                songId,
+                neteaseId = null,
+                matchNetease = {
+                    try {
+                        matchNeteaseId(track).also {
+                            AppLogger.i("LyricsResolver", "外部歌曲《${track.name}》匹配网易云 id=${it ?: "无"}")
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLogger.w("LyricsResolver", "外部歌曲匹配网易云失败 songId=$songId: ${e.message}")
+                        null
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.w("LyricsResolver", "外部歌曲匹配网易云失败 songId=$songId: ${e.message}")
-                    null
-                }
-            },
-            readQq = {
-                readExternalQqLyrics(track).also {
-                    AppLogger.i("LyricsResolver", "外部歌曲《${track.name}》QQ 歌词 ${it.size} 行 时长=${track.durationMs}")
-                }
-            },
-            external = track
+                },
+                readQq = {
+                    readExternalQqLyrics(track).also {
+                        AppLogger.i("LyricsResolver", "外部歌曲《${track.name}》QQ 歌词 ${it.size} 行 时长=${track.durationMs}")
+                    }
+                },
+                external = track
+            )
         )
+    }
+
+    private suspend fun fetchPlatformLines(
+        trackId: TrackId,
+        kugouMeta: KugouTrackMeta?,
+        external: ExternalTrack?
+    ): List<LyricLine> = try {
+        withTimeoutOrNull(QQ_TIMEOUT_MS) { readPlatformLyrics(trackId, kugouMeta, external) }.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
+    }
 
     // 已知网易 id 时直接查，不多一次挂起；需要匹配时网易与 AMLL 共享同一次匹配，匹配不到按无歌词处理，不算失败
     private fun onlineLyrics(

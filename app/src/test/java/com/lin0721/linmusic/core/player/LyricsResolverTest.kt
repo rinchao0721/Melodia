@@ -201,4 +201,71 @@ class LyricsResolverTest {
             .lyricsFor(-5L).first().getOrThrow()
         assertTrue(lines.isEmpty())
     }
+
+    @Test
+    fun `酷狗歌曲优先读取酷狗KRC逐字歌词并标记KUGOU来源`() = runTest {
+        val repo = FakePlaybackRepository(Result.success(onlineLines))
+        val kugouTrack = com.lin0721.linmusic.core.source.ExternalTrack(
+            id = "kg_hash_1",
+            name = "酷狗歌",
+            artists = "歌手",
+            albumName = "专辑",
+            durationMs = 200_000L,
+            platform = com.lin0721.linmusic.core.source.MusicPlatform.KUGOU,
+            hash = "kg_hash_1"
+        )
+        val krcLines = listOf(
+            LyricLine(
+                timeMs = 1000L,
+                durationMs = 1000L,
+                text = "逐字歌词",
+                words = listOf(
+                    com.lin0721.linmusic.core.player.domain.WordInfo("逐字", 0L, 500L),
+                    com.lin0721.linmusic.core.player.domain.WordInfo("歌词", 500L, 500L)
+                )
+            )
+        )
+        val resolver = LyricsResolver(
+            playbackRepository = repo,
+            readLocalLyrics = { null },
+            localUriOf = { null },
+            externalOf = { kugouTrack },
+            readPlatformLyrics = { trackId, _, _ ->
+                assertEquals(com.lin0721.linmusic.core.source.MusicPlatform.KUGOU, trackId.platform)
+                krcLines
+            }
+        )
+        val resolved = resolver.lyricsWithSourceFor(kugouTrack.queueSongId).toList().last().getOrThrow()
+        assertEquals(LyricsSource.KUGOU, resolved.source)
+        assertEquals("逐字歌词", resolved.lines.single().text)
+        assertEquals(0, repo.lyricRequests)
+    }
+
+    @Test
+    fun `酷狗官方歌词为空时回退匹配到的网易歌词`() = runTest {
+        val repo = FakePlaybackRepository(Result.success(onlineLines))
+        val kugouTrack = com.lin0721.linmusic.core.source.ExternalTrack(
+            id = "kg_hash_2",
+            name = "酷狗歌",
+            artists = "歌手",
+            albumName = "专辑",
+            durationMs = 200_000L,
+            platform = com.lin0721.linmusic.core.source.MusicPlatform.KUGOU,
+            hash = "kg_hash_2"
+        )
+        val resolver = LyricsResolver(
+            playbackRepository = repo,
+            readLocalLyrics = { null },
+            localUriOf = { null },
+            isAmllEnabled = { false },
+            isQqEnabled = { false },
+            externalOf = { kugouTrack },
+            matchNeteaseId = { 999L },
+            readPlatformLyrics = { _, _, _ -> emptyList() }
+        )
+        val resolved = resolver.lyricsWithSourceFor(kugouTrack.queueSongId).toList().last().getOrThrow()
+        assertEquals(LyricsSource.NETEASE, resolved.source)
+        assertEquals("网易歌词", resolved.lines.single().text)
+        assertEquals(1, repo.lyricRequests)
+    }
 }

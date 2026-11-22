@@ -21,6 +21,10 @@ import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.RecognitionTarget
 import com.lin0721.linmusic.core.download.recognition.SONG_ID_TAG
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.player.PlaybackTrackMeta
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -56,7 +60,8 @@ class SongDownloadWorker(
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate,
     private val downloadRecognizer: DownloadRecognizer,
-    private val urlResolver: DownloadUrlResolver
+    private val urlResolver: DownloadUrlResolver,
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -74,6 +79,11 @@ class SongDownloadWorker(
         const val KEY_SKIPPED = "skipped"
         const val KEY_BATCH_TAG = "batch_tag"
         const val KEY_BATCH_LABEL = "batch_label"
+        const val KEY_TRACK_ID = "track_id"
+        const val KEY_KUGOU_HASH = "kugou_hash"
+        const val KEY_KUGOU_MIX_SONG_ID = "kugou_mix_song_id"
+        const val KEY_KUGOU_ALBUM_AUDIO_ID = "kugou_album_audio_id"
+        const val KEY_KUGOU_ALBUM_ID = "kugou_album_id"
         const val KEY_PROGRESS_SONG_NAME = "progress_song_name"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
         // 已拿到下载名额开始下载；WorkManager 中处于 RUNNING 但未开始的任务仍在排队
@@ -99,7 +109,9 @@ class SongDownloadWorker(
             albumYear: Int = 0,
             batchTag: String? = null,
             batchLabel: String? = null,
-            durationMs: Long = 0
+            durationMs: Long = 0,
+            trackId: TrackId? = null,
+            kugouMeta: KugouTrackMeta? = null
         ) = workDataOf(
             KEY_SONG_ID to songId,
             KEY_SONG_NAME to songName,
@@ -110,7 +122,12 @@ class SongDownloadWorker(
             KEY_LEVEL to level,
             KEY_BATCH_TAG to batchTag,
             KEY_BATCH_LABEL to batchLabel,
-            KEY_DURATION_MS to durationMs
+            KEY_DURATION_MS to durationMs,
+            KEY_TRACK_ID to trackId?.canonical,
+            KEY_KUGOU_HASH to kugouMeta?.hash,
+            KEY_KUGOU_MIX_SONG_ID to (kugouMeta?.mixSongId ?: -1L),
+            KEY_KUGOU_ALBUM_AUDIO_ID to (kugouMeta?.albumAudioId ?: -1L),
+            KEY_KUGOU_ALBUM_ID to kugouMeta?.albumId
         )
     }
 
@@ -124,19 +141,39 @@ class SongDownloadWorker(
     private val level: String get() = inputData.getString(KEY_LEVEL) ?: "standard"
     private val batchTag: String? get() = inputData.getString(KEY_BATCH_TAG)
     private val batchLabel: String get() = inputData.getString(KEY_BATCH_LABEL) ?: "歌曲"
+    private val effectiveTrackId: TrackId
+        get() = inputData.getString(KEY_TRACK_ID)?.let(TrackId::parseOrNull)
+            ?: TrackId.netease(songId.coerceAtLeast(0L))
+    private val kugouMeta: KugouTrackMeta?
+        get() {
+            val hash = inputData.getString(KEY_KUGOU_HASH)?.takeIf { it.isNotBlank() }
+                ?: effectiveTrackId.takeIf { it.platform == MusicPlatform.KUGOU }?.rawId
+                ?: return null
+            return KugouTrackMeta(
+                hash = hash,
+                mixSongId = inputData.getLong(KEY_KUGOU_MIX_SONG_ID, -1L).takeIf { it > 0L },
+                albumAudioId = inputData.getLong(KEY_KUGOU_ALBUM_AUDIO_ID, -1L).takeIf { it > 0L },
+                albumId = inputData.getString(KEY_KUGOU_ALBUM_ID)?.takeIf { it.isNotBlank() }
+            )
+        }
 
     override suspend fun doWork(): Result {
         val songId = this.songId
-        if (songId <= 0) {
+        val trackId = effectiveTrackId
+        if (trackId.platform == MusicPlatform.NETEASE && songId <= 0) {
             AppLogger.e(TAG, "下载任务参数缺失 songId=$songId")
             return Result.failure(workDataOf(KEY_ERROR to "参数缺失"))
         }
 
         // 已下载同等或更高音质、或目录里已有识别出的同一首时直接跳过，避免重复下载产生多份文件
         val existingRecord = downloadPreferences.findVerifiedRecord(songId)
-            ?: downloadRecognizer.recognize(
-                listOf(RecognitionTarget(songId, songName, listOf(artistName), durationMs))
-            ).firstOrNull()
+            ?: if (songId > 0L) {
+                downloadRecognizer.recognize(
+                    listOf(RecognitionTarget(songId, songName, listOf(artistName), durationMs))
+                ).firstOrNull()
+            } else {
+                null
+            }
         if (existingRecord != null && existingRecord.skipsDownloadAt(level)) {
             AppLogger.i(TAG, "已下载 ${existingRecord.quality}，跳过 songId=$songId level=$level")
             persistState(PersistedTaskState.SUCCEEDED, skipped = true)
@@ -161,13 +198,20 @@ class SongDownloadWorker(
         // 失败或取消时的清理回调
         var cleanup: (() -> Unit)? = null
         try {
-            val query = PluginTrackQuery(songId.toString(), songName, artistName, albumName, durationMs, MusicPlatform.NETEASE)
-            val source = when (val outcome = urlResolver.resolve(songId, level, query)) {
+            val trackId = effectiveTrackId
+            val platform = trackId.platform
+            val query = PluginTrackQuery(trackId.rawId, songName, artistName, albumName, durationMs, platform)
+            val outcome = if (platform == MusicPlatform.NETEASE) {
+                urlResolver.resolve(songId, level, query)
+            } else {
+                urlResolver.resolvePlatform(trackId, level, query, kugouMeta)
+            }
+            val source = when (outcome) {
                 is DownloadUrlOutcome.Rejected -> return fail(outcome.reason)
                 is DownloadUrlOutcome.Ready -> outcome.download
             }
             if (source.notBetterThan(existingRecord)) return fail(PLUGIN_NOT_BETTER)
-            if (source.fromPlugin) AppLogger.i(TAG, "官方下载链接不可用，改用插件下载源 songId=$songId")
+            if (source.fromPlugin) AppLogger.i(TAG, "官方下载链接不可用，改用插件下载源 trackId=${trackId.canonical}")
             val extension = source.encodeType
             val displayName = "${sanitizeFileName("$artistName - $songName")}.$extension"
             val mimeType = mimeTypeFor(extension)
@@ -252,7 +296,8 @@ class SongDownloadWorker(
                     songName = songName,
                     artistName = artistName,
                     // 插件来源以实际音质为准，避免之后选更高音质时被判为已下载
-                    requestedLevel = if (source.fromPlugin) source.level else level
+                    requestedLevel = if (source.fromPlugin) source.level else level,
+                    trackId = trackId
                 )
             )
 
@@ -471,12 +516,30 @@ class SongDownloadWorker(
 
     // 写入音频元数据、封面与内嵌歌词
     private suspend fun writeTags(file: File, extension: String) {
+        val trackId = effectiveTrackId
+        val router = platformPlaybackRouter
         val shouldEmbedLyrics = settingsPreferences.downloadLyricsEnabled.first()
         val rawLyrics = if (shouldEmbedLyrics) {
-            runCatching { playbackRepository.getRawLyrics(songId).first().getOrNull() }
-                .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=$songId", it) }
-                .getOrNull()
-                ?.takeIf { it.isNotBlank() }
+            when {
+                trackId.platform == MusicPlatform.KUGOU && router != null -> {
+                    val meta = PlaybackTrackMeta(
+                        title = songName,
+                        artists = artistName,
+                        albumName = albumName,
+                        durationMs = durationMs,
+                        kugouMeta = kugouMeta
+                    )
+                    runCatching { router.getRawLyrics(trackId, meta).getOrNull() }
+                        .onFailure { AppLogger.w(TAG, "获取酷狗歌词失败，跳过 trackId=${trackId.canonical}", it) }
+                        .getOrNull()
+                }
+                songId > 0L -> {
+                    runCatching { playbackRepository.getRawLyrics(songId).first().getOrNull() }
+                        .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=$songId", it) }
+                        .getOrNull()
+                }
+                else -> null
+            }?.takeIf { it.isNotBlank() }
         } else {
             null
         }
@@ -485,8 +548,9 @@ class SongDownloadWorker(
             val fd = pfd.dup().detachFd()
             val metadata = TagLib.getMetadata(fd, readPictures = false)
             val propertyMap = HashMap<String, Array<String>>(metadata?.propertyMap ?: emptyMap())
+            val songIdTagValue = trackId.neteaseIdOrNull()?.toString() ?: trackId.canonical
             propertyMap["TITLE"] = arrayOf(songName)
-            propertyMap[SONG_ID_TAG] = arrayOf(songId.toString())
+            propertyMap[SONG_ID_TAG] = arrayOf(songIdTagValue)
             propertyMap["ARTIST"] = arrayOf(artistName)
             if (albumName.isNotBlank()) {
                 propertyMap["ALBUM"] = arrayOf(albumName)

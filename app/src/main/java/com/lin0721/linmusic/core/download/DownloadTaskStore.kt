@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -44,7 +45,9 @@ data class DownloadTaskMeta(
     // 用户调整过的排队顺序，0 表示按创建时间排队
     val sortOrder: Long = 0,
     // P2 跨平台歌曲标识；老数据缺失时按 songId 推导网易云 TrackId
-    val trackId: TrackId? = null
+    val trackId: TrackId? = null,
+    // P2 酷狗补充元数据
+    val kugouMeta: KugouTrackMeta? = null
 ) {
     // 排队顺序，越小越先下载
     val queueOrder: Long get() = if (sortOrder != 0L) sortOrder else createdAt
@@ -52,7 +55,16 @@ data class DownloadTaskMeta(
     val effectiveTrackId: TrackId
         get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
 
-    fun toTrackInfo() = DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear)
+    fun toTrackInfo() = DownloadTrackInfo(
+        songId = songId,
+        songName = songName,
+        artistName = artistName,
+        albumName = albumName,
+        coverUrl = coverUrl,
+        albumYear = albumYear,
+        trackId = trackId,
+        kugouMeta = kugouMeta
+    )
 }
 
 // 用户主动发起的下载任务列表持久化，供下载管理面板展示、暂停与重试

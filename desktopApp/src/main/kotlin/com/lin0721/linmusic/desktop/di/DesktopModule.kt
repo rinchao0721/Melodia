@@ -21,6 +21,8 @@ import com.lin0721.linmusic.core.offline.CachedAudioIndex
 import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
+import com.lin0721.linmusic.core.player.PlaybackTrackMeta
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.AmllLyricsClient
 import com.lin0721.linmusic.core.player.data.LyricsCache
 import com.lin0721.linmusic.core.player.data.QqLyricsClient
@@ -137,7 +139,8 @@ private fun createPlaybackController(
     audioCache: AudioCache,
     cacheManager: DesktopCacheManager,
     externalResolver: ExternalTrackResolver,
-    recognizer: DownloadRecognizer
+    recognizer: DownloadRecognizer,
+    platformPlaybackRouter: PlatformPlaybackRouter? = null
 ): DesktopPlaybackController = try {
     MpvPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
@@ -152,7 +155,8 @@ private fun createPlaybackController(
         audioCache = audioCache,
         cacheManager = cacheManager,
         externalResolver = externalResolver,
-        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_v2.json")
+        loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_v2.json"),
+        platformPlaybackRouter = platformPlaybackRouter
     )
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
@@ -241,7 +245,8 @@ val desktopPlatformModule = module {
             tempDir = DesktopPaths.downloadTempDir,
             defaultDir = DesktopPaths.defaultDownloadDir,
             recognizer = get(),
-            urlResolver = get()
+            urlResolver = get(),
+            platformPlaybackRouter = getOrNull()
         )
     }
     single { LocalAudioIndexStore(File(DesktopPaths.dataDir, "download_recognition_index.json")) }
@@ -259,7 +264,7 @@ val desktopPlatformModule = module {
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
     single<DesktopPlaybackController>(named("local")) {
-        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get())
+        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get(), getOrNull())
     }
     single { DesktopVolumeBridge(get(named("local"))) }
     single {
@@ -324,6 +329,7 @@ val desktopPlatformModule = module {
         val pluginLyrics = get<PluginLyricsSource>()
         // 播放器创建时不依赖歌词，延迟到查询时再取，避免组装顺序问题
         val queueOf = { get<PlaybackController>().queue.value }
+        val platformRouter = getOrNull<PlatformPlaybackRouter>()
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = { path -> withContext(Dispatchers.IO) { localLibrary.readLyrics(path) } },
@@ -338,7 +344,20 @@ val desktopPlatformModule = module {
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,
             readPluginLyrics = pluginLyrics::fetch,
-            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() }
+            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() },
+            readPlatformLyrics = { trackId, kugouMeta, external ->
+                platformRouter?.getLyrics(
+                    trackId,
+                    PlaybackTrackMeta(
+                        title = external?.name.orEmpty(),
+                        artists = external?.artists.orEmpty(),
+                        albumName = external?.albumName.orEmpty(),
+                        durationMs = external?.durationMs ?: 0L,
+                        kugouMeta = kugouMeta
+                    )
+                )?.getOrNull().orEmpty()
+            },
+            kugouMetaOf = { songId -> queueOf().firstOrNull { it.songId == songId }?.kugouMeta }
         )
     }
 }

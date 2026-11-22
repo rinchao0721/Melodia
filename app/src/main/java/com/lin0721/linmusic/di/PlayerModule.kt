@@ -6,6 +6,8 @@ import com.lin0721.linmusic.core.offline.CachedAudioIndex
 import com.lin0721.linmusic.core.player.AndroidCachedAudioIndex
 import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.PlaybackTrackMeta
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.SleepTimerRequests
 import com.lin0721.linmusic.core.player.ExternalInterruptionResumeController
@@ -37,7 +39,7 @@ val playerModule = module {
     single { FfmpegComponentManager(androidContext()) }
     single { ExternalInterruptionResumeController(androidContext(), get()) }
     single {
-        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { manager ->
+        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), getOrNull()).also { manager ->
             // 随播放器一同创建，进程内常驻记录播客收听进度
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }
@@ -79,6 +81,7 @@ val playerModule = module {
         val qqLyricsSource = get<QqLyricsSource>()
         val neteaseLookup = get<NeteaseSongLookup>()
         val pluginLyrics = get<PluginLyricsSource>()
+        val platformRouter = getOrNull<PlatformPlaybackRouter>()
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
@@ -93,7 +96,20 @@ val playerModule = module {
             readExternalQqLyrics = qqLyricsSource::fetch,
             hasPluginLyrics = pluginLyrics::hasSources,
             readPluginLyrics = pluginLyrics::fetch,
-            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() }
+            lyricFilterConfig = { settingsPreferences.lyricFilterConfig.first() },
+            readPlatformLyrics = { trackId, kugouMeta, external ->
+                platformRouter?.getLyrics(
+                    trackId,
+                    PlaybackTrackMeta(
+                        title = external?.name.orEmpty(),
+                        artists = external?.artists.orEmpty(),
+                        albumName = external?.albumName.orEmpty(),
+                        durationMs = external?.durationMs ?: 0L,
+                        kugouMeta = kugouMeta
+                    )
+                )?.getOrNull().orEmpty()
+            },
+            kugouMetaOf = { songId -> playbackController.queue.value.firstOrNull { it.songId == songId }?.kugouMeta }
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

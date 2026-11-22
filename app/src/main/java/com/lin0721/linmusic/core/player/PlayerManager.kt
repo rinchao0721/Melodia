@@ -38,7 +38,11 @@ import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.player.ffmpeg.PlaybackErrorAction
 import com.lin0721.linmusic.core.player.ffmpeg.classifyPlaybackErrorForFfmpeg
 import com.lin0721.linmusic.core.player.ffmpeg.formatPlayerErrorMessage
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -105,7 +109,8 @@ class PlayerManager(
     private val onlineState: OnlineStateProvider,
     private val externalResolver: ExternalTrackResolver,
     private val downloadRecognizer: DownloadRecognizer,
-    private val ffmpegComponentManager: FfmpegComponentManager
+    private val ffmpegComponentManager: FfmpegComponentManager,
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -949,6 +954,78 @@ class PlayerManager(
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
             if (playWhenReady) showPendingTrack(item)
 
+            // 酷狗曲目优先走官方播放路由（直链/响度/声明档位），失败或试听时回退换源插件
+            if (item.effectivePlatform == MusicPlatform.KUGOU && platformPlaybackRouter != null) {
+                if (localRecord != null) {
+                    val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
+                        ?: item.coverUrl
+                    val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
+                    pendingSkipFromIndex = null
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    return@launch
+                }
+                if (prefetchedUrl != null) {
+                    val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
+                    setDeclaredQualityLevel(mediaItem.mediaId, prefetchedLevel)
+                    pendingSkipFromIndex = null
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    return@launch
+                }
+                if (playWhenReady && !autoTransition && _currentTrack.value?.mediaId?.toLongOrNull() != item.songId) {
+                    pauseOutgoingWhilePending()
+                }
+                val qualityCode = if (isWifiConnected()) {
+                    settingsPreferences.wifiQuality.first()
+                } else {
+                    settingsPreferences.mobileQuality.first()
+                }
+                val preferredQuality = UnifiedAudioQuality.fromNeteaseCode(qualityCode) ?: UnifiedAudioQuality.EXHIGH
+                val officialResult = platformPlaybackRouter.resolvePlayback(
+                    item.effectiveTrackId,
+                    preferredQuality,
+                    buildPlaybackTrackMeta(item)
+                )
+                val officialInfo = officialResult.getOrNull()
+                if (officialInfo != null && officialInfo.url.isNotBlank() && !officialInfo.isFreeTrial) {
+                    val mediaItem = item.toMediaItem(officialInfo.url, playbackQueue.playContext.value)
+                    setDeclaredQualityLevel(mediaItem.mediaId, officialInfo.level)
+                    rememberTrackGain(item.effectiveTrackId, officialInfo)
+                    pendingSkipFromIndex = null
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    return@launch
+                }
+                val fallbackUrl = item.external?.let { externalResolver.resolve(it) }
+                if (fallbackUrl != null) {
+                    pendingSkipFromIndex = null
+                    val mediaItem = item.toMediaItem(fallbackUrl, playbackQueue.playContext.value)
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    return@launch
+                }
+                if (officialInfo != null && officialInfo.url.isNotBlank()) {
+                    val mediaItem = item.toMediaItem(officialInfo.url, playbackQueue.playContext.value)
+                    setDeclaredQualityLevel(mediaItem.mediaId, officialInfo.level)
+                    rememberTrackGain(item.effectiveTrackId, officialInfo)
+                    pendingSkipFromIndex = null
+                    if (playWhenReady) {
+                        Toast.makeText(context, "换源失败，当前仅可试听", Toast.LENGTH_SHORT).show()
+                    }
+                    controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
+                    return@launch
+                }
+                val throwable = officialResult.exceptionOrNull()
+                AppLogger.w(TAG, "酷狗歌曲解析失败 songId=${item.songId} trackId=${item.effectiveTrackId}", throwable)
+                if (throwable is AppError.NetworkError) {
+                    handleNetworkFailure(index, startPosition, networkRetryAttempt, playWhenReady, autoTransition)
+                } else {
+                    val message = item.external?.let { externalResolver.explainFailure(it) }
+                        ?: throwable?.message
+                        ?: "当前平台暂无可用播放源"
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    skipToNextOnError(index, message)
+                }
+                return@launch
+            }
+
             // 外部平台歌曲轮到时才经换源插件解析，解析失败按播放失败跳下一首
             val external = item.external
             if (external != null) {
@@ -1213,6 +1290,29 @@ class PlayerManager(
 
         prefetchJob?.cancel()
         prefetchJob = scope.launch {
+            if (nextItem.effectivePlatform == MusicPlatform.KUGOU && platformPlaybackRouter != null) {
+                if (localRecordOf(nextItem) != null) return@launch
+                val qualityCode = if (isWifiConnected()) {
+                    settingsPreferences.wifiQuality.first()
+                } else {
+                    settingsPreferences.mobileQuality.first()
+                }
+                val preferredQuality = UnifiedAudioQuality.fromNeteaseCode(qualityCode) ?: UnifiedAudioQuality.EXHIGH
+                val officialInfo = platformPlaybackRouter.resolvePlayback(
+                    nextItem.effectiveTrackId,
+                    preferredQuality,
+                    buildPlaybackTrackMeta(nextItem)
+                ).getOrNull()
+                if (officialInfo != null && officialInfo.url.isNotBlank() && !officialInfo.isFreeTrial) {
+                    prefetchedNextUrl = PrefetchedUrl(nextItem.songId, officialInfo.url, officialInfo.level)
+                    rememberTrackGain(nextItem.effectiveTrackId, officialInfo)
+                    return@launch
+                }
+                nextItem.external?.let { externalResolver.resolve(it) }?.let {
+                    prefetchedNextUrl = PrefetchedUrl(nextItem.songId, it)
+                }
+                return@launch
+            }
             val external = nextItem.external
             if (external != null) {
                 externalResolver.resolve(external)?.let { prefetchedNextUrl = PrefetchedUrl(nextItem.songId, it) }
@@ -1343,21 +1443,52 @@ class PlayerManager(
             .build()
     }
 
-    // 网易返回的有效响度优先于自测，覆盖已缓存的值
-    private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
+    private fun queueItemFor(songId: Long): QueueItem? =
+        playbackQueue.currentItem()?.takeIf { it.songId == songId }
+            ?: playbackQueue.items.value.firstOrNull { it.songId == songId }
+
+    private fun effectiveTrackIdFor(songId: Long): TrackId =
+        queueItemFor(songId)?.effectiveTrackId
+            ?: if (songId >= 0L) TrackId.netease(songId) else TrackId(MusicPlatform.NETEASE, songId.toString())
+
+    private fun buildPlaybackTrackMeta(item: QueueItem, source: PlaySource? = playbackQueue.playSource.value): PlaybackTrackMeta {
+        val ext = item.external
+        val effectiveKugouMeta = item.kugouMeta ?: if (item.effectivePlatform == MusicPlatform.KUGOU) {
+            val hash = ext?.hash?.trim()?.takeIf { it.isNotEmpty() } ?: item.effectiveTrackId.rawId
+            KugouTrackMeta(
+                hash = hash,
+                albumId = ext?.albumId?.takeIf { it.isNotBlank() }
+            )
+        } else null
+        return PlaybackTrackMeta(
+            title = item.title,
+            artists = item.artist,
+            albumName = ext?.albumName.orEmpty(),
+            durationMs = ext?.durationMs ?: 0L,
+            kugouMeta = effectiveKugouMeta,
+            playSource = source
+        )
+    }
+
+    private suspend fun rememberTrackGain(trackId: TrackId, info: SongPlaybackInfo) {
         if (!loudnessEnabled) return
-        info.loudness?.let { loudnessMeter.remember(songId, it, LoudnessSource.NETEASE) }
+        info.loudness?.let { loudnessMeter.remember(trackId, it, LoudnessSource.NETEASE) }
+    }
+
+    // 网易/平台返回的有效响度优先于自测，覆盖已缓存的值
+    private suspend fun rememberNeteaseGain(songId: Long, info: SongPlaybackInfo) {
+        rememberTrackGain(effectiveTrackIdFor(songId), info)
     }
 
     private fun isRemoteUri(uri: String): Boolean = uri.startsWith("http")
 
-    // 缓存（含网易值）优先，本地文件再读标签；音量平衡关闭时为 null
-    private suspend fun knownGainDb(songId: Long, uri: String): Double? {
+    // 缓存（含网易/酷狗值）优先，本地文件再读标签；音量平衡关闭时为 null
+    private suspend fun knownGainDb(songId: Long, uri: String, trackId: TrackId = effectiveTrackIdFor(songId)): Double? {
         if (!loudnessEnabled) return null
-        loudnessMeter.cachedGainDb(songId)?.let { return it }
+        loudnessMeter.cachedGainDb(trackId)?.let { return it }
         if (isRemoteUri(uri)) return null
         val tagged = replayGainReader.trackLoudness(uri) ?: return null
-        loudnessMeter.remember(songId, tagged, LoudnessSource.TAG)
+        loudnessMeter.remember(trackId, tagged, LoudnessSource.TAG)
         return LoudnessPolicy.gainDb(tagged)
     }
 
@@ -1367,10 +1498,11 @@ class PlayerManager(
     // 已知值优先，否则起播前限时测量；超时用兜底值，结果迟到再平滑修正
     private suspend fun startGainDb(songId: Long, uri: String): Double? {
         if (!loudnessEnabled) return null
-        knownGainDb(songId, uri)?.let { return it }
+        val trackId = effectiveTrackIdFor(songId)
+        knownGainDb(songId, uri, trackId)?.let { return it }
         if (!canMeasure(uri)) return LoudnessPolicy.FALLBACK_GAIN_DB
         return loudnessMeter.measureBeforeStart(
-            songId = songId,
+            trackId = trackId,
             uri = uri,
             fullTrack = !isRemoteUri(uri),
             onDelayedResult = { gainDb -> scope.launch { applyGainToPlayer(songId, gainDb) } }
@@ -1392,9 +1524,10 @@ class PlayerManager(
         if (!loudnessEnabled || loudnessSyncedSongId == songId) return
         val uri = requestedSource?.takeIf { it.first == songId }?.second ?: return
         loudnessSyncedSongId = songId
+        val trackId = effectiveTrackIdFor(songId)
         scope.launch {
-            val gainDb = knownGainDb(songId, uri)
-                ?: (if (canMeasure(uri)) loudnessMeter.measure(songId, uri, fullTrack = !isRemoteUri(uri)) else null)
+            val gainDb = knownGainDb(songId, uri, trackId)
+                ?: (if (canMeasure(uri)) loudnessMeter.measure(trackId, uri, fullTrack = !isRemoteUri(uri)) else null)
                 ?: return@launch
             val unchanged = appliedGainSongId == songId && abs(appliedGainDb - gainDb) < GAIN_SYNC_EPSILON_DB
             if (!unchanged) applyGainToPlayer(songId, gainDb)
@@ -1409,8 +1542,9 @@ class PlayerManager(
         loudnessPremeasuredSongId = nextItem.songId
         scope.launch {
             val uri = nextTrackSourceUri(nextItem) ?: return@launch
-            if (knownGainDb(nextItem.songId, uri) != null || !canMeasure(uri)) return@launch
-            loudnessMeter.measure(nextItem.songId, uri, fullTrack = !isRemoteUri(uri))
+            val trackId = nextItem.effectiveTrackId
+            if (knownGainDb(nextItem.songId, uri, trackId) != null || !canMeasure(uri)) return@launch
+            loudnessMeter.measure(trackId, uri, fullTrack = !isRemoteUri(uri))
         }
     }
 
@@ -1427,7 +1561,7 @@ class PlayerManager(
             for (item in ordered) {
                 val uri = item.localUri ?: localRecordOf(item)?.mediaStoreUri ?: continue
                 if (!canMeasure(uri)) continue
-                requests += LoudnessMeasureRequest(item.songId, uri, fullTrack = true)
+                requests += LoudnessMeasureRequest(item.songId, uri, fullTrack = true, trackId = item.effectiveTrackId)
             }
             if (loudnessEnabled) loudnessMeter.enqueue(requests)
         }
@@ -1532,15 +1666,30 @@ class PlayerManager(
         personalFm.cancel()
     }
 
-    // 当前曲目开始上报时的来源，切歌后补报时长要沿用它而不是新队列的来源
+    // 当前曲目开始上报时的来源与队列项，切歌后补报时长要沿用它而不是新队列的来源
     private var reportingSource: PlaySource? = null
+    private var reportingItem: QueueItem? = null
 
     // 歌曲一开始播放就立即打卡（进「最近播放」），跟切歌时补报的时长上报分开、各自独立失败互不影响
-    // 负数 id 是外部平台歌曲或未匹配的本地歌曲，不属于网易云曲库，不上报
+    // 酷狗曲目通过跨平台路由上报历史；其余负数 id 为外部换源或未匹配本地曲目，不上报网易打卡
     private fun reportStartPlay(mediaItem: MediaItem) {
-        val songId = mediaItem.mediaId.toLongOrNull()?.takeIf { it > 0L } ?: return
+        val songId = mediaItem.mediaId.toLongOrNull() ?: return
+        val item = queueItemFor(songId)
         val source = playbackQueue.playSource.value
         reportingSource = source
+        if (item?.effectivePlatform == MusicPlatform.KUGOU) {
+            reportingItem = item
+            scope.launch {
+                platformPlaybackRouter?.reportPlayStart(item.effectiveTrackId, buildPlaybackTrackMeta(item, source))
+                    ?.onFailure { AppLogger.w(TAG, "酷狗打卡上报 startplay 失败 trackId=${item.effectiveTrackId}", it) }
+            }
+            return
+        }
+        if (songId <= 0L) {
+            reportingItem = null
+            return
+        }
+        reportingItem = item
         scope.launch {
             repository.reportStartPlay(songId, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 startplay 失败 songId=$songId", it) }
@@ -1550,14 +1699,27 @@ class PlayerManager(
 
     // 切歌/退出播放时把刚播完的这首上报播放时长打卡（用挂钟时间差算出的播放时长）；听不满 5 秒的跳过不算
     private fun reportPlayedTrack() {
-        val songId = _currentTrack.value?.mediaId?.toLongOrNull()?.takeIf { it > 0L } ?: return
+        val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: return
+        val item = reportingItem ?: queueItemFor(songId)
+        val isKugou = item?.effectivePlatform == MusicPlatform.KUGOU
+        if (!isKugou && songId <= 0L) return
         val playedSeconds = currentTrackPlayedMs() / 1000
         if (playedSeconds < 5) {
             AppLogger.i(TAG, "打卡上报跳过（未满5秒）songId=$songId playedSeconds=$playedSeconds")
+            reportingItem = null
+            return
+        }
+        val source = reportingSource
+        reportingItem = null
+        if (isKugou && item != null) {
+            AppLogger.i(TAG, "酷狗播放历史上传触发 trackId=${item.effectiveTrackId} playedSeconds=$playedSeconds")
+            scope.launch {
+                platformPlaybackRouter?.reportPlayEnd(item.effectiveTrackId, playedSeconds, buildPlaybackTrackMeta(item, source))
+                    ?.onFailure { AppLogger.w(TAG, "酷狗播放历史上传失败 trackId=${item.effectiveTrackId}", it) }
+            }
             return
         }
         AppLogger.i(TAG, "打卡上报触发 songId=$songId playedSeconds=$playedSeconds")
-        val source = reportingSource
         scope.launch {
             repository.reportPlayEnd(songId, playedSeconds, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 play 失败 songId=$songId", it) }

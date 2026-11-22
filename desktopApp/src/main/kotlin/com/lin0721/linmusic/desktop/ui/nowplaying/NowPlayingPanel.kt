@@ -168,6 +168,8 @@ fun NowPlayingPanel(
                                         com.lin0721.linmusic.core.player.LyricsSource.AMLL -> "TTML"
                                         com.lin0721.linmusic.core.player.LyricsSource.QQ ->
                                             "QRC".takeIf { detailState.lyrics.any { it.words.isNotEmpty() } }
+                                        com.lin0721.linmusic.core.player.LyricsSource.KUGOU ->
+                                            "KRC".takeIf { detailState.lyrics.any { it.words.isNotEmpty() } }
                                         else -> null
                                     }
                                 )

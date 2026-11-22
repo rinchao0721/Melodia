@@ -3,8 +3,12 @@ package com.lin0721.linmusic.core.download.data
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.qualityRank
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.plugin.PluginDownloadLink
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -51,7 +55,8 @@ sealed interface DownloadUrlOutcome {
 class DownloadUrlResolver(
     private val official: suspend (songId: Long, level: String) -> SongDownloadUrlResponse,
     private val fallbackEnabled: suspend () -> Boolean = { false },
-    private val plugins: suspend (query: PluginTrackQuery, level: String) -> PluginDownloadLink? = { _, _ -> null }
+    private val plugins: suspend (query: PluginTrackQuery, level: String) -> PluginDownloadLink? = { _, _ -> null },
+    private val platformResolver: (suspend (trackId: TrackId, level: String, kugouMeta: KugouTrackMeta?, query: PluginTrackQuery) -> SongPlaybackInfo?)? = null
 ) {
 
     suspend fun resolve(songId: Long, level: String, query: PluginTrackQuery): DownloadUrlOutcome {
@@ -74,13 +79,66 @@ class DownloadUrlResolver(
             }
         }
         AppLogger.w(TAG, "官方下载链接不可用 songId=$songId level=$level code=${response.code}: $reason")
+        return resolveFromPlugins(reason, level, query, logKey = "songId=$songId")
+    }
+
+    // 跨平台下载直链解析：网易云走官方下载接口；其余平台先查官方播放/下载链路，试听或失败时按设置走插件换源
+    suspend fun resolvePlatform(
+        trackId: TrackId,
+        level: String,
+        query: PluginTrackQuery,
+        kugouMeta: KugouTrackMeta? = null
+    ): DownloadUrlOutcome {
+        if (trackId.platform == MusicPlatform.NETEASE) {
+            val neteaseId = trackId.neteaseIdOrNull()
+            if (neteaseId != null && neteaseId > 0L) {
+                return resolve(neteaseId, level, query)
+            }
+        }
+
+        val officialInfo = try {
+            platformResolver?.invoke(trackId, level, kugouMeta, query)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "跨平台官方链接查询失败 trackId=$trackId", e)
+            null
+        }
+
+        val officialUrl = officialInfo?.url?.takeIf { it.isNotBlank() && it.toHttpUrlOrNull() != null }
+        if (officialInfo != null && officialUrl != null && !officialInfo.isFreeTrial) {
+            val resolvedLevel = officialInfo.level?.lowercase()?.takeIf { qualityRank(it) >= 0 } ?: level
+            val encodeType = inferEncodeTypeFromUrl(officialUrl, resolvedLevel)
+            return DownloadUrlOutcome.Ready(
+                ResolvedDownload(
+                    url = officialUrl,
+                    encodeType = encodeType,
+                    size = 0L,
+                    level = resolvedLevel,
+                    headers = emptyMap(),
+                    fromPlugin = false
+                )
+            )
+        }
+
+        val reason = if (officialInfo?.isFreeTrial == true) TRIAL_ONLY else NO_URL
+        AppLogger.w(TAG, "跨平台官方链接不可用 trackId=$trackId level=$level: $reason")
+        return resolveFromPlugins(reason, level, query, logKey = "trackId=$trackId")
+    }
+
+    private suspend fun resolveFromPlugins(
+        reason: String,
+        level: String,
+        query: PluginTrackQuery,
+        logKey: String
+    ): DownloadUrlOutcome {
         if (!fallbackEnabled()) return DownloadUrlOutcome.Rejected(reason)
         val link = try {
             plugins(query, level)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppLogger.w(TAG, "插件下载源出错 songId=$songId", e)
+            AppLogger.w(TAG, "插件下载源出错 $logKey", e)
             null
         }?.takeIf { it.url.toHttpUrlOrNull() != null } ?: return DownloadUrlOutcome.Rejected(reason)
         return DownloadUrlOutcome.Ready(
@@ -93,6 +151,12 @@ class DownloadUrlResolver(
                 fromPlugin = true
             )
         )
+    }
+
+    private fun inferEncodeTypeFromUrl(url: String, level: String): String {
+        val file = url.substringBefore('?').substringBefore('#').substringAfterLast('/')
+        file.substringAfterLast('.', "").lowercase().takeIf { it in FILE_TYPES }?.let { return it }
+        return if (level in LOSSLESS_AND_ABOVE) "flac" else "mp3"
     }
 
     // 用作扩展名，只接受已知格式；插件没给时从链接后缀推断

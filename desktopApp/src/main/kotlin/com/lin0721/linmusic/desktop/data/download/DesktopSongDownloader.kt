@@ -15,6 +15,8 @@ import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
 import com.lin0721.linmusic.core.download.skipsDownloadAt
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.player.PlaybackTrackMeta
+import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -90,7 +92,8 @@ class DesktopSongDownloader(
     // 默认只走官方下载接口，不询问插件下载源
     private val urlResolver: DownloadUrlResolver = DownloadUrlResolver(
         official = { id, level -> downloadApi.getSongDownloadUrl(SongDownloadUrlRequest(id = id, level = level)) }
-    )
+    ),
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
 ) : SongDownloader {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -137,7 +140,7 @@ class DesktopSongDownloader(
         batchTag: String,
         batchLabel: String
     ): BatchEnqueueResult {
-        val distinctTracks = tracks.distinctBy { it.songId }
+        val distinctTracks = tracks.distinctBy { it.effectiveTrackId }
         // 先把目录里已有的同一首补登记，再统一按记录判断跳过
         recognizer?.recognize(distinctTracks.map { it.toRecognitionTarget() })
         val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
@@ -220,7 +223,7 @@ class DesktopSongDownloader(
     // 同一首歌已有未结束任务时不重复创建
     private fun register(track: DownloadTrackInfo, level: String, batchLabel: String?): Pair<DownloadTask, Boolean> {
         synchronized(lock) {
-            _tasks.value.firstOrNull { it.songId == track.songId && it.isLive }?.let { return it to false }
+            _tasks.value.firstOrNull { it.effectiveTrackId == track.effectiveTrackId && it.isLive }?.let { return it to false }
             val task = DownloadTask(
                 id = UUID.randomUUID().toString(),
                 songId = track.songId,
@@ -233,9 +236,11 @@ class DesktopSongDownloader(
                 level = level,
                 batchLabel = batchLabel,
                 status = DownloadTaskStatus.QUEUED,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                trackId = track.trackId,
+                kugouMeta = track.kugouMeta
             )
-            _tasks.update { list -> list.filterNot { it.songId == track.songId } + task }
+            _tasks.update { list -> list.filterNot { it.effectiveTrackId == track.effectiveTrackId } + task }
             persistSoon()
             return task to true
         }
@@ -379,17 +384,24 @@ class DesktopSongDownloader(
 
     private suspend fun download(track: DownloadTrackInfo, level: String, batchLabel: String?, onProgress: (Int) -> Unit): Outcome {
         val songId = track.songId
+        val effectiveTrackId = track.effectiveTrackId
+        val platform = effectiveTrackId.platform
         val existing = downloadPreferences.findVerifiedRecord(songId)
             ?: recognizer?.recognize(listOf(track.toRecognitionTarget()))?.firstOrNull()
         if (existing != null && existing.skipsDownloadAt(level)) return Outcome.Skipped
 
-        val query = PluginTrackQuery(songId.toString(), track.songName, track.artistName, track.albumName, track.durationMs, MusicPlatform.NETEASE)
-        val source = when (val outcome = urlResolver.resolve(songId, level, query)) {
+        val query = PluginTrackQuery(effectiveTrackId.rawId, track.songName, track.artistName, track.albumName, track.durationMs, platform)
+        val outcome = if (platform == MusicPlatform.NETEASE) {
+            urlResolver.resolve(songId, level, query)
+        } else {
+            urlResolver.resolvePlatform(effectiveTrackId, level, query, track.kugouMeta)
+        }
+        val source = when (outcome) {
             is DownloadUrlOutcome.Rejected -> throw NonRetryableException(outcome.reason)
             is DownloadUrlOutcome.Ready -> outcome.download
         }
         if (source.notBetterThan(existing)) throw NonRetryableException(PLUGIN_NOT_BETTER)
-        if (source.fromPlugin) AppLogger.i(TAG, "官方下载链接不可用，改用插件下载源 songId=$songId")
+        if (source.fromPlugin) AppLogger.i(TAG, "官方下载链接不可用，改用插件下载源 trackId=${effectiveTrackId.canonical}")
         val extension = source.encodeType
 
         val directory = resolveDirectory(batchLabel)
@@ -416,7 +428,8 @@ class DesktopSongDownloader(
                     songName = track.songName,
                     artistName = track.artistName,
                     // 插件来源以实际音质为准，避免之后选更高音质时被判为已下载
-                    requestedLevel = if (source.fromPlugin) source.level else level
+                    requestedLevel = if (source.fromPlugin) source.level else level,
+                    trackId = effectiveTrackId
                 )
             )
             existing?.mediaStoreUri?.takeIf { it != target.absolutePath }?.let { File(it).delete() }
@@ -507,11 +520,28 @@ class DesktopSongDownloader(
         header?.removePrefix("bytes")?.trim()?.substringBefore('-')?.toLongOrNull()
 
     private suspend fun writeTags(file: File, track: DownloadTrackInfo) {
+        val router = platformPlaybackRouter
         val rawLyrics = if (settingsPreferences.downloadLyricsEnabled.first()) {
-            runCatching { playbackRepository.getRawLyrics(track.songId).first().getOrNull() }
-                .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=${track.songId}", it) }
-                .getOrNull()
-                ?.takeIf { it.isNotBlank() }
+            when {
+                track.effectivePlatform == MusicPlatform.KUGOU && router != null -> {
+                    val meta = PlaybackTrackMeta(
+                        title = track.songName,
+                        artists = track.artistName,
+                        albumName = track.albumName,
+                        durationMs = track.durationMs,
+                        kugouMeta = track.kugouMeta
+                    )
+                    runCatching { router.getRawLyrics(track.effectiveTrackId, meta).getOrNull() }
+                        .onFailure { AppLogger.w(TAG, "获取酷狗歌词失败，跳过 trackId=${track.effectiveTrackId.canonical}", it) }
+                        .getOrNull()
+                }
+                track.songId > 0L -> {
+                    runCatching { playbackRepository.getRawLyrics(track.songId).first().getOrNull() }
+                        .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=${track.songId}", it) }
+                        .getOrNull()
+                }
+                else -> null
+            }?.takeIf { it.isNotBlank() }
         } else {
             null
         }
@@ -522,7 +552,7 @@ class DesktopSongDownloader(
             val tag = audio.tagOrCreateAndSetDefault
             tag.setField(FieldKey.TITLE, track.songName)
             tag.setField(FieldKey.ARTIST, track.artistName)
-            tag.writeSongId(track.songId)
+            tag.writeTrackId(track.effectiveTrackId)
             if (track.albumName.isNotBlank()) tag.setField(FieldKey.ALBUM, track.albumName)
             if (track.albumYear > 0) tag.setField(FieldKey.YEAR, track.albumYear.toString())
             if (rawLyrics != null) tag.setField(FieldKey.LYRICS, rawLyrics)

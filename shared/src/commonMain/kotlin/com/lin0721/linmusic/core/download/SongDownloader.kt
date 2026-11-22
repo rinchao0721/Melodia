@@ -1,7 +1,12 @@
 package com.lin0721.linmusic.core.download
 
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import java.util.UUID
+import kotlin.math.absoluteValue
 
 // 待下载歌曲信息
 data class DownloadTrackInfo(
@@ -12,8 +17,16 @@ data class DownloadTrackInfo(
     val coverUrl: String? = null,
     val albumYear: Int = 0,
     // 0 表示未知，仅用于识别本地已有文件
-    val durationMs: Long = 0
-)
+    val durationMs: Long = 0,
+    val trackId: TrackId? = null,
+    val kugouMeta: KugouTrackMeta? = null
+) {
+    val effectiveTrackId: TrackId
+        get() = trackId ?: TrackId.netease(songId.coerceAtLeast(0L))
+
+    val effectivePlatform: MusicPlatform
+        get() = effectiveTrackId.platform
+}
 
 fun Track.toDownloadTrackInfo() = DownloadTrackInfo(
     songId = id,
@@ -24,6 +37,28 @@ fun Track.toDownloadTrackInfo() = DownloadTrackInfo(
     albumYear = yearFromEpochMillis(publishTime),
     durationMs = dt
 )
+
+fun UnifiedTrack.toDownloadTrackInfo(): DownloadTrackInfo {
+    val legacySongId = when (platform) {
+        MusicPlatform.NETEASE -> id.neteaseIdOrNull() ?: 0L
+        MusicPlatform.LOCAL -> 0L
+        else -> -1L - id.canonical.hashCode().toLong().absoluteValue
+    }
+    val resolvedArtist = artistNames.ifBlank { artists.joinToString("/") { it.name } }
+    val resolvedCover = coverUrl.ifBlank { album?.coverUrl.orEmpty() }.takeIf { it.isNotBlank() }
+    val publishMs = publishTimeMs.takeIf { it > 0L } ?: album?.publishTimeMs ?: 0L
+    return DownloadTrackInfo(
+        songId = legacySongId,
+        songName = name,
+        artistName = resolvedArtist,
+        albumName = album?.name.orEmpty(),
+        coverUrl = resolvedCover,
+        albumYear = yearFromEpochMillis(publishMs),
+        durationMs = durationMs,
+        trackId = id,
+        kugouMeta = kugouMeta
+    )
+}
 
 // 批量入队结果：已下载过同等或更高音质、或已在下载队列中的歌曲不会重复入队
 data class BatchEnqueueResult(

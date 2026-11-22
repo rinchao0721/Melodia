@@ -114,7 +114,7 @@ class SongDownloadManager(
         batchTag: String,
         batchLabel: String
     ): BatchEnqueueResult {
-        val distinctTracks = tracks.distinctBy { it.songId }
+        val distinctTracks = tracks.distinctBy { it.effectiveTrackId }
         // 先把目录里已有的同一首补登记，再统一按记录判断跳过
         downloadRecognizer.recognize(distinctTracks.map { it.toRecognitionTarget() })
         val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
@@ -278,7 +278,9 @@ class SongDownloadManager(
         level = level,
         batchTag = batchTag,
         batchLabel = batchLabel,
-        createdAt = System.currentTimeMillis()
+        createdAt = System.currentTimeMillis(),
+        trackId = track.trackId,
+        kugouMeta = track.kugouMeta
     )
 
     private fun buildRequest(
@@ -290,7 +292,8 @@ class SongDownloadManager(
         .setInputData(
             SongDownloadWorker.buildInputData(
                 track.songId, track.songName, track.artistName, level,
-                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel, track.durationMs
+                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel, track.durationMs,
+                trackId = track.trackId, kugouMeta = track.kugouMeta
             )
         )
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

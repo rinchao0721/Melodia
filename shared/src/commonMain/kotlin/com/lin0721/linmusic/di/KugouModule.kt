@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.kugou.KugouAuthService
 import com.lin0721.linmusic.core.kugou.KugouConfig
 import com.lin0721.linmusic.core.kugou.KugouDeviceStore
 import com.lin0721.linmusic.core.kugou.KugouGatewayClient
+import com.lin0721.linmusic.core.kugou.KugouLikeService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
 import com.lin0721.linmusic.core.player.KugouPlaybackProvider
 import com.lin0721.linmusic.core.player.PlatformPlaybackRouter
@@ -21,6 +22,7 @@ val kugouModule = module {
     single { KugouAuthService(get(), get(), get(), get()) }
     single { KugouAuthProvider(get(), get()) }
     single { KugouPlaybackService(get(), get(), get(), get()) }
+    single { KugouLikeService(get(), get()) }
     single { KugouPlaybackProvider(get(), getOrNull()) }
     single {
         PlatformPlaybackRouter(

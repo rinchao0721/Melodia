@@ -66,10 +66,16 @@ class FakeSongDownloader : SongDownloader {
 class FakeSongLikeRepository(initialLiked: Set<Long> = emptySet()) : SongLikeRepository {
 
     private val liked = MutableStateFlow(initialLiked)
+    private val likedTracks = MutableStateFlow<Set<com.lin0721.linmusic.core.platform.TrackId>>(
+        initialLiked.filter { it >= 0L }.mapTo(LinkedHashSet()) {
+            com.lin0721.linmusic.core.platform.TrackId.netease(it)
+        }
+    )
     val failingIds = mutableSetOf<Long>()
     val likeCalls = mutableListOf<Long>()
 
     override val likedSongIds: StateFlow<Set<Long>> = liked
+    override val likedTrackIds: StateFlow<Set<com.lin0721.linmusic.core.platform.TrackId>> = likedTracks
 
     override fun getLikedSongIds(uid: Long): Flow<Result<List<Long>>> = flowOf(Result.success(liked.value.toList()))
 
@@ -77,11 +83,18 @@ class FakeSongLikeRepository(initialLiked: Set<Long> = emptySet()) : SongLikeRep
         likeCalls += songId
         if (songId in failingIds) return flowOf(Result.failure(IllegalStateException("喜欢失败")))
         liked.value = if (like) liked.value + songId else liked.value - songId
+        if (songId >= 0L) {
+            val tid = com.lin0721.linmusic.core.platform.TrackId.netease(songId)
+            likedTracks.value = if (like) likedTracks.value + tid else likedTracks.value - tid
+        }
         return flowOf(Result.success(Unit))
     }
 
     override fun syncLikedSongIds(ids: Set<Long>) {
         liked.value = ids
+        likedTracks.value = ids.filter { it >= 0L }.mapTo(LinkedHashSet()) {
+            com.lin0721.linmusic.core.platform.TrackId.netease(it)
+        }
     }
 }
 

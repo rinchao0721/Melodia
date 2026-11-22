@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.core.download.data
 
 import com.lin0721.linmusic.core.download.DownloadRecord
+import com.lin0721.linmusic.core.platform.KugouTrackMeta
+import com.lin0721.linmusic.core.platform.TrackId
+import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.plugin.PluginDownloadLink
 import com.lin0721.linmusic.core.plugin.PluginTrackQuery
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -18,7 +21,8 @@ class DownloadUrlResolverTest {
         private val response: SongDownloadUrlResponse,
         private val fallback: Boolean = true,
         private val link: PluginDownloadLink? = null,
-        private val pluginThrows: Boolean = false
+        private val pluginThrows: Boolean = false,
+        private val platformInfo: SongPlaybackInfo? = null
     ) {
         var pluginCalls = 0
             private set
@@ -33,7 +37,8 @@ class DownloadUrlResolverTest {
                 pluginLevel = level
                 if (pluginThrows) throw IllegalStateException("插件出错")
                 link
-            }
+            },
+            platformResolver = { _, _, _, _ -> platformInfo }
         )
     }
 
@@ -149,5 +154,53 @@ class DownloadUrlResolverTest {
         assertFalse(fromPlugin.copy(level = "lossless").notBetterThan(record("exhigh")))
         assertFalse(fromPlugin.notBetterThan(null))
         assertFalse(fromPlugin.copy(fromPlugin = false).notBetterThan(record("exhigh")))
+    }
+
+    @Test
+    fun `酷狗官方直链可用时不询问插件且推断格式`() = runBlocking {
+        val kugouTrack = TrackId.kugou("aabbccdd")
+        val kugouQuery = PluginTrackQuery("aabbccdd", "酷狗歌", "歌手", "专辑", 200_000, MusicPlatform.KUGOU)
+        val fixture = Fixture(
+            response = SongDownloadUrlResponse(code = -1),
+            link = link(),
+            platformInfo = SongPlaybackInfo(
+                url = "https://trackercdn.kugou.com/song.flac?sign=1",
+                isFreeTrial = false,
+                level = "lossless"
+            )
+        )
+        val download = ready(fixture.resolver.resolvePlatform(kugouTrack, "lossless", kugouQuery, KugouTrackMeta("aabbccdd")))
+        assertFalse(download.fromPlugin)
+        assertEquals("flac", download.encodeType)
+        assertEquals("lossless", download.level)
+        assertEquals(0, fixture.pluginCalls)
+    }
+
+    @Test
+    fun `酷狗官方仅试听或失败时回退插件，关闭换源则保留试听原因`() = runBlocking {
+        val kugouTrack = TrackId.kugou("aabbccdd")
+        val kugouQuery = PluginTrackQuery("aabbccdd", "酷狗歌", "歌手", "专辑", 200_000, MusicPlatform.KUGOU)
+        val trialInfo = SongPlaybackInfo(url = "https://cdn.kugou.com/trial.mp3", isFreeTrial = true, level = "exhigh")
+
+        val fallbackReady = ready(
+            Fixture(
+                response = SongDownloadUrlResponse(code = -1),
+                fallback = true,
+                link = link(url = "https://cdn.example.com/full.mp3", quality = "exhigh"),
+                platformInfo = trialInfo
+            ).resolver.resolvePlatform(kugouTrack, "exhigh", kugouQuery)
+        )
+        assertTrue(fallbackReady.fromPlugin)
+        assertEquals("https://cdn.example.com/full.mp3", fallbackReady.url)
+
+        val rejectedReason = rejected(
+            Fixture(
+                response = SongDownloadUrlResponse(code = -1),
+                fallback = false,
+                link = link(),
+                platformInfo = trialInfo
+            ).resolver.resolvePlatform(kugouTrack, "exhigh", kugouQuery)
+        )
+        assertEquals("该音质仅支持试听，需要 VIP/购买后才能完整下载", rejectedReason)
     }
 }

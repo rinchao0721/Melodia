@@ -47,7 +47,8 @@ val downloadModule = module {
             taskStore = get(),
             queueGate = get(),
             downloadRecognizer = get(),
-            urlResolver = get()
+            urlResolver = get(),
+            platformPlaybackRouter = getOrNull()
         )
     }
 

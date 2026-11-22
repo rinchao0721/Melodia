@@ -123,7 +123,18 @@ val repositoryModule = module {
             fetcher = { ids -> fetchSongMaxQuality(api, ids) },
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
             dataStore = getOrNull(org.koin.core.qualifier.named(com.lin0721.linmusic.core.preferences.PreferencesStores.SONG_QUALITY)),
-            isOnline = { onlineState?.isOnline() ?: true }
+            isOnline = { onlineState?.isOnline() ?: true },
+            platformFetcher = { platform, ids ->
+                val router = getOrNull<com.lin0721.linmusic.core.player.PlatformPlaybackRouter>()
+                if (router != null && router.supports(platform)) {
+                    router.getQualityLevels(ids)
+                        .getOrNull()
+                        ?.mapValues { (_, quality) -> quality.neteaseCode }
+                        .orEmpty()
+                } else {
+                    emptyMap()
+                }
+            }
         )
     }
 
@@ -181,8 +192,18 @@ val repositoryModule = module {
     single { CommentRepositoryImpl(get()) }
     single<CommentRepository> { QQAwareCommentRepository(get<CommentRepositoryImpl>(), QQCommentApi()) }
 
-    // 歌曲红心数据仓储（core/songlike 共享能力）
-    single { SongLikeRepositoryImpl(get(), getOrNull()) }
+    // 歌曲红心数据仓储（core/songlike 共享能力，统一合并网易红心 + 酷狗云端红心 + 本机外部红心）
+    single {
+        SongLikeRepositoryImpl(
+            apiService = get(),
+            externalLikes = getOrNull(),
+            kugouLikeService = getOrNull(),
+            userPreferences = getOrNull(),
+            resolveTrackByLegacyId = { legacyId ->
+                getOrNull<PlaybackController>()?.queue?.value?.firstOrNull { it.songId == legacyId }?.external
+            }
+        )
+    }
     single<SongLikeRepository> { get<SongLikeRepositoryImpl>() }
 
     // 外部平台歌曲的本机红心，队列查找延迟取播放器，避免与播放器互相依赖
