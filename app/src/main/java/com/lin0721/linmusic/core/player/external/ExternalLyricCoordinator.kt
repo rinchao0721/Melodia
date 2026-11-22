@@ -496,20 +496,30 @@ class ExternalLyricCoordinator(
         )
     }
 
-    fun applyToMediaMetadata(builder: MediaMetadata.Builder, original: MediaMetadata): MediaMetadata {
-        if (isBluetoothLyricEnabled && !isLyricInfoEnabled && displayedTitle.isNotBlank()) {
-            builder.setTitle(displayedTitle)
-        } else {
-            builder.setTitle(originalTitle.ifBlank { original.title })
-        }
+    fun applyToMediaMetadata(
+        mediaId: String?,
+        builder: MediaMetadata.Builder,
+        original: MediaMetadata
+    ): MediaMetadata {
+        val resolved = resolveExternalLyricMetadata(
+            mediaId = mediaId,
+            originalTitle = original.title,
+            currentSongId = currentSongId,
+            isBluetoothLyricEnabled = isBluetoothLyricEnabled,
+            isLyricInfoEnabled = isLyricInfoEnabled,
+            displayedTitle = displayedTitle,
+            currentLyricInfoJson = currentLyricInfoJson,
+            sessionGeneration = sessionGeneration
+        )
+        builder.setTitle(resolved.title)
 
         val existingExtras = original.extras
-        if (isLyricInfoEnabled && currentLyricInfoJson.isNotBlank()) {
+        if (resolved.lyricInfoJson != null) {
             val bundle = if (existingExtras != null) Bundle(existingExtras) else Bundle()
-            bundle.putString(EXTRA_LYRIC_INFO, currentLyricInfoJson)
+            bundle.putString(EXTRA_LYRIC_INFO, resolved.lyricInfoJson)
             builder.setExtras(bundle)
             // Media3 的 equals 忽略 extras，借 discSubtitle 让歌词变化可被感知
-            builder.setDiscSubtitle("$LYRIC_VERSION_PREFIX${sessionGeneration}_${currentLyricInfoJson.hashCode()}")
+            builder.setDiscSubtitle(resolved.discSubtitle)
         } else {
             if (existingExtras != null && existingExtras.containsKey(EXTRA_LYRIC_INFO)) {
                 val bundle = Bundle(existingExtras)
@@ -549,3 +559,42 @@ class ExternalLyricCoordinator(
         // 观察链留着，重连后才能把当前歌曲与位置补回去
     }
 }
+
+internal data class ExternalLyricMetadataOverride(
+    val title: CharSequence?,
+    val lyricInfoJson: String?,
+    val discSubtitle: String?
+)
+
+// 切歌同步落到播放器时，ExternalLyricCoordinator 的 currentTrack 收集协程可能还没跑完，
+// currentSongId 仍停在上一首；此时绝不能拿上一首的缓存标题或歌词覆盖新 MediaItem 的原始元数据
+internal fun resolveExternalLyricMetadata(
+    mediaId: String?,
+    originalTitle: CharSequence?,
+    currentSongId: Long,
+    isBluetoothLyricEnabled: Boolean,
+    isLyricInfoEnabled: Boolean,
+    displayedTitle: String,
+    currentLyricInfoJson: String,
+    sessionGeneration: Int
+): ExternalLyricMetadataOverride {
+    val itemSongId = mediaId?.toLongOrNull() ?: -1L
+    val matchesCurrentSong = currentSongId != -1L && itemSongId == currentSongId
+    val resolvedTitle = if (matchesCurrentSong && isBluetoothLyricEnabled && !isLyricInfoEnabled && displayedTitle.isNotBlank()) {
+        displayedTitle
+    } else {
+        originalTitle
+    }
+    val resolvedLyricInfo = if (matchesCurrentSong && isLyricInfoEnabled && currentLyricInfoJson.isNotBlank()) {
+        currentLyricInfoJson
+    } else {
+        null
+    }
+    val discSubtitle = resolvedLyricInfo?.let { "$LYRIC_VERSION_PREFIX${sessionGeneration}_${it.hashCode()}" }
+    return ExternalLyricMetadataOverride(
+        title = resolvedTitle,
+        lyricInfoJson = resolvedLyricInfo,
+        discSubtitle = discSubtitle
+    )
+}
+

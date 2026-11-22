@@ -1452,9 +1452,32 @@ class PlayerManager(
     }
 
     private fun setCurrentTrack(item: MediaItem?) {
-        _currentTrack.value = item
-        pendingTrack.onRealTrack(item)
+        val normalized = item?.let(::restoreCanonicalTrackMetadata)
+        _currentTrack.value = normalized
+        pendingTrack.onRealTrack(normalized)
         publishDisplayTrack()
+    }
+
+    // 蓝牙歌词开启时会话层会把 MediaMetadata.title 改成当前歌词行；回写内部曲目状态前还原真实歌名，避免应用内歌名跟着变成歌词
+    private fun restoreCanonicalTrackMetadata(item: MediaItem): MediaItem {
+        val songId = item.mediaId.toLongOrNull()
+        val queueTitle = if (songId != null) {
+            (playbackQueue.currentItem()?.takeIf { it.songId == songId }
+                ?: playbackQueue.items.value.firstOrNull { it.songId == songId })
+                ?.title?.takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+        val canonicalTitle = pendingTrack.pending?.takeIf { it.mediaId == item.mediaId }?.mediaMetadata?.title
+            ?: queueTitle
+            ?: return item
+        if (item.mediaMetadata.title?.toString() == canonicalTitle.toString()) return item
+        val restoredMeta = item.mediaMetadata.buildUpon()
+            .setTitle(canonicalTitle)
+            .build()
+        return item.buildUpon()
+            .setMediaMetadata(restoredMeta)
+            .build()
     }
 
     private fun publishDisplayTrack() {
