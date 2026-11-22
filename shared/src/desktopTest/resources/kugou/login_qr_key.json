@@ -1,0 +1,8 @@
+{
+  "data": {
+    "qrcode": "mock_qrcode_key_00000000000000001001",
+    "qrcode_img": "data:image/png;base64,iVBORw0KGgo="
+  },
+  "status": 1,
+  "error_code": 0
+}

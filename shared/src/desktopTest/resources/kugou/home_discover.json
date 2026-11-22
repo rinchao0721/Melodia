@@ -1,0 +1,189 @@
+{
+  "errcode": 0,
+  "errmsg": "",
+  "data": {
+    "items": [
+      {
+        "item_id": "849200307",
+        "item_type": "song",
+        "alg_path": "copr=1,rn=477,ktg=hot_4,abtid=0.0.10336.1928811601558605006_849200307_0_1795330736",
+        "song_info": {
+          "itemId": "849200307",
+          "mixsongid": "849200307",
+          "songid": "579305205",
+          "source": {
+            "src": "477"
+          },
+          "score": 7,
+          "alg_path": "copr=1,rn=477,ktg=hot_4,abtid=0.0.10336.1928811601558605006_849200307_0_1795330736",
+          "ky_trace": "{\"algorthimId\":0,\"traceId\":\"0.0.10336.1928811601558605006\",\"reqTime\":1795330736}",
+          "songname": "琵琶曲 (DJ筱轩版)",
+          "author_name": "郑浩、冰洁",
+          "audio_id": 542197788,
+          "album_audio_id": 849200307,
+          "audio_group_id": 579305205,
+          "ori_album_id": 180917343,
+          "album_name": "琵琶曲",
+          "album_cover": "http://imge.kugou.com/stdmusic/{size}/20260326/20260326181841360691.jpg",
+          "has_obbligato": 1,
+          "hash_128": "2193E4EC627138678FF74D45D886D5A8",
+          "filesize_128": 2779626,
+          "timelength_128": 173000,
+          "hash_320": "84FBA37D6EA5176247D9C1F6CB8FB3A9",
+          "filesize_320": 6948769,
+          "timelength_320": 173000,
+          "hash_flac": "D82D073370DEEF123EC46599920FAEE3",
+          "filesize_flac": 23488369,
+          "timelength_flac": 173000,
+          "trans_param": {
+            "cid": 574681091,
+            "classmap": {
+              "attr0": 234881032
+            },
+            "cpy_attr0": 58727552,
+            "cpy_grade": 5,
+            "cpy_level": 1,
+            "cpy_map": "2",
+            "display": 0,
+            "display_rate": 0,
+            "flags": {},
+            "hash_multitrack": "8084E69D2153AEA68C43F13F5FC07E57",
+            "hash_offset": {
+              "clip_hash": "D9C6772E6367B202326EB07BB3BBC805",
+              "end_byte": 960121,
+              "end_ms": 60000,
+              "file_type": 0,
+              "offset_hash": "50B5AFF60E4806E5283822F4AD8A57A9",
+              "start_byte": 0,
+              "start_ms": 0
+            },
+            "ipmap": {
+              "attr0": 137472540672,
+              "bits": "10002002008000"
+            },
+            "is_original": 4,
+            "language": "国语",
+            "musicpack_advance": 1,
+            "ogg_128_filesize": 2093714,
+            "ogg_128_hash": "B81755286D30734E6B6EC2D4A82FADF5",
+            "ogg_320_filesize": 7447419,
+            "ogg_320_hash": "61A8797E259F67F192ADE2942F2993BB",
+            "pay_block_tpl": 1,
+            "provider": 1,
+            "qualitymap": {
+              "attr0": 923844660,
+              "attr1": 1746992637,
+              "bits": "28fffc0db4107efeb710c034"
+            },
+            "songname_suffix": "(DJ筱轩版)",
+            "union_cover": "http://imge.kugou.com/stdmusic/{size}/20260326/20260326181841360691.jpg"
+          },
+          "privilege": 10,
+          "fail_process": 4,
+          "pay_type": 3,
+          "tracker_info": {
+            "auth": "5730ddf5b0a728d7165db82ad903df4a",
+            "auth_128": "8caa3fa2ee9cd754179cc3f0eef1b210",
+            "auth_320": "029f5ca17a156555c1570e25ef8e2a6a",
+            "auth_flac": "982e218203aa6cf0bf9a1f76f6c769c3",
+            "module_id": 11,
+            "open_time": 1795935536
+          }
+        },
+        "extra": {
+          "start_time": "2810"
+        }
+      },
+      {
+        "item_id": "29383287",
+        "item_type": "song",
+        "alg_path": "copr=1,rn=477,ktg=hot_4,abtid=0.0.10336.1928811601558605006_29383287_0_1795330736",
+        "song_info": {
+          "itemId": "29383287",
+          "mixsongid": "29383287",
+          "songid": "574289905",
+          "source": {
+            "src": "477"
+          },
+          "score": 22,
+          "alg_path": "copr=1,rn=477,ktg=hot_4,abtid=0.0.10336.1928811601558605006_29383287_0_1795330736",
+          "ky_trace": "{\"algorthimId\":0,\"traceId\":\"0.0.10336.1928811601558605006\",\"reqTime\":1795330736}",
+          "songname": "失眠",
+          "author_name": "Suki刘舒妤",
+          "audio_id": 1099164186,
+          "album_audio_id": 29383287,
+          "audio_group_id": 574289905,
+          "ori_album_id": 671621,
+          "album_name": "Ladies Night",
+          "album_cover": "http://imge.kugou.com/stdmusic/{size}/20260415/20260415190622329436.jpg",
+          "has_obbligato": 1,
+          "hash_128": "EC476A2009EF5DCAC13EDCD11870DF55",
+          "filesize_128": 3381089,
+          "timelength_128": 211000,
+          "hash_320": "0F027DFC57447BA46C85FC067B2E7ED6",
+          "filesize_320": 8452397,
+          "timelength_320": 211000,
+          "hash_flac": "D570E0994720DAA789BA710021955ADA",
+          "filesize_flac": 17967294,
+          "timelength_flac": 211000,
+          "trans_param": {
+            "cid": 51643472,
+            "classmap": {
+              "attr0": 234881032
+            },
+            "cpy_attr0": 58735744,
+            "cpy_grade": 5,
+            "cpy_level": 1,
+            "cpy_map": "2",
+            "display": 0,
+            "display_rate": 0,
+            "flags": {},
+            "hash_multitrack": "09FE66DE4A1DFB27DCBDD73B548F72B2",
+            "hash_offset": {
+              "clip_hash": "39907931CD35DE007A799E36E0FEBDF5",
+              "end_byte": 960141,
+              "end_ms": 60000,
+              "file_type": 0,
+              "offset_hash": "9267654032C9B5AF0C09C01EBA4FBB26",
+              "start_byte": 0,
+              "start_ms": 0
+            },
+            "ipmap": {
+              "attr0": 2353675636736,
+              "bits": "10022402001000"
+            },
+            "is_original": 1,
+            "language": "国语",
+            "musicpack_advance": 1,
+            "ogg_128_filesize": 2256986,
+            "ogg_128_hash": "2928B1E33A05694C2883E6D8A45F9C4C",
+            "ogg_320_filesize": 7134778,
+            "ogg_320_hash": "0E7FB56447FC44DA28345511F8250B84",
+            "pay_block_tpl": 1,
+            "qualitymap": {
+              "attr0": 924106804,
+              "attr1": 1746992637,
+              "bits": "28fffc0db4107efeb714c034"
+            },
+            "union_cover": "http://imge.kugou.com/stdmusic/{size}/20260415/20260415190622329436.jpg"
+          },
+          "privilege": 10,
+          "fail_process": 4,
+          "pay_type": 3,
+          "tracker_info": {
+            "auth": "07ebe558375ff8a74ab43dddfb2f90dc",
+            "auth_128": "88ce06e01e6d3bb2de8e78388ea3903a",
+            "auth_320": "9bb21453674cff508088d44b9c084fe0",
+            "auth_flac": "9243bad8f3edbaf351f644b87a01ba18",
+            "module_id": 11,
+            "open_time": 1795935536
+          }
+        },
+        "extra": {
+          "start_time": "13998"
+        }
+      }
+    ]
+  },
+  "status": 1
+}

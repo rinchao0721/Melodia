@@ -7,7 +7,8 @@ enum class MusicPlatform(val key: String, val displayName: String) {
     MIGU("migu", "咪咕音乐"),
     KUWO("kuwo", "酷我音乐"),
     QQ("qq", "QQ音乐"),
-    LX("lx", "自定义插件");
+    LX("lx", "自定义插件"),
+    LOCAL("local", "本地音乐");
 
     // LX Music 源脚本使用的平台代号映射
     val lxKey: String
@@ -18,6 +19,7 @@ enum class MusicPlatform(val key: String, val displayName: String) {
             KUWO -> "kw"
             MIGU -> "mg"
             LX -> "lx"
+            LOCAL -> "local"
         }
 
     // 搜索 Tab 的平台品牌色（ARGB）
@@ -29,6 +31,7 @@ enum class MusicPlatform(val key: String, val displayName: String) {
             QQ -> 0xFF31C27C
             MIGU -> 0xFFFF2E8B
             LX -> 0xFF9E9E9E
+            LOCAL -> 0xFF607D8B
         }
 
     // 歌曲行来源徽标上的简称，比搜索 Tab 更短，避免挤占歌名
@@ -44,6 +47,7 @@ enum class MusicPlatform(val key: String, val displayName: String) {
             QQ -> "QQ音乐"
             MIGU -> "咪咕"
             LX -> "插件"
+            LOCAL -> "本地"
         }
 
     companion object {

@@ -1,0 +1,124 @@
+{
+  "data": {
+    "has_next": 1,
+    "bi_biz": "rcmd_spr",
+    "session": "1795330735_2",
+    "alg_id": 2,
+    "special_list": [
+      {
+        "abtags": [
+          {
+            "name": "女团"
+          },
+          {
+            "name": "韩语"
+          }
+        ],
+        "sync": 0,
+        "specialid": 6368974,
+        "flexible_cover": "http://c1.kgimg.com/custom/{size}/20221228/20221228161506823222.jpg",
+        "list_info_trans_param": {
+          "special_tag": 0,
+          "iden": 0,
+          "trans_flag": 1
+        },
+        "bz_status": 0,
+        "singername": "群星",
+        "percount": 0,
+        "alg_path": "recall:hot",
+        "from": -1,
+        "tags": [
+          {
+            "tag_name": "流行",
+            "tag_id": 9
+          },
+          {
+            "tag_name": "舞曲",
+            "tag_id": 10
+          },
+          {
+            "tag_name": "韩语",
+            "tag_id": 23
+          }
+        ],
+        "ugc_talent_review": 0,
+        "slid": 37,
+        "type": 3,
+        "nickname": "夏夏",
+        "show": "热门精选",
+        "collectType": 0,
+        "collectcount": 39427,
+        "trans_param": {
+          "special_tag": 0
+        },
+        "report_info": "t=1795330735,a=recall*hot",
+        "specialname": "【K-pop】五代女团红曲合集！",
+        "imgurl": "http://c1.kgimg.com/custom/{size}/20221228/20221228161506823222.jpg",
+        "play_count": 22511358,
+        "pic": "http://imge.kugou.com/kugouicon/165/20220331/20220331142926712609.jpg",
+        "from_hash": "",
+        "from_tag": -1,
+        "publishtime": "2022-12-28 00:00:00",
+        "global_collection_id": "collection_3_1312812254_37_0",
+        "intro": "下辈子可不可以长成封面这样！！！！！",
+        "suid": 1312812254
+      },
+      {
+        "sync": 0,
+        "specialid": 5924952,
+        "flexible_cover": "http://c1.kgimg.com/custom/{size}/20220816/20220816163905954430.jpg",
+        "list_info_trans_param": {
+          "special_tag": 0,
+          "iden": 0,
+          "trans_flag": 1
+        },
+        "bz_status": 0,
+        "singername": "群星",
+        "percount": 0,
+        "alg_path": "recall:hot",
+        "from": -1,
+        "tags": [
+          {
+            "tag_name": "流行",
+            "tag_id": 9
+          },
+          {
+            "tag_name": "经典",
+            "tag_id": 12
+          },
+          {
+            "tag_name": "国语",
+            "tag_id": 84
+          }
+        ],
+        "ugc_talent_review": 0,
+        "slid": 54,
+        "type": 3,
+        "nickname": "Ren",
+        "show": "热门精选",
+        "collectType": 0,
+        "collectcount": 2305,
+        "trans_param": {
+          "special_tag": 0
+        },
+        "report_info": "t=1795330735,a=recall*hot",
+        "specialname": "五月天是什么，是《人生》",
+        "imgurl": "http://c1.kgimg.com/custom/{size}/20220816/20220816163905954430.jpg",
+        "play_count": 10921544,
+        "pic": "http://imge.kugou.com/kugouicon/165/20260308/20260308210223617826.jpg",
+        "from_hash": "",
+        "from_tag": -1,
+        "publishtime": "2022-08-16 00:00:00",
+        "global_collection_id": "collection_3_1673035270_54_0",
+        "intro": "MayDay精选你值得拥有！",
+        "suid": 1673035270
+      }
+    ],
+    "OlexpIds": "92,94,2860,2862,3088,3090,3380,3382,3386,3388,3554,3556,4270,4272,4383,4461,5661,5663,5665,5667,5669,5671,5825,5827,5829,5831,5851,5853,5855,5857,5859,5861,5863,5865,5887,5889,5891,5895,5897,6053,6055,6153,6155,6315,6317,7489,7491,7495,7497,7561,7563,7627,7629,7665,7667,8715,8717,10639,10641,11677",
+    "show_time": 3600,
+    "all_client_playlist_flag": 0,
+    "refresh_time": 3600
+  },
+  "status": 1,
+  "error_code": 0
+}

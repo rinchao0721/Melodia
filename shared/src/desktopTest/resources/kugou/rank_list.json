@@ -1,0 +1,325 @@
+{
+  "data": {
+    "timestamp": 1795330735,
+    "total": 55,
+    "show_line": 2,
+    "theme": {
+      "classify_list": [],
+      "bg_image": "",
+      "font": {
+        "nt": "",
+        "st": "",
+        "line": "",
+        "bold_line": ""
+      }
+    },
+    "info": [
+      {
+        "children": [],
+        "base_img": "",
+        "rankname": "TOP500",
+        "new_cycle": 1800,
+        "banner_9": "http://imge.kugou.com/mcommon/{size}/20220112/20220112175202472916.png",
+        "album_img_9": "http://imge.kugou.com/stdmusic/{size}/20261112/20261112202017944618.jpg",
+        "table_plaque": "http://imge.kugou.com/mcommon/{size}/20240311/20240311161214589894.png",
+        "update_frequency_type": 1,
+        "play_times": 11654455,
+        "img_9": "http://imge.kugou.com/mcommon/{size}/20241219/20241219164221229666.png",
+        "is_city_rank": 0,
+        "classify": 1,
+        "haschildren": 0,
+        "songinfo": [
+          {
+            "album_audio_id": 986124019,
+            "trans_param": {
+              "pay_block_tpl": 1,
+              "classmap": {
+                "attr0": 234881032
+              },
+              "provider": 5,
+              "cpy_attr0": 41943040,
+              "musicpack_advance": 0,
+              "ogg_128_filesize": 2260668,
+              "display_rate": 0,
+              "ogg_320_filesize": 8519167,
+              "language": "国语",
+              "cpy_map": "2",
+              "union_cover": "http://imge.kugou.com/stdmusic/{size}/20261112/20261112202017944618.jpg",
+              "hash_offset": {
+                "clip_hash": "470C4DC04EEB827099539A8636356927",
+                "start_byte": 0,
+                "end_ms": 60000,
+                "end_byte": 960551,
+                "file_type": 0,
+                "start_ms": 0,
+                "offset_hash": "154D8237731AB9C86F34283CC1FC76B5"
+              },
+              "qualitymap": {
+                "bits": "28fffc0db411fefebd00e474",
+                "attr0": 1023468660,
+                "attr1": 1747189245
+              },
+              "ogg_320_hash": "BE85BA478E3A7EBB1556A8D5CA5D7887",
+              "display": 0,
+              "cid": 689634132,
+              "ogg_128_hash": "34BA7C5D7AF2ADC6829ADA57E412BC1F",
+              "cpy_grade": 5,
+              "ipmap": {
+                "attr0": 138546253824,
+                "bits": "10002042001000"
+              },
+              "appid_block": "3124",
+              "hash_multitrack": "F760ABF6E3782630EA06E5794924148C",
+              "flags": [],
+              "cpy_level": 1
+            },
+            "name": "慌啥子嘛",
+            "author": "赵本山",
+            "songname": "赵本山 - 慌啥子嘛"
+          },
+          {
+            "album_audio_id": 968734427,
+            "trans_param": {
+              "cpy_grade": 5,
+              "classmap": {
+                "attr0": 234881032
+              },
+              "provider": 5,
+              "free_limited": 1,
+              "cpy_attr0": 58720256,
+              "musicpack_advance": 0,
+              "display": 0,
+              "display_rate": 0,
+              "ogg_320_filesize": 6834433,
+              "union_cover": "http://imge.kugou.com/stdmusic/{size}/20261111/20261111145150309838.jpg",
+              "cpy_map": "2",
+              "language": "国语",
+              "hash_offset": {
+                "clip_hash": "D67C8D6B5899C5617A7881EB450461C9",
+                "start_byte": 0,
+                "end_ms": 60000,
+                "end_byte": 960125,
+                "file_type": 0,
+                "start_ms": 0,
+                "offset_hash": "B56998E2B3B799F7FA3016D15F2F80AE"
+              },
+              "qualitymap": {
+                "bits": "28fffc0db411fefebf10e474",
+                "attr0": 1058071668,
+                "attr1": 1747189245
+              },
+              "ogg_320_hash": "18738E668C1B7A2561829179CF55E65C",
+              "cid": 668461400,
+              "flags": [],
+              "ogg_128_hash": "446797FC7EE56ECB8D259710FC76AFBD",
+              "ogg_128_filesize": 2125241,
+              "ipmap": {
+                "attr0": 17213427712,
+                "bits": "10000402001000"
+              },
+              "appid_block": "3124",
+              "hash_multitrack": "BE861949B18D04FC6E09E63AC1111C7E",
+              "pay_block_tpl": 1,
+              "cpy_level": 1
+            },
+            "name": "慌啥子嘛",
+            "author": "村口吴老二",
+            "songname": "村口吴老二 - 慌啥子嘛"
+          }
+        ],
+        "rank_cid": 186247,
+        "share_bg": "http://imge.kugou.com/mcommon/{size}/20240505/20240505213952649412.png",
+        "id": 2,
+        "jump_url": "",
+        "album_cover_color": "#644e3d",
+        "share_logo": "http://imge.kugou.com/mcommon/{size}/20240311/20240311161212168226.png",
+        "bannerurl": "http://imge.kugou.com/mcommonbanner/{size}/20181019/20181019122517263545.jpg",
+        "zone": "tx6_gz_kmr",
+        "show_play_count": 1,
+        "isvol": 1,
+        "rank_id_publish_date": "2026-11-22 08:30:01",
+        "issue": 326,
+        "img_cover": "http://imge.kugou.com/mcommon/{size}/20241219/20241219164226731176.png",
+        "custom_type": 0,
+        "intro": "数据来源：全曲库歌曲\r\n排序方式：按照歌曲产生的完整播放，收藏和分享数据综合进行排名\r\n更新频率：每天",
+        "rankid": 8888,
+        "update_frequency": "每天",
+        "banner7url": "http://imge.kugou.com/mcommon/{size}/20241219/20241219164215715999.png",
+        "show_play_button": 0,
+        "video_ending": "http://imge.kugou.com/mcommon/{size}/20240313/20240313142811662716.jpg",
+        "jump_title": "",
+        "is_timing": 1,
+        "count_down": 1800,
+        "extra": {
+          "resp": {
+            "scheduled_release_conf": {
+              "scheduled_release_time": "10:00:00",
+              "latest_rank_cid": 186247,
+              "latest_rank_cid_publish_date": "2026-11-22 08:30:01"
+            },
+            "five_year_total": 196,
+            "new_total": 9,
+            "enjoy_total": 0,
+            "recent_year_total": 162,
+            "follow_total": 0,
+            "all_total": 500,
+            "vip_total": 0,
+            "rank_tag": [
+              {
+                "desc": "有9首上新",
+                "type": 3
+              }
+            ]
+          }
+        },
+        "ranktype": 2,
+        "imgurl": "http://imge.kugou.com/mcommon/{size}/20241219/20241219164209670219.png"
+      },
+      {
+        "children": [],
+        "base_img": "",
+        "rankname": "内地榜",
+        "new_cycle": 0,
+        "banner_9": "http://imge.kugou.com/mcommon/{size}/20220112/20220112175510473796.png",
+        "album_img_9": "http://imge.kugou.com/stdmusic/{size}/20261116/20261116154330179002.jpg",
+        "table_plaque": "",
+        "update_frequency_type": 0,
+        "play_times": 852131,
+        "img_9": "http://imge.kugou.com/mcommon/{size}/20241211/20241211192156257611.png",
+        "is_city_rank": 0,
+        "classify": 1,
+        "haschildren": 0,
+        "songinfo": [
+          {
+            "album_audio_id": 987557633,
+            "trans_param": {
+              "cpy_grade": 5,
+              "classmap": {
+                "attr0": 234881032
+              },
+              "provider": 5,
+              "cpy_attr0": 33562624,
+              "musicpack_advance": 0,
+              "ogg_128_filesize": 2183240,
+              "display_rate": 0,
+              "ogg_320_filesize": 7006163,
+              "language": "国语",
+              "cpy_map": "2",
+              "union_cover": "http://imge.kugou.com/stdmusic/{size}/20261116/20261116154330179002.jpg",
+              "hash_multitrack": "F30EBF409C8630DA867751DF86FAE475",
+              "qualitymap": {
+                "bits": "2800000db41000003710e434",
+                "attr0": 923853876,
+                "attr1": 1746927616
+              },
+              "ogg_320_hash": "AEA6EB58708A7E94B1D1F7A7753AD1D3",
+              "display": 0,
+              "cid": 691895486,
+              "ogg_128_hash": "108F807B21B810837B5B57EFD0114A99",
+              "songname_suffix": "(大莉现场版)",
+              "ipmap": {
+                "attr0": 154652381184,
+                "bits": "10002402001000"
+              },
+              "appid_block": "3124",
+              "pay_block_tpl": 1,
+              "flags": [],
+              "cpy_level": 1
+            },
+            "name": "窗外的泪光 (大莉现场版)",
+            "author": "大莉唱现场",
+            "songname": "大莉唱现场 - 窗外的泪光 (大莉现场版)"
+          },
+          {
+            "album_audio_id": 987741113,
+            "trans_param": {
+              "cpy_grade": 5,
+              "classmap": {
+                "attr0": 234881032
+              },
+              "provider": 5,
+              "cpy_attr0": 58728448,
+              "musicpack_advance": 0,
+              "display": 0,
+              "display_rate": 0,
+              "cpy_map": "2",
+              "ogg_320_filesize": 7664119,
+              "ogg_128_hash": "2D0710117D9A7751A1DB8AC62530D357",
+              "qualitymap": {
+                "bits": "2801fc0db410807ebf10c074",
+                "attr0": 1058062452,
+                "attr1": 1746993405
+              },
+              "union_cover": "http://imge.kugou.com/stdmusic/{size}/20261117/20261117135307396114.jpg",
+              "language": "国语",
+              "flags": [],
+              "ogg_320_hash": "D0BB4B7563064ABDA3713D33436348F1",
+              "ogg_128_filesize": 2038322,
+              "ipmap": {
+                "attr0": 154652381184,
+                "bits": "10002402001000"
+              },
+              "cid": 692170602,
+              "hash_multitrack": "5AC984D5F8D4686B12EE6001CCE495AF",
+              "pay_block_tpl": 1,
+              "cpy_level": 1
+            },
+            "name": "你猜",
+            "author": "刘回",
+            "songname": "刘回 - 你猜"
+          }
+        ],
+        "rank_cid": 182906,
+        "share_bg": "",
+        "id": 35,
+        "jump_url": "",
+        "album_cover_color": "#644b3d",
+        "share_logo": "http://imge.kugou.com/mcommon/{size}/20240201/20240201181301112318.png",
+        "bannerurl": "http://imge.kugou.com/mcommonbanner/{size}/20181019/20181019122310609161.jpg",
+        "zone": "tx6_gz_kmr",
+        "show_play_count": 1,
+        "isvol": 1,
+        "rank_id_publish_date": "2026-11-20 10:10:00",
+        "issue": 232,
+        "img_cover": "http://imge.kugou.com/mcommon/{size}/20241211/20241211192201402850.png",
+        "custom_type": 0,
+        "intro": "数据来源：30天内发行的内地新歌\r\n排序方式：酷狗音乐的喜爱用户数和发行时间等综合评分排序取前100名\r\n更新频率：每周一至周五",
+        "rankid": 31308,
+        "update_frequency": "工作日",
+        "banner7url": "http://imge.kugou.com/mcommon/{size}/20241211/20241211192151619051.png",
+        "show_play_button": 0,
+        "video_ending": "http://imge.kugou.com/mcommon/{size}/20240313/20240313142811662716.jpg",
+        "jump_title": "",
+        "is_timing": 0,
+        "count_down": 0,
+        "extra": {
+          "resp": {
+            "scheduled_release_conf": {
+              "scheduled_release_time": "00:00:00",
+              "latest_rank_cid": 182906,
+              "latest_rank_cid_publish_date": "2026-11-20 10:10:00"
+            },
+            "five_year_total": 100,
+            "new_total": 13,
+            "enjoy_total": 0,
+            "recent_year_total": 100,
+            "follow_total": 0,
+            "all_total": 100,
+            "vip_total": 0,
+            "rank_tag": [
+              {
+                "desc": "有13首上新",
+                "type": 3
+              }
+            ]
+          }
+        },
+        "ranktype": 1,
+        "imgurl": "http://imge.kugou.com/mcommon/{size}/20241211/20241211192146592398.png"
+      }
+    ]
+  },
+  "errcode": 0,
+  "status": 1,
+  "error": ""
+}
