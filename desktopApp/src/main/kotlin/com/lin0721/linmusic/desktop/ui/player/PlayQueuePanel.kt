@@ -64,7 +64,9 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.SimilarRoamingController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.theme.themedShadow
+import com.lin0721.linmusic.desktop.ui.track.PlatformBadge
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
@@ -500,7 +502,13 @@ private fun QueueRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(item.artist, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val platform = item.effectivePlatform
+                    if (platform != MusicPlatform.NETEASE) {
+                        PlatformBadge(platform, Modifier.padding(end = 6.dp))
+                    }
+                    Text(item.artist, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             if (canRemove) {
                 HoverReveal(revealed = revealed && !dragging) {

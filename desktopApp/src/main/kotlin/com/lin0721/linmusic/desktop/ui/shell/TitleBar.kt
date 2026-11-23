@@ -111,6 +111,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.plugin.PluginCommandItem
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
@@ -219,6 +220,8 @@ fun WindowScope.TitleBar(
     activeKugouAccount: StoredAccount? = null,
     kugouAccounts: List<StoredAccount> = emptyList(),
     kugouPlatformEnabled: Boolean = true,
+    hideMessagesButton: Boolean = false,
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
     onKugouLoginClick: () -> Unit = {},
     onKugouSwitchAccount: (AccountId) -> Unit = {},
     onKugouAddAccount: () -> Unit = {},
@@ -235,7 +238,16 @@ fun WindowScope.TitleBar(
 ) {
     val density = LocalDensity.current
     val editState = rememberTitleBarEditState(titleBarLayout)
-    val displayLayout = if (editMode) editState.workingLayout else titleBarLayout
+    val baseLayout = if (editMode) editState.workingLayout else titleBarLayout
+    val displayLayout = if (hideMessagesButton && !editMode) {
+        baseLayout.copy(
+            centerStart = baseLayout.centerStart.filterNot { it == TitleBarButton.MESSAGES },
+            centerEnd = baseLayout.centerEnd.filterNot { it == TitleBarButton.MESSAGES },
+            trailing = baseLayout.trailing.filterNot { it == TitleBarButton.MESSAGES }
+        )
+    } else {
+        baseLayout
+    }
     val currentOnLayoutChange by rememberUpdatedState(onTitleBarLayoutChange)
     val currentOnEditModeChange by rememberUpdatedState(onEditModeChange)
     var titleBarHeightPx by remember { mutableIntStateOf(0) }
@@ -438,6 +450,7 @@ fun WindowScope.TitleBar(
                     activeKugouAccount = activeKugouAccount,
                     kugouAccounts = kugouAccounts,
                     kugouPlatformEnabled = kugouPlatformEnabled,
+                    browsePlatform = browsePlatform,
                     onKugouLoginClick = onKugouLoginClick,
                     onKugouSwitchAccount = onKugouSwitchAccount,
                     onKugouAddAccount = onKugouAddAccount,
@@ -942,6 +955,7 @@ private fun AvatarMenu(
     activeKugouAccount: StoredAccount?,
     kugouAccounts: List<StoredAccount>,
     kugouPlatformEnabled: Boolean,
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
     onKugouLoginClick: () -> Unit,
     onKugouSwitchAccount: (AccountId) -> Unit,
     onKugouAddAccount: () -> Unit,
@@ -1056,15 +1070,22 @@ private fun AvatarMenu(
                 }
             }
 
-            if (userProfile != null) {
+            val canOpenRecent = userProfile != null ||
+                (kugouPlatformEnabled && browsePlatform == MusicPlatform.KUGOU && activeKugouAccount != null)
+            val canOpenCloud = userProfile != null || (kugouPlatformEnabled && activeKugouAccount != null)
+            if (canOpenRecent || canOpenCloud) {
                 MenuDivider()
-                AvatarMenuItem(MelodiaIcons.History, "最近播放") {
-                    expanded = false
-                    onRecentClick()
+                if (canOpenRecent) {
+                    AvatarMenuItem(MelodiaIcons.History, "最近播放") {
+                        expanded = false
+                        onRecentClick()
+                    }
                 }
-                AvatarMenuItem(MelodiaIcons.Cloud, "我的云盘") {
-                    expanded = false
-                    onCloudClick()
+                if (canOpenCloud) {
+                    AvatarMenuItem(MelodiaIcons.Cloud, "我的云盘") {
+                        expanded = false
+                        onCloudClick()
+                    }
                 }
             } else {
                 MenuDivider()

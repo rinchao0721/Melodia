@@ -312,7 +312,19 @@ val desktopPlatformModule = module {
     single { LocalMusicActions(get(), get<PlaybackController>(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     // 启动即监听账号变化，退出登录时清空云盘数据与上传队列
     single(createdAtStart = true) { CloudLibrary(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
-    single { CloudMusicActions(get(), get(), get(), get(), get<PlaybackController>()) }
+    single {
+        CloudMusicActions(
+            library = get(),
+            uploadManager = get(),
+            uploadRunner = get(),
+            localLibrary = get(),
+            controller = get<PlaybackController>(),
+            platformCloudRouter = getOrNull(),
+            settingsPreferences = getOrNull(),
+            resourceProvider = getOrNull(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        )
+    }
     single { RecognitionHistoryPreferences(store(PreferencesStores.RECOGNITION_HISTORY), userPreferences = get()) }
     single { RecognitionPreferences(store(PreferencesStores.RECOGNITION)) }
     single { GraalAfpFingerprintEngine() }

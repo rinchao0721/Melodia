@@ -54,8 +54,13 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.repository.UnifiedCloudQuota
+import com.lin0721.linmusic.core.platform.repository.UnifiedCloudTrack
+import com.lin0721.linmusic.core.platform.toDisplayTrack
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.data.cloud.CloudLibraryState
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
@@ -67,6 +72,7 @@ import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
+import com.lin0721.linmusic.desktop.ui.home.BrowsePlatformSwitcher
 import com.lin0721.linmusic.desktop.ui.library.CLOUD_TITLE
 import com.lin0721.linmusic.desktop.ui.local.SongMatchDialog
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
@@ -87,6 +93,7 @@ import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import com.lin0721.linmusic.desktop.ui.track.rememberTrackActions
 import com.lin0721.linmusic.feature.cloud.domain.CloudSong
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
+import com.lin0721.linmusic.feature.cloud.ui.PlatformCloudUiState
 import com.lin0721.linmusic.feature.playlist.presentation.PlaylistSortKey
 import com.lin0721.linmusic.feature.playlist.presentation.PlaylistSortOrder
 import com.lin0721.linmusic.feature.playlist.presentation.filterTracks
@@ -135,6 +142,46 @@ fun CloudPage(
     modifier: Modifier = Modifier
 ) {
     val navigator = LocalDesktopNavigator.current
+    val initialPlatform = if (navigator.isKugouEnabled && navigator.browsePlatform == MusicPlatform.KUGOU) {
+        MusicPlatform.KUGOU
+    } else {
+        MusicPlatform.NETEASE
+    }
+    var selectedPlatform by remember(navigator.isKugouEnabled) { mutableStateOf(initialPlatform) }
+    LaunchedEffect(navigator.isKugouEnabled) {
+        if (!navigator.isKugouEnabled && selectedPlatform == MusicPlatform.KUGOU) {
+            selectedPlatform = MusicPlatform.NETEASE
+        }
+    }
+
+    Column(modifier.fillMaxSize()) {
+        if (navigator.isKugouEnabled) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = HeaderPadding, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BrowsePlatformSwitcher(
+                    browsePlatform = selectedPlatform,
+                    onSelect = { selectedPlatform = it }
+                )
+            }
+        }
+        if (selectedPlatform == MusicPlatform.KUGOU && navigator.isKugouEnabled) {
+            KugouCloudPage(actions, controller, songActions, Modifier.weight(1f).fillMaxWidth())
+        } else {
+            NeteaseCloudPage(actions, controller, songActions, Modifier.weight(1f).fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun NeteaseCloudPage(
+    actions: CloudMusicActions,
+    controller: PlaybackController,
+    songActions: SongActionSources,
+    modifier: Modifier = Modifier
+) {
+    val navigator = LocalDesktopNavigator.current
     val library = actions.library
     val state by library.state.collectAsState()
     LaunchedEffect(navigator.isLoggedIn) {
@@ -159,6 +206,312 @@ fun CloudPage(
         return
     }
     CloudSongList(state, actions, controller, songActions, modifier)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun KugouCloudPage(
+    actions: CloudMusicActions,
+    controller: PlaybackController,
+    songActions: SongActionSources,
+    modifier: Modifier = Modifier
+) {
+    val navigator = LocalDesktopNavigator.current
+    val holder = actions.kugouCloudHolder
+    if (holder == null) {
+        CenteredMessage("酷狗云盘服务不可用", modifier) {}
+        return
+    }
+    if (!navigator.isKugouLoggedIn) {
+        CenteredMessage("登录酷狗账号后即可查看酷狗云盘歌曲", modifier) {
+            TextButton(onClick = navigator.openKugouLogin) { Text("登录酷狗", color = DesktopColors.TextPrimary) }
+        }
+        return
+    }
+
+    LaunchedEffect(holder, navigator.isKugouLoggedIn) {
+        holder.selectPlatform(MusicPlatform.KUGOU)
+        holder.load(refresh = true)
+    }
+    LaunchedEffect(holder) {
+        holder.toastEvent.collect { navigator.showMessage(it) }
+    }
+
+    val state by holder.uiState.collectAsState()
+    when (val s = state) {
+        PlatformCloudUiState.Idle, PlatformCloudUiState.Loading -> {
+            Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = DesktopColors.Accent)
+            }
+        }
+        is PlatformCloudUiState.Error -> {
+            CenteredMessage(s.message, modifier) {
+                TextButton(onClick = { holder.load(refresh = true) }) { Text("重试", color = DesktopColors.TextPrimary) }
+            }
+        }
+        is PlatformCloudUiState.Success -> {
+            KugouCloudSongList(s, holder, actions, controller, songActions, modifier)
+        }
+    }
+}
+
+private data class KugouCloudRow(
+    val cloudTrack: UnifiedCloudTrack,
+    val display: Track
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun KugouCloudSongList(
+    state: PlatformCloudUiState.Success,
+    holder: com.lin0721.linmusic.feature.cloud.ui.PlatformCloudStateHolder,
+    actions: CloudMusicActions,
+    controller: PlaybackController,
+    songActions: SongActionSources,
+    modifier: Modifier
+) {
+    val navigator = LocalDesktopNavigator.current
+    val scope = rememberCoroutineScope()
+    val nowPlaying by controller.nowPlaying.collectAsState()
+    val playMode by controller.playMode.collectAsState()
+    val playWhenReady by controller.playWhenReady.collectAsState()
+    val playContext by controller.playContext.collectAsState()
+    val likedSongIds by songActions.likes.likedSongIds.collectAsState()
+    val collectState by songActions.collect.state.collectAsState()
+
+    var query by remember { mutableStateOf("") }
+    var order by remember { mutableStateOf(PlaylistSortOrder()) }
+    var deleting by remember { mutableStateOf<UnifiedCloudTrack?>(null) }
+
+    val rows = remember(state.tracks) {
+        state.tracks.map { ct -> KugouCloudRow(ct, ct.track.toDisplayTrack()) }
+    }
+    val addedAt = remember(rows) { rows.associate { it.display.id to it.cloudTrack.addedAtMs } }
+    val shown = remember(rows, query, order) {
+        val byId = rows.associateBy { it.display.id }
+        sortTracks(filterTracks(rows.map { it.display }, query), order, addedAt).mapNotNull { byId[it.id] }
+    }
+    val itemsByTrack = remember(rows) { IdentityHashMap<Track, KugouCloudRow>().apply { rows.forEach { put(it.display, it) } } }
+    val isThisContext = playContext == CloudMusicActions.PLAY_CONTEXT_KUGOU
+    val isShuffleActive = playMode == PlayMode.SHUFFLE
+
+    val playFrom: (KugouCloudRow) -> Unit = { target ->
+        val list = shown.map { it.cloudTrack.track }
+        val idx = shown.indexOfFirst { it === target }.coerceAtLeast(0)
+        if (isShuffleActive) {
+            val rest = list.filterIndexed { i, _ -> i != idx }.shuffled()
+            actions.playUnifiedTracks(listOf(target.cloudTrack.track) + rest, 0)
+        } else {
+            actions.playUnifiedTracks(list, idx)
+        }
+    }
+    val onPlayClick: () -> Unit = {
+        when {
+            isThisContext -> controller.togglePlayPause()
+            shown.isEmpty() -> navigator.showMessage("云盘里还没有歌曲")
+            else -> {
+                val list = shown.map { it.cloudTrack.track }
+                actions.playUnifiedTracks(if (isShuffleActive) list.shuffled() else list, 0)
+            }
+        }
+    }
+    val trackActions = rememberTrackActions(
+        likedSongIds = likedSongIds,
+        collectState = collectState,
+        onQuickLike = { songId ->
+            scope.launch { songActions.collect.quickLike(songId) { navigator.showMessage(it) } }
+        },
+        onToggleLike = { songId, like ->
+            scope.launch {
+                songActions.likes.likeSong(songId, like).collect { result ->
+                    result.onFailure { navigator.showMessage("操作失败") }
+                }
+            }
+        },
+        onPlayNext = { track ->
+            itemsByTrack[track]?.let { actions.addUnifiedToPlayNext(listOf(it.cloudTrack.track)) }
+            navigator.showMessage("已添加至下一首播放")
+        },
+        onPrepareCollect = { songId ->
+            scope.launch {
+                songActions.collect.prepare(songId, songActions.likes.likedSongIds.value) { navigator.showMessage(it) }
+            }
+        },
+        onSaveCollect = { songId, items ->
+            scope.launch {
+                songActions.collect.save(
+                    songId = songId,
+                    items = items,
+                    likedSongIds = songActions.likes.likedSongIds.value,
+                    onToast = { navigator.showMessage(it) },
+                    onLikedChanged = { songActions.likes.syncLikedSongIds(it) }
+                )
+            }
+        },
+        onCreateAndAdd = { name, songId ->
+            scope.launch {
+                songActions.collect.createAndAdd(name, songId, songActions.likes.likedSongIds.value) { navigator.showMessage(it) }
+            }
+        },
+        extraMenuItems = { track, dismiss ->
+            val row = itemsByTrack[track]
+            if (row != null) {
+                MenuDivider()
+                MenuItem("从云盘删除", icon = MelodiaIcons.Delete, danger = true, onClick = {
+                    dismiss()
+                    deleting = row.cloudTrack
+                })
+            }
+        }
+    )
+
+    val heroCover = remember(rows) { rows.firstNotNullOfOrNull { it.display.al.picUrl.takeIf { url -> url.isNotBlank() } } }
+    var heroBase by remember { mutableStateOf(FallbackCoverPalette.base) }
+    LaunchedEffect(heroCover) {
+        heroCover?.let { heroBase = extractCoverPaletteFromUrl(it).base }
+    }
+    val heroColor by animateColorAsState(headerCoverBackground(heroBase, HERO_DARKEN_FRACTION), uiSpring(), label = "kugouCloudHero")
+
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember(state.hasMore, state.isLoadingMore, query) {
+        derivedStateOf {
+            if (query.isNotBlank()) return@derivedStateOf false
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            state.hasMore && !state.isLoadingMore && lastVisible >= (listState.layoutInfo.totalItemsCount - 4).coerceAtLeast(0)
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) holder.loadMore()
+    }
+
+    HoverScrollbarBox(listState) {
+        LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item(key = "header") {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
+                ) {
+                    KugouCloudHero(state.quota, rows.size, heroCover)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = HeaderPadding, vertical = ActionBarVerticalPadding),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayCircleButton(PlayButtonSize, 24.dp, isThisContext && playWhenReady, onPlayClick)
+                        ActionIcon(
+                            MelodiaIcons.Shuffle,
+                            if (isShuffleActive) "随机播放已开启" else "随机播放已关闭",
+                            tint = if (isShuffleActive) DesktopColors.Accent else DesktopColors.TextGray,
+                            onClick = controller::toggleShuffle
+                        )
+                        CloudMoreMenu(
+                            onPlayNextAll = {
+                                actions.addUnifiedToPlayNext(shown.map { it.cloudTrack.track })
+                                navigator.showMessage(if (shown.isEmpty()) "云盘里还没有歌曲" else "已添加至下一首播放")
+                            },
+                            onRefresh = { holder.load(refresh = true) }
+                        )
+                        Spacer(Modifier.weight(1f))
+                        PlaylistSearchBox(query) { query = it }
+                        PlaylistSortMenu(order, showAdded = false) { key ->
+                            order = if (key == PlaylistSortKey.CUSTOM) PlaylistSortOrder() else PlaylistSortOrder(key, true)
+                        }
+                    }
+                }
+            }
+            stickyHeader(key = "columns") {
+                TrackColumnHeader(order, showAdded = false) { order = order.toggled(it) }
+            }
+            itemsIndexed(shown, key = { index, row -> "${row.cloudTrack.deleteKey}_${row.display.id}_$index" }) { index, row ->
+                TrackRow(
+                    index = index,
+                    track = row.display,
+                    sourcePlatform = MusicPlatform.KUGOU,
+                    isCurrent = nowPlaying?.songId == row.display.id,
+                    onPlay = { playFrom(row) },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                        .then(if (LocalUiMotion.current.enabled) Modifier.animateItem() else Modifier),
+                    actions = trackActions
+                )
+            }
+            if (state.isLoadingMore) {
+                item(key = "loading_more") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = DesktopColors.Accent, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+            if (shown.isEmpty()) {
+                item(key = "empty") {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (query.isNotBlank()) "未找到匹配的歌曲" else "酷狗云盘里还没有歌曲",
+                            color = DesktopColors.TextGray,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    deleting?.let { target ->
+        DesktopDialog(
+            title = "从云盘删除",
+            onDismiss = { if (!state.isDeleting) deleting = null },
+            width = 360.dp,
+            actions = {
+                DialogButton("取消", onClick = { deleting = null }, enabled = !state.isDeleting)
+                DialogButton(
+                    "删除",
+                    onClick = { holder.delete(listOf(target)) { deleting = null } },
+                    enabled = !state.isDeleting,
+                    danger = true,
+                    loading = state.isDeleting
+                )
+            }
+        ) {
+            Text("确定从酷狗云盘删除《${target.track.name}》吗？删除后无法恢复。", color = DesktopColors.TextGray, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun KugouCloudHero(quota: UnifiedCloudQuota, fallbackCount: Int, cover: String?) {
+    val totalCount = if (quota.totalCount > 0) quota.totalCount else fallbackCount
+    val usedRatio = if (quota.maxBytes > 0L) (quota.usedBytes.toFloat() / quota.maxBytes.toFloat()).coerceIn(0f, 1f) else 0f
+    Row(Modifier.fillMaxWidth().padding(HeaderPadding), verticalAlignment = Alignment.Bottom) {
+        Cover(cover, 200.dp, shape = RoundedCornerShape(6.dp))
+        Column(Modifier.weight(1f).padding(start = HeaderPadding)) {
+            Text("酷狗云盘", color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "酷狗音乐云盘",
+                color = DesktopColors.TextPrimary,
+                fontSize = 48.sp,
+                lineHeight = 56.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Text(
+                buildString {
+                    append("$totalCount 首歌曲")
+                    if (quota.maxBytes > 0L) {
+                        append("，已用 ${formatFileSize(quota.usedBytes)} / ${formatFileSize(quota.maxBytes)}")
+                    }
+                },
+                color = DesktopColors.TextGray,
+                fontSize = 14.sp
+            )
+            if (quota.maxBytes > 0L) {
+                LinearProgressIndicator(
+                    progress = { usedRatio },
+                    modifier = Modifier.padding(top = 8.dp).widthIn(max = QuotaBarWidth).fillMaxWidth().height(4.dp),
+                    color = DesktopColors.AccentText,
+                    trackColor = DesktopColors.SurfaceLight
+                )
+            }
+        }
+    }
 }
 
 @Composable

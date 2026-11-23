@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.SimilarRoamingController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.LibraryShortcutSetting
@@ -54,6 +55,7 @@ import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppDependencies
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
 
 // 按钮内边距、圆角与图标尺寸与 LibraryTitleToggle 保持一致（点击区 32x36dp，图标 24dp）
 private val ShortcutIconSize = 24.dp
@@ -97,7 +99,7 @@ internal fun activeLibraryShortcuts(
         SimilarRoamingController.CONTEXT_ROAMING -> add(LibraryShortcut.SIMILAR_ROAMING)
     }
     when (currentRoute) {
-        is DesktopRoute.Playlist -> if (currentRoute.id == DAILY_RECOMMEND_ID) add(LibraryShortcut.DAILY_RECOMMEND)
+        is DesktopRoute.Playlist -> if (currentRoute.id == DAILY_RECOMMEND_ID || currentRoute.entityId == KUGOU_DAILY_RECOMMEND_ID) add(LibraryShortcut.DAILY_RECOMMEND)
         DesktopRoute.Cloud -> add(LibraryShortcut.CLOUD)
         is DesktopRoute.LocalPlaylist -> if (currentRoute.id == LOCAL_ALL_TRACKS_ID) add(LibraryShortcut.LOCAL_MUSIC)
         else -> Unit
@@ -160,6 +162,10 @@ internal fun rememberLibraryShortcutsState(
     val playContext by deps.playbackController.playContext.collectAsState()
     val nowPlaying by deps.playbackController.nowPlaying.collectAsState()
     val detailState by deps.playerViewModel.songDetailState.collectAsState()
+    val browsePlatform by deps.homeViewModel.browsePlatform.collectAsState()
+    val kugouAccount by deps.homeViewModel.kugouAccount.collectAsState()
+    val kugouPlatformEnabled by deps.homeViewModel.isKugouEnabled.collectAsState()
+    val isKugouLoggedIn = kugouAccount != null
     val currentRoute = appState.backStack.current
 
     val cloudSongId = nowPlaying?.songId?.takeIf { it > 0L && !detailState.isLocalOnly }
@@ -173,7 +179,7 @@ internal fun rememberLibraryShortcutsState(
         hasCloudSong = cloudSongId != null
     )
 
-    return remember(shortcuts, active, roamingEnabled, isLoggedIn, nowPlaying, cloudSongId, appState, deps) {
+    return remember(shortcuts, active, roamingEnabled, isLoggedIn, nowPlaying, cloudSongId, appState, deps, browsePlatform, isKugouLoggedIn, kugouPlatformEnabled) {
         LibraryShortcutsState(
             shortcuts = shortcuts,
             activeShortcuts = active,
@@ -186,7 +192,10 @@ internal fun rememberLibraryShortcutsState(
                     deps = deps,
                     isLoggedIn = isLoggedIn,
                     nowPlaying = nowPlaying,
-                    cloudSongId = cloudSongId
+                    cloudSongId = cloudSongId,
+                    browsePlatform = browsePlatform,
+                    isKugouLoggedIn = isKugouLoggedIn,
+                    kugouPlatformEnabled = kugouPlatformEnabled
                 )
             },
             onToggleVisible = deps.desktopSettingsViewModel::toggleLibraryShortcut
@@ -202,15 +211,27 @@ internal fun performLibraryShortcutClick(
     deps: DesktopAppDependencies,
     isLoggedIn: Boolean,
     nowPlaying: NowPlaying? = null,
-    cloudSongId: Long? = null
+    cloudSongId: Long? = null,
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
+    isKugouLoggedIn: Boolean = false,
+    kugouPlatformEnabled: Boolean = false
 ) {
+    val isKugouMode = kugouPlatformEnabled && browsePlatform == MusicPlatform.KUGOU
+    val hasCloudAccount = isLoggedIn || (kugouPlatformEnabled && isKugouLoggedIn)
     when (resolveShortcutClickAction(item, isActive = isActive)) {
         LibraryShortcutClickAction.DISABLE_PERSONAL_FM -> deps.playerViewModel.disablePersonalFm()
         LibraryShortcutClickAction.DISABLE_INTELLIGENCE -> deps.playbackController.disableIntelligence()
         LibraryShortcutClickAction.DISABLE_SIMILAR_ROAMING -> deps.playbackController.disableRoaming()
         LibraryShortcutClickAction.NAVIGATE_BACK -> appState.popBack()
         LibraryShortcutClickAction.START_PERSONAL_FM -> {
-            if (!isLoggedIn) {
+            if (isKugouMode) {
+                if (!isKugouLoggedIn) {
+                    appState.showMessage("请先登录酷狗账号")
+                    appState.showKugouLogin = true
+                } else {
+                    deps.playerViewModel.startPersonalFm()
+                }
+            } else if (!isLoggedIn) {
                 appState.showMessage("请先登录账号")
                 appState.showLogin = true
             } else {
@@ -256,7 +277,9 @@ internal fun performLibraryShortcutClick(
             }
         }
         LibraryShortcutClickAction.OPEN_DAILY_RECOMMEND -> {
-            if (!isLoggedIn) {
+            if (isKugouMode) {
+                appState.openPlaylistEntity(KUGOU_DAILY_RECOMMEND_ID, "每日推荐", false)
+            } else if (!isLoggedIn) {
                 appState.showMessage("请先登录账号")
                 appState.showLogin = true
             } else {
@@ -264,9 +287,9 @@ internal fun performLibraryShortcutClick(
             }
         }
         LibraryShortcutClickAction.OPEN_CLOUD -> {
-            if (!isLoggedIn) {
+            if (!hasCloudAccount) {
                 appState.showMessage("请先登录账号")
-                appState.showLogin = true
+                if (isKugouMode) appState.showKugouLogin = true else appState.showLogin = true
             } else {
                 appState.openCloud()
             }

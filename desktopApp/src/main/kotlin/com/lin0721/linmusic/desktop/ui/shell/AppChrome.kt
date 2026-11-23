@@ -13,7 +13,9 @@ import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.platform.PlatformCapabilities
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.TitleBarButton
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
@@ -55,6 +57,8 @@ internal fun WindowScope.AppTitleBar(
     val kugouAccounts by deps.userPreferences.accountsOf(MusicPlatform.KUGOU).collectAsState(initial = emptyList())
     val activeKugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
     val kugouPlatformEnabled by deps.settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
+    val browsePlatform by deps.homeViewModel.browsePlatform.collectAsState()
+    val capabilities = PlatformCapabilities.of(browsePlatform)
     val titleBarLayout by deps.desktopSettingsViewModel.titleBarLayout.collectAsState()
     val playContext by deps.playbackController.playContext.collectAsState()
     val currentRoute = state.backStack.current
@@ -137,14 +141,35 @@ internal fun WindowScope.AppTitleBar(
                 }
                 TitleBarButton.DOWNLOADS -> state.toggleOverlay(DockOverlay.Downloads)
                 TitleBarButton.PERSONAL_FM -> performLibraryShortcutClick(
-                    LibraryShortcut.PERSONAL_FM, isPersonalFmActive, state, deps, userProfile != null
+                    LibraryShortcut.PERSONAL_FM,
+                    isPersonalFmActive,
+                    state,
+                    deps,
+                    userProfile != null,
+                    browsePlatform = browsePlatform,
+                    isKugouLoggedIn = activeKugouAccount != null,
+                    kugouPlatformEnabled = kugouPlatformEnabled
                 )
                 TitleBarButton.DAILY_RECOMMEND -> performLibraryShortcutClick(
-                    LibraryShortcut.DAILY_RECOMMEND, isDailyRecommendActive, state, deps, userProfile != null
+                    LibraryShortcut.DAILY_RECOMMEND,
+                    isDailyRecommendActive,
+                    state,
+                    deps,
+                    userProfile != null,
+                    browsePlatform = browsePlatform,
+                    isKugouLoggedIn = activeKugouAccount != null,
+                    kugouPlatformEnabled = kugouPlatformEnabled
                 )
                 TitleBarButton.SETTINGS -> state.navigate(DesktopRoute.Settings)
                 TitleBarButton.LOCAL_MUSIC -> performLibraryShortcutClick(
-                    LibraryShortcut.LOCAL_MUSIC, isLocalMusicActive, state, deps, userProfile != null
+                    LibraryShortcut.LOCAL_MUSIC,
+                    isLocalMusicActive,
+                    state,
+                    deps,
+                    userProfile != null,
+                    browsePlatform = browsePlatform,
+                    isKugouLoggedIn = activeKugouAccount != null,
+                    kugouPlatformEnabled = kugouPlatformEnabled
                 )
                 TitleBarButton.RECENT_PLAY -> state.navigate(DesktopRoute.RecentPlay)
             }
@@ -206,6 +231,8 @@ internal fun WindowScope.AppTitleBar(
         activeKugouAccount = activeKugouAccount,
         kugouAccounts = kugouAccounts,
         kugouPlatformEnabled = kugouPlatformEnabled,
+        hideMessagesButton = !capabilities.supportsPrivateMessage,
+        browsePlatform = browsePlatform,
         onKugouLoginClick = {
             state.kugouLoginAddAccount = false
             state.showKugouLogin = true
@@ -231,7 +258,13 @@ internal fun WindowScope.AppTitleBar(
             }
         },
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
-        onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },
+        onRecentClick = {
+            if (browsePlatform == MusicPlatform.KUGOU && kugouPlatformEnabled && activeKugouAccount != null) {
+                state.openPlaylistEntity(KUGOU_RECENT_PLAYLIST_ID, "酷狗最近播放", false)
+            } else {
+                state.navigate(DesktopRoute.RecentPlay)
+            }
+        },
         onCloudClick = state::openCloud,
         onSettingsClick = { state.navigate(DesktopRoute.Settings) },
         hasUpdate = availableUpdate != null,

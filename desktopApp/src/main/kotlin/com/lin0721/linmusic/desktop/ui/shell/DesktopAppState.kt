@@ -26,6 +26,8 @@ import com.lin0721.linmusic.feature.library.ui.LibraryFilter
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
 import com.lin0721.linmusic.feature.library.ui.LibrarySortOrder
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_RANK_ENTITY_PREFIX
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -209,12 +211,17 @@ class DesktopAppState(
     }
 
     private fun playlistRouteForEntity(entityId: String, title: String, isAlbum: Boolean): DesktopRoute.Playlist? {
-        if (!isAlbum && entityId == KUGOU_RECENT_PLAYLIST_ID) {
+        if (!isAlbum && (
+                entityId == KUGOU_RECENT_PLAYLIST_ID ||
+                    entityId == KUGOU_DAILY_RECOMMEND_ID ||
+                    entityId.startsWith(KUGOU_RANK_ENTITY_PREFIX)
+                )
+        ) {
             return DesktopRoute.Playlist(
-                id = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong(),
+                id = entityId.hashCode().toLong(),
                 title = title,
                 isAlbum = false,
-                entityId = KUGOU_RECENT_PLAYLIST_ID
+                entityId = entityId
             )
         }
         val parsed: PlatformEntityId? = if (isAlbum) AlbumId.parseOrNull(entityId) else PlaylistId.parseOrNull(entityId)

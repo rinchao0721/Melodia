@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.ui.shell
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.share.ShareCardKind
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 
 // 把应用状态与下载能力包装成页面使用的跳转与提示入口
@@ -13,7 +14,8 @@ internal fun desktopNavigator(
     downloadLevel: String,
     defaultPlaylistPrivate: Boolean,
     isKugouLoggedIn: Boolean = false,
-    isKugouEnabled: Boolean = false
+    isKugouEnabled: Boolean = false,
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE
 ): DesktopNavigator {
     val downloadAt: (Track, String) -> Unit = { track, level ->
         deps.downloader.enqueueSingle(
@@ -26,6 +28,7 @@ internal fun desktopNavigator(
         isLoggedIn = isLoggedIn,
         isKugouLoggedIn = isKugouLoggedIn,
         isKugouEnabled = isKugouEnabled,
+        browsePlatform = browsePlatform,
         openArtist = { id, name -> state.navigate(DesktopRoute.Artist(id, name)) },
         openArtistEntity = state::openArtistEntity,
         openPlaylist = { id, name -> state.navigate(DesktopRoute.Playlist(id, name)) },
@@ -61,6 +64,7 @@ internal fun desktopNavigator(
                 state.showMessage("请先登录账号")
                 state.showLogin = true
             }
-        }
+        },
+        openCloud = state::openCloud
     )
 }

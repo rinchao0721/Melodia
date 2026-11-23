@@ -6,13 +6,20 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,14 +30,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.lin0721.linmusic.core.platform.PlatformCapabilities
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.icons.Swap
 import com.lin0721.linmusic.desktop.ui.components.uiTween
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.delay
@@ -54,9 +69,14 @@ fun HomeTabPills(
     onSelect: (Int) -> Unit,
     newWorksSelected: Boolean,
     onNewWorksSelect: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
+    isKugouEnabled: Boolean = false,
+    onPlatformSwitch: (MusicPlatform) -> Unit = {}
 ) {
-    val secondaryTarget = selectedTab == HOME_TAB_MUSIC
+    val capabilities = PlatformCapabilities.of(browsePlatform)
+    val isKugouMode = browsePlatform == MusicPlatform.KUGOU
+    val secondaryTarget = !isKugouMode && selectedTab == HOME_TAB_MUSIC
     var secondaryMounted by remember { mutableStateOf(secondaryTarget) }
     var secondaryVisible by remember { mutableStateOf(secondaryTarget) }
 
@@ -74,37 +94,94 @@ fun HomeTabPills(
     }
 
     Row(modifier.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        HomeTabLabels.forEachIndexed { index, label ->
-            val joinsSecondary = index == HOME_TAB_MUSIC && secondaryMounted
-            HomePill(
-                text = label,
-                selected = index == selectedTab,
-                onClick = { onSelect(index) },
-                // 压在二级胶囊上层，贴合处的圆角弧线盖在「最新」直边前面
-                modifier = Modifier
-                    .padding(start = if (index == 0) 0.dp else 8.dp)
-                    .then(if (joinsSecondary) Modifier.zIndex(1f) else Modifier)
-            )
-            if (joinsSecondary) {
-                // 平移与裁剪宽度同步，胶囊保持完整尺寸从主胶囊背后推出
-                AnimatedVisibility(
-                    visible = secondaryVisible,
-                    enter = slideInHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
-                        expandHorizontally(uiTween(SECONDARY_ANIM_MS), expandFrom = Alignment.Start),
-                    exit = slideOutHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
-                        shrinkHorizontally(uiTween(SECONDARY_ANIM_MS), shrinkTowards = Alignment.Start),
-                    modifier = Modifier.overlapStart(PillRadius)
-                ) {
-                    HomePill(
-                        text = "最新",
-                        selected = newWorksSelected,
-                        onClick = onNewWorksSelect,
-                        shape = JoinEndShape,
-                        selectedContainerColor = DesktopColors.TextGray,
-                        // 左侧被主胶囊压住一个圆角半径，补回可见留白
-                        labelStartInset = PillRadius
-                    )
+        if (isKugouMode) {
+            HomePill(text = "发现", selected = true, onClick = { onSelect(HOME_TAB_ALL) })
+        } else {
+            val labels = if (capabilities.supportsPodcast) HomeTabLabels else HomeTabLabels.take(2)
+            labels.forEachIndexed { index, label ->
+                val joinsSecondary = index == HOME_TAB_MUSIC && secondaryMounted
+                HomePill(
+                    text = label,
+                    selected = index == selectedTab,
+                    onClick = { onSelect(index) },
+                    // 压在二级胶囊上层，贴合处的圆角弧线盖在「最新」直边前面
+                    modifier = Modifier
+                        .padding(start = if (index == 0) 0.dp else 8.dp)
+                        .then(if (joinsSecondary) Modifier.zIndex(1f) else Modifier)
+                )
+                if (joinsSecondary) {
+                    // 平移与裁剪宽度同步，胶囊保持完整尺寸从主胶囊背后推出
+                    AnimatedVisibility(
+                        visible = secondaryVisible,
+                        enter = slideInHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
+                            expandHorizontally(uiTween(SECONDARY_ANIM_MS), expandFrom = Alignment.Start),
+                        exit = slideOutHorizontally(uiTween(SECONDARY_ANIM_MS)) { -it } +
+                            shrinkHorizontally(uiTween(SECONDARY_ANIM_MS), shrinkTowards = Alignment.Start),
+                        modifier = Modifier.overlapStart(PillRadius)
+                    ) {
+                        HomePill(
+                            text = "最新",
+                            selected = newWorksSelected,
+                            onClick = onNewWorksSelect,
+                            shape = JoinEndShape,
+                            selectedContainerColor = DesktopColors.TextGray,
+                            // 左侧被主胶囊压住一个圆角半径，补回可见留白
+                            labelStartInset = PillRadius
+                        )
+                    }
                 }
+            }
+        }
+        if (isKugouEnabled) {
+            Spacer(Modifier.weight(1f))
+            BrowsePlatformSwitcher(
+                browsePlatform = browsePlatform,
+                onSelect = onPlatformSwitch
+            )
+        }
+    }
+}
+
+@Composable
+internal fun BrowsePlatformSwitcher(
+    browsePlatform: MusicPlatform,
+    onSelect: (MusicPlatform) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(PillShape)
+            .background(DesktopColors.Fill.copy(alpha = 0.72f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            MelodiaIcons.Swap,
+            contentDescription = "切换平台",
+            tint = DesktopColors.TextGray,
+            modifier = Modifier.padding(start = 6.dp, end = 2.dp).size(14.dp)
+        )
+        listOf(MusicPlatform.NETEASE to "网易云", MusicPlatform.KUGOU to "酷狗").forEach { (platform, label) ->
+            val selected = browsePlatform == platform
+            val bg = if (selected) DesktopColors.TextPrimary else Color.Transparent
+            val fg = if (selected) DesktopColors.Pane else DesktopColors.TextPrimary
+            Row(
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(bg)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable { onSelect(platform) }
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    label,
+                    color = fg,
+                    fontSize = 12.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1
+                )
             }
         }
     }

@@ -452,14 +452,14 @@ private fun PlaylistContent(
     val uid = profile?.uid
     val isLikedView = !isKugou && uid != null && !isAlbum && isLikedSongsPlaylist(playlist.name, playlist.id, uid)
     val isOwned = if (isKugou) {
-        !state.isKugouRecent && !isAlbum && activeKugou != null &&
+        !state.isReadOnlyKugou && !isAlbum && activeKugou != null &&
             (state.creatorEntityId == activeKugou.accountId.canonical || playlist.creator?.userId == activeKugou.uid)
     } else {
         uid != null && !isAlbum && playlist.id > 0 && playlist.creator?.userId == uid && !isLikedView
     }
-    val canSubscribe = !state.isKugouRecent && !isOwned && !isLikedView &&
+    val canSubscribe = !state.isReadOnlyKugou && !isOwned && !isLikedView &&
         (if (isKugou) !isAlbum else playlist.id > 0 && !isPluginCollectionId(playlist.id))
-    val showComments = !state.isKugouRecent && (isKugou || playlist.id > 0)
+    val showComments = !state.isReadOnlyKugou && (isKugou || playlist.id > 0)
     val canCopyLink = !isKugou && playlist.id > 0
     val canDownload = !isKugou && !isPluginCollectionId(playlist.id)
 
@@ -602,7 +602,7 @@ private fun PlaylistContent(
                         .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
-                        PlaylistHero(playlist, isAlbum, isKugou, state.isKugouRecent, count, totalMs)
+                        PlaylistHero(playlist, isAlbum, isKugou, state.isKugouRecent, state.isKugouDiscover, count, totalMs)
                     }
                     PlaylistActionBar(
                         isAlbum = isAlbum,
@@ -818,11 +818,13 @@ private fun PlaylistHero(
     isAlbum: Boolean,
     isKugou: Boolean,
     isKugouRecent: Boolean,
+    isKugouDiscover: Boolean,
     count: Int,
     totalMs: Long?
 ) {
     val typeLabel = when {
         isKugouRecent -> "最近播放"
+        isKugouDiscover -> "酷狗发现"
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"
         isKugou -> if (playlist.privacy == PRIVATE_PLAYLIST) "隐私歌单" else "公开歌单"

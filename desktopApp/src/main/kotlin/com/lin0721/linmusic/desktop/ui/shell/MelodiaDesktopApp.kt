@@ -132,6 +132,7 @@ fun WindowScope.MelodiaDesktopApp(
     val userProfile by deps.homeViewModel.userProfile.collectAsState()
     val kugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
     val isKugouEnabled by deps.settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
+    val browsePlatform by deps.homeViewModel.browsePlatform.collectAsState()
     val downloadLevel by deps.settingsPreferences.wifiQuality.collectAsState(initial = "standard")
     val defaultPlaylistPrivate by deps.settingsPreferences.defaultPlaylistPrivate.collectAsState(initial = false)
     val nowPlaying by controller.nowPlaying.collectAsState()
@@ -217,7 +218,8 @@ fun WindowScope.MelodiaDesktopApp(
         downloadLevel = downloadLevel,
         defaultPlaylistPrivate = defaultPlaylistPrivate,
         isKugouLoggedIn = kugouAccount != null,
-        isKugouEnabled = isKugouEnabled
+        isKugouEnabled = isKugouEnabled,
+        browsePlatform = browsePlatform
     )
     val frameHost = session.frameHost
     val liveEntryIds = state.backStack.liveEntryIds
