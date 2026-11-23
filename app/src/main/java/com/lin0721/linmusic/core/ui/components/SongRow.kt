@@ -510,14 +510,30 @@ fun DraggableSongRow(
         Spacer(Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                data.title,
-                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    data.title,
+                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (!data.platformTag.isNullOrBlank()) {
+                    Spacer(Modifier.width(6.dp))
+                    data.platformTagColorArgb?.let { argb ->
+                        Spacer(Modifier.size(6.dp).background(Color(argb), CircleShape))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        text = data.platformTag,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1
+                    )
+                }
+            }
             Spacer(Modifier.height(2.dp))
             val downloadPreferences: DownloadPreferences = koinInject()
             val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platformTag.isNullOrBlank() }

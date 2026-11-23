@@ -330,7 +330,7 @@ fun PlaylistScreen(
                 val isLikedSongsPlaylistView = !isKugou && profile != null &&
                     isLikedSongsPlaylist(state.playlist.name, state.playlist.id, profile.uid)
                 val isOwnedPlaylist = if (isKugou) {
-                    !state.isKugouRecent && !isAlbum && activeKugou != null &&
+                    !state.isReadOnlyKugou && !isAlbum && activeKugou != null &&
                         (state.creatorEntityId == activeKugou.accountId.canonical || state.playlist.creator?.userId == activeKugou.uid)
                 } else {
                     profile != null &&
@@ -339,11 +339,11 @@ fun PlaylistScreen(
                         state.playlist.creator?.userId == profile.uid &&
                         !isLikedSongsPlaylistView
                 }
-                val canSubscribe = !state.isKugouRecent && !isOwnedPlaylist && !isLikedSongsPlaylistView && (
+                val canSubscribe = !state.isReadOnlyKugou && !isOwnedPlaylist && !isLikedSongsPlaylistView && (
                     if (isKugou) !isAlbum else state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)
                 )
-                val canComment = !state.isKugouRecent && (isKugou || (state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)))
-                val canShare = !isKugou && !state.isKugouRecent && state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)
+                val canComment = !state.isReadOnlyKugou && (isKugou || (state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)))
+                val canShare = !isKugou && !state.isReadOnlyKugou && state.playlist.id > 0L && !isPluginCollectionId(state.playlist.id)
                 val isShuffleActive = playMode == PlayMode.SHUFFLE
                 // 当前播放队列的来源是否就是这个歌单（playContext 存的是歌单名）
                 val isThisPlaylistContext = playContext == state.playlist.name
@@ -1104,7 +1104,7 @@ fun PlaylistScreen(
                     )
 
                     val isManageable = if (isKugou) {
-                        !successState.isKugouRecent && !isAlbum && activeKugou != null &&
+                        !successState.isReadOnlyKugou && !isAlbum && activeKugou != null &&
                             (successState.creatorEntityId == activeKugou.accountId.canonical || playlist.creator?.userId == activeKugou.uid)
                     } else {
                         !isAlbum && userProfile != null &&
@@ -1112,7 +1112,7 @@ fun PlaylistScreen(
                             playlist.id > 0L &&
                             playlist.id != userProfile?.uid
                     }
-                    val canSubscribeMore = !successState.isKugouRecent && !isManageable && (
+                    val canSubscribeMore = !successState.isReadOnlyKugou && !isManageable && (
                         if (isKugou) !isAlbum else playlist.id > 0L && !isPluginCollectionId(playlist.id)
                     )
 
@@ -1183,7 +1183,7 @@ fun PlaylistScreen(
                                 }
                             }
                         )
-                        if (!isKugou && !successState.isKugouRecent && !isPluginCollectionId(playlist.id)) {
+                        if (!isKugou && !successState.isReadOnlyKugou && !isPluginCollectionId(playlist.id)) {
                             add(
                                 PlaylistMenuItem(
                                     icon = MelodiaIcons.Share,

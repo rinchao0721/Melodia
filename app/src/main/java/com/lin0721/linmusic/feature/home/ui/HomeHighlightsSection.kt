@@ -204,7 +204,7 @@ internal fun rememberCoverCardColor(
 
 // 底色取自首曲封面
 @Composable
-private fun DailySpotlightCard(
+internal fun DailySpotlightCard(
     songs: List<DailySong>,
     onOpen: () -> Unit,
     onPlay: () -> Unit,

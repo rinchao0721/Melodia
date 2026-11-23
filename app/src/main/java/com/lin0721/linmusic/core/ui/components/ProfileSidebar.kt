@@ -56,6 +56,9 @@ fun ProfileSidebar(
     userProfile: UserProfile?,
     accounts: List<UserProfile>,
     showMessageSection: Boolean = true,
+    showListenDataEntry: Boolean = true,
+    canOpenRecentPlay: Boolean = userProfile != null,
+    canOpenCloud: Boolean = userProfile != null,
     privateUnreadCount: Int = 0,
     conversationPreview: ConversationPreviewState = ConversationPreviewState(),
     onDismissUnread: () -> Unit = {},
@@ -77,6 +80,16 @@ fun ProfileSidebar(
     val withLogin: (() -> Unit) -> () -> Unit = { navigate ->
         {
             if (userProfile != null) {
+                navigate()
+            } else {
+                onDismiss()
+                onLogin()
+            }
+        }
+    }
+    val withAccess: (Boolean, () -> Unit) -> () -> Unit = { allowed, navigate ->
+        {
+            if (allowed) {
                 navigate()
             } else {
                 onDismiss()
@@ -115,17 +128,19 @@ fun ProfileSidebar(
         SidebarMenuItem(
             icon = MelodiaIcons.History,
             title = "最近播放",
-            onClick = withLogin(onNavigateToRecentPlay)
+            onClick = withAccess(canOpenRecentPlay, onNavigateToRecentPlay)
         )
-        SidebarMenuItem(
-            icon = MelodiaIcons.Insights,
-            title = "听歌数据",
-            onClick = withLogin(onNavigateToListenData)
-        )
+        if (showListenDataEntry) {
+            SidebarMenuItem(
+                icon = MelodiaIcons.Insights,
+                title = "听歌数据",
+                onClick = withLogin(onNavigateToListenData)
+            )
+        }
         SidebarMenuItem(
             icon = MelodiaIcons.Cloud,
             title = "我的云盘",
-            onClick = withLogin(onNavigateToCloud)
+            onClick = withAccess(canOpenCloud, onNavigateToCloud)
         )
         SidebarMenuItem(
             icon = MelodiaIcons.Download,

@@ -245,6 +245,10 @@ fun MelodiaApp() {
     val isPanelAtStart = sidePlayerPosition == SettingsPreferences.SIDE_PLAYER_POSITION_LEFT
     val tabletImmersiveMode by settingsPreferences.tabletImmersiveMode.collectAsStateWithLifecycle(initialValue = false)
     val sidebarMessageEnabled by settingsPreferences.sidebarMessageEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val browsePlatform by viewModel.browsePlatform.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
+    val platformCapabilities = com.lin0721.linmusic.core.platform.PlatformCapabilities.of(browsePlatform)
     // 播放队列和状态走 RoutingPlaybackController，系统播放器特有属性（ffmpeg 提示、首选输出设备）保留 PlayerManager
     val playerManager: PlayerManager = koinInject()
     val routingController: RoutingPlaybackController = koinInject()
@@ -935,10 +939,15 @@ fun MelodiaApp() {
                     alpha = 0.5f + (0.5f * sidebar.progress)
                 }
         ) {
+            val kugouActive = isKugouEnabled && kugouAccount != null
+            val isKugouBrowseMode = isKugouEnabled && browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
             ProfileSidebar(
                 userProfile = userProfile,
                 accounts = accounts,
-                showMessageSection = sidebarMessageEnabled,
+                showMessageSection = sidebarMessageEnabled && platformCapabilities.supportsPrivateMessage,
+                showListenDataEntry = browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.NETEASE,
+                canOpenRecentPlay = userProfile != null || (isKugouBrowseMode && kugouActive),
+                canOpenCloud = userProfile != null || kugouActive,
                 privateUnreadCount = privateUnreadCount,
                 conversationPreview = conversationPreview,
                 onDismissUnread = { privateUnreadMonitor.markAllRead() },
@@ -962,7 +971,18 @@ fun MelodiaApp() {
                 onDismiss = { sidebar.close() },
                 // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
                 onNavigateToProfile = { uid -> sidebar.closeThen { navigation.openProfile(uid) } },
-                onNavigateToRecentPlay = { sidebar.closeThen { navigation.openRecentPlay() } },
+                onNavigateToRecentPlay = {
+                    sidebar.closeThen {
+                        if (isKugouBrowseMode && kugouActive) {
+                            navigation.openPlaylistEntity(
+                                com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID,
+                                isAlbum = false
+                            )
+                        } else {
+                            navigation.openRecentPlay()
+                        }
+                    }
+                },
                 onNavigateToListenData = { sidebar.closeThen { navigation.openListenData() } },
                 onNavigateToCloud = { sidebar.closeThen { navigation.openCloud() } },
                 onNavigateToDownloads = { sidebar.closeThen { navigation.openDownloads() } },

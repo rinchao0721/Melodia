@@ -95,6 +95,8 @@ fun LibraryScreen(
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val browsePlatform by viewModel.browsePlatform.collectAsStateWithLifecycle()
+    val selectedPlatformFilter by viewModel.selectedPlatformFilter.collectAsStateWithLifecycle()
     val effectiveKugouLoggedIn = isKugouEnabled && kugouAccount != null
     val hasCloudAccount = userProfile != null || effectiveKugouLoggedIn
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
@@ -318,6 +320,14 @@ fun LibraryScreen(
                             modifier = Modifier.weight(1f)
                         )
 
+                        if (isKugouEnabled) {
+                            com.lin0721.linmusic.feature.home.ui.BrowsePlatformSwitcherPill(
+                                browsePlatform = browsePlatform,
+                                onSelect = viewModel::switchBrowsePlatform,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                        }
+
                         MelodiaIconButton(onClick = { isSearchActive = true }) {
                             Icon(MelodiaIcons.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
                         }
@@ -348,7 +358,10 @@ fun LibraryScreen(
                 selectedPlaylistOwnerFilter = selectedPlaylistOwnerFilter,
                 onSelectPlaylistOwnerFilter = { viewModel.togglePlaylistOwnerFilter(it) },
                 showCategoryFilters = hasCloudAccount,
-                onLocalMusicClick = onNavigateToLocalMusic
+                onLocalMusicClick = onNavigateToLocalMusic,
+                selectedPlatformFilter = selectedPlatformFilter,
+                isKugouEnabled = isKugouEnabled,
+                onSelectPlatformFilter = viewModel::setPlatformFilter
             )
 
             // 用户登录状态条件渲染

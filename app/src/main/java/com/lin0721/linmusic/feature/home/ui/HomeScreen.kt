@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
@@ -31,6 +32,8 @@ import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksFeedActions
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksFeedContent
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
+import com.lin0721.linmusic.feature.playlist.ui.kugouRankEntityId
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeActions
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeContent
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
@@ -54,6 +57,7 @@ fun HomeScreen(
     showNewWorksFeed: Boolean = false,
     onShowNewWorksFeedChanged: (Boolean) -> Unit = {},
     onPlaylistClick: (Long, Boolean) -> Unit = { _, _ -> },
+    onPlaylistEntityClick: (String, Boolean) -> Unit = { _, _ -> },
     onArtistClick: (Long) -> Unit = {},
     onRadioClick: (Long) -> Unit = {},
     onPodcastSubscribedClick: () -> Unit = {},
@@ -61,6 +65,7 @@ fun HomeScreen(
     onPodcastCategoryClick: (id: Long, name: String) -> Unit = { _, _ -> },
     onStyleClick: (id: Long, name: String) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
+    onCloudClick: () -> Unit = {},
     onOpenSidebar: () -> Unit = {},
     onOpenPlayer: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
@@ -71,6 +76,9 @@ fun HomeScreen(
     val showForYou by viewModel.showForYou.collectAsStateWithLifecycle()
     val showSearchButton by viewModel.showSearchButton.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val browsePlatform by viewModel.browsePlatform.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
@@ -132,16 +140,24 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(browsePlatform) {
+        if (browsePlatform == MusicPlatform.KUGOU && (selectedTab != TAB_ALL || showNewWorksFeed)) {
+            onTabSelected(TAB_ALL)
+            onShowNewWorksFeedChanged(false)
+        }
+    }
+
     // 各 tab 的数据都等真正切过去才拉，避免拖慢「全部」的首屏
-    LaunchedEffect(selectedTab) {
+    LaunchedEffect(selectedTab, browsePlatform) {
+        if (browsePlatform == MusicPlatform.KUGOU) return@LaunchedEffect
         when (selectedTab) {
             TAB_MUSIC -> musicViewModel.loadIfNeeded()
             TAB_PODCAST -> podcastViewModel.loadIfNeeded()
         }
     }
 
-    LaunchedEffect(showNewWorksFeed) {
-        if (showNewWorksFeed) newWorksViewModel.loadIfNeeded()
+    LaunchedEffect(showNewWorksFeed, browsePlatform) {
+        if (browsePlatform != MusicPlatform.KUGOU && showNewWorksFeed) newWorksViewModel.loadIfNeeded()
     }
 
     // 未登录也打开侧栏，侧栏里提供登录与设置入口
@@ -162,12 +178,16 @@ fun HomeScreen(
                 onSecondarySelected = { onShowNewWorksFeedChanged(true) },
                 onAvatarClick = onAvatarClick,
                 showSearchButton = showSearchButton,
-                onSearchClick = onSearchClick
+                onSearchClick = onSearchClick,
+                browsePlatform = browsePlatform,
+                isKugouEnabled = isKugouEnabled,
+                onPlatformSwitch = viewModel::switchBrowsePlatform,
+                kugouAvatarUrl = kugouAccount?.avatarUrl
             )
 
             Box(modifier = Modifier.weight(1f)) {
                 when {
-                    selectedTab == TAB_MUSIC && showNewWorksFeed -> NewWorksFeedContent(
+                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_MUSIC && showNewWorksFeed -> NewWorksFeedContent(
                         uiState = newWorksUiState,
                         collectState = newWorksCollectState,
                         importState = newWorksImportState,
@@ -190,14 +210,14 @@ fun HomeScreen(
                         }
                     )
 
-                    selectedTab == TAB_MUSIC -> MusicContent(
+                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_MUSIC -> MusicContent(
                         uiState = musicUiState,
                         onStyleClick = onStyleClick,
                         onRequestStyleCover = musicViewModel::requestStyleCover,
                         onRetry = { musicViewModel.loadStyles() }
                     )
 
-                    selectedTab == TAB_PODCAST -> PodcastHomeContent(
+                    browsePlatform != MusicPlatform.KUGOU && selectedTab == TAB_PODCAST -> PodcastHomeContent(
                         state = podcastState,
                         actions = remember(podcastViewModel, onRadioClick, onPodcastSubscribedClick, onPodcastToplistClick, onPodcastCategoryClick) {
                             PodcastHomeActions(
@@ -229,7 +249,9 @@ fun HomeScreen(
                         onRetry = { viewModel.loadHomeData() },
                         onLoadMore = { viewModel.loadMoreShelves() },
                         onPersonalFmClick = {
-                            if (userProfile != null) {
+                            if (browsePlatform == MusicPlatform.NETEASE && userProfile != null) {
+                                openPlayerOnFmStart = true
+                            } else if (browsePlatform == MusicPlatform.KUGOU && kugouAccount != null) {
                                 openPlayerOnFmStart = true
                             }
                             viewModel.startPersonalFm()
@@ -243,7 +265,15 @@ fun HomeScreen(
                         hotTopCoverUrl = hotTopCoverUrl,
                         isRoamingPlaying = isRoamingPlaying,
                         showRecentPlay = showRecentPlay,
-                        showForYou = showForYou
+                        showForYou = showForYou,
+                        currentSongId = nowPlaying?.songId,
+                        isPlaying = isPlaying,
+                        onPlaylistEntityClick = onPlaylistEntityClick,
+                        onKugouDailyOpen = { onPlaylistEntityClick(KUGOU_DAILY_RECOMMEND_ID, false) },
+                        onKugouDiscoverTrackClick = { index -> viewModel.playKugouDiscoverTrack(index) },
+                        onKugouRankOpen = { rank -> onPlaylistEntityClick(kugouRankEntityId(rank), false) },
+                        onKugouRankPlay = { rank -> viewModel.playKugouRank(rank) },
+                        onCloudClick = onCloudClick
                     )
                 }
             }

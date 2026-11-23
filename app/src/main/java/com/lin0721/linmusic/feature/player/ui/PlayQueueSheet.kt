@@ -40,6 +40,7 @@ import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.songquality.qualitySongId
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
@@ -361,6 +362,8 @@ fun PlayQueueSheet(
                                     title = item.title,
                                     artist = item.artist,
                                     coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                                    platformTag = item.effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.badgeName,
+                                    platformTagColorArgb = item.effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.brandColorArgb,
                                     qualitySongId = item.qualitySongId()
                                 ),
                                 isCurrent = false,
@@ -393,6 +396,8 @@ fun PlayQueueSheet(
                                     coverUrl = rememberQueueItemCoverUrl(
                                         queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
                                     ),
+                                    platformTag = queue[currentIndex].effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.badgeName,
+                                    platformTagColorArgb = queue[currentIndex].effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.brandColorArgb,
                                     qualitySongId = queue[currentIndex].qualitySongId()
                                 ),
                                 isCurrent = true,
@@ -426,6 +431,8 @@ fun PlayQueueSheet(
                                         coverUrl = rememberQueueItemCoverUrl(
                                             queue[currentIndex].coverUrl, queue[currentIndex].songId, queue[currentIndex].localUri
                                         ),
+                                        platformTag = queue[currentIndex].effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.badgeName,
+                                        platformTagColorArgb = queue[currentIndex].effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.brandColorArgb,
                                         qualitySongId = queue[currentIndex].qualitySongId()
                                     ),
                                     isCurrent = true,
@@ -483,6 +490,8 @@ fun PlayQueueSheet(
                                             title = item.title,
                                             artist = item.artist,
                                             coverUrl = rememberQueueItemCoverUrl(item.coverUrl, item.songId, item.localUri),
+                                            platformTag = item.effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.badgeName,
+                                            platformTagColorArgb = item.effectivePlatform.takeIf { it != MusicPlatform.NETEASE }?.brandColorArgb,
                                             qualitySongId = item.qualitySongId()
                                         ),
                                         isCurrent = false,

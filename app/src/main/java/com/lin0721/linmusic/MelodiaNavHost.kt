@@ -151,6 +151,7 @@ fun MelodiaNavHost(
                         showNewWorksFeed = showMusicNewWorks,
                         onShowNewWorksFeedChanged = onShowMusicNewWorksChanged,
                         onPlaylistClick = onNavigateToPlaylist,
+                        onPlaylistEntityClick = onNavigateToPlaylistEntity,
                         onArtistClick = onNavigateToArtist,
                         onRadioClick = onNavigateToRadio,
                         onPodcastSubscribedClick = { onNavigateToScreen(Screen.PodcastSubscribed) },
@@ -158,6 +159,7 @@ fun MelodiaNavHost(
                         onPodcastCategoryClick = { id, name -> onNavigateToScreen(Screen.PodcastCategory(id, name)) },
                         onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
                         onSearchClick = onNavigateToSearch,
+                        onCloudClick = { onNavigateToScreen(Screen.Cloud) },
                         onOpenSidebar = onOpenSidebar,
                         onOpenPlayer = onOpenPlayer,
                         onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged

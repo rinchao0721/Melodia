@@ -45,16 +45,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.platform.repository.UnifiedCloudQuota
+import com.lin0721.linmusic.core.platform.repository.UnifiedCloudTrack
+import com.lin0721.linmusic.core.platform.toDisplayTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.SearchResultRowSkeleton
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
+import com.lin0721.linmusic.core.ui.components.SongRow
+import com.lin0721.linmusic.core.ui.components.SongRowData
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -63,10 +70,13 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
+import com.lin0721.linmusic.feature.home.ui.BrowsePlatformSwitcherPill
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.core.ui.icons.Delete
 import com.lin0721.linmusic.core.ui.icons.Upload
 
 private const val SKELETON_ROW_COUNT = 8
@@ -79,11 +89,18 @@ fun CloudScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
+    val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
+    val selectedPlatform by viewModel.selectedCloudPlatform.collectAsStateWithLifecycle()
+    val kugouUiState by viewModel.kugouUiState.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
     val overlay by viewModel.overlay.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val uploadTasks by viewModel.uploadTasks.collectAsStateWithLifecycle()
     var showUploadSheet by remember { mutableStateOf(false) }
+    var kugouDeletingTarget by remember { mutableStateOf<UnifiedCloudTrack?>(null) }
 
     val successState = uiState as? CloudUiState.Success
     BackHandler(enabled = successState?.isSearchActive == true) {
@@ -109,25 +126,52 @@ fun CloudScreen(
         title = "我的云盘",
         onBack = onBack,
         actions = {
-            val success = uiState as? CloudUiState.Success
-            if (success != null && (success.songs.isNotEmpty() || success.isSearchActive)) {
-                MelodiaIconButton(onClick = { viewModel.toggleSearch() }) {
-                    Crossfade(
-                        targetState = success.isSearchActive,
-                        animationSpec = uiTween(durationMillis = 200),
-                        label = "cloud_search_icon"
-                    ) { isSearching ->
-                        Icon(
-                            if (isSearching) MelodiaIcons.Close else MelodiaIcons.Search,
-                            contentDescription = if (isSearching) "关闭搜索" else "搜索",
-                            tint = MelodiaColors.TextPrimary
-                        )
+            if (selectedPlatform == MusicPlatform.NETEASE) {
+                val success = uiState as? CloudUiState.Success
+                if (success != null && (success.songs.isNotEmpty() || success.isSearchActive)) {
+                    MelodiaIconButton(onClick = { viewModel.toggleSearch() }) {
+                        Crossfade(
+                            targetState = success.isSearchActive,
+                            animationSpec = uiTween(durationMillis = 200),
+                            label = "cloud_search_icon"
+                        ) { isSearching ->
+                            Icon(
+                                if (isSearching) MelodiaIcons.Close else MelodiaIcons.Search,
+                                contentDescription = if (isSearching) "关闭搜索" else "搜索",
+                                tint = MelodiaColors.TextPrimary
+                            )
+                        }
                     }
                 }
             }
         }
     ) {
+        if (isKugouEnabled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BrowsePlatformSwitcherPill(
+                    browsePlatform = selectedPlatform,
+                    onSelect = viewModel::selectCloudPlatform
+                )
+            }
+        }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (selectedPlatform == MusicPlatform.KUGOU && isKugouEnabled) {
+                KugouCloudContent(
+                    kugouLoggedIn = kugouAccount != null,
+                    uiState = kugouUiState,
+                    currentTrackId = currentTrack?.songId?.toString(),
+                    isPlaying = isPlaying,
+                    onRetry = { viewModel.loadKugou(refresh = true) },
+                    onLoadMore = { viewModel.loadMoreKugou() },
+                    onPlayTrack = { track, all -> viewModel.playKugouTrack(track, all) },
+                    onRequestDelete = { kugouDeletingTarget = it }
+                )
+            } else {
             when (val state = uiState) {
                 CloudUiState.Loading -> {
                     Column(modifier = Modifier.padding(top = MelodiaSpacing.sm)) {
@@ -233,7 +277,9 @@ fun CloudScreen(
                     }
                 }
             }
+            }
 
+            if (selectedPlatform == MusicPlatform.NETEASE) {
             // 有上传在跑时点它回看进度，没有时点它选文件
             val fabInteraction = remember { MutableInteractionSource() }
             FloatingActionButton(
@@ -272,7 +318,22 @@ fun CloudScreen(
                     )
                 }
             }
+            }
         }
+    }
+
+    kugouDeletingTarget?.let { target ->
+        val deleting = (kugouUiState as? PlatformCloudUiState.Success)?.isDeleting == true
+        CloudDeleteConfirmDialog(
+            songName = target.track.name,
+            isDeleting = deleting,
+            onConfirm = {
+                viewModel.deleteKugouTrack(target) {
+                    kugouDeletingTarget = null
+                }
+            },
+            onDismiss = { if (!deleting) kugouDeletingTarget = null }
+        )
     }
 
     if (showUploadSheet && uploadTasks.isNotEmpty()) {
@@ -399,6 +460,146 @@ private fun CloudSearchField(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun KugouCloudContent(
+    kugouLoggedIn: Boolean,
+    uiState: PlatformCloudUiState,
+    currentTrackId: String?,
+    isPlaying: Boolean,
+    onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
+    onPlayTrack: (com.lin0721.linmusic.core.platform.UnifiedTrack, List<com.lin0721.linmusic.core.platform.UnifiedTrack>) -> Unit,
+    onRequestDelete: (UnifiedCloudTrack) -> Unit
+) {
+    if (!kugouLoggedIn) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            EmptyState(
+                icon = MelodiaIcons.Cloud,
+                title = "请先登录酷狗账号",
+                subtitle = "登录后即可查看与播放酷狗云盘歌曲"
+            )
+        }
+        return
+    }
+    when (uiState) {
+        PlatformCloudUiState.Idle, PlatformCloudUiState.Loading -> {
+            Column(modifier = Modifier.padding(top = MelodiaSpacing.sm)) {
+                repeat(SKELETON_ROW_COUNT) { SearchResultRowSkeleton() }
+            }
+        }
+        is PlatformCloudUiState.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ErrorState(message = uiState.message, onRetry = onRetry)
+            }
+        }
+        is PlatformCloudUiState.Success -> {
+            val tracks = uiState.tracks
+            if (tracks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    EmptyState(icon = MelodiaIcons.Cloud, title = "酷狗云盘暂无歌曲")
+                }
+                return
+            }
+            val listState = rememberLazyListState()
+            val shouldLoadMore by remember(uiState.hasMore, uiState.isLoadingMore, tracks.size) {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    uiState.hasMore && !uiState.isLoadingMore && lastVisible >= tracks.size - 3 + HERO_ITEM_OFFSET
+                }
+            }
+            LaunchedEffect(shouldLoadMore) {
+                if (shouldLoadMore) onLoadMore()
+            }
+            val unifiedList = remember(tracks) { tracks.map { it.track } }
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = MelodiaSpacing.sm,
+                    bottom = LocalBottomOverlayInset.current + 16.dp
+                )
+            ) {
+                item(key = "kugou_hero") {
+                    KugouCloudQuotaCard(uiState.quota, tracks.size)
+                }
+                items(tracks, key = { "${it.deleteKey}_${it.track.id.canonical}" }) { cloudTrack ->
+                    val display = remember(cloudTrack) { cloudTrack.track.toDisplayTrack() }
+                    SongRow(
+                        data = SongRowData(
+                            id = display.id,
+                            title = display.name,
+                            artist = display.ar.joinToString(" / ") { ar -> ar.name },
+                            coverUrl = display.al.picUrl,
+                            platformTag = MusicPlatform.KUGOU.badgeName,
+                            platformTagColorArgb = MusicPlatform.KUGOU.brandColorArgb
+                        ),
+                        isActive = currentTrackId == display.id.toString(),
+                        isPlaying = isPlaying,
+                        onClick = { onPlayTrack(cloudTrack.track, unifiedList) },
+                        trailingSlot = {
+                            MelodiaIconButton(
+                                onClick = { onRequestDelete(cloudTrack) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = MelodiaIcons.Delete,
+                                    contentDescription = "删除云盘歌曲",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    )
+                }
+                if (uiState.isLoadingMore) {
+                    item(key = "kugou_loading_more") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(MelodiaSpacing.md),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KugouCloudQuotaCard(quota: UnifiedCloudQuota, fallbackCount: Int) {
+    val totalCount = if (quota.totalCount > 0) quota.totalCount else fallbackCount
+    val usedText = if (quota.maxBytes > 0L) {
+        "${formatFileSize(quota.usedBytes)} / ${formatFileSize(quota.maxBytes)}"
+    } else {
+        "酷狗云端存储"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(MelodiaSpacing.md)
+    ) {
+        Text(
+            text = "酷狗音乐云盘",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "$totalCount 首歌曲 · $usedText",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 

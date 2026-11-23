@@ -6,13 +6,19 @@ import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.repository.PlatformCloudRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedCloudTrack
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -35,10 +41,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private const val TAG = "CloudViewModel"
@@ -56,11 +65,40 @@ class CloudViewModel(
     private val userPreferences: UserPreferences,
     val playerManager: PlaybackController,
     private val resourceProvider: ResourceProvider,
-    private val context: Context
+    private val context: Context,
+    private val platformCloudRouter: PlatformCloudRouter? = null,
+    private val settingsPreferences: SettingsPreferences? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<CloudUiState>(CloudUiState.Loading)
     val uiState: StateFlow<CloudUiState> = _uiState.asStateFlow()
+
+    val isKugouEnabled: StateFlow<Boolean> = (settingsPreferences?.kugouPlatformEnabled ?: flowOf(true))
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val kugouAccount: StateFlow<StoredAccount?> = userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _selectedCloudPlatform = MutableStateFlow(MusicPlatform.NETEASE)
+    val selectedCloudPlatform: StateFlow<MusicPlatform> = _selectedCloudPlatform.asStateFlow()
+
+    private val kugouCloudHolder: PlatformCloudStateHolder? by lazy {
+        val router = platformCloudRouter
+        val prefs = settingsPreferences
+        if (router != null && prefs != null) {
+            PlatformCloudStateHolder(
+                cloudRouter = router,
+                settingsPreferences = prefs,
+                resourceProvider = resourceProvider,
+                scope = viewModelScope
+            )
+        } else {
+            null
+        }
+    }
+
+    val kugouUiState: StateFlow<PlatformCloudUiState> =
+        kugouCloudHolder?.uiState ?: MutableStateFlow(PlatformCloudUiState.Error("酷狗云盘服务不可用", MusicPlatform.KUGOU))
 
     private val _overlay = MutableStateFlow<CloudOverlay>(CloudOverlay.Hidden)
     val overlay: StateFlow<CloudOverlay> = _overlay.asStateFlow()
@@ -79,10 +117,55 @@ class CloudViewModel(
     init {
         load()
         loadLikedSongIds()
+        viewModelScope.launch {
+            val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+            val browse = userPreferences.currentBrowsePlatform.first()
+            if (enabled && browse == MusicPlatform.KUGOU && kugouCloudHolder != null) {
+                selectCloudPlatform(MusicPlatform.KUGOU)
+            }
+        }
+        viewModelScope.launch {
+            kugouCloudHolder?.toastEvent?.collect { _toastEvent.emit(it) }
+        }
+        viewModelScope.launch {
+            settingsPreferences?.kugouPlatformEnabled?.collect { enabled ->
+                if (!enabled && _selectedCloudPlatform.value == MusicPlatform.KUGOU) {
+                    _selectedCloudPlatform.value = MusicPlatform.NETEASE
+                }
+            }
+        }
         // 每个文件发布成功就立刻刷一次列表第一页，不等整批上传结束
         viewModelScope.launch {
             uploadManager.publishedEvent.collect { load() }
         }
+    }
+
+    fun selectCloudPlatform(platform: MusicPlatform) {
+        val effective = if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) MusicPlatform.NETEASE else platform
+        _selectedCloudPlatform.value = effective
+        if (effective == MusicPlatform.KUGOU) {
+            kugouCloudHolder?.selectPlatform(MusicPlatform.KUGOU)
+            kugouCloudHolder?.load(refresh = true)
+        }
+    }
+
+    fun loadKugou(refresh: Boolean = false) {
+        kugouCloudHolder?.load(refresh = refresh)
+    }
+
+    fun loadMoreKugou() {
+        kugouCloudHolder?.loadMore()
+    }
+
+    fun playKugouTrack(target: UnifiedTrack, list: List<UnifiedTrack>) {
+        if (list.isEmpty()) return
+        val items = list.map(QueueItem::fromUnified)
+        val index = list.indexOfFirst { it.id == target.id }.coerceAtLeast(0)
+        playerManager.playQueue(items, index, "酷狗云盘")
+    }
+
+    fun deleteKugouTrack(track: UnifiedCloudTrack, onComplete: () -> Unit = {}) {
+        kugouCloudHolder?.delete(listOf(track)) { _ -> onComplete() }
     }
 
     // ======================= 上传 =======================
