@@ -72,7 +72,7 @@ class PluginAudioSourceProvider(private val registry: ExtensionRegistry) : Audio
                     isTrialPlayUrl(url) -> AppLogger.w(TAG, "插件 [${source.pluginName}] 返回试听链接，继续尝试: $songName")
                     else -> {
                         AppLogger.i(TAG, "插件 [${source.pluginName}] 音源 ${source.localId} 解析成功: $songName")
-                        return@withTimeoutOrNull SourceResult(url = url, platform = platform, quality = quality, pluginId = source.pluginId)
+                        return@withTimeoutOrNull SourceResult(url = url, platform = platform, quality = quality, pluginId = source.pluginId, sourceName = source.pluginName)
                     }
                 }
             }

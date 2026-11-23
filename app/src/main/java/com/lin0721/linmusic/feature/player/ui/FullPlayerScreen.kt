@@ -68,7 +68,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.lanlink.PlaybackTarget
 import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
+import com.lin0721.linmusic.core.model.composePlaybackInfoLabel
 import com.lin0721.linmusic.core.model.playbackQualityLabel
+import com.lin0721.linmusic.core.model.playbackSourceLabel
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
@@ -499,7 +501,7 @@ private fun FullPlayerScreenContent(
 
     val title = currentTrack.title
     val artist = currentTrack.artist
-    val qualityDisplay = rememberPlaybackQualityDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
+    val qualityDisplay = rememberPlaybackInfoDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
     val qualityLabel = qualityDisplay?.label
     LaunchedEffect(qualityDisplay == null) {
         if (qualityDisplay == null) showQualityDetailSheet = false
@@ -1224,7 +1226,7 @@ private fun FullPlayerScreenContent(
             isPodcast = podcast.isPodcast,
             personalFmMode = personalFmMode,
             showPersonalFmModeSheet = showPersonalFmModeSheet,
-            qualityDetail = if (showQualityDetailSheet) qualityDisplay?.quality else null,
+            qualityDetail = if (showQualityDetailSheet) qualityDisplay else null,
             onQualityDetailDismiss = { showQualityDetailSheet = false },
             onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
@@ -1474,6 +1476,29 @@ fun rememberPlaybackQualityDisplay(
     val quality = playbackQuality?.takeIf { it.mediaId == mediaId } ?: return null
     val label = playbackQualityLabel(quality) ?: return null
     return PlaybackQualityDisplay(quality = quality, label = label)
+}
+
+// 全屏播放页底部信息：按「显示播放来源」「显示实际音质」两个开关拼接来源与音质，均按 mediaId 绑定
+@Composable
+fun rememberPlaybackInfoDisplay(
+    viewModel: PlayerViewModel,
+    mediaId: String,
+    isPodcast: Boolean
+): PlaybackQualityDisplay? {
+    val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
+    val showPlaybackSource by viewModel.showPlaybackSource.collectAsStateWithLifecycle()
+    val playbackQuality by viewModel.playerManager.playbackQuality.collectAsStateWithLifecycle()
+    val playbackSource by viewModel.playerManager.playbackSource.collectAsStateWithLifecycle()
+    if (isPodcast) return null
+    val quality = playbackQuality?.takeIf { it.mediaId == mediaId }
+    val source = playbackSource?.takeIf { it.mediaId == mediaId }
+    val label = composePlaybackInfoLabel(
+        sourceLabel = source?.let(::playbackSourceLabel),
+        qualityLabel = quality?.let(::playbackQualityLabel),
+        showSource = showPlaybackSource,
+        showQuality = showPlaybackQuality
+    ) ?: return null
+    return PlaybackQualityDisplay(quality = quality, label = label, source = source)
 }
 
 // 当前歌曲的实际音质短标签；供迷你条等仅需文案的入口复用

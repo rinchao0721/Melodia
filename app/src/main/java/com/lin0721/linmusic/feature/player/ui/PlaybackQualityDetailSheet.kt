@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.PlaybackSourceInfo
 import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.model.playbackSourceLabel
 import com.lin0721.linmusic.core.model.qualityBadgeOf
 import com.lin0721.linmusic.core.model.resolveQualityLevel
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -45,10 +47,11 @@ import kotlin.math.roundToInt
 
 private const val QUALITY_MISSING_TEXT = "—"
 
-// 播放页音质徽标展示快照：文案与完整音质详情
+// 播放页音质/来源徽标展示快照：文案、完整音质详情与播放来源；两者均可能缺失其一
 data class PlaybackQualityDisplay(
-    val quality: PlaybackQuality,
-    val label: String
+    val quality: PlaybackQuality?,
+    val label: String,
+    val source: PlaybackSourceInfo? = null
 )
 
 // 音质详情弹窗中的单条参数行
@@ -106,13 +109,21 @@ internal fun formatChannelCountLabel(channels: Int?): String? =
     }
 
 // 构建音质详情弹窗展示条目列表，缺失项统一展示 "—"
-fun buildPlaybackQualityDetailItems(quality: PlaybackQuality): List<PlaybackQualityDetailItem> {
+fun buildPlaybackQualityDetailItems(
+    quality: PlaybackQuality,
+    source: PlaybackSourceInfo? = null
+): List<PlaybackQualityDetailItem> {
     val resolvedLevel = resolveQualityLevel(quality.declaredLevel, quality.stream)
     val resolvedColorArgb = resolvedLevel?.let { qualityBadgeOf(it)?.colorArgb }
     val declaredLevel = quality.declaredLevel?.trim()?.takeIf { it.isNotEmpty() }
     val stream = quality.stream
 
-    return listOf(
+    val sourceItem = source?.let {
+        PlaybackQualityDetailItem(label = "来源", value = playbackSourceLabel(it))
+    }
+
+    return listOfNotNull(
+        sourceItem,
         PlaybackQualityDetailItem(
             label = "判定档位",
             value = resolvedLevel?.let(::getQualityDisplayName) ?: QUALITY_MISSING_TEXT,
@@ -153,10 +164,13 @@ fun buildPlaybackQualityDetailItems(quality: PlaybackQuality): List<PlaybackQual
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaybackQualityDetailSheet(
-    quality: PlaybackQuality,
+    display: PlaybackQualityDisplay,
     onDismiss: () -> Unit
 ) {
-    val items = remember(quality) { buildPlaybackQualityDetailItems(quality) }
+    val items = remember(display) {
+        val quality = display.quality ?: PlaybackQuality(mediaId = display.source?.mediaId.orEmpty())
+        buildPlaybackQualityDetailItems(quality, display.source)
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val nestedScrollConnection = remember(sheetState) {
         object : NestedScrollConnection {

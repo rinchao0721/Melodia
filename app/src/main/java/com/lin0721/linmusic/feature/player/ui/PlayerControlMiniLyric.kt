@@ -32,24 +32,38 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 控件区上方的单行歌词，无歌词时退化为加载动画
+private const val MINI_LYRIC_DIM_ALPHA = 0.45f
+
+// 小歌词展示内容：text 为空表示加载中；dimmed 表示前奏占位与无歌词提示，低透明度显示
+internal data class MiniLyricContent(val text: String?, val dimmed: Boolean = false)
+
+// 加载中显示动画；有歌词但尚未唱到第一行（前奏）显示首行；加载完仍无歌词显示「暂无歌词」
+internal fun resolveMiniLyricContent(
+    lyrics: List<LyricLine>,
+    currentLyricIndex: Int,
+    isLoading: Boolean
+): MiniLyricContent = when {
+    lyrics.size == 1 && lyrics[0].text == "纯音乐" -> MiniLyricContent("纯音乐")
+    isLoading && lyrics.isEmpty() -> MiniLyricContent(null)
+    lyrics.isEmpty() -> MiniLyricContent("暂无歌词", dimmed = true)
+    currentLyricIndex in lyrics.indices -> MiniLyricContent(lyrics[currentLyricIndex].text)
+    else -> MiniLyricContent(lyrics[0].text, dimmed = true)
+}
+
+// 控件区上方的单行歌词，歌词加载中退化为加载动画
 @Composable
 fun MiniLyricLine(
     lyrics: List<LyricLine>,
     currentLyricIndex: Int,
     isPlaying: Boolean,
+    isLoading: Boolean = true,
     onClick: (() -> Unit)? = null,
     horizontalPadding: Dp = MelodiaSpacing.lg,
     textAlign: LayoutAlign? = null,
     // 放不下时横向滚动，否则截断加省略号
     marquee: Boolean = false
 ) {
-    val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
-    val currentText = when {
-        isPureMusic -> "纯音乐"
-        lyrics.isNotEmpty() && currentLyricIndex in lyrics.indices -> lyrics[currentLyricIndex].text
-        else -> ""
-    }
+    val content = resolveMiniLyricContent(lyrics, currentLyricIndex, isLoading)
 
     Box(
         modifier = Modifier
@@ -64,11 +78,12 @@ fun MiniLyricLine(
         }
     ) {
         AnimatedContent(
-            targetState = currentText,
+            targetState = content,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
             label = "mini_lyric"
-        ) { text ->
-            if (text.isEmpty()) {
+        ) { target ->
+            val text = target.text
+            if (text == null) {
                 LoadingDotsAnimation(
                     color = MelodiaColors.TextPrimary.copy(alpha = 0.35f),
                     isPlaying = isPlaying
@@ -76,7 +91,11 @@ fun MiniLyricLine(
             } else {
                 Text(
                     text = text,
-                    color = MelodiaColors.TextPrimary,
+                    color = if (target.dimmed) {
+                        MelodiaColors.TextPrimary.copy(alpha = MINI_LYRIC_DIM_ALPHA)
+                    } else {
+                        MelodiaColors.TextPrimary
+                    },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,

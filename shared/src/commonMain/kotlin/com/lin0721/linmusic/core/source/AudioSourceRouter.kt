@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.source
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.model.PlaybackSourceKind
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.player.PersonalFmMode
@@ -41,14 +42,14 @@ class AudioSourceRouter(
             val preferred = withTimeoutOrNull(PLUGIN_FIRST_BUDGET_MS) { resolveCommunity(songId) }
             if (preferred != null) {
                 AppLogger.i(TAG, "插件优先命中: songId=$songId 来源=${preferred.second}")
-                emit(Result.success(SongPlaybackInfo(url = preferred.first)))
+                emit(Result.success(SongPlaybackInfo(url = preferred.first, source = PlaybackSourceKind.COMMUNITY, sourceName = preferred.third)))
                 return@flow
             }
         }
 
         // 1. 先尝试官方接口获取直链
         val officialInfoResult = delegate.getSongPlaybackInfo(songId).first()
-        val officialInfo = officialInfoResult.getOrNull()
+        val officialInfo = officialInfoResult.getOrNull()?.copy(source = PlaybackSourceKind.OFFICIAL)
 
         // 官方返回完整音频且非试听时，直接使用官方链接
         if (officialInfo != null && !officialInfo.isFreeTrial && officialInfo.url.isNotBlank()) {
@@ -74,12 +75,13 @@ class AudioSourceRouter(
         val communityPriority = sourcePreferences.communityPriority.first()
         var matchedUrl: String? = null
         var matchedSource: String? = null
+        var matchedName: String? = null
 
         // 辅助函数：解析社区扩展源插件，插件优先时已经问过，不再重复等待
-        suspend fun tryResolveCommunity(): Pair<String, String>? = if (pluginFirst) null else resolveCommunity(songId)
+        suspend fun tryResolveCommunity(): Triple<String, String, String>? = if (pluginFirst) null else resolveCommunity(songId)
 
         // 辅助函数：解析远程 UNM 兜底服务
-        suspend fun tryResolveRemoteUnm(): Pair<String, String>? {
+        suspend fun tryResolveRemoteUnm(): Triple<String, String, String>? {
             val remoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.first()
             val serverUrl = sourcePreferences.unmServerUrl.first().trim()
             if (!remoteFallbackEnabled || serverUrl.isBlank()) return null
@@ -87,7 +89,7 @@ class AudioSourceRouter(
             val remoteResult = unmApiClient.matchSong(serverUrl, songId, null)
             if (remoteResult != null && remoteResult.url.isNotBlank() && !isTrialPlayUrl(remoteResult.url)) {
                 AppLogger.i(TAG, "远程 UNM 服务解析成功: songId=$songId 来源=${remoteResult.source}")
-                return Pair(remoteResult.url, "远程UNM (${remoteResult.source ?: "auto"})")
+                return Triple(remoteResult.url, "远程UNM (${remoteResult.source ?: "auto"})", "UNM")
             }
             return null
         }
@@ -98,11 +100,13 @@ class AudioSourceRouter(
             if (communityRes != null) {
                 matchedUrl = communityRes.first
                 matchedSource = communityRes.second
+                matchedName = communityRes.third
             } else {
                 val unmRes = tryResolveRemoteUnm()
                 if (unmRes != null) {
                     matchedUrl = unmRes.first
                     matchedSource = unmRes.second
+                    matchedName = unmRes.third
                 }
             }
         } else {
@@ -111,11 +115,13 @@ class AudioSourceRouter(
             if (unmRes != null) {
                 matchedUrl = unmRes.first
                 matchedSource = unmRes.second
+                    matchedName = unmRes.third
             } else {
                 val communityRes = tryResolveCommunity()
                 if (communityRes != null) {
                     matchedUrl = communityRes.first
                     matchedSource = communityRes.second
+                matchedName = communityRes.third
                 }
             }
         }
@@ -123,7 +129,7 @@ class AudioSourceRouter(
         // 3. 结果判定
         if (matchedUrl != null && matchedUrl.isNotBlank()) {
             AppLogger.i(TAG, "换源成功: songId=$songId 最终来源=$matchedSource")
-            emit(Result.success(SongPlaybackInfo(url = matchedUrl, isFreeTrial = false)))
+            emit(Result.success(SongPlaybackInfo(url = matchedUrl, isFreeTrial = false, source = PlaybackSourceKind.COMMUNITY, sourceName = matchedName)))
         } else {
             AppLogger.w(TAG, "所有换源均未命中: songId=$songId")
             if (officialInfo != null && officialInfo.url.isNotBlank()) {
@@ -138,7 +144,8 @@ class AudioSourceRouter(
         emit(Result.failure(e))
     }
 
-    private suspend fun resolveCommunity(songId: Long): Pair<String, String>? {
+    // 返回 直链、日志来源描述、音源名
+    private suspend fun resolveCommunity(songId: Long): Triple<String, String, String>? {
         if (providers.isEmpty()) return null
         val track = delegate.getSongDetail(songId).first().getOrNull() ?: return null
         val quality = if (networkStateProvider.isWifiConnected()) {
@@ -157,7 +164,7 @@ class AudioSourceRouter(
                     quality = quality
                 )
                 if (r != null && r.url.isNotBlank() && !r.isTrial && !isTrialPlayUrl(r.url)) {
-                    return Pair(r.url, "社区源 (${p.platform.displayName})")
+                    return Triple(r.url, "社区源 (${p.platform.displayName})", r.sourceName ?: p.platform.displayName)
                 }
             } catch (e: CancellationException) {
                 throw e

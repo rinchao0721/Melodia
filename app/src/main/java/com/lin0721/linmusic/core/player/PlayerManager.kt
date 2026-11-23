@@ -33,6 +33,8 @@ import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.OutputAudioInfo
 import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.PlaybackSourceInfo
+import com.lin0721.linmusic.core.model.PlaybackSourceKind
 import com.lin0721.linmusic.core.model.StreamAudioInfo
 import com.lin0721.linmusic.core.player.ffmpeg.FfmpegComponentManager
 import com.lin0721.linmusic.core.player.ffmpeg.PlaybackErrorAction
@@ -87,7 +89,12 @@ private const val GAIN_SYNC_EPSILON_DB = 0.05
 private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
 
 // 预取到的下一首播放链接，按 songId 校验有效性
-private data class PrefetchedUrl(val songId: Long, val url: String, val level: String? = null)
+private data class PrefetchedUrl(
+    val songId: Long,
+    val url: String,
+    val level: String? = null,
+    val source: PlaybackSourceInfo? = null
+)
 
 // 播放遇系统不支持格式时弹窗引导下载 ffmpeg 组件的上下文
 data class FfmpegInstallPrompt(
@@ -142,6 +149,11 @@ class PlayerManager(
     // 当前曲目的实际流参数与输出音质快照，按 mediaId 绑定
     private val _playbackQuality = MutableStateFlow<PlaybackQuality?>(null)
     override val playbackQuality: StateFlow<PlaybackQuality?> = _playbackQuality.asStateFlow()
+
+    // 当前曲目的播放来源，按 mediaId 绑定
+    private val _playbackSource = MutableStateFlow<PlaybackSourceInfo?>(null)
+    override val playbackSource: StateFlow<PlaybackSourceInfo?> = _playbackSource.asStateFlow()
+    private var previousPlaybackSource: PlaybackSourceInfo? = null
 
     // 接口下发的声明档位，按 mediaId 绑定（本地、离线缓存与换源为 null）
     private var declaredQualityLevel: Pair<String, String?>? = null
@@ -493,6 +505,7 @@ class PlayerManager(
         // 记录替换前正在播放的歌曲 ID（优先取底层已加载的曲目，次选原队列当前曲目）
         val playingSongId = _currentTrack.value?.mediaId?.toLongOrNull()
             ?: playbackQueue.currentItem()?.songId
+        val loadedItemBeforeReplace = playbackQueue.currentItem()
 
         playbackQueue.setPlayContext(playContext)
         playbackQueue.setPlaySource(source)
@@ -508,6 +521,21 @@ class PlayerManager(
         if ((playContext == CONTEXT_INTELLIGENCE || playContext == SimilarRoamingController.CONTEXT_ROAMING) && isCurrentPlayingTrack) {
             // 以当前正在播放的曲目为种子时平滑衔接，不重载音频与重置进度
             roaming.prefetchOnPlay(targetItem.songId)
+            return
+        }
+
+        // 重复点击正在播放的歌曲：只换队列，不重载、不重置进度
+        if (canReuseLoadedTrack(
+                loadedMediaId = _currentTrack.value?.mediaId,
+                loadedItem = loadedItemBeforeReplace,
+                isLoaded = isCurrentTrackLoaded(),
+                isPendingSwitch = pendingSkipFromIndex != null,
+                target = targetItem,
+                playContext = playContext,
+                startPositionMs = startPositionMs
+            )
+        ) {
+            if (!_playWhenReady.value) resume()
             return
         }
 
@@ -612,6 +640,19 @@ class PlayerManager(
     override fun playAtIndex(index: Int) {
         if (index < 0 || index >= playbackQueue.size) return
         consecutiveErrors = 0
+        if (index == playbackQueue.currentIndex.value && canReuseLoadedTrack(
+                loadedMediaId = _currentTrack.value?.mediaId,
+                loadedItem = playbackQueue.currentItem(),
+                isLoaded = isCurrentTrackLoaded(),
+                isPendingSwitch = pendingSkipFromIndex != null,
+                target = playbackQueue.itemAt(index),
+                playContext = playbackQueue.playContext.value,
+                startPositionMs = 0L
+            )
+        ) {
+            if (!_playWhenReady.value) resume()
+            return
+        }
         fetchUrlAndPlay(index)
     }
 
@@ -881,12 +922,36 @@ class PlayerManager(
         stateStore.saveQueue(playbackQueue)
     }
 
+    // 播放器已带播放地址加载了曲目，且未处于空闲或播完状态
+    private fun isCurrentTrackLoaded(): Boolean {
+        if (_currentTrack.value?.localConfiguration == null || !controllerHolder.isConnected) return false
+        val state = controllerHolder.playbackState
+        return state != Player.STATE_IDLE && state != Player.STATE_ENDED
+    }
+
+    private fun playbackSourceOf(item: QueueItem, info: SongPlaybackInfo): PlaybackSourceInfo =
+        PlaybackSourceInfo(
+            item.songId.toString(),
+            info.source ?: PlaybackSourceKind.OFFICIAL,
+            item.effectivePlatform,
+            info.sourceName
+        )
+
+    private fun publishPlaybackSource(
+        item: QueueItem,
+        kind: PlaybackSourceKind,
+        name: String? = null
+    ) {
+        _playbackSource.value = PlaybackSourceInfo(item.songId.toString(), kind, item.effectivePlatform, name)
+    }
+
     private fun fetchUrlAndPlay(
         index: Int,
         startPosition: Long = 0,
         networkRetryAttempt: Int = 0,
         prefetchedUrl: String? = null,
         prefetchedLevel: String? = null,
+        prefetchedSource: PlaybackSourceInfo? = null,
         playWhenReady: Boolean = true,
         autoTransition: Boolean = false
     ) {
@@ -915,6 +980,10 @@ class PlayerManager(
             }
             declaredQualityLevel = null
             _playbackQuality.value = null
+            if (_currentTrack.value?.mediaId != null && _playbackSource.value?.mediaId == _currentTrack.value?.mediaId) {
+                previousPlaybackSource = _playbackSource.value
+            }
+            _playbackSource.value = null
             // 本地外部音频直接播放
             val localUri = item.localUri
             if (localUri != null) {
@@ -925,6 +994,7 @@ class PlayerManager(
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localUri, playbackQueue.playContext.value, artworkUri)
+                publishPlaybackSource(item, PlaybackSourceKind.LOCAL)
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
@@ -944,6 +1014,7 @@ class PlayerManager(
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
                 if (playWhenReady) showPendingTrack(item)
                 val mediaItem = item.toOfflineCachedMediaItem(cacheKey, playbackQueue.playContext.value)
+                publishPlaybackSource(item, PlaybackSourceKind.CACHE)
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
@@ -971,12 +1042,14 @@ class PlayerManager(
                         ?: item.coverUrl
                     val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
                     pendingSkipFromIndex = null
+                    publishPlaybackSource(item, PlaybackSourceKind.LOCAL)
                     controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                     return@launch
                 }
                 if (prefetchedUrl != null) {
                     val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                     setDeclaredQualityLevel(mediaItem.mediaId, prefetchedLevel)
+                    _playbackSource.value = prefetchedSource
                     pendingSkipFromIndex = null
                     controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                     return@launch
@@ -1001,6 +1074,7 @@ class PlayerManager(
                     setDeclaredQualityLevel(mediaItem.mediaId, officialInfo.level)
                     rememberTrackGain(item.effectiveTrackId, officialInfo)
                     pendingSkipFromIndex = null
+                    publishPlaybackSource(item, PlaybackSourceKind.OFFICIAL)
                     controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                     return@launch
                 }
@@ -1008,6 +1082,7 @@ class PlayerManager(
                 if (fallbackUrl != null) {
                     pendingSkipFromIndex = null
                     val mediaItem = item.toMediaItem(fallbackUrl, playbackQueue.playContext.value)
+                    publishPlaybackSource(item, PlaybackSourceKind.COMMUNITY)
                     controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                     return@launch
                 }
@@ -1016,6 +1091,7 @@ class PlayerManager(
                     setDeclaredQualityLevel(mediaItem.mediaId, officialInfo.level)
                     rememberTrackGain(item.effectiveTrackId, officialInfo)
                     pendingSkipFromIndex = null
+                    publishPlaybackSource(item, PlaybackSourceKind.OFFICIAL)
                     if (playWhenReady) {
                         Toast.makeText(context, "换源失败，当前仅可试听", Toast.LENGTH_SHORT).show()
                     }
@@ -1051,6 +1127,9 @@ class PlayerManager(
                 }
                 pendingSkipFromIndex = null
                 val mediaItem = item.toMediaItem(url, playbackQueue.playContext.value)
+                _playbackSource.value = prefetchedSource ?: PlaybackSourceInfo(
+                    item.songId.toString(), PlaybackSourceKind.COMMUNITY, item.effectivePlatform
+                )
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
@@ -1061,6 +1140,7 @@ class PlayerManager(
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
+                publishPlaybackSource(item, PlaybackSourceKind.LOCAL)
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
             }
@@ -1069,6 +1149,7 @@ class PlayerManager(
             if (prefetchedUrl != null) {
                 val mediaItem = item.toMediaItem(prefetchedUrl, playbackQueue.playContext.value)
                 setDeclaredQualityLevel(mediaItem.mediaId, prefetchedLevel)
+                _playbackSource.value = prefetchedSource
                 pendingSkipFromIndex = null
                 controllerHolder.playItem(mediaItem.withPlaybackExtras(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
                 return@launch
@@ -1084,6 +1165,7 @@ class PlayerManager(
                     val mediaItem = item.toMediaItem(info.url, playbackQueue.playContext.value)
                     setDeclaredQualityLevel(mediaItem.mediaId, info.level)
                     rememberNeteaseGain(item.songId, info)
+                    _playbackSource.value = playbackSourceOf(item, info)
                     pendingSkipFromIndex = null
                     if (info.trialFallback && playWhenReady) {
                         Toast.makeText(context, "换源失败，当前仅可试听", Toast.LENGTH_SHORT).show()
@@ -1167,6 +1249,7 @@ class PlayerManager(
     private fun restorePlaybackQualityOnPendingCancel() {
         val realMediaId = _currentTrack.value?.mediaId ?: return
         declaredQualityLevel = previousDeclaredQualityLevel?.takeIf { it.first == realMediaId }
+        _playbackSource.value = previousPlaybackSource?.takeIf { it.mediaId == realMediaId }
         refreshPlaybackQuality(_currentTrack.value, controllerHolder.currentTracks)
     }
 
@@ -1313,18 +1396,29 @@ class PlayerManager(
                     buildPlaybackTrackMeta(nextItem)
                 ).getOrNull()
                 if (officialInfo != null && officialInfo.url.isNotBlank() && !officialInfo.isFreeTrial) {
-                    prefetchedNextUrl = PrefetchedUrl(nextItem.songId, officialInfo.url, officialInfo.level)
+                    prefetchedNextUrl = PrefetchedUrl(
+                        nextItem.songId, officialInfo.url, officialInfo.level,
+                        PlaybackSourceInfo(nextItem.songId.toString(), PlaybackSourceKind.OFFICIAL, nextItem.effectivePlatform)
+                    )
                     rememberTrackGain(nextItem.effectiveTrackId, officialInfo)
                     return@launch
                 }
                 nextItem.external?.let { externalResolver.resolve(it) }?.let {
-                    prefetchedNextUrl = PrefetchedUrl(nextItem.songId, it)
+                    prefetchedNextUrl = PrefetchedUrl(
+                        nextItem.songId, it,
+                        source = PlaybackSourceInfo(nextItem.songId.toString(), PlaybackSourceKind.COMMUNITY, nextItem.effectivePlatform)
+                    )
                 }
                 return@launch
             }
             val external = nextItem.external
             if (external != null) {
-                externalResolver.resolve(external)?.let { prefetchedNextUrl = PrefetchedUrl(nextItem.songId, it) }
+                externalResolver.resolve(external)?.let {
+                    prefetchedNextUrl = PrefetchedUrl(
+                        nextItem.songId, it,
+                        source = PlaybackSourceInfo(nextItem.songId.toString(), PlaybackSourceKind.COMMUNITY, nextItem.effectivePlatform)
+                    )
+                }
                 return@launch
             }
             // 下一首已下载时跳过网络预取
@@ -1333,7 +1427,15 @@ class PlayerManager(
                 result.onSuccess { info ->
                     // 退回试听的结果不缓存，真正切歌时重新取链并提示
                     if (info.trialFallback) return@onSuccess
-                    prefetchedNextUrl = PrefetchedUrl(nextItem.songId, info.url, info.level)
+                    prefetchedNextUrl = PrefetchedUrl(
+                        nextItem.songId, info.url, info.level,
+                        PlaybackSourceInfo(
+                            nextItem.songId.toString(),
+                            info.source ?: PlaybackSourceKind.OFFICIAL,
+                            nextItem.effectivePlatform,
+                            info.sourceName
+                        )
+                    )
                     rememberNeteaseGain(nextItem.songId, info)
                 }
             }
@@ -1348,7 +1450,13 @@ class PlayerManager(
         val nextItem = playbackQueue.itemAt(nextIndex)
         val cached = prefetchedNextUrl?.takeIf { it.songId == nextItem?.songId }
         prefetchedNextUrl = null
-        fetchUrlAndPlay(nextIndex, prefetchedUrl = cached?.url, prefetchedLevel = cached?.level, autoTransition = true)
+        fetchUrlAndPlay(
+            nextIndex,
+            prefetchedUrl = cached?.url,
+            prefetchedLevel = cached?.level,
+            prefetchedSource = cached?.source,
+            autoTransition = true
+        )
     }
 
     // 智能过渡开启时，临近结尾分析当前歌的有效结尾与下一首的有效开头，在"有效结尾 - 淡化时长"处精确触发自动切歌；

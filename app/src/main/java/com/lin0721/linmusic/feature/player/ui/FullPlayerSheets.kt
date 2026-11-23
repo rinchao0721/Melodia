@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherPlayerEntry
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
@@ -40,7 +39,7 @@ fun FullPlayerSheets(
     isPodcast: Boolean = false,
     personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
     showPersonalFmModeSheet: Boolean = false,
-    qualityDetail: PlaybackQuality? = null,
+    qualityDetail: PlaybackQualityDisplay? = null,
     onQualityDetailDismiss: () -> Unit = {},
     onToggleMiniLyric: (Boolean) -> Unit = {},
     onPlayAtIndex: (Int) -> Unit,
@@ -178,7 +177,7 @@ fun FullPlayerSheets(
 
     if (qualityDetail != null) {
         PlaybackQualityDetailSheet(
-            quality = qualityDetail,
+            display = qualityDetail,
             onDismiss = onQualityDetailDismiss
         )
     }

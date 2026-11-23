@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.lanlink
 
 import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.model.PlaybackSourceInfo
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
@@ -35,6 +36,7 @@ open class RoutingPlaybackController(
 
     private val emptyPlaybackLevel = MutableStateFlow<PlaybackLevel?>(null)
     private val emptyPlaybackQuality = MutableStateFlow<PlaybackQuality?>(null)
+    private val emptyPlaybackSource = MutableStateFlow<PlaybackSourceInfo?>(null)
 
     private fun <T> routeFlow(local: StateFlow<T>, remote: StateFlow<T>): StateFlow<T> =
         combine(target, local, remote) { currentTarget, l, r ->
@@ -50,6 +52,7 @@ open class RoutingPlaybackController(
     override val nowPlaying: StateFlow<NowPlaying?> = routeFlow(localController.nowPlaying, remoteController.nowPlaying)
     override val playbackLevel: StateFlow<PlaybackLevel?> = routeFlow(localController.playbackLevel, emptyPlaybackLevel)
     override val playbackQuality: StateFlow<PlaybackQuality?> = routeFlow(localController.playbackQuality, emptyPlaybackQuality)
+    override val playbackSource: StateFlow<PlaybackSourceInfo?> = routeFlow(localController.playbackSource, emptyPlaybackSource)
     override val currentPosition: StateFlow<Long> = routeFlow(localController.currentPosition, remoteController.currentPosition)
     override val duration: StateFlow<Long> = routeFlow(localController.duration, remoteController.duration)
     override val sleepTimerRemaining: StateFlow<Long> = routeFlow(localController.sleepTimerRemaining, remoteController.sleepTimerRemaining)

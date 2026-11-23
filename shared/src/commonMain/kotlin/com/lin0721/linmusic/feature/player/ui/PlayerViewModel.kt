@@ -85,6 +85,9 @@ data class PlayerSongDetailState(
     val lyrics: List<LyricLine> = emptyList(),
     val lyricsSource: LyricsSource? = null,
     val isLyricsLoading: Boolean = false,
+    // 小歌词专用：多源择优会先后发出多批歌词，这里只在全部来源结束后写入，避免小歌词中途跳变
+    val miniLyricLines: List<LyricLine> = emptyList(),
+    val isMiniLyricLoading: Boolean = true,
     val songWiki: SongWikiData? = null,
     val isSongWikiLoading: Boolean = false,
     val chorusStartMs: Long? = null,
@@ -211,6 +214,13 @@ class PlayerViewModel(
 
     // 播放页实际音质显隐
     val showPlaybackQuality: StateFlow<Boolean> = settingsPreferences.showPlaybackQuality.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    // 播放页播放来源显隐
+    val showPlaybackSource: StateFlow<Boolean> = settingsPreferences.showPlaybackSource.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
@@ -475,8 +485,10 @@ class PlayerViewModel(
     }
 
     private suspend fun reloadLyrics(songId: Long) {
-        _songDetailState.update { it.copy(isLyricsLoading = true) }
+        _songDetailState.update { it.copy(isLyricsLoading = true, isMiniLyricLoading = true) }
+        var finalLines: List<LyricLine> = emptyList()
         lyricsResolver.lyricsWithSourceFor(songId).collect { result ->
+            finalLines = result.getOrNull()?.lines.orEmpty()
             result.onSuccess { resolved ->
                 _songDetailState.update { it.copy(lyrics = resolved.lines, lyricsSource = resolved.source, isLyricsLoading = false) }
                 // 换了一套歌词，上一套累积的暂留行必须作废；并按当前位置立即对齐一次，
@@ -488,7 +500,9 @@ class PlayerViewModel(
                 resetLyricPlayback()
             }
         }
-        _songDetailState.update { it.copy(isLyricsLoading = false) }
+        _songDetailState.update {
+            it.copy(isLyricsLoading = false, miniLyricLines = finalLines, isMiniLyricLoading = false)
+        }
     }
 
     // 已加载的详情直接用，否则现取一次；失败返回 null

@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.player.data
 
+import com.lin0721.linmusic.core.model.PlaybackSourceKind
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaySource
@@ -16,7 +17,10 @@ data class SongPlaybackInfo(
     // 官方只有试听且换源全部未命中，只能退回播放官方试听片段
     val trialFallback: Boolean = false,
     // 换算后的网易响度与峰值，换源或拿不到有效值时为空
-    val loudness: TrackLoudness? = null
+    val loudness: TrackLoudness? = null,
+    // 播放来源类别与社区音源插件名，来源未知时为空
+    val source: PlaybackSourceKind? = null,
+    val sourceName: String? = null
 )
 
 // 播放引擎数据仓储（core 共享能力，服务于 PlayerManager/FloatingLyricService 及多个域的推荐入口）

@@ -111,6 +111,7 @@ class SettingsViewModel(
 
     val wifiQuality = settingsPreferences.wifiQuality.asState("lossless")
     val showPlaybackQuality = settingsPreferences.showPlaybackQuality.asState(false)
+    val showPlaybackSource = settingsPreferences.showPlaybackSource.asState(false)
     val showSongMaxQuality = settingsPreferences.showSongMaxQuality.asState(false)
 
     val mobileQuality = settingsPreferences.mobileQuality.asState("standard")
@@ -396,6 +397,8 @@ class SettingsViewModel(
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
     fun updateShowPlaybackQuality(show: Boolean) = launchSave { settingsPreferences.saveShowPlaybackQuality(show) }
+
+    fun updateShowPlaybackSource(show: Boolean) = launchSave { settingsPreferences.saveShowPlaybackSource(show) }
     fun updateShowSongMaxQuality(show: Boolean) = launchSave { settingsPreferences.saveShowSongMaxQuality(show) }
 
     fun updateMobileQuality(quality: String) = launchSave { settingsPreferences.saveMobileQuality(quality) }

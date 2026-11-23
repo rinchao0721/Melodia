@@ -157,9 +157,10 @@ fun LazyListScope.fullPlayerPlaybackSection(
             )
         ) {
             MiniLyricLine(
-                lyrics = songState.lyrics,
+                lyrics = songState.miniLyricLines,
                 currentLyricIndex = currentLyricIndex,
                 isPlaying = isPlaying,
+                isLoading = songState.isMiniLyricLoading,
                 onClick = onMiniLyricClick
             )
         }

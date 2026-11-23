@@ -229,9 +229,10 @@ class FullPlayerLayoutParts(
             LayoutNodeType.LIKE_BUTTON -> SongLikeButton(songState.isLiked, onToggleLike, podcast, onToggleSubscribe, modifier)
             LayoutNodeType.MINI_LYRIC -> Box(modifier) {
                 MiniLyricLine(
-                    lyrics = songState.lyrics,
+                    lyrics = songState.miniLyricLines,
                     currentLyricIndex = currentLyricIndex,
                     isPlaying = isPlaying,
+                    isLoading = songState.isMiniLyricLoading,
                     onClick = if (node.onTap == null) onMiniLyricClick else null,
                     horizontalPadding = 0.dp,
                     textAlign = node.textAlign,

@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.source
 
+import com.lin0721.linmusic.core.model.PlaybackSourceKind
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.player.PlaySource
@@ -100,7 +101,7 @@ class AudioSourceRouterTest {
         val plugin = FakeProvider(pluginHit)
         val routed = router(FakeOfficial(fullOfficial), listOf(plugin), pluginFirst = false)
 
-        assertEquals(fullOfficial, routed.getSongPlaybackInfo(1L).first().getOrThrow())
+        assertEquals(fullOfficial.copy(source = PlaybackSourceKind.OFFICIAL), routed.getSongPlaybackInfo(1L).first().getOrThrow())
         assertEquals(0, plugin.calls)
     }
 
@@ -115,13 +116,15 @@ class AudioSourceRouterTest {
         assertNull(info.level)
         assertNull(info.loudness)
         assertEquals(0, official.calls)
+        assertEquals(PlaybackSourceKind.COMMUNITY, info.source)
+        assertEquals("自定义插件", info.sourceName)
     }
 
     @Test
     fun pluginMissFallsBackToOfficial() = runTest {
         val routed = router(FakeOfficial(fullOfficial), listOf(FakeProvider(null)))
 
-        assertEquals(fullOfficial, routed.getSongPlaybackInfo(1L).first().getOrThrow())
+        assertEquals(fullOfficial.copy(source = PlaybackSourceKind.OFFICIAL), routed.getSongPlaybackInfo(1L).first().getOrThrow())
     }
 
     @Test
@@ -129,7 +132,7 @@ class AudioSourceRouterTest {
         val trial = SourceResult(url = "http://plugin/full.mp3", platform = MusicPlatform.LX, isTrial = true)
         val routed = router(FakeOfficial(fullOfficial), listOf(FakeProvider(trial)))
 
-        assertEquals(fullOfficial, routed.getSongPlaybackInfo(1L).first().getOrThrow())
+        assertEquals(fullOfficial.copy(source = PlaybackSourceKind.OFFICIAL), routed.getSongPlaybackInfo(1L).first().getOrThrow())
     }
 
     @Test
@@ -137,7 +140,7 @@ class AudioSourceRouterTest {
         val plugin = FakeProvider(pluginHit)
         val routed = router(FakeOfficial(fullOfficial), listOf(plugin), fallback = false)
 
-        assertEquals(fullOfficial, routed.getSongPlaybackInfo(1L).first().getOrThrow())
+        assertEquals(fullOfficial.copy(source = PlaybackSourceKind.OFFICIAL), routed.getSongPlaybackInfo(1L).first().getOrThrow())
         assertEquals(0, plugin.calls)
     }
 
@@ -147,7 +150,7 @@ class AudioSourceRouterTest {
         val next = FakeProvider(pluginHit)
         val routed = router(FakeOfficial(fullOfficial), listOf(hung, next))
 
-        assertEquals(fullOfficial, routed.getSongPlaybackInfo(1L).first().getOrThrow())
+        assertEquals(fullOfficial.copy(source = PlaybackSourceKind.OFFICIAL), routed.getSongPlaybackInfo(1L).first().getOrThrow())
         assertEquals(10_000L, testScheduler.currentTime)
         assertEquals(0, next.calls)
     }

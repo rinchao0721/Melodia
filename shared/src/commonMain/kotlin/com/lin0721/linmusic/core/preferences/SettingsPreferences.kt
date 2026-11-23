@@ -217,6 +217,7 @@ class SettingsPreferences(
         private val KEY_SHOW_MINI_LYRIC = booleanPreferencesKey("show_mini_lyric")
         // 播放页显示实际音质，默认 false
         private val KEY_SHOW_PLAYBACK_QUALITY = booleanPreferencesKey("show_playback_quality")
+        private val KEY_SHOW_PLAYBACK_SOURCE = booleanPreferencesKey("show_playback_source")
         // 歌曲列表显示最高音质徽标，默认 false
         private val KEY_SHOW_SONG_MAX_QUALITY = booleanPreferencesKey("show_song_max_quality")
         // 自动识别剪贴板中的网易云链接，默认 true
@@ -1185,6 +1186,17 @@ class SettingsPreferences(
     suspend fun saveShowPlaybackQuality(show: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_PLAYBACK_QUALITY] = show
+        }
+    }
+
+    // 播放页播放来源显隐 Flow
+    val showPlaybackSource: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_PLAYBACK_SOURCE] ?: false
+    }
+
+    suspend fun saveShowPlaybackSource(show: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_PLAYBACK_SOURCE] = show
         }
     }
 

@@ -28,6 +28,7 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
     val wifiQuality by viewModel.wifiQuality.collectAsStateWithLifecycle()
     val mobileQuality by viewModel.mobileQuality.collectAsStateWithLifecycle()
     val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
+    val showPlaybackSource by viewModel.showPlaybackSource.collectAsStateWithLifecycle()
     val showSongMaxQuality by viewModel.showSongMaxQuality.collectAsStateWithLifecycle()
 
     var qualityDialogTarget by remember { mutableStateOf<String?>(null) }
@@ -57,6 +58,13 @@ fun AudioQualitySettingsView(viewModel: SettingsViewModel) {
                     subtitle = "在全屏播放页底部显示当前歌曲接口实际下发的音质",
                     checked = showPlaybackQuality,
                     onCheckedChange = { viewModel.updateShowPlaybackQuality(it) }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "显示播放来源",
+                    subtitle = "在全屏播放页底部显示当前歌曲的播放来源，如官方平台或社区音源插件",
+                    checked = showPlaybackSource,
+                    onCheckedChange = { viewModel.updateShowPlaybackSource(it) }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
