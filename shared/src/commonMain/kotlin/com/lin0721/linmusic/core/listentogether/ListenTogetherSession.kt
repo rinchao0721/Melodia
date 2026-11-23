@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.listentogether.domain.RemoteHandling
 import com.lin0721.linmusic.core.listentogether.domain.ReportedPlayback
 import com.lin0721.linmusic.core.listentogether.domain.RoomCommand
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.CancellationException
@@ -72,6 +73,14 @@ class ListenTogetherSession(
 
         // 跟随后播放器切歌、缓冲的过渡期内不上报，避免把中间状态当成本地操作回报
         private const val FOLLOW_SETTLE_MS = 2_500L
+
+        const val UNSUPPORTED_TRACK_MESSAGE = "一起听仅支持网易云音乐曲目，已跳过同步非网易歌曲"
+
+        fun isTrackSupported(item: QueueItem?): Boolean =
+            item != null && item.effectivePlatform == MusicPlatform.NETEASE && item.songId > 0L
+
+        fun filterSupportedSongIds(items: List<QueueItem>): List<Long> =
+            items.filter(::isTrackSupported).map { it.songId }.distinct()
     }
 
     private val _state = MutableStateFlow(ListenTogetherState())
@@ -106,6 +115,22 @@ class ListenTogetherSession(
         leftRoomId = null
         start(room, isHost = true, uid = selfUserId())
         return Result.success(room)
+    }
+
+    suspend fun createRoomFromTracks(items: List<QueueItem>): Result<ListenTogetherRoom> {
+        val ids = filterSupportedSongIds(items)
+        if (ids.isEmpty()) {
+            return Result.failure(IllegalArgumentException("一起听仅支持网易云音乐曲目，当前没有可同步的网易云歌曲"))
+        }
+        return createRoom(ids)
+    }
+
+    suspend fun addTracksToRoomQueue(items: List<QueueItem>): Result<Int> {
+        val ids = filterSupportedSongIds(items)
+        if (items.isNotEmpty() && ids.isEmpty()) {
+            return Result.failure(IllegalArgumentException("一起听仅支持网易云音乐曲目，无法添加非网易歌曲"))
+        }
+        return addToRoomQueue(ids)
     }
 
     // 先校验房间可加入，再接受邀请
@@ -375,8 +400,28 @@ class ListenTogetherSession(
         AppLogger.i(TAG, "房间新增 ${items.size} 首，已追加到本地队列")
     }
 
+    private fun isCurrentTrackUnsupported(): Boolean {
+        val queue = controller.queue.value
+        val idx = controller.currentIndex.value
+        val currentItem = queue.getOrNull(idx)
+        if (currentItem != null) {
+            return !isTrackSupported(currentItem)
+        }
+        val songId = controller.nowPlaying.value?.songId
+        return songId != null && songId <= 0L
+    }
+
     private suspend fun reportIfChanged(roomId: String) {
         if (!reportEnabled || now() < suppressReportUntil) return
+        if (isCurrentTrackUnsupported()) {
+            if (_state.value.message != UNSUPPORTED_TRACK_MESSAGE) {
+                _state.update { it.copy(message = UNSUPPORTED_TRACK_MESSAGE) }
+            }
+            return
+        }
+        if (_state.value.message == UNSUPPORTED_TRACK_MESSAGE) {
+            _state.update { it.copy(message = null) }
+        }
         if (rejectCooldown > 0) {
             rejectCooldown--
             return
@@ -412,7 +457,8 @@ class ListenTogetherSession(
         sinceHeartbeatMs += POLL_INTERVAL_MS
         if (sinceHeartbeatMs < heartbeatSeconds * 1000L) return
         sinceHeartbeatMs = 0L
-        val songId = local.songId ?: return
+        if (isCurrentTrackUnsupported()) return
+        val songId = local.songId?.takeIf { it > 0L } ?: return
         repository.heartbeat(roomId, songId, local.playing, local.progressMs).first()
             .onSuccess { interval -> interval?.takeIf { it > 0 }?.let { heartbeatSeconds = it } }
     }
