@@ -438,4 +438,29 @@ class ListenTogetherSessionTest {
         assertEquals(0, guestRepo.endCalls)
         assertFalse(guest.state.value.active)
     }
+
+    @Test
+    fun `非网易曲目建房拦截与房内切歌跳过上报并提示`() = runTest {
+        val repo = FakeRepository()
+        val controller = TestController().apply {
+            nowPlayingFlow.value = NowPlaying("-100", "酷狗歌", "歌手", null)
+            playWhenReadyFlow.value = true
+        }
+        val session = session(repo, controller)
+
+        val kugouOnly = QueueItem(songId = -100L, title = "酷狗歌", artist = "歌手", coverUrl = "")
+        val createResult = session.createRoomFromTracks(listOf(kugouOnly))
+        assertTrue(createResult.isFailure)
+
+        val neteaseItem = QueueItem(songId = 1001L, title = "网易歌", artist = "歌手", coverUrl = "")
+        assertTrue(session.createRoomFromTracks(listOf(neteaseItem, kugouOnly)).isSuccess)
+        runCurrent()
+        assertEquals(ListenTogetherSession.UNSUPPORTED_TRACK_MESSAGE, session.state.value.message)
+        assertTrue(repo.commands.isEmpty())
+
+        controller.nowPlayingFlow.value = NowPlaying("1001", "网易歌", "歌手", null)
+        runCurrent()
+        assertEquals(null, session.state.value.message)
+        session.stop()
+    }
 }
