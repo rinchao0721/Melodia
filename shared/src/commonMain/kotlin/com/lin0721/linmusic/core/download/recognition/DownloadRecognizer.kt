@@ -21,6 +21,7 @@ class DownloadRecognizer(
     private val addRecords: suspend (List<DownloadRecord>) -> Unit,
     private val isAlive: suspend (uri: String) -> Boolean,
     private val extraEntries: suspend () -> List<LocalAudioEntry> = { emptyList() },
+    private val includeTaggedInFuzzy: suspend () -> Boolean = { false },
     private val now: () -> Long = System::currentTimeMillis
 ) {
     // 串行执行，避免并发识别把同一文件登记给两首歌
@@ -29,6 +30,7 @@ class DownloadRecognizer(
     // 归一化后的索引，仅在锁内读写；索引写入后版本变化即重建
     private var prepared: PreparedEntries = PreparedEntries.EMPTY
     private var preparedVersion = -1L
+    private var preparedTagged = false
 
     // 返回本次新增的记录；已有下载记录的歌曲不处理
     suspend fun recognize(targets: List<RecognitionTarget>): List<DownloadRecord> {
@@ -61,14 +63,16 @@ class DownloadRecognizer(
         val pending = targets.filter { it.songId > 0 && it.songId !in recordedIds }
         if (pending.isEmpty()) return emptyList()
 
-        val sources = listOf(preparedIndex(), PreparedEntries(extraEntries()))
+        val tagged = includeTaggedInFuzzy()
+        val sources = listOf(preparedIndex(tagged), PreparedEntries(extraEntries(), tagged))
         val matches = DownloadedFileMatcher.matchPrepared(pending, sources, existing.mapTo(HashSet()) { it.mediaStoreUri })
         if (matches.isEmpty()) return emptyList()
 
         val targetById = pending.associateBy { it.songId }
         val stale = HashSet<String>()
         val added = ArrayList<DownloadRecord>()
-        for ((songId, entry) in matches) {
+        for ((songId, match) in matches) {
+            val entry = match.entry
             if (!isAlive(entry.uri)) {
                 stale += entry.uri
                 continue
@@ -82,7 +86,8 @@ class DownloadRecognizer(
                 fileSize = entry.sizeBytes,
                 songName = target.title,
                 artistName = target.artists.joinToString("/"),
-                recognized = true
+                recognized = true,
+                fuzzyMatched = match.fuzzy
             )
         }
         if (added.isNotEmpty()) addRecords(added)
@@ -90,11 +95,12 @@ class DownloadRecognizer(
         return added
     }
 
-    private suspend fun preparedIndex(): PreparedEntries {
+    private suspend fun preparedIndex(tagged: Boolean): PreparedEntries {
         val snapshot = indexStore.snapshot()
-        if (snapshot.version != preparedVersion) {
-            prepared = PreparedEntries(snapshot.entries)
+        if (snapshot.version != preparedVersion || tagged != preparedTagged) {
+            prepared = PreparedEntries(snapshot.entries, tagged)
             preparedVersion = snapshot.version
+            preparedTagged = tagged
         }
         return prepared
     }

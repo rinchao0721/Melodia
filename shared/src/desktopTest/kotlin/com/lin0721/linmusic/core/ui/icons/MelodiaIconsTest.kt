@@ -147,6 +147,7 @@ class MelodiaIconsTest {
             MelodiaIcons.SidebarExpand,
             MelodiaIcons.At,
             MelodiaIcons.Downloaded,
+            MelodiaIcons.DownloadedFuzzy,
             MelodiaIcons.Maximize,
             MelodiaIcons.RestoreWindow
         )

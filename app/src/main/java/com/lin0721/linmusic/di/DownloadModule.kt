@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
 import com.lin0721.linmusic.core.download.recognition.LocalAudioIndexStore
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
@@ -56,11 +57,13 @@ val downloadModule = module {
     single { DownloadFolderScanner(context = androidContext(), indexStore = get()) }
     single {
         val downloadPreferences: DownloadPreferences = get()
+        val settingsPreferences: SettingsPreferences = get()
         DownloadRecognizer(
             indexStore = get(),
             records = { downloadPreferences.records.first() },
             addRecords = downloadPreferences::addRecords,
-            isAlive = downloadPreferences::fileExists
+            isAlive = downloadPreferences::fileExists,
+            includeTaggedInFuzzy = { settingsPreferences.downloadFuzzyLegacyId.first() }
         )
     }
 

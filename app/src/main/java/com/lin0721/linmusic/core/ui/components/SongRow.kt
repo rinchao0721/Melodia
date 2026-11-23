@@ -85,6 +85,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Downloaded
+import com.lin0721.linmusic.core.ui.icons.DownloadedFuzzy
 import com.lin0721.linmusic.core.ui.icons.Play
 import com.lin0721.linmusic.core.ui.icons.Menu
 
@@ -111,6 +112,9 @@ data class SongRowData(
 
 // 离线不可播放的歌曲行置灰程度
 private const val DISABLED_ROW_ALPHA = 0.38f
+
+// 模糊匹配的已下载标记色
+private val FuzzyMatchedTint = Color(0xFF3B82F6)
 
 // 多选复选框展开/收起时长，与多选浮层的进出动画一致
 private const val SELECTION_ANIM_MS = 250
@@ -305,10 +309,11 @@ fun SongRow(
         }
 
         if (downloadBadgeRecord != null) {
+            val fuzzy = downloadBadgeRecord.fuzzyMatched
             Icon(
-                MelodiaIcons.Downloaded,
-                contentDescription = "已下载",
-                tint = MelodiaColors.Success,
+                if (fuzzy) MelodiaIcons.DownloadedFuzzy else MelodiaIcons.Downloaded,
+                contentDescription = if (fuzzy) "已下载（模糊匹配）" else "已下载",
+                tint = if (fuzzy) FuzzyMatchedTint else MelodiaColors.Success,
                 modifier = Modifier
                     .padding(start = MelodiaSpacing.xs)
                     .size(16.dp)

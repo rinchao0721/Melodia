@@ -18,6 +18,8 @@ data class DownloadRecord(
     val requestedLevel: String = "",
     // 扫描识别补登记的已有文件，不再按音质重下
     val recognized: Boolean = false,
+    // 带旧 id 的文件经模糊规则识别，列表以问号图标提示可能不是同一版本
+    val fuzzyMatched: Boolean = false,
     // P2 跨平台歌曲标识；老数据反序列化缺失时回退 songId 推导网易云 TrackId
     val trackId: TrackId? = null
 ) {

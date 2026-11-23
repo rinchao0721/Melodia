@@ -380,6 +380,15 @@ private val downloaded by lazy {
         "M9 11.5l3 3 3 -3"
     )
 }
+// 模糊匹配的已下载：圆圈内问号
+private val downloadedFuzzy by lazy {
+    lineIcon(
+        "DownloadedFuzzy",
+        "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0 -18z",
+        "M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3 -1 .8 -1 1.5",
+        "M12 16.5v.01"
+    )
+}
 // 窗口最大化
 private val maximize by lazy {
     lineIcon("Maximize", "M7 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1H7a1 1 0 0 1 -1 -1V7a1 1 0 0 1 1 -1z")
@@ -433,6 +442,7 @@ val MelodiaIcons.SidebarExpand: ImageVector get() = sidebarExpand
 val MelodiaIcons.Apps: ImageVector get() = apps
 val MelodiaIcons.At: ImageVector get() = at
 val MelodiaIcons.Downloaded: ImageVector get() = downloaded
+val MelodiaIcons.DownloadedFuzzy: ImageVector get() = downloadedFuzzy
 val MelodiaIcons.Maximize: ImageVector get() = maximize
 val MelodiaIcons.RestoreWindow: ImageVector get() = restoreWindow
 

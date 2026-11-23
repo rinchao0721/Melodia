@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.download.recognition
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -102,5 +103,63 @@ class DownloadedFileMatcherTest {
             listOf(entry("a", "晴天", "周杰伦", 999_000L))
         )
         assertEquals("a", result[1]?.uri)
+    }
+
+    @Test
+    fun taggedFileSkippedInFuzzyWhenSwitchOff() {
+        val result = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦")),
+            listOf(entry("a", "晴天", "周杰伦", songIdTag = 2)),
+            includeTaggedInFuzzy = false
+        )
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun taggedFileJoinsFuzzyAndIsMarkedWhenSwitchOn() {
+        val result = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦")),
+            listOf(entry("a", "晴天", "周杰伦", songIdTag = 2)),
+            includeTaggedInFuzzy = true
+        )
+        assertEquals("a", result[1]?.entry?.uri)
+        assertTrue(result.getValue(1).fuzzy)
+    }
+
+    @Test
+    fun exactTagHitIsNotMarkedFuzzy() {
+        val result = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦")),
+            listOf(entry("a", "晴天", "周杰伦", songIdTag = 1)),
+            includeTaggedInFuzzy = true
+        )
+        assertEquals("a", result[1]?.entry?.uri)
+        assertFalse(result.getValue(1).fuzzy)
+    }
+
+    @Test
+    fun untaggedFuzzyHitIsNotMarked() {
+        val result = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦")),
+            listOf(entry("a", "晴天", "周杰伦")),
+            includeTaggedInFuzzy = true
+        )
+        assertFalse(result.getValue(1).fuzzy)
+    }
+
+    @Test
+    fun taggedFileWithUnknownDurationDoesNotFuzzyMatch() {
+        val missingFile = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦")),
+            listOf(entry("a", "晴天", "周杰伦", durationMs = 0, songIdTag = 2)),
+            includeTaggedInFuzzy = true
+        )
+        val missingTarget = DownloadedFileMatcher.matchDetailed(
+            listOf(target(1, "晴天", "周杰伦", 0)),
+            listOf(entry("a", "晴天", "周杰伦", songIdTag = 2)),
+            includeTaggedInFuzzy = true
+        )
+        assertTrue(missingFile.isEmpty())
+        assertTrue(missingTarget.isEmpty())
     }
 }

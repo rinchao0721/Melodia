@@ -66,6 +66,7 @@ class SettingsPreferences(
         private val KEY_DOWNLOAD_FOLDER_URI = stringPreferencesKey("download_folder_uri")
         // 下载时是否附带歌词
         private val KEY_DOWNLOAD_LYRICS_ENABLED = booleanPreferencesKey("download_lyrics_enabled")
+        private val KEY_DOWNLOAD_FUZZY_LEGACY_ID = booleanPreferencesKey("download_fuzzy_legacy_id")
         // 是否使用真实 IP 伪装，默认 false
         private val KEY_USE_REAL_IP = booleanPreferencesKey("use_real_ip")
         // 自定义真实 IP 值，默认空串 ""
@@ -316,6 +317,17 @@ class SettingsPreferences(
     suspend fun saveDownloadLyricsEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_DOWNLOAD_LYRICS_ENABLED] = enabled
+        }
+    }
+
+    // 旧 ID 模糊匹配：带旧歌曲 id 标签的文件也参与识别，默认关
+    val downloadFuzzyLegacyId: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_DOWNLOAD_FUZZY_LEGACY_ID] ?: false
+    }
+
+    suspend fun saveDownloadFuzzyLegacyId(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DOWNLOAD_FUZZY_LEGACY_ID] = enabled
         }
     }
 

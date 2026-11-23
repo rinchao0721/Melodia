@@ -6,23 +6,25 @@ import kotlin.math.abs
 private const val DURATION_TOLERANCE_MS = 3000L
 
 // 预处理后的本地文件：带 id 的按 id 分组，其余按归一化歌名分组，查找不必逐条比较
-class PreparedEntries(entries: List<LocalAudioEntry>) {
+// includeTaggedInFuzzy 开启时，带 id 的文件也进入歌名分组参与模糊阶段
+class PreparedEntries(entries: List<LocalAudioEntry>, includeTaggedInFuzzy: Boolean = false) {
 
-    class Untagged(val entry: LocalAudioEntry, val artists: Set<String>)
+    class Candidate(val entry: LocalAudioEntry, val artists: Set<String>) {
+        val tagged: Boolean get() = entry.songIdTag != null
+    }
 
     val byTag: Map<Long, List<LocalAudioEntry>>
-    val byTitle: Map<String, List<Untagged>>
+    val byTitle: Map<String, List<Candidate>>
 
     init {
         val distinct = entries.distinctBy { it.uri }
         byTag = distinct.filter { it.songIdTag != null }.groupBy { it.songIdTag!! }
-        // 带了 id 的文件不参与模糊匹配
         byTitle = distinct.asSequence()
-            .filter { it.songIdTag == null }
+            .filter { includeTaggedInFuzzy || it.songIdTag == null }
             .mapNotNull { entry ->
                 val title = TrackNameNormalizer.normalize(entry.title)
                 val artists = TrackNameNormalizer.splitArtists(entry.artist)
-                if (title.isEmpty() || artists.isEmpty()) null else title to Untagged(entry, artists)
+                if (title.isEmpty() || artists.isEmpty()) null else title to Candidate(entry, artists)
             }
             .groupBy({ it.first }, { it.second })
     }
@@ -32,25 +34,38 @@ class PreparedEntries(entries: List<LocalAudioEntry>) {
     }
 }
 
+// fuzzy 为 true 表示带旧 id 的文件经模糊规则命中；精确命中与无 id 文件的模糊命中均为 false
+class FileMatch(val entry: LocalAudioEntry, val fuzzy: Boolean)
+
 // 本地文件与网易歌曲的对应：标签带 id 的精确命中，其余要求歌名一致、歌手相交且时长相近
 object DownloadedFileMatcher {
 
     fun match(
         targets: List<RecognitionTarget>,
         entries: List<LocalAudioEntry>,
-        claimedUris: Set<String> = emptySet()
-    ): Map<Long, LocalAudioEntry> = matchPrepared(targets, listOf(PreparedEntries(entries)), claimedUris)
+        claimedUris: Set<String> = emptySet(),
+        includeTaggedInFuzzy: Boolean = false
+    ): Map<Long, LocalAudioEntry> =
+        matchDetailed(targets, entries, claimedUris, includeTaggedInFuzzy).mapValues { it.value.entry }
 
-    // 返回 songId → 文件；claimedUris 为已被下载记录占用的文件，不再分配
+    fun matchDetailed(
+        targets: List<RecognitionTarget>,
+        entries: List<LocalAudioEntry>,
+        claimedUris: Set<String> = emptySet(),
+        includeTaggedInFuzzy: Boolean = false
+    ): Map<Long, FileMatch> =
+        matchPrepared(targets, listOf(PreparedEntries(entries, includeTaggedInFuzzy)), claimedUris)
+
+    // 返回 songId → 命中结果；claimedUris 为已被下载记录占用的文件，不再分配
     fun matchPrepared(
         targets: List<RecognitionTarget>,
         sources: List<PreparedEntries>,
         claimedUris: Set<String> = emptySet()
-    ): Map<Long, LocalAudioEntry> {
+    ): Map<Long, FileMatch> {
         val distinctTargets = targets.filter { it.songId > 0 }.distinctBy { it.songId }
         if (distinctTargets.isEmpty() || sources.isEmpty()) return emptyMap()
 
-        val result = HashMap<Long, LocalAudioEntry>()
+        val result = HashMap<Long, FileMatch>()
         val usedUris = HashSet<String>(claimedUris)
 
         // 标签 id 精确命中，同一首有多个文件时取音质最高
@@ -60,7 +75,7 @@ object DownloadedFileMatcher {
                 .filter { it.uri !in usedUris }
                 .maxWithOrNull(compareBy { qualityRank(it.quality) })
                 ?: continue
-            result[target.songId] = best
+            result[target.songId] = FileMatch(best, fuzzy = false)
             usedUris += best.uri
         }
 
@@ -80,6 +95,8 @@ object DownloadedFileMatcher {
                     val entry = candidate.entry
                     if (entry.uri in usedUris) continue
                     if (candidate.artists.none(artists::contains)) continue
+                    // 带旧 id 的文件要求两边时长都可读，降低误配
+                    if (candidate.tagged && (entry.durationMs <= 0 || target.durationMs <= 0)) continue
                     if (!durationClose(entry.durationMs, target.durationMs)) continue
                     val diff = durationDiff(entry.durationMs, target.durationMs)
                     val owner = owners[entry.uri]
@@ -97,7 +114,7 @@ object DownloadedFileMatcher {
             val best = candidates.sortedWith(
                 compareByDescending<Owner> { qualityRank(it.entry.quality) }.thenBy { it.diff }
             ).first()
-            result[songId] = best.entry
+            result[songId] = FileMatch(best.entry, fuzzy = best.entry.songIdTag != null)
         }
         return result
     }

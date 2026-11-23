@@ -129,6 +129,8 @@ class SettingsViewModel(
 
     val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(true)
 
+    val downloadFuzzyLegacyId = settingsPreferences.downloadFuzzyLegacyId.asState(false)
+
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
@@ -410,6 +412,8 @@ class SettingsViewModel(
     fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
 
     fun updateDownloadLyricsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadLyricsEnabled(enabled) }
+
+    fun updateDownloadFuzzyLegacyId(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadFuzzyLegacyId(enabled) }
 
     fun updateAudioCacheMaxSize(context: Context, size: Long) {
         viewModelScope.launch {

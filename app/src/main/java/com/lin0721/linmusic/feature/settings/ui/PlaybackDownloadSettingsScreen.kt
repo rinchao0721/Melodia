@@ -389,6 +389,7 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
     val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
+    val downloadFuzzyLegacyId by viewModel.downloadFuzzyLegacyId.collectAsStateWithLifecycle()
     val folderScanner: DownloadFolderScanner = koinInject()
     val scanning by folderScanner.scanning.collectAsStateWithLifecycle()
 
@@ -449,6 +450,13 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
                     onClick = {
                         if (!scanning) scanPickerLauncher.launch(resolveInitialFolderUri(downloadFolderUri))
                     }
+                )
+                HorizontalDivider(color = MelodiaColors.Divider)
+                SettingsSwitchRow(
+                    title = "旧 ID 模糊匹配",
+                    subtitle = "带旧歌曲 ID 的已下载文件，按歌名、歌手与时长谨慎匹配，命中的歌曲标记为问号",
+                    checked = downloadFuzzyLegacyId,
+                    onCheckedChange = { viewModel.updateDownloadFuzzyLegacyId(it) }
                 )
                 HorizontalDivider(color = MelodiaColors.Divider)
                 SettingsSwitchRow(
