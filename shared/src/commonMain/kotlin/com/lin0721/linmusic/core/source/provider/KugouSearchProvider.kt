@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.source.PlatformSearchProvider
 import com.lin0721.linmusic.core.source.SourceHttpClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -15,7 +16,9 @@ import java.net.URLEncoder
 private const val TAG = "KugouSearchProvider"
 
 // 酷狗音乐搜索，基于公开搜索端点
-class KugouSearchProvider : PlatformSearchProvider {
+class KugouSearchProvider(
+    private val isEnabled: suspend () -> Boolean = { true }
+) : PlatformSearchProvider {
 
     override val platform: MusicPlatform = MusicPlatform.KUGOU
 
@@ -24,6 +27,7 @@ class KugouSearchProvider : PlatformSearchProvider {
         offset: Int,
         limit: Int
     ): List<ExternalTrack> {
+        if (!isEnabled()) return emptyList()
         return try {
             val encoded = URLEncoder.encode(keyword, "UTF-8")
             val pn = (offset / limit) + 1
@@ -68,6 +72,8 @@ class KugouSearchProvider : PlatformSearchProvider {
                     hash = hash
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.w(TAG, "酷狗搜索异常 [keyword=$keyword]: ${e.message}")
             emptyList()

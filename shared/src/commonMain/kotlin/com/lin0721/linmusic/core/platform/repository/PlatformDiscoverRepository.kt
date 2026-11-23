@@ -1,4 +1,6 @@
-package com.lin0721.linmusic.core.platform.repository
+﻿package com.lin0721.linmusic.core.platform.repository
+
+import com.lin0721.linmusic.core.kugou.runCatchingCancellable
 
 import com.lin0721.linmusic.core.kugou.KugouDiscoverService
 import com.lin0721.linmusic.core.platform.PlaylistId
@@ -187,11 +189,11 @@ class NeteasePlatformDiscoverRepository(
         platform: MusicPlatform,
         refresh: Boolean
     ): Flow<Result<UnifiedDiscoverFeed>> = flow {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             coroutineScope {
-                val dailyDeferred = async { runCatching { getDailyRecommendSongs(platform).first() }.getOrNull() }
-                val playlistDeferred = async { runCatching { getRecommendedPlaylists(platform).first() }.getOrNull() }
-                val rankDeferred = async { runCatching { getRankList(platform).first() }.getOrNull() }
+                val dailyDeferred = async { runCatchingCancellable { getDailyRecommendSongs(platform).first() }.getOrNull() }
+                val playlistDeferred = async { runCatchingCancellable { getRecommendedPlaylists(platform).first() }.getOrNull() }
+                val rankDeferred = async { runCatchingCancellable { getRankList(platform).first() }.getOrNull() }
 
                 val dailyRes = dailyDeferred.await()
                 val playlistRes = playlistDeferred.await()
@@ -395,7 +397,7 @@ class KugouPlatformDiscoverRepository(
             emit(Result.failure(IllegalStateException("酷狗音乐平台已关闭")))
             return@flow
         }
-        val result = runCatching {
+        val result = runCatchingCancellable {
             coroutineScope {
                 val discoverDeferred = async { discoverService.getHomeDiscover(pageSize = 20) }
                 val dailyDeferred = async { discoverService.getDailyRecommendSongs() }

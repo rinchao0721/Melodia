@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -25,7 +25,7 @@ class KugouDiscoverService(
     // module/everyday_recommend.js
     suspend fun getDailyRecommendSongs(
         platform: String = "ios"
-    ): Result<KugouDailyRecommendResult> = runCatching {
+    ): Result<KugouDailyRecommendResult> = runCatchingCancellable {
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "POST",
@@ -61,7 +61,7 @@ class KugouDiscoverService(
         songId: Long? = null,
         playTime: Long? = null,
         curMark: String? = null
-    ): Result<KugouPersonalFmResult> = runCatching {
+    ): Result<KugouPersonalFmResult> = runCatchingCancellable {
         config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
@@ -137,7 +137,7 @@ class KugouDiscoverService(
         recallType: String = "song",
         support: String = "only_song",
         goKyExtra: List<Pair<String, String>> = DEFAULT_HOME_DISCOVER_EXTRA
-    ): Result<List<KugouHomeDiscoverItemDto>> = runCatching {
+    ): Result<List<KugouHomeDiscoverItemDto>> = runCatchingCancellable {
         val session = optionalKugouSession(userPreferences)
         val userId = session?.userIdLong ?: 0L
         val safePageSize = pageSize.coerceAtLeast(1)
@@ -191,7 +191,7 @@ class KugouDiscoverService(
         sort: Int = 1,
         withTag: Int = 1,
         withSong: Int = 1
-    ): Result<KugouRecommendedPlaylistsPage> = runCatching {
+    ): Result<KugouRecommendedPlaylistsPage> = runCatchingCancellable {
         config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val session = optionalKugouSession(userPreferences)
@@ -241,7 +241,7 @@ class KugouDiscoverService(
     }
 
     // module/rank_list.js
-    suspend fun getRankList(withSong: Int = 1): Result<List<KugouRankDto>> = runCatching {
+    suspend fun getRankList(withSong: Int = 1): Result<List<KugouRankDto>> = runCatchingCancellable {
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "GET",
@@ -264,7 +264,7 @@ class KugouDiscoverService(
         rankCid: Long = 0L,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouRankTracksPage> = runCatching {
+    ): Result<KugouRankTracksPage> = runCatchingCancellable {
         require(rankId > 0L) { "无效酷狗排行榜 rankId: $rankId" }
         val safePage = page.coerceAtLeast(1)
         val dataObj = buildJsonObject {

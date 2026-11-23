@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -41,7 +41,7 @@ open class KugouLikeService(
     }
 
     // 拉取当前酷狗用户「我喜欢」云歌单的 hash -> fileid 映射并刷新本地缓存
-    open suspend fun fetchLikedTrackMap(): Result<Map<String, Long>> = runCatching {
+    open suspend fun fetchLikedTrackMap(): Result<Map<String, Long>> = runCatchingCancellable {
         val session = requireActiveKugouSession()
         val listId = ensureLikeListId(session)
 
@@ -106,7 +106,7 @@ open class KugouLikeService(
         hash: String,
         albumId: String? = null,
         mixSongId: Long? = null
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -169,7 +169,7 @@ open class KugouLikeService(
     }
 
     // 按缓存 fileid（缺失时先刷新「我喜欢」列表获取）从云歌单移出
-    open suspend fun unlikeTrack(hash: String): Result<Unit> = runCatching {
+    open suspend fun unlikeTrack(hash: String): Result<Unit> = runCatchingCancellable {
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
 
@@ -183,7 +183,7 @@ open class KugouLikeService(
         }
         if (fileId <= 0L) {
             hashToFileId.remove(cleanHash)
-            return@runCatching
+            return@runCatchingCancellable
         }
 
         val dataObj = buildJsonObject {
@@ -355,14 +355,7 @@ open class KugouLikeService(
     }
 
     private fun ensureBizSuccess(response: KugouRawResponse, fallbackMessage: String) {
-        KugouRiskException.fromResponse(response)?.let { throw it }
-        if (!response.isBizSuccess) {
-            if (response.httpCode !in 200..299 && response.bodyJson == null) {
-                throw AppError.NetworkError
-            }
-            val code = response.errorCode.takeIf { it != 0 } ?: response.status
-            throw AppError.BizError(code, response.errorMsg.ifBlank { fallbackMessage })
-        }
+        ensureKugouBizSuccess(response, fallbackMessage)
     }
 
     private fun JsonElement.jsonObjectOrNull(): JsonObject? = this as? JsonObject

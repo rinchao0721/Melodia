@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.cloud.ui
 
+import com.lin0721.linmusic.core.auth.AccountEvents
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.platform.repository.PlatformCloudRouter
@@ -66,6 +67,18 @@ class PlatformCloudStateHolder(
                         load(refresh = true)
                     }
                 }
+        }
+        scope.launch {
+            AccountEvents.platformSwitched.collect { event ->
+                if (event.platform == _activePlatform.value) {
+                    loadJob?.cancel()
+                    loadMoreJob?.cancel()
+                    _uiState.value = PlatformCloudUiState.Idle
+                    if (event.currentAccountId != null) {
+                        load(refresh = true)
+                    }
+                }
+            }
         }
     }
 

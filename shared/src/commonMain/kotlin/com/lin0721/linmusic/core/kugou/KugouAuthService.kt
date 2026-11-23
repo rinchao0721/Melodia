@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -36,7 +36,7 @@ class KugouAuthService(
     suspend fun registerDevice(
         userid: String? = null,
         token: String? = null
-    ): Result<String> = runCatching {
+    ): Result<String> = runCatchingCancellable {
         config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
@@ -116,7 +116,7 @@ class KugouAuthService(
     }
 
     // 对照 module/login_qr_key.js + module/login_qr_create.js
-    suspend fun createQrLogin(isWeb: Boolean = false): Result<KugouQrCreateResult> = runCatching {
+    suspend fun createQrLogin(isWeb: Boolean = false): Result<KugouQrCreateResult> = runCatchingCancellable {
         config.ensureModeSynced()
         val mode = config.mode
         val response = gatewayClient.executeRequest(
@@ -150,7 +150,7 @@ class KugouAuthService(
     }
 
     // 对照 module/login_qr_check.js：0=过期，1=等待扫码，2=待确认，4=授权登录成功
-    suspend fun pollQrLogin(key: String): Result<KugouQrPollResult> = runCatching {
+    suspend fun pollQrLogin(key: String): Result<KugouQrPollResult> = runCatchingCancellable {
         config.ensureModeSynced()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val response = gatewayClient.executeRequest(
@@ -197,7 +197,7 @@ class KugouAuthService(
     }
 
     // 对照 module/captcha_sent.js
-    suspend fun sendPhoneCaptcha(mobile: String): Result<Unit> = runCatching {
+    suspend fun sendPhoneCaptcha(mobile: String): Result<Unit> = runCatchingCancellable {
         val device = deviceStore.getOrCreateDeviceIdentity()
         val body = buildJsonObject {
             put("businessid", 5)
@@ -223,7 +223,7 @@ class KugouAuthService(
         mobile: String,
         code: String,
         userid: String? = null
-    ): Result<KugouAuthCredentials> = runCatching {
+    ): Result<KugouAuthCredentials> = runCatchingCancellable {
         config.ensureModeSynced()
         val mode = config.mode
         val device = deviceStore.getOrCreateDeviceIdentity()
@@ -308,7 +308,7 @@ class KugouAuthService(
         token: String? = null,
         userid: String? = null,
         t1Cookie: String? = null
-    ): Result<KugouAuthCredentials> = runCatching {
+    ): Result<KugouAuthCredentials> = runCatchingCancellable {
         config.ensureModeSynced()
         val mode = config.mode
         val device = deviceStore.getOrCreateDeviceIdentity()
@@ -397,7 +397,7 @@ class KugouAuthService(
     suspend fun fetchUserDetail(
         token: String? = null,
         userid: String? = null
-    ): Result<KugouUserDetailDto> = runCatching {
+    ): Result<KugouUserDetailDto> = runCatchingCancellable {
         config.ensureModeSynced()
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val effectiveToken = token ?: activeAccount?.credentials?.get("token").orEmpty()
@@ -435,7 +435,7 @@ class KugouAuthService(
                 }
             )
         )
-        ensureBizSuccess(response, "获取酷狗用户信息失败")
+        ensureBizSuccess(response, "获取酷狗用户信息失败", notifyUnauthorized = true)
         val dataObjResp = response.bodyJson?.get("data")?.jsonObject
             ?: throw AppError.NetworkError
         json.decodeFromJsonElement(KugouUserDetailDto.serializer(), dataObjResp)
@@ -444,7 +444,7 @@ class KugouAuthService(
     // 对照 module/user_vip_detail.js
     suspend fun fetchVipDetail(
         cookieOverrides: Map<String, String> = emptyMap()
-    ): Result<KugouVipDetailDto> = runCatching {
+    ): Result<KugouVipDetailDto> = runCatchingCancellable {
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "GET",
@@ -455,11 +455,11 @@ class KugouAuthService(
                 cookieOverrides = cookieOverrides
             )
         )
-        ensureBizSuccess(response, "获取酷狗 VIP 信息失败")
+        ensureBizSuccess(response, "获取酷狗 VIP 信息失败", notifyUnauthorized = true)
         val dataObj = response.bodyJson?.get("data")?.jsonObject
             ?: throw AppError.NetworkError
         val busiNames = dataObj["busi_vip"]?.let { elem ->
-            runCatching {
+            runCatchingCancellable {
                 elem.jsonArray.mapNotNull { item ->
                     item.jsonObject["product_name"]?.jsonPrimitive?.contentOrNull
                 }
@@ -472,7 +472,7 @@ class KugouAuthService(
     // 对照 module/user_verify.js：获取播放鉴权所需 auth 凭据
     suspend fun verifyPlaybackAuth(
         cookieOverrides: Map<String, String> = emptyMap()
-    ): Result<String> = runCatching {
+    ): Result<String> = runCatchingCancellable {
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "GET",
@@ -484,7 +484,7 @@ class KugouAuthService(
                 cookieOverrides = cookieOverrides
             )
         )
-        ensureBizSuccess(response, "酷狗播放权限校验失败")
+        ensureBizSuccess(response, "酷狗播放权限校验失败", notifyUnauthorized = true)
         val auth = response.bodyJson?.get("data")?.jsonObject?.get("auth")?.jsonPrimitive?.contentOrNull.orEmpty()
         require(auth.isNotBlank()) { "酷狗 user_verify 未返回 auth 凭据" }
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
@@ -503,7 +503,7 @@ class KugouAuthService(
         eventId: String,
         platId: Int = 2,
         userid: String? = null
-    ): Result<KugouVerifyInfoDto> = runCatching {
+    ): Result<KugouVerifyInfoDto> = runCatchingCancellable {
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val uidLong = (userid ?: activeAccount?.effectivePlatformUid ?: "0").toLongOrNull() ?: 0L
         val dataObj = buildJsonObject {
@@ -543,7 +543,7 @@ class KugouAuthService(
         val secuParams = respData["secu_params"]?.jsonPrimitive?.contentOrNull.orEmpty()
         if (secuParams.isNotBlank()) {
             val decrypted = KugouCrypto.cryptoAesDecrypt(secuParams, aesTempKey)
-            val parsedObj = runCatching { json.parseToJsonElement(decrypted).jsonObject }.getOrNull()
+            val parsedObj = runCatchingCancellable { json.parseToJsonElement(decrypted).jsonObject }.getOrNull()
             if (parsedObj != null) {
                 parsedObj.forEach { (k, v) ->
                     if (v is JsonPrimitive) {
@@ -577,14 +577,11 @@ class KugouAuthService(
         )
     }
 
-    private fun ensureBizSuccess(response: KugouRawResponse, fallbackMessage: String) {
-        KugouRiskException.fromResponse(response)?.let { throw it }
-        if (!response.isBizSuccess) {
-            if (response.httpCode !in 200..299 && response.bodyJson == null) {
-                throw AppError.NetworkError
-            }
-            val code = response.errorCode.takeIf { it != 0 } ?: response.status
-            throw AppError.BizError(code, response.errorMsg.ifBlank { fallbackMessage })
-        }
+    private fun ensureBizSuccess(
+        response: KugouRawResponse,
+        fallbackMessage: String,
+        notifyUnauthorized: Boolean = false
+    ) {
+        ensureKugouBizSuccess(response, fallbackMessage, notifyUnauthorized)
     }
 }

@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -278,7 +278,7 @@ class KugouGatewayClient(
         val bodyJson = if (options.binaryResponse || bodyText.isBlank()) {
             null
         } else {
-            runCatching { json.parseToJsonElement(bodyText).jsonObject }.getOrNull()
+            runCatchingCancellable { json.parseToJsonElement(bodyText).jsonObject }.getOrNull()
         }
 
         return KugouRawResponse(
@@ -363,13 +363,13 @@ class KugouGatewayClient(
             .build()
 
         val responseData = executeCall(request)
-        val decryptedText = runCatching {
+        val decryptedText = runCatchingCancellable {
             KugouCrypto.aesCbcDecryptBytes(responseData.bodyBytes, aesKeyBytes, aesIvBytes)
                 .toString(Charsets.UTF_8)
         }.getOrNull()?.takeIf { it.isNotEmpty() }
             ?: responseData.bodyBytes.toString(Charsets.UTF_8)
 
-        val parsedJson = runCatching { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
+        val parsedJson = runCatchingCancellable { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
         return KugouRawResponse(
             httpCode = responseData.httpCode,
             bodyBytes = responseData.bodyBytes,

@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -22,7 +22,7 @@ class KugouCommentService(
         mixSongId: Long,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouCommentPage> = runCatching {
+    ): Result<KugouCommentPage> = runCatchingCancellable {
         require(mixSongId > 0L) { "缺少有效 mixsongid: $mixSongId" }
         val safePage = page.coerceAtLeast(1)
         val response = gatewayClient.executeRequest(
@@ -52,7 +52,7 @@ class KugouCommentService(
         playlistId: String,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouCommentPage> = runCatching {
+    ): Result<KugouCommentPage> = runCatchingCancellable {
         val cleanId = playlistId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌单评论 ID" }
         val safePage = page.coerceAtLeast(1)
@@ -83,7 +83,7 @@ class KugouCommentService(
         albumId: String,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouCommentPage> = runCatching {
+    ): Result<KugouCommentPage> = runCatchingCancellable {
         val cleanId = albumId.trim()
         require(cleanId.isNotEmpty()) { "缺少专辑评论 ID" }
         val safePage = page.coerceAtLeast(1)
@@ -115,7 +115,7 @@ class KugouCommentService(
         mixSongId: Long? = null,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouCommentPage> = runCatching {
+    ): Result<KugouCommentPage> = runCatchingCancellable {
         val cleanSpecialId = specialId.trim()
         val cleanTid = tid.trim()
         require(cleanSpecialId.isNotEmpty()) { "缺少评论资源 special_id" }
@@ -158,7 +158,7 @@ class KugouCommentService(
         specialId: String? = null,
         mixSongId: Long? = null,
         resourceName: String? = null
-    ): Result<KugouCommentItemDto?> = runCatching {
+    ): Result<KugouCommentItemDto?> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanContent = content.trim()
         require(cleanContent.isNotEmpty()) { "评论内容不能为空" }
@@ -243,7 +243,7 @@ class KugouCommentService(
         replyUserName: String? = null,
         replyContent: String? = null,
         resourceName: String? = null
-    ): Result<KugouCommentItemDto?> = runCatching {
+    ): Result<KugouCommentItemDto?> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanContent = content.trim()
         val cleanSpecialId = specialId.trim()
@@ -320,7 +320,7 @@ class KugouCommentService(
         specialId: String? = null,
         tid: String? = null,
         mixSongId: Long? = null
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanCid = cid.trim()
         require(cleanCid.isNotEmpty()) { "缺少待删除评论 cid" }

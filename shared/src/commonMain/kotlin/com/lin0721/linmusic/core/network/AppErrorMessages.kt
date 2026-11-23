@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.core.network
 
+import com.lin0721.linmusic.core.kugou.KugouRiskException
+
 // 将 AppError 类型解析为面向用户的提示文案
 fun AppError.toMessage(resourceProvider: ResourceProvider): String = when (this) {
     is AppError.NetworkError -> resourceProvider.getString(AppString.ErrorNetwork)
@@ -15,5 +17,8 @@ fun AppError.toMessage(resourceProvider: ResourceProvider): String = when (this)
 }
 
 // 统一取错误提示：Repository 出口应始终是 AppError，非 AppError 兜底走原始 message
-fun Throwable.toUserMessage(resourceProvider: ResourceProvider): String =
-    (this as? AppError)?.toMessage(resourceProvider) ?: (message ?: resourceProvider.getString(AppString.ErrorBizDefault))
+fun Throwable.toUserMessage(resourceProvider: ResourceProvider): String = when (this) {
+    is AppError -> toMessage(resourceProvider)
+    is KugouRiskException -> resourceProvider.getString(AppString.ErrorRiskControl)
+    else -> message ?: resourceProvider.getString(AppString.ErrorBizDefault)
+}

@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.network.AppError
 import kotlinx.serialization.json.JsonArray
@@ -15,7 +15,7 @@ class KugouAlbumService(
     suspend fun getAlbumDetail(
         albumId: String,
         isBuy: Int = 0
-    ): Result<KugouAlbumDetailDto> = runCatching {
+    ): Result<KugouAlbumDetailDto> = runCatchingCancellable {
         val cleanId = albumId.trim()
         require(cleanId.isNotEmpty()) { "缺少专辑 album_id" }
 
@@ -86,7 +86,7 @@ class KugouAlbumService(
         page: Int = 1,
         pageSize: Int = 30,
         isBuy: String = ""
-    ): Result<KugouAlbumSongsPage> = runCatching {
+    ): Result<KugouAlbumSongsPage> = runCatchingCancellable {
         val cleanId = albumId.trim()
         require(cleanId.isNotEmpty()) { "缺少专辑 album_id" }
         val safePage = page.coerceAtLeast(1)

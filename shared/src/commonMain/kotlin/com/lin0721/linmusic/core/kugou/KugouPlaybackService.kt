@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
@@ -70,7 +70,7 @@ class KugouPlaybackService(
     suspend fun getPrivilegeLite(
         hashes: List<String>,
         albumIds: List<String> = emptyList()
-    ): Result<List<KugouPrivilegeResult>> = runCatching {
+    ): Result<List<KugouPrivilegeResult>> = runCatchingCancellable {
         config.ensureModeSynced()
         val hashList = hashes.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         require(hashList.isNotEmpty()) { "缺少歌曲 hash" }
@@ -139,7 +139,7 @@ class KugouPlaybackService(
         albumId: String? = null,
         albumAudioId: Long? = null,
         quality: UnifiedAudioQuality = UnifiedAudioQuality.EXHIGH
-    ): Result<KugouSongUrlResult> = runCatching {
+    ): Result<KugouSongUrlResult> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
@@ -258,7 +258,7 @@ class KugouPlaybackService(
         hash: String,
         albumId: String? = null,
         quality: UnifiedAudioQuality = UnifiedAudioQuality.EXHIGH
-    ): Result<KugouSongUrlResult> = runCatching {
+    ): Result<KugouSongUrlResult> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少歌曲 hash" }
@@ -310,7 +310,7 @@ class KugouPlaybackService(
     }
 
     // 对照 module/audio.js：批量获取音频元数据（时长、码率、封面、album_audio_id 等）
-    suspend fun getAudioMetadata(hashes: List<String>): Result<List<KugouAudioMetadataDto>> = runCatching {
+    suspend fun getAudioMetadata(hashes: List<String>): Result<List<KugouAudioMetadataDto>> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanHashes = hashes.map { it.trim() }.filter { it.isNotEmpty() }
         require(cleanHashes.isNotEmpty()) { "缺少歌曲 hash" }
@@ -395,7 +395,7 @@ class KugouPlaybackService(
         hash: String,
         keyword: String = "",
         durationMs: Long = 0L
-    ): Result<List<KugouLyricCandidateDto>> = runCatching {
+    ): Result<List<KugouLyricCandidateDto>> = runCatchingCancellable {
         config.ensureModeSynced()
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -446,7 +446,7 @@ class KugouPlaybackService(
         id: String,
         accessKey: String,
         fmt: String = "krc"
-    ): Result<KugouLyricDownloadResult> = runCatching {
+    ): Result<KugouLyricDownloadResult> = runCatchingCancellable {
         require(id.isNotBlank() && accessKey.isNotBlank()) { "歌词 id 与 accesskey 不能为空" }
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -501,7 +501,7 @@ class KugouPlaybackService(
     suspend fun uploadPlayHistory(
         mixSongId: Long,
         playedSeconds: Long = 0L
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         require(mixSongId > 0L) { "mixSongId 必须为正整数: $mixSongId" }
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val token = activeAccount?.credentials?.get("token").orEmpty()
@@ -542,7 +542,7 @@ class KugouPlaybackService(
     }
 
     // 对照 module/user_history.js：分页获取酷狗云端播放历史
-    suspend fun getUserPlayHistory(bp: String? = null): Result<KugouPlayHistoryPage> = runCatching {
+    suspend fun getUserPlayHistory(bp: String? = null): Result<KugouPlayHistoryPage> = runCatchingCancellable {
         val activeAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
         val token = activeAccount?.credentials?.get("token").orEmpty()
         val rawUserId = activeAccount?.credentials?.get("userid")
@@ -929,14 +929,7 @@ class KugouPlaybackService(
     }
 
     private fun ensureBizSuccess(response: KugouRawResponse, fallbackMessage: String) {
-        KugouRiskException.fromResponse(response)?.let { throw it }
-        if (!response.isBizSuccess) {
-            if (response.httpCode !in 200..299 && response.bodyJson == null) {
-                throw AppError.NetworkError
-            }
-            val code = response.errorCode.takeIf { it != 0 } ?: response.status
-            throw AppError.BizError(code, response.errorMsg.ifBlank { fallbackMessage })
-        }
+        ensureKugouBizSuccess(response, fallbackMessage)
     }
 
     private fun JsonElement.jsonObjectOrNull(): JsonObject? = this as? JsonObject

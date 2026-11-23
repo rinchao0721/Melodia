@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -18,7 +18,7 @@ class KugouSearchService(
         sortType: Int = 0,
         searchSong: Int = 0,
         tag: String? = null
-    ): Result<KugouSearchResultPage> = runCatching {
+    ): Result<KugouSearchResultPage> = runCatchingCancellable {
         config.ensureModeSynced()
         val safePage = page.coerceAtLeast(1)
         val headers = mapOf("x-router" to "complexsearch.kugou.com")
@@ -100,7 +100,7 @@ class KugouSearchService(
         keyword: String,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouComplexSearchResult> = runCatching {
+    ): Result<KugouComplexSearchResult> = runCatchingCancellable {
         val safePage = page.coerceAtLeast(1)
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -164,7 +164,7 @@ class KugouSearchService(
     }
 
     // module/search_hot.js
-    suspend fun getHotSearches(): Result<List<KugouHotSearchItem>> = runCatching {
+    suspend fun getHotSearches(): Result<List<KugouHotSearchItem>> = runCatchingCancellable {
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "GET",
@@ -203,9 +203,9 @@ class KugouSearchService(
     }
 
     // module/search_suggest.js
-    suspend fun getSuggestions(keyword: String): Result<KugouSearchSuggestResult> = runCatching {
+    suspend fun getSuggestions(keyword: String): Result<KugouSearchSuggestResult> = runCatchingCancellable {
         val cleanKeyword = keyword.trim()
-        if (cleanKeyword.isEmpty()) return@runCatching KugouSearchSuggestResult()
+        if (cleanKeyword.isEmpty()) return@runCatchingCancellable KugouSearchSuggestResult()
 
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(

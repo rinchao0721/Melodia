@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -27,7 +27,7 @@ class KugouCloudService(
     suspend fun getCloudList(
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouCloudListPage> = runCatching {
+    ): Result<KugouCloudListPage> = runCatchingCancellable {
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
         val device = deviceStore.getOrCreateDeviceIdentity()
@@ -57,7 +57,7 @@ class KugouCloudService(
         albumAudioId: Long = 0L,
         audioId: Long = 0L,
         name: String = ""
-    ): Result<KugouCloudUrlResult> = runCatching {
+    ): Result<KugouCloudUrlResult> = runCatchingCancellable {
         val cleanHash = hash.trim().lowercase()
         require(cleanHash.isNotEmpty()) { "缺少云盘歌曲 hash" }
 
@@ -109,7 +109,7 @@ class KugouCloudService(
     }
 
     // module/user_cloud_del.js
-    suspend fun deleteCloudFiles(items: List<KugouCloudDeleteItem>): Result<Unit> = runCatching {
+    suspend fun deleteCloudFiles(items: List<KugouCloudDeleteItem>): Result<Unit> = runCatchingCancellable {
         require(items.isNotEmpty()) { "请提供要删除的云盘文件" }
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
@@ -195,14 +195,14 @@ class KugouCloudService(
         val rawBytes = response.bodyBytes
         val decryptedText = if (rawBytes.isNotEmpty()) {
             val b64 = Base64.getEncoder().encodeToString(rawBytes)
-            runCatching { KugouCrypto.playlistAesDecrypt(b64, aes.key) }
+            runCatchingCancellable { KugouCrypto.playlistAesDecrypt(b64, aes.key) }
                 .getOrNull()
                 ?.takeIf { it.isNotBlank() }
                 ?: rawBytes.toString(Charsets.UTF_8)
         } else {
             ""
         }
-        val parsedJson = runCatching { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
+        val parsedJson = runCatchingCancellable { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
         val decoded = response.copy(bodyText = decryptedText, bodyJson = parsedJson)
         ensureKugouBizSuccess(decoded, fallbackErrorMsg)
         return decoded

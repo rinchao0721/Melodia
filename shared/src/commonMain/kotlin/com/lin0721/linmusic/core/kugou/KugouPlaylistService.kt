@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -27,7 +27,7 @@ class KugouPlaylistService(
     suspend fun getUserPlaylists(
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouUserPlaylistsPage> = runCatching {
+    ): Result<KugouUserPlaylistsPage> = runCatchingCancellable {
         val session = requireActiveKugouSession(userPreferences)
         val dataObj = buildJsonObject {
             put("userid", session.userIdStr)
@@ -77,7 +77,7 @@ class KugouPlaylistService(
     // module/playlist_detail.js
     suspend fun getPublicPlaylistDetail(
         globalCollectionId: String
-    ): Result<KugouPlaylistDetailDto> = runCatching {
+    ): Result<KugouPlaylistDetailDto> = runCatchingCancellable {
         val cleanId = globalCollectionId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌单 global_collection_id" }
         val session = optionalKugouSession(userPreferences)
@@ -118,7 +118,7 @@ class KugouPlaylistService(
         globalCollectionId: String,
         page: Int = 1,
         pageSize: Int = 30
-    ): Result<KugouPlaylistTracksPage> = runCatching {
+    ): Result<KugouPlaylistTracksPage> = runCatchingCancellable {
         val cleanId = globalCollectionId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌单 global_collection_id" }
         val safePage = page.coerceAtLeast(1)
@@ -175,7 +175,7 @@ class KugouPlaylistService(
         type: Int = 0,
         page: Int = 1,
         pageSize: Int = 300
-    ): Result<KugouPlaylistTracksPage> = runCatching {
+    ): Result<KugouPlaylistTracksPage> = runCatchingCancellable {
         require(listId > 0L) { "缺少有效云歌单 listid: $listId" }
         val session = requireActiveKugouSession(userPreferences)
         val safePage = page.coerceAtLeast(1)
@@ -234,7 +234,7 @@ class KugouPlaylistService(
     suspend fun createPlaylist(
         name: String,
         isPrivate: Boolean = false
-    ): Result<KugouUserPlaylistDto> = runCatching {
+    ): Result<KugouUserPlaylistDto> = runCatchingCancellable {
         val cleanName = name.trim()
         require(cleanName.isNotEmpty()) { "歌单名称不能为空" }
         val session = requireActiveKugouSession(userPreferences)
@@ -292,7 +292,7 @@ class KugouPlaylistService(
         listCreateListId: Long,
         listCreateGid: String = "",
         source: Int = 1
-    ): Result<KugouUserPlaylistDto> = runCatching {
+    ): Result<KugouUserPlaylistDto> = runCatchingCancellable {
         val cleanName = name.trim()
         require(cleanName.isNotEmpty()) { "歌单名称不能为空" }
         val session = requireActiveKugouSession(userPreferences)
@@ -338,7 +338,7 @@ class KugouPlaylistService(
     }
 
     // module/playlist_del.js（请求体与响应体均走 playlistAes 加解密 + RSA p 参数）
-    suspend fun deletePlaylist(listId: Long): Result<Unit> = runCatching {
+    suspend fun deletePlaylist(listId: Long): Result<Unit> = runCatchingCancellable {
         require(listId > 0L) { "无效歌单 listid: $listId" }
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
@@ -383,14 +383,14 @@ class KugouPlaylistService(
         val rawBytes = response.bodyBytes
         val decryptedText = if (rawBytes.isNotEmpty()) {
             val b64 = Base64.getEncoder().encodeToString(rawBytes)
-            runCatching { KugouCrypto.playlistAesDecrypt(b64, aes.key) }
+            runCatchingCancellable { KugouCrypto.playlistAesDecrypt(b64, aes.key) }
                 .getOrNull()
                 ?.takeIf { it.isNotBlank() }
                 ?: rawBytes.toString(Charsets.UTF_8)
         } else {
             ""
         }
-        val parsedJson = runCatching { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
+        val parsedJson = runCatchingCancellable { json.parseToJsonElement(decryptedText).jsonObject }.getOrNull()
         val decodedResponse = response.copy(bodyText = decryptedText, bodyJson = parsedJson)
         ensureKugouBizSuccess(decodedResponse, "删除酷狗歌单失败")
     }
@@ -405,7 +405,7 @@ class KugouPlaylistService(
         tags: String = "",
         sort: Int = 0,
         pic: String? = null
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         require(listId > 0L) { "无效歌单 listid: $listId" }
         val bodyJson = buildJsonObject {
             put("total_ver", totalVer)
@@ -432,7 +432,7 @@ class KugouPlaylistService(
     suspend fun uploadPlaylistCover(
         imageBytes: ByteArray,
         extendName: String = ".jpg"
-    ): Result<KugouCoverUploadResult> = runCatching {
+    ): Result<KugouCoverUploadResult> = runCatchingCancellable {
         require(imageBytes.isNotEmpty()) { "封面图片字节不能为空" }
         val dateStr = Instant.ofEpochMilli(nowMs())
             .atZone(ZoneOffset.ofHours(8))
@@ -478,9 +478,9 @@ class KugouPlaylistService(
     suspend fun addTracksToPlaylist(
         listId: Long,
         tracks: List<KugouPlaylistAddTrackInput>
-    ): Result<List<Long>> = runCatching {
+    ): Result<List<Long>> = runCatchingCancellable {
         require(listId > 0L) { "无效歌单 listid: $listId" }
-        if (tracks.isEmpty()) return@runCatching emptyList()
+        if (tracks.isEmpty()) return@runCatchingCancellable emptyList()
         val session = requireActiveKugouSession(userPreferences)
         val sec = nowMs() / 1000L
 
@@ -550,10 +550,10 @@ class KugouPlaylistService(
     suspend fun removeTracksFromPlaylist(
         listId: Long,
         fileIds: List<Long>
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         require(listId > 0L) { "无效歌单 listid: $listId" }
         val cleanIds = fileIds.filter { it > 0L }.distinct()
-        if (cleanIds.isEmpty()) return@runCatching
+        if (cleanIds.isEmpty()) return@runCatchingCancellable
         val session = requireActiveKugouSession(userPreferences)
 
         val dataObj = buildJsonObject {
@@ -589,9 +589,9 @@ class KugouPlaylistService(
         listVer: Long,
         items: List<KugouPlaylistTrackSortInput>,
         type: Int = 0
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         require(listId > 0L) { "无效歌单 listid: $listId" }
-        if (items.isEmpty()) return@runCatching
+        if (items.isEmpty()) return@runCatchingCancellable
 
         val bodyJson = buildJsonObject {
             put("listid", listId)

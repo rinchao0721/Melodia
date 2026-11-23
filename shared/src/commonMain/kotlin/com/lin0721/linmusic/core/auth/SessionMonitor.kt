@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.auth
 
 import com.lin0721.linmusic.core.cache.MetadataCache
+import com.lin0721.linmusic.core.kugou.KUGOU_EXPLICIT_TOKEN_INVALID_CODES
 import com.lin0721.linmusic.core.kugou.KugouRiskException
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
@@ -21,10 +22,8 @@ import kotlinx.coroutines.sync.withLock
 private const val TAG = "SessionMonitor"
 private const val CONFIRM_DELAY_MS = 1_500L
 private const val REFRESH_INTERVAL_MS = 6L * 60 * 60 * 1000
+private const val KUGOU_UNAUTHORIZED_COOLDOWN_MS = 10_000L
 private const val SESSION_COOKIE = "MUSIC_U"
-
-// 酷狗明确标识 token 失效/需重新登录的业务错误码
-private val KUGOU_EXPLICIT_INVALID_CODES = setOf(20018, 20019, 30013)
 
 // 会话过期后的本地状态通知，供壳层区分“还有剩余账户已自动切换”与“已无登录账户”
 data class ExpiredAccountNotice(
@@ -67,6 +66,7 @@ class SessionMonitor(
 
     private val checkMutex = Mutex()
     private val kugouCheckMutex = Mutex()
+    private var lastKugouUnauthorizedCheckMs: Long = 0L
 
     private val _expiredNotices = MutableSharedFlow<ExpiredAccountNotice>(
         extraBufferCapacity = 4,
@@ -83,10 +83,17 @@ class SessionMonitor(
     @Volatile
     private var registeredOnExpired: (suspend () -> Unit)? = null
 
-    // 常驻收集 301 事件；onExpired 在本地登录态清理/切换之后回调
+    // 常驻收集 301 与跨平台未授权事件；onExpired 在本地登录态清理/切换之后回调
     suspend fun watch(onExpired: suspend () -> Unit): Unit = coroutineScope {
         registeredOnExpired = onExpired
         launch { verifyAtStartup(onExpired) }
+        launch {
+            AuthEvents.platformUnauthorized.collect { platform ->
+                if (platform == MusicPlatform.KUGOU) {
+                    handleKugouUnauthorized()
+                }
+            }
+        }
         AuthEvents.unauthorized.collect { handleUnauthorized(onExpired) }
     }
 
@@ -117,6 +124,35 @@ class SessionMonitor(
             if (!isLoggedInLocally()) return@withLock
             if (isSessionInvalid()) {
                 expireLocked(onExpired)
+            }
+        }
+    }
+
+    // 运行期酷狗业务接口返回显式 token 失效码时触发：先尝试静默续期，仅明确失效才踢号
+    suspend fun handleKugouUnauthorized() {
+        kugouCheckMutex.withLock {
+            val now = nowMs()
+            if (lastKugouUnauthorizedCheckMs > 0L && now - lastKugouUnauthorizedCheckMs < KUGOU_UNAUTHORIZED_COOLDOWN_MS) {
+                return@withLock
+            }
+            if (!isKugouEnabled()) return@withLock
+            val activeKugou = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() ?: return@withLock
+            val provider = platformSessionRegistry?.providerOf(MusicPlatform.KUGOU) ?: return@withLock
+            lastKugouUnauthorizedCheckMs = now
+
+            val refreshResult = provider.refreshSession(activeKugou)
+            val refreshErr = refreshResult.exceptionOrNull()
+            if (refreshErr == null) {
+                val refreshed = refreshResult.getOrNull()?.account
+                if (refreshed != null) {
+                    userPreferences.upsertPlatformAccount(refreshed, activate = false)
+                }
+                return@withLock
+            }
+            if (isExplicitKugouTokenInvalid(refreshErr)) {
+                expireKugouLocked(activeKugou, provider)
+            } else {
+                AppLogger.w(TAG, "酷狗运行期续期遇到非致命异常，保留当前账号 accountId=${activeKugou.accountId.canonical}", refreshErr)
             }
         }
     }
@@ -319,7 +355,7 @@ internal fun isExplicitKugouTokenInvalid(error: Throwable?): Boolean {
     if (error is AppError.Unauthorized) return true
     if (error is KugouRiskException || error is AppError.NetworkError || error is AppError.RiskControl) return false
     if (error is AppError.BizError) {
-        if (error.code in KUGOU_EXPLICIT_INVALID_CODES) return true
+        if (error.code in KUGOU_EXPLICIT_TOKEN_INVALID_CODES) return true
         val msg = error.rawMsg.orEmpty().lowercase()
         val hasTokenInvalidWord = msg.contains("token") &&
             (msg.contains("无效") || msg.contains("过期") || msg.contains("失效") ||

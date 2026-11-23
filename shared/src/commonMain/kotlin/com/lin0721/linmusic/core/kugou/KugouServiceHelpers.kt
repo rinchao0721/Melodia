@@ -1,9 +1,11 @@
 package com.lin0721.linmusic.core.kugou
 
+import com.lin0721.linmusic.core.auth.AuthEvents
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.source.MusicPlatform
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -18,6 +20,17 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+
+// 酷狗显式 token 失效业务码，供业务层与 SessionMonitor 共用
+internal val KUGOU_EXPLICIT_TOKEN_INVALID_CODES = setOf(20018, 20019, 30013)
+
+inline fun <T> runCatchingCancellable(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Throwable) {
+    Result.failure(e)
+}
 
 internal data class KugouServiceSession(
     val userIdStr: String,
@@ -55,13 +68,20 @@ internal suspend fun optionalKugouSession(userPreferences: UserPreferences): Kug
     )
 }
 
-internal fun ensureKugouBizSuccess(response: KugouRawResponse, fallbackMessage: String) {
+internal fun ensureKugouBizSuccess(
+    response: KugouRawResponse,
+    fallbackMessage: String,
+    notifyUnauthorized: Boolean = true
+) {
     KugouRiskException.fromResponse(response)?.let { throw it }
     if (!response.isBizSuccess) {
         if (response.httpCode !in 200..299 && response.bodyJson == null) {
             throw AppError.NetworkError()
         }
         val code = response.errorCode.takeIf { it != 0 } ?: response.status
+        if (notifyUnauthorized && code in KUGOU_EXPLICIT_TOKEN_INVALID_CODES) {
+            AuthEvents.notifyPlatformUnauthorized(MusicPlatform.KUGOU)
+        }
         throw AppError.BizError(code, response.errorMsg.ifBlank { fallbackMessage })
     }
 }

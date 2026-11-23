@@ -2,6 +2,8 @@ package com.lin0721.linmusic.di
 
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.flow.first
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.plugin.PluginContent
 import com.lin0721.linmusic.core.plugin.PluginPlatformSearchProvider
@@ -26,7 +28,11 @@ val sourceModule = module {
     single { LxPluginManager(get(), get()) }
 
     // 聚合搜索平台，仅搜索，不参与换源
-    single<PlatformSearchProvider>(named("kugou")) { KugouSearchProvider() }
+    single<PlatformSearchProvider>(named("kugou")) {
+        KugouSearchProvider {
+            getOrNull<SettingsPreferences>()?.kugouPlatformEnabled?.first() ?: true
+        }
+    }
     single<PlatformSearchProvider>(named("kuwo")) { KuwoSearchProvider() }
     single<PlatformSearchProvider>(named("qq")) { QQSearchProvider() }
     single<PlatformSearchProvider>(named("plugin")) { PluginPlatformSearchProvider(get()) }

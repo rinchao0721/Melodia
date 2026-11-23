@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.kugou
+﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
@@ -16,7 +16,7 @@ class KugouArtistService(
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     // module/artist_detail.js
-    suspend fun getArtistDetail(authorId: String): Result<KugouArtistDetailDto> = runCatching {
+    suspend fun getArtistDetail(authorId: String): Result<KugouArtistDetailDto> = runCatchingCancellable {
         val cleanId = authorId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌手 author_id" }
         val dataObj = buildJsonObject {
@@ -64,7 +64,7 @@ class KugouArtistService(
         page: Int = 1,
         pageSize: Int = 30,
         sort: String = "hot"
-    ): Result<KugouArtistSongsPage> = runCatching {
+    ): Result<KugouArtistSongsPage> = runCatchingCancellable {
         config.ensureModeSynced()
         val cleanId = authorId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌手 author_id" }
@@ -127,7 +127,7 @@ class KugouArtistService(
         page: Int = 1,
         pageSize: Int = 30,
         sort: String = "hot"
-    ): Result<KugouArtistAlbumsPage> = runCatching {
+    ): Result<KugouArtistAlbumsPage> = runCatchingCancellable {
         val cleanId = authorId.trim()
         require(cleanId.isNotEmpty()) { "缺少歌手 author_id" }
         val safePage = page.coerceAtLeast(1)
@@ -191,7 +191,7 @@ class KugouArtistService(
     }
 
     // module/artist_follow.js
-    suspend fun followArtist(singerId: String): Result<Unit> = runCatching {
+    suspend fun followArtist(singerId: String): Result<Unit> = runCatchingCancellable {
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
         val cleanSingerId = singerId.trim()
@@ -231,7 +231,7 @@ class KugouArtistService(
     }
 
     // module/artist_unfollow.js
-    suspend fun unfollowArtist(singerId: String): Result<Unit> = runCatching {
+    suspend fun unfollowArtist(singerId: String): Result<Unit> = runCatchingCancellable {
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
         val cleanSingerId = singerId.trim()
@@ -269,7 +269,7 @@ class KugouArtistService(
     }
 
     // module/user_follow.js
-    suspend fun getUserFollowedArtists(): Result<List<KugouFollowedArtistDto>> = runCatching {
+    suspend fun getUserFollowedArtists(): Result<List<KugouFollowedArtistDto>> = runCatchingCancellable {
         config.ensureModeSynced()
         val session = requireActiveKugouSession(userPreferences)
         val sec = nowMs() / 1000L
