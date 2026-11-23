@@ -259,7 +259,8 @@ class LanLinkAndroidClient(
                     LanLinkMessage.PairHello(
                         clientDeviceId = localId,
                         clientDeviceName = localName,
-                        clientNonceBase64 = LanLinkCrypto.toBase64(clientNonce)
+                        clientNonceBase64 = LanLinkCrypto.toBase64(clientNonce),
+                        protocolVersion = LanLinkConstants.PROTOCOL_VERSION
                     )
                 )
 

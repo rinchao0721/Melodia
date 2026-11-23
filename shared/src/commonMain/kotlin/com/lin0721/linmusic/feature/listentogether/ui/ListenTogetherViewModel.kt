@@ -99,7 +99,12 @@ class ListenTogetherViewModel(
     fun startRoom(onCreated: (String) -> Unit) {
         if (_busy.value || session.state.value.active) return
         // 房间队列默认为空，靠成员手动添加；建房接口要求非空，只带上当前歌曲作为起播曲目
-        val current = controller.nowPlaying.value?.songId?.takeIf { it > 0L }
+        val currentQueueItem = controller.queue.value.getOrNull(controller.currentIndex.value)
+        val current = if (currentQueueItem != null) {
+            if (ListenTogetherSession.isTrackSupported(currentQueueItem)) currentQueueItem.songId else null
+        } else {
+            controller.nowPlaying.value?.songId?.takeIf { it > 0L }
+        }
         if (current == null) {
             _messages.tryEmit("请先播放一首网易云歌曲再发起一起听")
             return
@@ -219,6 +224,10 @@ class ListenTogetherViewModel(
     // 把歌曲追加到房间队列末尾，任何成员都可点歌
     fun addToRoomQueue(songIds: List<Long>, onResult: (String) -> Unit = { _messages.tryEmit(it) }) {
         if (!session.state.value.active) return
+        if (songIds.isNotEmpty() && songIds.none { it > 0L }) {
+            onResult("一起听仅支持网易云音乐曲目，无法添加非网易歌曲")
+            return
+        }
         viewModelScope.launch {
             session.addToRoomQueue(songIds)
                 .onSuccess { added -> onResult(if (added > 0) "已添加到一起听队列" else "歌曲已在一起听队列中") }

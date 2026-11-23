@@ -424,6 +424,10 @@ class RemotePlaybackController(
         sendCommand(LanLinkMessage.RemoteCommand(RemoteCommandAction.SWITCH_FM_MODE, personalFmMode = mode))
     }
 
+    override fun switchPersonalFmPlatform(platform: MusicPlatform) {
+        sendCommand(LanLinkMessage.RemoteCommand(RemoteCommandAction.SWITCH_FM_PLATFORM, platform = platform))
+    }
+
     private fun ensureTickerRunning() {
         if (tickerJob?.isActive == true) return
         tickerJob = scope.launch {
@@ -443,7 +447,9 @@ class RemotePlaybackController(
 
     companion object {
         fun isLocalOnlyQueueItem(item: QueueItem): Boolean =
-            !item.localUri.isNullOrBlank() || (item.songId < 0L && item.external == null)
+            !item.localUri.isNullOrBlank() ||
+                item.trackId?.platform == MusicPlatform.LOCAL ||
+                (item.songId < 0L && item.external == null && item.trackId == null)
 
         fun isLocalOnlyAudio(songId: Long, url: String): Boolean =
             songId < 0L ||

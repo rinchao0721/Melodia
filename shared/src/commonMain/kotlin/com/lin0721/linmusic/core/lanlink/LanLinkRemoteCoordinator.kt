@@ -844,7 +844,9 @@ class LanLinkRemoteCoordinator(
                     RemoteCommandAction.SET_VOLUME -> if (cmd.volumePercent in 0..100) {
                         volumeBridge.setVolume(cmd.volumePercent)
                     }
-                    RemoteCommandAction.SWITCH_FM_PLATFORM -> Unit
+                    RemoteCommandAction.SWITCH_FM_PLATFORM -> cmd.platform?.let {
+                        localController.switchPersonalFmPlatform(it)
+                    }
                     RemoteCommandAction.TOGGLE_SHUFFLE -> localController.toggleShuffle()
                     RemoteCommandAction.TOGGLE_REPEAT -> localController.toggleRepeat()
                     RemoteCommandAction.ROTATE_PLAY_MODE -> localController.rotatePlayMode()

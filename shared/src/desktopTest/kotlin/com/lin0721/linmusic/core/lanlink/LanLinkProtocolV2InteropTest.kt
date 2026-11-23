@@ -118,4 +118,32 @@ class LanLinkProtocolV2InteropTest {
             ).projectForProtocol(LanLinkConstants.PROTOCOL_VERSION_V1)
         )
     }
+
+    @Test
+    fun remotePlaybackAllowsNativeKugouAndBlocksLocalTracks() {
+        val kugouItem = QueueItem(
+            songId = -54321L,
+            title = "酷狗曲目",
+            artist = "歌手",
+            coverUrl = "",
+            trackId = TrackId.kugou("abcd1234")
+        )
+        val localUriItem = QueueItem(
+            songId = -100L,
+            title = "本地曲目",
+            artist = "本地",
+            coverUrl = "",
+            localUri = "file:///music/a.flac"
+        )
+        val localTrackIdItem = QueueItem(
+            songId = -101L,
+            title = "本地标识曲目",
+            artist = "本地",
+            coverUrl = "",
+            trackId = TrackId.local("content://media/external/audio/media/9")
+        )
+        assertEquals(false, RemotePlaybackController.isLocalOnlyQueueItem(kugouItem))
+        assertEquals(true, RemotePlaybackController.isLocalOnlyQueueItem(localUriItem))
+        assertEquals(true, RemotePlaybackController.isLocalOnlyQueueItem(localTrackIdItem))
+    }
 }
