@@ -353,6 +353,7 @@ class PlatformDiscoverAndCloudRouterTest {
         val initialSuccess = vm.uiState.value as HomeUiState.Success
         assertEquals(MusicPlatform.NETEASE, initialSuccess.data.browsePlatform)
         assertEquals(MusicPlatform.NETEASE, vm.browsePlatform.value)
+        assertTrue(vm.isKugouEnabled.value)
 
         // 切换到酷狗平台 -> 自动重新加载酷狗发现流
         vm.switchBrowsePlatform(MusicPlatform.KUGOU)
@@ -369,6 +370,8 @@ class PlatformDiscoverAndCloudRouterTest {
 
         vm.playKugouDiscoverTrack(0)
         assertEquals(TrackId.kugou("DISC_1"), player.queueCalls.last().items.single().trackId)
+
+        vm.addUnifiedTrackToPlayNext(kugouTrack("DISC_NEXT", "下一首酷狗"))
 
         vm.playKugouRank(kgSuccess.data.kugouToplists.single(), 0)
         advanceUntilIdle()

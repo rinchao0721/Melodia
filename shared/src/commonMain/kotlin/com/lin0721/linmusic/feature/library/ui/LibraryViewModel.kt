@@ -139,9 +139,23 @@ class LibraryViewModel(
 
     val isKugouEnabled: StateFlow<Boolean> = (settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)).stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Eagerly,
         initialValue = true
     )
+
+    val browsePlatform: StateFlow<MusicPlatform> = combine(
+        userPreferences.currentBrowsePlatform,
+        settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)
+    ) { platform, kugouEnabled ->
+        if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
+    }.distinctUntilChanged().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = MusicPlatform.NETEASE
+    )
+
+    private val _selectedPlatformFilter = MutableStateFlow<MusicPlatform?>(null)
+    val selectedPlatformFilter: StateFlow<MusicPlatform?> = _selectedPlatformFilter.asStateFlow()
 
     // null 表示未筛选（默认展示全部），仅在用户点击某个分类胶囊后才收窄为对应类型
     private val _selectedFilter = MutableStateFlow<LibraryFilter?>(null)
@@ -168,7 +182,10 @@ class LibraryViewModel(
                 settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)
             ) { neteaseProfile, kugouAcc, kugouEnabled ->
                 Triple(neteaseProfile, if (kugouEnabled) kugouAcc else null, kugouEnabled)
-            }.distinctUntilChanged().collect { (profile, effectiveKugouAcc, _) ->
+            }.distinctUntilChanged().collect { (profile, effectiveKugouAcc, kugouEnabled) ->
+                if (!kugouEnabled && _selectedPlatformFilter.value == MusicPlatform.KUGOU) {
+                    _selectedPlatformFilter.value = null
+                }
                 if (profile != null || effectiveKugouAcc != null) {
                     val newPrefsUid = profile?.uid ?: effectiveKugouAcc?.uid
                     if (newPrefsUid != null && prefsUid != newPrefsUid) {
@@ -587,12 +604,17 @@ class LibraryViewModel(
         val state = _uiState.value as? LibraryUiState.Success ?: return
         val pinned = _pinnedIds.value
         val filter = _selectedFilter.value
+        val platformFilter = _selectedPlatformFilter.value
         val ownerFilter = _selectedPlaylistOwnerFilter.value
         val sort = _sortOrder.value
         val query = _searchQuery.value
 
         var list = state.allItems.map { item ->
             item.copy(isPinned = pinned.contains(item.id))
+        }
+
+        if (platformFilter != null) {
+            list = list.filter { it.platform == platformFilter }
         }
 
         if (query.isNotBlank()) {
@@ -819,6 +841,25 @@ class LibraryViewModel(
         _selectedFilter.value = null
         _selectedPlaylistOwnerFilter.value = null
         applyFilterAndSort()
+    }
+
+    fun setPlatformFilter(platform: MusicPlatform?) {
+        val next = if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) null else platform
+        if (_selectedPlatformFilter.value == next) return
+        _selectedPlatformFilter.value = next
+        applyFilterAndSort()
+    }
+
+    fun togglePlatformFilter(platform: MusicPlatform) {
+        val next = if (_selectedPlatformFilter.value == platform) null else platform
+        setPlatformFilter(next)
+    }
+
+    fun switchBrowsePlatform(platform: MusicPlatform) {
+        viewModelScope.launch {
+            if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) return@launch
+            userPreferences.setBrowsePlatform(platform)
+        }
     }
 
     // 歌单二级筛选：再次点击已选中的胶囊会取消，恢复展示全部歌单

@@ -66,6 +66,7 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.platform.repository.CommentTarget
 import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.source.MusicPlatform
 
 // 单个艺人的完整状态数据
@@ -129,7 +130,8 @@ class PlayerViewModel(
     private val lyricsResolver: LyricsResolver,
     private val podcastPlayer: PodcastPlayerController,
     private val qqSongIdResolver: QQSongIdResolver,
-    private val platformCommentRouter: PlatformCommentRouter? = null
+    private val platformCommentRouter: PlatformCommentRouter? = null,
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -818,9 +820,38 @@ class PlayerViewModel(
         playerManager.clearQueue()
     }
 
+    private suspend fun resolveEffectiveBrowsePlatform(): MusicPlatform {
+        val kugouEnabled = settingsPreferences.kugouPlatformEnabled.first()
+        val platform = userPreferences.currentBrowsePlatform.first()
+        return if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
+    }
+
     // 开启私人FM；未登录时仅提示，不修改播放队列
     fun startPersonalFm(mode: PersonalFmMode? = null) {
         viewModelScope.launch {
+            val targetPlatform = resolveEffectiveBrowsePlatform()
+            if (targetPlatform == MusicPlatform.KUGOU && platformDiscoverRouter != null) {
+                if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() == null) {
+                    _toastEvent.emit("请先登录酷狗账号")
+                    return@launch
+                }
+                val targetMode = mode ?: settingsPreferences.personalFmMode.first()
+                platformDiscoverRouter.getPersonalFmSongs(MusicPlatform.KUGOU, targetMode).first().fold(
+                    onSuccess = { tracks ->
+                        val items = tracks.map(QueueItem::fromUnified)
+                            .filter { it.effectiveTrackId.rawId.isNotBlank() }
+                            .distinctBy { it.effectiveTrackId.canonical }
+                        if (items.isNotEmpty()) {
+                            playerManager.startPersonalFm(items, MusicPlatform.KUGOU)
+                        } else {
+                            _toastEvent.emit("暂无可播放的私人FM歌曲")
+                        }
+                    },
+                    onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+                )
+                return@launch
+            }
+
             if (userPreferences.userProfile.first() == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
@@ -847,7 +878,7 @@ class PlayerViewModel(
                         if (mode != null) {
                             playerManager.switchPersonalFmMode(targetMode)
                         }
-                        playerManager.startPersonalFm(items)
+                        playerManager.startPersonalFm(items, MusicPlatform.NETEASE)
                     } else {
                         _toastEvent.emit("暂无可播放的私人FM歌曲")
                     }
@@ -860,7 +891,13 @@ class PlayerViewModel(
 
     fun switchPersonalFmMode(mode: PersonalFmMode) {
         viewModelScope.launch {
-            if (userPreferences.userProfile.first() == null) {
+            val targetPlatform = resolveEffectiveBrowsePlatform()
+            if (targetPlatform == MusicPlatform.KUGOU) {
+                if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() == null) {
+                    _toastEvent.emit("请先登录酷狗账号")
+                    return@launch
+                }
+            } else if (userPreferences.userProfile.first() == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }

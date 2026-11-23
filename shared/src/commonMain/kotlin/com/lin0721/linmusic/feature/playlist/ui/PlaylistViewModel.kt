@@ -33,9 +33,11 @@ import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.CommentTarget
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformCommentRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformSearchRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedRank
 import com.lin0721.linmusic.core.platform.repository.UnifiedSearchResultItem
 import com.lin0721.linmusic.core.platform.repository.UnifiedSearchType
 import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
@@ -95,6 +97,51 @@ import kotlinx.coroutines.launch
 
 // 歌单曲目分页补全每批数量，对齐服务端 song/detail 单次上限
 private const val TRACK_PAGE_SIZE = 1000
+const val KUGOU_DAILY_RECOMMEND_ID = "kugou_daily"
+const val KUGOU_RANK_ENTITY_PREFIX = "kugou_rank:"
+
+private const val HEX_CHARS = "0123456789abcdef"
+
+private fun encodeHexUtf8(text: String): String {
+    val bytes = text.encodeToByteArray()
+    val sb = StringBuilder(bytes.size * 2)
+    for (b in bytes) {
+        val v = b.toInt() and 0xFF
+        sb.append(HEX_CHARS[v ushr 4])
+        sb.append(HEX_CHARS[v and 0x0F])
+    }
+    return sb.toString()
+}
+
+private fun decodeHexUtf8(hex: String): String {
+    if (hex.length % 2 != 0) return ""
+    val out = ByteArray(hex.length / 2)
+    for (i in out.indices) {
+        val hi = hex[i * 2].digitToIntOrNull(16) ?: return ""
+        val lo = hex[i * 2 + 1].digitToIntOrNull(16) ?: return ""
+        out[i] = ((hi shl 4) or lo).toByte()
+    }
+    return out.decodeToString()
+}
+
+fun kugouRankEntityId(rank: UnifiedRank): String =
+    "$KUGOU_RANK_ENTITY_PREFIX${rank.rawRankId}:${rank.rankCid}:${encodeHexUtf8(rank.name)}"
+
+internal data class ParsedKugouRankEntity(
+    val rawRankId: Long,
+    val rankCid: Long,
+    val name: String
+)
+
+internal fun parseKugouRankEntityId(entityId: String): ParsedKugouRankEntity? {
+    if (!entityId.startsWith(KUGOU_RANK_ENTITY_PREFIX)) return null
+    val parts = entityId.removePrefix(KUGOU_RANK_ENTITY_PREFIX).split(':', limit = 3)
+    if (parts.size < 2) return null
+    val rawRankId = parts[0].toLongOrNull() ?: return null
+    val rankCid = parts[1].toLongOrNull() ?: 0L
+    val name = parts.getOrNull(2)?.let(::decodeHexUtf8).orEmpty().ifBlank { "酷狗排行榜" }
+    return ParsedKugouRankEntity(rawRankId = rawRankId, rankCid = rankCid, name = name)
+}
 
 class PlaylistViewModel(
     private val songCollectDelegate: SongCollectDelegate,
@@ -125,7 +172,8 @@ class PlaylistViewModel(
     private val platformCommentRouter: PlatformCommentRouter? = null,
     private val platformLibraryRouter: PlatformLibraryRouter? = null,
     private val platformSearchRouter: PlatformSearchRouter? = null,
-    private val settingsPreferences: SettingsPreferences? = null
+    private val settingsPreferences: SettingsPreferences? = null,
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -253,7 +301,7 @@ class PlaylistViewModel(
     private fun isViewingKugouContent(): Boolean {
         if ((_uiState.value as? PlaylistUiState.Success)?.platform == MusicPlatform.KUGOU) return true
         val target = requestedEntityId ?: return false
-        if (target == KUGOU_RECENT_PLAYLIST_ID) return true
+        if (target == KUGOU_RECENT_PLAYLIST_ID || target == KUGOU_DAILY_RECOMMEND_ID || target.startsWith(KUGOU_RANK_ENTITY_PREFIX)) return true
         return (PlaylistId.parseOrNull(target)?.platform ?: AlbumId.parseOrNull(target)?.platform) == MusicPlatform.KUGOU
     }
 
@@ -397,6 +445,22 @@ class PlaylistViewModel(
             return
         }
 
+        if (entityId == KUGOU_DAILY_RECOMMEND_ID) {
+            requestedPlaylistId = KUGOU_DAILY_RECOMMEND_ID.hashCode().toLong()
+            loadJob = viewModelScope.launch {
+                loadKugouDailyTracks()
+            }
+            return
+        }
+
+        parseKugouRankEntityId(entityId)?.let { parsedRank ->
+            requestedPlaylistId = entityId.hashCode().toLong()
+            loadJob = viewModelScope.launch {
+                loadKugouRankTracks(entityId, parsedRank)
+            }
+            return
+        }
+
         val parsedAlbum = if (isAlbum) AlbumId.parseOrNull(entityId) else null
         val parsedPlaylist = if (!isAlbum) PlaylistId.parseOrNull(entityId) else null
         val platform = parsedAlbum?.platform ?: parsedPlaylist?.platform
@@ -530,6 +594,104 @@ class PlaylistViewModel(
                         artistEntityIds = artistIds,
                         albumEntityIds = albumIds,
                         isKugouRecent = true
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
+                }
+            )
+        }
+    }
+
+    private suspend fun loadKugouDailyTracks() {
+        val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+        if (!enabled) {
+            _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
+            return
+        }
+        val router = platformDiscoverRouter
+        if (router == null) {
+            _uiState.value = PlaylistUiState.Error("酷狗每日推荐服务不可用")
+            return
+        }
+        router.getDailyRecommendSongs(MusicPlatform.KUGOU).collect { result ->
+            result.fold(
+                onSuccess = { dailySongs ->
+                    val unifiedList = dailySongs.map { it.track }
+                    val displayTracks = unifiedList.map { it.toDisplayTrack() }
+                    _baseUnifiedTracks.value = unifiedList
+                    val (artistIds, albumIds) = buildEntityIdMaps(unifiedList, emptyList())
+                    val legacyId = KUGOU_DAILY_RECOMMEND_ID.hashCode().toLong()
+                    requestedPlaylistId = legacyId
+                    val detail = PlaylistDetail(
+                        id = legacyId,
+                        name = "每日推荐",
+                        coverImgUrl = displayTracks.firstOrNull()?.al?.picUrl ?: "",
+                        description = "酷狗每日精选推荐",
+                        playCount = 0L,
+                        tracks = displayTracks,
+                        trackCount = displayTracks.size
+                    )
+                    _uiState.value = PlaylistUiState.Success(
+                        playlist = detail,
+                        entityId = KUGOU_DAILY_RECOMMEND_ID,
+                        platform = MusicPlatform.KUGOU,
+                        artistEntityIds = artistIds,
+                        albumEntityIds = albumIds,
+                        isKugouDiscover = true
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
+                }
+            )
+        }
+    }
+
+    private suspend fun loadKugouRankTracks(entityId: String, parsed: ParsedKugouRankEntity) {
+        val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
+        if (!enabled) {
+            _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
+            return
+        }
+        val router = platformDiscoverRouter
+        if (router == null) {
+            _uiState.value = PlaylistUiState.Error("酷狗榜单服务不可用")
+            return
+        }
+        val requestRank = UnifiedRank(
+            platform = MusicPlatform.KUGOU,
+            id = "kugou:rank:${parsed.rawRankId}",
+            rawRankId = parsed.rawRankId,
+            rankCid = parsed.rankCid,
+            name = parsed.name,
+            coverUrl = ""
+        )
+        router.getRankTracks(requestRank, page = 1, pageSize = 100).collect { result ->
+            result.fold(
+                onSuccess = { page ->
+                    val unifiedList = page.tracks
+                    val displayTracks = unifiedList.map { it.toDisplayTrack() }
+                    _baseUnifiedTracks.value = unifiedList
+                    val (artistIds, albumIds) = buildEntityIdMaps(unifiedList, emptyList())
+                    val legacyId = entityId.hashCode().toLong()
+                    requestedPlaylistId = legacyId
+                    val detail = PlaylistDetail(
+                        id = legacyId,
+                        name = page.rank.name.ifBlank { parsed.name },
+                        coverImgUrl = page.rank.coverUrl.ifBlank { displayTracks.firstOrNull()?.al?.picUrl.orEmpty() },
+                        description = page.rank.intro.ifBlank { page.rank.updateFrequency },
+                        playCount = 0L,
+                        tracks = displayTracks,
+                        trackCount = page.totalCount.coerceAtLeast(displayTracks.size)
+                    )
+                    _uiState.value = PlaylistUiState.Success(
+                        playlist = detail,
+                        entityId = entityId,
+                        platform = MusicPlatform.KUGOU,
+                        artistEntityIds = artistIds,
+                        albumEntityIds = albumIds,
+                        isKugouDiscover = true
                     )
                 },
                 onFailure = { error ->
@@ -692,7 +854,7 @@ class PlaylistViewModel(
         state: PlaylistUiState.Success,
         entries: List<PlaylistUnifiedEntry>
     ): PlaylistUiState {
-        if (state.isKugouRecent || isAlbumMode || entries.isEmpty()) return state
+        if (state.isReadOnlyKugou || isAlbumMode || entries.isEmpty()) return state
         val baseUnified = _baseKugouTracks.value
         val mergedUnified = mergeUnifiedPlaylistTracks(
             baseTracks = baseUnified,
@@ -1315,7 +1477,7 @@ class PlaylistViewModel(
         }
         _uiState.update { state ->
             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
-                if (state.platform == MusicPlatform.KUGOU && !state.isKugouRecent && !isAlbumMode) {
+                if (state.platform == MusicPlatform.KUGOU && !state.isReadOnlyKugou && !isAlbumMode) {
                     val baseDisplay = _baseKugouTracks.value.map { it.toDisplayTrack() }
                     kugouRemoteTrackCount = (kugouRemoteTrackCount - removedBaseCount).coerceAtLeast(baseDisplay.size)
                     val updatedBase = state.copy(
@@ -1573,7 +1735,7 @@ class PlaylistViewModel(
             commentsController.load(commentThreadId(currentState.playlist.id))
             return
         }
-        if (currentState.isKugouRecent) return
+        if (currentState.isReadOnlyKugou) return
         val target = if (isAlbumMode) {
             AlbumId.parseOrNull(currentState.entityId)?.let { CommentTarget.AlbumTarget(albumId = it) }
         } else {

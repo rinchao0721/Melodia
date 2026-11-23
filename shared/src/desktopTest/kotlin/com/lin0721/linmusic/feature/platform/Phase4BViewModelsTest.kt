@@ -114,8 +114,11 @@ import com.lin0721.linmusic.feature.playlist.domain.FakeUserPlaylistRepository
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.playlist.domain.TrackBatchActionsDelegate
 import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistUiState
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
+import com.lin0721.linmusic.feature.playlist.ui.kugouRankEntityId
+import com.lin0721.linmusic.feature.playlist.ui.parseKugouRankEntityId
 import com.lin0721.linmusic.feature.podcast.ui.FakePlaybackController
 import com.lin0721.linmusic.feature.podcast.ui.InMemoryPreferencesStore
 import com.lin0721.linmusic.feature.podcast.ui.testResourceProvider
@@ -316,6 +319,37 @@ class Phase4BViewModelsTest {
         assertTrue(success.allItems.any { it.entityId == "kugou:3001" && it.platform == MusicPlatform.KUGOU })
         assertTrue(success.allItems.any { it.entityId == KUGOU_RECENT_PLAYLIST_ID && it.platform == MusicPlatform.KUGOU })
         assertTrue(success.allItems.any { it.entityId == "kugou:3520" && it.platform == MusicPlatform.KUGOU })
+
+        // 平台筛选与浏览平台切换联动
+        vm.setPlatformFilter(MusicPlatform.KUGOU)
+        val filteredKugou = vm.uiState.value as LibraryUiState.Success
+        assertTrue(filteredKugou.filteredItems.isNotEmpty())
+        assertTrue(filteredKugou.filteredItems.all { it.platform == MusicPlatform.KUGOU })
+
+        vm.setPlatformFilter(MusicPlatform.NETEASE)
+        val filteredNetease = vm.uiState.value as LibraryUiState.Success
+        assertFalse(filteredNetease.filteredItems.any { it.platform == MusicPlatform.KUGOU })
+
+        vm.setPlatformFilter(null)
+        vm.switchBrowsePlatform(MusicPlatform.KUGOU)
+        advanceUntilIdle()
+        assertEquals(MusicPlatform.KUGOU, vm.browsePlatform.value)
+
+        // 验证酷狗榜单 entityId 编解码往返一致
+        val sampleRank = com.lin0721.linmusic.core.platform.repository.UnifiedRank(
+            platform = MusicPlatform.KUGOU,
+            id = "kugou:rank:6666",
+            rawRankId = 6666L,
+            rankCid = 88L,
+            name = "酷狗飙升榜:TOP500",
+            coverUrl = ""
+        )
+        val encodedRank = kugouRankEntityId(sampleRank)
+        val decodedRank = parseKugouRankEntityId(encodedRank)
+        assertEquals(6666L, decodedRank?.rawRankId)
+        assertEquals(88L, decodedRank?.rankCid)
+        assertEquals("酷狗飙升榜:TOP500", decodedRank?.name)
+        assertEquals("kugou_daily", KUGOU_DAILY_RECOMMEND_ID)
 
         var createdId: String? = null
         vm.createPlaylistForPlatform(MusicPlatform.KUGOU, "新建酷狗单") { id, _ -> createdId = id }

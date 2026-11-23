@@ -6,6 +6,7 @@ import com.lin0721.linmusic.core.auth.AccountEvents
 import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.AuthRepository
 import com.lin0721.linmusic.core.auth.LoginSyncResult
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.api.AccountInfoResponse
@@ -58,6 +59,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.RecentFmTrack
+import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
@@ -114,6 +116,12 @@ class HomeViewModel(
     // 当前首页浏览平台，受 kugouPlatformEnabled 总开关门控
     val browsePlatform: StateFlow<MusicPlatform> = effectiveBrowsePlatformFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, MusicPlatform.NETEASE)
+
+    val isKugouEnabled: StateFlow<Boolean> = settingsPreferences.kugouPlatformEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val kugouAccount: StateFlow<StoredAccount?> = userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // 数据照常加载，开关只决定是否显示，重新打开无需刷新
     val showRecentPlay: StateFlow<Boolean> = settingsPreferences.homeRecentPlayEnabled
@@ -440,6 +448,11 @@ class HomeViewModel(
         } else {
             viewModelScope.launch { _toastEvent.emit("暂无可播放的发现推荐歌曲") }
         }
+    }
+
+    fun addUnifiedTrackToPlayNext(track: UnifiedTrack) {
+        playerManager.addToPlayNext(listOf(QueueItem.fromUnified(track)))
+        viewModelScope.launch { _toastEvent.emit("已添加至下一首播放") }
     }
 
     fun playKugouRank(rank: UnifiedRank, startIndex: Int = 0) {
