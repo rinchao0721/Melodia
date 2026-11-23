@@ -1,5 +1,10 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import com.lin0721.linmusic.core.platform.UnifiedPlaylist
+import com.lin0721.linmusic.core.platform.UnifiedTrack
+import com.lin0721.linmusic.core.platform.repository.UnifiedDailySong
+import com.lin0721.linmusic.core.platform.repository.UnifiedRank
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
@@ -26,5 +31,10 @@ data class HomeFeedData(
     // 翻页游标，null 表示服务端已无更多货架
     val nextCursor: String? = null,
     val hasMore: Boolean = false,
-    val isLoadingMore: Boolean = false
+    val isLoadingMore: Boolean = false,
+    val browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
+    val kugouDiscoverTracks: List<UnifiedTrack> = emptyList(),
+    val kugouDailySongs: List<UnifiedDailySong> = emptyList(),
+    val kugouPlaylists: List<UnifiedPlaylist> = emptyList(),
+    val kugouToplists: List<UnifiedRank> = emptyList()
 )

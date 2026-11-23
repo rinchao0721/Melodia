@@ -39,7 +39,23 @@ val playerModule = module {
     single { FfmpegComponentManager(androidContext()) }
     single { ExternalInterruptionResumeController(androidContext(), get()) }
     single {
-        PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), getOrNull()).also { manager ->
+        PlayerManager(
+            androidContext(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            getOrNull(),
+            getOrNull(),
+            getOrNull()
+        ).also { manager ->
             // 随播放器一同创建，进程内常驻记录播客收听进度
             PodcastProgressTracker(manager, get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
         }

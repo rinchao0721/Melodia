@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.player
 
 import com.lin0721.linmusic.core.model.PlaybackQuality
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -113,7 +114,9 @@ interface PlaybackController {
     fun disableRoaming()
     fun disableIntelligence()
     fun startPersonalFm(items: List<QueueItem>)
+    fun startPersonalFm(items: List<QueueItem>, platform: MusicPlatform) = startPersonalFm(items)
     fun disablePersonalFm()
     fun trashCurrentFmSong()
     fun switchPersonalFmMode(mode: PersonalFmMode)
+    fun switchPersonalFmPlatform(platform: MusicPlatform) {}
 }

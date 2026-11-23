@@ -43,8 +43,10 @@ import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.OnlineStateProvider
+import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -110,7 +112,9 @@ class PlayerManager(
     private val externalResolver: ExternalTrackResolver,
     private val downloadRecognizer: DownloadRecognizer,
     private val ffmpegComponentManager: FfmpegComponentManager,
-    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null,
+    private val userPreferences: UserPreferences? = null,
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -184,7 +188,11 @@ class PlayerManager(
     // elapsedRealtime 含深度睡眠时间
     private val sleepTimer = SleepTimer(scope, SystemClock::elapsedRealtime) { pause() }
     private val roaming = SimilarRoamingController(scope, repository, settingsPreferences, playbackQueue, stateStore)
-    private val personalFm = PersonalFmController(scope, repository, settingsPreferences, playbackQueue, stateStore)
+    private val personalFm = PersonalFmController(
+        scope, repository, settingsPreferences, playbackQueue, stateStore,
+        userPreferences = userPreferences,
+        discoverRepository = platformDiscoverRouter
+    )
     private val networkGuard = PlaybackNetworkGuard(
         context = context,
         scope = scope,
@@ -365,9 +373,10 @@ class PlayerManager(
             onTick = { positionMs ->
                 val dur = progress.duration.value
                 val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
-                if (dur > 0L && songId != -1L) {
+                val isKugouCurrent = playbackQueue.currentItem()?.effectivePlatform == MusicPlatform.KUGOU
+                if (dur > 0L && (songId != -1L || isKugouCurrent)) {
                     val remainingMs = dur - positionMs
-                    roaming.onProgressTick(songId, remainingMs)
+                    if (songId > 0L) roaming.onProgressTick(songId, remainingMs)
                     personalFm.onProgressTick(songId, remainingMs)
                     maybePrefetchNextTrackUrl(remainingMs)
                     maybeScheduleAutoCrossfade(songId, remainingMs, dur)
@@ -953,6 +962,7 @@ class PlayerManager(
             // 立即重置当前进度与时长；断点续播时保留已有时长避免进度条闪烁
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
             if (playWhenReady) showPendingTrack(item)
+            personalFm.prefetchOnPlay(item.songId)
 
             // 酷狗曲目优先走官方播放路由（直链/响度/声明档位），失败或试听时回退换源插件
             if (item.effectivePlatform == MusicPlatform.KUGOU && platformPlaybackRouter != null) {
@@ -1046,7 +1056,6 @@ class PlayerManager(
             }
 
             roaming.prefetchOnPlay(item.songId)
-            personalFm.prefetchOnPlay(item.songId)
 
             if (localRecord != null) {
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
@@ -1781,6 +1790,17 @@ class PlayerManager(
 
     override fun startPersonalFm(items: List<QueueItem>) {
         if (items.isEmpty()) return
+        val inferred = if (items.first().effectivePlatform == MusicPlatform.KUGOU) {
+            MusicPlatform.KUGOU
+        } else {
+            MusicPlatform.NETEASE
+        }
+        startPersonalFm(items, inferred)
+    }
+
+    override fun startPersonalFm(items: List<QueueItem>, platform: MusicPlatform) {
+        if (items.isEmpty()) return
+        personalFm.setPlatform(platform)
         playQueue(items, 0, playContext = PlaybackController.CONTEXT_PERSONAL_FM)
     }
 
@@ -1799,6 +1819,10 @@ class PlayerManager(
 
     override fun switchPersonalFmMode(mode: PersonalFmMode) {
         personalFm.switchMode(mode)
+    }
+
+    override fun switchPersonalFmPlatform(platform: MusicPlatform) {
+        personalFm.switchPlatform(platform)
     }
 
     // 镜像 ExoPlayer 真实的 playWhenReady：覆盖手动置位覆盖不到的场景（音频焦点丢失、耳机拔出等系统触发的暂停）

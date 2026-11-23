@@ -13,7 +13,11 @@ data class KugouTrackMeta(
     val albumAudioId: Long? = null,
     val albumId: String? = null,
     val playlistFileId: Long? = null,
-    val playlistAddTimeMs: Long? = null
+    val playlistAddTimeMs: Long? = null,
+    val isCloudTrack: Boolean = false,
+    val cloudAudioId: Long? = null,
+    val cloudName: String? = null,
+    val cloudKvId: Long? = null
 )
 
 // 跨平台统一音质档位枚举，串联网易音质码、酷狗音质码与 UI 徽标/排序

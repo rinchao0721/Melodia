@@ -140,7 +140,9 @@ private fun createPlaybackController(
     cacheManager: DesktopCacheManager,
     externalResolver: ExternalTrackResolver,
     recognizer: DownloadRecognizer,
-    platformPlaybackRouter: PlatformPlaybackRouter? = null
+    platformPlaybackRouter: PlatformPlaybackRouter? = null,
+    userPreferences: UserPreferences? = null,
+    platformDiscoverRouter: com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter? = null
 ): DesktopPlaybackController = try {
     MpvPlaybackController(
         repository, settingsPreferences, playbackPreferences, desktopPreferences,
@@ -156,7 +158,9 @@ private fun createPlaybackController(
         cacheManager = cacheManager,
         externalResolver = externalResolver,
         loudnessStoreFile = File(DesktopPaths.dataDir, "loudness_v2.json"),
-        platformPlaybackRouter = platformPlaybackRouter
+        platformPlaybackRouter = platformPlaybackRouter,
+        userPreferences = userPreferences,
+        platformDiscoverRouter = platformDiscoverRouter
     )
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
@@ -264,7 +268,7 @@ val desktopPlatformModule = module {
     }
     single<SongDownloader> { get<DesktopSongDownloader>() }
     single<DesktopPlaybackController>(named("local")) {
-        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get(), getOrNull())
+        createPlaybackController(get(), get(), get(), get(), get(), get(), get(), get(), get(), getOrNull(), getOrNull(), getOrNull())
     }
     single { DesktopVolumeBridge(get(named("local"))) }
     single {
@@ -367,7 +371,33 @@ val desktopPlatformModule = module {
 val desktopViewModelModule = module {
     singleOf(::LoginViewModel)
     single { KugouLoginViewModel(get<KugouAuthProvider>(), get(), get()) }
-    singleOf(::HomeViewModel)
+    single {
+        HomeViewModel(
+            syncProfileAfterLoginUseCase = get(),
+            accountSwitcher = get(),
+            playbackRepository = get(),
+            homeRepository = get(),
+            recentRepository = get(),
+            playerManager = get(),
+            userPreferences = get(),
+            authRepository = get(),
+            resourceProvider = get(),
+            loadLikedSongIdsUseCase = get(),
+            songLikeRepository = get(),
+            songCollectDelegate = get(),
+            podcastPlayer = get(),
+            playlistRepository = get(),
+            onlineState = get(),
+            userPlaylistRepository = get(),
+            songDownloadManager = get(),
+            playlistMutationBus = get(),
+            settingsPreferences = get(),
+            playbackPreferences = get(),
+            platformDiscoverRouter = getOrNull(),
+            platformPlaylistRouter = getOrNull(),
+            platformAlbumRouter = getOrNull()
+        )
+    }
     singleOf(::MusicViewModel)
     factoryOf(::StyleDetailViewModel)
     singleOf(::PodcastHomeViewModel)

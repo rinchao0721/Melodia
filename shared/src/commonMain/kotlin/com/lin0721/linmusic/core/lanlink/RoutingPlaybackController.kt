@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackLevel
 import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.core.source.MusicPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -152,9 +153,15 @@ open class RoutingPlaybackController(
 
     override fun startPersonalFm(items: List<QueueItem>) = activeController.startPersonalFm(items)
 
+    override fun startPersonalFm(items: List<QueueItem>, platform: MusicPlatform) =
+        activeController.startPersonalFm(items, platform)
+
     override fun disablePersonalFm() = activeController.disablePersonalFm()
 
     override fun trashCurrentFmSong() = activeController.trashCurrentFmSong()
 
     override fun switchPersonalFmMode(mode: PersonalFmMode) = activeController.switchPersonalFmMode(mode)
+
+    override fun switchPersonalFmPlatform(platform: MusicPlatform) =
+        activeController.switchPersonalFmPlatform(platform)
 }

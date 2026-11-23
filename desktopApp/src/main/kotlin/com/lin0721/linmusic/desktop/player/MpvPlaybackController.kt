@@ -1,10 +1,12 @@
 package com.lin0721.linmusic.desktop.player
 
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.model.PlaybackQuality
 import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
+import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.player.CrossfadePolicy
 import com.lin0721.linmusic.core.player.LoudnessMeasureRequest
 import com.lin0721.linmusic.core.player.LoudnessPolicy
@@ -113,14 +115,20 @@ class MpvPlaybackController(
     // 音量平衡结果的持久化文件，为空时只存内存
     loudnessStoreFile: File? = null,
     // 跨平台播放路由（可选，酷狗官方直链/响度/历史接入）
-    private val platformPlaybackRouter: PlatformPlaybackRouter? = null
+    private val platformPlaybackRouter: PlatformPlaybackRouter? = null,
+    private val userPreferences: UserPreferences? = null,
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null
 ) : DesktopPlaybackController, MpvEngine.Listener {
 
     private val playbackQueue = PlaybackQueue()
     private val stateStore = PlaybackStateStore(scope, preferences)
     private val sleepTimer = SleepTimer(scope) { pause() }
     private val roaming = SimilarRoamingController(scope, repository, settingsPreferences, playbackQueue, stateStore)
-    private val personalFm = PersonalFmController(scope, repository, settingsPreferences, playbackQueue, stateStore)
+    private val personalFm = PersonalFmController(
+        scope, repository, settingsPreferences, playbackQueue, stateStore,
+        userPreferences = userPreferences,
+        discoverRepository = platformDiscoverRouter
+    )
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -606,6 +614,17 @@ class MpvPlaybackController(
 
     override fun startPersonalFm(items: List<QueueItem>) {
         if (items.isEmpty()) return
+        val inferred = if (items.first().effectivePlatform == MusicPlatform.KUGOU) {
+            MusicPlatform.KUGOU
+        } else {
+            MusicPlatform.NETEASE
+        }
+        startPersonalFm(items, inferred)
+    }
+
+    override fun startPersonalFm(items: List<QueueItem>, platform: MusicPlatform) {
+        if (items.isEmpty()) return
+        personalFm.setPlatform(platform)
         playQueue(items, 0, playContext = CONTEXT_PERSONAL_FM)
     }
 
@@ -623,6 +642,10 @@ class MpvPlaybackController(
 
     override fun switchPersonalFmMode(mode: PersonalFmMode) {
         personalFm.switchMode(mode)
+    }
+
+    override fun switchPersonalFmPlatform(platform: MusicPlatform) {
+        personalFm.switchPlatform(platform)
     }
 
     override fun setVolume(percent: Int) {
@@ -811,9 +834,12 @@ class MpvPlaybackController(
         if (!_isPlaying.value) return
         val songId = loadedSongId ?: return
         val dur = _duration.value
-        if (dur > 0L && isOnlineSong(songId)) {
+        val isKugouCurrent = playbackQueue.currentItem()?.effectivePlatform == MusicPlatform.KUGOU
+        if (dur > 0L && (isOnlineSong(songId) || isKugouCurrent)) {
             val remainingMs = dur - _currentPosition.value
-            roaming.onProgressTick(songId, remainingMs)
+            if (isOnlineSong(songId)) {
+                roaming.onProgressTick(songId, remainingMs)
+            }
             personalFm.onProgressTick(songId, remainingMs)
         }
         maybePrepareCrossfade(songId)
@@ -921,6 +947,8 @@ class MpvPlaybackController(
     private fun prefetchRoaming(songId: Long) {
         if (isOnlineSong(songId)) {
             roaming.prefetchOnPlay(songId)
+            personalFm.prefetchOnPlay(songId)
+        } else if (playbackQueue.currentItem()?.effectivePlatform == MusicPlatform.KUGOU) {
             personalFm.prefetchOnPlay(songId)
         }
     }

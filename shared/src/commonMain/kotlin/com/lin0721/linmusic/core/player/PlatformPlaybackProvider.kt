@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.player
 
+import com.lin0721.linmusic.core.kugou.KugouCloudService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
 import com.lin0721.linmusic.core.kugou.KugouSongUrlResult
 import com.lin0721.linmusic.core.network.AppError
@@ -57,11 +58,12 @@ interface PlatformPlaybackProvider {
         Result.success(emptyMap())
 }
 
-// 酷狗平台播放提供者：直链主链 /v6/priv_url -> 回退 /v5/url；歌词 search + download + KRC 解析；播放历史上传
+// 酷狗平台播放提供者：云盘曲目直链 /v2/query_musicclound_url；常规曲目 /v6/priv_url -> 回退 /v5/url；歌词与播放历史上传
 class KugouPlaybackProvider(
     private val playbackService: KugouPlaybackService,
     private val lyricsCache: LyricsCache? = null,
-    private val isEnabled: suspend () -> Boolean = { true }
+    private val isEnabled: suspend () -> Boolean = { true },
+    private val cloudService: KugouCloudService? = null
 ) : PlatformPlaybackProvider {
 
     override val platform: MusicPlatform = MusicPlatform.KUGOU
@@ -77,9 +79,25 @@ class KugouPlaybackProvider(
         if (trackId.platform != MusicPlatform.KUGOU) {
             return Result.failure(IllegalArgumentException("不支持的平台: ${trackId.platform.key}"))
         }
-        val hash = (meta?.kugouMeta?.hash ?: trackId.rawId).trim().lowercase()
-        val albumId = meta?.kugouMeta?.albumId
-        val albumAudioId = meta?.kugouMeta?.albumAudioId
+        val kgMeta = meta?.kugouMeta
+        val hash = (kgMeta?.hash ?: trackId.rawId).trim().lowercase()
+        val albumId = kgMeta?.albumId
+        val albumAudioId = kgMeta?.albumAudioId
+
+        if ((kgMeta?.isCloudTrack == true || (kgMeta?.cloudKvId ?: 0L) > 0L) && cloudService != null) {
+            return cloudService.getCloudPlayUrl(
+                hash = hash,
+                albumAudioId = albumAudioId ?: 0L,
+                audioId = kgMeta?.cloudAudioId ?: 0L,
+                name = kgMeta?.cloudName ?: meta?.title.orEmpty()
+            ).map { cloud ->
+                SongPlaybackInfo(
+                    url = cloud.url,
+                    isFreeTrial = false,
+                    level = null
+                )
+            }
+        }
 
         val primaryResult = playbackService.getSongUrlNew(
             hash = hash,

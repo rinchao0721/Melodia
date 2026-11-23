@@ -58,8 +58,14 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.RecentFmTrack
+import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedRank
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
+import kotlinx.coroutines.flow.combine
 
 private const val TAG = "HomeViewModel"
 
@@ -84,7 +90,10 @@ class HomeViewModel(
     private val songDownloadManager: SongDownloader,
     private val playlistMutationBus: PlaylistMutationBus,
     private val settingsPreferences: SettingsPreferences,
-    private val playbackPreferences: PlaybackPreferences
+    private val playbackPreferences: PlaybackPreferences,
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null,
+    private val platformPlaylistRouter: PlatformPlaylistRouter? = null,
+    private val platformAlbumRouter: PlatformAlbumRouter? = null
 ) : ViewModel() {
 
     private var loadHomeJob: Job? = null
@@ -94,6 +103,17 @@ class HomeViewModel(
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val effectiveBrowsePlatformFlow = combine(
+        userPreferences.currentBrowsePlatform,
+        settingsPreferences.kugouPlatformEnabled
+    ) { platform, kugouEnabled ->
+        if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
+    }.distinctUntilChanged()
+
+    // 当前首页浏览平台，受 kugouPlatformEnabled 总开关门控
+    val browsePlatform: StateFlow<MusicPlatform> = effectiveBrowsePlatformFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, MusicPlatform.NETEASE)
 
     // 数据照常加载，开关只决定是否显示，重新打开无需刷新
     val showRecentPlay: StateFlow<Boolean> = settingsPreferences.homeRecentPlayEnabled
@@ -144,7 +164,15 @@ class HomeViewModel(
     fun toggleSubscribe() = podcastPlayer.toggleSubscribe { _toastEvent.emit(it) }
 
     init {
-        loadHomeData()
+        viewModelScope.launch {
+            var lastLoadedPlatform: MusicPlatform? = null
+            effectiveBrowsePlatformFlow.collect { platform ->
+                if (lastLoadedPlatform != platform) {
+                    lastLoadedPlatform = platform
+                    loadHomeData(refresh = false)
+                }
+            }
+        }
         viewModelScope.launch {
             playerManager.initController()
         }
@@ -177,8 +205,34 @@ class HomeViewModel(
         }
         viewModelScope.launch {
             AccountEvents.switched.collect {
-                loadHomeData(refresh = true)
+                if (resolveEffectiveBrowsePlatform() == MusicPlatform.NETEASE) {
+                    loadHomeData(refresh = true)
+                }
             }
+        }
+        viewModelScope.launch {
+            AccountEvents.platformSwitched.collect { event ->
+                if (event.platform == MusicPlatform.KUGOU && resolveEffectiveBrowsePlatform() == MusicPlatform.KUGOU) {
+                    loadHomeData(refresh = true)
+                }
+            }
+        }
+    }
+
+    private suspend fun resolveEffectiveBrowsePlatform(): MusicPlatform {
+        val raw = userPreferences.currentBrowsePlatform.first()
+        val kugouEnabled = settingsPreferences.kugouPlatformEnabled.first()
+        return if (raw == MusicPlatform.KUGOU && kugouEnabled) MusicPlatform.KUGOU else MusicPlatform.NETEASE
+    }
+
+    fun switchBrowsePlatform(platform: MusicPlatform) {
+        viewModelScope.launch {
+            if (platform == MusicPlatform.KUGOU && !settingsPreferences.kugouPlatformEnabled.first()) {
+                userPreferences.setBrowsePlatform(MusicPlatform.NETEASE)
+                _toastEvent.emit("酷狗音乐平台未启用")
+                return@launch
+            }
+            userPreferences.setBrowsePlatform(platform)
         }
     }
 
@@ -245,63 +299,82 @@ class HomeViewModel(
 
     // 仅替换最近播放一块；失败或首页尚未加载完时保持原状
     private suspend fun refreshRecentPlaylists() {
+        val current = _uiState.value as? HomeUiState.Success ?: return
+        if (current.data.browsePlatform != MusicPlatform.NETEASE) return
         val latest = runCatching { recentRepository.getRecentPlaylists().first() }
             .getOrNull()?.getOrNull() ?: return
-        val current = _uiState.value as? HomeUiState.Success ?: return
-        _uiState.value = HomeUiState.Success(current.data.copy(recentPlaylists = latest))
+        val after = _uiState.value as? HomeUiState.Success ?: return
+        if (after.data.browsePlatform == MusicPlatform.NETEASE) {
+            _uiState.value = HomeUiState.Success(after.data.copy(recentPlaylists = latest))
+        }
     }
 
     // 货架序列是整页主数据源，它失败才算整页失败；其余几项各自兜底不影响渲染
     private suspend fun fetchHomeFeedData(refresh: Boolean): Result<HomeFeedData> = try {
-        coroutineScope {
-            val blockPageDeferred = async {
-                homeRepository.getHomeBlockPage(refresh = refresh).first()
+        val targetPlatform = resolveEffectiveBrowsePlatform()
+        val discoverRouter = platformDiscoverRouter
+        if (targetPlatform == MusicPlatform.KUGOU && discoverRouter != null) {
+            discoverRouter.getDiscoverFeed(MusicPlatform.KUGOU, refresh).first().map { feed ->
+                HomeFeedData(
+                    browsePlatform = MusicPlatform.KUGOU,
+                    kugouDiscoverTracks = feed.discoverTracks,
+                    kugouDailySongs = feed.dailySongs,
+                    kugouPlaylists = feed.recommendPlaylists,
+                    kugouToplists = feed.toplists
+                )
             }
+        } else {
+            coroutineScope {
+                val blockPageDeferred = async {
+                    homeRepository.getHomeBlockPage(refresh = refresh).first()
+                }
 
-            val playlistsDeferred = async {
-                runCatching { homeRepository.getPersonalizedPlaylists().first() }
-                    .getOrDefault(Result.success(PersonalizedData()))
-            }
+                val playlistsDeferred = async {
+                    runCatching { homeRepository.getPersonalizedPlaylists().first() }
+                        .getOrDefault(Result.success(PersonalizedData()))
+                }
 
-            val recentDeferred = async {
-                runCatching { recentRepository.getRecentPlaylists().first() }
-                    .getOrDefault(Result.success(emptyList()))
-            }
+                val recentDeferred = async {
+                    runCatching { recentRepository.getRecentPlaylists().first() }
+                        .getOrDefault(Result.success(emptyList()))
+                }
 
-            val dailySongsDeferred = async {
-                runCatching { homeRepository.getDailyRecommendSongs().first() }
-                    .getOrDefault(Result.success(emptyList()))
-            }
+                val dailySongsDeferred = async {
+                    runCatching { homeRepository.getDailyRecommendSongs().first() }
+                        .getOrDefault(Result.success(emptyList()))
+                }
 
-            val toplistDeferred = async {
-                runCatching { homeRepository.getToplistDetail().first() }
-                    .getOrDefault(Result.success(emptyList<ToplistInfo>()))
-            }
+                val toplistDeferred = async {
+                    runCatching { homeRepository.getToplistDetail().first() }
+                        .getOrDefault(Result.success(emptyList<ToplistInfo>()))
+                }
 
-            val blockPageResult = blockPageDeferred.await()
-            val playlistsResult = playlistsDeferred.await()
-            val recentResult = recentDeferred.await()
-            val dailySongsResult = dailySongsDeferred.await()
-            val toplistResult = toplistDeferred.await()
+                val blockPageResult = blockPageDeferred.await()
+                val playlistsResult = playlistsDeferred.await()
+                val recentResult = recentDeferred.await()
+                val dailySongsResult = dailySongsDeferred.await()
+                val toplistResult = toplistDeferred.await()
 
-            val blockPage = blockPageResult.getOrNull()
-            if (blockPage != null) {
-                Result.success(
-                    HomeFeedData(
-                        shelves = blockPage.shelves,
-                        recommendPlaylists = playlistsResult.getOrNull()?.playlists.orEmpty(),
-                        recentPlaylists = recentResult.getOrDefault(emptyList()),
-                        dailySongs = dailySongsResult.getOrDefault(emptyList()),
-                        toplistItems = toplistResult.getOrDefault(emptyList()),
-                        nextCursor = blockPage.nextCursor,
-                        hasMore = blockPage.hasMore
+                val blockPage = blockPageResult.getOrNull()
+                if (blockPage != null) {
+                    Result.success(
+                        HomeFeedData(
+                            shelves = blockPage.shelves,
+                            recommendPlaylists = playlistsResult.getOrNull()?.playlists.orEmpty(),
+                            recentPlaylists = recentResult.getOrDefault(emptyList()),
+                            dailySongs = dailySongsResult.getOrDefault(emptyList()),
+                            toplistItems = toplistResult.getOrDefault(emptyList()),
+                            nextCursor = blockPage.nextCursor,
+                            hasMore = blockPage.hasMore,
+                            browsePlatform = MusicPlatform.NETEASE
+                        )
                     )
-                )
-            } else {
-                Result.failure(
-                    blockPageResult.exceptionOrNull()
-                        ?: RuntimeException(resourceProvider.getString(AppString.ErrorBizDefault))
-                )
+                } else {
+                    Result.failure(
+                        blockPageResult.exceptionOrNull()
+                            ?: RuntimeException(resourceProvider.getString(AppString.ErrorBizDefault))
+                    )
+                }
             }
         }
     } catch (e: Exception) {
@@ -311,6 +384,7 @@ class HomeViewModel(
     // 滚到底时追加下一页货架。服务端目前只有两页，翻完 hasMore 即为 false
     fun loadMoreShelves() {
         val current = _uiState.value as? HomeUiState.Success ?: return
+        if (current.data.browsePlatform != MusicPlatform.NETEASE) return
         val cursor = current.data.nextCursor ?: return
         if (current.data.isLoadingMore) return
 
@@ -341,18 +415,58 @@ class HomeViewModel(
 
     fun playDailySong(index: Int = 0) {
         val state = uiState.value
-        if (state is HomeUiState.Success && state.data.dailySongs.isNotEmpty()) {
-            val queueItems = state.data.dailySongs.map { song ->
-                QueueItem(song.id, song.name, song.ar.joinToString { it.name }, song.al.picUrl)
+        if (state is HomeUiState.Success) {
+            if (state.data.browsePlatform == MusicPlatform.KUGOU && state.data.kugouDailySongs.isNotEmpty()) {
+                val queueItems = state.data.kugouDailySongs.map { QueueItem.fromUnified(it.track) }
+                playerManager.playQueue(queueItems, index.coerceIn(0, queueItems.size - 1), "每日推荐")
+                return
             }
-            playerManager.playQueue(queueItems, index.coerceIn(0, queueItems.size - 1), "每日推荐")
+            if (state.data.dailySongs.isNotEmpty()) {
+                val queueItems = state.data.dailySongs.map { song ->
+                    QueueItem(song.id, song.name, song.ar.joinToString { it.name }, song.al.picUrl)
+                }
+                playerManager.playQueue(queueItems, index.coerceIn(0, queueItems.size - 1), "每日推荐")
+                return
+            }
+        }
+        viewModelScope.launch { _toastEvent.emit("每日推荐暂无歌曲") }
+    }
+
+    fun playKugouDiscoverTrack(index: Int = 0) {
+        val state = uiState.value
+        if (state is HomeUiState.Success && state.data.kugouDiscoverTracks.isNotEmpty()) {
+            val queueItems = state.data.kugouDiscoverTracks.map(QueueItem::fromUnified)
+            playerManager.playQueue(queueItems, index.coerceIn(0, queueItems.size - 1), "酷狗发现")
         } else {
-            viewModelScope.launch { _toastEvent.emit("每日推荐暂无歌曲") }
+            viewModelScope.launch { _toastEvent.emit("暂无可播放的发现推荐歌曲") }
+        }
+    }
+
+    fun playKugouRank(rank: UnifiedRank, startIndex: Int = 0) {
+        val router = platformDiscoverRouter ?: return
+        viewModelScope.launch {
+            router.getRankTracks(rank, page = 1, pageSize = 50).first().fold(
+                onSuccess = { page ->
+                    if (page.tracks.isEmpty()) {
+                        _toastEvent.emit("榜单暂无曲目")
+                    } else {
+                        val queueItems = page.tracks.map(QueueItem::fromUnified)
+                        playerManager.playQueue(queueItems, startIndex.coerceIn(0, queueItems.size - 1), rank.name)
+                    }
+                },
+                onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+            )
         }
     }
 
     private val collectionActions = CollectionActionsDelegate(
-        playlistRepository, playerManager, songDownloadManager, playlistMutationBus, resourceProvider
+        playlistRepository,
+        playerManager,
+        songDownloadManager,
+        playlistMutationBus,
+        resourceProvider,
+        platformPlaylistRouter,
+        platformAlbumRouter
     )
 
     // 卡片上直接播放歌单/专辑：先拉详情，歌单还要补全被服务端截断的曲目，再整列起播
@@ -360,9 +474,17 @@ class HomeViewModel(
         viewModelScope.launch { collectionActions.play(id, isAlbum) { _toastEvent.emit(it) } }
     }
 
+    fun playCollectionEntity(entityId: String, isAlbum: Boolean) {
+        viewModelScope.launch { collectionActions.playEntity(entityId, isAlbum) { _toastEvent.emit(it) } }
+    }
+
     // 歌单或专辑全部加入下一首播放
     fun addCollectionToPlayNext(id: Long, isAlbum: Boolean) {
         viewModelScope.launch { collectionActions.addToPlayNext(id, isAlbum) { _toastEvent.emit(it) } }
+    }
+
+    fun addCollectionEntityToPlayNext(entityId: String, isAlbum: Boolean) {
+        viewModelScope.launch { collectionActions.addEntityToPlayNext(entityId, isAlbum) { _toastEvent.emit(it) } }
     }
 
     // 批量下载歌单或专辑
@@ -378,6 +500,12 @@ class HomeViewModel(
             if (collectionActions.subscribePlaylist(playlistId) { _toastEvent.emit(it) }) {
                 _subscribedPlaylistIds.value = _subscribedPlaylistIds.value + playlistId
             }
+        }
+    }
+
+    fun subscribePlaylistEntity(entityId: String) {
+        viewModelScope.launch {
+            collectionActions.subscribeEntity(entityId) { _toastEvent.emit(it) }
         }
     }
 
@@ -543,6 +671,29 @@ class HomeViewModel(
     // 开启私人FM；未登录时仅提示，不修改播放队列
     fun startPersonalFm(mode: PersonalFmMode? = null) {
         viewModelScope.launch {
+            val targetPlatform = resolveEffectiveBrowsePlatform()
+            if (targetPlatform == MusicPlatform.KUGOU && platformDiscoverRouter != null) {
+                if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() == null) {
+                    _toastEvent.emit("请先登录酷狗账号")
+                    return@launch
+                }
+                val targetMode = mode ?: settingsPreferences.personalFmMode.first()
+                platformDiscoverRouter.getPersonalFmSongs(MusicPlatform.KUGOU, targetMode).first().fold(
+                    onSuccess = { tracks ->
+                        val items = tracks.map(QueueItem::fromUnified)
+                            .filter { it.effectiveTrackId.rawId.isNotBlank() }
+                            .distinctBy { it.effectiveTrackId.canonical }
+                        if (items.isNotEmpty()) {
+                            playerManager.startPersonalFm(items, MusicPlatform.KUGOU)
+                        } else {
+                            _toastEvent.emit("暂无可播放的私人FM歌曲")
+                        }
+                    },
+                    onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+                )
+                return@launch
+            }
+
             if (userPreferences.userProfile.first() == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
@@ -569,7 +720,7 @@ class HomeViewModel(
                         if (mode != null) {
                             playerManager.switchPersonalFmMode(targetMode)
                         }
-                        playerManager.startPersonalFm(items)
+                        playerManager.startPersonalFm(items, MusicPlatform.NETEASE)
                     } else {
                         _toastEvent.emit("暂无可播放的私人FM歌曲")
                     }
@@ -582,7 +733,13 @@ class HomeViewModel(
 
     fun switchPersonalFmMode(mode: PersonalFmMode) {
         viewModelScope.launch {
-            if (userPreferences.userProfile.first() == null) {
+            val targetPlatform = resolveEffectiveBrowsePlatform()
+            if (targetPlatform == MusicPlatform.KUGOU) {
+                if (userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() == null) {
+                    _toastEvent.emit("请先登录酷狗账号")
+                    return@launch
+                }
+            } else if (userPreferences.userProfile.first() == null) {
                 _toastEvent.emit("请先登录账号")
                 return@launch
             }

@@ -45,7 +45,33 @@ import org.koin.dsl.module
  */
 val viewModelModule = module {
 
-    viewModelOf(::HomeViewModel)
+    viewModel {
+        HomeViewModel(
+            syncProfileAfterLoginUseCase = get(),
+            accountSwitcher = get(),
+            playbackRepository = get(),
+            homeRepository = get(),
+            recentRepository = get(),
+            playerManager = get(),
+            userPreferences = get(),
+            authRepository = get(),
+            resourceProvider = get(),
+            loadLikedSongIdsUseCase = get(),
+            songLikeRepository = get(),
+            songCollectDelegate = get(),
+            podcastPlayer = get(),
+            playlistRepository = get(),
+            onlineState = get(),
+            userPlaylistRepository = get(),
+            songDownloadManager = get(),
+            playlistMutationBus = get(),
+            settingsPreferences = get(),
+            playbackPreferences = get(),
+            platformDiscoverRouter = getOrNull(),
+            platformPlaylistRouter = getOrNull(),
+            platformAlbumRouter = getOrNull()
+        )
+    }
     viewModelOf(::MusicViewModel)
     viewModelOf(::StyleDetailViewModel)
     viewModelOf(::PodcastHomeViewModel)
