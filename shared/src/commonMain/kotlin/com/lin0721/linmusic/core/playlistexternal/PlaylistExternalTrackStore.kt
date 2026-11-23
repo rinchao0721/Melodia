@@ -35,8 +35,15 @@ data class PlaylistExternalTombstone(
 @Serializable
 data class PlaylistExternalSnapshot(
     val entries: Map<Long, List<PlaylistExternalEntry>> = emptyMap(),
-    val tombstones: List<PlaylistExternalTombstone> = emptyList()
-)
+    val tombstones: List<PlaylistExternalTombstone> = emptyList(),
+    val unifiedEntries: Map<String, List<PlaylistUnifiedEntry>> = emptyMap(),
+    val unifiedTombstones: List<PlaylistUnifiedTombstone> = emptyList()
+) {
+    fun toV1Legacy(): PlaylistExternalSnapshot = PlaylistExternalSnapshot(
+        entries = entries,
+        tombstones = tombstones
+    )
+}
 
 @Serializable
 data class PlaylistUnifiedEntry(val track: UnifiedTrack, val addedAt: Long)
@@ -74,9 +81,17 @@ class PlaylistExternalTrackStore(
     }.distinctUntilChanged()
 
     val snapshotFlow: Flow<PlaylistExternalSnapshot> = dataStore.data.map { prefs ->
+        val now = nowMs()
         val entries = decodeEntries(prefs[KEY_ENTRIES])
-        val tombstones = pruneExpiredTombstones(decodeTombstones(prefs[KEY_TOMBSTONES]), nowMs())
-        PlaylistExternalSnapshot(entries = entries, tombstones = tombstones)
+        val tombstones = pruneExpiredTombstones(decodeTombstones(prefs[KEY_TOMBSTONES]), now)
+        val unifiedEntries = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+        val unifiedTombstones = pruneExpiredUnifiedTombstones(decodeUnifiedTombstones(prefs[KEY_UNIFIED_TOMBSTONES]), now)
+        PlaylistExternalSnapshot(
+            entries = entries,
+            tombstones = tombstones,
+            unifiedEntries = unifiedEntries,
+            unifiedTombstones = unifiedTombstones
+        )
     }.distinctUntilChanged()
 
     suspend fun snapshot(): PlaylistExternalSnapshot = snapshotFlow.first()
@@ -295,9 +310,13 @@ class PlaylistExternalTrackStore(
         dataStore.edit { prefs ->
             val localRawEntries = decodeEntries(prefs[KEY_ENTRIES])
             val localRawTombstones = decodeTombstones(prefs[KEY_TOMBSTONES])
+            val localRawUnifiedEntries = decodeUnifiedEntries(prefs[KEY_UNIFIED_ENTRIES])
+            val localRawUnifiedTombstones = decodeUnifiedTombstones(prefs[KEY_UNIFIED_TOMBSTONES])
             val localNormalized = PlaylistExternalSnapshot(
                 entries = localRawEntries,
-                tombstones = pruneExpiredTombstones(localRawTombstones, now)
+                tombstones = pruneExpiredTombstones(localRawTombstones, now),
+                unifiedEntries = localRawUnifiedEntries,
+                unifiedTombstones = pruneExpiredUnifiedTombstones(localRawUnifiedTombstones, now)
             )
             val merged = mergePlaylistExternalSnapshots(localNormalized, remote, now)
             if (hasSameSemanticState(localNormalized, merged)) {
@@ -309,6 +328,16 @@ class PlaylistExternalTrackStore(
                 prefs.remove(KEY_TOMBSTONES)
             } else {
                 prefs[KEY_TOMBSTONES] = json.encodeToString(merged.tombstones)
+            }
+            if (merged.unifiedEntries.isEmpty()) {
+                prefs.remove(KEY_UNIFIED_ENTRIES)
+            } else {
+                prefs[KEY_UNIFIED_ENTRIES] = json.encodeToString(merged.unifiedEntries)
+            }
+            if (merged.unifiedTombstones.isEmpty()) {
+                prefs.remove(KEY_UNIFIED_TOMBSTONES)
+            } else {
+                prefs[KEY_UNIFIED_TOMBSTONES] = json.encodeToString(merged.unifiedTombstones)
             }
             changed = true
         }
@@ -511,7 +540,45 @@ fun mergePlaylistExternalSnapshots(
     val sortedTombstones = activeTombstones.sortedWith(
         compareBy<PlaylistExternalTombstone> { it.playlistId }.thenBy { it.resolveKey }
     )
-    return PlaylistExternalSnapshot(entries = sortedEntries, tombstones = sortedTombstones)
+    val mergedUnifiedTombstones = pruneExpiredUnifiedTombstones(local.unifiedTombstones + remote.unifiedTombstones, now)
+    val mergedUnifiedEntries = mergeUnifiedEntriesMap(local.unifiedEntries, remote.unifiedEntries, mergedUnifiedTombstones, now)
+    return PlaylistExternalSnapshot(
+        entries = sortedEntries,
+        tombstones = sortedTombstones,
+        unifiedEntries = mergedUnifiedEntries,
+        unifiedTombstones = mergedUnifiedTombstones
+    )
+}
+
+private fun mergeUnifiedEntriesMap(
+    local: Map<String, List<PlaylistUnifiedEntry>>,
+    remote: Map<String, List<PlaylistUnifiedEntry>>,
+    activeTombstones: List<PlaylistUnifiedTombstone>,
+    now: Long
+): Map<String, List<PlaylistUnifiedEntry>> {
+    val tombstoneByKey = activeTombstones.associateBy { it.playlistId.canonical to it.trackKey }
+    val entryByKey = HashMap<Pair<String, String>, PlaylistUnifiedEntry>()
+    for (source in listOf(local, remote)) {
+        for ((playlistId, entries) in source) {
+            for (entry in entries) {
+                val key = playlistId to entry.track.id.canonical
+                val existing = entryByKey[key]
+                if (existing == null || entry.addedAt > existing.addedAt) {
+                    entryByKey[key] = entry
+                }
+            }
+        }
+    }
+    val merged = LinkedHashMap<String, MutableList<PlaylistUnifiedEntry>>()
+    for ((key, entry) in entryByKey) {
+        val tombstone = tombstoneByKey[key]
+        if (tombstone != null && tombstone.removedAt >= entry.addedAt) continue
+        merged.getOrPut(key.first) { mutableListOf() }.add(entry)
+    }
+    for (list in merged.values) {
+        list.sortByDescending { it.addedAt }
+    }
+    return merged
 }
 
 private fun pruneExpiredTombstones(
@@ -551,5 +618,14 @@ private fun hasSameSemanticState(
         val right = bEntries[playlistId].orEmpty().associateBy { it.track.resolveKey }
         if (left != right) return false
     }
-    return a.tombstones.toSet() == b.tombstones.toSet()
+    if (a.tombstones.toSet() != b.tombstones.toSet()) return false
+    val aUnified = a.unifiedEntries.filterValues { it.isNotEmpty() }
+    val bUnified = b.unifiedEntries.filterValues { it.isNotEmpty() }
+    if (aUnified.keys != bUnified.keys) return false
+    for (playlistId in aUnified.keys) {
+        val left = aUnified[playlistId].orEmpty().associateBy { it.track.id.canonical }
+        val right = bUnified[playlistId].orEmpty().associateBy { it.track.id.canonical }
+        if (left != right) return false
+    }
+    return a.unifiedTombstones.toSet() == b.unifiedTombstones.toSet()
 }

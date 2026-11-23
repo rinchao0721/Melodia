@@ -701,7 +701,12 @@ class LanLinkRemoteCoordinator(
 
             is LanLinkMessage.RemoteStartPersonalFm -> {
                 withContext(commandDispatcher) {
-                    localController.startPersonalFm(message.items)
+                    val targetPlatform = message.platform
+                    if (targetPlatform != null) {
+                        localController.startPersonalFm(message.items, targetPlatform)
+                    } else {
+                        localController.startPersonalFm(message.items)
+                    }
                 }
             }
 
@@ -839,6 +844,7 @@ class LanLinkRemoteCoordinator(
                     RemoteCommandAction.SET_VOLUME -> if (cmd.volumePercent in 0..100) {
                         volumeBridge.setVolume(cmd.volumePercent)
                     }
+                    RemoteCommandAction.SWITCH_FM_PLATFORM -> Unit
                     RemoteCommandAction.TOGGLE_SHUFFLE -> localController.toggleShuffle()
                     RemoteCommandAction.TOGGLE_REPEAT -> localController.toggleRepeat()
                     RemoteCommandAction.ROTATE_PLAY_MODE -> localController.rotatePlayMode()

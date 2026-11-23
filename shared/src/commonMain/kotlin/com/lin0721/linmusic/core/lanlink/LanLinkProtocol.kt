@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.core.lanlink
 
+import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
@@ -14,7 +16,8 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 
 object LanLinkConstants {
     const val UDP_DISCOVERY_PORT = 45821
-    const val PROTOCOL_VERSION = 1
+    const val PROTOCOL_VERSION_V1 = 1
+    const val PROTOCOL_VERSION = 2
     const val MAX_FRAME_BYTES = 4 * 1024 * 1024
     const val PAIRING_CODE_TTL_MS = 2 * 60 * 1000L
     const val PAIRING_MAX_ATTEMPTS = 5
@@ -109,7 +112,8 @@ sealed interface LanLinkMessage {
     data class PairHello(
         val clientDeviceId: String,
         val clientDeviceName: String,
-        val clientNonceBase64: String
+        val clientNonceBase64: String,
+        val protocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ) : LanLinkMessage
 
     @Serializable
@@ -118,7 +122,8 @@ sealed interface LanLinkMessage {
         val serverDeviceId: String,
         val serverDeviceName: String,
         val serverNonceBase64: String,
-        val saltBase64: String
+        val saltBase64: String,
+        val protocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ) : LanLinkMessage
 
     @Serializable
@@ -141,7 +146,8 @@ sealed interface LanLinkMessage {
     data class AuthHello(
         val clientDeviceId: String,
         val clientDeviceName: String,
-        val clientNonceBase64: String
+        val clientNonceBase64: String,
+        val protocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ) : LanLinkMessage
 
     @Serializable
@@ -150,7 +156,8 @@ sealed interface LanLinkMessage {
         val serverDeviceId: String,
         val serverDeviceName: String,
         val serverNonceBase64: String,
-        val serverProofBase64: String
+        val serverProofBase64: String,
+        val protocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ) : LanLinkMessage
 
     @Serializable
@@ -169,7 +176,8 @@ sealed interface LanLinkMessage {
     @Serializable
     @SerialName("account_exchange")
     data class AccountExchange(
-        val uid: Long?
+        val uid: Long?,
+        val activeAccounts: Map<String, String> = emptyMap()
     ) : LanLinkMessage
 
     @Serializable
@@ -263,7 +271,8 @@ sealed interface LanLinkMessage {
         val toIndex: Int = -1,
         val positionMs: Long = 0L,
         val volumePercent: Int = -1,
-        val personalFmMode: PersonalFmMode? = null
+        val personalFmMode: PersonalFmMode? = null,
+        val platform: MusicPlatform? = null
     ) : LanLinkMessage
 
     @Serializable
@@ -317,7 +326,8 @@ sealed interface LanLinkMessage {
     @Serializable
     @SerialName("remote_start_personal_fm")
     data class RemoteStartPersonalFm(
-        val items: List<QueueItem>
+        val items: List<QueueItem>,
+        val platform: MusicPlatform? = null
     ) : LanLinkMessage
 
     @Serializable
@@ -387,6 +397,50 @@ enum class RemoteCommandAction {
     DISABLE_INTELLIGENCE,
     DISABLE_PERSONAL_FM,
     TRASH_FM,
-    SWITCH_FM_MODE
+    SWITCH_FM_MODE,
+    SWITCH_FM_PLATFORM
+}
+
+// v1 兼容投影：为旧版对端剥离 v2 专属字段并补齐外部曲目兜底信息
+fun QueueItem.toV1Compat(): QueueItem {
+    val resolvedPlatform = effectivePlatform
+    val compatExternal = when {
+        external != null -> external
+        resolvedPlatform == MusicPlatform.KUGOU -> ExternalTrack(
+            platform = resolvedPlatform,
+            id = effectiveTrackId.rawId,
+            name = title,
+            artists = artist,
+            coverUrl = coverUrl
+        )
+        else -> null
+    }
+    return copy(
+        external = compatExternal,
+        trackId = null,
+        kugouMeta = null
+    )
+}
+
+fun LanLinkMessage.projectForProtocol(protocolVersion: Int): LanLinkMessage? {
+    if (protocolVersion >= LanLinkConstants.PROTOCOL_VERSION) return this
+    return when (this) {
+        is LanLinkMessage.AccountExchange -> LanLinkMessage.AccountExchange(uid = uid)
+        is LanLinkMessage.SyncSnapshot -> copy(snapshot = snapshot.toV1Legacy())
+        is LanLinkMessage.RemoteHandoffPlay -> copy(item = item.toV1Compat())
+        is LanLinkMessage.RemotePlayQueue -> copy(items = items.map { it.toV1Compat() })
+        is LanLinkMessage.RemoteAddToPlayNext -> copy(items = items.map { it.toV1Compat() })
+        is LanLinkMessage.RemotePlayNextNow -> copy(item = item.toV1Compat())
+        is LanLinkMessage.RemoteAppendToQueue -> copy(items = items.map { it.toV1Compat() })
+        is LanLinkMessage.RemoteExtendQueue -> copy(items = items.map { it.toV1Compat() })
+        is LanLinkMessage.RemoteStartPersonalFm -> LanLinkMessage.RemoteStartPersonalFm(
+            items = items.map { it.toV1Compat() }
+        )
+        is LanLinkMessage.RemoteQueueSync -> copy(items = items.map { it.toV1Compat() })
+        is LanLinkMessage.RemoteCommand -> {
+            if (action == RemoteCommandAction.SWITCH_FM_PLATFORM) null else this
+        }
+        else -> this
+    }
 }
 

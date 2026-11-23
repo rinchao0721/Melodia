@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.lanlink
 
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
@@ -400,6 +401,15 @@ class RemotePlaybackController(
             return
         }
         sendCommand(LanLinkMessage.RemoteStartPersonalFm(filtered))
+    }
+
+    override fun startPersonalFm(items: List<QueueItem>, platform: MusicPlatform) {
+        val filtered = items.filterNot(::isLocalOnlyQueueItem)
+        if (filtered.isEmpty()) {
+            onUserMessage("本地歌曲无法在远程设备播放")
+            return
+        }
+        sendCommand(LanLinkMessage.RemoteStartPersonalFm(filtered, platform = platform))
     }
 
     override fun disablePersonalFm() {

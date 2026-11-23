@@ -325,7 +325,13 @@ class LanLinkAndroidClient(
 
                     val sessionKey = LanLinkCrypto.deriveSessionKey(deviceKey, clientNonce, serverNonce)
                     handedOff = true
-                    launchAuthenticatedSession(socket, sessionKey, paired.deviceId, paired.deviceName)
+                    launchAuthenticatedSession(
+                        socket,
+                        sessionKey,
+                        paired.deviceId,
+                        paired.deviceName,
+                        peerProtocolVersion = challengeMsg.protocolVersion
+                    )
                     _messages.tryEmit("已配对 ${paired.deviceName}")
                     Result.success(paired)
                 } finally {
@@ -498,7 +504,8 @@ class LanLinkAndroidClient(
                 LanLinkMessage.AuthHello(
                     clientDeviceId = localId,
                     clientDeviceName = deviceNameProvider(),
-                    clientNonceBase64 = LanLinkCrypto.toBase64(clientNonce)
+                    clientNonceBase64 = LanLinkCrypto.toBase64(clientNonce),
+                    protocolVersion = LanLinkConstants.PROTOCOL_VERSION
                 )
             )
 
@@ -559,7 +566,8 @@ class LanLinkAndroidClient(
                 sessionKey = sessionKey,
                 peerDeviceId = paired.deviceId,
                 peerDeviceName = peerName,
-                cancelReconnectLoop = !fromReconnectLoop
+                cancelReconnectLoop = !fromReconnectLoop,
+                peerProtocolVersion = challenge.protocolVersion
             )
             true
         } catch (_: Exception) {
@@ -604,7 +612,8 @@ class LanLinkAndroidClient(
         sessionKey: ByteArray,
         peerDeviceId: String,
         peerDeviceName: String,
-        cancelReconnectLoop: Boolean = true
+        cancelReconnectLoop: Boolean = true,
+        peerProtocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ) {
         if (cancelReconnectLoop) {
             reconnectJob?.cancel()
@@ -618,6 +627,7 @@ class LanLinkAndroidClient(
             peerDeviceName = peerDeviceName,
             store = playlistExternalTrackStore,
             userPreferences = userPreferences,
+            peerProtocolVersion = peerProtocolVersion,
             onUnpairedByPeer = {
                 knownEndpoints.remove(peerDeviceId)
                 lanLinkPreferences.removePairedDevice(peerDeviceId)

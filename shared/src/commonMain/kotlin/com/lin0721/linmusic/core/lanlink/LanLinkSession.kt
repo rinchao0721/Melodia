@@ -38,8 +38,14 @@ internal class LanLinkSession(
     private val onUnpairedByPeer: suspend () -> Unit,
     private val onSyncStateChanged: (LanLinkSyncState, String) -> Unit,
     private val onMessageReceived: (suspend (LanLinkMessage) -> Unit)? = null,
-    private val onByeByPeer: (suspend (String) -> Unit)? = null
+    private val onByeByPeer: (suspend (String) -> Unit)? = null,
+    val peerProtocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
 ) {
+    val negotiatedProtocolVersion: Int = minOf(
+        LanLinkConstants.PROTOCOL_VERSION,
+        peerProtocolVersion.coerceAtLeast(LanLinkConstants.PROTOCOL_VERSION_V1)
+    )
+
     private val cipher = LanLinkSessionCipher(sessionKey, isHost)
     private val sendMutex = Mutex()
     private val input = socket.getInputStream()
@@ -52,10 +58,16 @@ internal class LanLinkSession(
     private var peerUid: Long? = null
 
     @Volatile
+    private var localAccounts: Map<String, String> = emptyMap()
+
+    @Volatile
+    private var peerAccounts: Map<String, String> = emptyMap()
+
+    @Volatile
     private var peerAccountKnown: Boolean = false
 
     @Volatile
-    private var lastSyncedPairUid: Long? = null
+    private var lastSyncedSignature: String? = null
 
     @Volatile
     private var closed: Boolean = false
@@ -64,8 +76,12 @@ internal class LanLinkSession(
         try {
             socket.soTimeout = LanLinkConstants.HEARTBEAT_TIMEOUT_MS.toInt()
             val initialUid = userPreferences.activeUid.first()
+            val initialAccounts = userPreferences.activeAccountsByPlatform.first()
+                .map { (platform, account) -> platform.key to account.accountId.canonical }
+                .toMap()
             localUid = initialUid
-            sendEncrypted(LanLinkMessage.AccountExchange(initialUid))
+            localAccounts = initialAccounts
+            sendEncrypted(LanLinkMessage.AccountExchange(uid = initialUid, activeAccounts = initialAccounts))
             updateSyncStatus(initialPushIfNeeded = false)
 
             coroutineScope {
@@ -81,13 +97,20 @@ internal class LanLinkSession(
                 }
 
                 val uidJob = launch(Dispatchers.IO) {
-                    userPreferences.activeUid
+                    userPreferences.activeAccountsByPlatform
                         .distinctUntilChanged()
                         .drop(1)
-                        .collect { uid ->
+                        .collect { accounts ->
+                            val mapped = accounts
+                                .map { (platform, account) -> platform.key to account.accountId.canonical }
+                                .toMap()
+                            val uid = accounts[com.lin0721.linmusic.core.source.MusicPlatform.NETEASE]?.uid
                             localUid = uid
-                            lastSyncedPairUid = null
-                            runCatching { sendEncrypted(LanLinkMessage.AccountExchange(uid)) }
+                            localAccounts = mapped
+                            lastSyncedSignature = null
+                            runCatching {
+                                sendEncrypted(LanLinkMessage.AccountExchange(uid = uid, activeAccounts = mapped))
+                            }
                             updateSyncStatus(initialPushIfNeeded = true)
                         }
                 }
@@ -181,9 +204,10 @@ internal class LanLinkSession(
             when (message) {
                 is LanLinkMessage.AccountExchange -> {
                     peerUid = message.uid
+                    peerAccounts = message.activeAccounts
                     peerAccountKnown = true
-                    if (localUid == null || peerUid != localUid) {
-                        lastSyncedPairUid = null
+                    if (!canSync()) {
+                        lastSyncedSignature = null
                     }
                     updateSyncStatus(initialPushIfNeeded = true)
                 }
@@ -225,27 +249,45 @@ internal class LanLinkSession(
     }
 
     private fun canSync(): Boolean {
-        val currentLocal = localUid ?: return false
-        return peerAccountKnown && peerUid == currentLocal
+        if (!peerAccountKnown) return false
+        val currentLocal = localUid
+        if (currentLocal != null && peerUid == currentLocal) return true
+        if (negotiatedProtocolVersion >= LanLinkConstants.PROTOCOL_VERSION) {
+            return localAccounts.any { (platformKey, canonical) ->
+                peerAccounts[platformKey] == canonical
+            }
+        }
+        return false
+    }
+
+    private fun syncSignature(): String {
+        val matched = localAccounts.entries
+            .filter { (k, v) -> peerAccounts[k] == v }
+            .sortedBy { it.key }
+            .joinToString(",") { "${it.key}=${it.value}" }
+        return if (matched.isNotEmpty()) matched else "uid:${localUid ?: ""}"
     }
 
     private suspend fun updateSyncStatus(initialPushIfNeeded: Boolean) {
         val currentLocal = localUid
         val currentPeer = peerUid
+        val hasAnyLocal = currentLocal != null || localAccounts.isNotEmpty()
+        val hasAnyPeer = currentPeer != null || peerAccounts.isNotEmpty()
         when {
             !peerAccountKnown -> {
                 onSyncStateChanged(LanLinkSyncState.IDLE, "已连接，正在核对账号…")
             }
-            currentLocal == null || currentPeer == null -> {
-                onSyncStateChanged(LanLinkSyncState.NOT_LOGGED_IN, "未登录网易云账号，暂不同步")
+            !hasAnyLocal || !hasAnyPeer -> {
+                onSyncStateChanged(LanLinkSyncState.NOT_LOGGED_IN, "未登录账号，暂不同步")
             }
-            currentLocal != currentPeer -> {
+            !canSync() -> {
                 onSyncStateChanged(LanLinkSyncState.ACCOUNT_MISMATCH, "账号不一致，未同步")
             }
             else -> {
                 onSyncStateChanged(LanLinkSyncState.SYNCED, "已连接 · 同步正常")
-                if (initialPushIfNeeded && lastSyncedPairUid != currentLocal) {
-                    lastSyncedPairUid = currentLocal
+                val signature = syncSignature()
+                if (initialPushIfNeeded && lastSyncedSignature != signature) {
+                    lastSyncedSignature = signature
                     val snapshot = store.snapshot()
                     runCatching {
                         sendEncrypted(LanLinkMessage.SyncSnapshot(snapshot, System.currentTimeMillis()))
@@ -256,8 +298,9 @@ internal class LanLinkSession(
     }
 
     private suspend fun sendEncrypted(message: LanLinkMessage) {
+        val outbound = message.projectForProtocol(negotiatedProtocolVersion) ?: return
         try {
-            val encoded = LanLinkJson.encodeToString<LanLinkMessage>(message).encodeToByteArray()
+            val encoded = LanLinkJson.encodeToString<LanLinkMessage>(outbound).encodeToByteArray()
             // 加密与写出同在锁内，保证帧序号与线上顺序一致，否则对端按递增校验会拒收
             sendMutex.withLock {
                 if (closed || socket.isClosed) throw IOException("会话已关闭")

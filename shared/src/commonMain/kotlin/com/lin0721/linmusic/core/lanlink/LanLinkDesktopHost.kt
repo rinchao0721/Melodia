@@ -369,7 +369,8 @@ class LanLinkDesktopHost(
                 serverDeviceId = localDeviceId,
                 serverDeviceName = serverName,
                 serverNonceBase64 = LanLinkCrypto.toBase64(serverNonce),
-                saltBase64 = LanLinkCrypto.toBase64(salt)
+                saltBase64 = LanLinkCrypto.toBase64(salt),
+                protocolVersion = LanLinkConstants.PROTOCOL_VERSION
             )
         )
 
@@ -428,7 +429,7 @@ class LanLinkDesktopHost(
                     _messages.tryEmit("已与 ${peer.deviceName} 完成配对")
 
                     val sessionKey = LanLinkCrypto.deriveSessionKey(deviceKey, clientNonce, serverNonce)
-                    createSession(socket, sessionKey, peer.deviceId, peer.deviceName)
+                    createSession(socket, sessionKey, peer.deviceId, peer.deviceName, hello.protocolVersion)
                 } finally {
                     pairingKey.fill(0)
                 }
@@ -490,7 +491,8 @@ class LanLinkDesktopHost(
                 serverDeviceId = localDeviceId,
                 serverDeviceName = deviceNameProvider(),
                 serverNonceBase64 = LanLinkCrypto.toBase64(serverNonce),
-                serverProofBase64 = LanLinkCrypto.toBase64(serverProof)
+                serverProofBase64 = LanLinkCrypto.toBase64(serverProof),
+                protocolVersion = LanLinkConstants.PROTOCOL_VERSION
             )
         )
 
@@ -517,7 +519,7 @@ class LanLinkDesktopHost(
             lanLinkPreferences.savePairedDevice(paired.copy(deviceName = peerName))
         }
         val sessionKey = LanLinkCrypto.deriveSessionKey(deviceKey, clientNonce, serverNonce)
-        return createSession(socket, sessionKey, paired.deviceId, peerName)
+        return createSession(socket, sessionKey, paired.deviceId, peerName, hello.protocolVersion)
     }
 
     override suspend fun sendMessage(message: LanLinkMessage): Boolean {
@@ -548,7 +550,8 @@ class LanLinkDesktopHost(
         socket: Socket,
         sessionKey: ByteArray,
         peerDeviceId: String,
-        peerDeviceName: String
+        peerDeviceName: String,
+        peerProtocolVersion: Int = LanLinkConstants.PROTOCOL_VERSION_V1
     ): LanLinkSession = LanLinkSession(
         socket = socket,
         sessionKey = sessionKey,
@@ -557,6 +560,7 @@ class LanLinkDesktopHost(
         peerDeviceName = peerDeviceName,
         store = playlistExternalTrackStore,
         userPreferences = userPreferences,
+        peerProtocolVersion = peerProtocolVersion,
         onUnpairedByPeer = {
             lanLinkPreferences.removePairedDevice(peerDeviceId)
             _messages.tryEmit("$peerDeviceName 已取消配对")
