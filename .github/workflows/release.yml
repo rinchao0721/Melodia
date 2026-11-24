@@ -230,7 +230,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          # 正式版 tag 打在 main 的合并提交上、不在 dev 历史里，git describe 会找到很早的预发布 tag；
+          # 改为按版本号排序取上一个：预发布取紧邻的上一个 tag，正式版取上一个正式版
+          TAGS=$(git -c versionsort.suffix=- tag --list 'v*.*.*' --sort=-v:refname)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            CANDIDATES="$TAGS"
+          else
+            CANDIDATES=$(printf '%s\n' "$TAGS" | grep -v -- '-' || true)
+          fi
+          PREV_TAG=$(printf '%s\n' "$CANDIDATES" | awk -v cur="$GITHUB_REF_NAME" 'found { print; exit } $0 == cur { found = 1 }')
           RANGE="HEAD"
           [ -n "$PREV_TAG" ] && RANGE="$PREV_TAG..HEAD"
 
