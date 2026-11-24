@@ -230,6 +230,35 @@ class PlatformRoutersTest {
     }
 
     @Test
+    fun `酷狗默认收藏列表 count 为 0 时仍补首曲封面并回填曲目数`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                when (request.requestUrl?.encodedPath) {
+                    "/v7/get_all_list" -> MockResponse().setResponseCode(200).setBody(
+                        """{"status": 1, "data": {"info": [
+                            {"listid": 4001, "global_collection_id": "collection_3_889900_4001_0", "name": "默认收藏", "is_def": 1, "type": 0}
+                        ]}}"""
+                    )
+                    "/v4/get_list_all_file_v3" -> MockResponse().setResponseCode(200).setBody(
+                        """{"status": 1, "error_code": 0, "data": {"count": 7, "info": [
+                            {"hash": "AABB1122", "name": "周杰伦 - 晴天", "timelen": 269000, "cover": "http://imge.kugou.com/{size}/first.jpg"}
+                        ]}}"""
+                    )
+                    else -> MockResponse().setResponseCode(404)
+                }
+        }
+        val playlistSvc = KugouPlaylistService(config, gatewayClient, userPreferences)
+        val artistSvc = KugouArtistService(config, deviceStore, gatewayClient, userPreferences)
+        val playbackSvc = KugouPlaybackService(config, deviceStore, gatewayClient, userPreferences)
+        val kugouRepo = KugouPlatformLibraryRepository(playlistSvc, artistSvc, playbackSvc) { kugouEnabled }
+
+        val item = kugouRepo.getUserPlaylists(AccountId.kugou(889900L)).first().getOrThrow().single()
+
+        assertEquals("https://imge.kugou.com/400/first.jpg", item.coverUrl)
+        assertEquals(7, item.trackCount)
+    }
+
+    @Test
     fun `PlatformPlaylistRouter 支持酷狗双路径读取与跨平台持久化混排`() = runTest {
         val neteaseAddedIds = mutableListOf<Long>()
         val neteaseRemovedIds = mutableListOf<Long>()

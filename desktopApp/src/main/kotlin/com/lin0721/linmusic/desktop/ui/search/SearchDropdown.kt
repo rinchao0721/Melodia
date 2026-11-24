@@ -76,6 +76,8 @@ import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import kotlin.math.roundToInt
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Close
+import com.lin0721.linmusic.desktop.ui.track.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 private val PanelMaxHeight = 460.dp
 private val PanelGap = 6.dp
@@ -378,7 +380,7 @@ private fun RowScope.LinkHitRow(hit: SearchLinkHit) {
     val titleText = when {
         preview != null -> preview.title
         hit.previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
-        else -> "网易云${target.typeLabel}"
+        else -> platformScopedLabel(MusicPlatform.NETEASE, target.typeLabel)
     }
     val subtitleText = when {
         preview != null && preview.subtitle.isNotBlank() -> preview.subtitle

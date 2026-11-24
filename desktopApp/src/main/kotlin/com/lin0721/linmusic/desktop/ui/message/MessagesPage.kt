@@ -77,6 +77,8 @@ import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.At
 import com.lin0721.linmusic.core.ui.icons.Refresh
 import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.desktop.ui.track.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 private val LeftPaneWidth = 260.dp
 private val ConversationAvatarSize = 40.dp
@@ -678,7 +680,7 @@ private fun FeedRowFrame(
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = user?.nickname?.takeIf { it.isNotBlank() } ?: "网易云用户",
+                    text = user?.nickname?.takeIf { it.isNotBlank() } ?: platformScopedLabel(MusicPlatform.NETEASE, "用户"),
                     color = DesktopColors.TextPrimary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,

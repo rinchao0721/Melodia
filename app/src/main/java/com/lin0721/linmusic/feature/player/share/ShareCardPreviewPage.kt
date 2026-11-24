@@ -100,6 +100,8 @@ import com.lin0721.linmusic.core.ui.icons.Text as TextIcon
 import com.lin0721.linmusic.core.ui.icons.MoreHoriz
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Sparkle
+import com.lin0721.linmusic.core.ui.components.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 private val PillShape = RoundedCornerShape(PillRadius)
 
@@ -523,7 +525,7 @@ private fun FriendAvatarItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = user.nickname.takeIf { it.isNotBlank() } ?: "网易云用户",
+            text = user.nickname.takeIf { it.isNotBlank() } ?: platformScopedLabel(MusicPlatform.NETEASE, "用户"),
             color = MelodiaColors.TextPrimary,
             fontSize = 11.sp,
             maxLines = 1,

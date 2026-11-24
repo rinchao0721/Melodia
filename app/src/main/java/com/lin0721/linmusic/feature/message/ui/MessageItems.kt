@@ -39,6 +39,8 @@ import com.lin0721.linmusic.feature.message.domain.ForwardMessage
 import com.lin0721.linmusic.feature.message.domain.MessageUser
 import com.lin0721.linmusic.feature.message.domain.NoticeItem
 import com.lin0721.linmusic.feature.message.domain.PrivateConversation
+import com.lin0721.linmusic.core.ui.components.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 // 三个 Tab 共用的条目骨架：头像 + 昵称 + 副标题（动作与时间），正文由调用方填充
 @Composable
@@ -71,7 +73,7 @@ private fun MessageRowFrame(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = user?.nickname?.takeIf { it.isNotBlank() } ?: "网易云用户",
+                text = user?.nickname?.takeIf { it.isNotBlank() } ?: platformScopedLabel(MusicPlatform.NETEASE, "用户"),
                 color = MelodiaColors.TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
@@ -257,7 +259,7 @@ fun PrivateConversationRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = item.user.nickname.takeIf { it.isNotBlank() } ?: "网易云用户",
+                    text = item.user.nickname.takeIf { it.isNotBlank() } ?: platformScopedLabel(MusicPlatform.NETEASE, "用户"),
                     color = MelodiaColors.TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,

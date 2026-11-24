@@ -58,6 +58,8 @@ import com.lin0721.linmusic.feature.message.domain.MessageUser
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
+import com.lin0721.linmusic.core.ui.components.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 sealed interface ShareToFriendMode {
     data class Song(val songId: Long, val songName: String, val note: String = "") : ShareToFriendMode
@@ -368,7 +370,7 @@ private fun ShareFriendRow(
         )
 
         Text(
-            text = user.nickname.takeIf { it.isNotBlank() } ?: "网易云用户",
+            text = user.nickname.takeIf { it.isNotBlank() } ?: platformScopedLabel(MusicPlatform.NETEASE, "用户"),
             color = MelodiaColors.TextPrimary,
             fontSize = 15.sp,
             maxLines = 1,

@@ -11,6 +11,7 @@ import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
+import com.lin0721.linmusic.core.kugou.runCatchingCancellable
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.OnlineStateProvider
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -400,6 +401,16 @@ class LibraryViewModel(
                     }
                 } else null
 
+                // 最近播放入口封面取最近一首听歌记录，失败则保持默认图标
+                val kugouRecentCoverDeferred = if (effectiveKugouAcc != null && platformLibraryRouter != null) {
+                    async {
+                        runCatchingCancellable {
+                            platformLibraryRouter.getUserRecord(effectiveKugouAcc.accountId, 0).first().getOrNull()
+                                ?.firstOrNull()?.track?.let { it.coverUrl.ifBlank { it.album?.coverUrl.orEmpty() } }
+                        }.getOrNull().orEmpty()
+                    }
+                } else null
+
                 val kugouArtistsDeferred = if (effectiveKugouAcc != null && platformLibraryRouter != null) {
                     async {
                         val res = platformLibraryRouter.getFavoriteArtists(MusicPlatform.KUGOU).firstOrNull()
@@ -431,6 +442,7 @@ class LibraryViewModel(
 
                 val kugouPlaylists = kugouPlaylistsDeferred?.await().orEmpty()
                 val kugouArtists = kugouArtistsDeferred?.await().orEmpty()
+                val kugouRecentCover = kugouRecentCoverDeferred?.await().orEmpty()
 
                 // 数据归一化 (Mapping)
                 val mappedPlaylists = playlists.mapIndexed { index, playlist ->
@@ -479,9 +491,9 @@ class LibraryViewModel(
                     val ownerName = playlist.creator?.nickname?.takeIf { it.isNotBlank() }
                         ?: effectiveKugouAcc?.nickname.orEmpty()
                     val subtitle = if (playlist.isCollected) {
-                        "酷狗收藏歌单" + if (ownerName.isNotBlank()) " · $ownerName" else ""
+                        "收藏歌单" + if (ownerName.isNotBlank()) " · $ownerName" else ""
                     } else {
-                        "酷狗歌单" + if (ownerName.isNotBlank()) " · $ownerName" else ""
+                        "歌单" + if (ownerName.isNotBlank()) " · $ownerName" else ""
                     }
                     LibraryItem(
                         id = playlist.id.canonical,
@@ -502,9 +514,9 @@ class LibraryViewModel(
                 if (effectiveKugouAcc != null && kugouEnabled) {
                     val kugouRecentItem = LibraryItem(
                         id = KUGOU_RECENT_PLAYLIST_ID,
-                        title = "酷狗最近播放",
-                        subtitle = "酷狗 · 最近听歌记录",
-                        coverUrl = "",
+                        title = "最近播放",
+                        subtitle = "最近听歌记录",
+                        coverUrl = kugouRecentCover,
                         type = LibraryItemType.PLAYLIST,
                         updateTime = 0L,
                         trackCount = 0,
@@ -539,7 +551,7 @@ class LibraryViewModel(
                     LibraryItem(
                         id = canonicalId,
                         title = artist.name,
-                        subtitle = "酷狗歌手",
+                        subtitle = "歌手",
                         coverUrl = artist.avatarUrl.ifBlank { artist.picUrl },
                         type = LibraryItemType.ARTIST,
                         updateTime = 0L,
@@ -1175,7 +1187,7 @@ class LibraryViewModel(
                 return null
             }
             if (records.isEmpty()) {
-                _toastEvent.emit("暂无酷狗最近播放记录")
+                _toastEvent.emit("暂无最近播放记录")
                 return null
             }
             val queueItems = records.map { QueueItem.fromUnified(it.track) }

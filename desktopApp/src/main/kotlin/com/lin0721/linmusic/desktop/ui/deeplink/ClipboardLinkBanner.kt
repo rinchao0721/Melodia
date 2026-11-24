@@ -54,6 +54,8 @@ import kotlinx.coroutines.delay
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Close
 import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
+import com.lin0721.linmusic.desktop.ui.track.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 private const val BANNER_AUTO_DISMISS_MS = 12_000L
 
@@ -88,7 +90,7 @@ internal fun ClipboardLinkBanner(
             val titleText = when {
                 preview != null -> preview.title
                 previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
-                else -> "网易云${target.typeLabel}"
+                else -> platformScopedLabel(MusicPlatform.NETEASE, target.typeLabel)
             }
             val subtitleText = when {
                 preview != null && preview.subtitle.isNotBlank() -> preview.subtitle

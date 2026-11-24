@@ -148,6 +148,7 @@ import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Clock
 import com.lin0721.linmusic.core.ui.icons.Comment
 import com.lin0721.linmusic.core.ui.icons.List as ListIcon
+import com.lin0721.linmusic.desktop.ui.track.platformScopedLabel
 
 // 距离列表底部还剩几项时加载下一页曲目
 private const val TRACK_LOAD_MORE_THRESHOLD = 10
@@ -822,7 +823,7 @@ private fun PlaylistHero(
     totalMs: Long?
 ) {
     val typeLabel = when {
-        isKugouDiscover -> "酷狗发现"
+        isKugouDiscover -> platformScopedLabel(MusicPlatform.KUGOU, "发现")
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"
         isKugou -> if (playlist.privacy == PRIVATE_PLAYLIST) "隐私歌单" else "公开歌单"

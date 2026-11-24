@@ -61,6 +61,8 @@ import com.lin0721.linmusic.core.ui.icons.PlaylistAdd
 import com.lin0721.linmusic.core.ui.icons.Album
 import com.lin0721.linmusic.core.ui.icons.ArrowUpLeft
 import com.lin0721.linmusic.core.ui.icons.MusicNote
+import com.lin0721.linmusic.core.ui.components.platformScopedLabel
+import com.lin0721.linmusic.core.source.MusicPlatform
 
 private val LeadingSize = 40.dp
 
@@ -228,7 +230,7 @@ private fun SearchLinkHitCard(
     val titleText = when {
         preview != null -> preview.title
         hit.previewState is LinkPreviewState.Loading -> "正在读取${target.typeLabel}信息…"
-        else -> "网易云${target.typeLabel}"
+        else -> platformScopedLabel(MusicPlatform.NETEASE, target.typeLabel)
     }
     val subtitleText = when {
         preview != null && preview.subtitle.isNotBlank() -> preview.subtitle

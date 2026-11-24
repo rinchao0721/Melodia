@@ -59,6 +59,7 @@ import com.lin0721.linmusic.core.ui.icons.Download
 import com.lin0721.linmusic.core.ui.icons.MoreVert
 import com.lin0721.linmusic.core.ui.icons.Share
 import com.lin0721.linmusic.core.ui.icons.Comment
+import com.lin0721.linmusic.core.ui.components.platformScopedLabel
 
 // ────────────────────────────────────────────────────────────────────────────
 // 全出血 Hero（LazyColumn Item 1）
@@ -178,7 +179,7 @@ fun PlaylistHeaderItem(
                         Text(displayDateStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     } else if (playlist.id == -2L) {
                         Text(
-                            "网易云个人听歌记录统计",
+                            platformScopedLabel(MusicPlatform.NETEASE, "个人听歌记录统计"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
@@ -206,7 +207,7 @@ fun PlaylistHeaderItem(
                             } else {
                                 Icon(MelodiaIcons.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text(if (isKugou) "酷狗音乐" else "为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text(if (isKugou) platformScopedLabel(MusicPlatform.KUGOU, "音乐") else "为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                             if (isKugou && showsPlatformBadge(MusicPlatform.KUGOU)) {
                                 Spacer(Modifier.width(6.dp))

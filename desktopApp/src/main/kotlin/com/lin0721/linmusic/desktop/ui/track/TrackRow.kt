@@ -626,6 +626,11 @@ private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifi
 // 当前账号所在平台，同平台内容不显示平台标识
 val LocalCurrentAccountPlatform = compositionLocalOf { MusicPlatform.NETEASE }
 
+// 内容平台与当前账号平台不同时才带平台名前缀
+@Composable
+fun platformScopedLabel(platform: MusicPlatform, label: String): String =
+    if (platform == LocalCurrentAccountPlatform.current) label else "${platform.badgeName}$label"
+
 @Composable
 fun PlatformBadge(platform: MusicPlatform, modifier: Modifier = Modifier) {
     if (platform == LocalCurrentAccountPlatform.current) return

@@ -24,6 +24,11 @@ import com.lin0721.linmusic.core.source.MusicPlatform
 // 当前账号所在平台，内容平台与它相同时不显示平台标识
 val LocalCurrentAccountPlatform = compositionLocalOf { MusicPlatform.NETEASE }
 
+// 内容平台与当前账号平台不同时才带平台名前缀
+@Composable
+fun platformScopedLabel(platform: MusicPlatform, label: String): String =
+    if (showsPlatformBadge(platform)) "${platform.badgeName}$label" else label
+
 @Composable
 fun showsPlatformBadge(platform: MusicPlatform?): Boolean =
     platform != null && platform != LocalCurrentAccountPlatform.current

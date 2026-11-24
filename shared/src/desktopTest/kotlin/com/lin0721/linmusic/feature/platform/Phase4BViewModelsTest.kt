@@ -278,7 +278,7 @@ class Phase4BViewModelsTest {
                 )
             )
             artists = listOf(UnifiedArtist(id = ArtistId.kugou("3520"), name = "周杰伦"))
-            records = listOf(UnifiedUserRecordTrack(kugouTrack("HASH_REC"), playCount = 5))
+            records = listOf(UnifiedUserRecordTrack(kugouTrack("HASH_REC").copy(coverUrl = "https://kg/rec.jpg"), playCount = 5))
         }
         val kugouPlaylistRepo = FakeKugouPlaylistRepo()
         val libraryRouter = PlatformLibraryRouter(StubPlatformLibraryRepo(), kugouLib) {
@@ -321,6 +321,13 @@ class Phase4BViewModelsTest {
         assertTrue(success.allItems.any { it.entityId == "kugou:3001" && it.platform == MusicPlatform.KUGOU })
         assertTrue(success.allItems.any { it.entityId == KUGOU_RECENT_PLAYLIST_ID && it.platform == MusicPlatform.KUGOU })
         assertTrue(success.allItems.any { it.entityId == "kugou:3520" && it.platform == MusicPlatform.KUGOU })
+        // 酷狗最近播放入口：同平台不带平台名，封面取最近一首听歌记录
+        val recentItem = success.allItems.first { it.entityId == KUGOU_RECENT_PLAYLIST_ID }
+        assertEquals("最近播放", recentItem.title)
+        assertEquals("最近听歌记录", recentItem.subtitle)
+        assertEquals("https://kg/rec.jpg", recentItem.coverUrl)
+        assertEquals("歌单", success.allItems.first { it.entityId == "kugou:3001" }.subtitle.substringBefore(" · "))
+        assertEquals("歌手", success.allItems.first { it.entityId == "kugou:3520" }.subtitle)
 
         // 切换当前平台时仅保留当前平台数据
         prefs.setCurrentPlatform(MusicPlatform.KUGOU)
