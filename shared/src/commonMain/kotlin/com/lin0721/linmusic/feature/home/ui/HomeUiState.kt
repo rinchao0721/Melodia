@@ -4,6 +4,7 @@ import com.lin0721.linmusic.core.platform.UnifiedPlaylist
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.UnifiedDailySong
 import com.lin0721.linmusic.core.platform.repository.UnifiedRank
+import com.lin0721.linmusic.core.platform.repository.UnifiedUserPlaylist
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.home.data.PersonalizedPlaylist
 import com.lin0721.linmusic.feature.home.data.DailySong
@@ -36,5 +37,6 @@ data class HomeFeedData(
     val kugouDiscoverTracks: List<UnifiedTrack> = emptyList(),
     val kugouDailySongs: List<UnifiedDailySong> = emptyList(),
     val kugouPlaylists: List<UnifiedPlaylist> = emptyList(),
-    val kugouToplists: List<UnifiedRank> = emptyList()
+    val kugouToplists: List<UnifiedRank> = emptyList(),
+    val kugouQuickPlaylists: List<UnifiedUserPlaylist> = emptyList()
 )

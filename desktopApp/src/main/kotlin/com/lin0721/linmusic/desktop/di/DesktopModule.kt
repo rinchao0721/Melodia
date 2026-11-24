@@ -414,7 +414,8 @@ val desktopViewModelModule = module {
             playbackPreferences = get(),
             platformDiscoverRouter = getOrNull(),
             platformPlaylistRouter = getOrNull(),
-            platformAlbumRouter = getOrNull()
+            platformAlbumRouter = getOrNull(),
+            platformLibraryRepository = getOrNull()
         )
     }
     singleOf(::MusicViewModel)

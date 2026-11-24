@@ -73,7 +73,8 @@ val viewModelModule = module {
             playbackPreferences = get(),
             platformDiscoverRouter = getOrNull(),
             platformPlaylistRouter = getOrNull(),
-            platformAlbumRouter = getOrNull()
+            platformAlbumRouter = getOrNull(),
+            platformLibraryRepository = getOrNull()
         )
     }
     viewModelOf(::MusicViewModel)

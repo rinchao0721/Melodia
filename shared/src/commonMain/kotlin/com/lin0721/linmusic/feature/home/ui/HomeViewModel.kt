@@ -59,11 +59,21 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.RecentFmTrack
+import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
+import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRepository
 import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
 import com.lin0721.linmusic.core.platform.repository.UnifiedRank
+import com.lin0721.linmusic.feature.home.domain.HomeCardKind
+import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
+import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
+import com.lin0721.linmusic.feature.home.domain.HomeSection
+import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
+import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
+import com.lin0721.linmusic.feature.playlist.ui.kugouRankEntityId
+import com.lin0721.linmusic.core.kugou.runCatchingCancellable
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
@@ -95,7 +105,8 @@ class HomeViewModel(
     private val playbackPreferences: PlaybackPreferences,
     private val platformDiscoverRouter: PlatformDiscoverRouter? = null,
     private val platformPlaylistRouter: PlatformPlaylistRouter? = null,
-    private val platformAlbumRouter: PlatformAlbumRouter? = null
+    private val platformAlbumRouter: PlatformAlbumRouter? = null,
+    private val platformLibraryRepository: PlatformLibraryRepository? = null
 ) : ViewModel() {
 
     private var loadHomeJob: Job? = null
@@ -130,6 +141,15 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showSearchButton: StateFlow<Boolean> = settingsPreferences.homeSearchButtonEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    // 平台无关的首页区块流，供桌面端与 Android 端统一渲染
+    val sections: StateFlow<List<HomeSection>> = combine(
+        _uiState,
+        showRecentPlay
+    ) { state, recentEnabled ->
+        val data = (state as? HomeUiState.Success)?.data ?: return@combine emptyList()
+        buildHomeSections(data, recentEnabled)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val personalFmMode: StateFlow<PersonalFmMode> = settingsPreferences.personalFmMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, PersonalFmMode.DEFAULT)
     val recentFmTracks: StateFlow<List<RecentFmTrack>> = playbackPreferences.recentFmTracks
@@ -311,14 +331,32 @@ class HomeViewModel(
         val targetPlatform = resolveEffectiveBrowsePlatform()
         val discoverRouter = platformDiscoverRouter
         if (targetPlatform == MusicPlatform.KUGOU && discoverRouter != null) {
-            discoverRouter.getDiscoverFeed(MusicPlatform.KUGOU, refresh).first().map { feed ->
-                HomeFeedData(
-                    browsePlatform = MusicPlatform.KUGOU,
-                    kugouDiscoverTracks = feed.discoverTracks,
-                    kugouDailySongs = feed.dailySongs,
-                    kugouPlaylists = feed.recommendPlaylists,
-                    kugouToplists = feed.toplists
-                )
+            coroutineScope {
+                val feedDeferred = async {
+                    discoverRouter.getDiscoverFeed(MusicPlatform.KUGOU, refresh).first()
+                }
+                val quickPlaylistsDeferred = async {
+                    val accountId = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()?.accountId
+                    val repo = platformLibraryRepository
+                    if (accountId != null && repo != null) {
+                        runCatchingCancellable { repo.getUserPlaylists(accountId, limit = 8).first().getOrNull().orEmpty() }
+                            .getOrDefault(emptyList())
+                    } else {
+                        emptyList()
+                    }
+                }
+                val feedResult = feedDeferred.await()
+                val quickPlaylists = quickPlaylistsDeferred.await()
+                feedResult.map { feed ->
+                    HomeFeedData(
+                        browsePlatform = MusicPlatform.KUGOU,
+                        kugouDiscoverTracks = feed.discoverTracks,
+                        kugouDailySongs = feed.dailySongs,
+                        kugouPlaylists = feed.recommendPlaylists,
+                        kugouToplists = feed.toplists,
+                        kugouQuickPlaylists = quickPlaylists
+                    )
+                }
             }
         } else {
             coroutineScope {
@@ -759,5 +797,394 @@ class HomeViewModel(
 
     fun disablePersonalFm() {
         playerManager.disablePersonalFm()
+    }
+
+    // 统一播放卡片动作，按平台分派到网易或酷狗实现
+    fun playCard(
+        card: HomeSectionCard,
+        shelfCards: List<HomeSectionCard> = emptyList(),
+        shelfTitle: String = ""
+    ) {
+        when (card.kind) {
+            HomeCardKind.QUICK_ENTRY -> {
+                when (card.quickEntryType) {
+                    HomeQuickEntryType.DAILY_RECOMMEND -> playDailySong()
+                    HomeQuickEntryType.PERSONAL_FM -> {
+                        if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+                            disablePersonalFm()
+                        } else {
+                            startPersonalFm()
+                        }
+                    }
+                    HomeQuickEntryType.TOPLIST -> {
+                        if (card.platform == MusicPlatform.KUGOU) {
+                            val firstRank = (_uiState.value as? HomeUiState.Success)
+                                ?.data?.kugouToplists?.firstOrNull()
+                            if (firstRank != null) playKugouRank(firstRank)
+                        }
+                    }
+                    HomeQuickEntryType.CLOUD, null -> Unit
+                }
+            }
+            HomeCardKind.PLAYLIST, HomeCardKind.ALBUM -> {
+                val isAlbum = card.kind == HomeCardKind.ALBUM
+                if (card.platform == MusicPlatform.NETEASE) {
+                    val id = card.entityId.toLongOrNull() ?: return
+                    playCollection(id, isAlbum = isAlbum)
+                } else {
+                    playCollectionEntity(card.entityId, isAlbum = isAlbum)
+                }
+            }
+            HomeCardKind.RANK -> {
+                if (card.platform == MusicPlatform.KUGOU) {
+                    val rank = (_uiState.value as? HomeUiState.Success)
+                        ?.data?.kugouToplists
+                        ?.firstOrNull { kugouRankEntityId(it) == card.entityId }
+                    if (rank != null) playKugouRank(rank)
+                }
+            }
+            HomeCardKind.SONG -> {
+                if (card.platform == MusicPlatform.KUGOU) {
+                    val tracks = (_uiState.value as? HomeUiState.Success)?.data?.kugouDiscoverTracks.orEmpty()
+                    val index = tracks.indexOfFirst { it.id.canonical == card.entityId }
+                    if (index >= 0) {
+                        playKugouDiscoverTrack(index)
+                    }
+                } else {
+                    val songs = shelfCards.filter { it.kind == HomeCardKind.SONG }.mapNotNull { item ->
+                        val id = item.entityId.toLongOrNull() ?: return@mapNotNull null
+                        HomeCard.Song(id = id, title = item.title, coverUrl = item.coverUrl, caption = item.caption)
+                    }
+                    val target = card.entityId.toLongOrNull()?.let { id ->
+                        songs.firstOrNull { it.id == id }
+                    }
+                    if (target != null && songs.isNotEmpty()) {
+                        playShelfSong(shelfTitle, songs, target)
+                    }
+                }
+            }
+            HomeCardKind.VOICE -> {
+                val voices = shelfCards.filter { it.kind == HomeCardKind.VOICE }.mapNotNull { item ->
+                    val id = item.entityId.toLongOrNull() ?: return@mapNotNull null
+                    val songId = item.voiceSongId ?: return@mapNotNull null
+                    HomeCard.Voice(id = id, songId = songId, title = item.title, coverUrl = item.coverUrl, caption = item.caption)
+                }
+                val target = card.entityId.toLongOrNull()?.let { id ->
+                    voices.firstOrNull { it.id == id }
+                }
+                if (target != null && voices.isNotEmpty()) {
+                    playShelfVoice(shelfTitle, voices, target)
+                }
+            }
+        }
+    }
+
+    // 统一加入下一首播放动作，按平台分派
+    fun addCardToPlayNext(card: HomeSectionCard) {
+        when (card.kind) {
+            HomeCardKind.PLAYLIST, HomeCardKind.ALBUM -> {
+                val isAlbum = card.kind == HomeCardKind.ALBUM
+                if (card.platform == MusicPlatform.NETEASE) {
+                    val id = card.entityId.toLongOrNull() ?: return
+                    addCollectionToPlayNext(id, isAlbum = isAlbum)
+                } else {
+                    addCollectionEntityToPlayNext(card.entityId, isAlbum = isAlbum)
+                }
+            }
+            HomeCardKind.SONG -> {
+                if (card.platform == MusicPlatform.KUGOU) {
+                    val track = (_uiState.value as? HomeUiState.Success)
+                        ?.data?.kugouDiscoverTracks
+                        ?.firstOrNull { it.id.canonical == card.entityId }
+                    if (track != null) addUnifiedTrackToPlayNext(track)
+                } else {
+                    val id = card.entityId.toLongOrNull() ?: return
+                    addShelfSongToPlayNext(
+                        HomeCard.Song(id = id, title = card.title, coverUrl = card.coverUrl, caption = card.caption)
+                    )
+                }
+            }
+            HomeCardKind.VOICE -> {
+                val id = card.entityId.toLongOrNull() ?: return
+                val songId = card.voiceSongId ?: return
+                addShelfVoiceToPlayNext(
+                    HomeCard.Voice(id = id, songId = songId, title = card.title, coverUrl = card.coverUrl, caption = card.caption)
+                )
+            }
+            HomeCardKind.RANK, HomeCardKind.QUICK_ENTRY -> Unit
+        }
+    }
+
+    // 返回平台无关的打开目标，供界面层导航
+    fun openTargetOf(card: HomeSectionCard): HomeCardTarget {
+        return when (card.kind) {
+            HomeCardKind.PLAYLIST, HomeCardKind.RANK -> {
+                HomeCardTarget.PlaylistEntity(entityId = card.entityId, title = card.title, isAlbum = false)
+            }
+            HomeCardKind.ALBUM -> {
+                HomeCardTarget.PlaylistEntity(entityId = card.entityId, title = card.title, isAlbum = true)
+            }
+            HomeCardKind.QUICK_ENTRY -> {
+                val entryType = card.quickEntryType ?: return HomeCardTarget.None
+                onQuickEntryClick(entryType)
+            }
+            HomeCardKind.SONG, HomeCardKind.VOICE -> HomeCardTarget.None
+        }
+    }
+
+    // 快捷入口点击：私人 FM 直接切换播放状态，其余返回导航目标
+    fun onQuickEntryClick(type: HomeQuickEntryType): HomeCardTarget {
+        val currentPlatform = (_uiState.value as? HomeUiState.Success)?.data?.browsePlatform
+            ?: browsePlatform.value
+        return when (type) {
+            HomeQuickEntryType.DAILY_RECOMMEND -> {
+                // 网易日推在界面层的固定 id 为 -1
+                val entityId = if (currentPlatform == MusicPlatform.KUGOU) KUGOU_DAILY_RECOMMEND_ID else "-1"
+                HomeCardTarget.PlaylistEntity(entityId = entityId, title = "每日推荐", isAlbum = false)
+            }
+            HomeQuickEntryType.PERSONAL_FM -> {
+                if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
+                    disablePersonalFm()
+                } else {
+                    startPersonalFm()
+                }
+                HomeCardTarget.None
+            }
+            HomeQuickEntryType.TOPLIST -> {
+                if (currentPlatform == MusicPlatform.KUGOU) {
+                    val firstRank = (_uiState.value as? HomeUiState.Success)
+                        ?.data?.kugouToplists?.firstOrNull()
+                    if (firstRank != null) {
+                        HomeCardTarget.PlaylistEntity(
+                            entityId = kugouRankEntityId(firstRank),
+                            title = firstRank.name,
+                            isAlbum = false
+                        )
+                    } else {
+                        HomeCardTarget.Toplists
+                    }
+                } else {
+                    HomeCardTarget.Toplists
+                }
+            }
+            HomeQuickEntryType.CLOUD -> HomeCardTarget.Cloud
+        }
+    }
+
+    private fun buildHomeSections(data: HomeFeedData, showRecentPlay: Boolean): List<HomeSection> {
+        return if (data.browsePlatform == MusicPlatform.KUGOU) {
+            buildKugouSections(data)
+        } else {
+            buildNeteaseSections(data, showRecentPlay)
+        }
+    }
+
+    private fun buildNeteaseSections(data: HomeFeedData, showRecentPlay: Boolean): List<HomeSection> {
+        val result = mutableListOf<HomeSection>()
+        if (showRecentPlay && data.recentPlaylists.isNotEmpty()) {
+            result += HomeSection.Quick(
+                items = data.recentPlaylists.map { playlist ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.NETEASE,
+                        entityId = playlist.id.toString(),
+                        kind = HomeCardKind.PLAYLIST,
+                        title = playlist.name,
+                        coverUrl = playlist.coverUrl,
+                        caption = playlist.creatorName
+                    )
+                }
+            )
+        }
+        if (data.dailySongs.isNotEmpty()) {
+            result += HomeSection.Daily(
+                items = data.dailySongs.map { song ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.NETEASE,
+                        entityId = song.id.toString(),
+                        kind = HomeCardKind.SONG,
+                        title = song.name,
+                        coverUrl = song.al.picUrl,
+                        caption = song.ar.joinToString(" / ") { it.name }
+                    )
+                },
+                platform = MusicPlatform.NETEASE
+            )
+        }
+        if (data.shelves.isEmpty() && data.recommendPlaylists.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "recommend",
+                title = "推荐歌单",
+                cards = data.recommendPlaylists.map { playlist ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.NETEASE,
+                        entityId = playlist.id.toString(),
+                        kind = HomeCardKind.PLAYLIST,
+                        title = playlist.name,
+                        coverUrl = playlist.picUrl,
+                        caption = ""
+                    )
+                }
+            )
+        }
+        data.shelves.forEach { shelf ->
+            result += HomeSection.Shelf(
+                blockCode = shelf.blockCode,
+                title = shelf.title,
+                showRank = shelf.showRank,
+                cards = shelf.cards.map { card ->
+                    when (card) {
+                        is HomeCard.Playlist -> HomeSectionCard(
+                            platform = MusicPlatform.NETEASE,
+                            entityId = card.id.toString(),
+                            kind = HomeCardKind.PLAYLIST,
+                            title = card.title,
+                            coverUrl = card.coverUrl,
+                            caption = card.caption
+                        )
+                        is HomeCard.Album -> HomeSectionCard(
+                            platform = MusicPlatform.NETEASE,
+                            entityId = card.id.toString(),
+                            kind = HomeCardKind.ALBUM,
+                            title = card.title,
+                            coverUrl = card.coverUrl,
+                            caption = card.caption
+                        )
+                        is HomeCard.Song -> HomeSectionCard(
+                            platform = MusicPlatform.NETEASE,
+                            entityId = card.id.toString(),
+                            kind = HomeCardKind.SONG,
+                            title = card.title,
+                            coverUrl = card.coverUrl,
+                            caption = card.caption
+                        )
+                        is HomeCard.Voice -> HomeSectionCard(
+                            platform = MusicPlatform.NETEASE,
+                            entityId = card.id.toString(),
+                            kind = HomeCardKind.VOICE,
+                            title = card.title,
+                            coverUrl = card.coverUrl,
+                            caption = card.caption,
+                            voiceSongId = card.songId
+                        )
+                    }
+                }
+            )
+        }
+        return result
+    }
+
+    private fun buildKugouSections(data: HomeFeedData): List<HomeSection> {
+        val result = mutableListOf<HomeSection>()
+        val quickEntries = listOf(
+            HomeSectionCard(
+                platform = MusicPlatform.KUGOU,
+                entityId = KUGOU_DAILY_RECOMMEND_ID,
+                kind = HomeCardKind.QUICK_ENTRY,
+                title = "每日推荐",
+                coverUrl = "",
+                quickEntryType = HomeQuickEntryType.DAILY_RECOMMEND
+            ),
+            HomeSectionCard(
+                platform = MusicPlatform.KUGOU,
+                entityId = "kugou:personal_fm",
+                kind = HomeCardKind.QUICK_ENTRY,
+                title = "私人 FM",
+                coverUrl = "",
+                quickEntryType = HomeQuickEntryType.PERSONAL_FM
+            ),
+            HomeSectionCard(
+                platform = MusicPlatform.KUGOU,
+                entityId = "kugou:toplist",
+                kind = HomeCardKind.QUICK_ENTRY,
+                title = "排行榜",
+                coverUrl = "",
+                quickEntryType = HomeQuickEntryType.TOPLIST
+            ),
+            HomeSectionCard(
+                platform = MusicPlatform.KUGOU,
+                entityId = "kugou:cloud",
+                kind = HomeCardKind.QUICK_ENTRY,
+                title = "云盘",
+                coverUrl = "",
+                quickEntryType = HomeQuickEntryType.CLOUD
+            )
+        )
+        val userPlaylistCards = data.kugouQuickPlaylists.take(4).map { playlist ->
+            HomeSectionCard(
+                platform = MusicPlatform.KUGOU,
+                entityId = playlist.id.canonical,
+                kind = HomeCardKind.PLAYLIST,
+                title = playlist.name,
+                coverUrl = playlist.coverUrl,
+                caption = playlist.creator?.nickname.orEmpty()
+            )
+        }
+        result += HomeSection.Quick(items = quickEntries + userPlaylistCards)
+
+        if (data.kugouDailySongs.isNotEmpty()) {
+            result += HomeSection.Daily(
+                items = data.kugouDailySongs.map { daily ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.KUGOU,
+                        entityId = daily.track.id.canonical,
+                        kind = HomeCardKind.SONG,
+                        title = daily.track.name,
+                        coverUrl = daily.track.coverUrl,
+                        caption = daily.track.artists.joinToString(" / ") { it.name }
+                    )
+                },
+                platform = MusicPlatform.KUGOU
+            )
+        }
+        if (data.kugouDiscoverTracks.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "kugou_discover_tracks",
+                title = "发现新歌",
+                cards = data.kugouDiscoverTracks.map { track ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.KUGOU,
+                        entityId = track.id.canonical,
+                        kind = HomeCardKind.SONG,
+                        title = track.name,
+                        coverUrl = track.coverUrl,
+                        caption = track.artists.joinToString(" / ") { it.name }
+                    )
+                }
+            )
+        }
+        if (data.kugouPlaylists.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "kugou_playlists",
+                title = "推荐歌单",
+                cards = data.kugouPlaylists.map { playlist ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.KUGOU,
+                        entityId = playlist.id.canonical,
+                        kind = HomeCardKind.PLAYLIST,
+                        title = playlist.name,
+                        coverUrl = playlist.coverUrl,
+                        caption = playlist.creator?.nickname.orEmpty()
+                    )
+                }
+            )
+        }
+        if (data.kugouToplists.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "kugou_toplists",
+                title = "酷狗排行榜",
+                showRank = true,
+                cards = data.kugouToplists.map { rank ->
+                    HomeSectionCard(
+                        platform = MusicPlatform.KUGOU,
+                        entityId = kugouRankEntityId(rank),
+                        kind = HomeCardKind.RANK,
+                        title = rank.name,
+                        coverUrl = rank.coverUrl,
+                        caption = rank.updateFrequency
+                    )
+                }
+            )
+        }
+        return result
     }
 }
