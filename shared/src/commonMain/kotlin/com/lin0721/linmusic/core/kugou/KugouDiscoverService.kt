@@ -310,6 +310,85 @@ class KugouDiscoverService(
         )
     }
 
+    // KuGouMusicApi/module/top_song.js
+    suspend fun getNewSongs(
+        rankId: Long = 21608L,
+        page: Int = 1,
+        pageSize: Int = 30
+    ): Result<List<KugouTrackItemDto>> = runCatchingCancellable {
+        val session = optionalKugouSession(userPreferences)
+        val dataObj = buildJsonObject {
+            put("rank_id", rankId)
+            put("userid", session?.userIdLong ?: 0L)
+            put("page", page.coerceAtLeast(1))
+            put("pagesize", pageSize.coerceAtLeast(1))
+            put("tags", buildJsonArray {})
+        }
+        val response = gatewayClient.executeRequest(
+            KugouRequestOptions(
+                method = "POST",
+                url = "/musicadservice/container/v1/newsong_publish",
+                data = dataObj,
+                encryptType = KugouEncryptType.ANDROID
+            )
+        )
+        ensureDiscoverBizSuccess(response, "获取酷狗新歌速递失败")
+        val rawItems = response.bodyJson?.get("data")?.jsonArrayOrNull() ?: emptyList()
+        rawItems.mapNotNull { elem ->
+            elem.jsonObjectOrNull()?.let(::parseDiscoverTrackItem)
+        }
+    }
+
+    // KuGouMusicApi/module/top_album.js
+    suspend fun getNewAlbums(
+        page: Int = 1,
+        pageSize: Int = 30
+    ): Result<List<KugouNewAlbumDto>> = runCatchingCancellable {
+        val session = optionalKugouSession(userPreferences)
+        val dataObj = buildJsonObject {
+            put("apiver", KugouConfig.APIVER)
+            put("token", session?.token.orEmpty())
+            put("page", page.coerceAtLeast(1))
+            put("pagesize", pageSize.coerceAtLeast(1))
+            put("withpriv", 1)
+        }
+        val response = gatewayClient.executeRequest(
+            KugouRequestOptions(
+                method = "POST",
+                url = "/musicadservice/v1/mobile_newalbum_sp",
+                data = dataObj,
+                encryptType = KugouEncryptType.ANDROID
+            )
+        )
+        ensureDiscoverBizSuccess(response, "获取酷狗新碟上架失败")
+        parseNewAlbums(response.bodyJson)
+    }
+
+    // KuGouMusicApi/module/everyday_style_recommend.js
+    suspend fun getStyleRecommend(
+        tagIds: String = ""
+    ): Result<KugouStyleRecommendResult> = runCatchingCancellable {
+        val response = gatewayClient.executeRequest(
+            KugouRequestOptions(
+                method = "POST",
+                url = "/everydayrec.service/everyday_style_recommend",
+                params = mapOf("tagids" to tagIds),
+                data = buildJsonObject {},
+                encryptType = KugouEncryptType.ANDROID
+            )
+        )
+        ensureDiscoverBizSuccess(response, "获取酷狗风格推荐失败")
+        val dataObj = response.bodyJson?.get("data")?.jsonObjectOrNull()
+        val rawItems = extractArray(dataObj, response.bodyJson, "song_list", "songs", "list")
+        val tracks = rawItems.mapNotNull { elem ->
+            elem.jsonObjectOrNull()?.let(::parseDiscoverTrackItem)
+        }
+        KugouStyleRecommendResult(
+            title = dataObj?.string("title").orEmpty(),
+            tracks = tracks
+        )
+    }
+
     private fun ensureDiscoverBizSuccess(response: KugouRawResponse, fallbackMessage: String) {
         ensureKugouBizSuccess(response, fallbackMessage)
         val errCode = response.bodyJson?.int("errcode", 0) ?: 0
@@ -506,14 +585,14 @@ class KugouDiscoverService(
             val mixSongId = obj.firstPositiveLong("mixsongid", "MixSongID", "audio_id", "songid", "id")
                 .takeIf { it > 0L } ?: audioInfo?.firstPositiveLong("mixsongid", "audio_id") ?: 0L
             val rawDur = obj.firstPositiveLong(
-                "timelen", "duration", "time_length",
+                "timelen", "duration", "time_length", "timelength",
                 "timelength_128", "timelength_320", "timelength_flac"
             ).takeIf { it > 0L } ?: audioInfo?.firstPositiveLong("timelength", "duration") ?: 0L
 
             val coverUrl = normalizeKugouCoverUrl(
                 listOf(
                     transParam?.string("union_cover").orEmpty(),
-                    obj.firstNonBlank("album_cover", "cover", "pic", "image", "img", "sizable_cover"),
+                    obj.firstNonBlank("album_cover", "cover", "pic", "image", "img", "sizable_cover", "album_sizable_cover"),
                     albumInfo?.firstNonBlank("sizable_cover", "cover").orEmpty()
                 ).firstOrNull { it.isNotBlank() }
             )
@@ -542,6 +621,33 @@ class KugouDiscoverService(
                 fee = fee,
                 playable = obj.int("status", 1) != 0
             )
+        }
+
+        // 按华语、欧美、日、韩顺序合并新碟上架并按 albumId 去重，最多取 30 条
+        internal fun parseNewAlbums(root: JsonObject?, limit: Int = 30): List<KugouNewAlbumDto> {
+            val dataObj = root?.get("data")?.jsonObjectOrNull() ?: return emptyList()
+            val regions = listOf("chn", "eur", "jpn", "kor")
+            val seen = HashSet<Long>()
+            val result = mutableListOf<KugouNewAlbumDto>()
+            for (region in regions) {
+                val arr = dataObj[region]?.jsonArrayOrNull() ?: continue
+                for (elem in arr) {
+                    val obj = elem.jsonObjectOrNull() ?: continue
+                    val albumId = obj.firstPositiveLong("albumid", "album_id")
+                    val albumName = obj.firstNonBlank("albumname", "album_name")
+                    if (albumId <= 0L || albumName.isBlank() || !seen.add(albumId)) continue
+                    result += KugouNewAlbumDto(
+                        albumId = albumId,
+                        albumName = albumName,
+                        singerName = obj.firstNonBlank("singername", "singer_name", "author_name"),
+                        coverUrl = normalizeKugouCoverUrl(obj.firstNonBlank("imgurl", "img_url", "cover")),
+                        publishTime = obj.firstNonBlank("publishtime", "publish_time"),
+                        songCount = obj.int("songcount", 0)
+                    )
+                    if (result.size >= limit) return result
+                }
+            }
+            return result
         }
     }
 }

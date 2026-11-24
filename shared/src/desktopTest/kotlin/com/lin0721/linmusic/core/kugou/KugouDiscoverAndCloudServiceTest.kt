@@ -370,6 +370,43 @@ class KugouDiscoverAndCloudServiceTest {
         cloudService.deleteCloudFiles(listOf(KugouCloudDeleteItem(kvId = item.kvId, albumAudioId = item.albumAudioId))).getOrThrow()
     }
 
+    @Test
+    fun `getNewSongs getNewAlbums getStyleRecommend 解析脱敏样本并校验路径`() = runTest {
+        val requests = mutableListOf<RecordedRequest>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                requests += request
+                return when (request.requestUrl?.encodedPath) {
+                    "/musicadservice/container/v1/newsong_publish" ->
+                        MockResponse().setResponseCode(200).setBody(loadResource("kugou/kugou_top_song.json"))
+                    "/musicadservice/v1/mobile_newalbum_sp" ->
+                        MockResponse().setResponseCode(200).setBody(loadResource("kugou/kugou_top_album.json"))
+                    "/everydayrec.service/everyday_style_recommend" ->
+                        MockResponse().setResponseCode(200).setBody(loadResource("kugou/kugou_style_rec.json"))
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+
+        val newSongs = discoverService.getNewSongs().getOrThrow()
+        assertTrue(newSongs.isNotEmpty())
+        assertEquals("沉默交响", newSongs.first().name)
+        assertTrue(newSongs.first().coverUrl.isNotBlank() && !newSongs.first().coverUrl.contains("{size}"))
+
+        val newAlbums = discoverService.getNewAlbums().getOrThrow()
+        assertTrue(newAlbums.isNotEmpty())
+        assertTrue(newAlbums.first().albumId > 0L)
+        assertTrue(newAlbums.first().coverUrl.isNotBlank() && !newAlbums.first().coverUrl.contains("{size}"))
+
+        val styleRec = discoverService.getStyleRecommend().getOrThrow()
+        assertEquals("华语流行", styleRec.title)
+        assertTrue(styleRec.tracks.isNotEmpty())
+        assertEquals("千里之外", styleRec.tracks.first().name)
+
+        assertEquals(3, requests.size)
+        assertTrue(requests.all { it.method == "POST" })
+    }
+
     private fun loadResource(path: String): String {
         val stream = checkNotNull(javaClass.classLoader?.getResourceAsStream(path)) { "缺少测试资源: $path" }
         return stream.bufferedReader(Charsets.UTF_8).use { it.readText() }

@@ -62,12 +62,14 @@ import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.RecentFmTrack
 import com.lin0721.linmusic.core.platform.PlaylistId
+import com.lin0721.linmusic.core.platform.UnifiedAlbum
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.repository.PlatformAlbumRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRouter
 import com.lin0721.linmusic.core.platform.repository.PlatformLibraryRepository
 import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
 import com.lin0721.linmusic.core.platform.repository.UnifiedRank
+import com.lin0721.linmusic.core.platform.repository.UnifiedStyleRecommend
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
 import com.lin0721.linmusic.feature.home.domain.HomeSection
@@ -364,6 +366,9 @@ class HomeViewModel(
                     HomeFeedData(
                         browsePlatform = MusicPlatform.KUGOU,
                         kugouDiscoverTracks = feed.discoverTracks,
+                        kugouNewSongs = feed.newSongs,
+                        kugouNewAlbums = feed.newAlbums,
+                        kugouStyleRecommend = feed.styleRecommend,
                         kugouDailySongs = feed.dailySongs,
                         kugouPlaylists = feed.recommendPlaylists,
                         kugouToplists = feed.toplists,
@@ -846,10 +851,16 @@ class HomeViewModel(
             }
             HomeCardKind.SONG -> {
                 if (card.platform == MusicPlatform.KUGOU) {
-                    val tracks = (_uiState.value as? HomeUiState.Success)?.data?.kugouDiscoverTracks.orEmpty()
+                    val data = (_uiState.value as? HomeUiState.Success)?.data ?: return
+                    val tracks = resolveKugouShelfTracks(data, card.entityId, shelfCards)
                     val index = tracks.indexOfFirst { it.id.canonical == card.entityId }
                     if (index >= 0) {
-                        playKugouDiscoverTrack(index)
+                        val queueItems = tracks.map(QueueItem::fromUnified)
+                        playerManager.playQueue(
+                            queueItems,
+                            index,
+                            shelfTitle.ifBlank { "酷狗发现" }
+                        )
                     }
                 } else {
                     val songs = shelfCards.filter { it.kind == HomeCardKind.SONG }.mapNotNull { item ->
@@ -894,9 +905,9 @@ class HomeViewModel(
             }
             HomeCardKind.SONG -> {
                 if (card.platform == MusicPlatform.KUGOU) {
-                    val track = (_uiState.value as? HomeUiState.Success)
-                        ?.data?.kugouDiscoverTracks
-                        ?.firstOrNull { it.id.canonical == card.entityId }
+                    val data = (_uiState.value as? HomeUiState.Success)?.data ?: return
+                    val track = resolveKugouShelfTracks(data, card.entityId, emptyList())
+                        .firstOrNull { it.id.canonical == card.entityId }
                     if (track != null) addUnifiedTrackToPlayNext(track)
                 } else {
                     val id = card.entityId.toLongOrNull() ?: return
@@ -1077,16 +1088,23 @@ class HomeViewModel(
             result += HomeSection.Shelf(
                 blockCode = "kugou_discover_tracks",
                 title = "发现新歌",
-                cards = data.kugouDiscoverTracks.map { track ->
-                    HomeSectionCard(
-                        platform = MusicPlatform.KUGOU,
-                        entityId = track.id.canonical,
-                        kind = HomeCardKind.SONG,
-                        title = track.name,
-                        coverUrl = track.coverUrl,
-                        caption = track.artists.joinToString(" / ") { it.name }
-                    )
-                }
+                cards = data.kugouDiscoverTracks.map { it.toHomeSongCard() }
+            )
+        }
+        if (data.kugouNewSongs.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "kugou_new_songs",
+                title = "新歌速递",
+                cards = data.kugouNewSongs.map { it.toHomeSongCard() }
+            )
+        }
+        val styleRec = data.kugouStyleRecommend
+        if (styleRec != null && styleRec.tracks.isNotEmpty()) {
+            val styleTitle = if (styleRec.title.isNotBlank()) "风格推荐 · ${styleRec.title}" else "风格推荐"
+            result += HomeSection.Shelf(
+                blockCode = "kugou_style_recommend",
+                title = styleTitle,
+                cards = styleRec.tracks.map { it.toHomeSongCard() }
             )
         }
         if (data.kugouPlaylists.isNotEmpty()) {
@@ -1101,6 +1119,23 @@ class HomeViewModel(
                         title = playlist.name,
                         coverUrl = playlist.coverUrl,
                         caption = playlist.creator?.nickname.orEmpty()
+                    )
+                }
+            )
+        }
+        if (data.kugouNewAlbums.isNotEmpty()) {
+            result += HomeSection.Shelf(
+                blockCode = "kugou_new_albums",
+                title = "新碟上架",
+                cards = data.kugouNewAlbums.mapNotNull { album ->
+                    val entityId = album.id?.canonical ?: return@mapNotNull null
+                    HomeSectionCard(
+                        platform = MusicPlatform.KUGOU,
+                        entityId = entityId,
+                        kind = HomeCardKind.ALBUM,
+                        title = album.name,
+                        coverUrl = album.coverUrl,
+                        caption = album.artists.joinToString(" / ") { it.name }
                     )
                 }
             )
@@ -1124,6 +1159,31 @@ class HomeViewModel(
         }
         return result
     }
+
+    // 按所属货架的卡片顺序取曲目；无货架上下文时只取该曲
+    private fun resolveKugouShelfTracks(
+        data: HomeFeedData,
+        entityId: String,
+        shelfCards: List<HomeSectionCard>
+    ): List<UnifiedTrack> {
+        val byId = sequenceOf(
+            data.kugouDiscoverTracks,
+            data.kugouNewSongs,
+            data.kugouStyleRecommend?.tracks.orEmpty(),
+            data.kugouDailySongs.map { it.track }
+        ).flatten().associateBy { it.id.canonical }
+        if (shelfCards.isEmpty()) return listOfNotNull(byId[entityId])
+        return shelfCards.mapNotNull { byId[it.entityId] }
+    }
+
+    private fun UnifiedTrack.toHomeSongCard(): HomeSectionCard = HomeSectionCard(
+        platform = MusicPlatform.KUGOU,
+        entityId = id.canonical,
+        kind = HomeCardKind.SONG,
+        title = name,
+        coverUrl = coverUrl,
+        caption = artists.joinToString(" / ") { it.name }
+    )
 }
 
 private const val KUGOU_RECENT_LIMIT = 8

@@ -1,0 +1,524 @@
+{
+ "data": {
+  "bi_biz": "rcmd_evd",
+  "song_list_size": 30,
+  "title": "华语流行",
+  "tagids": "S14",
+  "client_playlist_flag": 0,
+  "song_list": [
+   {
+    "filesize_flac": 28540596,
+    "official_songname": "",
+    "ori_audio_name": "千里之外",
+    "hash_192": "",
+    "hash_flac": "9D6068A765EB4A5D4A07A8B5456EEC1F",
+    "songname": "千里之外",
+    "music_trac": 1,
+    "fail_process": 4,
+    "pay_type": 3,
+    "filesize_other": 0,
+    "album_id": "965291",
+    "remark": "",
+    "language": "国语",
+    "is_file_head_320": 100,
+    "alg_path": "t=1795518102;fr=1;itid=9531aeb4-6a5a-ed71-abe3-d73574bee4a5;citid=;a=4;b=7",
+    "climax_timelength": 35100,
+    "timelength_320": 256,
+    "cid": 0,
+    "scid": 404469,
+    "suffix_audio_name": "",
+    "rec_copy_write": "人气歌曲推荐",
+    "mv_hash": "8F098C4F8A1CEDF9397AD9B6BA2C9030",
+    "hash": "055A1AE5D7B2355BBBB52307E99E43A9",
+    "singerinfo": [
+     {
+      "is_publish": "1",
+      "name": "周杰伦",
+      "id": "3520"
+     },
+     {
+      "is_publish": "1",
+      "name": "费玉清",
+      "id": "881"
+     }
+    ],
+    "sizable_cover": "http://imge.kugou.com/stdmusic/{size}/20170728/20170728122746411503.jpg",
+    "rank_label": "“周杰伦R&B中国风”",
+    "bitrate": 128,
+    "is_mv_file_head": 1,
+    "has_accompany": 1,
+    "filesize_128": 4103305,
+    "hash_other": "",
+    "is_publish": 1,
+    "climax_end_time": 107598,
+    "songid": 401290,
+    "quality_level": 3,
+    "filesize_192": 0,
+    "publish_date": "2006-09-05",
+    "file_size": 4103305,
+    "has_album": 0,
+    "extname": "mp3",
+    "type": "audio",
+    "level": 2,
+    "time_length": 256,
+    "author_name": "周杰伦、费玉清",
+    "old_cpy": 0,
+    "rec_copy_write_id": "2",
+    "rec_label_prefix": "M_PHARSE_",
+    "is_file_head": 100,
+    "relate_goods": {},
+    "ips_tags": [
+     {
+      "name": "昨日超万人播放",
+      "ip_id": "96593",
+      "pid": "96647"
+     },
+     {
+      "name": "昨日热播10w+",
+      "ip_id": "97190",
+      "pid": "96647"
+     },
+     {
+      "name": "上周播放top1W",
+      "ip_id": "97194",
+      "pid": "96647"
+     }
+    ],
+    "filesize_320": 10257963,
+    "climax_start_time": 72498,
+    "mv_type": 0,
+    "publish_time": 0,
+    "album_name": "依然范特西",
+    "rec_label_type": 7,
+    "filesize_ape": 0,
+    "hash_128": "055A1AE5D7B2355BBBB52307E99E43A9",
+    "trans_param": {
+     "cpy_grade": 5,
+     "classmap": {
+      "attr0": 234881032
+     },
+     "language": "国语",
+     "cpy_attr0": 58727552,
+     "musicpack_advance": 1,
+     "display": 0,
+     "display_rate": 0,
+     "union_cover": "http://imge.kugou.com/stdmusic/{size}/20170728/20170728122746411503.jpg",
+     "ogg_320_filesize": 10358545,
+     "cpy_map": "2",
+     "pay_block_tpl": 1,
+     "ogg_320_hash": "8A0BBA22283D526411B5530BF6130839",
+     "qualitymap": {
+      "bits": "28fffc0db411ffffbf3fc035",
+      "attr0": 1061142581,
+      "attr1": 1747189759
+     },
+     "is_original": 1,
+     "ogg_128_hash": "E21A7213429871ADA2F6E3E08DF6E037",
+     "cid": 2556400,
+     "ogg_128_filesize": 2901891,
+     "flags": {},
+     "ipmap": {
+      "attr0": 2475075571712,
+      "bits": "10024046001000"
+     },
+     "hash_offset": {
+      "clip_hash": "EFB963B357CF2BD0DC6EFE336A79863E",
+      "start_byte": 0,
+      "file_type": 0,
+      "end_byte": 2120378,
+      "end_ms": 132498,
+      "start_ms": 72498,
+      "offset_hash": "0E30F66070EDFA965A647BF29AC199CA"
+     },
+     "appid_block": "3124",
+     "hash_multitrack": "6DCA0A6430F24F24E6AB2709D437B666",
+     "cpy_level": 1
+    },
+    "is_original": 1,
+    "album_audio_remark": "",
+    "album_audio_id": "64473835",
+    "song_type": "1",
+    "filename": "周杰伦、费玉清 - 千里之外",
+    "privilege": 10,
+    "hash_ape": "",
+    "mixsongid": "64473835",
+    "hash_320": "E3F0D0A4236DBE1DFB8445F8CC73172D",
+    "tags": [
+     {
+      "tag_id": "84",
+      "parent_id": "7",
+      "tag_name": "国语"
+     },
+     {
+      "tag_id": "593",
+      "parent_id": "1621",
+      "tag_name": "中国风"
+     },
+     {
+      "tag_id": "882",
+      "parent_id": "3",
+      "tag_name": "流行"
+     }
+    ],
+    "rec_sub_copy_write": "一周超万人收藏"
+   },
+   {
+    "filesize_flac": 31386542,
+    "official_songname": "",
+    "ori_audio_name": "江南",
+    "hash_192": "",
+    "hash_flac": "EAD5278C68E0F2AF2D8E543F053C6C75",
+    "songname": "江南",
+    "music_trac": 1,
+    "fail_process": 4,
+    "pay_type": 3,
+    "filesize_other": 0,
+    "album_id": "969588",
+    "remark": "",
+    "language": "国语",
+    "is_file_head_320": 100,
+    "alg_path": "t=1795518102;fr=2;itid=9531aeb4-6a5a-ed71-abe3-d73574bee4a5;citid=;a=4;b=7",
+    "climax_timelength": 35200,
+    "timelength_320": 267,
+    "cid": 0,
+    "scid": 328926,
+    "suffix_audio_name": "",
+    "rec_copy_write": "人气歌曲推荐",
+    "mv_hash": "AEDEC7E84D020F7F06A01A0DB53C9DCB",
+    "hash": "B83DBB8E3DD3FCF86BF32690B91547F5",
+    "singerinfo": [
+     {
+      "is_publish": "1",
+      "name": "林俊杰",
+      "id": "1574"
+     }
+    ],
+    "sizable_cover": "http://imge.kugou.com/stdmusic/{size}/20250221/20250221180752107045.jpg",
+    "rank_label": "“烟雨浪漫诗意境”",
+    "bitrate": 128,
+    "is_mv_file_head": 1,
+    "has_accompany": 1,
+    "filesize_128": 4288455,
+    "hash_other": "",
+    "is_publish": 1,
+    "climax_end_time": 118900,
+    "songid": 200,
+    "quality_level": 3,
+    "filesize_192": 0,
+    "publish_date": "2004-06-04",
+    "file_size": 4288455,
+    "has_album": 0,
+    "extname": "mp3",
+    "type": "audio",
+    "level": 2,
+    "time_length": 267,
+    "author_name": "林俊杰",
+    "old_cpy": 0,
+    "rec_copy_write_id": "2",
+    "rec_label_prefix": "M_PHARSE_",
+    "is_file_head": 100,
+    "relate_goods": {},
+    "ips_tags": [
+     {
+      "name": "昨日超万人播放",
+      "ip_id": "96593",
+      "pid": "96647"
+     },
+     {
+      "name": "上周播放top100",
+      "ip_id": "97192",
+      "pid": "96647"
+     },
+     {
+      "name": "上周播放top1K",
+      "ip_id": "97193",
+      "pid": "96647"
+     }
+    ],
+    "filesize_320": 10720847,
+    "climax_start_time": 83700,
+    "mv_type": 0,
+    "publish_time": 0,
+    "album_name": "第二天堂",
+    "rec_label_type": 7,
+    "filesize_ape": 0,
+    "hash_128": "B83DBB8E3DD3FCF86BF32690B91547F5",
+    "trans_param": {
+     "cpy_grade": 5,
+     "classmap": {
+      "attr0": 234881032
+     },
+     "language": "国语",
+     "cpy_attr0": 58735744,
+     "musicpack_advance": 1,
+     "display": 0,
+     "display_rate": 0,
+     "union_cover": "http://imge.kugou.com/stdmusic/{size}/20250221/20250221180752107045.jpg",
+     "ogg_320_filesize": 11926780,
+     "cpy_map": "2",
+     "pay_block_tpl": 1,
+     "ogg_320_hash": "2ABE74409E3F5501EF41F21C8322698E",
+     "qualitymap": {
+      "bits": "2800000db411ffffbf3fc074",
+      "attr0": 1061142644,
+      "attr1": 1747189759
+     },
+     "is_original": 1,
+     "ogg_128_hash": "014E3E2B2442DEB9E843EB9007156683",
+     "cid": 18674458,
+     "ogg_128_filesize": 3151545,
+     "flags": {},
+     "ipmap": {
+      "attr0": 2475075571712,
+      "bits": "24046001000"
+     },
+     "hash_offset": {
+      "clip_hash": "ADC6675496B308CC072600A9C4666B7D",
+      "start_byte": 0,
+      "file_type": 0,
+      "end_byte": 2299676,
+      "end_ms": 143700,
+      "start_ms": 83700,
+      "offset_hash": "8503AB00E4A57C4AFA5743E1B3C1395D"
+     },
+     "appid_block": "3124",
+     "hash_multitrack": "F0011AF3C1FA165AC8620FF809BCC2E9",
+     "cpy_level": 1
+    },
+    "is_original": 1,
+    "album_audio_remark": "",
+    "album_audio_id": "32125113",
+    "song_type": "1",
+    "filename": "林俊杰 - 江南",
+    "privilege": 10,
+    "hash_ape": "",
+    "mixsongid": "32125113",
+    "hash_320": "070A4F7A0E92A6EE91B171CDBA9D3208",
+    "tags": [
+     {
+      "tag_id": "84",
+      "parent_id": "7",
+      "tag_name": "国语"
+     },
+     {
+      "tag_id": "593",
+      "parent_id": "1621",
+      "tag_name": "中国风"
+     },
+     {
+      "tag_id": "882",
+      "parent_id": "3",
+      "tag_name": "流行"
+     }
+    ]
+   },
+   {
+    "filesize_flac": 29903656,
+    "official_songname": "",
+    "ori_audio_name": "来自天堂的魔鬼",
+    "hash_192": "",
+    "hash_flac": "8AD472D4574C9BC7E00CB00124B89087",
+    "songname": "来自天堂的魔鬼",
+    "music_trac": 1,
+    "fail_process": 4,
+    "pay_type": 3,
+    "filesize_other": 0,
+    "album_id": "555825",
+    "remark": "",
+    "language": "国语",
+    "is_file_head_320": 100,
+    "alg_path": "t=1795518102;fr=3;itid=9531aeb4-6a5a-ed71-abe3-d73574bee4a5;citid=;a=4;b=7",
+    "climax_timelength": 30300,
+    "timelength_320": 245,
+    "cid": 0,
+    "scid": 19530101,
+    "suffix_audio_name": "",
+    "rec_copy_write": "人气歌曲推荐",
+    "mv_hash": "FFE2564174DA89750445CF4FEC1579C3",
+    "hash": "B800DCE86088CBA5B03FBD8C537DE59E",
+    "singerinfo": [
+     {
+      "is_publish": "1",
+      "name": "G.E.M.邓紫棋",
+      "id": "4490"
+     }
+    ],
+    "sizable_cover": "http://imge.kugou.com/stdmusic/{size}/20250630/20250630182908667830.jpg",
+    "rank_label": "“超好听这首歌”",
+    "bitrate": 128,
+    "is_mv_file_head": 1,
+    "has_accompany": 1,
+    "filesize_128": 3929034,
+    "hash_other": "",
+    "is_publish": 1,
+    "climax_end_time": 73000,
+    "songid": 1472267,
+    "quality_level": 3,
+    "filesize_192": 0,
+    "publish_date": "2015-11-06",
+    "file_size": 3929034,
+    "has_album": 0,
+    "extname": "mp3",
+    "type": "audio",
+    "level": 2,
+    "time_length": 245,
+    "author_name": "G.E.M.邓紫棋",
+    "old_cpy": 0,
+    "rec_copy_write_id": "2",
+    "rec_label_prefix": "M_PHARSE_",
+    "is_file_head": 100,
+    "relate_goods": {},
+    "ips_tags": [
+     {
+      "name": "昨日超万人播放",
+      "ip_id": "96593",
+      "pid": "96647"
+     },
+     {
+      "name": "昨日热播10w+",
+      "ip_id": "97190",
+      "pid": "96647"
+     },
+     {
+      "name": "上周播放top1K",
+      "ip_id": "97193",
+      "pid": "96647"
+     }
+    ],
+    "filesize_320": 9822259,
+    "climax_start_time": 42700,
+    "mv_type": 0,
+    "publish_time": 0,
+    "album_name": "新的心跳",
+    "rec_label_type": 7,
+    "filesize_ape": 0,
+    "hash_128": "B800DCE86088CBA5B03FBD8C537DE59E",
+    "trans_param": {
+     "cpy_grade": 6,
+     "classmap": {
+      "attr0": 234881032
+     },
+     "language": "国语",
+     "cpy_attr0": 58735744,
+     "musicpack_advance": 1,
+     "display": 0,
+     "display_rate": 0,
+     "union_cover": "http://imge.kugou.com/stdmusic/{size}/20250630/20250630182908667830.jpg",
+     "ogg_320_filesize": 9549585,
+     "cpy_map": "2",
+     "pay_block_tpl": 1,
+     "ogg_320_hash": "A7DB607438EAFD63A97ADC11D601E294",
+     "qualitymap": {
+      "bits": "2800000db41180007f3fc075",
+      "attr0": 2134884469,
+      "attr1": 1747124224
+     },
+     "is_original": 1,
+     "ogg_128_hash": "E7C939F22F2F45E41EBD96E48F7BD7DA",
+     "cid": 23079169,
+     "ogg_128_filesize": 2746509,
+     "flags": {},
+     "ipmap": {
+      "attr0": 2200130555904,
+      "bits": "10020042001000"
+     },
+     "hash_offset": {
+      "clip_hash": "8B7CD1D5737BC09F6D74380CB778219D",
+      "start_byte": 0,
+      "file_type": 0,
+      "end_byte": 960141,
+      "end_ms": 60000,
+      "start_ms": 0,
+      "offset_hash": "973068FE4A020C40DCAA4B75E8F4A5F9"
+     },
+     "appid_block": "2906,3124",
+     "hash_multitrack": "E21B4BC9C81A66B03AB811EEB7B5EFB9",
+     "cpy_level": 1
+    },
+    "is_original": 1,
+    "album_audio_remark": "",
+    "album_audio_id": "61700966",
+    "song_type": "1",
+    "filename": "G.E.M.邓紫棋 - 来自天堂的魔鬼",
+    "privilege": 10,
+    "hash_ape": "",
+    "mixsongid": "61700966",
+    "hash_320": "A7B6D4E505C530596B7A4A0D1F244627",
+    "tags": [
+     {
+      "tag_id": "84",
+      "parent_id": "7",
+      "tag_name": "国语"
+     },
+     {
+      "tag_id": "545",
+      "parent_id": "0",
+      "tag_name": "2015"
+     },
+     {
+      "tag_id": "882",
+      "parent_id": "3",
+      "tag_name": "流行"
+     }
+    ]
+   }
+  ],
+  "OlexpIds": "30,2218,2262,2270,2314,2316,2354,2866,2908,2910,2952,2954,2966,2968,2992,2994,6917,6919,7693,7695,7697,7699,7789,7791,7813,7815,7849,7851,8129,8133,8159,8161,8181,8281,8283,8297,8299,8345,8347,8383,8385,8513,8525,8527,8599,8601,8625,8627,8791,8793,8855,8857,9191,9575,9577,10621,10623",
+  "tag_info": [
+   {
+    "child": [
+     {
+      "name": "华语流行",
+      "default": 1,
+      "id": "S14"
+     },
+     {
+      "name": "粤语流行",
+      "id": "S15"
+     },
+     {
+      "name": "韩语流行",
+      "id": "S16"
+     }
+    ],
+    "name": "风格"
+   },
+   {
+    "child": [
+     {
+      "name": "国语",
+      "id": "L1"
+     },
+     {
+      "name": "英语",
+      "id": "L2"
+     },
+     {
+      "name": "粤语",
+      "id": "L5"
+     }
+    ],
+    "name": "语种"
+   },
+   {
+    "child": [
+     {
+      "name": "EMO",
+      "id": "M1"
+     },
+     {
+      "name": "甜蜜",
+      "id": "M3"
+     },
+     {
+      "name": "欢快",
+      "id": "M4"
+     }
+    ],
+    "name": "心情"
+   }
+  ]
+ },
+ "status": 1,
+ "error_code": 0
+}

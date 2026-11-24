@@ -3,9 +3,11 @@
 import com.lin0721.linmusic.core.kugou.runCatchingCancellable
 
 import com.lin0721.linmusic.core.kugou.KugouDiscoverService
+import com.lin0721.linmusic.core.platform.AlbumId
 import com.lin0721.linmusic.core.platform.PlaylistId
 import com.lin0721.linmusic.core.platform.TrackId
 import com.lin0721.linmusic.core.platform.UnifiedAlbum
+import com.lin0721.linmusic.core.platform.UnifiedArtist
 import com.lin0721.linmusic.core.platform.UnifiedAudioQuality
 import com.lin0721.linmusic.core.platform.UnifiedPlaylist
 import com.lin0721.linmusic.core.platform.UnifiedTrack
@@ -55,12 +57,20 @@ data class UnifiedDiscoverPlaylistPage(
     val hasMore: Boolean = false
 )
 
+data class UnifiedStyleRecommend(
+    val title: String = "",
+    val tracks: List<UnifiedTrack> = emptyList()
+)
+
 data class UnifiedDiscoverFeed(
     val platform: MusicPlatform,
     val dailySongs: List<UnifiedDailySong> = emptyList(),
     val recommendPlaylists: List<UnifiedPlaylist> = emptyList(),
     val toplists: List<UnifiedRank> = emptyList(),
-    val discoverTracks: List<UnifiedTrack> = emptyList()
+    val discoverTracks: List<UnifiedTrack> = emptyList(),
+    val newSongs: List<UnifiedTrack> = emptyList(),
+    val newAlbums: List<UnifiedAlbum> = emptyList(),
+    val styleRecommend: UnifiedStyleRecommend? = null
 )
 
 // 跨平台发现、每日推荐、私人 FM、歌单广场与排行榜契约
@@ -403,21 +413,33 @@ class KugouPlatformDiscoverRepository(
                 val dailyDeferred = async { discoverService.getDailyRecommendSongs() }
                 val playlistDeferred = async { discoverService.getRecommendedPlaylists(page = 1, pageSize = 30) }
                 val rankDeferred = async { discoverService.getRankList() }
+                val newSongsDeferred = async { discoverService.getNewSongs(page = 1, pageSize = 30) }
+                val newAlbumsDeferred = async { discoverService.getNewAlbums(page = 1, pageSize = 30) }
+                val styleRecDeferred = async { discoverService.getStyleRecommend() }
 
                 val discoverRes = discoverDeferred.await()
                 val dailyRes = dailyDeferred.await()
                 val playlistRes = playlistDeferred.await()
                 val rankRes = rankDeferred.await()
+                val newSongsRes = newSongsDeferred.await()
+                val newAlbumsRes = newAlbumsDeferred.await()
+                val styleRecRes = styleRecDeferred.await()
 
                 val allFailed = discoverRes.isFailure &&
                     dailyRes.isFailure &&
                     playlistRes.isFailure &&
-                    rankRes.isFailure
+                    rankRes.isFailure &&
+                    newSongsRes.isFailure &&
+                    newAlbumsRes.isFailure &&
+                    styleRecRes.isFailure
                 if (allFailed) {
                     throw (discoverRes.exceptionOrNull()
                         ?: playlistRes.exceptionOrNull()
                         ?: rankRes.exceptionOrNull()
                         ?: dailyRes.exceptionOrNull()
+                        ?: newSongsRes.exceptionOrNull()
+                        ?: newAlbumsRes.exceptionOrNull()
+                        ?: styleRecRes.exceptionOrNull()
                         ?: IllegalStateException("获取酷狗发现页数据失败"))
                 }
 
@@ -448,7 +470,25 @@ class KugouPlatformDiscoverRepository(
                             intro = r.intro
                         )
                     },
-                    discoverTracks = discoverRes.getOrNull().orEmpty().map { it.track.toUnifiedTrack() }
+                    discoverTracks = discoverRes.getOrNull().orEmpty().map { it.track.toUnifiedTrack() },
+                    newSongs = newSongsRes.getOrNull().orEmpty().map { it.toUnifiedTrack() },
+                    newAlbums = newAlbumsRes.getOrNull().orEmpty().map { dto ->
+                        UnifiedAlbum(
+                            id = AlbumId.kugou(dto.albumId.toString()),
+                            name = dto.albumName,
+                            coverUrl = dto.coverUrl,
+                            artists = dto.singerName.split("、", "/", ",")
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() }
+                                .map { UnifiedArtist(name = it) }
+                        )
+                    },
+                    styleRecommend = styleRecRes.getOrNull()?.let { res ->
+                        UnifiedStyleRecommend(
+                            title = res.title,
+                            tracks = res.tracks.map { it.toUnifiedTrack() }
+                        )
+                    }
                 )
             }
         }

@@ -233,6 +233,20 @@ class HomeSectionsTest {
             durationMs = 200_000L,
             kugouMeta = KugouTrackMeta(hash = "HASH_001")
         )
+        fun kugouTrack(hash: String) = UnifiedTrack(
+            id = TrackId(MusicPlatform.KUGOU, hash),
+            name = "歌 $hash",
+            artists = listOf(UnifiedArtist(name = "歌手B")),
+            kugouMeta = KugouTrackMeta(hash = hash)
+        )
+        val newSongs = listOf(kugouTrack("NEW_1"), kugouTrack("NEW_2"))
+        val styleTracks = listOf(kugouTrack("STYLE_1"), kugouTrack("STYLE_2"), kugouTrack("STYLE_3"))
+        val newAlbum = com.lin0721.linmusic.core.platform.UnifiedAlbum(
+            id = com.lin0721.linmusic.core.platform.AlbumId.kugou("215588294"),
+            name = "沉默交响",
+            coverUrl = "https://kg/a1.jpg",
+            artists = listOf(UnifiedArtist(name = "鲜克"))
+        )
         val recPlaylist = UnifiedPlaylist(
             id = PlaylistId(MusicPlatform.KUGOU, "gcid_rec_1"),
             name = "酷狗推荐歌单",
@@ -257,7 +271,10 @@ class HomeSectionsTest {
                             discoverTracks = listOf(discoverTrack),
                             dailySongs = listOf(UnifiedDailySong(discoverTrack, "每日推荐")),
                             recommendPlaylists = listOf(recPlaylist),
-                            toplists = listOf(rank)
+                            toplists = listOf(rank),
+                            newSongs = newSongs,
+                            newAlbums = listOf(newAlbum),
+                            styleRecommend = com.lin0721.linmusic.core.platform.repository.UnifiedStyleRecommend("华语流行", styleTracks)
                         )
                     )
                 )
@@ -299,26 +316,40 @@ class HomeSectionsTest {
         scheduler.advanceUntilIdle()
 
         val sections = vm.sections.value
-        // 无酷狗最近播放记录时不输出 Quick 区块：Daily + 3 个 Shelf
-        assertEquals(4, sections.size)
+        // 无酷狗最近播放记录时不输出 Quick 区块：Daily + 6 个 Shelf
+        assertEquals(7, sections.size)
 
         // 1. Daily
         assertTrue(sections[0] is HomeSection.Daily)
 
-        // 2. 三个货架：发现新歌、推荐歌单、酷狗排行榜
-        val sDiscover = sections[1] as HomeSection.Shelf
-        assertEquals("发现新歌", sDiscover.title)
+        // 2. 六个货架按固定顺序
+        val shelves = sections.drop(1).map { it as HomeSection.Shelf }
+        assertEquals(
+            listOf("发现新歌", "新歌速递", "风格推荐 · 华语流行", "推荐歌单", "新碟上架", "酷狗排行榜"),
+            shelves.map { it.title }
+        )
+        val sDiscover = shelves[0]
         assertEquals(HomeCardKind.SONG, sDiscover.cards.single().kind)
-
-        val sPlaylist = sections[2] as HomeSection.Shelf
-        assertEquals("推荐歌单", sPlaylist.title)
-        assertEquals(HomeCardKind.PLAYLIST, sPlaylist.cards.single().kind)
-
-        val sRank = sections[3] as HomeSection.Shelf
-        assertEquals("酷狗排行榜", sRank.title)
+        val sStyle = shelves[2]
+        assertEquals(3, sStyle.cards.size)
+        assertEquals(HomeCardKind.PLAYLIST, shelves[3].cards.single().kind)
+        val sAlbum = shelves[4]
+        assertEquals(HomeCardKind.ALBUM, sAlbum.cards.single().kind)
+        val sRank = shelves[5]
         assertTrue(sRank.showRank)
         assertEquals(HomeCardKind.RANK, sRank.cards.single().kind)
         assertEquals(kugouRankEntityId(rank), sRank.cards.single().entityId)
+
+        // 风格推荐的歌以本货架为队列，从点中的那首开始
+        vm.playCard(sStyle.cards[1], sStyle.cards, sStyle.title)
+        scheduler.advanceUntilIdle()
+        val (styleQueue, styleStart, styleContext) = player.queueCalls.last()
+        assertEquals(styleTracks.map { it.id.canonical }, styleQueue.map { it.effectiveTrackId.canonical })
+        assertEquals(1, styleStart)
+        assertEquals("风格推荐 · 华语流行", styleContext)
+
+        val albumTarget = vm.openTargetOf(sAlbum.cards.single()) as HomeCardTarget.PlaylistEntity
+        assertTrue(albumTarget.isAlbum)
 
         // 动作分派：播放发现新歌、下一首播放、打开排行榜
         vm.playCard(sDiscover.cards.single())

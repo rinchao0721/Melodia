@@ -97,3 +97,21 @@ data class KugouRankTracksPage(
     val page: Int = 1,
     val hasMore: Boolean = false
 )
+
+// 酷狗新碟上架单条（module/top_album.js）
+@Serializable
+data class KugouNewAlbumDto(
+    val albumId: Long,
+    val albumName: String,
+    val singerName: String = "",
+    val coverUrl: String = "",
+    val publishTime: String = "",
+    val songCount: Int = 0
+)
+
+// 酷狗风格推荐结果（module/everyday_style_recommend.js）
+@Serializable
+data class KugouStyleRecommendResult(
+    val title: String = "",
+    val tracks: List<KugouTrackItemDto> = emptyList()
+)
