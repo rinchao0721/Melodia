@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.icons.Leaderboard
-import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -38,7 +36,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 
 // 紧凑横条列表，不带标题；手机 2 列 4 行、平板竖屏 3 列 3 行、平板横屏 4 列 2 行
@@ -122,41 +119,14 @@ private fun RecentPlayRow(
             .background(rowBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (item.kind == HomeCardKind.QUICK_ENTRY) {
-            val icon = MelodiaIcons.Cloud
-            val iconBg = if (isActive) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-            }
-            val iconTint = if (isActive) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.primary
-            }
-            Box(
-                modifier = Modifier
-                    .size(rowHeight)
-                    .background(iconBg),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = item.title,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        } else {
-            SubcomposeAsyncImage(
-                model = item.coverUrl.withCoverParam("200y200"),
-                contentDescription = null,
-                modifier = Modifier.size(rowHeight),
-                contentScale = ContentScale.Crop,
-                loading = { CoverPlaceholder() },
-                error = { CoverPlaceholder() }
-            )
-        }
+        SubcomposeAsyncImage(
+            model = item.coverUrl.withCoverParam("200y200"),
+            contentDescription = null,
+            modifier = Modifier.size(rowHeight),
+            contentScale = ContentScale.Crop,
+            loading = { CoverPlaceholder() },
+            error = { CoverPlaceholder() }
+        )
         Text(
             text = item.title,
             color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,

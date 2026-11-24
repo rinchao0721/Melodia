@@ -32,8 +32,7 @@ enum class HomeCardKind {
     ALBUM,
     SONG,
     VOICE,
-    RANK,
-    QUICK_ENTRY
+    RANK
 }
 
 // 平台无关的首页卡片模型

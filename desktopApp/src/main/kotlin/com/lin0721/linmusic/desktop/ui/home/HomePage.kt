@@ -599,7 +599,6 @@ private fun RecentTile(
     onPlay: () -> Unit,
     onHover: (Boolean) -> Unit = {}
 ) {
-    val isQuickEntry = card.kind == HomeCardKind.QUICK_ENTRY
     val isFmHighlighted = false
     val subscribedPlaylistIds by viewModel.subscribedPlaylistIds.collectAsState()
     val neteaseId = if (card.platform == MusicPlatform.NETEASE) card.entityId.toLongOrNull() else null
@@ -634,7 +633,7 @@ private fun RecentTile(
                 .hoverable(interaction)
                 .onSizeChanged { tileHeightPx = it.height }
                 .onPointerEvent(PointerEventType.Press) { event ->
-                    if (!isQuickEntry && event.buttons.isSecondaryPressed) {
+                    if (event.buttons.isSecondaryPressed) {
                         val position = event.changes.firstOrNull()?.position ?: return@onPointerEvent
                         contextMenuOffset = with(density) {
                             DpOffset(position.x.toDp(), (position.y - tileHeightPx).toDp())
@@ -655,14 +654,12 @@ private fun RecentTile(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
             )
-            if (!isQuickEntry) {
-                HoverReveal(revealed = hovered, modifier = Modifier.padding(end = 12.dp)) {
-                    HomePlayButton(size = 32.dp, description = "播放${card.title}", onClick = onPlay)
-                }
+            HoverReveal(revealed = hovered, modifier = Modifier.padding(end = 12.dp)) {
+                HomePlayButton(size = 32.dp, description = "播放${card.title}", onClick = onPlay)
             }
         }
 
-        if (contextMenuOffset != null && !isQuickEntry) {
+        if (contextMenuOffset != null) {
             DesktopMenu(
                 expanded = true,
                 offset = contextMenuOffset ?: DpOffset.Zero,
@@ -787,7 +784,6 @@ private fun HomeSectionCard.typeLabel(): String = when (kind) {
     HomeCardKind.SONG -> "单曲"
     HomeCardKind.VOICE -> "播客"
     HomeCardKind.RANK -> "榜单"
-    HomeCardKind.QUICK_ENTRY -> "快捷"
 }
 
 @Composable
@@ -878,7 +874,7 @@ private fun ServerShelf(
                             navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                         })
                     }
-                    HomeCardKind.RANK, HomeCardKind.QUICK_ENTRY -> Unit
+                    HomeCardKind.RANK -> Unit
                 }
             }
         }

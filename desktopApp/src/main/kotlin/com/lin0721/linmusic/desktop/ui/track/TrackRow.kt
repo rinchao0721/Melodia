@@ -166,6 +166,8 @@ fun TrackRow(
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
     sourcePlatform: MusicPlatform? = null,
+    // 是否显示平台来源角标（搜索页与当前标签同平台时隐藏）
+    showPlatformBadge: Boolean = true,
     // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；插件歌曲留空
     qualitySongId: Long? = null,
     // 本地未匹配歌曲的推断音质等级
@@ -292,7 +294,7 @@ fun TrackRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
+                    if (showPlatformBadge && sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
                 }
                 val qualityBadge = rememberSongQualityBadge(
                     cache = LocalSongQualityCache.current,

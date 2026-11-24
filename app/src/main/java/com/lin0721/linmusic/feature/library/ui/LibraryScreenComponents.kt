@@ -72,9 +72,7 @@ fun LibraryFilterPillsRow(
     onSelectPlaylistOwnerFilter: (LibraryPlaylistOwnerFilter) -> Unit = {},
     showCategoryFilters: Boolean = true,
     onLocalMusicClick: (() -> Unit)? = null,
-    selectedPlatformFilter: com.lin0721.linmusic.core.source.MusicPlatform? = null,
     isKugouEnabled: Boolean = false,
-    onSelectPlatformFilter: (com.lin0721.linmusic.core.source.MusicPlatform?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val filters = if (showCategoryFilters) {
@@ -204,42 +202,6 @@ fun LibraryFilterPillsRow(
                     Text(
                         text = "本地音乐",
                         color = MelodiaColors.PillContent,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-        if (isKugouEnabled && showCategoryFilters) {
-            val platformItems = listOf(
-                null to "全部平台",
-                com.lin0721.linmusic.core.source.MusicPlatform.NETEASE to "网易云",
-                com.lin0721.linmusic.core.source.MusicPlatform.KUGOU to "酷狗"
-            )
-            items(platformItems, key = { "platform_${it.first?.name ?: "ALL"}" }) { (platform, label) ->
-                val isSelected = selectedPlatformFilter == platform
-                val bgColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MelodiaColors.Overlay.copy(alpha = 0.1f),
-                    animationSpec = uiTween(220),
-                    label = "platform_filter_bg"
-                )
-                val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MelodiaColors.PillContent,
-                    animationSpec = uiTween(220),
-                    label = "platform_filter_content"
-                )
-                Box(
-                    modifier = Modifier
-                        .animateItem(fadeInSpec, placementSpec, fadeOutSpec)
-                        .height(32.dp)
-                        .pressable(MelodiaPress.Pill) { onSelectPlatformFilter(platform) }
-                        .clip(RoundedCornerShape(PillRadius))
-                        .background(bgColor)
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = contentColor,
                         fontSize = 13.sp
                     )
                 }

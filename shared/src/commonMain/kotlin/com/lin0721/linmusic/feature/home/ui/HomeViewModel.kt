@@ -827,7 +827,6 @@ class HomeViewModel(
         shelfTitle: String = ""
     ) {
         when (card.kind) {
-            HomeCardKind.QUICK_ENTRY -> Unit
             HomeCardKind.PLAYLIST, HomeCardKind.ALBUM -> {
                 val isAlbum = card.kind == HomeCardKind.ALBUM
                 if (card.platform == MusicPlatform.NETEASE) {
@@ -913,7 +912,7 @@ class HomeViewModel(
                     HomeCard.Voice(id = id, songId = songId, title = card.title, coverUrl = card.coverUrl, caption = card.caption)
                 )
             }
-            HomeCardKind.RANK, HomeCardKind.QUICK_ENTRY -> Unit
+            HomeCardKind.RANK -> Unit
         }
     }
 
@@ -926,7 +925,6 @@ class HomeViewModel(
             HomeCardKind.ALBUM -> {
                 HomeCardTarget.PlaylistEntity(entityId = card.entityId, title = card.title, isAlbum = true)
             }
-            HomeCardKind.QUICK_ENTRY -> HomeCardTarget.None
             HomeCardKind.SONG, HomeCardKind.VOICE -> HomeCardTarget.None
         }
     }

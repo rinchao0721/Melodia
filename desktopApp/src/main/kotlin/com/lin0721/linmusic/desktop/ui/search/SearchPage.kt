@@ -349,6 +349,7 @@ private fun ResultEntry(
     onOpenPlaylist: (Long, String, Boolean) -> Unit
 ) {
     val navigator = LocalDesktopNavigator.current
+    val selectedPlatform by viewModel.selectedPlatform.collectAsState()
     when (item) {
         is SearchResultItem.SongItem -> {
             val unified = unifiedTracks[item.track.id]
@@ -366,6 +367,7 @@ private fun ResultEntry(
                 index = index,
                 track = item.track,
                 sourcePlatform = unified?.platform?.takeIf { it == MusicPlatform.KUGOU },
+                showPlatformBadge = unified?.platform != selectedPlatform,
                 qualitySongId = item.track.id.takeIf { it > 0L },
                 isCurrent = currentSongId == item.track.id,
                 onPlay = { viewModel.playSong(item.track) },

@@ -157,7 +157,6 @@ private fun HomeSectionCard.typeLabel(): String = when (kind) {
     HomeCardKind.SONG -> "单曲"
     HomeCardKind.VOICE -> "播客"
     HomeCardKind.RANK -> "榜单"
-    HomeCardKind.QUICK_ENTRY -> "推荐"
 }
 
 @Composable
@@ -170,7 +169,7 @@ private fun HomeShelfCard(
     onPlayNext: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val supportsPlayNext = card.kind != HomeCardKind.RANK && card.kind != HomeCardKind.QUICK_ENTRY
+    val supportsPlayNext = card.kind != HomeCardKind.RANK
 
     Box(modifier = modifier) {
         Column(
