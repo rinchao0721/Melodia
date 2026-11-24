@@ -343,6 +343,50 @@ class LanLinkRemoteCoordinatorTest {
     }
 
     @Test
+    fun autoRemoteWaitsUntilAccountsMatch() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val local = FakePlaybackController()
+        val transport = FakeTransport()
+        val accountsMatch = MutableStateFlow(false)
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = FakeVolumeBridge(),
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            clockMs = { 10_000L },
+            autoRemoteAllowed = accountsMatch
+        )
+        coordinator.start()
+        val peer = ConnectedPeerInfo("phone-1", "Pixel 9")
+        transport._connectedDevice.value = peer
+        runCurrent()
+        transport.sentMessages.clear()
+
+        transport.receive(
+            peer,
+            LanLinkMessage.RemotePlaybackHello(
+                deviceId = peer.deviceId,
+                deviceName = peer.deviceName,
+                isPlaying = true,
+                playWhenReady = true,
+                hasTrack = true,
+                lastActiveAtMs = 4_000L,
+                isHost = false
+            )
+        )
+        runCurrent()
+        // 账号未对上：保持本机，不请求远端状态
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertFalse(transport.sentMessages.any { it == LanLinkMessage.RemoteRequestSync })
+
+        accountsMatch.value = true
+        runCurrent()
+        assertEquals(PlaybackTarget.Remote(peer), coordinator.activeTarget.value)
+        assertTrue(transport.sentMessages.any { it == LanLinkMessage.RemoteRequestSync })
+    }
+
+    @Test
     fun playbackHelloTieBreakingActiveDeviceAndHandoffPlay() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val local = FakePlaybackController().apply {

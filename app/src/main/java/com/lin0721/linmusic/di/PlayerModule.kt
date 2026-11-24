@@ -1,5 +1,9 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.offline.CachedAudioIndex
@@ -67,7 +71,10 @@ val playerModule = module {
             transport = get<LanLinkAndroidClient>(),
             volumeBridge = get<AndroidVolumeBridge>(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-            playbackModeStore = get<SettingsPreferences>()
+            playbackModeStore = get<SettingsPreferences>(),
+            autoRemoteAllowed = get<LanLinkAndroidClient>().syncState
+                .map { it == LanLinkSyncState.SYNCED }
+                .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.Eagerly, false)
         )
     }
     single {

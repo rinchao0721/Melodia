@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.desktop.di
 
+import com.lin0721.linmusic.core.lanlink.LanLinkSyncState
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import com.lin0721.linmusic.core.plugin.PluginLyricsSource
 import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
@@ -284,7 +287,10 @@ val desktopPlatformModule = module {
             transport = get<LanLinkDesktopHost>(),
             volumeBridge = get<DesktopVolumeBridge>(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-            playbackModeStore = get<SettingsPreferences>()
+            playbackModeStore = get<SettingsPreferences>(),
+            autoRemoteAllowed = get<LanLinkDesktopHost>().syncState
+                .map { it == LanLinkSyncState.SYNCED }
+                .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.Eagerly, false)
         )
     }
     single {

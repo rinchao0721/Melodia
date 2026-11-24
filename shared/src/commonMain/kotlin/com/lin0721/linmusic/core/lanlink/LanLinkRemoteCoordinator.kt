@@ -85,7 +85,9 @@ class LanLinkRemoteCoordinator(
     private val scope: CoroutineScope,
     private val commandDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     private val clockMs: () -> Long = { System.currentTimeMillis() },
-    private val playbackModeStore: LanLinkPlaybackModeStore = InMemoryLanLinkPlaybackModeStore()
+    private val playbackModeStore: LanLinkPlaybackModeStore = InMemoryLanLinkPlaybackModeStore(),
+    // 两端账号一致时才允许握手后自动转为遥控对端
+    private val autoRemoteAllowed: StateFlow<Boolean> = MutableStateFlow(true)
 ) {
     private val _activeTarget = MutableStateFlow<PlaybackTarget>(PlaybackTarget.Local)
     val activeTarget: StateFlow<PlaybackTarget> = _activeTarget.asStateFlow()
@@ -108,6 +110,10 @@ class LanLinkRemoteCoordinator(
 
     @Volatile
     private var started = false
+
+    // 握手时因账号未对上而暂缓的自动遥控对端，账号核对一致后补做
+    @Volatile
+    private var pendingAutoRemotePeer: ConnectedPeerInfo? = null
 
     @Volatile
     private var currentQueueVersion = 0L
@@ -223,6 +229,7 @@ class LanLinkRemoteCoordinator(
             ) { enabled, peer, seq ->
                 Triple(if (enabled) peer else null, seq, enabled)
             }.distinctUntilChanged().collect { (peer, _, _) ->
+                pendingAutoRemotePeer = null
                 if (peer == null) {
                     stopHeartbeat()
                     currentEpoch = 0L
@@ -253,6 +260,12 @@ class LanLinkRemoteCoordinator(
                         startHeartbeat()
                     }
                 }
+            }
+        }
+
+        scope.launch {
+            autoRemoteAllowed.collect { allowed ->
+                if (allowed) applyPendingAutoRemote()
             }
         }
 
@@ -399,6 +412,7 @@ class LanLinkRemoteCoordinator(
     }
 
     fun switchToRemote(): Boolean {
+        pendingAutoRemotePeer = null
         val peer = transport.connectedDevice.value
         if (!transport.enabled.value || peer == null) {
             _messages.tryEmit("请先连接局域网联动设备")
@@ -457,11 +471,13 @@ class LanLinkRemoteCoordinator(
 
     // 退出遥控回到本机：不接力远端歌曲，也不发送抢占消息，远端继续自己的播放
     fun detachRemoteControl() {
+        pendingAutoRemotePeer = null
         if (_activeTarget.value is PlaybackTarget.Local) return
         _activeTarget.value = PlaybackTarget.Local
     }
 
     fun switchToLocal(): Boolean {
+        pendingAutoRemotePeer = null
         val currentTarget = _activeTarget.value
         if (currentTarget is PlaybackTarget.Local) return true
         val peer = (currentTarget as? PlaybackTarget.Remote)?.peer ?: transport.connectedDevice.value
@@ -736,6 +752,10 @@ class LanLinkRemoteCoordinator(
                 pushStateSnapshot(force = true)
             }
             !localPlaying && peerPlaying -> {
+                if (!autoRemoteAllowed.value) {
+                    pendingAutoRemotePeer = peer
+                    return
+                }
                 lastDeclaredActiveDeviceId = peer.deviceId
                 _activeTarget.value = PlaybackTarget.Remote(peer)
                 enqueueOutbound(LanLinkMessage.RemoteRequestSync)
@@ -759,7 +779,7 @@ class LanLinkRemoteCoordinator(
                     )
                     pushQueueSnapshot()
                     pushStateSnapshot(force = true)
-                } else {
+                } else if (autoRemoteAllowed.value) {
                     ignoreLocalPlayUntilMs = clockMs() + SUPPRESSION_WINDOW_MS
                     withContext(commandDispatcher) {
                         localController.pause()
@@ -775,6 +795,17 @@ class LanLinkRemoteCoordinator(
                 }
             }
         }
+    }
+
+    private fun applyPendingAutoRemote() {
+        val peer = pendingAutoRemotePeer ?: return
+        pendingAutoRemotePeer = null
+        if (transport.connectedDevice.value?.deviceId != peer.deviceId) return
+        if (_activeTarget.value !is PlaybackTarget.Local) return
+        if (localController.isPlaying.value || localController.playWhenReady.value) return
+        lastDeclaredActiveDeviceId = peer.deviceId
+        _activeTarget.value = PlaybackTarget.Remote(peer)
+        enqueueOutbound(LanLinkMessage.RemoteRequestSync)
     }
 
     private suspend fun handleRemoteActiveDevice(peer: ConnectedPeerInfo, msg: LanLinkMessage.RemoteActiveDevice) {
