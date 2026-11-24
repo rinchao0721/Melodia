@@ -156,12 +156,13 @@ class SearchViewModel(
         MusicPlatform.LX
     )
 
-    // 酷狗原生平台受 kugouPlatformEnabled 总开关门控，其余外部源受聚合搜索开关门控
+    // 酷狗原生平台受 kugouPlatformEnabled 总开关门控，其余外部源受聚合搜索开关门控；当前平台排第一位
     val searchPlatforms: StateFlow<List<MusicPlatform>> = combine(
         sourcePreferences?.searchAggregationEnabled ?: flowOf(false),
         searchProviders.firstOrNull { it.platform == MusicPlatform.LX }?.available ?: flowOf(false),
-        settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)
-    ) { aggregationEnabled, pluginAvailable, kugouEnabled ->
+        settingsPreferences?.kugouPlatformEnabled ?: flowOf(true),
+        userPreferences.currentPlatform
+    ) { aggregationEnabled, pluginAvailable, kugouEnabled, currentPlatform ->
         val hasKugouRouter = kugouEnabled && platformSearchRouter != null
         val external = if (aggregationEnabled) {
             val available = searchProviders.mapTo(hashSetOf()) { it.platform }
@@ -175,7 +176,12 @@ class SearchViewModel(
         } else {
             emptyList()
         }
-        listOf(MusicPlatform.NETEASE) + external + listOfNotNull(MusicPlatform.LX.takeIf { pluginAvailable })
+        val base = listOf(MusicPlatform.NETEASE) + external + listOfNotNull(MusicPlatform.LX.takeIf { pluginAvailable })
+        if (currentPlatform in base) {
+            listOf(currentPlatform) + base.filter { it != currentPlatform }
+        } else {
+            base
+        }
     }
         .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(MusicPlatform.NETEASE))
 

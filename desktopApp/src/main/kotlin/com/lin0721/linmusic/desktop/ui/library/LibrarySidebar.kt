@@ -436,8 +436,6 @@ internal fun LibrarySearchInput(
 @Composable
 private fun LibraryFilterChips(viewModel: LibraryViewModel, extras: LibraryExtrasEntry, onToggle: (LibraryFilter) -> Unit) {
     val selectedFilter by viewModel.selectedFilter.collectAsState()
-    val selectedPlatformFilter by viewModel.selectedPlatformFilter.collectAsState()
-    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
     val scrollState = rememberScrollState()
     val wheelStepPx = with(LocalDensity.current) { CHIP_WHEEL_STEP.toPx() }
     // 窄栏放不下全部胶囊时可横向滚动，竖向滚轮也换算成横向
@@ -455,14 +453,6 @@ private fun LibraryFilterChips(viewModel: LibraryViewModel, extras: LibraryExtra
     ) {
         LibraryFilters.forEach { (filter, label) ->
             LibraryFilterChip(label, selected = extras.selected == null && selectedFilter == filter) { onToggle(filter) }
-        }
-        if (isKugouEnabled) {
-            LibraryFilterChip("网易云", selected = extras.selected == null && selectedPlatformFilter == MusicPlatform.NETEASE) {
-                viewModel.togglePlatformFilter(MusicPlatform.NETEASE)
-            }
-            LibraryFilterChip("酷狗", selected = extras.selected == null && selectedPlatformFilter == MusicPlatform.KUGOU) {
-                viewModel.togglePlatformFilter(MusicPlatform.KUGOU)
-            }
         }
         LibraryFilterChip(LOCAL_FILTER_LABEL, selected = extras.selected == LibraryExtraFilter.LOCAL) {
             extras.onToggle(LibraryExtraFilter.LOCAL)

@@ -46,13 +46,19 @@ data class LocalRecentPlaylist(
     val coverUrl: String = "",
     val playTime: Long,
     val platform: MusicPlatform = MusicPlatform.NETEASE,
-    val rawId: String = ""
+    val rawId: String = "",
+    val accountKey: String? = null,
+    val kind: PlaySource.Kind = PlaySource.Kind.PLAYLIST
 ) {
     val effectiveRawId: String
         get() = rawId.trim().takeIf { it.isNotEmpty() } ?: id.toString()
 
     val dedupeKey: String
-        get() = "${platform.key}:$effectiveRawId"
+        get() = if (accountKey.isNullOrBlank()) {
+            "${platform.key}:$effectiveRawId"
+        } else {
+            "$accountKey:${platform.key}:$effectiveRawId"
+        }
 }
 
 // 最近播放过的私人FM曲目摘要，供非 FM 上下文时在首页卡片回显封面

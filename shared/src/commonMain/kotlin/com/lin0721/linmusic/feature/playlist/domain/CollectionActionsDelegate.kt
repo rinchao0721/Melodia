@@ -108,11 +108,18 @@ class CollectionActionsDelegate(
             return
         }
         val kind = if (isAlbum) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST
+        val parsedRawId = if (isAlbum) {
+            AlbumId.parseOrNull(entityId)?.rawId ?: entityId
+        } else {
+            PlaylistId.parseOrNull(entityId)?.rawId ?: entityId
+        }
+        val platform = (if (isAlbum) AlbumId.parseOrNull(entityId)?.platform else PlaylistId.parseOrNull(entityId)?.platform)
+            ?: com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
         playerManager.playQueue(
             loaded.tracks.map(QueueItem::fromUnified),
             0,
             loaded.name,
-            PlaySource(kind, 0L, loaded.name, loaded.coverUrl)
+            PlaySource(kind, 0L, loaded.name, loaded.coverUrl, platform = platform, rawId = parsedRawId)
         )
     }
 

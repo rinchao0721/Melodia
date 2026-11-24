@@ -112,7 +112,6 @@ import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
-import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.home.domain.HomeSection
 import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 import com.lin0721.linmusic.feature.home.ui.HomeFeedData
@@ -520,13 +519,6 @@ private fun handleHomeCardTarget(
     }
 }
 
-private fun quickEntryIcon(type: HomeQuickEntryType) = when (type) {
-    HomeQuickEntryType.DAILY_RECOMMEND -> MelodiaIcons.Calendar
-    HomeQuickEntryType.PERSONAL_FM -> MelodiaIcons.Radio
-    HomeQuickEntryType.TOPLIST -> MelodiaIcons.Leaderboard
-    HomeQuickEntryType.CLOUD -> MelodiaIcons.Cloud
-}
-
 @Composable
 private fun RecentGrid(
     section: HomeSection.Quick,
@@ -561,7 +553,7 @@ private fun RecentGrid(
             ) {
                 val shown = section.items.take(RECENT_ITEM_COUNT)
                 shown.forEach { card ->
-                    key("${card.platform}_${card.entityId}_${card.quickEntryType}") {
+                    key("${card.platform}_${card.entityId}") {
                         val playCard: () -> Unit = { viewModel.playCard(card, section.items, "最近播放") }
                         RecentTile(
                             card = card,
@@ -572,11 +564,7 @@ private fun RecentGrid(
                             titleSize = titleSize,
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                val target = if (card.kind == HomeCardKind.QUICK_ENTRY && card.quickEntryType != null) {
-                                    viewModel.onQuickEntryClick(card.quickEntryType!!)
-                                } else {
-                                    viewModel.openTargetOf(card)
-                                }
+                                val target = viewModel.openTargetOf(card)
                                 handleHomeCardTarget(
                                     target = target,
                                     navigator = navigator,
@@ -612,7 +600,7 @@ private fun RecentTile(
     onHover: (Boolean) -> Unit = {}
 ) {
     val isQuickEntry = card.kind == HomeCardKind.QUICK_ENTRY
-    val isFmHighlighted = isQuickEntry && card.quickEntryType == HomeQuickEntryType.PERSONAL_FM && isFmActive
+    val isFmHighlighted = false
     val subscribedPlaylistIds by viewModel.subscribedPlaylistIds.collectAsState()
     val neteaseId = if (card.platform == MusicPlatform.NETEASE) card.entityId.toLongOrNull() else null
     val isSubscribed = neteaseId != null && neteaseId in subscribedPlaylistIds
@@ -656,27 +644,8 @@ private fun RecentTile(
                 .clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isQuickEntry && card.quickEntryType != null) {
-                Box(
-                    modifier = Modifier
-                        .size(height)
-                        .background(
-                            if (isFmHighlighted) DesktopColors.Accent.copy(alpha = 0.28f)
-                            else DesktopColors.Overlay.copy(alpha = 0.12f)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = quickEntryIcon(card.quickEntryType!!),
-                        contentDescription = card.title,
-                        tint = if (isFmHighlighted) DesktopColors.Accent else DesktopColors.TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            } else {
-                // 尺寸随拖动连续变化，固定请求尺寸避免反复换缩略图
-                Cover(card.coverUrl, height, shape = RoundedCornerShape(0.dp), requestSize = RecentTileMaxHeight)
-            }
+            // 尺寸随拖动连续变化，固定请求尺寸避免反复换缩略图
+            Cover(card.coverUrl, height, shape = RoundedCornerShape(0.dp), requestSize = RecentTileMaxHeight)
             Text(
                 card.title,
                 color = DesktopColors.TextPrimary,
@@ -686,7 +655,7 @@ private fun RecentTile(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
             )
-            if (!isQuickEntry || card.quickEntryType == HomeQuickEntryType.DAILY_RECOMMEND) {
+            if (!isQuickEntry) {
                 HoverReveal(revealed = hovered, modifier = Modifier.padding(end = 12.dp)) {
                     HomePlayButton(size = 32.dp, description = "播放${card.title}", onClick = onPlay)
                 }

@@ -36,14 +36,6 @@ enum class HomeCardKind {
     QUICK_ENTRY
 }
 
-// 快捷入口类型，图标由界面层决定
-enum class HomeQuickEntryType {
-    DAILY_RECOMMEND,
-    PERSONAL_FM,
-    TOPLIST,
-    CLOUD
-}
-
 // 平台无关的首页卡片模型
 data class HomeSectionCard(
     val platform: MusicPlatform,
@@ -52,7 +44,6 @@ data class HomeSectionCard(
     val title: String,
     val coverUrl: String,
     val caption: String = "",
-    val quickEntryType: HomeQuickEntryType? = null,
     // 网易播客单集播放用 songId，entityId 仍存节目 id 供 key 使用
     val voiceSongId: Long? = null
 )

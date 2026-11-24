@@ -32,5 +32,5 @@ data class PlaySource(
             null
         }
 
-    enum class Kind { PLAYLIST, ALBUM }
+    enum class Kind { PLAYLIST, ALBUM, RANK }
 }

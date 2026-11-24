@@ -1,8 +1,11 @@
 package com.lin0721.linmusic.core.player
 
+import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.kugou.KugouCloudService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
 import com.lin0721.linmusic.core.kugou.KugouSongUrlResult
+import com.lin0721.linmusic.core.kugou.runCatchingCancellable
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.platform.KugouTrackMeta
 import com.lin0721.linmusic.core.platform.TrackId
@@ -12,6 +15,7 @@ import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
 import com.lin0721.linmusic.core.player.domain.KrcLyricParser
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.source.MusicPlatform
+import kotlinx.coroutines.flow.first
 
 // 跨平台播放/歌词/打卡所需的曲目补充元数据
 data class PlaybackTrackMeta(
@@ -235,10 +239,13 @@ class KugouPlaybackProvider(
 
 // 跨平台播放路由聚合器：根据 TrackId.platform 分发至对应的 PlatformPlaybackProvider
 class PlatformPlaybackRouter(
-    providers: List<PlatformPlaybackProvider>
+    providers: List<PlatformPlaybackProvider>,
+    private val playbackPreferences: PlaybackPreferences? = null,
+    private val userPreferences: UserPreferences? = null
 ) {
     private val providerMap: Map<MusicPlatform, PlatformPlaybackProvider> =
         providers.associateBy { it.platform }
+    private var lastRecordedKugouSourceKey: String? = null
 
     fun providerFor(platform: MusicPlatform): PlatformPlaybackProvider? = providerMap[platform]
 
@@ -278,8 +285,39 @@ class PlatformPlaybackRouter(
     suspend fun reportPlayStart(
         trackId: TrackId,
         meta: PlaybackTrackMeta? = null
-    ): Result<Unit> =
-        providerFor(trackId.platform)?.reportPlayStart(trackId, meta) ?: Result.success(Unit)
+    ): Result<Unit> {
+        if (trackId.platform == MusicPlatform.KUGOU) {
+            recordKugouRecentSource(meta?.playSource)
+        }
+        return providerFor(trackId.platform)?.reportPlayStart(trackId, meta) ?: Result.success(Unit)
+    }
+
+    // 酷狗歌单/专辑/榜单起播时写入本机最近播放，同一来源连续切歌不重复记录
+    private suspend fun recordKugouRecentSource(source: PlaySource?) {
+        val prefs = playbackPreferences ?: return
+        if (source == null || source.platform != MusicPlatform.KUGOU) return
+        val rawId = source.effectiveRawId
+        if (rawId.isBlank() || rawId == "0") return
+        val accountKey = userPreferences?.activeAccountOf(MusicPlatform.KUGOU)
+            ?.first()?.accountId?.canonical
+        val sourceKey = "${accountKey.orEmpty()}:${source.kind.name}:$rawId"
+        if (sourceKey == lastRecordedKugouSourceKey) return
+        lastRecordedKugouSourceKey = sourceKey
+        runCatchingCancellable {
+            prefs.recordRecentPlaylist(
+                LocalRecentPlaylist(
+                    id = source.id,
+                    name = source.name,
+                    coverUrl = source.coverUrl,
+                    playTime = System.currentTimeMillis(),
+                    platform = MusicPlatform.KUGOU,
+                    rawId = rawId,
+                    accountKey = accountKey,
+                    kind = source.kind
+                )
+            )
+        }.onFailure { AppLogger.w("PlatformPlaybackRouter", "记录酷狗最近播放来源失败 rawId=$rawId", it) }
+    }
 
     suspend fun reportPlayEnd(
         trackId: TrackId,

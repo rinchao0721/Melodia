@@ -55,6 +55,8 @@ import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.core.player.PersonalFmMode
+import com.lin0721.linmusic.core.player.LocalRecentPlaylist
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.QueueItem
@@ -68,7 +70,6 @@ import com.lin0721.linmusic.core.platform.repository.PlatformPlaylistRouter
 import com.lin0721.linmusic.core.platform.repository.UnifiedRank
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
-import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.home.domain.HomeSection
 import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
@@ -207,6 +208,21 @@ class HomeViewModel(
         viewModelScope.launch {
             playbackRepository.playlistRecorded.collect { refreshRecentPlaylists() }
         }
+        // 酷狗本机最近播放记录变化时只替换该区块
+        viewModelScope.launch {
+            combine(
+                playbackPreferences.recentPlaylists,
+                userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+            ) { all, account -> kugouRecentOf(all, account?.accountId?.canonical) }
+                .distinctUntilChanged()
+                .collect { latest ->
+                    val current = _uiState.value as? HomeUiState.Success ?: return@collect
+                    if (current.data.browsePlatform != MusicPlatform.KUGOU) return@collect
+                    if (current.data.kugouRecentPlaylists != latest) {
+                        _uiState.value = HomeUiState.Success(current.data.copy(kugouRecentPlaylists = latest))
+                    }
+                }
+        }
         // 离线转在线后重新拉取，替换离线时展示的缓存；首页尚未加载成功时走完整加载
         viewModelScope.launch {
             var wasOnline = onlineState.isOnline()
@@ -335,18 +351,15 @@ class HomeViewModel(
                 val feedDeferred = async {
                     discoverRouter.getDiscoverFeed(MusicPlatform.KUGOU, refresh).first()
                 }
-                val quickPlaylistsDeferred = async {
-                    val accountId = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()?.accountId
-                    val repo = platformLibraryRepository
-                    if (accountId != null && repo != null) {
-                        runCatchingCancellable { repo.getUserPlaylists(accountId, limit = 8).first().getOrNull().orEmpty() }
-                            .getOrDefault(emptyList())
-                    } else {
-                        emptyList()
-                    }
+                val recentPlaylistsDeferred = async {
+                    val accountKey = userPreferences.activeAccountOf(MusicPlatform.KUGOU)
+                        .first()?.accountId?.canonical
+                    runCatchingCancellable {
+                        kugouRecentOf(playbackPreferences.recentPlaylists.first(), accountKey)
+                    }.getOrDefault(emptyList())
                 }
                 val feedResult = feedDeferred.await()
-                val quickPlaylists = quickPlaylistsDeferred.await()
+                val recentPlaylists = recentPlaylistsDeferred.await()
                 feedResult.map { feed ->
                     HomeFeedData(
                         browsePlatform = MusicPlatform.KUGOU,
@@ -354,7 +367,7 @@ class HomeViewModel(
                         kugouDailySongs = feed.dailySongs,
                         kugouPlaylists = feed.recommendPlaylists,
                         kugouToplists = feed.toplists,
-                        kugouQuickPlaylists = quickPlaylists
+                        kugouRecentPlaylists = recentPlaylists
                     )
                 }
             }
@@ -491,7 +504,15 @@ class HomeViewModel(
                         _toastEvent.emit("榜单暂无曲目")
                     } else {
                         val queueItems = page.tracks.map(QueueItem::fromUnified)
-                        playerManager.playQueue(queueItems, startIndex.coerceIn(0, queueItems.size - 1), rank.name)
+                        val source = PlaySource(
+                            kind = PlaySource.Kind.RANK,
+                            id = 0L,
+                            name = rank.name,
+                            coverUrl = rank.coverUrl,
+                            platform = MusicPlatform.KUGOU,
+                            rawId = kugouRankEntityId(rank)
+                        )
+                        playerManager.playQueue(queueItems, startIndex.coerceIn(0, queueItems.size - 1), rank.name, source)
                     }
                 },
                 onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
@@ -806,26 +827,7 @@ class HomeViewModel(
         shelfTitle: String = ""
     ) {
         when (card.kind) {
-            HomeCardKind.QUICK_ENTRY -> {
-                when (card.quickEntryType) {
-                    HomeQuickEntryType.DAILY_RECOMMEND -> playDailySong()
-                    HomeQuickEntryType.PERSONAL_FM -> {
-                        if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
-                            disablePersonalFm()
-                        } else {
-                            startPersonalFm()
-                        }
-                    }
-                    HomeQuickEntryType.TOPLIST -> {
-                        if (card.platform == MusicPlatform.KUGOU) {
-                            val firstRank = (_uiState.value as? HomeUiState.Success)
-                                ?.data?.kugouToplists?.firstOrNull()
-                            if (firstRank != null) playKugouRank(firstRank)
-                        }
-                    }
-                    HomeQuickEntryType.CLOUD, null -> Unit
-                }
-            }
+            HomeCardKind.QUICK_ENTRY -> Unit
             HomeCardKind.PLAYLIST, HomeCardKind.ALBUM -> {
                 val isAlbum = card.kind == HomeCardKind.ALBUM
                 if (card.platform == MusicPlatform.NETEASE) {
@@ -924,50 +926,8 @@ class HomeViewModel(
             HomeCardKind.ALBUM -> {
                 HomeCardTarget.PlaylistEntity(entityId = card.entityId, title = card.title, isAlbum = true)
             }
-            HomeCardKind.QUICK_ENTRY -> {
-                val entryType = card.quickEntryType ?: return HomeCardTarget.None
-                onQuickEntryClick(entryType)
-            }
+            HomeCardKind.QUICK_ENTRY -> HomeCardTarget.None
             HomeCardKind.SONG, HomeCardKind.VOICE -> HomeCardTarget.None
-        }
-    }
-
-    // 快捷入口点击：私人 FM 直接切换播放状态，其余返回导航目标
-    fun onQuickEntryClick(type: HomeQuickEntryType): HomeCardTarget {
-        val currentPlatform = (_uiState.value as? HomeUiState.Success)?.data?.browsePlatform
-            ?: browsePlatform.value
-        return when (type) {
-            HomeQuickEntryType.DAILY_RECOMMEND -> {
-                // 网易日推在界面层的固定 id 为 -1
-                val entityId = if (currentPlatform == MusicPlatform.KUGOU) KUGOU_DAILY_RECOMMEND_ID else "-1"
-                HomeCardTarget.PlaylistEntity(entityId = entityId, title = "每日推荐", isAlbum = false)
-            }
-            HomeQuickEntryType.PERSONAL_FM -> {
-                if (playerManager.playContext.value == PlaybackController.CONTEXT_PERSONAL_FM) {
-                    disablePersonalFm()
-                } else {
-                    startPersonalFm()
-                }
-                HomeCardTarget.None
-            }
-            HomeQuickEntryType.TOPLIST -> {
-                if (currentPlatform == MusicPlatform.KUGOU) {
-                    val firstRank = (_uiState.value as? HomeUiState.Success)
-                        ?.data?.kugouToplists?.firstOrNull()
-                    if (firstRank != null) {
-                        HomeCardTarget.PlaylistEntity(
-                            entityId = kugouRankEntityId(firstRank),
-                            title = firstRank.name,
-                            isAlbum = false
-                        )
-                    } else {
-                        HomeCardTarget.Toplists
-                    }
-                } else {
-                    HomeCardTarget.Toplists
-                }
-            }
-            HomeQuickEntryType.CLOUD -> HomeCardTarget.Cloud
         }
     }
 
@@ -1073,53 +1033,32 @@ class HomeViewModel(
         return result
     }
 
+    private fun kugouRecentOf(all: List<LocalRecentPlaylist>, accountKey: String?): List<LocalRecentPlaylist> {
+        if (accountKey == null) return emptyList()
+        return all.filter { it.platform == MusicPlatform.KUGOU && it.accountKey == accountKey }
+            .sortedByDescending { it.playTime }
+            .take(KUGOU_RECENT_LIMIT)
+    }
+
     private fun buildKugouSections(data: HomeFeedData): List<HomeSection> {
         val result = mutableListOf<HomeSection>()
-        val quickEntries = listOf(
+        val recentCards = data.kugouRecentPlaylists.take(KUGOU_RECENT_LIMIT).map { item ->
+            val (kind, entityId) = when (item.kind) {
+                PlaySource.Kind.ALBUM -> HomeCardKind.ALBUM to com.lin0721.linmusic.core.platform.AlbumId.of(MusicPlatform.KUGOU, item.effectiveRawId).canonical
+                PlaySource.Kind.RANK -> HomeCardKind.RANK to item.effectiveRawId
+                PlaySource.Kind.PLAYLIST -> HomeCardKind.PLAYLIST to com.lin0721.linmusic.core.platform.PlaylistId.of(MusicPlatform.KUGOU, item.effectiveRawId).canonical
+            }
             HomeSectionCard(
                 platform = MusicPlatform.KUGOU,
-                entityId = KUGOU_DAILY_RECOMMEND_ID,
-                kind = HomeCardKind.QUICK_ENTRY,
-                title = "每日推荐",
-                coverUrl = "",
-                quickEntryType = HomeQuickEntryType.DAILY_RECOMMEND
-            ),
-            HomeSectionCard(
-                platform = MusicPlatform.KUGOU,
-                entityId = "kugou:personal_fm",
-                kind = HomeCardKind.QUICK_ENTRY,
-                title = "私人 FM",
-                coverUrl = "",
-                quickEntryType = HomeQuickEntryType.PERSONAL_FM
-            ),
-            HomeSectionCard(
-                platform = MusicPlatform.KUGOU,
-                entityId = "kugou:toplist",
-                kind = HomeCardKind.QUICK_ENTRY,
-                title = "排行榜",
-                coverUrl = "",
-                quickEntryType = HomeQuickEntryType.TOPLIST
-            ),
-            HomeSectionCard(
-                platform = MusicPlatform.KUGOU,
-                entityId = "kugou:cloud",
-                kind = HomeCardKind.QUICK_ENTRY,
-                title = "云盘",
-                coverUrl = "",
-                quickEntryType = HomeQuickEntryType.CLOUD
-            )
-        )
-        val userPlaylistCards = data.kugouQuickPlaylists.take(4).map { playlist ->
-            HomeSectionCard(
-                platform = MusicPlatform.KUGOU,
-                entityId = playlist.id.canonical,
-                kind = HomeCardKind.PLAYLIST,
-                title = playlist.name,
-                coverUrl = playlist.coverUrl,
-                caption = playlist.creator?.nickname.orEmpty()
+                entityId = entityId,
+                kind = kind,
+                title = item.name,
+                coverUrl = item.coverUrl
             )
         }
-        result += HomeSection.Quick(items = quickEntries + userPlaylistCards)
+        if (recentCards.isNotEmpty()) {
+            result += HomeSection.Quick(items = recentCards)
+        }
 
         if (data.kugouDailySongs.isNotEmpty()) {
             result += HomeSection.Daily(
@@ -1188,3 +1127,5 @@ class HomeViewModel(
         return result
     }
 }
+
+private const val KUGOU_RECENT_LIMIT = 8

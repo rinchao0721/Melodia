@@ -3,6 +3,7 @@ package com.lin0721.linmusic.feature.recent.data
 import com.lin0721.linmusic.core.cache.OfflineFallback
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.player.PlaybackPreferences
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.recent.domain.RecentAlbum
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import com.lin0721.linmusic.feature.recent.domain.RecentSong
@@ -42,6 +43,7 @@ class RecentRepositoryImpl(
     override fun getRecentPlaylists(): Flow<Result<List<RecentPlaylist>>> = flow {
         val local = runCatching { playbackPreferences.recentPlaylists.first() }
             .getOrDefault(emptyList())
+            .filter { it.platform == MusicPlatform.NETEASE }
             .map {
                 RecentPlaylist(
                     id = it.id,

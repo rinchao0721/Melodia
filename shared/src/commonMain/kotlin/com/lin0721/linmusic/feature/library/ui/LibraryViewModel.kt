@@ -154,9 +154,6 @@ class LibraryViewModel(
         initialValue = MusicPlatform.NETEASE
     )
 
-    private val _selectedPlatformFilter = MutableStateFlow<MusicPlatform?>(null)
-    val selectedPlatformFilter: StateFlow<MusicPlatform?> = _selectedPlatformFilter.asStateFlow()
-
     // null 表示未筛选（默认展示全部），仅在用户点击某个分类胶囊后才收窄为对应类型
     private val _selectedFilter = MutableStateFlow<LibraryFilter?>(null)
     val selectedFilter: StateFlow<LibraryFilter?> = _selectedFilter.asStateFlow()
@@ -177,43 +174,30 @@ class LibraryViewModel(
     init {
         viewModelScope.launch {
             combine(
+                userPreferences.currentPlatform,
                 userPreferences.userProfile,
                 userPreferences.activeAccountOf(MusicPlatform.KUGOU),
                 settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)
-            ) { neteaseProfile, kugouAcc, kugouEnabled ->
-                Triple(neteaseProfile, if (kugouEnabled) kugouAcc else null, kugouEnabled)
-            }.distinctUntilChanged().collect { (profile, effectiveKugouAcc, kugouEnabled) ->
-                if (!kugouEnabled && _selectedPlatformFilter.value == MusicPlatform.KUGOU) {
-                    _selectedPlatformFilter.value = null
-                }
-                if (profile != null || effectiveKugouAcc != null) {
-                    val newPrefsUid = profile?.uid ?: effectiveKugouAcc?.uid
+            ) { currentPlatform, neteaseProfile, kugouAcc, kugouEnabled ->
+                val effectiveKugou = if (kugouEnabled) kugouAcc else null
+                Triple(currentPlatform, neteaseProfile, effectiveKugou)
+            }.distinctUntilChanged().collect { (currentPlatform, profile, effectiveKugouAcc) ->
+                val activeProfile = if (currentPlatform == MusicPlatform.NETEASE) profile else null
+                val activeKugou = if (currentPlatform == MusicPlatform.KUGOU) effectiveKugouAcc else null
+                if (activeProfile != null || activeKugou != null) {
+                    val newPrefsUid = activeProfile?.uid ?: activeKugou?.uid
                     if (newPrefsUid != null && prefsUid != newPrefsUid) {
                         prefsUid = newPrefsUid
                         _pinnedIds.value = getPinnedIdsFromPrefs()
                     }
-                    loadLibraryData(profileOverride = profile, kugouAccountOverride = effectiveKugouAcc)
+                    loadLibraryData(profileOverride = activeProfile, kugouAccountOverride = activeKugou)
                 } else {
                     libraryLoadJob?.cancel()
                     prefsUid = null
                     _pinnedIds.value = emptySet()
+                    lastLoadedPlatform = null
                     lastLoadedUid = null
                     lastLoadedKugouKey = null
-                    _uiState.value = LibraryUiState.Loading
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            AccountEvents.platformSwitched.collect { event ->
-                if (event.platform != MusicPlatform.KUGOU) return@collect
-                val netease = userPreferences.userProfile.first()
-                val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
-                val kugouAcc = if (enabled) userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() else null
-                if (netease != null || kugouAcc != null) {
-                    loadLibraryData(profileOverride = netease, kugouAccountOverride = kugouAcc)
-                } else {
-                    libraryLoadJob?.cancel()
                     _uiState.value = LibraryUiState.Loading
                 }
             }
@@ -318,6 +302,7 @@ class LibraryViewModel(
     }
 
     private var libraryLoadJob: Job? = null
+    private var lastLoadedPlatform: MusicPlatform? = null
     private var lastLoadedUid: Long? = null
     private var lastLoadedKugouKey: String? = null
 
@@ -327,20 +312,29 @@ class LibraryViewModel(
     ) {
         libraryLoadJob?.cancel()
         libraryLoadJob = viewModelScope.launch {
-            val neteaseProfile = profileOverride ?: userProfile.value ?: userPreferences.userProfile.first()
+            val targetPlatform = userPreferences.currentPlatform.first()
+            val neteaseProfile = if (targetPlatform == MusicPlatform.NETEASE) {
+                profileOverride ?: userProfile.value ?: userPreferences.userProfile.first()
+            } else {
+                null
+            }
             val kugouEnabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
-            val effectiveKugouAcc = if (kugouEnabled) {
+            val effectiveKugouAcc = if (targetPlatform == MusicPlatform.KUGOU && kugouEnabled) {
                 kugouAccountOverride ?: kugouAccount.value ?: userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
             } else {
                 null
             }
             if (neteaseProfile == null && effectiveKugouAcc == null) {
+                lastLoadedPlatform = targetPlatform
                 _uiState.value = LibraryUiState.Loading
                 return@launch
             }
             val currentKugouKey = effectiveKugouAcc?.accountId?.canonical
-            val accountChanged = (lastLoadedUid != null && lastLoadedUid != neteaseProfile?.uid) ||
+            val platformChanged = lastLoadedPlatform != null && lastLoadedPlatform != targetPlatform
+            val accountChanged = platformChanged ||
+                (lastLoadedUid != null && lastLoadedUid != neteaseProfile?.uid) ||
                 (lastLoadedKugouKey != null && lastLoadedKugouKey != currentKugouKey)
+            lastLoadedPlatform = targetPlatform
             lastLoadedUid = neteaseProfile?.uid
             lastLoadedKugouKey = currentKugouKey
             val isRefresh = !accountChanged && _uiState.value is LibraryUiState.Success
@@ -604,17 +598,12 @@ class LibraryViewModel(
         val state = _uiState.value as? LibraryUiState.Success ?: return
         val pinned = _pinnedIds.value
         val filter = _selectedFilter.value
-        val platformFilter = _selectedPlatformFilter.value
         val ownerFilter = _selectedPlaylistOwnerFilter.value
         val sort = _sortOrder.value
         val query = _searchQuery.value
 
         var list = state.allItems.map { item ->
             item.copy(isPinned = pinned.contains(item.id))
-        }
-
-        if (platformFilter != null) {
-            list = list.filter { it.platform == platformFilter }
         }
 
         if (query.isNotBlank()) {
@@ -841,18 +830,6 @@ class LibraryViewModel(
         _selectedFilter.value = null
         _selectedPlaylistOwnerFilter.value = null
         applyFilterAndSort()
-    }
-
-    fun setPlatformFilter(platform: MusicPlatform?) {
-        val next = if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) null else platform
-        if (_selectedPlatformFilter.value == next) return
-        _selectedPlatformFilter.value = next
-        applyFilterAndSort()
-    }
-
-    fun togglePlatformFilter(platform: MusicPlatform) {
-        val next = if (_selectedPlatformFilter.value == platform) null else platform
-        setPlatformFilter(next)
     }
 
     // 歌单二级筛选：再次点击已选中的胶囊会取消，恢复展示全部歌单
@@ -1216,7 +1193,14 @@ class LibraryViewModel(
                     return null
                 }
                 val queueItems = tracks.map { QueueItem.fromUnified(it) }
-                val source = PlaySource(PlaySource.Kind.PLAYLIST, pid.toDeterministicLegacyId(), detail.name, detail.coverUrl)
+                val source = PlaySource(
+                    PlaySource.Kind.PLAYLIST,
+                    pid.toDeterministicLegacyId(),
+                    detail.name,
+                    detail.coverUrl,
+                    platform = pid.platform,
+                    rawId = pid.rawId
+                )
                 return queueItems to source
             }
             LibraryItemType.ARTIST -> {

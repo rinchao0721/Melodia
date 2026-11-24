@@ -96,7 +96,6 @@ fun LibraryScreen(
     val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
     val browsePlatform by viewModel.browsePlatform.collectAsStateWithLifecycle()
-    val selectedPlatformFilter by viewModel.selectedPlatformFilter.collectAsStateWithLifecycle()
     val effectiveKugouLoggedIn = isKugouEnabled && kugouAccount != null
     val hasCloudAccount = userProfile != null || effectiveKugouLoggedIn
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
@@ -350,10 +349,7 @@ fun LibraryScreen(
                 selectedPlaylistOwnerFilter = selectedPlaylistOwnerFilter,
                 onSelectPlaylistOwnerFilter = { viewModel.togglePlaylistOwnerFilter(it) },
                 showCategoryFilters = hasCloudAccount,
-                onLocalMusicClick = onNavigateToLocalMusic,
-                selectedPlatformFilter = selectedPlatformFilter,
-                isKugouEnabled = isKugouEnabled,
-                onSelectPlatformFilter = viewModel::setPlatformFilter
+                onLocalMusicClick = onNavigateToLocalMusic
             )
 
             // 用户登录状态条件渲染

@@ -222,6 +222,7 @@ class Phase4BViewModelsTest {
         val track = kugouTrack("HASH_LIKE_1", "七里香")
         val queueItem = QueueItem.fromUnified(track).copy(external = null)
         prefs.upsertPlatformAccount(kugouAccount())
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
 
         val delegate = SongCollectDelegate(
             userPlaylistRepository = FakeUserPlaylistRepository(),
@@ -264,6 +265,7 @@ class Phase4BViewModelsTest {
         val settings = SettingsPreferences(InMemoryPreferencesStore())
         val externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
         prefs.upsertPlatformAccount(kugouAccount())
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
 
         val kugouLib = FakeKugouLibraryRepo().apply {
             playlists = listOf(
@@ -320,20 +322,17 @@ class Phase4BViewModelsTest {
         assertTrue(success.allItems.any { it.entityId == KUGOU_RECENT_PLAYLIST_ID && it.platform == MusicPlatform.KUGOU })
         assertTrue(success.allItems.any { it.entityId == "kugou:3520" && it.platform == MusicPlatform.KUGOU })
 
-        // 平台筛选与浏览平台切换联动
-        vm.setPlatformFilter(MusicPlatform.KUGOU)
-        val filteredKugou = vm.uiState.value as LibraryUiState.Success
-        assertTrue(filteredKugou.filteredItems.isNotEmpty())
-        assertTrue(filteredKugou.filteredItems.all { it.platform == MusicPlatform.KUGOU })
-
-        vm.setPlatformFilter(MusicPlatform.NETEASE)
-        val filteredNetease = vm.uiState.value as LibraryUiState.Success
-        assertFalse(filteredNetease.filteredItems.any { it.platform == MusicPlatform.KUGOU })
-
-        vm.setPlatformFilter(null)
+        // 切换当前平台时仅保留当前平台数据
         prefs.setCurrentPlatform(MusicPlatform.KUGOU)
         advanceUntilIdle()
         assertEquals(MusicPlatform.KUGOU, vm.browsePlatform.value)
+        val kugouOnly = vm.uiState.value as LibraryUiState.Success
+        assertTrue(kugouOnly.allItems.isNotEmpty())
+        assertTrue(kugouOnly.allItems.all { it.platform == MusicPlatform.KUGOU })
+
+        prefs.setCurrentPlatform(MusicPlatform.NETEASE)
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value is LibraryUiState.Loading)
 
         // 验证酷狗榜单 entityId 编解码往返一致
         val sampleRank = com.lin0721.linmusic.core.platform.repository.UnifiedRank(
@@ -521,6 +520,7 @@ class Phase4BViewModelsTest {
         val likeRepo = RecordingSongLikeRepository()
         val playlistRepo = FakePlaylistRepository()
         prefs.upsertPlatformAccount(kugouAccount())
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
 
         val kugouArtistRepo = FakeKugouArtistRepo(kugouTrack("HASH_ART_1", "以父之名"))
         val artistRouter = PlatformArtistRouter(StubPlatformArtistRepo(), kugouArtistRepo) {

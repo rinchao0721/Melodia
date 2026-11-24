@@ -106,7 +106,9 @@ val kugouModule = module {
         PlatformPlaybackRouter(
             providers = listOf(
                 get<KugouPlaybackProvider>()
-            )
+            ),
+            playbackPreferences = getOrNull(),
+            userPreferences = getOrNull()
         )
     }
     single { NeteaseAuthProvider(get(), get()) }

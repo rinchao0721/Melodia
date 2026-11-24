@@ -38,5 +38,5 @@ data class HomeFeedData(
     val kugouDailySongs: List<UnifiedDailySong> = emptyList(),
     val kugouPlaylists: List<UnifiedPlaylist> = emptyList(),
     val kugouToplists: List<UnifiedRank> = emptyList(),
-    val kugouQuickPlaylists: List<UnifiedUserPlaylist> = emptyList()
+    val kugouRecentPlaylists: List<com.lin0721.linmusic.core.player.LocalRecentPlaylist> = emptyList()
 )

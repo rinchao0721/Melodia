@@ -39,7 +39,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
-import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 
 // 紧凑横条列表，不带标题；手机 2 列 4 行、平板竖屏 3 列 3 行、平板横屏 4 列 2 行
@@ -86,7 +85,7 @@ fun RecentPlaySection(
                     RecentPlayRow(
                         item = item,
                         rowHeight = rowHeight,
-                        isActive = item.quickEntryType == HomeQuickEntryType.PERSONAL_FM && isPersonalFm,
+                        isActive = false,
                         modifier = Modifier
                             .weight(1f)
                             .homeReflowBounds(),
@@ -124,12 +123,7 @@ private fun RecentPlayRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (item.kind == HomeCardKind.QUICK_ENTRY) {
-            val icon = when (item.quickEntryType) {
-                HomeQuickEntryType.DAILY_RECOMMEND -> MelodiaIcons.Calendar
-                HomeQuickEntryType.PERSONAL_FM -> MelodiaIcons.Radio
-                HomeQuickEntryType.TOPLIST -> MelodiaIcons.Leaderboard
-                HomeQuickEntryType.CLOUD, null -> MelodiaIcons.Cloud
-            }
+            val icon = MelodiaIcons.Cloud
             val iconBg = if (isActive) {
                 MaterialTheme.colorScheme.primary
             } else {

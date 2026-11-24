@@ -118,6 +118,7 @@ class SearchViewModelSimplifyTest {
 
         assertEquals(MusicPlatform.KUGOU, vm.selectedPlatform.value)
         assertTrue(MusicPlatform.NETEASE in vm.searchPlatforms.value)
+        assertEquals(listOf(MusicPlatform.KUGOU, MusicPlatform.NETEASE), vm.searchPlatforms.value)
     }
 
     @Test

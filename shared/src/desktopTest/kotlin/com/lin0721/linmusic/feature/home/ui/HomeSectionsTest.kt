@@ -49,7 +49,6 @@ import com.lin0721.linmusic.feature.home.domain.HomeBlockPage
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeCardKind
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
-import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.home.domain.HomeSection
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
 import com.lin0721.linmusic.feature.home.domain.ToplistInfo
@@ -300,30 +299,22 @@ class HomeSectionsTest {
         scheduler.advanceUntilIdle()
 
         val sections = vm.sections.value
-        assertEquals(5, sections.size)
+        // 无酷狗最近播放记录时不输出 Quick 区块：Daily + 3 个 Shelf
+        assertEquals(4, sections.size)
 
-        // 1. Quick: 4 个固定入口 + 1 个酷狗账号歌单
-        val quick = sections[0] as HomeSection.Quick
-        assertEquals(5, quick.items.size)
-        assertEquals(HomeQuickEntryType.DAILY_RECOMMEND, quick.items[0].quickEntryType)
-        assertEquals(HomeQuickEntryType.PERSONAL_FM, quick.items[1].quickEntryType)
-        assertEquals(HomeQuickEntryType.TOPLIST, quick.items[2].quickEntryType)
-        assertEquals(HomeQuickEntryType.CLOUD, quick.items[3].quickEntryType)
-        assertEquals("我的酷狗歌单", quick.items[4].title)
+        // 1. Daily
+        assertTrue(sections[0] is HomeSection.Daily)
 
-        // 2. Daily
-        assertTrue(sections[1] is HomeSection.Daily)
-
-        // 3. 三个货架：发现新歌、推荐歌单、酷狗排行榜
-        val sDiscover = sections[2] as HomeSection.Shelf
+        // 2. 三个货架：发现新歌、推荐歌单、酷狗排行榜
+        val sDiscover = sections[1] as HomeSection.Shelf
         assertEquals("发现新歌", sDiscover.title)
         assertEquals(HomeCardKind.SONG, sDiscover.cards.single().kind)
 
-        val sPlaylist = sections[3] as HomeSection.Shelf
+        val sPlaylist = sections[2] as HomeSection.Shelf
         assertEquals("推荐歌单", sPlaylist.title)
         assertEquals(HomeCardKind.PLAYLIST, sPlaylist.cards.single().kind)
 
-        val sRank = sections[4] as HomeSection.Shelf
+        val sRank = sections[3] as HomeSection.Shelf
         assertEquals("酷狗排行榜", sRank.title)
         assertTrue(sRank.showRank)
         assertEquals(HomeCardKind.RANK, sRank.cards.single().kind)
@@ -340,9 +331,81 @@ class HomeSectionsTest {
 
         val rankTarget = vm.openTargetOf(sRank.cards.single())
         assertEquals(HomeCardTarget.PlaylistEntity(kugouRankEntityId(rank), "酷狗TOP500", false), rankTarget)
+    }
 
-        val toplistEntryTarget = vm.onQuickEntryClick(HomeQuickEntryType.TOPLIST)
-        assertEquals(HomeCardTarget.PlaylistEntity(kugouRankEntityId(rank), "酷狗TOP500", false), toplistEntryTarget)
+    @Test
+    fun `kugou quick section filters by current account and caps at 8 items`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        val settings = SettingsPreferences(InMemoryPreferencesStore())
+        val playbackPrefs = PlaybackPreferences(InMemoryPreferencesStore())
+        val account1 = AccountId(MusicPlatform.KUGOU, "1001")
+        val account2 = AccountId(MusicPlatform.KUGOU, "1002")
+        prefs.upsertPlatformAccount(
+            StoredAccount(
+                uid = 1001L,
+                platform = MusicPlatform.KUGOU,
+                platformUid = "1001",
+                nickname = "酷狗1",
+                credentials = mapOf("token" to "1")
+            ),
+            activate = true
+        )
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
+
+        // 写入：1 条 null accountKey（旧网易）、1 条其他酷狗账号、10 条当前酷狗账号
+        playbackPrefs.recordRecentPlaylist(
+            com.lin0721.linmusic.core.player.LocalRecentPlaylist(
+                id = 1L, name = "旧网易", playTime = 100L, platform = MusicPlatform.NETEASE, rawId = "1", accountKey = null
+            )
+        )
+        playbackPrefs.recordRecentPlaylist(
+            com.lin0721.linmusic.core.player.LocalRecentPlaylist(
+                id = 0L, name = "其他酷狗账号歌单", playTime = 200L, platform = MusicPlatform.KUGOU, rawId = "kg_other", accountKey = account2.canonical
+            )
+        )
+        for (i in 1..10) {
+            playbackPrefs.recordRecentPlaylist(
+                com.lin0721.linmusic.core.player.LocalRecentPlaylist(
+                    id = 0L,
+                    name = "酷狗记录$i",
+                    playTime = 1000L + i,
+                    platform = MusicPlatform.KUGOU,
+                    rawId = "kg_$i",
+                    accountKey = account1.canonical,
+                    kind = when (i % 3) {
+                        0 -> com.lin0721.linmusic.core.player.PlaySource.Kind.ALBUM
+                        1 -> com.lin0721.linmusic.core.player.PlaySource.Kind.PLAYLIST
+                        else -> com.lin0721.linmusic.core.player.PlaySource.Kind.RANK
+                    }
+                )
+            )
+        }
+
+        val emptyDiscoverRepo = object : com.lin0721.linmusic.core.platform.repository.PlatformDiscoverRepository {
+            override fun getDiscoverFeed(platform: MusicPlatform, refresh: Boolean) = flowOf(
+                Result.success(UnifiedDiscoverFeed(platform = platform))
+            )
+            override fun getDailyRecommendSongs(platform: MusicPlatform) = flowOf(Result.success(emptyList<UnifiedDailySong>()))
+            override fun getRecommendedPlaylists(platform: MusicPlatform, page: Int, pageSize: Int) =
+                flowOf(Result.failure<com.lin0721.linmusic.core.platform.repository.UnifiedDiscoverPlaylistPage>(IllegalStateException()))
+            override fun getRankList(platform: MusicPlatform) = flowOf(Result.success(emptyList<UnifiedRank>()))
+            override fun getRankTracks(rank: UnifiedRank, page: Int, pageSize: Int) =
+                flowOf(Result.failure<UnifiedRankTracksPage>(IllegalStateException()))
+            override fun getPersonalFmSongs(platform: MusicPlatform, mode: com.lin0721.linmusic.core.player.PersonalFmMode) =
+                flowOf(Result.success(emptyList<UnifiedTrack>()))
+            override fun trashFmSong(platform: MusicPlatform, track: UnifiedTrack, playedSeconds: Long) = flowOf(Result.success(Unit))
+        }
+        val discoverRouter = PlatformDiscoverRouter(netease = emptyDiscoverRepo, kugou = emptyDiscoverRepo, isKugouEnabled = { true })
+        val vm = buildHomeViewModel(prefs, settings, playbackPrefs, RecordingPlaybackController(), discoverRouter = discoverRouter)
+        scheduler.advanceUntilIdle()
+
+        val quick = vm.sections.value.filterIsInstance<HomeSection.Quick>().single()
+        assertEquals(8, quick.items.size)
+        assertTrue(quick.items.all { it.platform == MusicPlatform.KUGOU })
+        assertTrue(quick.items.none { it.title == "旧网易" || it.title == "其他酷狗账号歌单" })
+        // 最新一条（i = 10，10 % 3 == 1 -> PLAYLIST）排在第一位
+        assertEquals("酷狗记录10", quick.items.first().title)
+        assertEquals(HomeCardKind.PLAYLIST, quick.items.first().kind)
     }
 
     private fun buildHomeViewModel(

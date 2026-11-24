@@ -13,6 +13,7 @@ import com.lin0721.linmusic.core.player.LocalRecentPlaylist
 import com.lin0721.linmusic.core.player.LoudnessPolicy
 import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
@@ -232,9 +233,21 @@ class PlaybackRepositoryImpl(
 
     // 服务端不记录本客户端的歌单播放，改在本地记录，记录完成后通知首页刷新
     private suspend fun recordPlaylistPlay(source: PlaySource) {
+        if (source.platform != MusicPlatform.NETEASE) return
         runCatching {
+            val accountKey = userPreferences.activeAccountOf(MusicPlatform.NETEASE)
+                .first()?.accountId?.canonical
             playbackPreferences.recordRecentPlaylist(
-                LocalRecentPlaylist(source.id, source.name, source.coverUrl, System.currentTimeMillis())
+                LocalRecentPlaylist(
+                    id = source.id,
+                    name = source.name,
+                    coverUrl = source.coverUrl,
+                    playTime = System.currentTimeMillis(),
+                    platform = MusicPlatform.NETEASE,
+                    rawId = source.effectiveRawId,
+                    accountKey = accountKey,
+                    kind = source.kind
+                )
             )
         }.onSuccess { _playlistRecorded.tryEmit(source.id) }
             .onFailure { AppLogger.w(TAG, "记录本地最近播放歌单失败 playlistId=${source.id}", it) }

@@ -28,7 +28,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
-import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.music.ui.MusicContent
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksFeedActions
@@ -262,19 +261,7 @@ fun HomeScreen(
                             onRetry = { viewModel.loadHomeData() },
                             onLoadMore = { viewModel.loadMoreShelves() },
                             onQuickCardClick = { card ->
-                                val entryType = card.quickEntryType
-                                if (entryType == HomeQuickEntryType.PERSONAL_FM && !isPersonalFm) {
-                                    if ((browsePlatform == MusicPlatform.NETEASE && userProfile != null) ||
-                                        (browsePlatform == MusicPlatform.KUGOU && kugouAccount != null)
-                                    ) {
-                                        openPlayerOnFmStart = true
-                                    }
-                                }
-                                if (entryType != null) {
-                                    navigateTarget(viewModel.onQuickEntryClick(entryType))
-                                } else {
-                                    navigateTarget(viewModel.openTargetOf(card))
-                                }
+                                navigateTarget(viewModel.openTargetOf(card))
                             },
                             onDailyOpen = { platform ->
                                 if (platform == MusicPlatform.KUGOU) {
