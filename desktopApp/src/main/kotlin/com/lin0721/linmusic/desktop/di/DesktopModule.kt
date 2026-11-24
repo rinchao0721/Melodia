@@ -461,7 +461,41 @@ val desktopViewModelModule = module {
         )
     }
     factoryOf(::PlaylistCategoryViewModel)
-    factoryOf(::PlaylistViewModel)
+    // 参数超过 Koin 构造引用的 22 个上限，*Of(::) 会把后面带默认值的参数静默置空，必须显式列出
+    factory {
+        PlaylistViewModel(
+            songCollectDelegate = get(),
+            syncProfileAfterLoginUseCase = get(),
+            loadLikedSongIdsUseCase = get(),
+            homeRepository = get(),
+            libraryRepository = get(),
+            commentRepository = get(),
+            playlistRepository = get(),
+            songLikeRepository = get(),
+            playbackRepository = get(),
+            createPlaylistAndAddSongUseCase = get(),
+            updatePlaylistCoverUseCase = get(),
+            playerManager = get(),
+            userPreferences = get(),
+            resourceProvider = get(),
+            playlistMutationBus = get(),
+            searchRepository = get(),
+            songDownloadManager = get(),
+            offlinePlayability = get(),
+            trackBatchActions = get(),
+            externalStore = get(),
+            pluginContent = get(),
+            downloadRecognizer = get(),
+            songQualityCache = getOrNull(),
+            platformPlaylistRouter = getOrNull(),
+            platformAlbumRouter = getOrNull(),
+            platformCommentRouter = getOrNull(),
+            platformLibraryRouter = getOrNull(),
+            platformSearchRouter = getOrNull(),
+            settingsPreferences = getOrNull(),
+            platformDiscoverRouter = getOrNull()
+        )
+    }
     singleOf(::PlayerViewModel)
     singleOf(::ListenTogetherViewModel)
     factoryOf(::RoomSongPickerViewModel)
