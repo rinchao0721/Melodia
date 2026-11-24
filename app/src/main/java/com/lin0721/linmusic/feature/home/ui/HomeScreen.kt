@@ -27,13 +27,14 @@ import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.theme.uiTween
+import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
+import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
 import com.lin0721.linmusic.feature.music.ui.MusicContent
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksFeedActions
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksFeedContent
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
-import com.lin0721.linmusic.feature.playlist.ui.kugouRankEntityId
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeActions
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeContent
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
@@ -71,6 +72,7 @@ fun HomeScreen(
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sections by viewModel.sections.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val showRecentPlay by viewModel.showRecentPlay.collectAsStateWithLifecycle()
     val showForYou by viewModel.showForYou.collectAsStateWithLifecycle()
@@ -236,42 +238,81 @@ fun HomeScreen(
                         }
                     )
 
-                    else -> HomeContent(
-                        uiState = uiState,
-                        isRefreshing = isRefreshing,
-                        onRefresh = { viewModel.refreshHomeData() },
-                        onPlaylistClick = onPlaylistClick,
-                        onSongClick = { shelfTitle, songs, song -> viewModel.playShelfSong(shelfTitle, songs, song) },
-                        onVoiceClick = { shelfTitle, voices, voice -> viewModel.playShelfVoice(shelfTitle, voices, voice) },
-                        onRetry = { viewModel.loadHomeData() },
-                        onLoadMore = { viewModel.loadMoreShelves() },
-                        onPersonalFmClick = {
-                            if (browsePlatform == MusicPlatform.NETEASE && userProfile != null) {
-                                openPlayerOnFmStart = true
-                            } else if (browsePlatform == MusicPlatform.KUGOU && kugouAccount != null) {
-                                openPlayerOnFmStart = true
+                    else -> {
+                        val navigateTarget: (HomeCardTarget) -> Unit = { target ->
+                            when (target) {
+                                is HomeCardTarget.PlaylistEntity -> {
+                                    val longId = target.entityId.toLongOrNull()
+                                    if (longId != null && browsePlatform == MusicPlatform.NETEASE) {
+                                        onPlaylistClick(longId, target.isAlbum)
+                                    } else {
+                                        onPlaylistEntityClick(target.entityId, target.isAlbum)
+                                    }
+                                }
+                                HomeCardTarget.Toplists -> Unit
+                                HomeCardTarget.Cloud -> onCloudClick()
+                                HomeCardTarget.None -> Unit
                             }
-                            viewModel.startPersonalFm()
-                        },
-                        onRoamingClick = { viewModel.startRoaming() },
-                        onDailyPlay = { viewModel.playDailySong() },
-                        personalFmMode = personalFmMode,
-                        fmCoverUrls = fmCoverUrls,
-                        isFmPlaying = isFmPlaying,
-                        roamingCoverUrl = roamingCoverUrl,
-                        hotTopCoverUrl = hotTopCoverUrl,
-                        isRoamingPlaying = isRoamingPlaying,
-                        showRecentPlay = showRecentPlay,
-                        showForYou = showForYou,
-                        currentSongId = nowPlaying?.songId,
-                        isPlaying = isPlaying,
-                        onPlaylistEntityClick = onPlaylistEntityClick,
-                        onKugouDailyOpen = { onPlaylistEntityClick(KUGOU_DAILY_RECOMMEND_ID, false) },
-                        onKugouDiscoverTrackClick = { index -> viewModel.playKugouDiscoverTrack(index) },
-                        onKugouRankOpen = { rank -> onPlaylistEntityClick(kugouRankEntityId(rank), false) },
-                        onKugouRankPlay = { rank -> viewModel.playKugouRank(rank) },
-                        onCloudClick = onCloudClick
-                    )
+                        }
+                        HomeContent(
+                            uiState = uiState,
+                            sections = sections,
+                            isRefreshing = isRefreshing,
+                            onRefresh = { viewModel.refreshHomeData() },
+                            onRetry = { viewModel.loadHomeData() },
+                            onLoadMore = { viewModel.loadMoreShelves() },
+                            onQuickCardClick = { card ->
+                                val entryType = card.quickEntryType
+                                if (entryType == HomeQuickEntryType.PERSONAL_FM && !isPersonalFm) {
+                                    if ((browsePlatform == MusicPlatform.NETEASE && userProfile != null) ||
+                                        (browsePlatform == MusicPlatform.KUGOU && kugouAccount != null)
+                                    ) {
+                                        openPlayerOnFmStart = true
+                                    }
+                                }
+                                if (entryType != null) {
+                                    navigateTarget(viewModel.onQuickEntryClick(entryType))
+                                } else {
+                                    navigateTarget(viewModel.openTargetOf(card))
+                                }
+                            },
+                            onDailyOpen = { platform ->
+                                if (platform == MusicPlatform.KUGOU) {
+                                    onPlaylistEntityClick(KUGOU_DAILY_RECOMMEND_ID, false)
+                                } else {
+                                    onPlaylistClick(-1L, false)
+                                }
+                            },
+                            onDailyPlay = { viewModel.playDailySong() },
+                            onShelfCardClick = { _, card ->
+                                navigateTarget(viewModel.openTargetOf(card))
+                            },
+                            onShelfCardPlay = { shelf, card ->
+                                viewModel.playCard(card, shelf.cards, shelf.title)
+                            },
+                            onShelfCardPlayNext = { card ->
+                                viewModel.addCardToPlayNext(card)
+                            },
+                            onPlaylistClick = onPlaylistClick,
+                            onPersonalFmClick = {
+                                if (browsePlatform == MusicPlatform.NETEASE && userProfile != null) {
+                                    openPlayerOnFmStart = true
+                                } else if (browsePlatform == MusicPlatform.KUGOU && kugouAccount != null) {
+                                    openPlayerOnFmStart = true
+                                }
+                                viewModel.startPersonalFm()
+                            },
+                            onRoamingClick = { viewModel.startRoaming() },
+                            personalFmMode = personalFmMode,
+                            fmCoverUrls = fmCoverUrls,
+                            isPersonalFm = isPersonalFm,
+                            isFmPlaying = isFmPlaying,
+                            roamingCoverUrl = roamingCoverUrl,
+                            hotTopCoverUrl = hotTopCoverUrl,
+                            isRoamingPlaying = isRoamingPlaying,
+                            showForYou = showForYou
+                        )
+                    }
                 }
             }
         }

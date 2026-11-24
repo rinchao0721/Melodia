@@ -2,6 +2,7 @@ package com.lin0721.linmusic.feature.home.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.icons.Leaderboard
+import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -34,7 +38,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
+import com.lin0721.linmusic.feature.home.domain.HomeCardKind
+import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
+import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 
 // 紧凑横条列表，不带标题；手机 2 列 4 行、平板竖屏 3 列 3 行、平板横屏 4 列 2 行
 // 手机竖排 4 行，压低行高，避免首屏被这一块占满
@@ -45,8 +51,9 @@ private val ItemGapExpanded = 9.dp
 
 @Composable
 fun RecentPlaySection(
-    items: List<RecentPlaylist>,
-    onClick: (RecentPlaylist) -> Unit,
+    items: List<HomeSectionCard>,
+    isPersonalFm: Boolean,
+    onClick: (HomeSectionCard) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
@@ -75,10 +82,11 @@ fun RecentPlaySection(
             maxItemsInEachRow = columns
         ) {
             shownItems.forEach { item ->
-                key(item.id) {
+                key("${item.kind}_${item.entityId}") {
                     RecentPlayRow(
                         item = item,
                         rowHeight = rowHeight,
+                        isActive = item.quickEntryType == HomeQuickEntryType.PERSONAL_FM && isPersonalFm,
                         modifier = Modifier
                             .weight(1f)
                             .homeReflowBounds(),
@@ -96,30 +104,68 @@ fun RecentPlaySection(
 
 @Composable
 private fun RecentPlayRow(
-    item: RecentPlaylist,
+    item: HomeSectionCard,
     rowHeight: Dp,
+    isActive: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val rowBg = if (isActive) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+    } else {
+        MelodiaColors.Overlay.copy(alpha = 0.1f)
+    }
     Row(
         modifier = modifier
             .height(rowHeight)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(4.dp))
-            .background(MelodiaColors.Overlay.copy(alpha = 0.1f)),
+            .background(rowBg),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SubcomposeAsyncImage(
-            model = item.coverUrl.withCoverParam("200y200"),
-            contentDescription = null,
-            modifier = Modifier.size(rowHeight),
-            contentScale = ContentScale.Crop,
-            loading = { CoverPlaceholder() },
-            error = { CoverPlaceholder() }
-        )
+        if (item.kind == HomeCardKind.QUICK_ENTRY) {
+            val icon = when (item.quickEntryType) {
+                HomeQuickEntryType.DAILY_RECOMMEND -> MelodiaIcons.Calendar
+                HomeQuickEntryType.PERSONAL_FM -> MelodiaIcons.Radio
+                HomeQuickEntryType.TOPLIST -> MelodiaIcons.Leaderboard
+                HomeQuickEntryType.CLOUD, null -> MelodiaIcons.Cloud
+            }
+            val iconBg = if (isActive) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+            }
+            val iconTint = if (isActive) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+            Box(
+                modifier = Modifier
+                    .size(rowHeight)
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = item.title,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        } else {
+            SubcomposeAsyncImage(
+                model = item.coverUrl.withCoverParam("200y200"),
+                contentDescription = null,
+                modifier = Modifier.size(rowHeight),
+                contentScale = ContentScale.Crop,
+                loading = { CoverPlaceholder() },
+                error = { CoverPlaceholder() }
+            )
+        }
         Text(
-            text = item.name,
-            color = MaterialTheme.colorScheme.onSurface,
+            text = item.title,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             lineHeight = 15.sp,

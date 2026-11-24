@@ -19,12 +19,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,8 +54,9 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.uiTween
-import com.lin0721.linmusic.feature.home.domain.HomeCard
-import com.lin0721.linmusic.feature.home.domain.HomeShelf
+import com.lin0721.linmusic.feature.home.domain.HomeCardKind
+import com.lin0721.linmusic.feature.home.domain.HomeSection
+import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Play
 
@@ -109,8 +114,10 @@ internal fun HomeSectionTitle(text: String, modifier: Modifier = Modifier) {
 // 一个货架：标题 + 横滑卡片。横向 LazyRow 宽度有界，可以安全嵌进外层 LazyColumn
 @Composable
 fun HomeShelfSection(
-    shelf: HomeShelf,
-    onCardClick: (HomeCard) -> Unit,
+    shelf: HomeSection.Shelf,
+    onCardClick: (HomeSectionCard) -> Unit,
+    onCardPlay: (HomeSectionCard) -> Unit,
+    onCardPlayNext: (HomeSectionCard) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth().padding(top = HomeSectionSpacing)) {
@@ -128,13 +135,15 @@ fun HomeShelfSection(
                 // 服务端会把同一资源投放到多个位次，key 必须带类型与下标才不会撞
                 itemsIndexed(
                     items = shelf.cards,
-                    key = { index, card -> "${card::class.simpleName}_${card.id}_$index" }
+                    key = { index, card -> "${card.kind}_${card.entityId}_$index" }
                 ) { index, card ->
                     HomeShelfCard(
                         card = card,
                         rank = (index + 1).takeIf { shelf.showRank },
                         modifier = Modifier.width(cardWidth),
-                        onClick = { onCardClick(card) }
+                        onClick = { onCardClick(card) },
+                        onPlay = { onCardPlay(card) },
+                        onPlayNext = { onCardPlayNext(card) }
                     )
                 }
             }
@@ -142,93 +151,128 @@ fun HomeShelfSection(
     }
 }
 
-private fun HomeCard.typeLabel(): String = when (this) {
-    is HomeCard.Playlist -> "歌单"
-    is HomeCard.Album -> "专辑"
-    is HomeCard.Song -> "单曲"
-    is HomeCard.Voice -> "播客"
+private fun HomeSectionCard.typeLabel(): String = when (kind) {
+    HomeCardKind.PLAYLIST -> "歌单"
+    HomeCardKind.ALBUM -> "专辑"
+    HomeCardKind.SONG -> "单曲"
+    HomeCardKind.VOICE -> "播客"
+    HomeCardKind.RANK -> "榜单"
+    HomeCardKind.QUICK_ENTRY -> "推荐"
 }
 
 @Composable
 private fun HomeShelfCard(
-    card: HomeCard,
+    card: HomeSectionCard,
     rank: Int?,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPlay: () -> Unit,
+    onPlayNext: () -> Unit
 ) {
-    Column(modifier = modifier.pressable(MelodiaPress.Card) { onClick() }) {
-        Box(
+    var menuExpanded by remember { mutableStateOf(false) }
+    val supportsPlayNext = card.kind != HomeCardKind.RANK && card.kind != HomeCardKind.QUICK_ENTRY
+
+    Box(modifier = modifier) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(RadiusCompact))
+                .pressable(MelodiaPress.Card, onLongClick = { menuExpanded = true }) { onClick() }
         ) {
-            // 卡宽随容器变化，固定解码尺寸才能继续命中内存缓存，不闪占位图
-            val context = LocalContext.current
-            val coverRequest = remember(card.coverUrl) {
-                ImageRequest.Builder(context)
-                    .data(card.coverUrl.withCoverParam("400y400"))
-                    .size(SHELF_COVER_DECODE_SIZE_PX)
-                    .build()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(RadiusCompact))
+            ) {
+                // 卡宽随容器变化，固定解码尺寸才能继续命中内存缓存，不闪占位图
+                val context = LocalContext.current
+                val coverRequest = remember(card.coverUrl) {
+                    ImageRequest.Builder(context)
+                        .data(card.coverUrl.withCoverParam("400y400"))
+                        .size(SHELF_COVER_DECODE_SIZE_PX)
+                        .build()
+                }
+                SubcomposeAsyncImage(
+                    model = coverRequest,
+                    contentDescription = card.title,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                    contentScale = ContentScale.Crop,
+                    loading = { CoverPlaceholder() },
+                    error = { CoverPlaceholder() }
+                )
+
+                // 歌曲与播客单集点一下直接播放，给个播放符号说清楚；歌单与专辑是进详情页，不加
+                if (card.kind == HomeCardKind.SONG || card.kind == HomeCardKind.VOICE) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = MelodiaIcons.Play,
+                            contentDescription = null,
+                            tint = MelodiaColors.OnAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
-            SubcomposeAsyncImage(
-                model = coverRequest,
-                contentDescription = card.title,
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
-                contentScale = ContentScale.Crop,
-                loading = { CoverPlaceholder() },
-                error = { CoverPlaceholder() }
+
+            Text(
+                text = rank?.let { "${card.typeLabel()} · $it" } ?: card.typeLabel(),
+                color = MelodiaColors.TextSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(top = 7.dp)
             )
 
-            // 歌曲与播客单集点一下直接播放，给个播放符号说清楚；歌单与专辑是进详情页，不加
-            if (card is HomeCard.Song || card is HomeCard.Voice) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp)
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = MelodiaIcons.Play,
-                        contentDescription = null,
-                        tint = MelodiaColors.OnAccent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+            Text(
+                text = card.title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+
+            if (card.caption.isNotBlank()) {
+                Text(
+                    text = card.caption,
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
         }
 
-        Text(
-            text = rank?.let { "${card.typeLabel()} · $it" } ?: card.typeLabel(),
-            color = MelodiaColors.TextSecondary,
-            fontSize = 11.sp,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 7.dp)
-        )
-
-        Text(
-            text = card.title,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 1.dp)
-        )
-
-        if (card.caption.isNotBlank()) {
-            Text(
-                text = card.caption,
-                color = MelodiaColors.TextSecondary,
-                fontSize = 11.5.sp,
-                lineHeight = 15.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp)
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("立即播放") },
+                onClick = {
+                    menuExpanded = false
+                    onPlay()
+                }
             )
+            if (supportsPlayNext) {
+                DropdownMenuItem(
+                    text = { Text("下一首播放") },
+                    onClick = {
+                        menuExpanded = false
+                        onPlayNext()
+                    }
+                )
+            }
         }
     }
 }
