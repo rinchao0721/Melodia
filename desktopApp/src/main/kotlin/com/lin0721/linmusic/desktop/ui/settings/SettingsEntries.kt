@@ -522,7 +522,7 @@ internal fun settingsEntries(
                             val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
                             scope.launch {
                                 val name = account.nickname.ifBlank { account.effectivePlatformUid }
-                                if (switcher.switchPlatformAccount(account.accountId)) {
+                                if (switcher.switchToAccount(account.accountId)) {
                                     navigator.showMessage("已切换网易云账号至 $name")
                                 }
                             }
@@ -531,7 +531,7 @@ internal fun settingsEntries(
                             val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
                             scope.launch {
                                 val name = account.nickname.ifBlank { account.effectivePlatformUid }
-                                switcher.logoutPlatformAccount(account.accountId)
+                                switcher.logout(account.accountId)
                                 navigator.showMessage("已退出网易云账号 $name")
                             }
                         }
@@ -558,7 +558,7 @@ internal fun settingsEntries(
                             val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
                             scope.launch {
                                 val name = account.nickname.ifBlank { account.effectivePlatformUid }
-                                if (switcher.switchPlatformAccount(account.accountId)) {
+                                if (switcher.switchToAccount(account.accountId)) {
                                     navigator.showMessage("已切换酷狗账号至 $name")
                                 }
                             }
@@ -567,7 +567,7 @@ internal fun settingsEntries(
                             val switcher = accountSwitcher ?: return@MultiPlatformAccountListSection
                             scope.launch {
                                 val name = account.nickname.ifBlank { account.effectivePlatformUid }
-                                switcher.logoutPlatformAccount(account.accountId)
+                                switcher.logout(account.accountId)
                                 navigator.showMessage("已退出酷狗账号 $name")
                             }
                         }

@@ -29,6 +29,9 @@ object PreferencesStores {
     const val STYLE_COVER = "style_cover_prefs"
     const val LAN_LINK = "lan_link_prefs"
 
+    // 用户偏好为空时据此判断是否用过旧版本
+    val LEGACY_USAGE_STORES = listOf(SETTINGS, PLAYBACK, SEARCH_HISTORY)
+
     private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
 
     fun get(file: File): DataStore<Preferences> = stores.getOrPut(file.absolutePath) {

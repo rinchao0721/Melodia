@@ -97,6 +97,7 @@ class LanLinkRemoteCoordinatorTest {
         var lastPlayQueue: List<QueueItem>? = null
         var lastPlayAtIndex: Int? = null
         var lastPlayNextNow: Pair<QueueItem, Long>? = null
+        var stopAndClearCount = 0
 
         override suspend fun initController() = Unit
 
@@ -140,7 +141,7 @@ class LanLinkRemoteCoordinatorTest {
         override fun removeFromQueue(index: Int) = Unit
         override fun moveInQueue(from: Int, to: Int) = Unit
         override fun clearQueue() = Unit
-        override fun stopAndClearQueue() = Unit
+        override fun stopAndClearQueue() { stopAndClearCount++ }
         override fun toggleShuffle() = Unit
         override fun toggleRepeat() = Unit
         override fun rotatePlayMode() = Unit
@@ -298,6 +299,47 @@ class LanLinkRemoteCoordinatorTest {
         runCurrent()
         assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
         assertTrue(emittedMessages.contains("连接已断开"))
+    }
+
+    @Test
+    fun accountChangeCleanupDetachesRemoteAndClearsOnlyLocal() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val track = QueueItem(songId = 101L, title = "晴天", artist = "周杰伦", coverUrl = "https://img/1.jpg")
+        val local = FakePlaybackController().apply {
+            queue.value = listOf(track)
+            currentIndex.value = 0
+            currentQueueItem.value = track
+            isPlaying.value = true
+            playWhenReady.value = true
+        }
+        val transport = FakeTransport()
+        val coordinator = LanLinkRemoteCoordinator(
+            localController = local,
+            transport = transport,
+            volumeBridge = FakeVolumeBridge(),
+            scope = backgroundScope,
+            commandDispatcher = dispatcher,
+            clockMs = { 10_000L }
+        )
+        coordinator.start()
+        val peer = ConnectedPeerInfo("phone-1", "Pixel 9")
+        transport._connectedDevice.value = peer
+        runCurrent()
+        assertTrue(coordinator.switchToRemote())
+        runCurrent()
+        val remoteItem = QueueItem(songId = 202L, title = "七里香", artist = "周杰伦", coverUrl = "https://img/2.jpg")
+        transport.receive(peer, LanLinkMessage.RemoteQueueSync(queueVersion = 1L, items = listOf(remoteItem), currentIndex = 0))
+        runCurrent()
+        transport.sentMessages.clear()
+
+        val routing = RoutingPlaybackController(local, coordinator, backgroundScope)
+        routing.stopAndClearForAccountChange()
+        runCurrent()
+
+        assertEquals(PlaybackTarget.Local, coordinator.activeTarget.value)
+        assertEquals(1, local.stopAndClearCount)
+        assertNull(local.lastPlayNextNow)
+        assertTrue(transport.sentMessages.none { it is LanLinkMessage.RemoteCommand || it is LanLinkMessage.RemoteActiveDevice })
     }
 
     @Test

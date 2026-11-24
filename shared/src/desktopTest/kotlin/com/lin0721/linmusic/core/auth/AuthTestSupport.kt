@@ -99,4 +99,6 @@ internal class RecordingPlaybackController(
         stopAndClearCalls++
         delegate.stopAndClearQueue()
     }
+
+    override fun stopAndClearForAccountChange() = stopAndClearQueue()
 }

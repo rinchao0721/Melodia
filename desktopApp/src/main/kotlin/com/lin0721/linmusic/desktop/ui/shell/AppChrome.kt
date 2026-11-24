@@ -240,7 +240,7 @@ internal fun WindowScope.AppTitleBar(
         onKugouSwitchAccount = { accountId ->
             accountScope.launch {
                 val target = kugouAccounts.firstOrNull { it.accountId == accountId }
-                if (deps.accountSwitcher.switchPlatformAccount(accountId) && target != null) {
+                if (deps.accountSwitcher.switchToAccount(accountId) && target != null) {
                     state.showMessage("已切换酷狗账号至 ${target.nickname.ifBlank { target.effectivePlatformUid }}")
                 }
             }
@@ -252,7 +252,7 @@ internal fun WindowScope.AppTitleBar(
         onKugouLogoutAccount = { accountId ->
             accountScope.launch {
                 val target = kugouAccounts.firstOrNull { it.accountId == accountId }
-                deps.accountSwitcher.logoutPlatformAccount(accountId)
+                deps.accountSwitcher.logout(accountId)
                 val name = target?.nickname?.ifBlank { target.effectivePlatformUid }.orEmpty()
                 state.showMessage(if (name.isNotEmpty()) "已退出酷狗账号 $name" else "已退出酷狗账号")
             }

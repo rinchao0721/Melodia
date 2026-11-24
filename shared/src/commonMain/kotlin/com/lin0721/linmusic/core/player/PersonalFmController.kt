@@ -82,7 +82,7 @@ class PersonalFmController(
         if (userPreferences != null) {
             scope.launch {
                 combine(
-                    userPreferences.currentBrowsePlatform,
+                    userPreferences.currentPlatform,
                     settingsPreferences.kugouPlatformEnabled
                 ) { browse, kugouEnabled ->
                     val effective = if (browse == MusicPlatform.KUGOU && kugouEnabled && discoverRepository != null) {

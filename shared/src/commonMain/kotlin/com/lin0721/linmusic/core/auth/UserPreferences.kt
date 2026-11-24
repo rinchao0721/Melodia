@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.auth
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -10,6 +11,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.source.MusicPlatform
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -67,7 +69,9 @@ sealed interface UpsertAccountResult {
 // 用户信息持久化管理 (DataStore + JSON)，支持多平台并行在线、同平台多账户及按账户隔离的屏蔽艺人
 class UserPreferences(
     private val dataStore: DataStore<Preferences>,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    // 本存储为空时用于判断是否老用户（如其他偏好文件已有数据）
+    private val legacyUsageProbe: suspend () -> Boolean = { false }
 ) {
     // 供同仓库共享用户偏好存储文件（如酷狗设备指纹）使用，避免新建额外 DataStore 文件
     internal val preferencesDataStore: DataStore<Preferences>
@@ -80,8 +84,9 @@ class UserPreferences(
         private val KEY_ACTIVE_UID = longPreferencesKey("active_uid")
         // 按平台记录活跃账号规范 ID（platform.key -> AccountId.canonical）
         private val KEY_ACTIVE_ACCOUNTS_BY_PLATFORM = stringPreferencesKey("active_accounts_by_platform")
-        // 当前浏览平台（默认 netease）
+        // 当前平台（默认 netease），沿用旧浏览平台存储键
         private val KEY_CURRENT_BROWSE_PLATFORM = stringPreferencesKey("current_browse_platform")
+        private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         // 兼容旧单账户直接调用 saveCookies -> saveUserProfile 时暂存未关联 uid 的 Cookie
         private val KEY_PENDING_COOKIES = stringPreferencesKey("pending_cookies")
 
@@ -101,14 +106,44 @@ class UserPreferences(
     // 若存在旧版单账户键或待同步的多平台活跃映射，在单个 DataStore 事务内一次性无损迁移
     suspend fun ensureMigrated() {
         val current = dataStore.data.first()
-        if (!hasLegacyMigrationPending(current)) return
+        if (!hasLegacyMigrationPending(current) && current[KEY_ONBOARDING_COMPLETED] != null) return
         migrationMutex.withLock {
             val latest = dataStore.data.first()
-            if (!hasLegacyMigrationPending(latest)) return@withLock
+            val onboardingUndecided = latest[KEY_ONBOARDING_COMPLETED] == null
+            if (!hasLegacyMigrationPending(latest) && !onboardingUndecided) return@withLock
+            val usedElsewhere = onboardingUndecided && latest.asMap().isEmpty() && probeLegacyUsage()
             dataStore.edit { prefs ->
                 migrateLegacyInTransaction(prefs)
+                if (prefs[KEY_ONBOARDING_COMPLETED] == null) {
+                    migrateOnboardingInTransaction(prefs, usedElsewhere)
+                }
             }
         }
+    }
+
+    private suspend fun probeLegacyUsage(): Boolean = try {
+        legacyUsageProbe()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        AppLogger.w(TAG, "探测旧版使用痕迹失败，按全新安装处理", e)
+        false
+    }
+
+    // 老用户直接视为已完成首次启动，并把当前平台校正到有账号的平台；全新安装写 false
+    private fun migrateOnboardingInTransaction(prefs: MutablePreferences, usedElsewhere: Boolean) {
+        val existingUser = usedElsewhere || prefs.asMap().keys.any { it != KEY_ONBOARDING_COMPLETED }
+        prefs[KEY_ONBOARDING_COMPLETED] = existingUser
+        if (!existingUser) return
+        val accounts = decodeAccounts(prefs[KEY_ACCOUNTS_JSON])
+        val stored = prefs[KEY_CURRENT_BROWSE_PLATFORM]?.let(MusicPlatform::fromKey) ?: MusicPlatform.NETEASE
+        val active = resolveActiveAccountsByPlatform(prefs, accounts)
+        val resolved = when {
+            stored in active -> stored
+            accounts.any { it.platform == stored } -> stored
+            else -> accounts.maxByOrNull { it.lastUsedAt }?.platform ?: MusicPlatform.NETEASE
+        }
+        prefs[KEY_CURRENT_BROWSE_PLATFORM] = resolved.key
     }
 
     private fun migratedData(): Flow<Preferences> = flow {
@@ -123,12 +158,35 @@ class UserPreferences(
         .map { prefs -> resolveActiveAccountsByPlatform(prefs) }
         .distinctUntilChanged()
 
-    // 当前浏览平台，默认网易云音乐
-    val currentBrowsePlatform: Flow<MusicPlatform> = migratedData()
-        .map { prefs ->
-            prefs[KEY_CURRENT_BROWSE_PLATFORM]?.let(MusicPlatform::fromKey) ?: MusicPlatform.NETEASE
-        }
+    // 当前平台（由账号切换决定），默认网易云音乐
+    val currentPlatform: Flow<MusicPlatform> = migratedData()
+        .map { prefs -> readCurrentPlatform(prefs) }
         .distinctUntilChanged()
+
+    // 跨平台全部账号，按 lastUsedAt 倒序
+    val allAccounts: Flow<List<StoredAccount>> = migratedData()
+        .map { prefs -> decodeAccounts(prefs[KEY_ACCOUNTS_JSON]).sortedByDescending { it.lastUsedAt } }
+        .distinctUntilChanged()
+
+    // 当前平台的活跃账号 ID；为 null 表示网易游客
+    val currentAccountId: Flow<AccountId?> = migratedData()
+        .map { prefs -> resolveActiveAccountsByPlatform(prefs)[readCurrentPlatform(prefs)]?.accountId }
+        .distinctUntilChanged()
+
+    // 首次启动流程是否已走完
+    val onboardingCompleted: Flow<Boolean> = migratedData()
+        .map { prefs -> prefs[KEY_ONBOARDING_COMPLETED] ?: false }
+        .distinctUntilChanged()
+
+    suspend fun setOnboardingCompleted(completed: Boolean = true) {
+        dataStore.edit { prefs ->
+            migrateLegacyInTransaction(prefs)
+            prefs[KEY_ONBOARDING_COMPLETED] = completed
+        }
+    }
+
+    private fun readCurrentPlatform(prefs: Preferences): MusicPlatform =
+        prefs[KEY_CURRENT_BROWSE_PLATFORM]?.let(MusicPlatform::fromKey) ?: MusicPlatform.NETEASE
 
     // 指定平台下已登录的全部账号列表
     fun accountsOf(platform: MusicPlatform): Flow<List<StoredAccount>> = migratedData()
@@ -206,11 +264,25 @@ class UserPreferences(
         }
     }
 
-    // 切换当前浏览平台
-    suspend fun setBrowsePlatform(platform: MusicPlatform) {
+    // 仅供 AccountSwitcher 写入当前平台
+    internal suspend fun setCurrentPlatform(platform: MusicPlatform) {
         dataStore.edit { prefs ->
             migrateLegacyInTransaction(prefs)
             prefs[KEY_CURRENT_BROWSE_PLATFORM] = platform.key
+        }
+    }
+
+    // 置空指定平台活跃账号但保留已存账号（网易游客）
+    internal suspend fun deactivatePlatform(platform: MusicPlatform) {
+        dataStore.edit { prefs ->
+            migrateLegacyInTransaction(prefs)
+            val activeMap = decodeActiveMap(prefs[KEY_ACTIVE_ACCOUNTS_BY_PLATFORM]).toMutableMap()
+            activeMap.remove(platform.key)
+            prefs[KEY_ACTIVE_ACCOUNTS_BY_PLATFORM] = json.encodeToString(activeMap)
+            if (platform == MusicPlatform.NETEASE) {
+                prefs.remove(KEY_ACTIVE_UID)
+                prefs.remove(KEY_PENDING_COOKIES)
+            }
         }
     }
 
@@ -458,10 +530,11 @@ class UserPreferences(
             currentCanonical != accountId.canonical &&
             platformRemaining.any { it.accountId.canonical == currentCanonical }
 
-        val resolvedAccount: StoredAccount? = if (currentStillPresent) {
-            platformRemaining.firstOrNull { it.accountId.canonical == currentCanonical }
-        } else {
-            platformRemaining.maxByOrNull { it.lastUsedAt }
+        // 该平台原本无活跃账号（游客）时不自动激活剩余账号
+        val resolvedAccount: StoredAccount? = when {
+            currentStillPresent -> platformRemaining.firstOrNull { it.accountId.canonical == currentCanonical }
+            currentCanonical == null -> null
+            else -> platformRemaining.maxByOrNull { it.lastUsedAt }
         }
 
         if (resolvedAccount != null) {

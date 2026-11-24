@@ -265,6 +265,45 @@ class MultiPlatformAccountSwitcherAndSessionTest {
     }
 
     @Test
+    fun kugouExpiryOnCurrentPlatformFallsBackToNeteaseAndClearsQueue() = runTest {
+        val prefs = UserPreferences(InMemoryPreferencesStore(), nowMs = { now })
+        val netease = StoredAccount(uid = 1L, nickname = "网易", cookies = "MUSIC_U=1", lastLoginRefreshAt = now)
+        val kugou = StoredAccount(
+            uid = 402L,
+            nickname = "过期酷狗",
+            platform = MusicPlatform.KUGOU,
+            platformUid = "402",
+            credentials = mapOf("token" to "expired_tok"),
+            lastLoginRefreshAt = 0L
+        )
+        prefs.upsertPlatformAccount(netease, activate = true)
+        prefs.upsertPlatformAccount(kugou, activate = true)
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
+
+        val player = RecordingPlaybackController()
+        val neteaseRepo = FakeAuthRepository(prefs).apply {
+            accountResults = listOf(Result.success(loggedInAccount(uid = 1L, nickname = "网易")))
+        }
+        val kugouProvider = RecordingKugouAuthProvider().apply {
+            refreshResult = Result.failure(AppError.BizError(code = 20018, rawMsg = "token invalid"))
+        }
+        val monitor = SessionMonitor(
+            userPreferences = prefs,
+            authRepository = neteaseRepo,
+            playbackControllerProvider = { player },
+            nowMs = { now },
+            platformSessionRegistry = PlatformSessionRegistry(listOf(kugouProvider))
+        )
+
+        monitor.verifyAtStartup {}
+
+        assertNull(prefs.activeAccountOf(MusicPlatform.KUGOU).first())
+        assertEquals(MusicPlatform.NETEASE, prefs.currentPlatform.first())
+        assertEquals(1L, prefs.activeUid.first())
+        assertEquals(1, player.stopAndClearCalls)
+    }
+
+    @Test
     fun verifyAtStartupKeepsKugouAccountOnNetworkError() = runTest {
         val prefs = UserPreferences(InMemoryPreferencesStore(), nowMs = { now })
         val kugou = StoredAccount(

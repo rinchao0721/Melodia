@@ -455,6 +455,12 @@ class LanLinkRemoteCoordinator(
         return true
     }
 
+    // 退出遥控回到本机：不接力远端歌曲，也不发送抢占消息，远端继续自己的播放
+    fun detachRemoteControl() {
+        if (_activeTarget.value is PlaybackTarget.Local) return
+        _activeTarget.value = PlaybackTarget.Local
+    }
+
     fun switchToLocal(): Boolean {
         val currentTarget = _activeTarget.value
         if (currentTarget is PlaybackTarget.Local) return true

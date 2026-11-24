@@ -103,6 +103,8 @@ interface PlaybackController {
     fun clearQueue()
     // 切换或退出账户时停止播放并清空队列与播放上下文
     fun stopAndClearQueue()
+    // 账号切换、退出或过期时的清理：只作用于本机，遥控中的远端设备保持其自身播放
+    fun stopAndClearForAccountChange() = stopAndClearQueue()
     fun toggleShuffle()
     fun toggleRepeat()
     fun rotatePlayMode()

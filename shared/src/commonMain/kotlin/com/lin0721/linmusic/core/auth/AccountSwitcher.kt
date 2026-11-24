@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.core.auth
 
 import com.lin0721.linmusic.core.cache.MetadataCache
+import com.lin0721.linmusic.core.kugou.runCatchingCancellable
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.player.PlaybackController
@@ -23,87 +24,197 @@ class AccountSwitcher(
 ) {
     private val switchMutex = Mutex()
 
-    // 切换到指定已登录账户：停止播放并清空队列 -> switchTo(uid) 并刷新 lastUsedAt -> 广播切换事件 -> 校验新账户会话
-    suspend fun switchTo(uid: Long): Boolean {
-        val switchedProfile = switchMutex.withLock {
-            val currentUid = userPreferences.activeUid.first()
-            if (currentUid == uid) return false
-            val targetAccount = userPreferences.storedAccounts.first().firstOrNull { it.uid == uid }
+    // 统一切换入口：平台或账号有变化时停播清队列 -> 切活跃账号 -> 写当前平台 -> 清缓存 -> 广播事件 -> 校验网易会话
+    suspend fun switchToAccount(accountId: AccountId): Boolean {
+        val switched = switchMutex.withLock {
+            val target = userPreferences.allAccounts.first().firstOrNull { it.accountId == accountId }
                 ?: return false
-            playbackControllerProvider()?.stopAndClearQueue()
-            if (!userPreferences.switchTo(uid)) return false
-            clearNeteaseCacheScopes(currentUid, uid)
-            val profile = targetAccount.toUserProfile()
-            AccountEvents.notifySwitched(
-                previousUid = currentUid,
-                currentUid = profile.uid,
-                reason = AccountSwitchReason.SWITCHED
-            )
+            val platform = target.platform
+            val previousPlatform = userPreferences.currentPlatform.first()
+            val previousActive = userPreferences.activeAccountOf(platform).first()?.accountId
+            val accountChanged = previousActive != accountId
+            if (!accountChanged && previousPlatform == platform) return false
+            playbackControllerProvider()?.stopAndClearForAccountChange()
+            if (!userPreferences.switchPlatformAccount(accountId)) return false
+            userPreferences.setCurrentPlatform(platform)
+            if (accountChanged) {
+                clearCacheScopesOf(platform, previousActive, accountId)
+            }
+            if (platform == MusicPlatform.NETEASE && accountChanged) {
+                AccountEvents.notifySwitched(
+                    previousUid = previousActive?.neteaseIdOrNull(),
+                    currentUid = target.uid,
+                    reason = AccountSwitchReason.SWITCHED
+                )
+            }
             AccountEvents.notifyPlatformSwitched(
-                platform = MusicPlatform.NETEASE,
-                previousAccountId = currentUid?.let { AccountId.netease(it) },
-                currentAccountId = AccountId.netease(profile.uid),
+                platform = platform,
+                previousAccountId = previousActive,
+                currentAccountId = accountId,
                 reason = AccountSwitchReason.SWITCHED
             )
-            profile
+            true
         }
-        AppLogger.i(TAG, "已切换账户 uid=${switchedProfile.uid}")
-        sessionMonitorProvider()?.verifyActiveAccount()
+        if (!switched) return false
+        AppLogger.i(TAG, "已切换账户 accountId=${accountId.canonical}")
+        if (accountId.platform == MusicPlatform.NETEASE) {
+            sessionMonitorProvider()?.verifyActiveAccount()
+        }
         return true
     }
 
-    // 退出当前账户：停播清队列 -> 带着当前账户凭据调用服务端 logout -> removeAccount 并切到最近剩余账户 -> 广播事件
-    suspend fun logoutCurrent(): UserProfile? = switchMutex.withLock {
-        val currentUid = userPreferences.activeUid.first()
-        playbackControllerProvider()?.stopAndClearQueue()
-        if (currentUid == null) {
-            userPreferences.clearUserProfile()
-            clearNeteaseCacheScopes()
+    // 切到网易游客：清队列、置空网易活跃账号（不删除已存账号）、当前平台改为网易
+    suspend fun browseAsGuest(): Boolean = switchMutex.withLock {
+        val previousPlatform = userPreferences.currentPlatform.first()
+        val previousNetease = userPreferences.activeAccountOf(MusicPlatform.NETEASE).first()?.accountId
+        if (previousPlatform == MusicPlatform.NETEASE && previousNetease == null) return@withLock false
+        playbackControllerProvider()?.stopAndClearForAccountChange()
+        if (previousNetease != null) {
+            userPreferences.deactivatePlatform(MusicPlatform.NETEASE)
+            clearNeteaseCacheScopes(previousNetease.neteaseIdOrNull())
+        }
+        userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
+        if (previousNetease != null) {
             AccountEvents.notifySwitched(
-                previousUid = null,
+                previousUid = previousNetease.neteaseIdOrNull(),
                 currentUid = null,
-                reason = AccountSwitchReason.LOGGED_OUT
+                reason = AccountSwitchReason.SWITCHED
             )
-            AccountEvents.notifyPlatformSwitched(
-                platform = MusicPlatform.NETEASE,
-                previousAccountId = null,
-                currentAccountId = null,
-                reason = AccountSwitchReason.LOGGED_OUT
-            )
-            return@withLock null
         }
-        runCatching { authRepository.logout().first() }
-            .onFailure { AppLogger.w(TAG, "服务端退出登录失败，继续移除本地账户 uid=$currentUid", it) }
-        val nextUid = userPreferences.removeAccount(currentUid)
-        clearNeteaseCacheScopes(currentUid, nextUid)
-        val nextProfile = if (nextUid != null) {
-            userPreferences.storedAccounts.first().firstOrNull { it.uid == nextUid }?.toUserProfile()
-        } else {
-            null
-        }
-        AccountEvents.notifySwitched(
-            previousUid = currentUid,
-            currentUid = nextProfile?.uid,
-            reason = AccountSwitchReason.LOGGED_OUT
-        )
         AccountEvents.notifyPlatformSwitched(
             platform = MusicPlatform.NETEASE,
-            previousAccountId = AccountId.netease(currentUid),
-            currentAccountId = nextProfile?.uid?.let { AccountId.netease(it) },
-            reason = AccountSwitchReason.LOGGED_OUT
+            previousAccountId = previousNetease,
+            currentAccountId = null,
+            reason = AccountSwitchReason.SWITCHED
         )
-        AppLogger.i(TAG, "已退出账户 uid=$currentUid, 切换至 nextUid=$nextUid")
-        nextProfile
+        AppLogger.i(TAG, "已切换为网易游客")
+        true
     }
 
-    // 登录成功写库后的切换收尾：若此前活跃着另一账户则先停播清队列并清缓存，随后广播 ADDED 事件
+    // 退出指定账号；若为当前账号按 同平台最近账号 -> 另一平台账号 -> 网易游客 回落，返回退出后的当前账号
+    suspend fun logout(accountId: AccountId): AccountId? = switchMutex.withLock {
+        val target = userPreferences.allAccounts.first().firstOrNull { it.accountId == accountId }
+            ?: return@withLock userPreferences.currentAccountId.first()
+        val platform = target.platform
+        val isCurrent = userPreferences.currentAccountId.first() == accountId
+        val wasActive = userPreferences.activeAccountOf(platform).first()?.accountId == accountId
+        if (isCurrent) {
+            playbackControllerProvider()?.stopAndClearForAccountChange()
+        }
+        if (platform == MusicPlatform.NETEASE && wasActive) {
+            // 须在移除前调用，保证请求携带即将退出账号的凭据
+            runCatchingCancellable { authRepository.logout().first() }
+                .onFailure { AppLogger.w(TAG, "服务端退出登录失败，继续移除本地账户 accountId=${accountId.canonical}", it) }
+        } else {
+            runCatchingCancellable { platformSessionRegistry?.providerOf(platform)?.logout(target) }
+                .onFailure { AppLogger.w(TAG, "平台服务端退出失败，继续移除本地账户 accountId=${accountId.canonical}", it) }
+        }
+        val nextSame = userPreferences.removePlatformAccount(accountId)
+        clearCacheScopesOf(platform, accountId, nextSame)
+        if (platform == MusicPlatform.NETEASE && wasActive) {
+            AccountEvents.notifySwitched(
+                previousUid = target.uid,
+                currentUid = nextSame?.neteaseIdOrNull(),
+                reason = AccountSwitchReason.LOGGED_OUT
+            )
+        }
+        AccountEvents.notifyPlatformSwitched(
+            platform = platform,
+            previousAccountId = accountId,
+            currentAccountId = nextSame,
+            reason = AccountSwitchReason.LOGGED_OUT
+        )
+        if (!isCurrent || nextSame != null) {
+            AppLogger.i(TAG, "已退出账户 accountId=${accountId.canonical}, nextAccountId=${nextSame?.canonical}")
+            return@withLock userPreferences.currentAccountId.first()
+        }
+        val fallback = fallbackAccountOutside(platform)
+        if (fallback == null) {
+            userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
+            if (platform != MusicPlatform.NETEASE) {
+                AccountEvents.notifyPlatformSwitched(
+                    platform = MusicPlatform.NETEASE,
+                    previousAccountId = null,
+                    currentAccountId = null,
+                    reason = AccountSwitchReason.SWITCHED
+                )
+            }
+            AppLogger.i(TAG, "已退出账户 accountId=${accountId.canonical}, 回落为网易游客")
+            return@withLock null
+        }
+        val fallbackPlatform = fallback.platform
+        val previousActive = userPreferences.activeAccountOf(fallbackPlatform).first()?.accountId
+        if (previousActive != fallback.accountId) {
+            userPreferences.switchPlatformAccount(fallback.accountId)
+            clearCacheScopesOf(fallbackPlatform, previousActive, fallback.accountId)
+            if (fallbackPlatform == MusicPlatform.NETEASE) {
+                AccountEvents.notifySwitched(
+                    previousUid = previousActive?.neteaseIdOrNull(),
+                    currentUid = fallback.uid,
+                    reason = AccountSwitchReason.SWITCHED
+                )
+            }
+        }
+        userPreferences.setCurrentPlatform(fallbackPlatform)
+        AccountEvents.notifyPlatformSwitched(
+            platform = fallbackPlatform,
+            previousAccountId = previousActive,
+            currentAccountId = fallback.accountId,
+            reason = AccountSwitchReason.SWITCHED
+        )
+        AppLogger.i(TAG, "已退出账户 accountId=${accountId.canonical}, 回落至 ${fallback.accountId.canonical}")
+        fallback.accountId
+    }
+
+    // 其他平台的回落账号：优先该平台活跃账号，否则取最近使用的账号
+    private suspend fun fallbackAccountOutside(platform: MusicPlatform): StoredAccount? {
+        val others = userPreferences.allAccounts.first().filter { it.platform != platform }
+        if (others.isEmpty()) return null
+        val actives = userPreferences.activeAccountsByPlatform.first()
+        return others.firstOrNull { actives[it.platform]?.accountId == it.accountId } ?: others.first()
+    }
+
+    // 兼容旧入口：切换到指定网易账号
+    suspend fun switchTo(uid: Long): Boolean = switchToAccount(AccountId.netease(uid))
+
+    // 兼容旧入口：退出当前活跃网易账号，返回退出后的活跃网易账号资料
+    suspend fun logoutCurrent(): UserProfile? {
+        val currentUid = userPreferences.activeUid.first()
+        if (currentUid == null) {
+            switchMutex.withLock {
+                playbackControllerProvider()?.stopAndClearForAccountChange()
+                userPreferences.clearUserProfile()
+                clearNeteaseCacheScopes()
+                AccountEvents.notifySwitched(
+                    previousUid = null,
+                    currentUid = null,
+                    reason = AccountSwitchReason.LOGGED_OUT
+                )
+                AccountEvents.notifyPlatformSwitched(
+                    platform = MusicPlatform.NETEASE,
+                    previousAccountId = null,
+                    currentAccountId = null,
+                    reason = AccountSwitchReason.LOGGED_OUT
+                )
+            }
+            return null
+        }
+        logout(AccountId.netease(currentUid))
+        return userPreferences.activeAccountOf(MusicPlatform.NETEASE).first()?.toUserProfile()
+    }
+
+    // 网易登录写库后的收尾：账号或平台有变化时停播清队列，当前平台切到网易，广播 ADDED 事件
     suspend fun onAccountActivatedAfterLogin(profile: UserProfile, previousUid: Long?) {
         switchMutex.withLock {
+            val previousPlatform = userPreferences.currentPlatform.first()
             val switchingFromOther = previousUid != null && previousUid != profile.uid
+            if (switchingFromOther || previousPlatform != MusicPlatform.NETEASE) {
+                playbackControllerProvider()?.stopAndClearForAccountChange()
+            }
             if (switchingFromOther) {
-                playbackControllerProvider()?.stopAndClearQueue()
                 clearNeteaseCacheScopes(previousUid, profile.uid)
             }
+            userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
             AccountEvents.notifySwitched(
                 previousUid = previousUid,
                 currentUid = profile.uid,
@@ -198,9 +309,15 @@ class AccountSwitcher(
             return
         }
         switchMutex.withLock {
-            if (previousAccountId != null && previousAccountId != account.accountId) {
+            val previousPlatform = userPreferences.currentPlatform.first()
+            val accountChanged = previousAccountId != null && previousAccountId != account.accountId
+            if (accountChanged || previousPlatform != account.platform) {
+                playbackControllerProvider()?.stopAndClearForAccountChange()
+            }
+            if (accountChanged) {
                 clearPlatformCacheScopes(account.platform, previousAccountId, account.accountId)
             }
+            userPreferences.setCurrentPlatform(account.platform)
             AccountEvents.notifyPlatformSwitched(
                 platform = account.platform,
                 previousAccountId = previousAccountId,
@@ -223,6 +340,14 @@ class AccountSwitcher(
                 }
             }
             .onFailure { AppLogger.w(TAG, "登录后同步平台资料失败 accountId=${account.accountId.canonical}", it) }
+    }
+
+    private suspend fun clearCacheScopesOf(platform: MusicPlatform, vararg accountIds: AccountId?) {
+        if (platform == MusicPlatform.NETEASE) {
+            clearNeteaseCacheScopes(*accountIds.map { it?.neteaseIdOrNull() }.toTypedArray())
+        } else {
+            clearPlatformCacheScopes(platform, *accountIds)
+        }
     }
 
     private suspend fun clearNeteaseCacheScopes(vararg uids: Long?) {

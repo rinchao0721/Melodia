@@ -144,7 +144,7 @@ class LibraryViewModel(
     )
 
     val browsePlatform: StateFlow<MusicPlatform> = combine(
-        userPreferences.currentBrowsePlatform,
+        userPreferences.currentPlatform,
         settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)
     ) { platform, kugouEnabled ->
         if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
@@ -855,10 +855,11 @@ class LibraryViewModel(
         setPlatformFilter(next)
     }
 
+    // 浏览平台胶囊专用，胶囊随统一账号菜单上线后删除
     fun switchBrowsePlatform(platform: MusicPlatform) {
         viewModelScope.launch {
             if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) return@launch
-            userPreferences.setBrowsePlatform(platform)
+            userPreferences.setCurrentPlatform(platform)
         }
     }
 

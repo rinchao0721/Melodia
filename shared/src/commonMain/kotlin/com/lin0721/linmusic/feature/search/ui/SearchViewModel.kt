@@ -224,6 +224,8 @@ class SearchViewModel(
     private var hotSearchEnabled = true
     private var playlistTagsEnabled = true
     private var suggestionEnabled = true
+    // 默认标签跟随当前平台；手动选过标签后，当前平台再次变化前不覆盖
+    private var followCurrentPlatform = true
 
     init {
         viewModelScope.launch {
@@ -253,11 +255,22 @@ class SearchViewModel(
         }
         loadLikedSongIds()
         viewModelScope.launch {
-            searchPlatforms.collect { platforms ->
-                if (_selectedPlatform.value !in platforms) {
-                    _selectedPlatform.value = MusicPlatform.NETEASE
+            var lastCurrent: MusicPlatform? = null
+            combine(userPreferences.currentPlatform, searchPlatforms) { current, platforms -> current to platforms }
+                .collect { (current, platforms) ->
+                    if (current != lastCurrent) {
+                        lastCurrent = current
+                        followCurrentPlatform = true
+                    }
+                    val desired = if (followCurrentPlatform) current else _selectedPlatform.value
+                    val next = if (desired in platforms) desired else MusicPlatform.NETEASE
+                    if (next != _selectedPlatform.value) {
+                        _selectedPlatform.value = next
+                        if (next == MusicPlatform.KUGOU && isKugouNativeActive()) {
+                            loadKugouDiscoveryData()
+                        }
+                    }
                 }
-            }
         }
         viewModelScope.launch {
             (settingsPreferences?.kugouPlatformEnabled ?: flowOf(true))
@@ -843,6 +856,7 @@ class SearchViewModel(
     fun selectPlatform(platform: MusicPlatform) {
         if (_selectedPlatform.value == platform) return
         if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) return
+        followCurrentPlatform = false
         _selectedPlatform.value = platform
         if (platform == MusicPlatform.KUGOU && isKugouNativeActive()) {
             loadKugouDiscoveryData()

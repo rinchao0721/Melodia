@@ -107,7 +107,7 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val effectiveBrowsePlatformFlow = combine(
-        userPreferences.currentBrowsePlatform,
+        userPreferences.currentPlatform,
         settingsPreferences.kugouPlatformEnabled
     ) { platform, kugouEnabled ->
         if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
@@ -228,19 +228,20 @@ class HomeViewModel(
     }
 
     private suspend fun resolveEffectiveBrowsePlatform(): MusicPlatform {
-        val raw = userPreferences.currentBrowsePlatform.first()
+        val raw = userPreferences.currentPlatform.first()
         val kugouEnabled = settingsPreferences.kugouPlatformEnabled.first()
         return if (raw == MusicPlatform.KUGOU && kugouEnabled) MusicPlatform.KUGOU else MusicPlatform.NETEASE
     }
 
+    // 浏览平台胶囊专用，胶囊随统一账号菜单上线后删除
     fun switchBrowsePlatform(platform: MusicPlatform) {
         viewModelScope.launch {
             if (platform == MusicPlatform.KUGOU && !settingsPreferences.kugouPlatformEnabled.first()) {
-                userPreferences.setBrowsePlatform(MusicPlatform.NETEASE)
+                userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
                 _toastEvent.emit("酷狗音乐平台未启用")
                 return@launch
             }
-            userPreferences.setBrowsePlatform(platform)
+            userPreferences.setCurrentPlatform(platform)
         }
     }
 

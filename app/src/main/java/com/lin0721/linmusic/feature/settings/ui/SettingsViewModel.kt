@@ -897,7 +897,7 @@ class SettingsViewModel(
 
     fun switchPlatformAccount(accountId: AccountId, displayName: String) {
         viewModelScope.launch {
-            if (accountSwitcher.switchPlatformAccount(accountId)) {
+            if (accountSwitcher.switchToAccount(accountId)) {
                 _toastEvent.emit("已切换至 $displayName")
             }
         }
@@ -905,7 +905,7 @@ class SettingsViewModel(
 
     fun logoutPlatformAccount(accountId: AccountId, displayName: String) {
         viewModelScope.launch {
-            accountSwitcher.logoutPlatformAccount(accountId)
+            accountSwitcher.logout(accountId)
             _toastEvent.emit("已退出 $displayName")
         }
     }

@@ -119,7 +119,7 @@ class CloudViewModel(
         loadLikedSongIds()
         viewModelScope.launch {
             val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
-            val browse = userPreferences.currentBrowsePlatform.first()
+            val browse = userPreferences.currentPlatform.first()
             if (enabled && browse == MusicPlatform.KUGOU && kugouCloudHolder != null) {
                 selectCloudPlatform(MusicPlatform.KUGOU)
             }

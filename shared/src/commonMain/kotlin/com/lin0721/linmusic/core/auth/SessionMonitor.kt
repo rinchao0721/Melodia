@@ -250,6 +250,18 @@ class SessionMonitor(
             currentAccountId = nextAccount?.accountId,
             reason = AccountSwitchReason.EXPIRED
         )
+        // 当前平台已无酷狗账号时回落到网易（有活跃账号用账号，否则为游客）
+        if (nextAccount == null && userPreferences.currentPlatform.first() == MusicPlatform.KUGOU) {
+            playbackControllerProvider()?.stopAndClearForAccountChange()
+            userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
+            val netease = userPreferences.activeAccountOf(MusicPlatform.NETEASE).first()?.accountId
+            AccountEvents.notifyPlatformSwitched(
+                platform = MusicPlatform.NETEASE,
+                previousAccountId = netease,
+                currentAccountId = netease,
+                reason = AccountSwitchReason.EXPIRED
+            )
+        }
         _platformExpiredNotices.tryEmit(
             PlatformExpiredAccountNotice(
                 platform = MusicPlatform.KUGOU,
@@ -282,7 +294,10 @@ class SessionMonitor(
             ?: UserProfile(uid = activeUid, nickname = "", avatarUrl = "")
 
         AppLogger.w(TAG, "账户会话已失效，移除失效账户 uid=$activeUid")
-        playbackControllerProvider()?.stopAndClearQueue()
+        // 后台网易账号失效不打断其他平台的播放
+        if (userPreferences.currentPlatform.first() == MusicPlatform.NETEASE) {
+            playbackControllerProvider()?.stopAndClearForAccountChange()
+        }
         // 必须在 removeAccount 前调用 logout，保证请求仍携带即将失效的账户凭据且不误注销回落账户
         runCatching { authRepository.logout().first() }
         val nextUid = userPreferences.removeAccount(activeUid)

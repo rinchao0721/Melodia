@@ -184,7 +184,14 @@ object DesktopLaunchOptions {
 }
 
 val desktopPlatformModule = module {
-    single { UserPreferences(store(PreferencesStores.USER)) }
+    single {
+        UserPreferences(
+            dataStore = store(PreferencesStores.USER),
+            legacyUsageProbe = {
+                PreferencesStores.LEGACY_USAGE_STORES.any { store(it).data.first().asMap().isNotEmpty() }
+            }
+        )
+    }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { DesktopSkinImageCodec() }
     single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }

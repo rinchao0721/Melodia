@@ -1,13 +1,21 @@
 package com.lin0721.linmusic.feature.search.ui
 
 import com.lin0721.linmusic.core.auth.FakeAuthRepository
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.platform.repository.PlatformSearchRepository
+import com.lin0721.linmusic.core.platform.repository.PlatformSearchRouter
+import com.lin0721.linmusic.core.platform.repository.UnifiedHotSearch
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchPageResult
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchSuggestion
+import com.lin0721.linmusic.core.platform.repository.UnifiedSearchType
 import com.lin0721.linmusic.core.playlistexternal.ExternalSongLikes
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
 import com.lin0721.linmusic.feature.playlist.domain.FakeCreateRepository
 import com.lin0721.linmusic.feature.playlist.domain.FakePlaylistRepository
@@ -58,8 +66,10 @@ class SearchViewModelSimplifyTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(): SearchViewModel {
-        val userPreferences = UserPreferences(InMemoryPreferencesStore())
+    private fun viewModel(
+        userPreferences: UserPreferences = UserPreferences(InMemoryPreferencesStore()),
+        platformSearchRouter: PlatformSearchRouter? = null
+    ): SearchViewModel {
         val likes = FakeSongLikeRepository()
         val playlistRepository = FakePlaylistRepository()
         val externalStore = PlaylistExternalTrackStore(InMemoryPreferencesStore())
@@ -84,8 +94,56 @@ class SearchViewModelSimplifyTest {
             loadLikedSongIdsUseCase = LoadLikedSongIdsUseCase(userPreferences, likes),
             songLikeRepository = likes,
             syncProfileAfterLoginUseCase = SyncProfileAfterLoginUseCase(userPreferences, FakeAuthRepository()),
-            settingsPreferences = settings
+            settingsPreferences = settings,
+            platformSearchRouter = platformSearchRouter
         )
+    }
+
+    private fun kugouRouter() = PlatformSearchRouter(StubPlatformSearchRepo(), StubPlatformSearchRepo())
+
+    private suspend fun prefsOnKugou(): UserPreferences {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        prefs.upsertPlatformAccount(
+            StoredAccount(uid = 9L, platform = MusicPlatform.KUGOU, platformUid = "9", credentials = mapOf("token" to "t")),
+            activate = true
+        )
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
+        return prefs
+    }
+
+    @Test
+    fun `默认标签取当前平台`() = runTest(scheduler) {
+        val vm = viewModel(prefsOnKugou(), kugouRouter())
+        advanceUntilIdle()
+
+        assertEquals(MusicPlatform.KUGOU, vm.selectedPlatform.value)
+        assertTrue(MusicPlatform.NETEASE in vm.searchPlatforms.value)
+    }
+
+    @Test
+    fun `当前平台不在可用标签内时回落网易`() = runTest(scheduler) {
+        val vm = viewModel(prefsOnKugou(), platformSearchRouter = null)
+        advanceUntilIdle()
+
+        assertEquals(MusicPlatform.NETEASE, vm.selectedPlatform.value)
+    }
+
+    @Test
+    fun `手动选标签后保持，当前平台变化后重新跟随`() = runTest(scheduler) {
+        val prefs = UserPreferences(InMemoryPreferencesStore())
+        val vm = viewModel(prefs, kugouRouter())
+        advanceUntilIdle()
+        assertEquals(MusicPlatform.NETEASE, vm.selectedPlatform.value)
+
+        vm.selectPlatform(MusicPlatform.KUGOU)
+        advanceUntilIdle()
+        assertEquals(MusicPlatform.KUGOU, vm.selectedPlatform.value)
+
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
+        advanceUntilIdle()
+        prefs.setCurrentPlatform(MusicPlatform.NETEASE)
+        advanceUntilIdle()
+        assertEquals(MusicPlatform.NETEASE, vm.selectedPlatform.value)
     }
 
     @Test
@@ -203,4 +261,13 @@ private class CountingSearchRepository : SearchRepository {
 
     override fun getPlaylistsByCategory(category: String, cursor: Long, limit: Int): Flow<Result<PlaylistCategoryPage>> =
         flowOf(Result.failure(IllegalStateException("未实现")))
+}
+
+private class StubPlatformSearchRepo : PlatformSearchRepository {
+    override fun search(platform: MusicPlatform, keyword: String, type: UnifiedSearchType, offset: Int, limit: Int) =
+        flowOf(Result.success(UnifiedSearchPageResult(platform, emptyList(), 0, false, 0)))
+    override fun getHotSearches(platform: MusicPlatform) = flowOf(Result.success(emptyList<UnifiedHotSearch>()))
+    override fun getSuggestions(platform: MusicPlatform, keyword: String) =
+        flowOf(Result.success(emptyList<UnifiedSearchSuggestion>()))
+    override fun getDefaultSearchKeyword(platform: MusicPlatform) = flowOf(Result.success(""))
 }

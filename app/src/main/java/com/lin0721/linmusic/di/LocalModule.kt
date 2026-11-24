@@ -46,7 +46,17 @@ import java.io.File
 
 val localModule = module {
     single { PlaybackPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PLAYBACK)) }
-    single { UserPreferences(PreferencesStores.get(androidContext(), PreferencesStores.USER)) }
+    single {
+        val context = androidContext()
+        UserPreferences(
+            dataStore = PreferencesStores.get(context, PreferencesStores.USER),
+            legacyUsageProbe = {
+                PreferencesStores.LEGACY_USAGE_STORES.any {
+                    PreferencesStores.get(context, it).data.first().asMap().isNotEmpty()
+                }
+            }
+        )
+    }
     single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { AndroidSkinImageCodec() }
     single { SkinStore(File(androidContext().filesDir, "skins"), get()) }

@@ -836,7 +836,7 @@ class PlayerViewModel(
 
     private suspend fun resolveEffectiveBrowsePlatform(): MusicPlatform {
         val kugouEnabled = settingsPreferences.kugouPlatformEnabled.first()
-        val platform = userPreferences.currentBrowsePlatform.first()
+        val platform = userPreferences.currentPlatform.first()
         return if (platform == MusicPlatform.KUGOU && !kugouEnabled) MusicPlatform.NETEASE else platform
     }
 

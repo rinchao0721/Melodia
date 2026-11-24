@@ -46,7 +46,7 @@ class UserPreferencesMultiPlatformTest {
         val prefs = newPrefs(store)
         assertEquals(1002L, prefs.activeUid.first())
         assertEquals("MUSIC_U=n2", prefs.cookies.first())
-        assertEquals(MusicPlatform.NETEASE, prefs.currentBrowsePlatform.first())
+        assertEquals(MusicPlatform.NETEASE, prefs.currentPlatform.first())
 
         val activeByPlatform = prefs.activeAccountsByPlatform.first()
         assertEquals(1, activeByPlatform.size)
@@ -127,8 +127,8 @@ class UserPreferencesMultiPlatformTest {
         assertEquals(99_999L, updatedKg.lastLoginRefreshAt)
 
         // 浏览平台切换
-        prefs.setBrowsePlatform(MusicPlatform.KUGOU)
-        assertEquals(MusicPlatform.KUGOU, prefs.currentBrowsePlatform.first())
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
+        assertEquals(MusicPlatform.KUGOU, prefs.currentPlatform.first())
 
         // 退出酷狗活跃账号 8001 -> 自动回退到 8002，同时网易云 5L 保持不变
         val nextKg = prefs.removePlatformAccount(AccountId.kugou("8001"))

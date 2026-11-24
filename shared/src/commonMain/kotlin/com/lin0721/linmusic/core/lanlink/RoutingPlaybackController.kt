@@ -75,6 +75,11 @@ open class RoutingPlaybackController(
 
     fun switchToRemote(): Boolean = coordinator.switchToRemote()
 
+    override fun stopAndClearForAccountChange() {
+        coordinator.detachRemoteControl()
+        localController.stopAndClearQueue()
+    }
+
     override fun currentPositionNow(): Long = activeController.currentPositionNow()
 
     override suspend fun initController() {
