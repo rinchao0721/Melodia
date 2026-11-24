@@ -56,7 +56,8 @@ fun LazyListScope.playlistTrackItems(
     selectionUi: TrackSelectionUi = TrackSelectionUi(),
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
     externalPlatforms: Map<Long, MusicPlatform> = emptyMap(),
-    showIndex: Boolean = false
+    showIndex: Boolean = false,
+    animateItems: Boolean = false
 ) {
     val activeTrackId = currentTrackId?.toLongOrNull()
     val indexDigits = tracks.size.toString().length
@@ -77,9 +78,13 @@ fun LazyListScope.playlistTrackItems(
                 maxBrLevel = track.privilege?.maxBrLevel
             )
         }
-        // SongRow 本身不接受外部 modifier，外层套 Box 挂 animateItem：
-        // 切排序方式时 key 不变、位置变了，行会顺着新位置滑过去
-        Box(modifier = Modifier.animateItem(uiSpec(trackFadeInSpec), uiSpec(trackPlacementSpec), uiSpec(trackFadeOutSpec))) {
+        // 仅切排序时挂载 animateItem，避免搜索清空与跨屏定位并发时动画层重叠
+        val rowModifier = if (animateItems) {
+            Modifier.animateItem(uiSpec(trackFadeInSpec), uiSpec(trackPlacementSpec), uiSpec(trackFadeOutSpec))
+        } else {
+            Modifier
+        }
+        Box(modifier = rowModifier) {
             SongRow(
                 data = rowData,
                 isActive = activeTrackId == track.id,

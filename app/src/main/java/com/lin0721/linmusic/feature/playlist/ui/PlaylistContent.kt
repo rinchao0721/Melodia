@@ -43,6 +43,7 @@ import com.lin0721.linmusic.core.ui.theme.headerCoverBase
 import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
@@ -157,6 +158,12 @@ fun PlaylistContent(
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(PlaylistSortOption.DEFAULT) }
     var showSortSheet by remember { mutableStateOf(false) }
+    var animateSortTransition by remember { mutableStateOf(false) }
+    LaunchedEffect(animateSortTransition, sortOption) {
+        if (!animateSortTransition) return@LaunchedEffect
+        delay(500L)
+        animateSortTransition = false
+    }
     val sortedTracks = remember(playlist.tracks, sortOption) { sortOption.sort(playlist.tracks) }
     val filteredTracks = remember(sortedTracks, searchQuery) {
         if (searchQuery.isBlank()) sortedTracks
@@ -401,7 +408,8 @@ fun PlaylistContent(
                     unplayableIds      = unplayableIds,
                     selectionUi        = selectionUi,
                     externalPlatforms  = externalPlatforms,
-                    showIndex          = showTrackIndex
+                    showIndex          = showTrackIndex,
+                    animateItems       = animateSortTransition && searchQuery.isEmpty() && pendingLocateTrackId == null
                 )
 
                 if (isLoadingMoreTracks) {
@@ -497,6 +505,7 @@ fun PlaylistContent(
             FloatingActionButton(
                 onClick = {
                     val id = targetTrackId ?: return@FloatingActionButton
+                    animateSortTransition = false
                     if (searchQuery.isNotEmpty()) searchQuery = ""
                     pendingLocateTrackId = id
                     if (sortedTracks.none { it.id == id }) {
@@ -593,6 +602,7 @@ fun PlaylistContent(
         PlaylistSortSheet(
             sortOption = sortOption,
             onSortOptionChange = {
+                if (it != sortOption) animateSortTransition = true
                 sortOption = it
                 showSortSheet = false
             },
