@@ -16,6 +16,8 @@ import com.lin0721.linmusic.core.platform.UnifiedCreator
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.toUnified
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.kugou.KugouPlayHistoryItem
+import com.lin0721.linmusic.core.kugou.resolveKugouTitleAndSinger
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
@@ -267,7 +269,7 @@ class KugouPlatformLibraryRepository(
             return@flow
         }
         val res = playbackService.getUserPlayHistory().map { page ->
-            page.items.mapNotNull { item ->
+            enrichPlayHistory(page.items).mapNotNull { item ->
                 val cleanHash = item.hash.trim().lowercase()
                 if (cleanHash.isEmpty()) return@mapNotNull null
                 val artists = item.singerName
@@ -304,6 +306,33 @@ class KugouPlatformLibraryRepository(
             }
         }
         emit(res)
+    }
+
+    // 听歌历史条目常缺歌名、封面与时长（实测只剩 hash），按 hash 批量用 privilege/lite 补齐；失败保持原样
+    private suspend fun enrichPlayHistory(items: List<KugouPlayHistoryItem>): List<KugouPlayHistoryItem> {
+        val missing = items.filter { it.songName.isBlank() || it.coverUrl.isBlank() || it.durationMs <= 0L }
+            .map { it.hash.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        if (missing.isEmpty()) return items
+        val infoByHash = missing.chunked(HISTORY_ENRICH_CHUNK).flatMap { chunk ->
+            playbackService.getPrivilegeLite(chunk).getOrNull().orEmpty()
+        }.associateBy { it.hash.trim().lowercase() }
+        return items.map { item ->
+            val info = infoByHash[item.hash.trim().lowercase()] ?: return@map item
+            val singer = item.singerName.ifBlank { info.singerName }
+            val (title, _) = resolveKugouTitleAndSinger(item.songName, singer, info.name)
+            item.copy(
+                songName = title,
+                singerName = singer,
+                albumId = item.albumId.takeIf { it.isNotBlank() && it != "0" } ?: info.albumId,
+                albumName = item.albumName.ifBlank { info.albumName },
+                albumAudioId = item.albumAudioId.takeIf { it > 0L } ?: info.albumAudioId,
+                mixSongId = item.mixSongId.takeIf { it > 0L } ?: info.mixSongId,
+                durationMs = item.durationMs.takeIf { it > 0L } ?: info.durationMs,
+                coverUrl = item.coverUrl.ifBlank { info.coverUrl }
+            )
+        }
     }
 
     override fun getUserSubcount(platform: MusicPlatform): Flow<Result<UnifiedUserSubcount>> = flow {
@@ -435,3 +464,5 @@ class PlatformLibraryRouter(
         else -> flowOf(Result.failure(UnsupportedOperationException("暂不支持该平台的曲库操作: ${platform.key}")))
     }
 }
+
+private const val HISTORY_ENRICH_CHUNK = 30

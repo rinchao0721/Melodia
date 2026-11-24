@@ -87,11 +87,21 @@ class KugouPlatformAlbumRepository(
             emit(Result.failure(it))
             return@flow
         }
-        val songsPage = albumService.getAlbumSongs(albumId.rawId, page = 1, pageSize = 100).getOrElse {
+        val firstPage = albumService.getAlbumSongs(albumId.rawId, page = 1, pageSize = KUGOU_ALBUM_PAGE_SIZE).getOrElse {
             emit(Result.failure(it))
             return@flow
         }
-        val tracks = songsPage.songs.map { it.toUnifiedTrack() }
+        val songs = firstPage.songs.toMutableList()
+        var page = 1
+        while (songs.size < firstPage.totalCount && page < KUGOU_ALBUM_MAX_PAGES) {
+            page++
+            val next = albumService.getAlbumSongs(albumId.rawId, page = page, pageSize = KUGOU_ALBUM_PAGE_SIZE)
+                .getOrNull()?.songs.orEmpty()
+            if (next.isEmpty()) break
+            songs += next
+        }
+        val songsPage = firstPage
+        val tracks = songs.map { it.toUnifiedTrack() }
         val unifiedArtists = if (detail.authors.isNotEmpty()) {
             detail.authors.map { it.toUnifiedArtist() }
         } else {
@@ -124,7 +134,7 @@ class KugouPlatformAlbumRepository(
             emit(Result.failure(IllegalStateException("酷狗音乐平台已关闭")))
             return@flow
         }
-        val pageSize = limit.coerceIn(1, 100)
+        val pageSize = limit.coerceIn(1, KUGOU_ALBUM_PAGE_SIZE)
         val page = (offset.coerceAtLeast(0) / pageSize) + 1
         emit(albumService.getAlbumSongs(albumId.rawId, page = page, pageSize = pageSize).map { p ->
             p.songs.map { it.toUnifiedTrack() }
@@ -165,3 +175,7 @@ class PlatformAlbumRouter(
         else -> flowOf(Result.failure(UnsupportedOperationException("暂不支持该平台专辑详情: ${albumId.platform.key}")))
     }
 }
+
+// album_audio/lite 的 pagesize 超过 50 会返回 20010 invalid param（实测）
+private const val KUGOU_ALBUM_PAGE_SIZE = 50
+private const val KUGOU_ALBUM_MAX_PAGES = 20

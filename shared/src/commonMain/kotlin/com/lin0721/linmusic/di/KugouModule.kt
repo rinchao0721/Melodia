@@ -97,7 +97,8 @@ val kugouModule = module {
         val playback = get<KugouPlaybackService>()
         val album = get<KugouAlbumService>()
         KugouTrackLinkResolver(
-            albumIdOfHash = { hash -> playback.getAudioMetadata(listOf(hash)).getOrNull()?.firstOrNull()?.albumId },
+            // /v1/audio/audio 不返回专辑信息（实测），专辑 id 取 privilege/lite
+            albumIdOfHash = { hash -> playback.getPrivilegeLite(listOf(hash)).getOrNull()?.firstOrNull()?.albumId },
             authorsOfAlbum = { albumId ->
                 album.getAlbumDetail(albumId).getOrNull()?.authors.orEmpty()
                     .map { KugouArtistLink(id = it.id, name = it.name) }

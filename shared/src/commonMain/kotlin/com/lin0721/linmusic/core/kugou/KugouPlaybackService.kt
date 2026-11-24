@@ -178,7 +178,8 @@ class KugouPlaybackService(
             put(
                 "resource",
                 buildJsonObject {
-                    put("album_audio_id", albumAudioId ?: 0L)
+                    // 传 0 会被服务端判为反序列化失败（20010），无值时省略，同参考实现 undefined 不序列化
+                    albumAudioId?.takeIf { it > 0L }?.let { put("album_audio_id", it) }
                     put("collect_list_id", "3")
                     put("collect_time", clientTimeMs)
                     put("hash", cleanHash)
@@ -253,7 +254,7 @@ class KugouPlaybackService(
         }
     }
 
-    // 对照 module/song_url.js：备选回退链路（/v5/url，clientver=11430，encryptKey + notSignature）
+    // 对照 module/song_url.js：备选回退链路（/v5/url，clientver=11430，encryptKey）；参考实现传的 notSign 不被 request.js 识别，实际仍签名
     suspend fun getSongUrlLegacy(
         hash: String,
         albumId: String? = null,
@@ -299,7 +300,6 @@ class KugouPlaybackService(
                 headers = mapOf("x-router" to "trackercdn.kugou.com"),
                 encryptType = KugouEncryptType.ANDROID,
                 encryptKey = true,
-                notSignature = true,
                 overrideClientVer = 11430,
                 cookieOverrides = mapOf("dfid" to device.effectiveDfid)
             )
@@ -351,7 +351,7 @@ class KugouPlaybackService(
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
                 method = "POST",
-                baseUrl = "https://kmr.service.kugou.com",
+                baseUrl = "http://kmr.service.kugou.com",
                 url = "/v1/audio/audio",
                 data = dataObj,
                 headers = mapOf(
@@ -618,6 +618,15 @@ class KugouPlaybackService(
         )
     }
 
+    // 顶层 album_id 常为 "0"（实测），依次回落 recommend_album_id 与 relate_goods 中的专辑 id
+    private fun resolvePrivilegeAlbumId(resource: JsonObject, relateGoods: List<JsonElement>?): String {
+        fun valid(raw: String?): String? = raw?.trim()?.takeIf { it.isNotEmpty() && it != "0" }
+        return valid(resource.string("album_id"))
+            ?: valid(resource.string("recommend_album_id"))
+            ?: relateGoods.orEmpty().firstNotNullOfOrNull { valid(it.jsonObjectOrNull()?.string("album_id")) }
+            ?: ""
+    }
+
     private fun parsePrivilegeItem(
         hash: String,
         reqAlbumId: String,
@@ -724,7 +733,7 @@ class KugouPlaybackService(
 
         return KugouPrivilegeResult(
             hash = hash,
-            albumId = resource.string("album_id").ifBlank { reqAlbumId },
+            albumId = resolvePrivilegeAlbumId(resource, relateGoods).ifBlank { reqAlbumId },
             albumAudioId = resource.long("album_audio_id"),
             mixSongId = resource.long("id").takeIf { it > 0L } ?: resource.long("mixsongid"),
             name = resource.string("name"),

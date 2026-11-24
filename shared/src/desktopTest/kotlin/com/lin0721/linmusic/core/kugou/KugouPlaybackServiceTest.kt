@@ -235,12 +235,39 @@ class KugouPlaybackServiceTest {
         assertEquals("trackercdn.kugou.com", reqLegacy.getHeader("x-router"))
         assertEquals("11430", reqLegacy.requestUrl?.queryParameter("clientver"))
         // notSignature = true
-        assertNull(reqLegacy.requestUrl?.queryParameter("signature"))
+        // song_url.js 传的 notSign 不被 request.js 识别，参考实现实际会签名
+        assertNotNull(reqLegacy.requestUrl?.queryParameter("signature"))
         assertNotNull(reqLegacy.requestUrl?.queryParameter("key"))
 
         assertFalse(legacyRes.isFreeTrial)
         assertEquals("https://trackercdn.kugou.com/full_song.mp3", legacyRes.url)
         assertEquals(UnifiedAudioQuality.STANDARD, legacyRes.unifiedQuality)
+    }
+
+    @Test
+    fun `getSongUrlNew 无 album_audio_id 时省略该字段，privilege 专辑 id 为 0 时回落推荐专辑`() = runTest {
+        val okBody = """{"status": 1, "error_code": 0, "data": {"goods": [{"quality": "128", "hash": "AA11", "url": ["https://cdn.kugou.com/a.mp3"]}]}}"""
+        server.enqueue(MockResponse().setResponseCode(200).setBody(okBody))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(okBody))
+
+        playbackService.getSongUrlNew(hash = "AA11").getOrThrow()
+        val noAa = json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        // 传 0 会被服务端判为 unmarshal failed（20010），缺省时必须不带
+        assertFalse(noAa["resource"]!!.jsonObject.containsKey("album_audio_id"))
+
+        playbackService.getSongUrlNew(hash = "AA11", albumAudioId = 0L).getOrThrow()
+        val zeroAa = json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        assertFalse(zeroAa["resource"]!!.jsonObject.containsKey("album_audio_id"))
+
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"status": 1, "error_code": 0, "data": [{"hash": "BB22", "album_id": "0", "recommend_album_id": "15104925",
+                    "album_audio_id": 130226221, "name": "keshi - 2 soon", "singername": "keshi", "relate_goods": []}]}"""
+            )
+        )
+        val priv = playbackService.getPrivilegeLite(listOf("BB22")).getOrThrow().single()
+        server.takeRequest()
+        assertEquals("15104925", priv.albumId)
     }
 
     @Test

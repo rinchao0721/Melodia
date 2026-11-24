@@ -16,7 +16,7 @@ data class KugouTrackLinks(
     val albumEntityId: String? get() = albumId?.let { AlbumId.kugou(it).canonical }
 }
 
-// 队列项缺专辑或歌手 id 时补查：hash -> /v1/audio/audio 取专辑 id，专辑详情 authors 取歌手 id
+// 队列项缺专辑或歌手 id 时补查：hash -> privilege/lite 取专辑 id，专辑详情 authors 取歌手 id
 class KugouTrackLinkResolver(
     private val albumIdOfHash: suspend (hash: String) -> String?,
     private val authorsOfAlbum: suspend (albumId: String) -> List<KugouArtistLink>
