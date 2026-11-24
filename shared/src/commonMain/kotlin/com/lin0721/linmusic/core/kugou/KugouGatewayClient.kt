@@ -83,6 +83,8 @@ data class KugouRawResponse(
     val errorMsg: String
         get() = bodyJson?.get("error_msg")?.jsonPrimitive?.content
             ?: bodyJson?.get("msg")?.jsonPrimitive?.content
+            // 登录类接口失败时把原因放在字符串 data 里，如 {"data":"手机格式不正确","error_code":20010}
+            ?: (bodyJson?.get("data") as? JsonPrimitive)?.takeIf { it.isString && errorCode != 0 }?.content
             ?: ""
 
     // 对照 KuGouMusicApi/util/request.js：仅 status === 0 或 error_code != 0 视为业务失败

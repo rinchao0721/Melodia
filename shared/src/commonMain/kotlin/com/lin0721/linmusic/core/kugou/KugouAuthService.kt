@@ -1,6 +1,7 @@
 ﻿package com.lin0721.linmusic.core.kugou
 
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.source.MusicPlatform
@@ -19,6 +20,8 @@ import kotlinx.serialization.json.put
 import java.util.Base64
 
 // 酷狗设备注册、登录、续期与风控服务：严格对照 KuGouMusicApi/module/*.js
+private const val TAG = "KugouAuthService"
+
 class KugouAuthService(
     private val config: KugouConfig,
     private val deviceStore: KugouDeviceStore,
@@ -109,15 +112,25 @@ class KugouAuthService(
                 body["error_msg"]?.jsonPrimitive?.contentOrNull ?: "酷狗设备注册失败"
             )
         }
-        val dfid = body["data"]?.jsonObject?.get("dfid")?.jsonPrimitive?.contentOrNull.orEmpty()
+        // 服务端偶发把 data 返回成空数组
+        val dfid = (body["data"] as? JsonObject)?.get("dfid")?.jsonPrimitive?.contentOrNull.orEmpty()
         require(dfid.isNotBlank()) { "酷狗设备注册未返回有效 dfid" }
         deviceStore.updateDfid(dfid)
         dfid
     }
 
+    // 登录前补注册设备：dfid 缺失时登录与验证码请求易被风控拦截；注册失败不阻断登录
+    private suspend fun ensureDeviceRegistered() {
+        if (deviceStore.getOrCreateDeviceIdentity().dfid != "-") return
+        registerDevice(userid = "0", token = "")
+            .onSuccess { AppLogger.i(TAG, "酷狗设备注册成功") }
+            .onFailure { AppLogger.w(TAG, "酷狗设备注册失败，继续使用空 dfid", it) }
+    }
+
     // 对照 module/login_qr_key.js + module/login_qr_create.js
     suspend fun createQrLogin(isWeb: Boolean = false): Result<KugouQrCreateResult> = runCatchingCancellable {
         config.ensureModeSynced()
+        ensureDeviceRegistered()
         val mode = config.mode
         val response = gatewayClient.executeRequest(
             KugouRequestOptions(
@@ -198,6 +211,7 @@ class KugouAuthService(
 
     // 对照 module/captcha_sent.js
     suspend fun sendPhoneCaptcha(mobile: String): Result<Unit> = runCatchingCancellable {
+        ensureDeviceRegistered()
         val device = deviceStore.getOrCreateDeviceIdentity()
         val body = buildJsonObject {
             put("businessid", 5)
@@ -225,6 +239,7 @@ class KugouAuthService(
         userid: String? = null
     ): Result<KugouAuthCredentials> = runCatchingCancellable {
         config.ensureModeSynced()
+        ensureDeviceRegistered()
         val mode = config.mode
         val device = deviceStore.getOrCreateDeviceIdentity()
         val dateTime = nowMs()

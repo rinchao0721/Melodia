@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.core.kugou
 
+import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.auth.PlatformQrPollResult
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.platform.AccountId
@@ -128,7 +129,31 @@ class KugouGatewayAndAuthTest {
     }
 
     @Test
+    fun `dfid 缺失时发验证码前先注册设备，注册失败不阻断发送`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setBody("""{"status":1,"error_code":0,"data":{}}"""))
+
+        assertTrue(authService.sendPhoneCaptcha("13800000000").isSuccess)
+
+        assertEquals("/risk/v3/r_register_dev", server.takeRequest().requestUrl!!.encodedPath)
+        assertEquals("/v7/send_mobile_code", server.takeRequest().requestUrl!!.encodedPath)
+        assertEquals("-", deviceStore.getOrCreateDeviceIdentity().dfid)
+    }
+
+    @Test
+    fun `发验证码失败时取 data 中的原因作为提示`() = runTest {
+        deviceStore.updateDfid("dfid_captcha_test")
+        server.enqueue(MockResponse().setBody("""{"data":"手机格式不正确","status":0,"error_code":20010}"""))
+
+        val error = authService.sendPhoneCaptcha("10000000000").exceptionOrNull() as AppError.BizError
+
+        assertEquals(20010, error.code)
+        assertEquals("手机格式不正确", error.rawMsg)
+    }
+
+    @Test
     fun `createQrLogin 与 pollQrLogin 四状态映射并通过 KugouAuthProvider 自动落盘酷狗账号`() = runTest {
+        deviceStore.updateDfid("dfid_qr_test")
         val qrCreateFixture = loadFixture("kugou/login_qr_key.json")
         server.enqueue(MockResponse().setBody(qrCreateFixture))
         server.enqueue(MockResponse().setBody("""{"status":1,"error_code":0,"data":{"status":1}}"""))
