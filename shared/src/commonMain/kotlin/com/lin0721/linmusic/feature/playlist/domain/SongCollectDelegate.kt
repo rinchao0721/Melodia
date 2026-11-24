@@ -316,7 +316,7 @@ class SongCollectDelegate(
                 val targetKey = if (likedPl) likedExternalKey(profile.uid) else playlist.id
                 val inLegacy = legacyTrack != null &&
                     legacyEntries[targetKey].orEmpty().any { it.track.resolveKey == legacyTrack.resolveKey }
-                val inUnified = unifiedEntries[PlaylistId.netease(targetKey)].orEmpty().any { it.track.id == track.id }
+                val inUnified = unifiedEntries[PlaylistId.netease(playlist.id)].orEmpty().any { it.track.id == track.id }
                 val contains = inLegacy || inUnified
                 PlaylistCollectItem(
                     playlistId = playlist.id,
@@ -574,9 +574,8 @@ class SongCollectDelegate(
                         ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }
                 }
             } else {
-                val targetId = PlaylistId.netease(
-                    if (isLikedPl) likedExternalKey(profile.uid) else item.playlistId
-                )
+                // 统一条目按真实歌单 id 存，与歌单页读取一致；likedExternalKey 为负数，只用于旧版外部条目
+                val targetId = PlaylistId.netease(item.playlistId)
                 if (router != null && !isLikedPl) {
                     val res = if (item.isContains) {
                         router.addTracksToPlaylist(targetId, listOf(track)).firstOrNull()
