@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -60,6 +61,8 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.plugin.LayoutLyricsPadding
+import com.lin0721.linmusic.core.plugin.LayoutLyricsStyle
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
@@ -83,6 +86,7 @@ private val NoLyricsHeight = 56.dp
 // 手动滚动歌词松手后停留多久再回到当前行，与全屏歌词页一致
 internal const val LYRICS_RESUME_DELAY_MS = 3000L
 private const val DEFAULT_LEFT_FRACTION = 0.4f
+private const val DEFAULT_LYRICS_MAX_WIDTH = 760f
 
 private const val WIDE_LYRICS_KEY = "wide_lyrics"
 private const val WIDE_BOTTOM_SPACER_KEY = "wide_bottom_spacer"
@@ -109,11 +113,20 @@ fun FullPlayerWideLayout(
     modifier: Modifier = Modifier,
     // 插件布局：替换左栏的封面与播放控件，leftFraction 为左栏宽度占比
     pluginLeftColumn: (@Composable () -> Unit)? = null,
-    leftFraction: Float? = null
+    leftFraction: Float? = null,
+    // 插件去掉宿主顶栏时为假；overlay 在整页左上角补收起按钮等
+    showSourceBar: Boolean = true,
+    overlay: (@Composable BoxScope.() -> Unit)? = null,
+    // 右栏歌词的插件排版，以及信息卡片开关
+    lyricsStyle: LayoutLyricsStyle? = null,
+    lyricsPadding: LayoutLyricsPadding? = null,
+    lyricsMaxWidth: Float? = null,
+    showCards: Boolean = true
 ) {
     val left = leftFraction ?: DEFAULT_LEFT_FRACTION
-    Column(modifier = modifier.fillMaxSize()) {
-        sourceBar(
+    Box(modifier = modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (showSourceBar) sourceBar(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MelodiaSpacing.lg)
@@ -170,12 +183,18 @@ fun FullPlayerWideLayout(
                 onSeek = onSeek,
                 onLyricsVisibleChange = onLyricsVisibleChange,
                 infoCards = infoCards,
+                lyricsStyle = lyricsStyle,
+                lyricsPadding = lyricsPadding,
+                lyricsMaxWidth = lyricsMaxWidth,
+                showCards = showCards,
                 modifier = Modifier
                     .weight(1f - left)
                     .fillMaxHeight()
                     .padding(end = RightColumnEndPadding)
             )
         }
+    }
+    overlay?.invoke(this)
     }
 }
 
@@ -193,6 +212,10 @@ private fun WideRightColumn(
     onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
+    lyricsStyle: LayoutLyricsStyle? = null,
+    lyricsPadding: LayoutLyricsPadding? = null,
+    lyricsMaxWidth: Float? = null,
+    showCards: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val motion = LocalUiMotion.current
@@ -247,6 +270,7 @@ private fun WideRightColumn(
                         modifier = Modifier
                             .fillParentMaxHeight()
                             .fillMaxWidth()
+                            .padding(start = (lyricsPadding?.start ?: 0f).dp, end = (lyricsPadding?.end ?: 0f).dp)
                             .onGloballyPositioned { lyricsOriginInRoot = it.positionInRoot() }
                             .pointerInput(lyricsListState) {
                                 awaitEachGesture {
@@ -292,6 +316,8 @@ private fun WideRightColumn(
                             isLoading = isLyricsLoading,
                             isUserScrolling = isUserScrollingLyrics,
                             highlightColor = lyricColors.unsung ?: highlightColor,
+                            lyricsStyle = lyricsStyle,
+                            maxContentWidth = (lyricsMaxWidth ?: DEFAULT_LYRICS_MAX_WIDTH).dp,
                             sungColor = lyricColors.sung,
                             harmonySungColor = lyricColors.harmonySung,
                             harmonyUnsungColor = lyricColors.harmonyUnsung,
@@ -340,9 +366,11 @@ private fun WideRightColumn(
                     }
                 }
             }
-            infoCards()
-            item(key = WIDE_BOTTOM_SPACER_KEY) {
-                Spacer(modifier = Modifier.height(MelodiaSpacing.lg))
+            if (showCards) {
+                infoCards()
+                item(key = WIDE_BOTTOM_SPACER_KEY) {
+                    Spacer(modifier = Modifier.height(MelodiaSpacing.lg))
+                }
             }
         }
 

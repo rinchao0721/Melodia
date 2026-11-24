@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -19,6 +20,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -45,6 +47,7 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutNode
 import com.lin0721.linmusic.core.plugin.PlayerLayoutSpec
 import com.lin0721.linmusic.core.plugin.PlayerLayoutView
 import com.lin0721.linmusic.core.plugin.layoutShape
+import com.lin0721.linmusic.core.plugin.resolve
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
@@ -129,7 +132,7 @@ class FullPlayerLayoutParts(
         )
     }
 
-    val coverColors: LayoutCoverColors get() = LayoutCoverColors(colors.base, colors.textHighlight)
+    val coverColors: LayoutCoverColors get() = LayoutCoverColors(colors.base, colors.textHighlight, colors.palette)
 
     // 手势里的宿主动作；本区域不支持的动作在解析时已去掉
     private fun handle(action: HostAction) {
@@ -185,22 +188,42 @@ class FullPlayerLayoutParts(
                 val limited = node.maxSize?.let { modifier.widthIn(max = it.dp) } ?: modifier
                 // 分页器里左右滑动用于翻页，不提供相邻封面即关闭滑动切歌
                 val swipeEnabled = !LocalInLayoutPager.current
-                SwipeToSkipCover(
-                    coverUrl = coverUrl,
-                    previousCoverUrl = previousCoverUrl.takeIf { swipeEnabled },
-                    nextCoverUrl = nextCoverUrl.takeIf { swipeEnabled },
-                    onConfirmPrevious = onPlayPrevious,
-                    onConfirmNext = onPlayNext,
-                    currentKey = currentKey,
-                    previousKey = previousKey.takeIf { swipeEnabled },
-                    nextKey = nextKey.takeIf { swipeEnabled },
-                    contentScale = ContentScale.Crop,
-                    shape = node.layoutShape(),
-                    modifier = (if (byHeight) limited.fillMaxHeight() else limited.fillMaxWidth())
-                        .aspectRatio(node.aspect, matchHeightConstraintsFirst = byHeight),
-                    onCancelPending = onCancelSkip,
-                    queueTarget = queueTarget
-                )
+                val shape = node.layoutShape()
+                val sized = (if (byHeight) limited.fillMaxHeight() else limited.fillMaxWidth())
+                    .aspectRatio(node.aspect, matchHeightConstraintsFirst = byHeight)
+                val glow = node.glow
+                val cover: @Composable (Modifier) -> Unit = { coverModifier ->
+                    SwipeToSkipCover(
+                        coverUrl = coverUrl,
+                        previousCoverUrl = previousCoverUrl.takeIf { swipeEnabled },
+                        nextCoverUrl = nextCoverUrl.takeIf { swipeEnabled },
+                        onConfirmPrevious = onPlayPrevious,
+                        onConfirmNext = onPlayNext,
+                        currentKey = currentKey,
+                        previousKey = previousKey.takeIf { swipeEnabled },
+                        nextKey = nextKey.takeIf { swipeEnabled },
+                        contentScale = ContentScale.Crop,
+                        shape = shape,
+                        modifier = coverModifier,
+                        onCancelPending = onCancelSkip,
+                        queueTarget = queueTarget
+                    )
+                }
+                if (glow == null) {
+                    cover(sized)
+                } else {
+                    // 彩色投影由 shadow 的 spot/ambient 颜色实现；Android 9 以下颜色被忽略，退化为普通阴影
+                    val glowColor = glow.color.resolve().let { it.copy(alpha = it.alpha * glow.opacity) }
+                    Box(sized) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .offset(glow.offsetX.dp, glow.offsetY.dp)
+                                .shadow(glow.radius.dp, shape, clip = false, ambientColor = glowColor, spotColor = glowColor)
+                        )
+                        cover(Modifier.fillMaxSize())
+                    }
+                }
             }
             LayoutNodeType.SONG_TITLE -> if (playContext == PlaybackController.CONTEXT_PERSONAL_FM && onPersonalFmModeClick != null) {
                 Column(modifier) {

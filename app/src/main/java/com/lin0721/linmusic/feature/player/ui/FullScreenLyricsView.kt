@@ -116,7 +116,7 @@ fun FullScreenLyricsView(
     // 插件布局：替换整页内容，歌词列表与页面操作经 slots 交给布局
     pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null
 ) {
-    val hasCanvasBackground = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.canvasScript != null
+    val hasCanvasBackground = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.hasCustomBackdrop == true
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var timerJob by remember { mutableStateOf<Job?>(null) }
@@ -351,6 +351,7 @@ fun FullScreenLyricsView(
                         onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
                         gestureModifier = gestureModifier,
                         fontSize = effectiveLyricTextSize,
+                        lyricsStyle = rememberPluginLyricsStyle(),
                         alignment = fullScreenLyricAlignment,
                         secondaryMode = fullScreenLyricSecondaryMode,
                         lineSpacing = fullScreenLyricLineSpacing,

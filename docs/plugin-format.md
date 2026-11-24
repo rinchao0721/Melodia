@@ -52,7 +52,7 @@
 | `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
 | `main` | format 2；原生插件必需，入口类的完整类名 |
 | `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.11` |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.12` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
@@ -720,3 +720,120 @@ Android 播放页／全屏歌词页支持 `frame.canvasColors`：最多 16 个�
 仅对 `apiVersion` 声明为 `1.10` 及以上的插件生效。竖屏播放页、背景和沉浸主题判定读取 `android.fullPlayer`；横屏读取 `android.fullPlayerWide`。宽屏区域新增 `frame.header`/`cards`/`canvas`/`canvasColors`，并支持 `layout: host`。横屏选择内置布局（或未提供该区域）时不回退到竖屏的插件布局。全屏歌词背景仍由 `android.lyrics` 独立选择。
 
 竖屏选中的是低于 `1.10` 的插件时，横屏沿用它的竖屏布局，与之前的版本一致。
+
+## 播放页扩展接口（API 1.12，Android）
+
+以下字段与组件仅对 `apiVersion` 声明为 `1.12` 及以上的插件生效。低于 `1.12`（或未声明）的插件写了这些 `frame` 字段会得到“不支持 frame.xxx”的提示并被忽略，节点上的 `glow`、宽屏新增组件和 `cover.paletteN` 同样被忽略，其余解析结果与行为不变。只做 Android，桌面端不支持。
+
+所有新字段遇到非法值时忽略该字段并给出提示，数值超出范围时收敛到范围内。
+
+### 原生模糊封面背景（API 1.12）
+
+`android.fullPlayer`、`android.fullPlayerWide`、`android.lyrics` 的 `frame.backdrop`：
+
+```json
+"backdrop": {
+  "type": "coverBlur",
+  "blur": 80,
+  "scale": 1.4,
+  "saturation": 1.3,
+  "dim": { "light": 0.08, "dark": 0.35 },
+  "drift": true
+}
+```
+
+| 字段 | 范围 | 说明 |
+|---|---|---|
+| `type` | `coverBlur` | 目前只有这一种，省略时按 `coverBlur`；其他取值整体忽略 |
+| `blur` | 0–150，默认 80 | 模糊半径（dp） |
+| `scale` | 1–2，默认 1.3 | 放大铺满，漂移时边缘不露底 |
+| `saturation` | 0–3，默认 1.2 | 饱和度倍率 |
+| `dim` | 0–1，默认浅色 0.08、深色 0.35 | 叠一层主题底色遮罩，保证文字对比度；写一个数时深浅色共用，写对象时可只写其中一侧 |
+| `drift` | 布尔，默认 `true` | 播放时缓慢旋转、平移，幅度不超过 `scale` 留出的余量；暂停或关闭界面动画时静止 |
+
+绘制顺序：主题底色 → 模糊封面 → 插件画布（透明处透出封面）→ 布局内容。写了 `backdrop` 的区域不再绘制宿主默认背景，写了 `canvas` 时画布不再铺主题底色。切歌时新旧封面交叉淡入淡出，时长 800ms；关闭界面动画时直接切换。
+
+Android 12 及以上用 `RenderEffect` 模糊。Android 12 以下没有 `RenderEffect`：封面先缩到长边约 24px 再放大，用双线性插值近似模糊，此时 `blur` 只决定是否模糊（0 为不模糊），不再影响半径。没有封面时只显示主题底色。
+
+### 画布封面图（API 1.12）
+
+布局写 `frame.canvasCover: true` 时，画布 `state.cover` 才会带封面，没声明的插件不会多一份开销：
+
+```json
+"cover": { "src": "data:image/jpeg;base64,...", "width": 128, "height": 128 }
+```
+
+长边 128px、JPEG 质量 80，同一首歌只编码一次。没有封面、解码失败或未声明 `canvasCover` 时，声明了的插件拿到 `null`，未声明的插件没有 `cover` 字段。新歌封面就绪前保留上一首的封面，请以 `trackChangedAt` 配合过渡。
+
+画布文档的 CSP 为 1.12 起的插件额外放开 `img-src data:`，其余限制（无网络、无文件等）不变。插件用 `new Image()` 加载 `src` 后 `drawImage`，可以配合 `ctx.filter = 'blur(20px)'` 自行做效果。
+
+### 封面调色板（API 1.12）
+
+取色时按占比从高到低保留最多 5 个主色（相近的颜色合并，不会重复占位）。
+
+- 颜色表达式新增 `cover.palette0` ~ `cover.palette4`，可用于所有支持颜色的位置，包括 `mix`、`adjust`、`huePalette` 和渐变。封面的主色数不足时，对应序号退回 `cover.base`。
+- 画布 `state.palette` 为 `["#RRGGBB", …]`，0–5 个，只包含实际取到的颜色。
+- 切歌时逐个颜色做 800ms 过渡；关闭界面动画时直接切换。
+
+### 播放进度与切歌事件（API 1.12）
+
+画布 `state` 新增字段：
+
+| 字段 | 说明 |
+|---|---|
+| `positionMs` | 最近一次同步时的播放位置 |
+| `positionAt` | 同步时刻对应的 `time` 值（`background.render` 的第三个参数，与 `onState` 收到的 state 同一时钟） |
+| `durationMs` | 时长，未知为 0 |
+| `trackId` | 当前歌曲 id 字符串 |
+| `trackChangedAt` | 最近一次切歌时的 `time` 值；画布首次收到状态时视为很久以前，不会触发过渡 |
+
+插件用 `positionMs + (time - positionAt)` 自行外推当前位置，宿主不逐帧推送。宿主每秒同步一次进度；拖动进度、切歌、播放和暂停时立即同步。`time` 只在播放且开启界面动画、页面可见时推进，因此外推与暂停天然一致；界面动画关闭时 `time` 不动，外推也不动。
+
+### 歌词样式（API 1.12）
+
+`android.lyrics` 的 `frame.lyricsStyle`，同时作用于全屏歌词页、内嵌的 `lyricsView` 和宽屏右栏（右栏本来就读这个区域的歌词设置）：
+
+```json
+"lyricsStyle": { "fontScale": 1.15, "align": "start", "activeScale": 1.06, "inactiveBlur": 2, "lineSpacing": 1.2 }
+```
+
+| 字段 | 范围 | 说明 |
+|---|---|---|
+| `fontScale` | 0.7–1.6，默认 1 | 在用户歌词字号设置上再乘这个倍率，不覆盖用户设置 |
+| `align` | `start`、`center` | 对齐方式，覆盖用户的对齐设置；省略时沿用用户设置 |
+| `activeScale` | 1–1.3 | 当前行放大比例，带缓动；省略时沿用宿主默认 |
+| `inactiveBlur` | 0–6，默认 0 | 非当前行的最大模糊半径（dp），按与当前行的距离递增，三行及以外取满；用户手动滚动歌词时取消模糊。Android 12 以下忽略 |
+| `lineSpacing` | 0.8–2，默认 1 | 在用户行距设置上再乘这个倍率 |
+
+### 宽屏顶栏与组件（API 1.12）
+
+- `android.fullPlayerWide` 写 `frame.header: "none"` 去掉宿主顶栏（播放来源、全屏切换和更多按钮那一行）。
+- 宽屏区域开放 `collapseButton`（平板侧栏模式下自带全屏切换）、`moreButton`、`sourceLabel` 三个组件。
+- 规则与竖屏一致：没有一定看得见的 `collapseButton`（含各 `variants`）时，宿主在左上角补一个，保证随时能收起。
+
+### 封面彩色投影 glow（API 1.12）
+
+`cover` 节点新增 `glow`，可用于 `android.fullPlayer`、`android.fullPlayerWide`、`android.lyrics`：
+
+```json
+"glow": { "color": "cover.base", "radius": 32, "opacity": 0.6, "offset": [0, 12] }
+```
+
+| 字段 | 范围 | 说明 |
+|---|---|---|
+| `color` | 任意颜色表达式，默认 `cover.base` | 投影颜色 |
+| `radius` | 0–64，默认 32 | 模糊半径（dp） |
+| `opacity` | 0–1，默认 0.6 | 不透明度，与颜色自带的 alpha 相乘 |
+| `offset` | `[x, y]`，各 -48–48，默认 `[0, 12]` | 投影偏移（dp） |
+
+Android 9 及以上用 `spotColor` / `ambientColor` 着色，Android 9 以下退化为普通黑色阴影。
+
+### 宽屏右栏留白、宽度与卡片（API 1.12）
+
+`android.fullPlayerWide` 的 `frame` 新增：
+
+| 字段 | 范围 | 说明 |
+|---|---|---|
+| `lyricsPadding` | `[左, 右]`，各 0–120 dp | 右栏歌词的左右留白 |
+| `lyricsMaxWidth` | 320–1000 dp | 歌词最大宽度，超出时在右栏内居中；省略时为 760 |
+| `cards` | 布尔 | 对 1.12 起的插件，`false` 时右栏只显示歌词，隐藏下方信息卡片 |

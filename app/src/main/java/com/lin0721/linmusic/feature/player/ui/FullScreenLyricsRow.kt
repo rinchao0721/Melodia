@@ -19,7 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.platform.LocalDensity
+import android.os.Build
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -51,6 +55,10 @@ fun FullScreenLyricsRow(
     currentPositionProvider: () -> Long,
     fontSize: Int = 22,
     alignment: String = "left",
+    // 当前行放大比例；为空用默认值
+    activeScale: Float? = null,
+    // 非当前行最大模糊半径（dp），随与当前行的距离递增；Android 12 以下忽略
+    inactiveBlur: Float = 0f,
     secondaryMode: String = "translation",
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
@@ -123,7 +131,7 @@ fun FullScreenLyricsRow(
     val secondaryColor = if (showRoma) romanizationColor else translationColor
 
     val targetScale = when {
-        isCurrent -> 1.12f
+        isCurrent -> activeScale ?: 1.12f
         isCenterTarget -> 1.04f
         else -> when (distance) {
             1 -> 0.98f
@@ -152,6 +160,19 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
+    val blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val targetBlurDp = if (blurSupported && !isCurrent && !isCenterTarget && inactiveBlur > 0f) {
+        inactiveBlur * (distance.coerceIn(0, BLUR_FULL_DISTANCE) / BLUR_FULL_DISTANCE.toFloat())
+    } else {
+        0f
+    }
+    val animatedBlurDp by animateFloatAsState(
+        targetValue = targetBlurDp,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        label = "fs_lyric_blur_$index"
+    )
+    val blurDensity = LocalDensity.current.density
+
     val widthFraction = if (effectiveAlignment == "center") 0.9f else 0.85f
     val paddingStart = when (effectiveAlignment) {
         "center" -> 24.dp
@@ -177,8 +198,10 @@ fun FullScreenLyricsRow(
                     scaleY = animatedScale
                     alpha = animatedAlpha
                     transformOrigin = targetTransformOrigin
+                    val blurPx = animatedBlurDp * blurDensity
+                    renderEffect = if (blurPx > 0.5f && blurSupported) BlurEffect(blurPx, blurPx, TileMode.Decal) else null
                     // 非当前行各子项纵向堆叠不重叠，直接调制画笔透明度避免触发 saveLayer
-                    compositingStrategy = if (!isCurrent && animatedAlpha < 0.999f) {
+                    compositingStrategy = if (!isCurrent && animatedAlpha < 0.999f && renderEffect == null) {
                         CompositingStrategy.ModulateAlpha
                     } else {
                         CompositingStrategy.Auto
@@ -297,6 +320,9 @@ fun FullScreenLyricsRow(
         }
     }
 }
+
+// 距当前行达到这个行数时模糊取满
+private const val BLUR_FULL_DISTANCE = 3
 
 // 同一行的正文与翻译各自的排版结果和实际文字范围，上报时取并集
 private class LyricTextBounds {

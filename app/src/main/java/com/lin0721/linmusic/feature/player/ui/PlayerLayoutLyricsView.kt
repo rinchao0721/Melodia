@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.plugin.LayoutCoverColors
+import com.lin0721.linmusic.core.plugin.LayoutLyricsStyle
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.resolve
@@ -118,6 +119,7 @@ fun EmbeddedLyricsView(
         gestureModifier = Modifier,
         modifier = modifier.fillMaxSize(),
         fontSize = settings.fontSize,
+        lyricsStyle = rememberPluginLyricsStyle(),
         alignment = settings.alignment,
         secondaryMode = settings.secondaryMode,
         lineSpacing = settings.lineSpacing,
@@ -144,6 +146,11 @@ data class PluginLyricColors(
     val translation: Color? = null,
     val romanization: Color? = null
 )
+
+// android.lyrics 声明的歌词样式（API 1.12 起）；全屏歌词页、宽屏右栏与内嵌歌词共用
+@Composable
+internal fun rememberPluginLyricsStyle(): LayoutLyricsStyle? =
+    LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.frame?.lyricsStyle
 
 @Composable
 internal fun rememberPluginLyricColors(cover: LayoutCoverColors): PluginLyricColors {

@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.plugin.resolve
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color as AndroidColor
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.*
@@ -18,31 +19,110 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.lin0721.linmusic.core.ui.theme.COVER_PALETTE_SIZE
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
+import kotlin.math.abs
+
+// 画布 state 里与歌曲相关的字段来源（API 1.12 起）；在播放页根部提供，没有时只传基础字段
+class PluginCanvasInfo(
+    val trackId: String,
+    val durationMs: Long,
+    val coverUrl: String,
+    val palette: List<Color>,
+    val isPlaying: Boolean,
+    val positionProvider: () -> Long
+)
+
+val LocalPluginCanvasInfo = compositionLocalOf<PluginCanvasInfo?> { null }
+
+@Composable
+fun rememberPluginCanvasInfo(
+    trackId: String,
+    durationMs: Long,
+    coverUrl: String,
+    palette: List<Color>,
+    isPlaying: Boolean,
+    positionProvider: () -> Long
+): PluginCanvasInfo {
+    val latestProvider by rememberUpdatedState(positionProvider)
+    return remember(trackId, durationMs, coverUrl, palette, isPlaying) {
+        PluginCanvasInfo(trackId, durationMs, coverUrl, palette, isPlaying) { latestProvider() }
+    }
+}
+
+// 宿主每秒同步一次进度；拖动超过该误差视为跳转，立即同步
+private const val POSITION_SYNC_MS = 1000L
+private const val POSITION_POLL_MS = 250L
+private const val SEEK_TOLERANCE_MS = 600L
 
 // 插件 Canvas 2D 背景：受限 WebView，无网络、无原生桥接、不接收触摸
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier: Modifier = Modifier, colors: Map<String, LayoutColor> = emptyMap()) {
+fun PluginCanvasBackdrop(
+    script: String,
+    base: Color,
+    playing: Boolean,
+    modifier: Modifier = Modifier,
+    colors: Map<String, LayoutColor> = emptyMap(),
+    // 插件声明 apiVersion ≥ 1.12：开放封面、调色板与进度字段，CSP 放开 data: 图片
+    extended: Boolean = false,
+    wantsCover: Boolean = false,
+    // 画布下方有原生背景时不再铺主题底色
+    transparent: Boolean = false
+) {
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val dark = MelodiaColors.IsDark
     val motion = LocalUiMotion.current.enabled
     val density = LocalDensity.current.density
+    val context = LocalContext.current
+    val info = if (extended) LocalPluginCanvasInfo.current else null
+    val palette = info?.palette.orEmpty()
     var size by remember { mutableStateOf(IntSize.Zero) }
     // 按名称分组，颜色增删时各自的过渡状态不串位
     val resolvedColors = colors.toSortedMap().mapValues { (name, value) ->
         key(name) {
-            val target = value.resolve(LayoutCoverColors(base, base))
+            val target = value.resolve(LayoutCoverColors(base, base, palette))
             animateColorAsState(target, uiTween(800), label = "canvasColor").value
+        }
+    }
+    // 调色板逐个颜色过渡；数量不足时目标退回 base，只输出实际有的个数
+    val animatedPalette = List(COVER_PALETTE_SIZE) { index ->
+        key(index) { animateColorAsState(palette.getOrNull(index) ?: base, uiTween(800), label = "canvasPalette").value }
+    }.take(palette.size)
+    val cover by produceState<CanvasCoverImage?>(null, wantsCover && extended, info?.coverUrl) {
+        value = if (wantsCover && extended) info?.coverUrl?.let { loadCanvasCover(context, it) } else null
+    }
+    var syncedPositionMs by remember { mutableLongStateOf(0L) }
+    val latestInfo by rememberUpdatedState(info)
+    val visible = lifecycle.isAtLeast(Lifecycle.State.RESUMED)
+    if (info != null) {
+        LaunchedEffect(info.trackId, info.isPlaying, visible) {
+            if (!visible) return@LaunchedEffect
+            var anchorPosition = latestInfo?.positionProvider?.invoke() ?: 0L
+            var anchorAt = SystemClock.elapsedRealtime()
+            syncedPositionMs = anchorPosition
+            while (true) {
+                delay(POSITION_POLL_MS)
+                val now = latestInfo?.positionProvider?.invoke() ?: break
+                val wall = SystemClock.elapsedRealtime()
+                val expected = anchorPosition + if (info.isPlaying) wall - anchorAt else 0L
+                if (abs(now - expected) > SEEK_TOLERANCE_MS || wall - anchorAt >= POSITION_SYNC_MS) {
+                    anchorPosition = now
+                    anchorAt = wall
+                    syncedPositionMs = now
+                }
+            }
         }
     }
     val state = buildJsonObject {
@@ -57,14 +137,32 @@ fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier
         })
         put("playing", playing)
         put("motion", motion)
-        put("visible", lifecycle.isAtLeast(Lifecycle.State.RESUMED))
+        put("visible", visible)
+        if (extended) {
+            put("palette", buildJsonArray { animatedPalette.forEach { add("#%06X".format(it.toArgb() and 0xFFFFFF)) } })
+            if (wantsCover) {
+                val image = cover
+                put("cover", if (image == null) JsonNull else buildJsonObject {
+                    put("src", image.src)
+                    put("width", image.width)
+                    put("height", image.height)
+                })
+            }
+            if (info != null) {
+                put("positionMs", syncedPositionMs)
+                put("durationMs", info.durationMs.coerceAtLeast(0L))
+                put("trackId", info.trackId)
+            }
+        }
     }.toString()
-    Box(modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { size = it }) {
+    Box(
+        modifier.then(if (transparent) Modifier else Modifier.background(MaterialTheme.colorScheme.background)).onSizeChanged { size = it }
+    ) {
         // 非前台时销毁整个文档，插件定时器不能继续跑
-        if (lifecycle.isAtLeast(Lifecycle.State.RESUMED)) key(script) {
+        if (visible) key(script, extended) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                factory = { BackgroundCanvasView(it, script) },
+                factory = { BackgroundCanvasView(it, script, extended) },
                 update = { it.bind(state) },
                 onRelease = { it.stopLoading(); it.loadUrl("about:blank"); it.removeAllViews(); it.destroy() }
             )
@@ -73,7 +171,7 @@ fun PluginCanvasBackdrop(script: String, base: Color, playing: Boolean, modifier
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-private class BackgroundCanvasView(context: Context, private val script: String) : WebView(context) {
+private class BackgroundCanvasView(context: Context, private val script: String, private val extended: Boolean) : WebView(context) {
     private var ready = false
     private var state = "{}"
     init {
@@ -102,8 +200,9 @@ private class BackgroundCanvasView(context: Context, private val script: String)
         }
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse =
-                WebResourceResponse("text/plain", "UTF-8", java.io.ByteArrayInputStream(byteArrayOf()))
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                if (extended && request.url.scheme == "data") null
+                else WebResourceResponse("text/plain", "UTF-8", java.io.ByteArrayInputStream(byteArrayOf()))
             override fun onPageFinished(view: WebView, url: String) {
                 evaluateJavascript("try { " + script + "\n; true } catch(e) { console.error('background entry failed: '+e); false }") { result ->
                     ready = result == "true"
@@ -116,7 +215,7 @@ private class BackgroundCanvasView(context: Context, private val script: String)
                 return true
             }
         }
-        loadDataWithBaseURL(null, DOCUMENT, "text/html", "UTF-8", null)
+        loadDataWithBaseURL(null, document(extended), "text/html", "UTF-8", null)
     }
     override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     fun bind(json: String) {
@@ -125,14 +224,17 @@ private class BackgroundCanvasView(context: Context, private val script: String)
         if (ready) evaluateJavascript("window.__applyBackground($json)", null)
     }
     companion object {
+        // 1.12 起的插件额外允许 data: 图片（封面），其余限制不变
+        private fun document(extended: Boolean) = DOCUMENT.replace("__IMG_SRC__", if (extended) "; img-src data:" else "")
+
         private val DOCUMENT = """
             <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'__IMG_SRC__">
             <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{width:100%;height:100%;display:block}</style>
             <canvas id="surface"></canvas><script>
             (()=>{
               const canvas=document.getElementById('surface'),ctx=canvas.getContext('2d');
-              let state={},raf=0,last=0,time=0,failed=false;
+              let state={},raf=0,last=0,time=0,failed=false,lastTrack=null,lastPos=null,posAt=0,trackAt=0;
               window.background={version:1,render:null,onState:null};
               function draw(now){
                 raf=0;
@@ -150,6 +252,11 @@ private class BackgroundCanvasView(context: Context, private val script: String)
               }
               window.__applyBackground=s=>{
                 state=s;
+                if(s.trackId!==undefined){
+                  if(s.trackId!==lastTrack){trackAt=lastTrack===null?time-1e6:time;lastTrack=s.trackId;lastPos=s.positionMs;posAt=time;}
+                  else if(s.positionMs!==lastPos){lastPos=s.positionMs;posAt=time;}
+                  s.positionAt=posAt;s.trackChangedAt=trackAt;
+                }
                 const maxRatio=Math.sqrt(1000000/Math.max(1,s.width*s.height));
                 state.pixelRatio=Math.max(0.25,Math.min(s.pixelRatio,maxRatio));
                 const w=Math.max(1,Math.round(s.width*state.pixelRatio)),h=Math.max(1,Math.round(s.height*state.pixelRatio));

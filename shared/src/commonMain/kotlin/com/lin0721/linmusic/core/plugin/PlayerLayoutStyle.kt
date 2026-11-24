@@ -15,13 +15,15 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.floatOrNull
 
 // 封面取色；各端在播放器区域外层提供，没有时退回色板
-data class LayoutCoverColors(val base: Color, val accent: Color)
+data class LayoutCoverColors(val base: Color, val accent: Color, val palette: List<Color> = emptyList())
 
 val LocalLayoutCoverColors = compositionLocalOf<LayoutCoverColors?> { null }
 
 sealed interface LayoutColor {
     data class Token(val token: PaletteToken) : LayoutColor
     data class Cover(val accent: Boolean) : LayoutColor
+    // 封面调色板第 index 个颜色（API 1.12 起），不足时退回 cover.base
+    data class CoverPalette(val index: Int) : LayoutColor
     // 固定颜色按深浅色分开，只写一个值时两种模式共用
     data class Fixed(val light: Color, val dark: Color) : LayoutColor
     data class HuePalette(val source: LayoutColor, val minSaturation: Float, val neutral: LayoutColor,
@@ -45,6 +47,7 @@ fun LayoutColor.resolve(cover: LayoutCoverColors? = LocalLayoutCoverColors.curre
         is LayoutColor.Token -> token.read(palette)
         is LayoutColor.Cover -> cover?.let { if (accent) it.accent else it.base }
             ?: if (accent) palette.accent else palette.coverPlaceholder
+        is LayoutColor.CoverPalette -> cover?.let { it.palette.getOrNull(index) ?: it.base } ?: palette.coverPlaceholder
         is LayoutColor.Fixed -> if (palette.isDark) dark else light
         is LayoutColor.HuePalette -> {
             val input = source.resolve(cover)
@@ -106,23 +109,27 @@ internal object LayoutStyleParser {
     private const val MAX_GRADIENT = 4
     private val HEX = Regex("^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
     private val COVER = mapOf("cover.base" to false, "cover.accent" to true)
+    private val COVER_PALETTE = Regex("^cover\\.palette([0-4])$")
+    const val PALETTE_SIZE = 5
     // 样式里只能写外观属性
     private val FORBIDDEN = setOf("type", "children", "buttons", "bind", "action", "visible", "class")
 
-    fun color(value: JsonElement?): LayoutColor? = color(value, 0)
+    // palette 为假时不认 cover.paletteN（API 1.12 以前的插件）
+    fun color(value: JsonElement?, palette: Boolean = true): LayoutColor? = color(value, 0, palette)
 
-    private fun color(value: JsonElement?, depth: Int): LayoutColor? {
+    private fun color(value: JsonElement?, depth: Int, palette: Boolean): LayoutColor? {
         if (depth > 4) return null
         return when (value) {
             is JsonPrimitive -> value.takeIf { it.isString }?.content?.trim()?.let { text ->
                 COVER[text]?.let(LayoutColor::Cover)
+                    ?: palette.takeIf { it }?.let { COVER_PALETTE.matchEntire(text)?.groupValues?.get(1)?.toInt()?.let(LayoutColor::CoverPalette) }
                     ?: hex(text)?.let { LayoutColor.Fixed(it, it) }
                     ?: PaletteToken.fromKey(text)?.let(LayoutColor::Token)
             }
             is JsonObject -> {
                 if ("huePalette" in value) {
-                    val source = color(value["huePalette"], depth + 1) ?: return null
-                    val neutral = color(value["neutral"], depth + 1) ?: return null
+                    val source = color(value["huePalette"], depth + 1, palette) ?: return null
+                    val neutral = color(value["neutral"], depth + 1, palette) ?: return null
                     val min = (value["minSaturation"] as? JsonPrimitive)?.takeIf { !it.isString }
                         ?.floatOrNull?.takeIf { it.isFinite() && it in 0f..1f } ?: return null
                     val entries = value["stops"] as? JsonArray ?: return null
@@ -133,14 +140,14 @@ internal object LayoutStyleParser {
                         val hue = (obj["hue"] as? JsonPrimitive)?.takeIf { !it.isString }
                             ?.floatOrNull?.takeIf { it.isFinite() && it >= 0f && it < 360f } ?: return null
                         if (stops.isNotEmpty() && hue <= stops.last().first) return null
-                        val output = color(obj["color"], depth + 1) ?: return null
+                        val output = color(obj["color"], depth + 1, palette) ?: return null
                         stops += hue to output
                     }
                     return LayoutColor.HuePalette(source, min, neutral, stops)
                 }
                 if ("adjust" in value) {
                     if ("mix" in value) return null
-                    val source = color(value["adjust"], depth + 1) ?: return null
+                    val source = color(value["adjust"], depth + 1, palette) ?: return null
                     fun number(item: JsonElement?): Float? = (item as? JsonPrimitive)
                         ?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
                     fun parameter(key: String, default: Float): Pair<Float, Float>? {
@@ -162,8 +169,8 @@ internal object LayoutStyleParser {
                 if ("mix" in value) {
                     val pair = value["mix"] as? JsonArray ?: return null
                     if (pair.size != 2) return null
-                    val from = color(pair[0], depth + 1) ?: return null
-                    val to = color(pair[1], depth + 1) ?: return null
+                    val from = color(pair[0], depth + 1, palette) ?: return null
+                    val to = color(pair[1], depth + 1, palette) ?: return null
                     fun amount(item: JsonElement?): Float? = (item as? JsonPrimitive)
                         ?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }?.coerceIn(0f, 1f)
                     val weights = value["amount"]
@@ -180,19 +187,19 @@ internal object LayoutStyleParser {
         }
     }
 
-    fun fill(value: JsonElement?): LayoutFill? {
+    fun fill(value: JsonElement?, palette: Boolean = true): LayoutFill? {
         val obj = value as? JsonObject
-        if (obj == null || "gradient" !in obj) return color(value)?.let(LayoutFill::Solid)
-        val colors = (obj["gradient"] as? JsonArray)?.map(::color) ?: return null
+        if (obj == null || "gradient" !in obj) return color(value, palette)?.let(LayoutFill::Solid)
+        val colors = (obj["gradient"] as? JsonArray)?.map { color(it, palette) } ?: return null
         if (colors.size !in 2..MAX_GRADIENT || colors.any { it == null }) return null
         val angle = (obj["angle"] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() } ?: 90f
         return LayoutFill.Gradient(colors.filterNotNull(), ((angle % 360f) + 360f) % 360f)
     }
 
-    fun border(value: JsonElement?, maxWidth: Float): LayoutBorder? {
+    fun border(value: JsonElement?, maxWidth: Float, palette: Boolean = true): LayoutBorder? {
         val obj = value as? JsonObject ?: return null
         val width = (obj["width"] as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() } ?: return null
-        val color = color(obj["color"]) ?: return null
+        val color = color(obj["color"], palette) ?: return null
         return LayoutBorder(width.coerceIn(0f, maxWidth), color)
     }
 
