@@ -331,7 +331,7 @@ class Phase4BViewModelsTest {
         assertFalse(filteredNetease.filteredItems.any { it.platform == MusicPlatform.KUGOU })
 
         vm.setPlatformFilter(null)
-        vm.switchBrowsePlatform(MusicPlatform.KUGOU)
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
         advanceUntilIdle()
         assertEquals(MusicPlatform.KUGOU, vm.browsePlatform.value)
 

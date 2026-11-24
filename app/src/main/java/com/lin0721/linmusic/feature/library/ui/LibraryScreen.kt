@@ -320,14 +320,6 @@ fun LibraryScreen(
                             modifier = Modifier.weight(1f)
                         )
 
-                        if (isKugouEnabled) {
-                            com.lin0721.linmusic.feature.home.ui.BrowsePlatformSwitcherPill(
-                                browsePlatform = browsePlatform,
-                                onSelect = viewModel::switchBrowsePlatform,
-                                modifier = Modifier.padding(end = 6.dp)
-                            )
-                        }
-
                         MelodiaIconButton(onClick = { isSearchActive = true }) {
                             Icon(MelodiaIcons.Search, contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface)
                         }

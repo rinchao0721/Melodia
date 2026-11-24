@@ -233,18 +233,6 @@ class HomeViewModel(
         return if (raw == MusicPlatform.KUGOU && kugouEnabled) MusicPlatform.KUGOU else MusicPlatform.NETEASE
     }
 
-    // 浏览平台胶囊专用，胶囊随统一账号菜单上线后删除
-    fun switchBrowsePlatform(platform: MusicPlatform) {
-        viewModelScope.launch {
-            if (platform == MusicPlatform.KUGOU && !settingsPreferences.kugouPlatformEnabled.first()) {
-                userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
-                _toastEvent.emit("酷狗音乐平台未启用")
-                return@launch
-            }
-            userPreferences.setCurrentPlatform(platform)
-        }
-    }
-
     // 一键收藏到“已点赞的歌曲”
     fun quickLike(songId: Long) {
         viewModelScope.launch {

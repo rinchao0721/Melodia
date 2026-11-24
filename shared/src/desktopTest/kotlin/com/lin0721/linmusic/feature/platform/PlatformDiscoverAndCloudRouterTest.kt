@@ -356,7 +356,7 @@ class PlatformDiscoverAndCloudRouterTest {
         assertTrue(vm.isKugouEnabled.value)
 
         // 切换到酷狗平台 -> 自动重新加载酷狗发现流
-        vm.switchBrowsePlatform(MusicPlatform.KUGOU)
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
         advanceUntilIdle()
         val kgSuccess = vm.uiState.value as HomeUiState.Success
         assertEquals(MusicPlatform.KUGOU, vm.browsePlatform.value)
@@ -402,7 +402,7 @@ class PlatformDiscoverAndCloudRouterTest {
 
         // 总开关关闭时禁止切换到 KUGOU
         val kgCallsBefore = kugouDiscover.feedCalls
-        vm.switchBrowsePlatform(MusicPlatform.KUGOU)
+        prefs.setCurrentPlatform(MusicPlatform.KUGOU)
         advanceUntilIdle()
         toastJob.cancel()
         assertEquals(MusicPlatform.NETEASE, vm.browsePlatform.value)

@@ -25,6 +25,8 @@ import com.lin0721.linmusic.feature.settings.data.UserBindingItem
 import com.lin0721.linmusic.feature.settings.data.UserLevelData
 import com.lin0721.linmusic.feature.settings.data.VipInfoData
 import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.auth.LoginSyncResult
+import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.feature.settings.data.SettingsRepository
 import com.lin0721.linmusic.core.player.AudioCacheManager
 import com.lin0721.linmusic.core.log.AppLogger
@@ -68,6 +70,7 @@ class SettingsViewModel(
     val skins: SkinRepository,
     private val ffmpegComponentManager: FfmpegComponentManager,
     private val lanLinkClient: LanLinkAndroidClient,
+    private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
     private val kugouConfig: KugouConfig? = null
 ) : ViewModel() {
 
@@ -879,10 +882,9 @@ class SettingsViewModel(
 
     // ─── 多平台账号与酷狗平台设置 ───
 
-    val neteaseAccounts = userPreferences.accountsOf(MusicPlatform.NETEASE).asState(emptyList())
+    val allAccounts = userPreferences.allAccounts.asState(emptyList())
+    val currentAccountId = userPreferences.currentAccountId.asState(null)
     val activeNeteaseAccount = userPreferences.activeAccountOf(MusicPlatform.NETEASE).asState(null)
-    val kugouAccounts = userPreferences.accountsOf(MusicPlatform.KUGOU).asState(emptyList())
-    val activeKugouAccount = userPreferences.activeAccountOf(MusicPlatform.KUGOU).asState(null)
     val kugouPlatformEnabled = settingsPreferences.kugouPlatformEnabled.asState(true)
     val kugouClientMode = settingsPreferences.kugouClientMode.asState(KugouClientMode.LITE)
 
@@ -907,6 +909,17 @@ class SettingsViewModel(
         viewModelScope.launch {
             accountSwitcher.logout(accountId)
             _toastEvent.emit("已退出 $displayName")
+        }
+    }
+
+    // 设置页「添加账号」里的网易登录收尾
+    fun handleLoginSuccess(cookies: String) {
+        viewModelScope.launch {
+            when (syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> _toastEvent.emit("登录成功")
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 ${UserPreferences.MAX_ACCOUNTS} 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
+            }
         }
     }
 }

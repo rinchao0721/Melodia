@@ -5,7 +5,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -72,7 +72,7 @@ class OnboardingCoverSource(
         private const val SIZE_PARAM = "param=150y150"
 
         fun fromRepository(repository: PlaylistRepository, cacheFile: File): OnboardingCoverSource =
-            OnboardingCoverSource(cacheFile) { id -> repository.getPlaylistDetail(id).first().getOrNull() }
+            OnboardingCoverSource(cacheFile) { id -> repository.getPlaylistDetail(id).firstOrNull { it.isSuccess }?.getOrNull() }
 
         // 去重后的专辑封面小图地址，按曲目顺序取前 MAX_COVERS 个
         fun extractCoverUrls(detail: PlaylistDetail, limit: Int = MAX_COVERS): List<String> =

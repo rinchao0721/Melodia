@@ -10,7 +10,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -18,19 +17,17 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserProfile
+import com.lin0721.linmusic.core.platform.AccountId
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.badge.DraggableUnreadBadge
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.ContentSwitchDurationMs
@@ -54,7 +51,9 @@ private val AccountCardShape = RoundedCornerShape(20.dp)
 @Composable
 fun ProfileSidebar(
     userProfile: UserProfile?,
-    accounts: List<UserProfile>,
+    allAccounts: List<StoredAccount>,
+    currentAccountId: AccountId?,
+    showGuestEntry: Boolean,
     showMessageSection: Boolean = true,
     showListenDataEntry: Boolean = true,
     canOpenRecentPlay: Boolean = userProfile != null,
@@ -65,7 +64,8 @@ fun ProfileSidebar(
     onDismissConversationUnread: (PrivateConversation) -> Unit = {},
     onLogin: () -> Unit,
     onAddAccount: () -> Unit,
-    onSwitchAccount: (uid: Long) -> Unit,
+    onSelectAccount: (StoredAccount) -> Unit,
+    onSelectGuest: () -> Unit,
     onDismiss: () -> Unit,
     onNavigateToProfile: (uid: Long) -> Unit,
     onNavigateToRecentPlay: () -> Unit,
@@ -108,8 +108,9 @@ fun ProfileSidebar(
             .padding(bottom = MelodiaSpacing.lg)
     ) {
         AccountCard(
-            userProfile = userProfile,
-            accounts = accounts,
+            allAccounts = allAccounts,
+            currentAccountId = currentAccountId,
+            showGuestEntry = showGuestEntry,
             onLogin = {
                 onDismiss()
                 onLogin()
@@ -118,7 +119,8 @@ fun ProfileSidebar(
                 onDismiss()
                 onAddAccount()
             },
-            onSwitchAccount = onSwitchAccount,
+            onSelectAccount = onSelectAccount,
+            onSelectGuest = onSelectGuest,
             onNavigateToProfile = onNavigateToProfile
         )
 
@@ -173,23 +175,37 @@ fun ProfileSidebar(
     }
 }
 
-// 头部账户卡片：默认折叠，展开后列出其他账户与添加入口
+// 头部账户卡片：默认折叠，展开后为跨平台统一账号列表
 @Composable
 private fun AccountCard(
-    userProfile: UserProfile?,
-    accounts: List<UserProfile>,
+    allAccounts: List<StoredAccount>,
+    currentAccountId: AccountId?,
+    showGuestEntry: Boolean,
     onLogin: () -> Unit,
     onAddAccount: () -> Unit,
-    onSwitchAccount: (uid: Long) -> Unit,
+    onSelectAccount: (StoredAccount) -> Unit,
+    onSelectGuest: () -> Unit,
     onNavigateToProfile: (uid: Long) -> Unit
 ) {
-    var expanded by rememberSaveable(userProfile?.uid) { mutableStateOf(false) }
+    var expanded by rememberSaveable(currentAccountId?.canonical) { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = uiTween(ContentSwitchDurationMs, easing = FastOutSlowInEasing),
         label = "AccountCardArrow"
     )
-    val otherAccounts = remember(accounts, userProfile?.uid) { accounts.filter { it.uid != userProfile?.uid } }
+    val current = remember(allAccounts, currentAccountId) { allAccounts.firstOrNull { it.accountId == currentAccountId } }
+    val hasAccounts = allAccounts.isNotEmpty()
+    val title = when {
+        current != null -> current.displayName()
+        hasAccounts -> "网易云 · 游客"
+        else -> "未登录"
+    }
+    val subtitle = when {
+        current?.platform == MusicPlatform.NETEASE -> "查看个人资料"
+        current != null -> current.platform.displayName
+        hasAccounts -> "点击切换账号"
+        else -> "点击登录"
+    }
 
     Column(
         modifier = Modifier
@@ -202,16 +218,24 @@ private fun AccountCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .pressable(MelodiaPress.Row) {
-                    if (userProfile != null) onNavigateToProfile(userProfile.uid) else onLogin()
+                    when {
+                        current?.platform == MusicPlatform.NETEASE -> onNavigateToProfile(current.uid)
+                        hasAccounts -> expanded = !expanded
+                        else -> onLogin()
+                    }
                 }
                 .padding(start = MelodiaSpacing.md, end = MelodiaSpacing.xs, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AccountAvatar(avatarUrl = userProfile?.avatarUrl, size = 52.dp)
+            PlatformAccountAvatar(
+                account = current,
+                size = 52.dp,
+                platform = current?.platform ?: MusicPlatform.NETEASE.takeIf { hasAccounts }
+            )
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = userProfile?.nickname ?: "未登录",
+                    text = title,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MelodiaColors.TextPrimary,
@@ -219,12 +243,12 @@ private fun AccountCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (userProfile != null) "查看个人资料" else "点击登录",
+                    text = subtitle,
                     fontSize = 13.sp,
                     color = MelodiaColors.TextSecondary
                 )
             }
-            if (userProfile != null) {
+            if (hasAccounts) {
                 MelodiaIconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         imageVector = MelodiaIcons.ChevronDown,
@@ -239,7 +263,7 @@ private fun AccountCard(
         }
 
         AnimatedVisibility(
-            visible = expanded && userProfile != null,
+            visible = expanded && hasAccounts,
             enter = fadeIn(uiTween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)) +
                 expandVertically(uiTween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)),
             exit = fadeOut(uiTween(ContentSwitchDurationMs, easing = FastOutSlowInEasing)) +
@@ -251,103 +275,17 @@ private fun AccountCard(
                     thickness = 1.dp,
                     modifier = Modifier.padding(horizontal = MelodiaSpacing.md)
                 )
-                otherAccounts.forEach { account ->
-                    AccountRow(onClick = { onSwitchAccount(account.uid) }) {
-                        AccountAvatar(avatarUrl = account.avatarUrl, size = 32.dp)
-                        Spacer(modifier = Modifier.width(MelodiaSpacing.md))
-                        Text(
-                            text = account.nickname,
-                            fontSize = 15.sp,
-                            color = MelodiaColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                val canAddAccount = accounts.size < UserPreferences.MAX_ACCOUNTS
-                AccountRow(
-                    modifier = Modifier.alpha(if (canAddAccount) 1f else 0.45f),
-                    onClick = {
-                        if (canAddAccount) {
-                            onAddAccount()
-                        } else {
-                            ToastManager.showToast("最多只能登录 ${UserPreferences.MAX_ACCOUNTS} 个账户")
-                        }
-                    }
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(MelodiaColors.Fill),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = MelodiaIcons.Plus,
-                            contentDescription = null,
-                            tint = MelodiaColors.TextPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(MelodiaSpacing.md))
-                    Text(
-                        text = "添加帐号",
-                        fontSize = 15.sp,
-                        color = MelodiaColors.TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                UnifiedAccountList(
+                    accounts = allAccounts,
+                    currentAccountId = currentAccountId,
+                    showGuestEntry = showGuestEntry,
+                    onSelectAccount = onSelectAccount,
+                    onSelectGuest = onSelectGuest,
+                    onAddAccount = onAddAccount
+                )
                 Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
             }
         }
-    }
-}
-
-@Composable
-private fun AccountRow(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .pressable(MelodiaPress.Row, onClick = onClick)
-            .padding(horizontal = MelodiaSpacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content
-    )
-}
-
-@Composable
-private fun AccountAvatar(avatarUrl: String?, size: Dp) {
-    if (avatarUrl.isNullOrBlank()) {
-        Box(
-            modifier = Modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(MelodiaColors.Overlay.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = MelodiaIcons.Person,
-                contentDescription = null,
-                tint = MelodiaColors.TextSecondary,
-                modifier = Modifier.size(size * 0.55f)
-            )
-        }
-    } else {
-        AsyncImage(
-            model = "$avatarUrl?param=200y200",
-            contentDescription = null,
-            modifier = Modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(MelodiaColors.Fill),
-            contentScale = ContentScale.Crop
-        )
     }
 }
 

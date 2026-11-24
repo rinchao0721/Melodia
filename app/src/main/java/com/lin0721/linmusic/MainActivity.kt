@@ -42,6 +42,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.feature.onboarding.OnboardingScreen
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
@@ -85,6 +91,7 @@ class MainActivity : ComponentActivity() {
     private val floatingLyricRequests: FloatingLyricRequests by inject()
     private val sleepTimerRequests: SleepTimerRequests by inject()
     private val songLinkRequests: SongLinkRequests by inject()
+    private val userPreferences: UserPreferences by inject()
 
     // 仅在 onStart 后重新获得窗口焦点时查剪贴板，避免弹窗/输入法关闭反复读取
     private var checkClipboardOnNextFocus = false
@@ -155,6 +162,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeSettings by settingsPreferences.themeSettings.collectAsState(initial = initialThemeSettings)
+            val onboardingCompleted by remember {
+                userPreferences.onboardingCompleted.map<Boolean, Boolean?> { it }
+            }.collectAsState(initial = null)
             val systemDark = isSystemInDarkTheme()
             LaunchedEffect(systemDark) { skinRepository.updateSystemDark(systemDark) }
             val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
@@ -188,7 +198,12 @@ class MainActivity : ComponentActivity() {
                         window.setBackgroundDrawable(ColorDrawable(palette.pane.toArgb()))
                     }
                     ThemeRevealHost(themeKey = palette to LocalSkinBackdrop.current, enabled = uiMotion.enabled) {
-                        MelodiaApp()
+                        // 首次启动页走完前不进主界面；偏好未读出时先铺黑底
+                        when (onboardingCompleted) {
+                            true -> MelodiaApp()
+                            false -> OnboardingScreen()
+                            null -> Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
+                        }
                     }
                     PluginConfirmDialog(pluginCommands.confirmations)
                 }

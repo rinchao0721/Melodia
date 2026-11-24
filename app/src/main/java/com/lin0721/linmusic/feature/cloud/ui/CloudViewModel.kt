@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -117,11 +118,11 @@ class CloudViewModel(
     init {
         load()
         loadLikedSongIds()
+        // 云盘平台跟随当前账号平台
         viewModelScope.launch {
-            val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
-            val browse = userPreferences.currentPlatform.first()
-            if (enabled && browse == MusicPlatform.KUGOU && kugouCloudHolder != null) {
-                selectCloudPlatform(MusicPlatform.KUGOU)
+            userPreferences.currentPlatform.distinctUntilChanged().collect { platform ->
+                if (platform == MusicPlatform.KUGOU && kugouCloudHolder == null) return@collect
+                if (platform != _selectedCloudPlatform.value) selectCloudPlatform(platform)
             }
         }
         viewModelScope.launch {

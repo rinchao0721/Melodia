@@ -65,7 +65,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.semantics.Role
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
-import com.lin0721.linmusic.core.ui.icons.Swap
 
 // 首页/音乐/播客三个 tab 共用的单排固定吸顶栏（头像、胶囊与右侧搜索按钮同排）
 @Composable
@@ -79,8 +78,6 @@ fun HomeSharedHeader(
     showSearchButton: Boolean = true,
     onSearchClick: () -> Unit = {},
     browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
-    isKugouEnabled: Boolean = false,
-    onPlatformSwitch: (MusicPlatform) -> Unit = {},
     kugouAvatarUrl: String? = null
 ) {
     val capabilities = PlatformCapabilities.of(browsePlatform)
@@ -155,15 +152,7 @@ fun HomeSharedHeader(
                     onSecondarySelected = onSecondarySelected,
                     showPodcastTab = capabilities.supportsPodcast,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(end = if (showSearchButton || isKugouEnabled) 8.dp else 20.dp)
-                )
-            }
-
-            if (isKugouEnabled) {
-                BrowsePlatformSwitcherPill(
-                    browsePlatform = browsePlatform,
-                    onSelect = onPlatformSwitch,
-                    modifier = Modifier.padding(end = if (showSearchButton) 8.dp else 20.dp)
+                    contentPadding = PaddingValues(end = if (showSearchButton) 8.dp else 20.dp)
                 )
             }
 
@@ -184,59 +173,6 @@ fun HomeSharedHeader(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun BrowsePlatformSwitcherPill(
-    browsePlatform: MusicPlatform,
-    onSelect: (MusicPlatform) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .height(34.dp)
-            .clip(RoundedCornerShape(PillRadius))
-            .background(MelodiaColors.FilterPillInactive)
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = MelodiaIcons.Swap,
-            contentDescription = "切换平台",
-            tint = MelodiaColors.PillContent.copy(alpha = 0.72f),
-            modifier = Modifier.padding(start = 5.dp, end = 2.dp).size(14.dp)
-        )
-        listOf(MusicPlatform.NETEASE to "网易云", MusicPlatform.KUGOU to "酷狗").forEach { (platform, label) ->
-            val selected = browsePlatform == platform
-            val bg by animateColorAsState(
-                targetValue = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                animationSpec = uiSpring(),
-                label = "platform_pill_bg"
-            )
-            val fg by animateColorAsState(
-                targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MelodiaColors.PillContent,
-                animationSpec = uiSpring(),
-                label = "platform_pill_fg"
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(PillRadius))
-                    .background(bg)
-                    .clickable { onSelect(platform) }
-                    .padding(horizontal = 9.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = fg,
-                    fontSize = 12.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1
-                )
             }
         }
     }

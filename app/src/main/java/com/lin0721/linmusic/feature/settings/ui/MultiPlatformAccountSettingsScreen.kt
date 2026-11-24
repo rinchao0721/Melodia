@@ -18,7 +18,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import com.lin0721.linmusic.core.auth.StoredAccount
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.AccountSwitchConfirmDialog
+import com.lin0721.linmusic.core.ui.components.AddAccountPlatformSheet
+import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
+import com.lin0721.linmusic.core.ui.components.UnifiedAccountList
+import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
+import com.lin0721.linmusic.core.ui.components.displayName
+import com.lin0721.linmusic.core.ui.components.rememberAccountSwitchController
 import com.lin0721.linmusic.core.kugou.KugouClientMode
 import com.lin0721.linmusic.core.ui.components.KugouLoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
@@ -32,110 +41,44 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 多平台账号管理设置子页：分别管理网易云与酷狗账号，并支持酷狗总开关与客户端模式切换
+// 多平台账号管理设置子页：跨平台统一账号列表，及酷狗总开关与客户端模式切换
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultiPlatformAccountSettingsView(viewModel: SettingsViewModel) {
-    val neteaseAccounts by viewModel.neteaseAccounts.collectAsStateWithLifecycle()
+    val allAccounts by viewModel.allAccounts.collectAsStateWithLifecycle()
+    val currentAccountId by viewModel.currentAccountId.collectAsStateWithLifecycle()
     val activeNetease by viewModel.activeNeteaseAccount.collectAsStateWithLifecycle()
-    val kugouAccounts by viewModel.kugouAccounts.collectAsStateWithLifecycle()
-    val activeKugou by viewModel.activeKugouAccount.collectAsStateWithLifecycle()
     val kugouPlatformEnabled by viewModel.kugouPlatformEnabled.collectAsStateWithLifecycle()
     val kugouClientMode by viewModel.kugouClientMode.collectAsStateWithLifecycle()
+    val switchController = rememberAccountSwitchController()
 
+    var showAddAccountPicker by remember { mutableStateOf(false) }
+    var showNeteaseLoginSheet by remember { mutableStateOf(false) }
+    var showNeteaseWebLogin by remember { mutableStateOf(false) }
     var showKugouLoginSheet by remember { mutableStateOf(false) }
     var showModeSheet by remember { mutableStateOf(false) }
+    val hasNeteaseAccount = allAccounts.any { it.platform == MusicPlatform.NETEASE }
+    val hasKugouAccount = allAccounts.any { it.platform == MusicPlatform.KUGOU }
 
     SettingsPageColumn {
         item {
             SettingsGroupCard(SettingsSubMenu.ACCOUNT.sectionTitles[0]) {
-                if (neteaseAccounts.isEmpty()) {
-                    Text(
-                        text = "当前未登录网易云账号，请从左侧边栏登录",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-                } else {
-                    neteaseAccounts.forEachIndexed { index, account ->
-                        val isActive = activeNetease?.accountId == account.accountId
-                        val displayName = account.nickname.ifBlank { "网易云用户 ${account.effectivePlatformUid}" }
-                        PlatformAccountRow(
-                            account = account,
-                            isActive = isActive,
-                            onSwitch = {
-                                viewModel.switchPlatformAccount(account.accountId, displayName)
-                            },
-                            onLogout = {
-                                viewModel.logoutPlatformAccount(account.accountId, displayName)
-                            }
-                        )
-                        if (index < neteaseAccounts.lastIndex) {
-                            HorizontalDivider(color = MelodiaColors.Divider)
-                        }
-                    }
-                }
+                UnifiedAccountList(
+                    accounts = allAccounts,
+                    currentAccountId = currentAccountId,
+                    showGuestEntry = activeNetease == null,
+                    onSelectAccount = switchController::requestAccount,
+                    onSelectGuest = switchController::requestGuest,
+                    onAddAccount = { showAddAccountPicker = true },
+                    avatarSize = 40.dp,
+                    rowPadding = PaddingValues(0.dp),
+                    onLogout = { account -> viewModel.logoutPlatformAccount(account.accountId, account.displayName()) }
+                )
             }
         }
 
         item {
             SettingsGroupCard(SettingsSubMenu.ACCOUNT.sectionTitles[1]) {
-                if (kugouAccounts.isEmpty()) {
-                    Text(
-                        text = "尚未登录酷狗音乐账号，登录后可使用酷狗收藏同步与 VIP 音源解析",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                } else {
-                    kugouAccounts.forEachIndexed { index, account ->
-                        val isActive = activeKugou?.accountId == account.accountId
-                        val displayName = account.nickname.ifBlank { "酷狗用户 ${account.effectivePlatformUid}" }
-                        PlatformAccountRow(
-                            account = account,
-                            isActive = isActive,
-                            onSwitch = {
-                                viewModel.switchPlatformAccount(account.accountId, displayName)
-                            },
-                            onLogout = {
-                                viewModel.logoutPlatformAccount(account.accountId, displayName)
-                            }
-                        )
-                        if (index < kugouAccounts.lastIndex) {
-                            HorizontalDivider(color = MelodiaColors.Divider)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
-
-                MelodiaButton(
-                    onClick = { showKugouLoginSheet = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MelodiaColors.Accent)
-                ) {
-                    Icon(
-                        imageVector = MelodiaIcons.PersonAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MelodiaColors.OnAccent
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (kugouAccounts.isEmpty()) "登录酷狗账号" else "添加酷狗账号",
-                        color = MelodiaColors.OnAccent,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        item {
-            SettingsGroupCard(SettingsSubMenu.ACCOUNT.sectionTitles[2]) {
                 SettingsSwitchRow(
                     title = "启用酷狗音乐平台",
                     subtitle = "开启多平台搜索与酷狗播放解析能力；关闭仅暂停调用，不清除已登录账号",
@@ -155,6 +98,50 @@ fun MultiPlatformAccountSettingsView(viewModel: SettingsViewModel) {
         }
     }
 
+    AccountSwitchConfirmDialog(switchController)
+
+    if (showAddAccountPicker) {
+        AddAccountPlatformSheet(
+            showKugou = kugouPlatformEnabled,
+            onDismiss = { showAddAccountPicker = false },
+            onPick = { platform ->
+                showAddAccountPicker = false
+                if (platform == MusicPlatform.KUGOU) showKugouLoginSheet = true else showNeteaseLoginSheet = true
+            }
+        )
+    }
+
+    if (showNeteaseLoginSheet) {
+        LoginBottomSheet(
+            onDismiss = { showNeteaseLoginSheet = false },
+            onWebLogin = {
+                showNeteaseLoginSheet = false
+                showNeteaseWebLogin = true
+            },
+            onLoginSuccess = { cookies ->
+                showNeteaseLoginSheet = false
+                viewModel.handleLoginSuccess(cookies)
+            },
+            addAccount = hasNeteaseAccount
+        )
+    }
+
+    if (showNeteaseWebLogin) {
+        Dialog(
+            onDismissRequest = { showNeteaseWebLogin = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            WebViewLoginScreen(
+                onClose = { showNeteaseWebLogin = false },
+                onLoginSuccess = { cookies ->
+                    showNeteaseWebLogin = false
+                    viewModel.handleLoginSuccess(cookies)
+                },
+                addAccount = hasNeteaseAccount
+            )
+        }
+    }
+
     if (showKugouLoginSheet) {
         KugouLoginBottomSheet(
             onDismiss = { showKugouLoginSheet = false },
@@ -162,7 +149,7 @@ fun MultiPlatformAccountSettingsView(viewModel: SettingsViewModel) {
                 showKugouLoginSheet = false
                 ToastManager.showToast("已登录酷狗：${account.nickname.ifBlank { account.effectivePlatformUid }}")
             },
-            addAccount = kugouAccounts.isNotEmpty()
+            addAccount = hasKugouAccount
         )
     }
 
@@ -227,113 +214,6 @@ fun MultiPlatformAccountSettingsView(viewModel: SettingsViewModel) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PlatformAccountRow(
-    account: StoredAccount,
-    isActive: Boolean,
-    onSwitch: () -> Unit,
-    onLogout: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (account.avatarUrl.isNotBlank()) {
-            AsyncImage(
-                model = account.avatarUrl,
-                contentDescription = account.nickname,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MelodiaColors.SurfaceLight),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = MelodiaIcons.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MelodiaColors.HintText
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = account.nickname.ifBlank { "用户 ${account.effectivePlatformUid}" },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (account.vipLabel.isNotBlank()) {
-                    Text(
-                        text = account.vipLabel,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MelodiaColors.AccentText,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MelodiaColors.Accent.copy(alpha = 0.14f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                if (isActive) {
-                    Text(
-                        text = "当前",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MelodiaColors.OnAccent,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MelodiaColors.Accent)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "UID ${account.effectivePlatformUid}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (!isActive) {
-            MelodiaOutlinedButton(
-                onClick = onSwitch,
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, MelodiaColors.SurfaceLight),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text("切换", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-
-        MelodiaTextButton(
-            onClick = onLogout,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text("退出", fontSize = 12.sp, color = MelodiaColors.AccentText)
         }
     }
 }

@@ -72,7 +72,6 @@ import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.cloud.upload.UploadStatus
-import com.lin0721.linmusic.feature.home.ui.BrowsePlatformSwitcherPill
 import org.koin.androidx.compose.koinViewModel
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.Close
@@ -146,19 +145,6 @@ fun CloudScreen(
             }
         }
     ) {
-        if (isKugouEnabled) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BrowsePlatformSwitcherPill(
-                    browsePlatform = selectedPlatform,
-                    onSelect = viewModel::selectCloudPlatform
-                )
-            }
-        }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (selectedPlatform == MusicPlatform.KUGOU && isKugouEnabled) {
                 KugouCloudContent(

@@ -4,6 +4,10 @@ import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.kugou.KugouAuthProvider
 import com.lin0721.linmusic.feature.settings.ui.SettingsViewModel
+import com.lin0721.linmusic.core.onboarding.OnboardingCoverSource
+import com.lin0721.linmusic.feature.onboarding.OnboardingViewModel
+import java.io.File
+import org.koin.android.ext.koin.androidContext
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
@@ -115,6 +119,8 @@ val viewModelModule = module {
     viewModelOf(::PlayerViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::LoginViewModel)
+    single { OnboardingCoverSource.fromRepository(get(), File(androidContext().cacheDir, "onboarding_covers.json")) }
+    viewModelOf(::OnboardingViewModel)
     viewModel { KugouLoginViewModel(get<KugouAuthProvider>(), get(), get()) }
 
     viewModelOf(::MessageViewModel)

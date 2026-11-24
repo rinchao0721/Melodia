@@ -83,7 +83,10 @@ import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.KugouLoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
+import com.lin0721.linmusic.core.ui.components.AccountSwitchConfirmDialog
+import com.lin0721.linmusic.core.ui.components.AddAccountPlatformSheet
 import com.lin0721.linmusic.core.ui.components.ProfileSidebar
+import com.lin0721.linmusic.core.ui.components.rememberAccountSwitchController
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.deeplink.ClipboardLinkFloatingCard
@@ -131,7 +134,6 @@ import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.auth.AccountEvents
-import com.lin0721.linmusic.core.auth.AccountSwitcher
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.feature.message.ui.PrivateConversationPreviewStore
 import com.lin0721.linmusic.core.auth.AccountSwitchReason
@@ -385,11 +387,13 @@ fun MelodiaApp() {
     // 侧边栏「添加帐号」打开的登录
     var sidebarLoginAddAccount by remember { mutableStateOf(false) }
     val userPreferences: UserPreferences = koinInject()
-    val accountSwitcher: AccountSwitcher = koinInject()
     val conversationPreviewStore: PrivateConversationPreviewStore = koinInject()
-    val accounts by userPreferences.accounts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allAccounts by userPreferences.allAccounts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentAccountId by userPreferences.currentAccountId.collectAsStateWithLifecycle(initialValue = null)
+    val accountSwitchController = rememberAccountSwitchController()
+    var showAddAccountPicker by remember { mutableStateOf(false) }
+    var kugouLoginAddAccount by remember { mutableStateOf(false) }
     val conversationPreview by conversationPreviewStore.state.collectAsStateWithLifecycle()
-    val accountScope = rememberCoroutineScope()
     val sessionMonitor: SessionMonitor = koinInject()
     val kugouConfig: KugouConfig = koinInject()
     val kugouClientMode by settingsPreferences.kugouClientMode.collectAsStateWithLifecycle<KugouClientMode?>(initialValue = null)
@@ -943,7 +947,10 @@ fun MelodiaApp() {
             val isKugouBrowseMode = isKugouEnabled && browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU
             ProfileSidebar(
                 userProfile = userProfile,
-                accounts = accounts,
+                allAccounts = allAccounts,
+                currentAccountId = currentAccountId,
+                // 无活跃网易账号即可切回网易游客
+                showGuestEntry = userProfile == null,
                 showMessageSection = sidebarMessageEnabled && platformCapabilities.supportsPrivateMessage,
                 showListenDataEntry = browsePlatform == com.lin0721.linmusic.core.source.MusicPlatform.NETEASE,
                 canOpenRecentPlay = userProfile != null || (isKugouBrowseMode && kugouActive),
@@ -956,18 +963,9 @@ fun MelodiaApp() {
                     sidebarLoginAddAccount = false
                     showSidebarLoginSheet = true
                 },
-                onAddAccount = {
-                    sidebarLoginAddAccount = true
-                    showSidebarLoginSheet = true
-                },
-                onSwitchAccount = { uid ->
-                    accountScope.launch {
-                        val target = accounts.firstOrNull { it.uid == uid }
-                        if (accountSwitcher.switchTo(uid) && target != null) {
-                            ToastManager.showToast("已切换至 ${target.nickname}")
-                        }
-                    }
-                },
+                onAddAccount = { showAddAccountPicker = true },
+                onSelectAccount = accountSwitchController::requestAccount,
+                onSelectGuest = accountSwitchController::requestGuest,
                 onDismiss = { sidebar.close() },
                 // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
                 onNavigateToProfile = { uid -> sidebar.closeThen { navigation.openProfile(uid) } },
@@ -1370,11 +1368,35 @@ fun MelodiaApp() {
             )
         }
 
+        AccountSwitchConfirmDialog(accountSwitchController)
+
+        if (showAddAccountPicker) {
+            AddAccountPlatformSheet(
+                showKugou = isKugouEnabled,
+                onDismiss = { showAddAccountPicker = false },
+                onPick = { platform ->
+                    showAddAccountPicker = false
+                    if (platform == MusicPlatform.KUGOU) {
+                        kugouLoginAddAccount = allAccounts.any { it.platform == MusicPlatform.KUGOU }
+                        showKugouLoginSheet = true
+                    } else {
+                        sidebarLoginAddAccount = allAccounts.any { it.platform == MusicPlatform.NETEASE }
+                        showSidebarLoginSheet = true
+                    }
+                }
+            )
+        }
+
         if (showKugouLoginSheet) {
             KugouLoginBottomSheet(
-                onDismiss = { showKugouLoginSheet = false },
+                addAccount = kugouLoginAddAccount,
+                onDismiss = {
+                    showKugouLoginSheet = false
+                    kugouLoginAddAccount = false
+                },
                 onLoginSuccess = { account ->
                     showKugouLoginSheet = false
+                    kugouLoginAddAccount = false
                     ToastManager.showToast("已登录酷狗：${account.nickname.ifBlank { account.effectivePlatformUid }}")
                 }
             )

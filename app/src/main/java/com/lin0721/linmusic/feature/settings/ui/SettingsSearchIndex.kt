@@ -19,10 +19,9 @@ object SettingsSearchIndex {
 
     private val entries: List<SettingsSearchEntry> = run {
         listOf(
-            entry(ACCOUNT, 0, "网易云音乐账号", "多平台 账号 切换 退出登录"),
-            entry(ACCOUNT, 1, "酷狗音乐账号", "kugou 扫码 手机验证码 登录 多平台 账号"),
-            entry(ACCOUNT, 2, "启用酷狗音乐平台", "kugou 酷狗 总开关"),
-            entry(ACCOUNT, 2, "酷狗客户端模式", "概念版 lite 标准版 standard appid"),
+            entry(ACCOUNT, 0, "账号", "网易云 酷狗 kugou 多平台 账号 切换 添加 退出登录 游客"),
+            entry(ACCOUNT, 1, "启用酷狗音乐平台", "kugou 酷狗 总开关"),
+            entry(ACCOUNT, 1, "酷狗客户端模式", "概念版 lite 标准版 standard appid"),
 
             entry(PLAYBACK, 0, "自动播放推荐新歌", "相似推荐 连续播放"),
             entry(PLAYBACK, 0, "与其他应用同时播放", "音频焦点 打断 混音"),

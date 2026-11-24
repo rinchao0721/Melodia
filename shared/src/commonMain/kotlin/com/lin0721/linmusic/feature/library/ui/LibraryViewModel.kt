@@ -855,14 +855,6 @@ class LibraryViewModel(
         setPlatformFilter(next)
     }
 
-    // 浏览平台胶囊专用，胶囊随统一账号菜单上线后删除
-    fun switchBrowsePlatform(platform: MusicPlatform) {
-        viewModelScope.launch {
-            if (platform == MusicPlatform.KUGOU && !isKugouEnabled.value) return@launch
-            userPreferences.setCurrentPlatform(platform)
-        }
-    }
-
     // 歌单二级筛选：再次点击已选中的胶囊会取消，恢复展示全部歌单
     fun togglePlaylistOwnerFilter(filter: LibraryPlaylistOwnerFilter) {
         _selectedPlaylistOwnerFilter.value = if (_selectedPlaylistOwnerFilter.value == filter) null else filter

@@ -77,7 +77,6 @@ fun HomeScreen(
     val showSearchButton by viewModel.showSearchButton.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val browsePlatform by viewModel.browsePlatform.collectAsStateWithLifecycle()
-    val isKugouEnabled by viewModel.isKugouEnabled.collectAsStateWithLifecycle()
     val kugouAccount by viewModel.kugouAccount.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
@@ -180,8 +179,6 @@ fun HomeScreen(
                 showSearchButton = showSearchButton,
                 onSearchClick = onSearchClick,
                 browsePlatform = browsePlatform,
-                isKugouEnabled = isKugouEnabled,
-                onPlatformSwitch = viewModel::switchBrowsePlatform,
                 kugouAvatarUrl = kugouAccount?.avatarUrl
             )
 
