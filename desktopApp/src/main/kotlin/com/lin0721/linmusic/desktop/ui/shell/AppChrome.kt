@@ -4,15 +4,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.desktop.ui.components.DesktopDialog
+import com.lin0721.linmusic.desktop.ui.components.DialogButton
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
-import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserProfile
-import com.lin0721.linmusic.core.platform.AccountId
 import com.lin0721.linmusic.core.platform.PlatformCapabilities
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
@@ -53,8 +59,10 @@ internal fun WindowScope.AppTitleBar(
     val downloadTasks by deps.downloader.tasks.collectAsState()
     val availableUpdate by deps.updateChecker.availableUpdate.collectAsState()
     val privateUnreadCount by deps.privateUnreadMonitor.unreadCount.collectAsState()
-    val accounts by deps.userPreferences.accounts.collectAsState(initial = emptyList())
-    val kugouAccounts by deps.userPreferences.accountsOf(MusicPlatform.KUGOU).collectAsState(initial = emptyList())
+    val allAccounts by deps.userPreferences.allAccounts.collectAsState(initial = emptyList())
+    val currentAccountId by deps.userPreferences.currentAccountId.collectAsState(initial = null)
+    val currentPlatform by deps.userPreferences.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
+    val activeNeteaseAccount by deps.userPreferences.activeAccountOf(MusicPlatform.NETEASE).collectAsState(initial = null)
     val activeKugouAccount by deps.userPreferences.activeAccountOf(MusicPlatform.KUGOU).collectAsState(initial = null)
     val kugouPlatformEnabled by deps.settingsPreferences.kugouPlatformEnabled.collectAsState(initial = true)
     val browsePlatform by deps.homeViewModel.browsePlatform.collectAsState()
@@ -66,6 +74,23 @@ internal fun WindowScope.AppTitleBar(
         activeLibraryShortcuts(playContext, currentRoute)
     }
     val accountScope = rememberCoroutineScope()
+    val accountEntries = remember(allAccounts, currentAccountId, activeNeteaseAccount, kugouPlatformEnabled) {
+        buildAccountMenuEntries(allAccounts, currentAccountId, activeNeteaseAccount != null, kugouPlatformEnabled)
+    }
+    val addablePlatforms = remember(allAccounts, kugouPlatformEnabled) {
+        addableAccountPlatforms(allAccounts, kugouPlatformEnabled)
+    }
+    var pendingSwitch by remember { mutableStateOf<AccountMenuEntry?>(null) }
+    val performSwitch: (AccountMenuEntry) -> Unit = { entry ->
+        accountScope.launch {
+            val accountId = entry.accountId
+            if (accountId == null) {
+                if (deps.accountSwitcher.browseAsGuest()) state.showMessage("已切换至网易云游客")
+            } else if (deps.accountSwitcher.switchToAccount(accountId)) {
+                state.showMessage("已切换至 ${entry.displayName}")
+            }
+        }
+    }
     LaunchedEffect(Unit) { searchViewModel.songHitsEnabled = true }
     LaunchedEffect(Unit) {
         deps.cloudMusic.uploadRunner.batchFinished.collect { state.showMessage(uploadBatchMessage(it.succeeded, it.failed)) }
@@ -175,7 +200,6 @@ internal fun WindowScope.AppTitleBar(
             }
         },
         isMaximized = isMaximized,
-        userProfile = userProfile,
         searchQuery = searchInput.query,
         searchPlaceholder = defaultKeyword.ifBlank { "想播放什么？" },
         onSearchQueryChange = { query ->
@@ -211,52 +235,31 @@ internal fun WindowScope.AppTitleBar(
         privateUnreadCount = privateUnreadCount,
         onDismissUnread = deps.privateUnreadMonitor::markAllRead,
         downloadTasks = downloadTasks,
-        onLoginClick = {
-            state.loginAddAccount = false
-            state.showLogin = true
+        accountEntries = accountEntries,
+        addablePlatforms = addablePlatforms,
+        onSelectAccount = { entry ->
+            if (needsSwitchConfirm(entry, currentPlatform)) pendingSwitch = entry else performSwitch(entry)
         },
-        accounts = accounts,
-        onSwitchAccount = { uid ->
-            accountScope.launch {
-                val target = accounts.firstOrNull { it.uid == uid }
-                if (deps.accountSwitcher.switchTo(uid) && target != null) {
-                    state.showMessage("已切换至 ${target.nickname}")
-                }
+        onAddAccount = { platform ->
+            val hasAccounts = allAccounts.any { it.platform == platform }
+            if (platform == MusicPlatform.KUGOU) {
+                state.kugouLoginAddAccount = hasAccounts
+                state.showKugouLogin = true
+            } else {
+                state.loginAddAccount = hasAccounts
+                state.showLogin = true
             }
         },
-        onAddAccount = {
-            state.loginAddAccount = true
-            state.showLogin = true
-        },
-        activeKugouAccount = activeKugouAccount,
-        kugouAccounts = kugouAccounts,
-        kugouPlatformEnabled = kugouPlatformEnabled,
-        hideMessagesButton = !capabilities.supportsPrivateMessage,
-        browsePlatform = browsePlatform,
-        onKugouLoginClick = {
-            state.kugouLoginAddAccount = false
-            state.showKugouLogin = true
-        },
-        onKugouSwitchAccount = { accountId ->
+        onLogoutAccount = { accountId ->
             accountScope.launch {
-                val target = kugouAccounts.firstOrNull { it.accountId == accountId }
-                if (deps.accountSwitcher.switchToAccount(accountId) && target != null) {
-                    state.showMessage("已切换酷狗账号至 ${target.nickname.ifBlank { target.effectivePlatformUid }}")
-                }
-            }
-        },
-        onKugouAddAccount = {
-            state.kugouLoginAddAccount = true
-            state.showKugouLogin = true
-        },
-        onKugouLogoutAccount = { accountId ->
-            accountScope.launch {
-                val target = kugouAccounts.firstOrNull { it.accountId == accountId }
+                val target = accountEntries.firstOrNull { it.accountId == accountId }
                 deps.accountSwitcher.logout(accountId)
-                val name = target?.nickname?.ifBlank { target.effectivePlatformUid }.orEmpty()
-                state.showMessage(if (name.isNotEmpty()) "已退出酷狗账号 $name" else "已退出酷狗账号")
+                state.showMessage(if (target != null) "已退出 ${target.displayName}" else "已退出账户")
             }
         },
+        canOpenProfile = currentPlatform == MusicPlatform.NETEASE && userProfile != null,
+        canOpenRecent = currentAccountId != null,
+        hideMessagesButton = !capabilities.supportsPrivateMessage,
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
         onRecentClick = {
             if (browsePlatform == MusicPlatform.KUGOU && kugouPlatformEnabled && activeKugouAccount != null) {
@@ -268,13 +271,29 @@ internal fun WindowScope.AppTitleBar(
         onCloudClick = state::openCloud,
         onSettingsClick = { state.navigate(DesktopRoute.Settings) },
         hasUpdate = availableUpdate != null,
-        onLogoutClick = deps.homeViewModel::logout,
         onMinimize = { windowState.isMinimized = true },
         onToggleMaximize = {
             windowState.placement = if (isMaximized) WindowPlacement.Floating else WindowPlacement.Maximized
         },
         onClose = onClose
     )
+
+    pendingSwitch?.let { entry ->
+        DesktopDialog(
+            title = "切换到${entry.platform.displayName}",
+            onDismiss = { pendingSwitch = null },
+            width = 340.dp,
+            actions = {
+                DialogButton("取消", { pendingSwitch = null })
+                DialogButton("切换", {
+                    pendingSwitch = null
+                    performSwitch(entry)
+                }, primary = true)
+            }
+        ) {
+            Text("切换后将清空当前播放队列", color = DesktopColors.TextGray, fontSize = 13.sp)
+        }
+    }
 }
 
 // 播放栏接线：音量、右侧栏面板开关、全屏与歌词入口

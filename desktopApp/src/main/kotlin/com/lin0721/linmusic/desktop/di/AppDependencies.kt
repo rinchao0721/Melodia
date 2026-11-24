@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.desktop.di
 
+import com.lin0721.linmusic.core.onboarding.OnboardingCoverSource
+import com.lin0721.linmusic.desktop.app.DesktopPaths
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
+import java.io.File
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppDependencies
 import com.lin0721.linmusic.desktop.ui.shell.PageViewModelFactory
 import com.lin0721.linmusic.desktop.ui.shell.SongActionSources
@@ -58,6 +61,7 @@ fun Koin.desktopAppDependencies(): DesktopAppDependencies {
         coverColorMemory = get(),
         userPreferences = get(),
         accountSwitcher = get(),
+        onboardingCovers = OnboardingCoverSource.fromRepository(get(), File(DesktopPaths.localCacheDir, "onboarding_covers.json")),
         lanLink = get(),
         remoteCoordinator = get(),
         pageViewModels = object : PageViewModelFactory {

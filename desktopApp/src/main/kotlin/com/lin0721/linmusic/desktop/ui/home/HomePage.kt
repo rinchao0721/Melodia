@@ -199,7 +199,6 @@ fun HomePage(
     val navigator = LocalDesktopNavigator.current
     val homeUiState by viewModel.uiState.collectAsState()
     val browsePlatform by viewModel.browsePlatform.collectAsState()
-    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
     val musicState by musicViewModel.uiState.collectAsState()
     val podcastState by podcastViewModel.state.collectAsState()
     val newWorksState by newWorksViewModel.uiState.collectAsState()
@@ -287,9 +286,7 @@ fun HomePage(
             newWorksSelected = newWorksSelected,
             onNewWorksSelect = { onNewWorksSelectedChange(true) },
             modifier = Modifier.fillMaxWidth().background(gradientColor),
-            browsePlatform = browsePlatform,
-            isKugouEnabled = isKugouEnabled,
-            onPlatformSwitch = viewModel::switchBrowsePlatform
+            browsePlatform = browsePlatform
         )
         Box(Modifier.weight(1f).clipToBounds()) {
             Box(

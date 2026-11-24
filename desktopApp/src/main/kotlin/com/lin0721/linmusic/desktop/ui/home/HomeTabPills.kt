@@ -70,9 +70,7 @@ fun HomeTabPills(
     newWorksSelected: Boolean,
     onNewWorksSelect: () -> Unit,
     modifier: Modifier = Modifier,
-    browsePlatform: MusicPlatform = MusicPlatform.NETEASE,
-    isKugouEnabled: Boolean = false,
-    onPlatformSwitch: (MusicPlatform) -> Unit = {}
+    browsePlatform: MusicPlatform = MusicPlatform.NETEASE
 ) {
     val capabilities = PlatformCapabilities.of(browsePlatform)
     val isKugouMode = browsePlatform == MusicPlatform.KUGOU
@@ -130,58 +128,6 @@ fun HomeTabPills(
                         )
                     }
                 }
-            }
-        }
-        if (isKugouEnabled) {
-            Spacer(Modifier.weight(1f))
-            BrowsePlatformSwitcher(
-                browsePlatform = browsePlatform,
-                onSelect = onPlatformSwitch
-            )
-        }
-    }
-}
-
-@Composable
-internal fun BrowsePlatformSwitcher(
-    browsePlatform: MusicPlatform,
-    onSelect: (MusicPlatform) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .clip(PillShape)
-            .background(DesktopColors.Fill.copy(alpha = 0.72f))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            MelodiaIcons.Swap,
-            contentDescription = "切换平台",
-            tint = DesktopColors.TextGray,
-            modifier = Modifier.padding(start = 6.dp, end = 2.dp).size(14.dp)
-        )
-        listOf(MusicPlatform.NETEASE to "网易云", MusicPlatform.KUGOU to "酷狗").forEach { (platform, label) ->
-            val selected = browsePlatform == platform
-            val bg = if (selected) DesktopColors.TextPrimary else Color.Transparent
-            val fg = if (selected) DesktopColors.Pane else DesktopColors.TextPrimary
-            Row(
-                modifier = Modifier
-                    .clip(PillShape)
-                    .background(bg)
-                    .pointerHoverIcon(PointerIcon.Hand)
-                    .clickable { onSelect(platform) }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    label,
-                    color = fg,
-                    fontSize = 12.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1
-                )
             }
         }
     }

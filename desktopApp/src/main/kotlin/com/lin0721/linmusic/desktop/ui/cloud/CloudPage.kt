@@ -72,7 +72,6 @@ import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.components.MenuItem
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
 import com.lin0721.linmusic.desktop.ui.components.uiTween
-import com.lin0721.linmusic.desktop.ui.home.BrowsePlatformSwitcher
 import com.lin0721.linmusic.desktop.ui.library.CLOUD_TITLE
 import com.lin0721.linmusic.desktop.ui.local.SongMatchDialog
 import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
@@ -142,31 +141,9 @@ fun CloudPage(
     modifier: Modifier = Modifier
 ) {
     val navigator = LocalDesktopNavigator.current
-    val initialPlatform = if (navigator.isKugouEnabled && navigator.browsePlatform == MusicPlatform.KUGOU) {
-        MusicPlatform.KUGOU
-    } else {
-        MusicPlatform.NETEASE
-    }
-    var selectedPlatform by remember(navigator.isKugouEnabled) { mutableStateOf(initialPlatform) }
-    LaunchedEffect(navigator.isKugouEnabled) {
-        if (!navigator.isKugouEnabled && selectedPlatform == MusicPlatform.KUGOU) {
-            selectedPlatform = MusicPlatform.NETEASE
-        }
-    }
-
+    // 云盘跟随当前账号所在平台
     Column(modifier.fillMaxSize()) {
-        if (navigator.isKugouEnabled) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = HeaderPadding, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BrowsePlatformSwitcher(
-                    browsePlatform = selectedPlatform,
-                    onSelect = { selectedPlatform = it }
-                )
-            }
-        }
-        if (selectedPlatform == MusicPlatform.KUGOU && navigator.isKugouEnabled) {
+        if (navigator.isKugouEnabled && navigator.browsePlatform == MusicPlatform.KUGOU) {
             KugouCloudPage(actions, controller, songActions, Modifier.weight(1f).fillMaxWidth())
         } else {
             NeteaseCloudPage(actions, controller, songActions, Modifier.weight(1f).fillMaxWidth())

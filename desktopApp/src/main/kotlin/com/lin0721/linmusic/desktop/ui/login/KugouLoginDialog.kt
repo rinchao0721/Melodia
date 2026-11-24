@@ -221,7 +221,7 @@ private fun KugouPhoneLogin(
 
     Spacer(Modifier.height(10.dp))
     val hintText = when (val s = phoneState) {
-        KugouPhoneLoginState.Idle -> "仅保存在本机，用于调用酷狗接口与同步个人歌单"
+        KugouPhoneLoginState.Idle -> ""
         KugouPhoneLoginState.SendingCaptcha -> "正在发送短信验证码…"
         KugouPhoneLoginState.CaptchaSent -> "验证码已发送，请查收短信"
         KugouPhoneLoginState.Submitting -> "正在验证登录…"

@@ -77,6 +77,9 @@ import com.lin0721.linmusic.desktop.ui.login.LoginDialog
 import com.lin0721.linmusic.desktop.ui.lyricsview.CHROME_ANIM_MS
 import com.lin0721.linmusic.desktop.ui.lyricsview.LyricsViewState
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
+import com.lin0721.linmusic.desktop.ui.onboarding.OnboardingScreen
+import com.lin0721.linmusic.desktop.ui.onboarding.OnboardingScreenState
+import com.lin0721.linmusic.desktop.ui.onboarding.resolveOnboardingScreen
 import com.lin0721.linmusic.desktop.ui.recognition.RecognitionDialog
 import com.lin0721.linmusic.desktop.ui.search.SearchDropdown
 import com.lin0721.linmusic.desktop.ui.share.ShareCardDialog
@@ -138,6 +141,13 @@ fun WindowScope.MelodiaDesktopApp(
     val nowPlaying by controller.nowPlaying.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val searchDropdown = remember { SearchDropdownState() }
+    val appScope = rememberCoroutineScope()
+    val onboardingCompleted by deps.userPreferences.onboardingCompleted.collectAsState(initial = null)
+    val onboardingScreen = resolveOnboardingScreen(onboardingCompleted)
+    var onboardingCovers by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(onboardingScreen) {
+        if (onboardingScreen == OnboardingScreenState.SHOWN) onboardingCovers = deps.onboardingCovers.load()
+    }
 
     // 没有曲目时歌词界面无内容可看，自动收起
     LaunchedEffect(nowPlaying == null) { if (nowPlaying == null) lyricsView.close() }
@@ -376,37 +386,63 @@ fun WindowScope.MelodiaDesktopApp(
                     false
                 }
         ) {
-            DragBadgeOverlayHost(Modifier.fillMaxSize()) {
-                Column(Modifier.fillMaxSize()) {
-                    // 全屏或歌词沉浸态时收起自绘标题栏，Esc 或底栏按钮退出
-                    AnimatedVisibility(
-                        visible = !isFullscreen && !lyricsView.isImmersive,
-                        enter = uiEnter(ChromeEnter),
-                        exit = uiExit(ChromeExit)
-                    ) {
-                        AppTitleBar(
-                            state = state,
-                            deps = deps,
-                            windowState = windowState,
-                            userProfile = userProfile,
-                            searchFocusRequests = searchFocusRequests,
-                            dropdown = searchDropdown,
-                            onTitleBarBoundsChange = { titleBarBounds = it },
-                            onClose = onClose
-                        )
+            if (onboardingScreen == OnboardingScreenState.SHOWN) {
+                OnboardingScreen(
+                    coverUrls = onboardingCovers,
+                    isMaximized = isMaximized,
+                    onLoginNetease = {
+                        state.loginAddAccount = false
+                        state.showLogin = true
+                    },
+                    onLoginKugou = {
+                        state.kugouLoginAddAccount = false
+                        state.showKugouLogin = true
+                    },
+                    onBrowseAsGuest = {
+                        appScope.launch {
+                            deps.accountSwitcher.browseAsGuest()
+                            deps.userPreferences.setOnboardingCompleted()
+                        }
+                    },
+                    onMinimize = { windowState.isMinimized = true },
+                    onToggleMaximize = {
+                        windowState.placement = if (isMaximized) WindowPlacement.Floating else WindowPlacement.Maximized
+                    },
+                    onClose = onClose
+                )
+            } else if (onboardingScreen == OnboardingScreenState.HIDDEN) {
+                DragBadgeOverlayHost(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        // 全屏或歌词沉浸态时收起自绘标题栏，Esc 或底栏按钮退出
+                        AnimatedVisibility(
+                            visible = !isFullscreen && !lyricsView.isImmersive,
+                            enter = uiEnter(ChromeEnter),
+                            exit = uiExit(ChromeExit)
+                        ) {
+                            AppTitleBar(
+                                state = state,
+                                deps = deps,
+                                windowState = windowState,
+                                userProfile = userProfile,
+                                searchFocusRequests = searchFocusRequests,
+                                dropdown = searchDropdown,
+                                onTitleBarBoundsChange = { titleBarBounds = it },
+                                onClose = onClose
+                            )
+                        }
+                        Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
+                        AnimatedVisibility(
+                            visible = !lyricsView.isImmersive,
+                            enter = uiEnter(ChromeEnter),
+                            exit = uiExit(ChromeExit)
+                        ) {
+                            AppPlayerBar(state, deps, audioOutput, fullscreen, onEnterMiniPlayer)
+                        }
                     }
-                    Workspace(state, deps, frameHost, audioOutput, hasNowPlaying = nowPlaying != null, isFullscreen, Modifier.weight(1f))
-                    AnimatedVisibility(
-                        visible = !lyricsView.isImmersive,
-                        enter = uiEnter(ChromeEnter),
-                        exit = uiExit(ChromeExit)
-                    ) {
-                        AppPlayerBar(state, deps, audioOutput, fullscreen, onEnterMiniPlayer)
+                    SearchDropdown(searchDropdown, deps.searchViewModel) { keyword ->
+                        state.navigate(DesktopRoute.Search)
+                        deps.searchViewModel.searchWithKeyword(keyword)
                     }
-                }
-                SearchDropdown(searchDropdown, deps.searchViewModel) { keyword ->
-                    state.navigate(DesktopRoute.Search)
-                    deps.searchViewModel.searchWithKeyword(keyword)
                 }
             }
             Column(
@@ -544,6 +580,7 @@ fun WindowScope.MelodiaDesktopApp(
                 deps.homeViewModel.handleLoginSuccess(cookies)
                 state.showLogin = false
                 state.loginAddAccount = false
+                appScope.launch { deps.userPreferences.setOnboardingCompleted() }
             },
             onDismiss = {
                 state.showLogin = false
@@ -559,6 +596,7 @@ fun WindowScope.MelodiaDesktopApp(
             onLoginSuccess = { account ->
                 state.showKugouLogin = false
                 state.kugouLoginAddAccount = false
+                appScope.launch { deps.userPreferences.setOnboardingCompleted() }
                 val name = account.nickname.ifBlank { account.effectivePlatformUid }
                 state.showMessage("酷狗账号 $name 登录成功")
             },

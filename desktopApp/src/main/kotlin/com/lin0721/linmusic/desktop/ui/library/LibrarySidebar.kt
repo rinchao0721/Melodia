@@ -96,7 +96,6 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.desktop.data.LibraryMode
 import com.lin0721.linmusic.desktop.data.LibraryViewMode
-import com.lin0721.linmusic.desktop.ui.home.BrowsePlatformSwitcher
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.DesktopMenu
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
@@ -171,8 +170,6 @@ fun LibrarySidebar(
 ) {
     val paneHover = remember { MutableInteractionSource() }
     val paneHovered by paneHover.collectIsHoveredAsState()
-    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
-    val browsePlatform by viewModel.browsePlatform.collectAsState()
     Column(modifier.fillMaxSize().hoverable(paneHover).padding(top = 12.dp)) {
         LibraryShortcutsContextBox(shortcutsState) {
             Row(Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -188,18 +185,6 @@ fun LibrarySidebar(
                 LibraryCreateButton(viewModel, extras, isLoggedIn, pill = false)
                 Spacer(Modifier.width(4.dp))
                 LibraryIconButton(MelodiaIcons.OpenInFull, "展开音乐库") { onModeChange(LibraryMode.EXPANDED) }
-            }
-        }
-        if (isKugouEnabled) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BrowsePlatformSwitcher(
-                    browsePlatform = browsePlatform,
-                    onSelect = viewModel::switchBrowsePlatform
-                )
             }
         }
         Column(Modifier.weight(1f)) {
@@ -239,8 +224,6 @@ fun LibraryExpanded(
     shortcutsState: LibraryShortcutsState,
     modifier: Modifier = Modifier
 ) {
-    val isKugouEnabled by viewModel.isKugouEnabled.collectAsState()
-    val browsePlatform by viewModel.browsePlatform.collectAsState()
     Column(modifier.fillMaxSize().padding(top = 16.dp)) {
         LibraryShortcutsContextBox(shortcutsState) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -255,13 +238,6 @@ fun LibraryExpanded(
                             .pointerHoverIcon(PointerIcon.Hand)
                             .clickable { viewModel.loadLibraryData() }
                             .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-                if (isKugouEnabled) {
-                    Spacer(Modifier.width(12.dp))
-                    BrowsePlatformSwitcher(
-                        browsePlatform = browsePlatform,
-                        onSelect = viewModel::switchBrowsePlatform
                     )
                 }
                 LibraryShortcutRow(shortcutsState, Modifier.weight(1f))

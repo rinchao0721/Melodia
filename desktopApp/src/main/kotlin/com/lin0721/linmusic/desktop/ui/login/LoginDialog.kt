@@ -236,7 +236,7 @@ private fun CookieLogin(viewModel: LoginViewModel, onLoginSuccess: (String) -> U
         modifier = Modifier.fillMaxWidth()
     )
     Text(
-        error ?: "仅保存在本机，用于调用网易云接口",
+        error.orEmpty(),
         color = if (error != null) DesktopColors.AccentText else DesktopColors.TextGray,
         fontSize = 12.sp,
         modifier = Modifier.fillMaxWidth().height(28.dp).padding(top = 8.dp)

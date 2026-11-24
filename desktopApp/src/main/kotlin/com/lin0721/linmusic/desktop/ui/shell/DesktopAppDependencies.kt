@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.plugin.PluginRepository
 import com.lin0721.linmusic.core.ui.theme.CoverColorMemory
 import androidx.lifecycle.ViewModel
 import com.lin0721.linmusic.core.auth.AccountSwitcher
+import com.lin0721.linmusic.core.onboarding.OnboardingCoverSource
 import com.lin0721.linmusic.core.auth.KugouLoginViewModel
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.UserPreferences
@@ -99,6 +100,7 @@ class DesktopAppDependencies(
     val coverColorMemory: CoverColorMemory,
     val userPreferences: UserPreferences,
     val accountSwitcher: AccountSwitcher,
+    val onboardingCovers: OnboardingCoverSource,
     val lanLink: LanLinkDesktopHost,
     val remoteCoordinator: LanLinkRemoteCoordinator,
     val pageViewModels: PageViewModelFactory
