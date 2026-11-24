@@ -197,4 +197,33 @@ class KugouLikeServiceTest {
         assertTrue(listAllCalls.get() == 1)
         assertEquals(listOf(778899L, 665544L), deletedFileIds)
     }
+
+    @Test
+    fun `30227 返回空歌单时 ensureLikeListId 走未找到我喜欢分支且 getUserPlaylists 返回空页`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return MockResponse().setResponseCode(200).setBody(
+                    """{"status": 0, "error_code": 30227, "errmsg": "empty"}"""
+                )
+            }
+        }
+
+        val baseUrl = server.url("/").toString().trimEnd('/')
+        val playlistService = KugouPlaylistService(
+            config = KugouConfig(
+                initialMode = KugouClientMode.LITE,
+                gatewayBaseUrl = baseUrl,
+                baseUrlRewriter = { baseUrl }
+            ),
+            gatewayClient = gatewayClient,
+            userPreferences = userPreferences
+        )
+        val page = playlistService.getUserPlaylists().getOrThrow()
+        assertTrue(page.playlists.isEmpty())
+        assertEquals(false, page.hasMore)
+
+        val likeResult = likeService.fetchLikedTrackMap()
+        assertTrue(likeResult.isFailure)
+        assertTrue(likeResult.exceptionOrNull() is com.lin0721.linmusic.core.network.AppError.BizError)
+    }
 }

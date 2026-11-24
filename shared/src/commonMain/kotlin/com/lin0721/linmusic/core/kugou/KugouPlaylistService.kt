@@ -14,7 +14,17 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 
+// 云端暂无任何歌单（新注册账号）
+internal const val KUGOU_ERR_EMPTY_PLAYLIST = 30227
+
+internal fun KugouRawResponse.isEmptyPlaylistError(): Boolean {
+    val body = bodyJson ?: return false
+    return body.int("error_code", 0) == KUGOU_ERR_EMPTY_PLAYLIST ||
+        body.int("errcode", 0) == KUGOU_ERR_EMPTY_PLAYLIST
+}
+
 // 酷狗歌单与曲目云端操作服务
+
 class KugouPlaylistService(
     private val config: KugouConfig,
     private val gatewayClient: KugouGatewayClient,
@@ -51,6 +61,14 @@ class KugouPlaylistService(
                 headers = mapOf("x-router" to "cloudlist.service.kugou.com")
             )
         )
+        if (response.isEmptyPlaylistError()) {
+            return@runCatchingCancellable KugouUserPlaylistsPage(
+                totalVer = 0L,
+                playlists = emptyList(),
+                hasMore = false
+            )
+        }
+
         ensureKugouBizSuccess(response, "获取酷狗用户歌单失败")
 
         val dataObjResp = response.bodyJson?.get("data")?.jsonObjectOrNull()

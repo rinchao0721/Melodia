@@ -267,6 +267,8 @@ open class KugouLikeService(
                     headers = mapOf("x-router" to "cloudlist.service.kugou.com")
                 )
             )
+            if (response.isEmptyPlaylistError()) break
+
             ensureBizSuccess(response, "获取酷狗歌单列表失败")
 
             val playlists = extractPlaylistArray(response.bodyJson)
