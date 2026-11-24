@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.desktop.ui.home
+﻿package com.lin0721.linmusic.desktop.ui.home
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -98,16 +98,10 @@ import com.lin0721.linmusic.desktop.ui.palette.FallbackCoverPalette
 import com.lin0721.linmusic.desktop.ui.palette.cardCoverBackground
 import com.lin0721.linmusic.desktop.ui.palette.extractCoverPaletteFromUrl
 import com.lin0721.linmusic.desktop.ui.palette.headerCoverBackground
-import com.lin0721.linmusic.core.platform.toDisplayTrack
-import com.lin0721.linmusic.core.platform.repository.UnifiedRank
-import com.lin0721.linmusic.core.platform.UnifiedPlaylist
-import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.source.MusicPlatform
-import com.lin0721.linmusic.desktop.ui.components.MenuDivider
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.desktop.ui.playlist.DAILY_RECOMMEND_NAME
-import com.lin0721.linmusic.desktop.ui.track.TrackRow
 import com.lin0721.linmusic.feature.playlist.ui.KUGOU_DAILY_RECOMMEND_ID
 import com.lin0721.linmusic.feature.playlist.ui.kugouRankEntityId
 import com.lin0721.linmusic.desktop.ui.podcast.PodcastTab
@@ -116,16 +110,17 @@ import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.DesktopNavigator
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
-import com.lin0721.linmusic.feature.home.data.DailySong
-import com.lin0721.linmusic.feature.home.domain.HomeCard
-import com.lin0721.linmusic.feature.home.domain.HomeShelf
+import com.lin0721.linmusic.feature.home.domain.HomeCardKind
+import com.lin0721.linmusic.feature.home.domain.HomeCardTarget
+import com.lin0721.linmusic.feature.home.domain.HomeQuickEntryType
+import com.lin0721.linmusic.feature.home.domain.HomeSection
+import com.lin0721.linmusic.feature.home.domain.HomeSectionCard
 import com.lin0721.linmusic.feature.home.ui.HomeFeedData
 import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
-import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.desktop.ui.components.copyTextToClipboard
 import java.time.LocalDate
@@ -210,14 +205,18 @@ fun HomePage(
     val podcastListState = rememberLazyListState()
     val newWorksGridState = rememberLazyGridState()
 
-    val feedData = (homeUiState as? HomeUiState.Success)?.data
-    val defaultCoverUrl = if (feedData?.browsePlatform == MusicPlatform.KUGOU) {
-        feedData.kugouDailySongs.firstOrNull()?.track?.coverUrl
-            ?: feedData.kugouPlaylists.firstOrNull()?.coverUrl
-            ?: feedData.kugouDiscoverTracks.firstOrNull()?.coverUrl.orEmpty()
-    } else {
-        feedData?.recentPlaylists?.firstOrNull()?.coverUrl.orEmpty()
-    }
+    val sections by viewModel.sections.collectAsState()
+    val defaultCoverUrl = sections.asSequence()
+        .flatMap { section ->
+            when (section) {
+                is HomeSection.Quick -> section.items.asSequence()
+                is HomeSection.Daily -> section.items.asSequence()
+                is HomeSection.Shelf -> section.cards.asSequence()
+            }
+        }
+        .map { it.coverUrl }
+        .firstOrNull { it.isNotBlank() }
+        .orEmpty()
     var hoveredCoverUrl by remember { mutableStateOf<String?>(null) }
     val activeCoverUrl = hoveredCoverUrl ?: defaultCoverUrl
 
@@ -420,10 +419,19 @@ private fun HomeFeed(
         if (shouldLoadMore) viewModel.loadMoreShelves()
     }
     val navigator = LocalDesktopNavigator.current
-    val nowPlaying by viewModel.playerManager.nowPlaying.collectAsState()
+    val sections by viewModel.sections.collectAsState()
     val playContext by viewModel.playerManager.playContext.collectAsState()
-    val showRecentPlay by viewModel.showRecentPlay.collectAsState()
+    val isFmActive = playContext == PlaybackController.CONTEXT_PERSONAL_FM
     val scope = rememberCoroutineScope()
+    val jumpToToplists: () -> Unit = {
+        val firstRank = data.kugouToplists.firstOrNull()
+        if (firstRank != null) {
+            navigator.openPlaylistEntity(kugouRankEntityId(firstRank), firstRank.name, false)
+        } else {
+            val targetIndex = listState.layoutInfo.totalItemsCount - 1
+            if (targetIndex >= 0) scope.launch { listState.animateScrollToItem(targetIndex) }
+        }
+    }
 
     LookaheadScope {
         CompositionLocalProvider(LocalHomeLookaheadScope provides this) {
@@ -434,21 +442,48 @@ private fun HomeFeed(
                     contentPadding = PaddingValues(vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
-                    if (data.browsePlatform == MusicPlatform.KUGOU) {
-                        kugouHomeItems(
-                            data = data,
-                            viewModel = viewModel,
-                            navigator = navigator,
-                            currentSongId = nowPlaying?.songId,
-                            isFmActive = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
-                            onJumpToToplists = {
-                                val targetIndex = listState.layoutInfo.totalItemsCount - 1
-                                if (targetIndex >= 0) scope.launch { listState.animateScrollToItem(targetIndex) }
-                            },
-                            onTileHover = onTileHover
-                        )
-                    } else {
-                        homeItems(data, viewModel, showRecentPlay, onPlaylistClick, onTileHover)
+                    items(sections, key = { it.key }) { section ->
+                        when (section) {
+                            is HomeSection.Quick -> RecentGrid(
+                                section = section,
+                                viewModel = viewModel,
+                                navigator = navigator,
+                                isFmActive = isFmActive,
+                                modifier = reflow(),
+                                onPlaylistClick = onPlaylistClick,
+                                onJumpToToplists = jumpToToplists,
+                                onTileHover = onTileHover
+                            )
+                            is HomeSection.Daily -> Box(reflow()) {
+                                DailySpotlight(
+                                    section = section,
+                                    onOpen = {
+                                        if (section.platform == MusicPlatform.KUGOU) {
+                                            navigator.openPlaylistEntity(KUGOU_DAILY_RECOMMEND_ID, DAILY_RECOMMEND_NAME, false)
+                                        } else {
+                                            onPlaylistClick(DAILY_RECOMMEND_ID, DAILY_RECOMMEND_NAME)
+                                        }
+                                    },
+                                    onPlay = { viewModel.playDailySong() }
+                                )
+                            }
+                            is HomeSection.Shelf -> Box(reflow()) {
+                                ServerShelf(
+                                    shelf = section,
+                                    viewModel = viewModel,
+                                    navigator = navigator,
+                                    onPlaylistClick = onPlaylistClick,
+                                    onJumpToToplists = jumpToToplists
+                                )
+                            }
+                        }
+                    }
+                    if (data.isLoadingMore) {
+                        item(key = "loading_more") {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = DesktopColors.Accent, modifier = Modifier.padding(8.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -462,353 +497,45 @@ private fun LazyItemScope.reflow(): Modifier =
     if (LocalPaneResizing.current || !LocalUiMotion.current.enabled) Modifier
     else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
 
-private fun LazyListScope.homeItems(
-    data: HomeFeedData,
-    viewModel: HomeViewModel,
-    showRecentPlay: Boolean,
-    onPlaylistClick: (id: Long, title: String) -> Unit,
-    onTileHover: (coverUrl: String, isHovered: Boolean) -> Unit
-) {
-    if (showRecentPlay && data.recentPlaylists.isNotEmpty()) {
-        item(key = "recent") {
-            RecentGrid(
-                data = data,
-                viewModel = viewModel,
-                modifier = reflow(),
-                onClick = { id, title -> onPlaylistClick(id, title) },
-                onPlay = { id -> viewModel.playCollection(id, isAlbum = false) },
-                onTileHover = onTileHover
-            )
-        }
-    }
-    if (data.dailySongs.isNotEmpty()) {
-        item(key = "daily") {
-            Box(reflow()) {
-                DailySpotlight(
-                    songs = data.dailySongs,
-                    onOpen = { onPlaylistClick(DAILY_RECOMMEND_ID, DAILY_RECOMMEND_NAME) },
-                    onPlay = { viewModel.playDailySong() }
-                )
-            }
-        }
-    }
-    // 服务端货架已含推荐歌单，仅在货架缺失时兜底展示
-    if (data.shelves.isEmpty() && data.recommendPlaylists.isNotEmpty()) {
-        item(key = "recommend") {
-            Box(reflow()) {
-                val navigator = LocalDesktopNavigator.current
-                val subscribedPlaylistIds by viewModel.subscribedPlaylistIds.collectAsState()
-                ShelfRow("推荐歌单", data.recommendPlaylists) { playlist ->
-                    val isSubscribed = playlist.id in subscribedPlaylistIds
-                    CardTile(
-                        coverUrl = playlist.picUrl,
-                        title = playlist.name,
-                        caption = "",
-                        typeLabel = "歌单",
-                        onPlay = { viewModel.playCollection(playlist.id, isAlbum = false) },
-                        contextMenuContent = { onDismiss ->
-                            MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                                onDismiss()
-                                viewModel.playCollection(playlist.id, isAlbum = false)
-                            })
-                            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                                onDismiss()
-                                viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
-                            })
-                            if (!isSubscribed) {
-                                MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
-                                    onDismiss()
-                                    if (navigator.isLoggedIn) {
-                                        viewModel.subscribePlaylist(playlist.id)
-                                    } else {
-                                        navigator.showMessage("请先登录账号")
-                                    }
-                                })
-                            }
-                            MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
-                                onDismiss()
-                                viewModel.downloadCollection(playlist.id, isAlbum = false, level = navigator.downloadLevel)
-                            })
-                            MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
-                                onDismiss()
-                                val ok = copyLink("https://music.163.com/playlist?id=${playlist.id}")
-                                navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                            })
-                        }
-                    ) { onPlaylistClick(playlist.id, playlist.name) }
-                }
-            }
-        }
-    }
-    items(data.shelves, key = { "shelf_${it.blockCode}_${it.title}" }) { shelf ->
-        Box(reflow()) { ServerShelf(shelf, viewModel, onPlaylistClick) }
-    }
-    if (data.isLoadingMore) {
-        item(key = "loading_more") {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = DesktopColors.Accent, modifier = Modifier.padding(8.dp))
-            }
-        }
-    }
-}
-
-private fun LazyListScope.kugouHomeItems(
-    data: HomeFeedData,
-    viewModel: HomeViewModel,
+private fun handleHomeCardTarget(
+    target: HomeCardTarget,
     navigator: DesktopNavigator,
-    currentSongId: Long?,
-    isFmActive: Boolean,
-    onJumpToToplists: () -> Unit,
-    onTileHover: (coverUrl: String, isHovered: Boolean) -> Unit
+    onPlaylistClick: (id: Long, title: String) -> Unit,
+    onPlayFallback: (() -> Unit)? = null,
+    onJumpToToplists: () -> Unit = {}
 ) {
-    item(key = "kugou_quick_entries") {
-        KugouQuickEntriesRow(
-            isFmActive = isFmActive,
-            onDailyClick = {
-                navigator.openPlaylistEntity(KUGOU_DAILY_RECOMMEND_ID, DAILY_RECOMMEND_NAME, false)
-            },
-            onDailyPlay = { viewModel.playDailySong() },
-            onFmClick = {
-                if (isFmActive) viewModel.disablePersonalFm() else viewModel.startPersonalFm()
-            },
-            onToplistClick = {
-                val firstRank = data.kugouToplists.firstOrNull()
-                if (firstRank != null) {
-                    navigator.openPlaylistEntity(kugouRankEntityId(firstRank), firstRank.name, false)
-                } else {
-                    onJumpToToplists()
-                }
-            },
-            onCloudClick = navigator.openCloud,
-            modifier = reflow()
-        )
-    }
-    if (data.kugouDailySongs.isNotEmpty()) {
-        item(key = "kugou_daily") {
-            Box(reflow()) {
-                val dailyPreview = remember(data.kugouDailySongs) {
-                    data.kugouDailySongs.map { daily ->
-                        val track = daily.track.toDisplayTrack()
-                        DailySong(id = track.id, name = track.name, ar = track.ar, al = track.al)
-                    }
-                }
-                DailySpotlight(
-                    songs = dailyPreview,
-                    onOpen = { navigator.openPlaylistEntity(KUGOU_DAILY_RECOMMEND_ID, DAILY_RECOMMEND_NAME, false) },
-                    onPlay = { viewModel.playDailySong() }
-                )
+    when (target) {
+        is HomeCardTarget.PlaylistEntity -> {
+            val numericId = target.entityId.toLongOrNull()
+            if (numericId != null) {
+                if (target.isAlbum) navigator.openAlbum(numericId, target.title)
+                else onPlaylistClick(numericId, target.title)
+            } else {
+                navigator.openPlaylistEntity(target.entityId, target.title, target.isAlbum)
             }
         }
-    }
-    if (data.kugouDiscoverTracks.isNotEmpty()) {
-        item(key = "kugou_discover_tracks") {
-            Box(reflow()) {
-                KugouDiscoverTracksSection(
-                    tracks = data.kugouDiscoverTracks,
-                    currentSongId = currentSongId,
-                    onPlayIndex = viewModel::playKugouDiscoverTrack,
-                    onAddToNext = viewModel::addUnifiedTrackToPlayNext
-                )
-            }
-        }
-    }
-    if (data.kugouPlaylists.isNotEmpty()) {
-        item(key = "kugou_playlists") {
-            Box(reflow()) {
-                ShelfRow("推荐歌单", data.kugouPlaylists) { playlist: UnifiedPlaylist ->
-                    CardTile(
-                        coverUrl = playlist.coverUrl,
-                        title = playlist.name,
-                        caption = playlist.creator?.nickname?.takeIf { it.isNotBlank() } ?: "",
-                        typeLabel = "歌单",
-                        onPlay = { viewModel.playCollectionEntity(playlist.id.canonical, isAlbum = false) },
-                        contextMenuContent = { onDismiss ->
-                            MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                                onDismiss()
-                                viewModel.playCollectionEntity(playlist.id.canonical, isAlbum = false)
-                            })
-                            MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                                onDismiss()
-                                viewModel.addCollectionEntityToPlayNext(playlist.id.canonical, isAlbum = false)
-                            })
-                        }
-                    ) {
-                        onTileHover(playlist.coverUrl, false)
-                        navigator.openPlaylistEntity(playlist.id.canonical, playlist.name, false)
-                    }
-                }
-            }
-        }
-    }
-    if (data.kugouToplists.isNotEmpty()) {
-        item(key = "kugou_toplists") {
-            Box(reflow()) {
-                ShelfRow("酷狗排行榜", data.kugouToplists) { rank: UnifiedRank ->
-                    CardTile(
-                        coverUrl = rank.coverUrl,
-                        title = rank.name,
-                        caption = rank.topSongs.take(2).joinToString(" · "),
-                        typeLabel = rank.updateFrequency.ifBlank { "排行榜" },
-                        onPlay = { viewModel.playKugouRank(rank) },
-                        contextMenuContent = { onDismiss ->
-                            MenuItem("播放整榜", icon = MelodiaIcons.Play, onClick = {
-                                onDismiss()
-                                viewModel.playKugouRank(rank)
-                            })
-                            MenuItem("查看榜单曲目", icon = MelodiaIcons.Leaderboard, onClick = {
-                                onDismiss()
-                                navigator.openPlaylistEntity(kugouRankEntityId(rank), rank.name, false)
-                            })
-                        }
-                    ) {
-                        navigator.openPlaylistEntity(kugouRankEntityId(rank), rank.name, false)
-                    }
-                }
-            }
-        }
+        HomeCardTarget.Toplists -> onJumpToToplists()
+        HomeCardTarget.Cloud -> navigator.openCloud()
+        HomeCardTarget.None -> onPlayFallback?.invoke()
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun KugouQuickEntriesRow(
-    isFmActive: Boolean,
-    onDailyClick: () -> Unit,
-    onDailyPlay: () -> Unit,
-    onFmClick: () -> Unit,
-    onToplistClick: () -> Unit,
-    onCloudClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionTitle("快捷入口", horizontalPadding = 0)
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            KugouQuickEntryCard(
-                icon = MelodiaIcons.Calendar,
-                title = "每日推荐",
-                subtitle = "酷狗精选",
-                onClick = onDailyClick,
-                onPlay = onDailyPlay
-            )
-            KugouQuickEntryCard(
-                icon = MelodiaIcons.Radio,
-                title = "私人 FM",
-                subtitle = if (isFmActive) "正在播放 · 点击退出" else "个性随心听",
-                active = isFmActive,
-                onClick = onFmClick
-            )
-            KugouQuickEntryCard(
-                icon = MelodiaIcons.Leaderboard,
-                title = "酷狗排行榜",
-                subtitle = "热歌趋势",
-                onClick = onToplistClick
-            )
-            KugouQuickEntryCard(
-                icon = MelodiaIcons.Cloud,
-                title = "酷狗云盘",
-                subtitle = "个人云端曲库",
-                onClick = onCloudClick
-            )
-        }
-    }
+private fun quickEntryIcon(type: HomeQuickEntryType) = when (type) {
+    HomeQuickEntryType.DAILY_RECOMMEND -> MelodiaIcons.Calendar
+    HomeQuickEntryType.PERSONAL_FM -> MelodiaIcons.Radio
+    HomeQuickEntryType.TOPLIST -> MelodiaIcons.Leaderboard
+    HomeQuickEntryType.CLOUD -> MelodiaIcons.Cloud
 }
 
-@Composable
-private fun KugouQuickEntryCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    active: Boolean = false,
-    onPlay: (() -> Unit)? = null,
-    onClick: () -> Unit
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val background by animateColorAsState(
-        when {
-            active -> DesktopColors.Accent.copy(alpha = 0.18f)
-            hovered -> DesktopColors.CardSurface
-            else -> DesktopColors.Surface
-        },
-        uiTween(HOVER_FADE_MS),
-        label = "kugouQuickCardBg"
-    )
-    Row(
-        Modifier
-            .width(210.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(background)
-            .hoverable(interaction)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            contentDescription = title,
-            tint = if (active) DesktopColors.Accent else DesktopColors.TextPrimary,
-            modifier = Modifier.size(22.dp)
-        )
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(title, color = DesktopColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(subtitle, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (onPlay != null) {
-            HoverReveal(revealed = hovered) {
-                HomePlayButton(size = 30.dp, description = "播放$title", onClick = onPlay)
-            }
-        }
-    }
-}
-
-@Composable
-private fun KugouDiscoverTracksSection(
-    tracks: List<UnifiedTrack>,
-    currentSongId: Long?,
-    onPlayIndex: (Int) -> Unit,
-    onAddToNext: (UnifiedTrack) -> Unit
-) {
-    val shown = remember(tracks) { tracks.take(15) }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle("发现推荐", horizontalPadding = 24)
-        Column(Modifier.padding(horizontal = 16.dp)) {
-            shown.forEachIndexed { index, unified ->
-                val display = remember(unified) { unified.toDisplayTrack() }
-                TrackRow(
-                    index = index,
-                    track = display,
-                    isCurrent = currentSongId == display.id,
-                    onPlay = { onPlayIndex(index) },
-                    menuContent = { dismiss ->
-                        MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                            dismiss()
-                            onPlayIndex(index)
-                        })
-                        MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                            dismiss()
-                            onAddToNext(unified)
-                        })
-                    }
-                )
-            }
-        }
-    }
-}
-
-private fun copyLink(url: String): Boolean = copyTextToClipboard(url)
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecentGrid(
-    data: HomeFeedData,
+    section: HomeSection.Quick,
     viewModel: HomeViewModel,
+    navigator: DesktopNavigator,
+    isFmActive: Boolean,
     modifier: Modifier,
-    onClick: (Long, String) -> Unit,
-    onPlay: (Long) -> Unit,
+    onPlaylistClick: (id: Long, title: String) -> Unit,
+    onJumpToToplists: () -> Unit,
     onTileHover: (coverUrl: String, isHovered: Boolean) -> Unit
 ) {
     BoxWithConstraints(modifier) {
@@ -832,18 +559,34 @@ private fun RecentGrid(
                 verticalArrangement = Arrangement.spacedBy(RecentGridGap),
                 maxItemsInEachRow = columns
             ) {
-                val shown = data.recentPlaylists.take(RECENT_ITEM_COUNT)
-                shown.forEach { playlist ->
-                    key(playlist.id) {
+                val shown = section.items.take(RECENT_ITEM_COUNT)
+                shown.forEach { card ->
+                    key("${card.platform}_${card.entityId}_${card.quickEntryType}") {
+                        val playCard: () -> Unit = { viewModel.playCard(card, section.items, "最近播放") }
                         RecentTile(
-                            playlist = playlist,
+                            card = card,
                             viewModel = viewModel,
+                            navigator = navigator,
+                            isFmActive = isFmActive,
                             height = tileHeight,
                             titleSize = titleSize,
                             modifier = Modifier.weight(1f),
-                            onClick = { onClick(playlist.id, playlist.name) },
-                            onPlay = { onPlay(playlist.id) },
-                            onHover = { isHovered -> onTileHover(playlist.coverUrl, isHovered) }
+                            onClick = {
+                                val target = if (card.kind == HomeCardKind.QUICK_ENTRY && card.quickEntryType != null) {
+                                    viewModel.onQuickEntryClick(card.quickEntryType!!)
+                                } else {
+                                    viewModel.openTargetOf(card)
+                                }
+                                handleHomeCardTarget(
+                                    target = target,
+                                    navigator = navigator,
+                                    onPlaylistClick = onPlaylistClick,
+                                    onPlayFallback = playCard,
+                                    onJumpToToplists = onJumpToToplists
+                                )
+                            },
+                            onPlay = playCard,
+                            onHover = { isHovered -> onTileHover(card.coverUrl, isHovered) }
                         )
                     }
                 }
@@ -857,8 +600,10 @@ private fun RecentGrid(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun RecentTile(
-    playlist: RecentPlaylist,
+    card: HomeSectionCard,
     viewModel: HomeViewModel,
+    navigator: DesktopNavigator,
+    isFmActive: Boolean,
     height: Dp,
     titleSize: TextUnit,
     modifier: Modifier,
@@ -866,16 +611,18 @@ private fun RecentTile(
     onPlay: () -> Unit,
     onHover: (Boolean) -> Unit = {}
 ) {
-    val navigator = LocalDesktopNavigator.current
+    val isQuickEntry = card.kind == HomeCardKind.QUICK_ENTRY
+    val isFmHighlighted = isQuickEntry && card.quickEntryType == HomeQuickEntryType.PERSONAL_FM && isFmActive
     val subscribedPlaylistIds by viewModel.subscribedPlaylistIds.collectAsState()
-    val isSubscribed = playlist.id in subscribedPlaylistIds
+    val neteaseId = if (card.platform == MusicPlatform.NETEASE) card.entityId.toLongOrNull() else null
+    val isSubscribed = neteaseId != null && neteaseId in subscribedPlaylistIds
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
 
     LaunchedEffect(hovered) {
         onHover(hovered)
     }
-    DisposableEffect(playlist.coverUrl) {
+    DisposableEffect(card.coverUrl) {
         onDispose {
             onHover(false)
         }
@@ -884,7 +631,11 @@ private fun RecentTile(
     var tileHeightPx by remember { mutableIntStateOf(0) }
     var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
     val background by animateColorAsState(
-        if (hovered || contextMenuOffset != null) DesktopColors.Overlay.copy(alpha = 0.18f) else DesktopColors.Overlay.copy(alpha = 0.08f),
+        when {
+            isFmHighlighted -> DesktopColors.Accent.copy(alpha = 0.22f)
+            hovered || contextMenuOffset != null -> DesktopColors.Overlay.copy(alpha = 0.18f)
+            else -> DesktopColors.Overlay.copy(alpha = 0.08f)
+        },
         uiTween(HOVER_FADE_MS),
         label = "recentTileBg"
     )
@@ -895,7 +646,7 @@ private fun RecentTile(
                 .hoverable(interaction)
                 .onSizeChanged { tileHeightPx = it.height }
                 .onPointerEvent(PointerEventType.Press) { event ->
-                    if (event.buttons.isSecondaryPressed) {
+                    if (!isQuickEntry && event.buttons.isSecondaryPressed) {
                         val position = event.changes.firstOrNull()?.position ?: return@onPointerEvent
                         contextMenuOffset = with(density) {
                             DpOffset(position.x.toDp(), (position.y - tileHeightPx).toDp())
@@ -905,10 +656,29 @@ private fun RecentTile(
                 .clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 尺寸随拖动连续变化，固定请求尺寸避免反复换缩略图
-            Cover(playlist.coverUrl, height, shape = RoundedCornerShape(0.dp), requestSize = RecentTileMaxHeight)
+            if (isQuickEntry && card.quickEntryType != null) {
+                Box(
+                    modifier = Modifier
+                        .size(height)
+                        .background(
+                            if (isFmHighlighted) DesktopColors.Accent.copy(alpha = 0.28f)
+                            else DesktopColors.Overlay.copy(alpha = 0.12f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = quickEntryIcon(card.quickEntryType!!),
+                        contentDescription = card.title,
+                        tint = if (isFmHighlighted) DesktopColors.Accent else DesktopColors.TextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            } else {
+                // 尺寸随拖动连续变化，固定请求尺寸避免反复换缩略图
+                Cover(card.coverUrl, height, shape = RoundedCornerShape(0.dp), requestSize = RecentTileMaxHeight)
+            }
             Text(
-                playlist.name,
+                card.title,
                 color = DesktopColors.TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = titleSize,
@@ -916,12 +686,14 @@ private fun RecentTile(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
             )
-            HoverReveal(revealed = hovered, modifier = Modifier.padding(end = 12.dp)) {
-                HomePlayButton(size = 32.dp, description = "播放${playlist.name}", onClick = onPlay)
+            if (!isQuickEntry || card.quickEntryType == HomeQuickEntryType.DAILY_RECOMMEND) {
+                HoverReveal(revealed = hovered, modifier = Modifier.padding(end = 12.dp)) {
+                    HomePlayButton(size = 32.dp, description = "播放${card.title}", onClick = onPlay)
+                }
             }
         }
 
-        if (contextMenuOffset != null) {
+        if (contextMenuOffset != null && !isQuickEntry) {
             DesktopMenu(
                 expanded = true,
                 offset = contextMenuOffset ?: DpOffset.Zero,
@@ -933,27 +705,29 @@ private fun RecentTile(
                 })
                 MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
                     contextMenuOffset = null
-                    viewModel.addCollectionToPlayNext(playlist.id, isAlbum = false)
+                    viewModel.addCardToPlayNext(card)
                 })
-                if (!isSubscribed) {
-                    MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
+                if (neteaseId != null) {
+                    if (!isSubscribed) {
+                        MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
+                            contextMenuOffset = null
+                            if (navigator.isLoggedIn) {
+                                viewModel.subscribePlaylist(neteaseId)
+                            } else {
+                                navigator.showMessage("请先登录账号")
+                            }
+                        })
+                    }
+                    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                         contextMenuOffset = null
-                        if (navigator.isLoggedIn) {
-                            viewModel.subscribePlaylist(playlist.id)
-                        } else {
-                            navigator.showMessage("请先登录账号")
-                        }
+                        viewModel.downloadCollection(neteaseId, isAlbum = false, level = navigator.downloadLevel)
+                    })
+                    MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
+                        contextMenuOffset = null
+                        val ok = copyTextToClipboard("https://music.163.com/playlist?id=$neteaseId")
+                        navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                     })
                 }
-                MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
-                    contextMenuOffset = null
-                    viewModel.downloadCollection(playlist.id, isAlbum = false, level = navigator.downloadLevel)
-                })
-                MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
-                    contextMenuOffset = null
-                    val ok = copyLink("https://music.163.com/playlist?id=${playlist.id}")
-                    navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                })
             }
         }
     }
@@ -961,8 +735,8 @@ private fun RecentTile(
 
 // 每日推荐聚焦卡：底色取自首曲封面并压暗。卡片进入每日推荐列表，播放钮直接起播
 @Composable
-private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: () -> Unit) {
-    val coverUrl = songs.firstOrNull()?.al?.picUrl.orEmpty()
+private fun DailySpotlight(section: HomeSection.Daily, onOpen: () -> Unit, onPlay: () -> Unit) {
+    val coverUrl = section.items.firstOrNull()?.coverUrl.orEmpty()
     val baseColor = rememberCoverBase(LocalCoverColorMemory.current, "desktop_home_daily", coverUrl) { url ->
         extractCoverPaletteFromUrl(url).takeUnless { it === FallbackCoverPalette }?.base
     } ?: FallbackCoverPalette.base
@@ -973,14 +747,14 @@ private fun DailySpotlight(songs: List<DailySong>, onOpen: () -> Unit, onPlay: (
     )
     val today = remember { LocalDate.now() }
     val countColor = DesktopColors.TextPrimary
-    val trackLine = remember(songs, countColor) {
+    val trackLine = remember(section.items, countColor) {
         buildAnnotatedString {
             withStyle(SpanStyle(color = countColor, fontWeight = FontWeight.Bold)) {
-                append("${songs.size} 首")
+                append("${section.items.size} 首")
             }
-            songs.take(SPOTLIGHT_TRACK_PREVIEW_COUNT).forEach { song ->
+            section.items.take(SPOTLIGHT_TRACK_PREVIEW_COUNT).forEach { song ->
                 append(" · ")
-                append(song.name)
+                append(song.title)
             }
         }
     }
@@ -1038,125 +812,104 @@ private fun HomePlayButton(
     }
 }
 
-private fun HomeCard.typeLabel(): String = when (this) {
-    is HomeCard.Playlist -> "歌单"
-    is HomeCard.Album -> "专辑"
-    is HomeCard.Song -> "单曲"
-    is HomeCard.Voice -> "播客"
+private fun HomeSectionCard.typeLabel(): String = when (kind) {
+    HomeCardKind.PLAYLIST -> "歌单"
+    HomeCardKind.ALBUM -> "专辑"
+    HomeCardKind.SONG -> "单曲"
+    HomeCardKind.VOICE -> "播客"
+    HomeCardKind.RANK -> "榜单"
+    HomeCardKind.QUICK_ENTRY -> "快捷"
 }
 
 @Composable
 private fun ServerShelf(
-    shelf: HomeShelf,
+    shelf: HomeSection.Shelf,
     viewModel: HomeViewModel,
-    onPlaylistClick: (Long, String) -> Unit
+    navigator: DesktopNavigator,
+    onPlaylistClick: (Long, String) -> Unit,
+    onJumpToToplists: () -> Unit
 ) {
-    val navigator = LocalDesktopNavigator.current
     val subscribedPlaylistIds by viewModel.subscribedPlaylistIds.collectAsState()
-    val songs = shelf.cards.filterIsInstance<HomeCard.Song>()
-    val voices = shelf.cards.filterIsInstance<HomeCard.Voice>()
     ShelfRow(shelf.title, shelf.cards.withIndex().toList()) { (index, card) ->
-        val play: () -> Unit = {
-            when (card) {
-                is HomeCard.Playlist -> viewModel.playCollection(card.id, isAlbum = false)
-                is HomeCard.Album -> viewModel.playCollection(card.id, isAlbum = true)
-                is HomeCard.Song -> viewModel.playShelfSong(shelf.title, songs, card)
-                is HomeCard.Voice -> viewModel.playShelfVoice(shelf.title, voices, card)
-            }
-        }
+        val play: () -> Unit = { viewModel.playCard(card, shelf.cards, shelf.title) }
+        val neteaseId = if (card.platform == MusicPlatform.NETEASE) card.entityId.toLongOrNull() else null
         val contextMenuContent: (@Composable MenuScope.(onDismiss: () -> Unit) -> Unit) = { onDismiss ->
-            when (card) {
-                is HomeCard.Playlist -> {
-                    val isSubscribed = card.id in subscribedPlaylistIds
-                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                        onDismiss()
-                        play()
-                    })
-                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                        onDismiss()
-                        viewModel.addCollectionToPlayNext(card.id, isAlbum = false)
-                    })
-                    if (!isSubscribed) {
-                        MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
+            MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
+                onDismiss()
+                play()
+            })
+            val nextLabel = if (card.kind == HomeCardKind.SONG || card.kind == HomeCardKind.VOICE) {
+                "下一首播放"
+            } else {
+                "全部加入下一首播放"
+            }
+            MenuItem(nextLabel, icon = MelodiaIcons.Queue, onClick = {
+                onDismiss()
+                viewModel.addCardToPlayNext(card)
+            })
+            if (neteaseId != null) {
+                when (card.kind) {
+                    HomeCardKind.PLAYLIST -> {
+                        if (neteaseId !in subscribedPlaylistIds) {
+                            MenuItem("收藏歌单", icon = MelodiaIcons.PlaylistAdd, onClick = {
+                                onDismiss()
+                                if (navigator.isLoggedIn) {
+                                    viewModel.subscribePlaylist(neteaseId)
+                                } else {
+                                    navigator.showMessage("请先登录账号")
+                                }
+                            })
+                        }
+                        MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                             onDismiss()
-                            if (navigator.isLoggedIn) {
-                                viewModel.subscribePlaylist(card.id)
-                            } else {
-                                navigator.showMessage("请先登录账号")
-                            }
+                            viewModel.downloadCollection(neteaseId, isAlbum = false, level = navigator.downloadLevel)
+                        })
+                        MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
+                            onDismiss()
+                            val ok = copyTextToClipboard("https://music.163.com/playlist?id=$neteaseId")
+                            navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                         })
                     }
-                    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
-                        onDismiss()
-                        viewModel.downloadCollection(card.id, isAlbum = false, level = navigator.downloadLevel)
-                    })
-                    MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
-                        onDismiss()
-                        val ok = copyLink("https://music.163.com/playlist?id=${card.id}")
-                        navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                    })
-                }
-                is HomeCard.Album -> {
-                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                        onDismiss()
-                        play()
-                    })
-                    MenuItem("全部加入下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                        onDismiss()
-                        viewModel.addCollectionToPlayNext(card.id, isAlbum = true)
-                    })
-                    MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
-                        onDismiss()
-                        viewModel.downloadCollection(card.id, isAlbum = true, level = navigator.downloadLevel)
-                    })
-                    MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
-                        onDismiss()
-                        val ok = copyLink("https://music.163.com/album?id=${card.id}")
-                        navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                    })
-                }
-                is HomeCard.Song -> {
-                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                        onDismiss()
-                        play()
-                    })
-                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                        onDismiss()
-                        viewModel.addShelfSongToPlayNext(card)
-                    })
-                    if (card.id > 0L) {
-                        MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
+                    HomeCardKind.ALBUM -> {
+                        MenuItem("下载", icon = MelodiaIcons.Download, onClick = {
                             onDismiss()
-                            navigator.openSongShareCard(
-                                DesktopAppState.ShareSongInfo(
-                                    songId = card.id,
-                                    title = card.title,
-                                    artist = "",
-                                    coverUrl = card.coverUrl
+                            viewModel.downloadCollection(neteaseId, isAlbum = true, level = navigator.downloadLevel)
+                        })
+                        MenuItem("复制链接", icon = MelodiaIcons.Link, onClick = {
+                            onDismiss()
+                            val ok = copyTextToClipboard("https://music.163.com/album?id=$neteaseId")
+                            navigator.showMessage(if (ok) "已复制链接" else "复制失败")
+                        })
+                    }
+                    HomeCardKind.SONG -> {
+                        if (neteaseId > 0L) {
+                            MenuItem("分享", icon = MelodiaIcons.Share, onClick = {
+                                onDismiss()
+                                navigator.openSongShareCard(
+                                    DesktopAppState.ShareSongInfo(
+                                        songId = neteaseId,
+                                        title = card.title,
+                                        artist = "",
+                                        coverUrl = card.coverUrl
+                                    )
                                 )
-                            )
+                            })
+                        }
+                        MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
+                            onDismiss()
+                            val ok = copyTextToClipboard("https://music.163.com/song?id=$neteaseId")
+                            navigator.showMessage(if (ok) "已复制链接" else "复制失败")
                         })
                     }
-                    MenuItem("复制歌曲链接", icon = MelodiaIcons.Link, onClick = {
-                        onDismiss()
-                        val ok = copyLink("https://music.163.com/song?id=${card.id}")
-                        navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                    })
-                }
-                is HomeCard.Voice -> {
-                    MenuItem("立即播放", icon = MelodiaIcons.Play, onClick = {
-                        onDismiss()
-                        play()
-                    })
-                    MenuItem("下一首播放", icon = MelodiaIcons.Queue, onClick = {
-                        onDismiss()
-                        viewModel.addShelfVoiceToPlayNext(card)
-                    })
-                    MenuItem("复制节目链接", icon = MelodiaIcons.Link, onClick = {
-                        onDismiss()
-                        val ok = copyLink("https://music.163.com/program?id=${card.songId}")
-                        navigator.showMessage(if (ok) "已复制链接" else "复制失败")
-                    })
+                    HomeCardKind.VOICE -> {
+                        val programId = card.voiceSongId ?: neteaseId
+                        MenuItem("复制节目链接", icon = MelodiaIcons.Link, onClick = {
+                            onDismiss()
+                            val ok = copyTextToClipboard("https://music.163.com/program?id=$programId")
+                            navigator.showMessage(if (ok) "已复制链接" else "复制失败")
+                        })
+                    }
+                    HomeCardKind.RANK, HomeCardKind.QUICK_ENTRY -> Unit
                 }
             }
         }
@@ -1168,11 +921,13 @@ private fun ServerShelf(
             onPlay = play,
             contextMenuContent = contextMenuContent
         ) {
-            when (card) {
-                is HomeCard.Playlist -> onPlaylistClick(card.id, card.title)
-                is HomeCard.Album -> navigator.openAlbum(card.id, card.title)
-                is HomeCard.Song, is HomeCard.Voice -> play()
-            }
+            handleHomeCardTarget(
+                target = viewModel.openTargetOf(card),
+                navigator = navigator,
+                onPlaylistClick = onPlaylistClick,
+                onPlayFallback = play,
+                onJumpToToplists = onJumpToToplists
+            )
         }
     }
 }
