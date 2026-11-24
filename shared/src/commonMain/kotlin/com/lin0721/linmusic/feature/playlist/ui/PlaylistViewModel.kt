@@ -73,7 +73,6 @@ import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
 import com.lin0721.linmusic.feature.home.data.DailySong
 import com.lin0721.linmusic.feature.home.data.HomeRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
-import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
@@ -307,7 +306,7 @@ class PlaylistViewModel(
     private fun isViewingKugouContent(): Boolean {
         if ((_uiState.value as? PlaylistUiState.Success)?.platform == MusicPlatform.KUGOU) return true
         val target = requestedEntityId ?: return false
-        if (target == KUGOU_RECENT_PLAYLIST_ID || target == KUGOU_DAILY_RECOMMEND_ID || target.startsWith(KUGOU_RANK_ENTITY_PREFIX)) return true
+        if (target == KUGOU_DAILY_RECOMMEND_ID || target.startsWith(KUGOU_RANK_ENTITY_PREFIX)) return true
         return (PlaylistId.parseOrNull(target)?.platform ?: AlbumId.parseOrNull(target)?.platform) == MusicPlatform.KUGOU
     }
 
@@ -407,7 +406,7 @@ class PlaylistViewModel(
         loadPlaylist(id, isAlbum)
     }
 
-    // 按跨平台 entityId（"kugou:..."、"kugou_recent" 或纯数字网易云 ID）加载歌单/专辑
+    // 按跨平台 entityId（"kugou:..."、或纯数字网易云 ID）加载歌单/专辑
     fun loadEntityIfNeeded(entityId: String, isAlbum: Boolean = false) {
         val legacyId = entityId.toLongOrNull()
         if (legacyId != null) {
@@ -442,14 +441,6 @@ class PlaylistViewModel(
         kugouRemoteTrackCount = 0
         loadJob?.cancel()
         fullTrackJob?.cancel()
-
-        if (entityId == KUGOU_RECENT_PLAYLIST_ID) {
-            requestedPlaylistId = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong()
-            loadJob = viewModelScope.launch {
-                loadKugouRecentTracks()
-            }
-            return
-        }
 
         if (entityId == KUGOU_DAILY_RECOMMEND_ID) {
             requestedPlaylistId = KUGOU_DAILY_RECOMMEND_ID.hashCode().toLong()
@@ -555,57 +546,6 @@ class PlaylistViewModel(
                     )
                 }
             }
-        }
-    }
-
-    private suspend fun loadKugouRecentTracks() {
-        val enabled = settingsPreferences?.kugouPlatformEnabled?.first() ?: true
-        if (!enabled) {
-            _uiState.value = PlaylistUiState.Error("酷狗音乐平台已关闭")
-            return
-        }
-        val account = userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
-        if (account == null) {
-            _uiState.value = PlaylistUiState.Error("请先登录酷狗账号")
-            return
-        }
-        val router = platformLibraryRouter
-        if (router == null) {
-            _uiState.value = PlaylistUiState.Error("酷狗最近播放服务不可用")
-            return
-        }
-        router.getUserRecord(account.accountId, 0).collect { result ->
-            result.fold(
-                onSuccess = { records ->
-                    val unifiedList = records.map { it.track }
-                    val displayTracks = unifiedList.map { it.toDisplayTrack() }
-                    _baseUnifiedTracks.value = unifiedList
-                    val (artistIds, albumIds) = buildEntityIdMaps(unifiedList, emptyList())
-                    val legacyId = KUGOU_RECENT_PLAYLIST_ID.hashCode().toLong()
-                    requestedPlaylistId = legacyId
-                    val detail = PlaylistDetail(
-                        id = legacyId,
-                        name = "酷狗最近播放",
-                        coverImgUrl = displayTracks.firstOrNull()?.al?.picUrl ?: "",
-                        description = "酷狗最近听歌记录",
-                        playCount = 0L,
-                        tracks = displayTracks,
-                        trackCount = displayTracks.size
-                    )
-                    _uiState.value = PlaylistUiState.Success(
-                        playlist = detail,
-                        trackPlayCounts = records.associate { it.track.toDisplayTrack().id to it.playCount },
-                        entityId = KUGOU_RECENT_PLAYLIST_ID,
-                        platform = MusicPlatform.KUGOU,
-                        artistEntityIds = artistIds,
-                        albumEntityIds = albumIds,
-                        isKugouRecent = true
-                    )
-                },
-                onFailure = { error ->
-                    _uiState.value = PlaylistUiState.Error(error.toUserMessage(resourceProvider))
-                }
-            )
         }
     }
 

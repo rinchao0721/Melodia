@@ -143,7 +143,17 @@ val viewModelModule = module {
     }
     viewModelOf(::PlaylistCategoryViewModel)
     viewModelOf(::LibraryViewModel)
-    viewModelOf(::RecentPlayViewModel)
+    viewModel {
+        RecentPlayViewModel(
+            recentRepository = get(),
+            playerManager = get(),
+            resourceProvider = get(),
+            songQualityCache = getOrNull(),
+            userPreferences = get(),
+            playbackPreferences = get(),
+            platformLibraryRepository = getOrNull()
+        )
+    }
     viewModelOf(::CloudViewModel)
     viewModelOf(::DownloadsViewModel)
     viewModelOf(::ListenDataViewModel)

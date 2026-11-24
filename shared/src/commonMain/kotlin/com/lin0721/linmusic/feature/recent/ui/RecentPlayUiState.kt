@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.recent.ui
 
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.recent.domain.RecentAlbum
 import com.lin0721.linmusic.feature.recent.domain.RecentPlaylist
 import com.lin0721.linmusic.feature.recent.domain.RecentSong
@@ -19,7 +20,8 @@ sealed interface RecentPlayUiState {
     data class Success(
         val songs: List<RecentSong>,
         val playlists: List<RecentPlaylist>,
-        val albums: List<RecentAlbum>
+        val albums: List<RecentAlbum>,
+        val platform: MusicPlatform = MusicPlatform.NETEASE
     ) : RecentPlayUiState
 
     data class Error(val message: String) : RecentPlayUiState

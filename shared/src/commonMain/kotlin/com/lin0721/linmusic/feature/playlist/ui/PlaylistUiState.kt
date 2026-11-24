@@ -26,11 +26,10 @@ sealed interface PlaylistUiState {
         val artistEntityIds: Map<Long, String> = emptyMap(),
         val albumEntityIds: Map<Long, String> = emptyMap(),
         val listVer: Long = 0L,
-        val isKugouRecent: Boolean = false,
         val isKugouDiscover: Boolean = false
     ) : PlaylistUiState {
         val hasMoreTracks: Boolean get() = pendingTrackIds.isNotEmpty()
-        val isReadOnlyKugou: Boolean get() = isKugouRecent || isKugouDiscover
+        val isReadOnlyKugou: Boolean get() = isKugouDiscover
     }
     data class Error(val message: String) : PlaylistUiState
 }

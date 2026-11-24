@@ -21,7 +21,6 @@ import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.platform.PlatformCapabilities
 import com.lin0721.linmusic.core.source.MusicPlatform
-import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
 import com.lin0721.linmusic.desktop.data.LibraryShortcut
 import com.lin0721.linmusic.desktop.data.TitleBarButton
 import com.lin0721.linmusic.desktop.player.AudioOutputControl
@@ -261,13 +260,7 @@ internal fun WindowScope.AppTitleBar(
         canOpenRecent = currentAccountId != null,
         hideMessagesButton = !capabilities.supportsPrivateMessage,
         onProfileClick = { userProfile?.let { state.navigate(DesktopRoute.Profile(it.uid)) } },
-        onRecentClick = {
-            if (browsePlatform == MusicPlatform.KUGOU && kugouPlatformEnabled && activeKugouAccount != null) {
-                state.openPlaylistEntity(KUGOU_RECENT_PLAYLIST_ID, "酷狗最近播放", false)
-            } else {
-                state.navigate(DesktopRoute.RecentPlay)
-            }
-        },
+        onRecentClick = { state.navigate(DesktopRoute.RecentPlay) },
         onCloudClick = state::openCloud,
         onSettingsClick = { state.navigate(DesktopRoute.Settings) },
         hasUpdate = availableUpdate != null,

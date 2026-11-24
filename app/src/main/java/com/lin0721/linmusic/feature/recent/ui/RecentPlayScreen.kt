@@ -45,7 +45,8 @@ fun RecentPlayScreen(
     viewModel: RecentPlayViewModel = koinViewModel(),
     onBack: () -> Unit,
     onPlaylistClick: (id: Long) -> Unit,
-    onAlbumClick: (id: Long) -> Unit
+    onAlbumClick: (id: Long) -> Unit,
+    onEntityClick: (entityId: String, isAlbum: Boolean) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
@@ -80,7 +81,8 @@ fun RecentPlayScreen(
                     isPlaying = isPlaying,
                     onSongClick = { viewModel.playSong(it) },
                     onPlaylistClick = onPlaylistClick,
-                    onAlbumClick = onAlbumClick
+                    onAlbumClick = onAlbumClick,
+                    onEntityClick = onEntityClick
                 )
             }
         }
@@ -96,7 +98,8 @@ private fun RecentPlayList(
     isPlaying: Boolean,
     onSongClick: (RecentSong) -> Unit,
     onPlaylistClick: (id: Long) -> Unit,
-    onAlbumClick: (id: Long) -> Unit
+    onAlbumClick: (id: Long) -> Unit,
+    onEntityClick: (entityId: String, isAlbum: Boolean) -> Unit
 ) {
     val isEmpty = when (tab) {
         RecentTab.SONG -> state.songs.isEmpty()
@@ -128,7 +131,9 @@ private fun RecentPlayList(
         when (tab) {
             RecentTab.SONG -> {
                 songGroups.forEach { group ->
-                    stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    if (group.label.isNotBlank()) {
+                        stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    }
                     items(group.items, key = { "${group.label}_${it.track.id}" }) { song ->
                         val track = song.track
                         SongRow(
@@ -138,7 +143,7 @@ private fun RecentPlayList(
                                 artist = track.ar.joinToString(" / ") { it.name },
                                 coverUrl = track.al.picUrl,
                                 durationText = song.playedAtText.ifBlank { null },
-                                qualitySongId = track.id,
+                                qualitySongId = track.id.takeIf { song.unified == null },
                                 maxBrLevel = track.privilege?.maxBrLevel
                             ),
                             isActive = currentTrackId == track.id.toString(),
@@ -151,7 +156,9 @@ private fun RecentPlayList(
 
             RecentTab.PLAYLIST -> {
                 playlistGroups.forEach { group ->
-                    stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    if (group.label.isNotBlank()) {
+                        stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    }
                     items(group.items, key = { "${group.label}_${it.id}" }) { playlist ->
                         EntityRow(
                             data = EntityRowData(
@@ -161,7 +168,7 @@ private fun RecentPlayList(
                                 coverUrl = playlist.coverUrl,
                                 coverShape = EntityCoverShape.Rounded
                             ),
-                            onClick = { onPlaylistClick(playlist.id) }
+                            onClick = { playlist.entityId?.let { onEntityClick(it, false) } ?: onPlaylistClick(playlist.id) }
                         )
                     }
                 }
@@ -169,7 +176,9 @@ private fun RecentPlayList(
 
             RecentTab.ALBUM -> {
                 albumGroups.forEach { group ->
-                    stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    if (group.label.isNotBlank()) {
+                        stickyHeader(key = "header_${group.label}") { DayHeader(group.label) }
+                    }
                     items(group.items, key = { "${group.label}_${it.id}" }) { album ->
                         EntityRow(
                             data = EntityRowData(
@@ -179,7 +188,7 @@ private fun RecentPlayList(
                                 coverUrl = album.coverUrl,
                                 coverShape = EntityCoverShape.Rounded
                             ),
-                            onClick = { onAlbumClick(album.id) }
+                            onClick = { album.entityId?.let { onEntityClick(it, true) } ?: onAlbumClick(album.id) }
                         )
                     }
                 }

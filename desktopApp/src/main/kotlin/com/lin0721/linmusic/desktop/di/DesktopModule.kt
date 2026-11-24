@@ -433,7 +433,17 @@ val desktopViewModelModule = module {
     factoryOf(::RadioDetailViewModel)
     singleOf(::NewWorksViewModel)
     singleOf(::LibraryViewModel)
-    factoryOf(::RecentPlayViewModel)
+    factory {
+        RecentPlayViewModel(
+            recentRepository = get(),
+            playerManager = get(),
+            resourceProvider = get(),
+            songQualityCache = getOrNull(),
+            userPreferences = get(),
+            playbackPreferences = get(),
+            platformLibraryRepository = getOrNull()
+        )
+    }
     factoryOf(::ProfileViewModel)
     factoryOf(::FollowListViewModel)
     single {

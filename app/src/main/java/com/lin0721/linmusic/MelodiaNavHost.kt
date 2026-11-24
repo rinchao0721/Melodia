@@ -280,7 +280,8 @@ fun MelodiaNavHost(
                     com.lin0721.linmusic.feature.recent.ui.RecentPlayScreen(
                         onBack = onBack,
                         onPlaylistClick = { id -> onNavigateToPlaylist(id, false) },
-                        onAlbumClick = { id -> onNavigateToPlaylist(id, true) }
+                        onAlbumClick = { id -> onNavigateToPlaylist(id, true) },
+                        onEntityClick = onNavigateToPlaylistEntity
                     )
                 }
                 is Screen.ListenData -> {

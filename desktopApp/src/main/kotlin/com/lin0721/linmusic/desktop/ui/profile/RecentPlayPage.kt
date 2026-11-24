@@ -133,8 +133,11 @@ private fun RecentContent(
                         keyOf = RecentPlaylist::id,
                         cover = RecentPlaylist::coverUrl,
                         title = RecentPlaylist::name,
-                        subtitle = { "${it.creatorName} · ${it.playedAtText}" },
-                        onClick = { navigator.openPlaylist(it.id, it.name) }
+                        subtitle = { listOf(it.creatorName, it.playedAtText).filter(String::isNotBlank).joinToString(" · ") },
+                        onClick = { item ->
+                            item.entityId?.let { navigator.openPlaylistEntity(it, item.name, false) }
+                                ?: navigator.openPlaylist(item.id, item.name)
+                        }
                     )
                     RecentTab.ALBUM -> cardItems(
                         groups = albumGroups,
@@ -142,8 +145,11 @@ private fun RecentContent(
                         keyOf = RecentAlbum::id,
                         cover = RecentAlbum::coverUrl,
                         title = RecentAlbum::name,
-                        subtitle = { "${it.artistName} · ${it.playedAtText}" },
-                        onClick = { navigator.openAlbum(it.id, it.name) }
+                        subtitle = { listOf(it.artistName, it.playedAtText).filter(String::isNotBlank).joinToString(" · ") },
+                        onClick = { item ->
+                            item.entityId?.let { navigator.openPlaylistEntity(it, item.name, true) }
+                                ?: navigator.openAlbum(item.id, item.name)
+                        }
                     )
                 }
             }
@@ -161,17 +167,20 @@ private fun LazyListScope.songItems(
     groups.forEach { group ->
         val startIndex = runningIndex
         runningIndex += group.items.size
-        stickyHeader(key = "songs_header_${group.label}_$startIndex") { DayHeader(group.label) }
+        // 酷狗听歌历史没有播放时间，无标签时不画分区头
+        if (group.label.isNotBlank()) {
+            stickyHeader(key = "songs_header_${group.label}_$startIndex") { DayHeader(group.label) }
+        }
         items(group.items.size, key = { "song_${group.items[it].track.id}_${group.items[it].playTime}_${startIndex + it}" }) { offset ->
             val song = group.items[offset]
             TrackRow(
                 index = startIndex + offset,
                 track = song.track,
-                qualitySongId = song.track.id,
+                qualitySongId = song.track.id.takeIf { song.unified == null },
                 isCurrent = currentSongId == song.track.id,
                 onPlay = { onPlay(song) },
                 modifier = Modifier.padding(horizontal = 16.dp),
-                addedAtText = song.playedAtText
+                addedAtText = song.playedAtText.ifBlank { null }
             )
         }
     }
@@ -188,7 +197,9 @@ private fun <T> LazyListScope.cardItems(
     onClick: (T) -> Unit
 ) {
     groups.forEachIndexed { groupIndex, group ->
-        stickyHeader(key = "cards_header_${group.label}_$groupIndex") { DayHeader(group.label) }
+        if (group.label.isNotBlank()) {
+            stickyHeader(key = "cards_header_${group.label}_$groupIndex") { DayHeader(group.label) }
+        }
         val rows = group.items.chunked(columns)
         items(rows.size, key = { "cards_${groupIndex}_row_${keyOf(rows[it].first())}_$it" }) { rowIndex ->
             Row(

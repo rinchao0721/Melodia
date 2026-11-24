@@ -94,8 +94,7 @@ fun PlaylistHeaderItem(
     canSubscribe: Boolean = !isLikedSongsPlaylistView && !isOwnedPlaylist && !isPluginCollectionId(playlist.id),
     canComment: Boolean = !isPluginCollectionId(playlist.id),
     canShare: Boolean = !isPluginCollectionId(playlist.id),
-    isKugou: Boolean = false,
-    isKugouRecent: Boolean = false
+    isKugou: Boolean = false
 ) {
     var showDescriptionSheet by remember { mutableStateOf(false) }
     var hasDescOverflow by remember(playlist.description) { mutableStateOf(false) }
@@ -177,9 +176,9 @@ fun PlaylistHeaderItem(
                     Spacer(Modifier.height(6.dp))
                     if (playlist.id == -1L) {
                         Text(displayDateStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                    } else if (playlist.id == -2L || isKugouRecent) {
+                    } else if (playlist.id == -2L) {
                         Text(
-                            if (isKugouRecent) "酷狗最近听歌记录" else "网易云个人听歌记录统计",
+                            "网易云个人听歌记录统计",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )

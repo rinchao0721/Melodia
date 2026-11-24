@@ -321,6 +321,10 @@ class MelodiaNavigationState(
     }
 
     fun openPlaylistEntity(entityId: String, isAlbum: Boolean) {
+        if (entityId == com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID) {
+            navigateTo(Screen.RecentPlay)
+            return
+        }
         navigateTo(playlistScreenForEntity(entityId, isAlbum))
     }
 

@@ -970,16 +970,7 @@ fun MelodiaApp() {
                 // 先收起侧栏再跳转，侧栏动画与页面切换动画叠加会明显掉帧
                 onNavigateToProfile = { uid -> sidebar.closeThen { navigation.openProfile(uid) } },
                 onNavigateToRecentPlay = {
-                    sidebar.closeThen {
-                        if (isKugouBrowseMode && kugouActive) {
-                            navigation.openPlaylistEntity(
-                                com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID,
-                                isAlbum = false
-                            )
-                        } else {
-                            navigation.openRecentPlay()
-                        }
-                    }
+                    sidebar.closeThen { navigation.openRecentPlay() }
                 },
                 onNavigateToListenData = { sidebar.closeThen { navigation.openListenData() } },
                 onNavigateToCloud = { sidebar.closeThen { navigation.openCloud() } },

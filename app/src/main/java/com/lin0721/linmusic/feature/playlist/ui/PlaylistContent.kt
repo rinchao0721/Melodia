@@ -132,8 +132,7 @@ fun PlaylistContent(
     canSubscribe: Boolean? = null,
     canComment: Boolean? = null,
     canShare: Boolean? = null,
-    isKugou: Boolean = false,
-    isKugouRecent: Boolean = false
+    isKugou: Boolean = false
 ) {
     val motion = LocalUiMotion.current
     val density = LocalDensity.current
@@ -324,8 +323,7 @@ fun PlaylistContent(
                             canSubscribe = canSubscribe ?: (!isLikedSongsPlaylistView && !canRemoveFromPlaylist && !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id)),
                             canComment = canComment ?: !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id),
                             canShare = canShare ?: !com.lin0721.linmusic.core.plugin.isPluginCollectionId(playlist.id),
-                            isKugou = isKugou,
-                            isKugouRecent = isKugouRecent
+                            isKugou = isKugou
                         )
                     }
                 }

@@ -602,7 +602,7 @@ private fun PlaylistContent(
                         .background(Brush.verticalGradient(listOf(heroColor, DesktopColors.PageFill)))
                 ) {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
-                        PlaylistHero(playlist, isAlbum, isKugou, state.isKugouRecent, state.isKugouDiscover, count, totalMs)
+                        PlaylistHero(playlist, isAlbum, isKugou, state.isKugouDiscover, count, totalMs)
                     }
                     PlaylistActionBar(
                         isAlbum = isAlbum,
@@ -817,13 +817,11 @@ private fun PlaylistHero(
     playlist: PlaylistDetail,
     isAlbum: Boolean,
     isKugou: Boolean,
-    isKugouRecent: Boolean,
     isKugouDiscover: Boolean,
     count: Int,
     totalMs: Long?
 ) {
     val typeLabel = when {
-        isKugouRecent -> "最近播放"
         isKugouDiscover -> "酷狗发现"
         playlist.id == DAILY_RECOMMEND_ID -> "为你推荐"
         isAlbum -> "专辑"

@@ -779,8 +779,7 @@ fun PlaylistScreen(
                         canSubscribe = canSubscribe,
                         canComment = canComment,
                         canShare = canShare,
-                        isKugou = isKugou,
-                        isKugouRecent = state.isKugouRecent
+                        isKugou = isKugou
                     )
                 }
                 }

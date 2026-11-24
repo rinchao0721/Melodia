@@ -192,6 +192,10 @@ class DesktopAppState(
 
     fun openLibraryItem(item: LibraryItem) {
         val rawEntity = item.entityId.ifBlank { item.id }
+        if (rawEntity == KUGOU_RECENT_PLAYLIST_ID) {
+            navigate(DesktopRoute.RecentPlay)
+            return
+        }
         val route = when (item.type) {
             LibraryItemType.PLAYLIST -> playlistRouteForEntity(rawEntity, item.title, isAlbum = false)
             LibraryItemType.ALBUM -> playlistRouteForEntity(rawEntity, item.title, isAlbum = true)
@@ -203,6 +207,10 @@ class DesktopAppState(
     }
 
     fun openPlaylistEntity(entityId: String, title: String, isAlbum: Boolean = false) {
+        if (entityId == KUGOU_RECENT_PLAYLIST_ID) {
+            navigate(DesktopRoute.RecentPlay)
+            return
+        }
         playlistRouteForEntity(entityId, title, isAlbum)?.let { navigate(it) }
     }
 
@@ -212,8 +220,7 @@ class DesktopAppState(
 
     private fun playlistRouteForEntity(entityId: String, title: String, isAlbum: Boolean): DesktopRoute.Playlist? {
         if (!isAlbum && (
-                entityId == KUGOU_RECENT_PLAYLIST_ID ||
-                    entityId == KUGOU_DAILY_RECOMMEND_ID ||
+                entityId == KUGOU_DAILY_RECOMMEND_ID ||
                     entityId.startsWith(KUGOU_RANK_ENTITY_PREFIX)
                 )
         ) {
