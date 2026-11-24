@@ -28,6 +28,8 @@ private const val TAG = "ColorExtraction"
 data class PlayerBackdropPalette(
     val base: Color,
     val textHighlight: Color,
+    // 占比从高到低的主色，最多 COVER_PALETTE_SIZE 个，插件的 cover.paletteN 与画布 state.palette 使用
+    val palette: List<Color> = emptyList(),
 )
 
 // candidate swatch 色度均低于此值时，视为黑白/灰阶封面，不编造色相。
@@ -126,11 +128,13 @@ private fun extractBackdropPalette(bitmap: Bitmap): PlayerBackdropPalette {
         if (quantized.isEmpty()) return FallbackBackdropPalette
 
         // 整张图都没有色度信号时直接给纯灰，不带任何色调
+        val palette = dominantColors(quantized)
         if (isGrayscaleSwatches(quantized)) {
             val base = grayscaleBaseColor(quantized)
             return PlayerBackdropPalette(
                 base = base,
                 textHighlight = lerp(base, Color.White, 0.85f),
+                palette = palette,
             )
         }
 
@@ -138,6 +142,7 @@ private fun extractBackdropPalette(bitmap: Bitmap): PlayerBackdropPalette {
         PlayerBackdropPalette(
             base = base,
             textHighlight = lerp(base, Color.White, 0.85f),
+            palette = palette,
         )
     } catch (e: Exception) {
         AppLogger.d(TAG, "取色失败，使用默认深灰色板", e)
@@ -163,6 +168,28 @@ internal fun grayscaleBaseColor(swatches: List<VibrantSwatch>): Color {
     val dominant = swatches.maxByOrNull { it.population } ?: return FallbackBase
     val lightness = dominant.hsl[2].coerceIn(0.15f, 0.35f)
     return Color(android.graphics.Color.HSVToColor(floatArrayOf(0f, 0f, lightness)))
+}
+
+const val COVER_PALETTE_SIZE = 5
+
+// 相近色合并的 RGB 欧氏距离阈值（0..1 通道），量化后相邻色阶不应占掉多个名额
+private const val PALETTE_MIN_DISTANCE = 0.1f
+
+// 按占比取前 COVER_PALETTE_SIZE 个互相有区分度的颜色，占比从高到低
+internal fun dominantColors(swatches: List<VibrantSwatch>): List<Color> {
+    val chosen = ArrayList<Color>(COVER_PALETTE_SIZE)
+    for (swatch in swatches.filter { it.population > 0 }.sortedByDescending { it.population }) {
+        if (chosen.size >= COVER_PALETTE_SIZE) break
+        val color = swatch.rgb
+        val distinct = chosen.none {
+            val dr = it.red - color.red
+            val dg = it.green - color.green
+            val db = it.blue - color.blue
+            kotlin.math.sqrt(dr * dr + dg * dg + db * db) < PALETTE_MIN_DISTANCE
+        }
+        if (distinct) chosen += color
+    }
+    return chosen
 }
 
 // 纸白与纯黑：封面留白/高光与暗部，不参与任何分组

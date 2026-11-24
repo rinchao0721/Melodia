@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
 import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -66,6 +67,7 @@ fun FullPlayerLyricsOverlay(
     onControlsVisibilityChange: (Boolean) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
     pluginContent: (@Composable (LyricsPageSlots) -> Unit)? = null,
+    trackId: String = "",
     modifier: Modifier = Modifier
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
@@ -101,7 +103,7 @@ fun FullPlayerLyricsOverlay(
         val visibilityTransition = transition
         val layout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]
         val frame = layout?.frame
-        val coverColors = LayoutCoverColors(colors.base, colors.textHighlight)
+        val coverColors = LayoutCoverColors(colors.base, colors.textHighlight, colors.palette)
         val lyricColors = rememberPluginLyricColors(coverColors)
         val page: @Composable () -> Unit = {
             FullScreenLyricsView(
@@ -151,8 +153,11 @@ fun FullPlayerLyricsOverlay(
                 pluginContent = pluginContent
             )
         }
-        Box(modifier = Modifier.fillMaxSize().then(modifier)) {
-            if (layout?.canvasScript != null) page() else ImmersiveTheme(colors.base) { page() }
+        val canvasInfo = rememberPluginCanvasInfo(trackId, duration, coverUrl, colors.palette, isPlaying, lyricPositionProvider)
+        CompositionLocalProvider(LocalPluginCanvasInfo provides canvasInfo) {
+            Box(modifier = Modifier.fillMaxSize().then(modifier)) {
+                if (layout?.hasCustomBackdrop == true) page() else ImmersiveTheme(colors.base) { page() }
+            }
         }
     }
 }

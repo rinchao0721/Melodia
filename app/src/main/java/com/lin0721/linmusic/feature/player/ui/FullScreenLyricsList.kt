@@ -60,6 +60,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.lyricLineKey
+import com.lin0721.linmusic.core.plugin.LayoutAlign
+import com.lin0721.linmusic.core.plugin.LayoutLyricsStyle
+import kotlin.math.roundToInt
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -90,6 +93,8 @@ fun FullScreenLyricsList(
     centerFirstLine: Boolean = false,
     topInsetPx: Float = 0f,
     fontSize: Int = 22,
+    // 插件声明的歌词样式，在用户设置之上叠加
+    lyricsStyle: LayoutLyricsStyle? = null,
     alignment: String = "left",
     secondaryMode: String = "translation",
     lineSpacing: Int = 24,
@@ -105,9 +110,18 @@ fun FullScreenLyricsList(
     showSeekGuide: Boolean = true,
     userScrollEnabled: Boolean = true,
     onLineTextBounds: ((index: Int, bounds: Rect) -> Unit)? = null,
+    maxContentWidth: Dp = 760.dp,
     onSeek: (Long) -> Unit,
     onLyricClick: (LyricLine) -> Unit
 ) {
+    val fontScale = lyricsStyle?.fontScale ?: 1f
+    val fontSize = (fontSize * fontScale).roundToInt().coerceAtLeast(1)
+    val lineSpacing = (lineSpacing * (lyricsStyle?.lineSpacing ?: 1f)).roundToInt()
+    val alignment = when (lyricsStyle?.align) {
+        LayoutAlign.START -> "left"
+        LayoutAlign.CENTER -> "center"
+        else -> alignment
+    }
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val defaultHalfViewportDp = remember(configuration.screenHeightDp) { (configuration.screenHeightDp / 2).dp }
@@ -140,7 +154,7 @@ fun FullScreenLyricsList(
         }
 
         // 估算值以默认间距（行距 24dp、副文本距 6dp）为基准，按设置的差值修正
-        val itemStridePx = with(density) { (66 + lineSpacing - 24).coerceAtLeast(1).dp.toPx() }
+        val itemStridePx = with(density) { (66 * fontScale + lineSpacing - 24).roundToInt().coerceAtLeast(1).dp.toPx() }
         val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
 
         if (currentIndex < linesAboveCentre) {
@@ -155,7 +169,7 @@ fun FullScreenLyricsList(
         val current = lyrics[currentIndex]
         val hasSecondary = current.backgroundLine != null || secondaryText(current, secondaryMode) != null
         val itemHeightPx = with(density) {
-            (if (hasSecondary) 96 + secondarySpacing - 6 else 54).coerceAtLeast(1).dp.toPx()
+            ((if (hasSecondary) 96 + secondarySpacing - 6 else 54) * fontScale).roundToInt().coerceAtLeast(1).dp.toPx()
         }
         val desiredOffsetPx = ((viewportHeightPx - itemHeightPx) / 2f).toInt()
         lazyListState.springScrollToCentreClassic(
@@ -193,7 +207,7 @@ fun FullScreenLyricsList(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth()
-                .widthIn(max = 760.dp)
+                .widthIn(max = maxContentWidth)
         ) {
             // 切换歌词源时保留当前列表，后台完成后再替换，避免移除列表后重新排版。
             if (isLoading && lyrics.isEmpty()) {
@@ -256,6 +270,8 @@ fun FullScreenLyricsList(
                         currentPositionProvider = currentPositionProvider,
                         fontSize = fontSize,
                         alignment = alignment,
+                        activeScale = lyricsStyle?.activeScale,
+                        inactiveBlur = if (isUserScrolling) 0f else lyricsStyle?.inactiveBlur ?: 0f,
                         secondaryMode = secondaryMode,
                         secondarySpacing = secondarySpacing,
                         advancedKaraokeEffect = advancedKaraokeEffect,

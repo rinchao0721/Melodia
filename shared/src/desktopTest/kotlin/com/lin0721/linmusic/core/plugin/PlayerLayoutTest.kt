@@ -926,4 +926,205 @@ class PlayerLayoutTest {
         assertEquals(2, result.root.children.size)
         assertTrue(PlayerLayoutParser.load(manifest, PlayerLayoutArea.DESKTOP_PLAYER_BAR) is PlayerLayoutParseResult.Failure)
     }
+
+    private fun parseApi(area: PlayerLayoutArea, text: String, minor: Int) =
+        PlayerLayoutParser.parse(area, json(text), minor) as PlayerLayoutParseResult.Success
+
+    @Test
+    fun `backdrop 在 1_12 起解析并收敛数值`() {
+        val wrapped = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"layout":{"type":"controls"},"frame":{"backdrop":{"type":"coverBlur","blur":999,"scale":0.2,"saturation":9,"dim":{"light":0.08,"dark":2},"drift":false}}}""", 12)
+        val backdrop = wrapped.frame.backdrop!!
+        assertEquals(150f, backdrop.blur, 0f)
+        assertEquals(1f, backdrop.scale, 0f)
+        assertEquals(3f, backdrop.saturation, 0f)
+        assertEquals(0.08f, backdrop.dimLight, 0f)
+        assertEquals(1f, backdrop.dimDark, 0f)
+        assertEquals(false, backdrop.drift)
+        assertTrue(wrapped.warnings.isEmpty())
+    }
+
+    @Test
+    fun `backdrop 默认值数字 dim 与非法字段`() {
+        val defaults = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"backdrop":{"type":"coverBlur"}}}""", 12)
+        assertEquals(LayoutBackdrop(), defaults.frame.backdrop)
+        val shared = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"backdrop":{"dim":0.5}}}""", 12).frame.backdrop!!
+        assertEquals(0.5f, shared.dimLight, 0f)
+        assertEquals(0.5f, shared.dimDark, 0f)
+        val badField = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"backdrop":{"blur":"x","bogus":1}}}""", 12)
+        assertEquals(LayoutBackdrop.DEFAULT_BLUR, badField.frame.backdrop!!.blur, 0f)
+        assertEquals(2, badField.warnings.size)
+        val badType = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"backdrop":{"type":"video"}}}""", 12)
+        assertNull(badType.frame.backdrop)
+        assertTrue(badType.warnings.any { it.contains("frame.backdrop") })
+        val notObject = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"backdrop":true}}""", 12)
+        assertNull(notObject.frame.backdrop)
+        assertEquals(1, notObject.warnings.size)
+    }
+
+    @Test
+    fun `1_12 以前的插件不识别新 frame 字段`() {
+        val legacy = parseApi(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"layout":"host","frame":{"backdrop":{"type":"coverBlur"},"canvasCover":true,"lyricsStyle":{"fontScale":1.2}}}""", 11)
+        assertEquals(PlayerLayoutFrame.Default, legacy.frame)
+        assertEquals(3, legacy.warnings.size)
+        assertTrue(legacy.warnings.all { it.contains("不支持 frame.") })
+        val wide = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
+            """{"layout":"host","frame":{"lyricsPadding":[10,10],"lyricsMaxWidth":500,"backdrop":{}}}""", 11)
+        assertEquals(PlayerLayoutFrame.Default, wide.frame)
+        assertEquals(3, wide.warnings.size)
+    }
+
+    @Test
+    fun `canvasCover 只接受布尔值`() {
+        assertTrue(parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":{"type":"controls"},"frame":{"canvasCover":true}}""", 12).frame.canvasCover)
+        val invalid = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"layout":"host","frame":{"canvasCover":"yes"}}""", 12)
+        assertEquals(false, invalid.frame.canvasCover)
+        assertEquals(1, invalid.warnings.size)
+        // 迷你播放器没有画布
+        val mini = parseApi(PlayerLayoutArea.ANDROID_MINI_PLAYER, """{"layout":{"type":"controls"},"frame":{"canvasCover":true}}""", 12)
+        assertEquals(false, mini.frame.canvasCover)
+        assertEquals(1, mini.warnings.size)
+    }
+
+    @Test
+    fun `lyricsStyle 数值收敛与非法值回退`() {
+        val style = parseApi(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"layout":"host","frame":{"lyricsStyle":{"fontScale":9,"align":"center","activeScale":0,"inactiveBlur":99,"lineSpacing":0.1}}}""", 12).frame.lyricsStyle!!
+        assertEquals(1.6f, style.fontScale, 0f)
+        assertEquals(LayoutAlign.CENTER, style.align)
+        assertEquals(1f, style.activeScale!!, 0f)
+        assertEquals(6f, style.inactiveBlur, 0f)
+        assertEquals(0.8f, style.lineSpacing, 0f)
+        val partial = parseApi(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"layout":"host","frame":{"lyricsStyle":{"align":"end","fontScale":"big","other":1,"activeScale":1.06}}}""", 12)
+        val value = partial.frame.lyricsStyle!!
+        assertNull(value.align)
+        assertEquals(1f, value.fontScale, 0f)
+        assertEquals(1.06f, value.activeScale!!, 0f)
+        assertEquals(3, partial.warnings.size)
+        assertNull(parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"lyricsStyle":[]}}""", 12).frame.lyricsStyle)
+        // 只有歌词页有这个字段
+        val other = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER, """{"layout":{"type":"controls"},"frame":{"lyricsStyle":{"fontScale":1.2}}}""", 12)
+        assertNull(other.frame.lyricsStyle)
+        assertEquals(1, other.warnings.size)
+    }
+
+    @Test
+    fun `宽屏右栏留白与最大宽度`() {
+        val frame = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE,
+            """{"layout":"host","frame":{"lyricsPadding":[-5,500],"lyricsMaxWidth":50,"cards":false}}""", 12).frame
+        assertEquals(LayoutLyricsPadding(0f, 120f), frame.lyricsPadding)
+        assertEquals(320f, frame.lyricsMaxWidth!!, 0f)
+        assertEquals(false, frame.cards)
+        assertEquals(1000f, parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"layout":"host","frame":{"lyricsMaxWidth":5000}}""", 12).frame.lyricsMaxWidth!!, 0f)
+        for (bad in listOf("[1]", """[1,"a"]""", "[1,2,3]", "5")) {
+            val result = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"layout":"host","frame":{"lyricsPadding":$bad}}""", 12)
+            assertNull(result.frame.lyricsPadding)
+            assertEquals(1, result.warnings.size)
+        }
+        assertNull(parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"layout":"host","frame":{"lyricsMaxWidth":"wide"}}""", 12).frame.lyricsMaxWidth)
+    }
+
+    @Test
+    fun `宽屏区域按 API 开放收起更多与来源组件`() {
+        val tree = """{"type":"column","children":[{"type":"collapseButton"},{"type":"moreButton"},{"type":"sourceLabel"},{"type":"controls"}]}"""
+        val modern = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, tree, 12)
+        assertEquals(
+            listOf(LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL, LayoutNodeType.CONTROLS),
+            modern.root.children.map { it.type }
+        )
+        assertTrue(modern.warnings.isEmpty())
+        val legacy = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, tree, 11)
+        assertEquals(listOf(LayoutNodeType.CONTROLS), legacy.root.children.map { it.type })
+        assertEquals(3, legacy.warnings.size)
+        val header = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE, """{"layout":{"type":"controls"},"frame":{"header":"none"}}""", 11)
+        assertEquals(LayoutHeader.NONE, header.frame.header)
+    }
+
+    @Test
+    fun `cover glow 解析与收敛`() {
+        val glow = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER,
+            """{"type":"column","children":[{"type":"cover","glow":{"color":"cover.accent","radius":500,"opacity":3,"offset":[-100,100]}},{"type":"controls"}]}""", 12)
+            .root.children[0].glow!!
+        assertEquals(LayoutColor.Cover(true), glow.color)
+        assertEquals(64f, glow.radius, 0f)
+        assertEquals(1f, glow.opacity, 0f)
+        assertEquals(-48f, glow.offsetX, 0f)
+        assertEquals(48f, glow.offsetY, 0f)
+        val defaults = parseApi(PlayerLayoutArea.ANDROID_LYRICS,
+            """{"type":"column","children":[{"type":"cover","glow":{}},{"type":"lyricsView"}]}""", 12).root.children[0].glow!!
+        assertEquals(LayoutGlow(LayoutColor.Cover(false), 32f, 0.6f, 0f, 12f), defaults)
+    }
+
+    @Test
+    fun `cover glow 非法值忽略且按 API 和区域门控`() {
+        fun glowOf(area: PlayerLayoutArea, glow: String, minor: Int = 12): Pair<LayoutGlow?, List<String>> {
+            val result = parseApi(area, """{"type":"column","children":[{"type":"cover","glow":$glow},{"type":"controls"}]}""", minor)
+            return result.root.children[0].glow to result.warnings
+        }
+        for (bad in listOf("true", """{"radius":"big"}""", """{"opacity":"x"}""", "{\"offset\":[1]}", """{"offset":[1,"a"]}""", """{"color":"nonsense"}""")) {
+            val (glow, warnings) = glowOf(PlayerLayoutArea.ANDROID_FULL_PLAYER, bad)
+            assertNull(bad, glow)
+            assertEquals(bad, 1, warnings.size)
+        }
+        val (old, oldWarnings) = glowOf(PlayerLayoutArea.ANDROID_FULL_PLAYER, "{}", 11)
+        assertNull(old)
+        assertTrue(oldWarnings.isEmpty())
+        val (mini, miniWarnings) = glowOf(PlayerLayoutArea.ANDROID_MINI_PLAYER, "{}")
+        assertNull(mini)
+        assertEquals(1, miniWarnings.size)
+    }
+
+    @Test
+    fun `cover paletteN 颜色表达式仅 1_12 起可用`() {
+        for (index in 0..4) {
+            val mix = LayoutStyleParser.color(json("""{"mix":["cover.palette$index","#FFFFFF"],"amount":0.2}""")) as LayoutColor.Mix
+            assertEquals(LayoutColor.CoverPalette(index), mix.from)
+        }
+        assertNull(LayoutStyleParser.color(kotlinx.serialization.json.JsonPrimitive("cover.palette5")))
+        assertNull(LayoutStyleParser.color(kotlinx.serialization.json.JsonPrimitive("cover.palette0"), palette = false))
+        assertNull(LayoutStyleParser.color(json("""{"adjust":"cover.palette1","hue":10}"""), palette = false))
+        assertTrue(LayoutStyleParser.fill(json("""{"gradient":["cover.palette0","cover.palette1"]}""")) is LayoutFill.Gradient)
+        assertNull(LayoutStyleParser.fill(json("""{"gradient":["cover.palette0","cover.base"]}"""), palette = false))
+        val tree = """{"type":"column","background":"cover.palette2","children":[{"type":"controls"}]}"""
+        assertEquals(LayoutFill.Solid(LayoutColor.CoverPalette(2)), parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER, tree, 12).root.background)
+        val legacy = parseApi(PlayerLayoutArea.ANDROID_FULL_PLAYER, tree, 11)
+        assertNull(legacy.root.background)
+        assertTrue(legacy.warnings.any { it.contains("background") })
+        val frame = parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"sungColor":"cover.palette0","canvasColors":{"a":"cover.palette4"}}}""", 12).frame
+        assertEquals(LayoutColor.CoverPalette(0), frame.sungColor)
+        assertEquals(LayoutColor.CoverPalette(4), frame.canvasColors["a"])
+        assertNull(parseApi(PlayerLayoutArea.ANDROID_LYRICS, """{"layout":"host","frame":{"sungColor":"cover.palette0"}}""", 11).frame.sungColor)
+    }
+
+    @Test
+    fun `load 按 apiVersion 门控扩展字段`() {
+        val folder = Files.createTempDirectory("extended-plugin").toFile()
+        try {
+            fun loaded(apiVersion: String): PlayerLayoutParseResult.Success {
+                val manifest = (PluginParser.parse(
+                    """{"format":2,"id":"com.example.ext","name":"扩展","version":"1","apiVersion":"$apiVersion",
+                        "contributes":{"playerLayouts":{"android.lyrics":{"layout":"host","frame":{"lyricsStyle":{"fontScale":1.2}}}}}}""",
+                    folder, PluginPlatform.ANDROID
+                ) as PluginParseResult.Success).manifest
+                return PlayerLayoutParser.load(manifest, PlayerLayoutArea.ANDROID_LYRICS) as PlayerLayoutParseResult.Success
+            }
+            val modern = loaded("1.12")
+            assertTrue(modern.extendedApi)
+            assertEquals(1.2f, modern.frame.lyricsStyle!!.fontScale, 0f)
+            assertTrue(modern.spec.extendedApi)
+            val legacy = loaded("1.11")
+            assertEquals(false, legacy.extendedApi)
+            assertNull(legacy.frame.lyricsStyle)
+        } finally { folder.deleteRecursively() }
+    }
+
+    @Test
+    fun `自定义背景判定包含画布与原生模糊封面`() {
+        val root = PlayerLayoutNode(LayoutNodeType.BOX)
+        assertEquals(false, PlayerLayoutSpec(root).hasCustomBackdrop)
+        assertTrue(PlayerLayoutSpec(root, canvasScript = "x").hasCustomBackdrop)
+        assertTrue(PlayerLayoutSpec(root, PlayerLayoutFrame(backdrop = LayoutBackdrop())).hasCustomBackdrop)
+    }
 }

@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
 import com.lin0721.linmusic.core.plugin.androidPlayerLayout
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
+import com.lin0721.linmusic.core.plugin.LayoutHeader
 import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -266,7 +267,7 @@ private fun FullPlayerScreenContent(
     // 手机全屏歌词盖住状态栏且是有色底，浅色主题下状态栏图标切为浅色
     LightStatusBarIconsWhile(
         isPlayerOpen && isLyricsFullScreen && onToggleSidebarFullscreen == null &&
-            LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.canvasScript == null
+            LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]?.hasCustomBackdrop != true
     )
 
     LaunchedEffect(isLyricsFullScreen) {
@@ -497,7 +498,7 @@ private fun FullPlayerScreenContent(
         )
     }
     val colors = rememberFullPlayerColors(colorPalette)
-    val lyricsCoverColors = LayoutCoverColors(colorPalette.base, colorPalette.textHighlight)
+    val lyricsCoverColors = LayoutCoverColors(colorPalette.base, colorPalette.textHighlight, colorPalette.palette)
 
     val title = currentTrack.title
     val artist = currentTrack.artist
@@ -797,15 +798,37 @@ private fun FullPlayerScreenContent(
             )
     ) {
         val canvasScript = pluginFullLayout?.canvasScript
-        if (canvasScript != null) {
-            PluginCanvasBackdrop(
-                script = canvasScript,
-                base = if (pluginFullLayout.frame.canvasColors.isEmpty()) colors.base else colorPalette.base,
+        val coverBackdrop = pluginFullLayout?.frame?.backdrop
+        if (coverBackdrop != null) {
+            CoverBlurBackdrop(
+                coverUrl = coverUrl,
+                style = coverBackdrop,
                 playing = isPlaying && !isLyricsFullScreen,
-                modifier = Modifier.matchParentSize(),
-                colors = pluginFullLayout.frame.canvasColors
+                modifier = Modifier.matchParentSize()
             )
-        } else PlayerBackdrop(
+        }
+        if (canvasScript != null) {
+            val canvasInfo = rememberPluginCanvasInfo(
+                trackId = currentTrack.mediaId,
+                durationMs = if (duration > 0L) duration else (songDetail?.dt ?: 0L),
+                coverUrl = coverUrl,
+                palette = colorPalette.palette,
+                isPlaying = isPlaying,
+                positionProvider = lyricPositionProvider
+            )
+            CompositionLocalProvider(LocalPluginCanvasInfo provides canvasInfo) {
+                PluginCanvasBackdrop(
+                    script = canvasScript,
+                    base = if (pluginFullLayout.frame.canvasColors.isEmpty()) colors.base else colorPalette.base,
+                    playing = isPlaying && !isLyricsFullScreen,
+                    modifier = Modifier.matchParentSize(),
+                    colors = pluginFullLayout.frame.canvasColors,
+                    extended = pluginFullLayout.extendedApi,
+                    wantsCover = pluginFullLayout.frame.canvasCover,
+                    transparent = coverBackdrop != null
+                )
+            }
+        } else if (coverBackdrop == null) PlayerBackdrop(
             base = colors.base,
             mode = BackdropMode.Collapsed,
             translationYProvider = { if (showColumnLayout) scrollMetrics.backgroundTranslationY else 0f }
@@ -848,7 +871,7 @@ private fun FullPlayerScreenContent(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (pluginFullLayout?.canvasScript == null) Modifier.haze(hazeState) else Modifier)
+                        .then(if (pluginFullLayout?.hasCustomBackdrop != true) Modifier.haze(hazeState) else Modifier)
                         // 全屏歌词完整盖住且未处于返回跟手时整页不可见，跳过绘制；开始跟手缩小时立即恢复绘制以透出底层播放页
                         .drawWithContent {
                             if (!lyricsCoverage.isCovering || lyricsBackDismissState.fraction > 0f) drawContent()
@@ -1001,7 +1024,30 @@ private fun FullPlayerScreenContent(
                         .coerceIn(0f, 1f)
                 }
 
+            // 插件去掉宿主顶栏，且布局（含各变体）里没有一定看得见的收起按钮时，在左上角补一个
+            val wideHeaderHidden = pluginWideLayout?.frame?.header == LayoutHeader.NONE
+            val wideNeedsCollapse = wideHeaderHidden && pluginWideLayout != null &&
+                (listOf(pluginWideLayout.root) + pluginWideLayout.variants.map { it.root }).any { root ->
+                    pluginWideLayout.hostContent || !root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }
+                }
             FullPlayerWideLayout(
+                showSourceBar = !wideHeaderHidden,
+                overlay = if (wideNeedsCollapse) {
+                    {
+                        FullPlayerCollapseButtons(
+                            onClose = onClose,
+                            onToggleSidebarFullscreen = onToggleSidebarFullscreen,
+                            isSidebarFullscreen = isSidebarFullscreen,
+                            modifier = Modifier.align(Alignment.TopStart).padding(horizontal = MelodiaSpacing.lg).padding(top = MelodiaSpacing.md)
+                        )
+                    }
+                } else {
+                    null
+                },
+                lyricsStyle = rememberPluginLyricsStyle(),
+                lyricsPadding = pluginWideLayout?.frame?.lyricsPadding,
+                lyricsMaxWidth = pluginWideLayout?.frame?.lyricsMaxWidth,
+                showCards = !(pluginWideLayout?.extendedApi == true && pluginWideLayout.frame.cards == false),
                 sourceBar = { barModifier ->
                     FullPlayerSourceBar(
                         playContext = playContext,
@@ -1177,6 +1223,7 @@ private fun FullPlayerScreenContent(
             } else {
                 null
             },
+            trackId = currentTrack.mediaId,
             modifier = Modifier.backDismissPreview(lyricsBackDismissState, TransformOrigin(0.5f, 1f))
         )
 

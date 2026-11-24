@@ -144,9 +144,20 @@ fun PlayerBackdrop(
 ) {
     val backgroundLayout = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_LYRICS]
     val canvasScript = backgroundLayout?.canvasScript
-    if (mode == BackdropMode.Immersive && canvasScript != null) {
+    if (mode == BackdropMode.Immersive && backgroundLayout != null && backgroundLayout.hasCustomBackdrop) {
+        val coverBackdrop = backgroundLayout.frame.backdrop
         Box(modifier) {
-            PluginCanvasBackdrop(canvasScript, base, animateMesh, Modifier.matchParentSize(), backgroundLayout.frame.canvasColors)
+            if (coverBackdrop != null) {
+                CoverBlurBackdrop(LocalPluginCanvasInfo.current?.coverUrl.orEmpty(), coverBackdrop, animateMesh, Modifier.matchParentSize())
+            }
+            if (canvasScript != null) {
+                PluginCanvasBackdrop(
+                    canvasScript, base, animateMesh, Modifier.matchParentSize(), backgroundLayout.frame.canvasColors,
+                    extended = backgroundLayout.extendedApi,
+                    wantsCover = backgroundLayout.frame.canvasCover,
+                    transparent = coverBackdrop != null
+                )
+            }
             content()
         }
         return

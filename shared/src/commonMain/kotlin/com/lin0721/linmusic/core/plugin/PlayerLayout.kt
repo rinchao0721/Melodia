@@ -140,6 +140,15 @@ enum class PagerIndicator(val key: String) {
     }
 }
 
+// 封面彩色投影（API 1.12 起）
+data class LayoutGlow(
+    val color: LayoutColor,
+    val radius: Float,
+    val opacity: Float,
+    val offsetX: Float,
+    val offsetY: Float
+)
+
 data class LayoutPadding(val top: Float = 0f, val end: Float = 0f, val bottom: Float = 0f, val start: Float = 0f) {
     companion object {
         val Zero = LayoutPadding()
@@ -213,7 +222,9 @@ data class PlayerLayoutNode(
     // list 每行的列数
     val columns: Int = 1,
     // input 遮挡显示
-    val secret: Boolean = false
+    val secret: Boolean = false,
+    // 仅 cover 使用
+    val glow: LayoutGlow? = null
 ) {
     fun contains(type: LayoutNodeType): Boolean = this.type == type || children.any { it.contains(type) }
 
@@ -255,7 +266,10 @@ enum class PlayerLayoutArea(
     val controlButtons: List<String> = CONTROL_BUTTONS,
     // frame 里本区域支持的字段
     val frameFields: Set<String> = emptySet(),
-    val hostActions: Set<HostAction> = HostAction.COMMON
+    val hostActions: Set<HostAction> = HostAction.COMMON,
+    // 以下仅对 apiVersion ≥ 1.12 的插件开放
+    val extendedFrameFields: Set<String> = emptySet(),
+    val extendedComponents: Set<LayoutNodeType> = emptySet()
 ) {
     ANDROID_FULL_PLAYER(
         "android.fullPlayer", "Android 全屏播放页",
@@ -269,7 +283,8 @@ enum class PlayerLayoutArea(
         ANDROID_ACTIONS,
         ALL_CONTROLS,
         frameFields = setOf("header", "cards", "canvas", "canvasColors"),
-        hostActions = HostAction.ANDROID_PLAYER + HostAction.COLLAPSE
+        hostActions = HostAction.ANDROID_PLAYER + HostAction.COLLAPSE,
+        extendedFrameFields = setOf("backdrop", "canvasCover")
     ),
     ANDROID_FULL_PLAYER_WIDE(
         "android.fullPlayerWide", "Android 宽屏播放页",
@@ -281,7 +296,9 @@ enum class PlayerLayoutArea(
         ANDROID_ACTIONS,
         ALL_CONTROLS,
         frameFields = setOf("split", "header", "cards", "canvas", "canvasColors"),
-        hostActions = HostAction.ANDROID_PLAYER
+        hostActions = HostAction.ANDROID_PLAYER,
+        extendedFrameFields = setOf("backdrop", "canvasCover", "lyricsPadding", "lyricsMaxWidth"),
+        extendedComponents = setOf(LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL)
     ),
     ANDROID_MINI_PLAYER(
         "android.miniPlayer", "Android 迷你播放器",
@@ -329,7 +346,8 @@ enum class PlayerLayoutArea(
             "canvas", "canvasColors", "sungColor", "unsungColor", "harmonySungColor", "harmonyUnsungColor",
             "translationColor", "romanizationColor"
         ),
-        hostActions = HostAction.ANDROID_LYRICS
+        hostActions = HostAction.ANDROID_LYRICS,
+        extendedFrameFields = setOf("backdrop", "canvasCover", "lyricsStyle")
     ),
     DESKTOP_LYRICS_VIEW(
         "desktop.lyricsView", "桌面歌词页",
@@ -348,6 +366,12 @@ enum class PlayerLayoutArea(
     val defaultControlButtons: List<String> get() = controlButtons - OPT_IN_BUTTONS
     val defaultActionButtons: List<String> get() = actionButtons - OPT_IN_BUTTONS
 
+    fun componentsFor(apiMinor: Int): Set<LayoutNodeType> =
+        if (apiMinor >= EXTENDED_API_MINOR) components + extendedComponents else components
+
+    // 封面 glow 可用的区域
+    val supportsGlow: Boolean get() = this == ANDROID_FULL_PLAYER || this == ANDROID_FULL_PLAYER_WIDE || this == ANDROID_LYRICS
+
     // 缺少必需组件时返回原因
     fun missingRequired(root: PlayerLayoutNode): String? = when (this) {
         DESKTOP_PLAYER_BAR -> when {
@@ -363,6 +387,9 @@ enum class PlayerLayoutArea(
     }
 
     companion object {
+        // 播放页扩展接口（背景、调色板、歌词样式、封面投影等）起始的 API 次版本
+        const val EXTENDED_API_MINOR = 12
+
         fun fromKey(key: String): PlayerLayoutArea? = entries.firstOrNull { it.key == key }
     }
 }
@@ -387,11 +414,13 @@ sealed interface PlayerLayoutParseResult {
         val variants: List<PlayerLayoutVariant> = emptyList(),
         val hostContent: Boolean = false,
         val canvasScript: String? = null,
-        val separateLandscape: Boolean = false
+        val separateLandscape: Boolean = false,
+        val extendedApi: Boolean = false
     ) : PlayerLayoutParseResult {
         val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(
             root, frame, variants,
-            hostContent = hostContent, canvasScript = canvasScript, separateLandscape = separateLandscape
+            hostContent = hostContent, canvasScript = canvasScript, separateLandscape = separateLandscape,
+            extendedApi = extendedApi
         )
     }
     data class Failure(val reason: String) : PlayerLayoutParseResult
@@ -434,31 +463,31 @@ object PlayerLayoutParser {
     private class TooLarge(message: String) : Exception(message)
 
     // 值可以直接是布局树，也可以是带 layout 字段的外壳对象
-    fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
-        if ("layout" !in root || "type" in root) return parseAreaTree(area, root, emptyMap())
+    fun parse(area: PlayerLayoutArea, root: JsonObject, apiMinor: Int = PLUGIN_API_MINOR): PlayerLayoutParseResult {
+        if ("layout" !in root || "type" in root) return parseAreaTree(area, root, emptyMap(), apiMinor)
         if ((root["layout"] as? JsonPrimitive)?.content == "host") {
             if (area !in setOf(PlayerLayoutArea.ANDROID_MINI_PLAYER, PlayerLayoutArea.ANDROID_LYRICS, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE)) return PlayerLayoutParseResult.Failure("layout: host 仅支持 Android 迷你播放器、全屏歌词页和宽屏播放页")
             if (root.keys.any { it !in setOf("layout", "frame") }) return PlayerLayoutParseResult.Failure("宿主内容模式只支持 layout 和 frame")
             val warnings = mutableListOf<String>()
-            val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
+            val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings, apiMinor)
             return PlayerLayoutParseResult.Success(PlayerLayoutNode(LayoutNodeType.BOX), warnings, frame, hostContent = true)
         }
         val layout = root["layout"] as? JsonObject ?: return PlayerLayoutParseResult.Failure("layout 不是有效的布局对象")
         val styleWarnings = mutableListOf<String>()
         val styles = LayoutStyleParser.styles(root["styles"], styleWarnings)
-        val main = parseAreaTree(area, layout, styles)
+        val main = parseAreaTree(area, layout, styles, apiMinor)
         if (main !is PlayerLayoutParseResult.Success) return main
         val warnings = (styleWarnings + main.warnings).toMutableList()
         root.keys.filter { it !in WRAPPER_KEYS }.forEach { warnings += "布局不支持字段 $it，已忽略" }
-        val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
-        return main.copy(warnings = warnings, frame = frame, variants = variants(area, root["variants"], styles, warnings))
+        val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings, apiMinor)
+        return main.copy(warnings = warnings, frame = frame, variants = variants(area, root["variants"], styles, warnings, apiMinor))
     }
 
-    private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject, styles: Map<String, JsonObject>): PlayerLayoutParseResult {
+    private fun parseAreaTree(area: PlayerLayoutArea, root: JsonObject, styles: Map<String, JsonObject>, apiMinor: Int): PlayerLayoutParseResult {
         val node = parseTree(
-            root, area.components, area.label, area.controlButtons, area.actionButtons,
+            root, area.componentsFor(apiMinor), area.label, area.controlButtons, area.actionButtons,
             area.defaultControlButtons, area.defaultActionButtons, playerBindings = true, styles = styles,
-            hostActions = area.hostActions
+            hostActions = area.hostActions, extended = apiMinor >= PlayerLayoutArea.EXTENDED_API_MINOR, glowArea = area.supportsGlow
         )
         if (node !is PlayerLayoutParseResult.Success) return node
         area.missingRequired(node.root)?.let { return PlayerLayoutParseResult.Failure(it) }
@@ -470,7 +499,8 @@ object PlayerLayoutParser {
         area: PlayerLayoutArea,
         value: JsonElement?,
         styles: Map<String, JsonObject>,
-        warnings: MutableList<String>
+        warnings: MutableList<String>,
+        apiMinor: Int
     ): List<PlayerLayoutVariant> {
         if (value == null) return emptyList()
         val array = value as? JsonArray ?: return emptyList<PlayerLayoutVariant>().also { warnings += "variants 不是数组，已忽略" }
@@ -481,7 +511,7 @@ object PlayerLayoutParser {
             val condition = PlayerLayoutFrameParser.parseCondition(obj["when"], warnings, label)
                 ?: return@mapIndexedNotNull null.also { warnings += "$label 没有有效的 when 条件，已忽略" }
             val layout = obj["layout"] as? JsonObject ?: return@mapIndexedNotNull null.also { warnings += "$label 缺少 layout，已忽略" }
-            when (val parsed = parseAreaTree(area, layout, styles)) {
+            when (val parsed = parseAreaTree(area, layout, styles, apiMinor)) {
                 is PlayerLayoutParseResult.Failure -> null.also { warnings += "$label 无效（${parsed.reason}），已忽略" }
                 is PlayerLayoutParseResult.Success -> {
                     parsed.warnings.forEach { warnings += "$label：$it" }
@@ -506,7 +536,10 @@ object PlayerLayoutParser {
         // 播放器区域用 $player 绑定，页面用 $state / $item
         playerBindings: Boolean = false,
         styles: Map<String, JsonObject> = emptyMap(),
-        hostActions: Set<HostAction> = emptySet()
+        hostActions: Set<HostAction> = emptySet(),
+        // API 1.12 起的节点字段与颜色表达式
+        extended: Boolean = false,
+        glowArea: Boolean = false
     ): PlayerLayoutParseResult {
         val warnings = mutableListOf<String>()
         var count = 0
@@ -588,15 +621,15 @@ object PlayerLayoutParser {
                 offsetX = offset?.first ?: 0f,
                 offsetY = offset?.second ?: 0f,
                 background = obj["background"]?.let { value ->
-                    LayoutStyleParser.fill(value) ?: null.also { warnings += "background 取值无效，已忽略" }
+                    LayoutStyleParser.fill(value, extended) ?: null.also { warnings += "background 取值无效，已忽略" }
                 },
                 contentColor = obj["contentColor"]?.let { value ->
-                    LayoutStyleParser.color(value) ?: null.also { warnings += "contentColor 取值无效，已忽略" }
+                    LayoutStyleParser.color(value, extended) ?: null.also { warnings += "contentColor 取值无效，已忽略" }
                 },
                 opacity = obj.float("opacity")?.coerceIn(0f, 1f),
                 elevation = obj.float("elevation")?.coerceIn(0f, MAX_ELEVATION) ?: 0f,
                 border = obj["border"]?.let { value ->
-                    LayoutStyleParser.border(value, MAX_BORDER) ?: null.also { warnings += "border 取值无效，已忽略" }
+                    LayoutStyleParser.border(value, MAX_BORDER, extended) ?: null.also { warnings += "border 取值无效，已忽略" }
                 },
                 textAlign = enumValue(obj, "textAlign", LayoutAlign::fromKey, warnings),
                 animation = animation,
@@ -647,7 +680,8 @@ object PlayerLayoutParser {
                 max = max,
                 step = obj.float("step")?.takeIf { it > 0f } ?: 0f,
                 columns = obj.int("columns")?.coerceIn(1, MAX_COLUMNS) ?: 1,
-                secret = type == LayoutNodeType.INPUT && (obj["secret"] as? JsonPrimitive)?.booleanOrNull == true
+                secret = type == LayoutNodeType.INPUT && (obj["secret"] as? JsonPrimitive)?.booleanOrNull == true,
+                glow = if (extended && type == LayoutNodeType.COVER && "glow" in obj) glow(obj["glow"], glowArea, label, warnings) else null
             )
         }
         val node = try {
@@ -708,10 +742,13 @@ object PlayerLayoutParser {
             is PluginUiRef.Inline -> ref.tree
             is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
         }
-        var parsed = parse(area, json)
+        val minor = manifest.apiVersion?.substringAfter('.', "")?.toIntOrNull()
+        var parsed = parse(area, json, minor ?: 0)
         if (parsed is PlayerLayoutParseResult.Success) {
-            val minor = manifest.apiVersion?.substringAfter('.', "")?.toIntOrNull()
-            parsed = parsed.copy(separateLandscape = minor != null && minor >= SEPARATE_LANDSCAPE_API_MINOR)
+            parsed = parsed.copy(
+                separateLandscape = minor != null && minor >= SEPARATE_LANDSCAPE_API_MINOR,
+                extendedApi = minor != null && minor >= PlayerLayoutArea.EXTENDED_API_MINOR
+            )
             val path = parsed.frame.canvas
             if (path != null) {
                 val file = manifest.file(path)
@@ -763,6 +800,38 @@ object PlayerLayoutParser {
         val percent = text.removeSuffix("%").takeIf { text.endsWith("%") }?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
             ?: return null.also { warnings += "$key 取值 $text 无效，已忽略" }
         return (percent / 100f).coerceAtMost(1f)
+    }
+
+    private const val MAX_GLOW_RADIUS = 64f
+    private const val MAX_GLOW_OFFSET = 48f
+
+    // 封面投影；非法值整体忽略，数值收进范围
+    private fun glow(value: JsonElement?, supported: Boolean, label: String, warnings: MutableList<String>): LayoutGlow? {
+        if (!supported) return null.also { warnings += "${label}不支持 glow，已忽略" }
+        val obj = value as? JsonObject ?: return null.also { warnings += "glow 不是对象，已忽略" }
+        val color = if ("color" in obj) {
+            LayoutStyleParser.color(obj["color"]) ?: return null.also { warnings += "glow.color 取值无效，已忽略 glow" }
+        } else {
+            LayoutColor.Cover(false)
+        }
+        fun number(key: String, default: Float): Float? {
+            val item = obj[key] ?: return default
+            return (item as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull?.takeIf { it.isFinite() }
+        }
+        val radius = number("radius", 32f) ?: return null.also { warnings += "glow.radius 取值无效，已忽略 glow" }
+        val opacity = number("opacity", 0.6f) ?: return null.also { warnings += "glow.opacity 取值无效，已忽略 glow" }
+        var offsetX = 0f
+        var offsetY = 12f
+        val rawOffset = obj["offset"]
+        if (rawOffset != null) {
+            val pair = (rawOffset as? JsonArray)?.takeIf { it.size == 2 }?.mapNotNull {
+                (it as? JsonPrimitive)?.takeIf { p -> !p.isString }?.floatOrNull?.takeIf { v -> v.isFinite() }
+            }?.takeIf { it.size == 2 }
+                ?: return null.also { warnings += "glow.offset 取值无效，已忽略 glow" }
+            offsetX = pair[0].coerceIn(-MAX_GLOW_OFFSET, MAX_GLOW_OFFSET)
+            offsetY = pair[1].coerceIn(-MAX_GLOW_OFFSET, MAX_GLOW_OFFSET)
+        }
+        return LayoutGlow(color, radius.coerceIn(0f, MAX_GLOW_RADIUS), opacity.coerceIn(0f, 1f), offsetX, offsetY)
     }
 
     private fun offset(obj: JsonObject, warnings: MutableList<String>): Pair<Float, Float>? {
