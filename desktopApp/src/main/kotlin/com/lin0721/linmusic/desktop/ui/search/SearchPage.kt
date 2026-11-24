@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.format.formatDuration
+import com.lin0721.linmusic.core.platform.ArtistId
 import com.lin0721.linmusic.core.platform.UnifiedTrack
 import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.player.PlaybackController
@@ -352,10 +353,13 @@ private fun ResultEntry(
     when (item) {
         is SearchResultItem.SongItem -> {
             val unified = unifiedTracks[item.track.id]
-            val artistEntityIds = remember(unified) {
+            val artistEntityIds = remember(unified, item.track) {
+                // 无统一曲目时回退网易自带歌手 id，与统一曲目走同一条实体跳转
                 unified?.artists?.mapNotNull { artist ->
                     artist.id?.let { aid -> aid.toDeterministicLegacyId() to aid.canonical }
-                }?.toMap().orEmpty()
+                }?.toMap()
+                    ?: item.track.ar.filter { it.id > 0L }
+                        .associate { it.id to ArtistId.of(MusicPlatform.NETEASE, it.id.toString()).canonical }
             }
             val albumEntityIds = remember(unified) {
                 unified?.album?.id?.let { aid ->

@@ -80,6 +80,7 @@ internal fun SearchResultsContent(
     onSelectPlatform: (MusicPlatform) -> Unit,
     onSelectType: (SearchType) -> Unit,
     onSongClick: (Track) -> Unit,
+    onSongArtistClick: (Track) -> Unit = {},
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
@@ -153,6 +154,7 @@ internal fun SearchResultsContent(
                                 likedSongIds = likedSongIds,
                                 isLoggedIn = isLoggedIn,
                                 onSongClick = onSongClick,
+                                onSongArtistClick = onSongArtistClick,
                                 onAlbumClick = onAlbumClick,
                                 onArtistClick = onArtistClick,
                                 onPlaylistClick = onPlaylistClick,
@@ -197,6 +199,7 @@ internal fun SearchResultsContent(
                                 likedSongIds = likedSongIds,
                                 isLoggedIn = isLoggedIn,
                                 onSongClick = onSongClick,
+                                onSongArtistClick = onSongArtistClick,
                                 onAlbumClick = onAlbumClick,
                                 onArtistClick = onArtistClick,
                                 onPlaylistClick = onPlaylistClick,
@@ -349,6 +352,7 @@ private fun SearchResultsList(
     likedSongIds: Set<Long>,
     isLoggedIn: Boolean,
     onSongClick: (Track) -> Unit,
+    onSongArtistClick: (Track) -> Unit = {},
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
@@ -425,6 +429,7 @@ private fun SearchResultsList(
                                 isPlaying = isPlaying,
                                 copyable = true,
                                 onClick = { onSongClick(track) },
+                                onArtistClick = { onSongArtistClick(track) },
                                 trailingSlot = {
                                     if (isLoggedIn && showLikedBadge) {
                                         val isLiked = track.id in likedSongIds

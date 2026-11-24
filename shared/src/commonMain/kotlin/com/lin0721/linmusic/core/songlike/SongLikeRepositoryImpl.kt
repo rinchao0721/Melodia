@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.absoluteValue
 
-// 跨平台歌曲红心仓储：合并网易红心 + 酷狗云端红心 + 本机外部红心，并对外提供双视图状态流
+// 歌曲红心仓储：对外状态只反映当前账号平台（网易=网易红心+本机外部红心，酷狗=酷狗云端红心），写入路由不受平台影响
 class SongLikeRepositoryImpl(
     private val apiService: SongLikeApi,
     private val externalLikes: ExternalSongLikes? = null,
@@ -39,6 +39,7 @@ class SongLikeRepositoryImpl(
     private var manualNegativeIds: Set<Long> = emptySet()
     private var localExternalLikedIds: Set<Long> = emptySet()
     private var kugouLikedTracks: Set<TrackId> = emptySet()
+    private var activePlatform: MusicPlatform = MusicPlatform.NETEASE
     private val localTrackByLegacyId = ConcurrentHashMap<Long, TrackId>()
     private val kugouLegacyIdsByTrack = ConcurrentHashMap<TrackId, MutableSet<Long>>()
 
@@ -54,6 +55,16 @@ class SongLikeRepositoryImpl(
                 externalLikes.likedIds.collect { external ->
                     synchronized(stateLock) {
                         localExternalLikedIds = external
+                        rebuildStatesLocked()
+                    }
+                }
+            }
+        }
+        if (userPreferences != null) {
+            scope.launch {
+                userPreferences.currentPlatform.collect { platform ->
+                    synchronized(stateLock) {
+                        activePlatform = platform
                         rebuildStatesLocked()
                     }
                 }
@@ -180,6 +191,8 @@ class SongLikeRepositoryImpl(
 
     override fun syncLikedSongIds(ids: Set<Long>) {
         synchronized(stateLock) {
+            // 酷狗账号下暴露集合不含网易数据，回写会污染网易状态
+            if (activePlatform == MusicPlatform.KUGOU) return
             neteaseLikedIds = ids.filterTo(HashSet()) { it > 0L }
             manualNegativeIds = ids.filterTo(HashSet()) { it < 0L }
             rebuildStatesLocked()
@@ -353,28 +366,25 @@ class SongLikeRepositoryImpl(
         userPreferences?.activeAccountOf(MusicPlatform.KUGOU)?.first() != null
 
     private fun rebuildStatesLocked() {
-        val mergedSongIds = HashSet<Long>(
-            neteaseLikedIds.size + localExternalLikedIds.size + kugouLikedTracks.size + manualNegativeIds.size
-        )
-        mergedSongIds.addAll(neteaseLikedIds)
-        mergedSongIds.addAll(localExternalLikedIds)
-        mergedSongIds.addAll(manualNegativeIds)
-
-        val mergedTrackIds = LinkedHashSet<TrackId>(
-            neteaseLikedIds.size + localExternalLikedIds.size + kugouLikedTracks.size
-        )
-        neteaseLikedIds.forEach { id -> mergedTrackIds.add(TrackId.netease(id)) }
-        localExternalLikedIds.forEach { legacyId ->
-            localTrackByLegacyId[legacyId]?.let(mergedTrackIds::add)
+        val songIds = HashSet<Long>()
+        val trackIds = LinkedHashSet<TrackId>()
+        if (activePlatform == MusicPlatform.KUGOU) {
+            kugouLikedTracks.forEach { trackId ->
+                trackIds.add(trackId)
+                songIds.add(canonicalLegacySongId(trackId))
+                kugouLegacyIdsByTrack[trackId]?.let(songIds::addAll)
+            }
+        } else {
+            songIds.addAll(neteaseLikedIds)
+            songIds.addAll(localExternalLikedIds)
+            songIds.addAll(manualNegativeIds)
+            neteaseLikedIds.forEach { id -> trackIds.add(TrackId.netease(id)) }
+            localExternalLikedIds.forEach { legacyId ->
+                localTrackByLegacyId[legacyId]?.let(trackIds::add)
+            }
         }
-        kugouLikedTracks.forEach { trackId ->
-            mergedTrackIds.add(trackId)
-            mergedSongIds.add(canonicalLegacySongId(trackId))
-            kugouLegacyIdsByTrack[trackId]?.let(mergedSongIds::addAll)
-        }
-
-        _likedSongIds.value = mergedSongIds
-        _likedTrackIds.value = mergedTrackIds
+        _likedSongIds.value = songIds
+        _likedTrackIds.value = trackIds
     }
 
     private fun canonicalLegacySongId(trackId: TrackId): Long =

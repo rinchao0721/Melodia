@@ -33,6 +33,8 @@ import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.playlistexternal.toPlaylistTrack
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
+import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectSheet
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
@@ -97,6 +99,7 @@ fun SearchScreen(
 
     var optionsTrack by remember { mutableStateOf<Track?>(null) }
     var externalOptionsTrack by remember { mutableStateOf<ExternalTrack?>(null) }
+    var artistPickerEntries by remember { mutableStateOf<List<ArtistPickerEntry>>(emptyList()) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     CollectPromptEffect(viewModel.collectPromptEvent) { songId ->
         collectSongId = songId
@@ -249,6 +252,29 @@ fun SearchScreen(
                         onSelectPlatform = viewModel::selectPlatform,
                         onSelectType = viewModel::selectType,
                         onSongClick = viewModel::playSong,
+                        onSongArtistClick = { track ->
+                            // 跨平台歌手用 entityId，网易歌手直接用自带 id；无可跳转歌手时回退为播放
+                            val entityIds = unifiedTracks[track.id]?.artists?.mapNotNull { artist ->
+                                artist.id?.let { aid -> aid.toDeterministicLegacyId() to aid.canonical }
+                            }?.toMap().orEmpty()
+                            val linked = track.ar.filter { it.id > 0L || it.id in entityIds }.distinctBy { it.id }
+                            when (linked.size) {
+                                0 -> viewModel.playSong(track)
+                                1 -> {
+                                    val first = linked.first()
+                                    val eid = entityIds[first.id]
+                                    if (eid != null) onArtistEntityClick(eid) else onArtistClick(first.id)
+                                }
+                                else -> artistPickerEntries = linked.map { artist ->
+                                    ArtistPickerEntry(
+                                        id = artist.id,
+                                        name = artist.name,
+                                        avatarUrl = artist.picUrl.ifBlank { artist.img1v1Url }.takeIf { it.isNotBlank() },
+                                        entityId = entityIds[artist.id]
+                                    )
+                                }
+                            }
+                        },
                         onAlbumClick = { id -> onPlaylistClick(id, true) },
                         onArtistClick = onArtistClick,
                         onPlaylistClick = { id -> onPlaylistClick(id, false) },
@@ -278,6 +304,15 @@ fun SearchScreen(
                     )
                 }
             }
+        }
+
+        if (artistPickerEntries.isNotEmpty()) {
+            ArtistPickerSheet(
+                artists = artistPickerEntries,
+                onArtistClick = onArtistClick,
+                onDismiss = { artistPickerEntries = emptyList() },
+                onArtistEntityClick = onArtistEntityClick
+            )
         }
 
         var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }

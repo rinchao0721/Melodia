@@ -120,10 +120,11 @@ class SongLikeRepositoryImplKugouTest {
             ),
             activate = true
         )
+        userPreferences.setCurrentPlatform(MusicPlatform.KUGOU)
     }
 
     @Test
-    fun `已登录酷狗同步云端红心并与网易红心合并到 likedTrackIds，失败时回滚`() = runBlocking {
+    fun `已登录酷狗同步云端红心且不混入网易红心，失败时回滚`() = runBlocking {
         loginKugou()
         val kugouService = FakeKugouLikeService(userPreferences)
         val repo = SongLikeRepositoryImpl(
@@ -137,7 +138,8 @@ class SongLikeRepositoryImplKugouTest {
         repo.getLikedSongIds(1L).first()
         val synced = repo.syncKugouLikedTracks().first().getOrThrow()
         assertEquals(setOf(TrackId.kugou("hash_synced")), synced)
-        assertTrue(TrackId.netease(101L) in repo.likedTrackIds.value)
+        assertFalse(TrackId.netease(101L) in repo.likedTrackIds.value)
+        assertFalse(101L in repo.likedSongIds.value)
         assertTrue(TrackId.kugou("hash_synced") in repo.likedTrackIds.value)
 
         // 乐观收藏成功
@@ -249,6 +251,9 @@ class SongLikeRepositoryImplKugouTest {
         assertTrue(kgTrack2 in repo.likedTrackIds.value)
         assertTrue(-802L in repo.likedSongIds.value)
 
+        userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
+        delay(50)
+
         // 2. 网易并发：201 在途挂起，202 先成功，随后 201 失败回滚，202 应保留
         val neGate = CompletableDeferred<LikeSongResponse>()
         api.likeGateById[201L] = neGate
@@ -343,5 +348,37 @@ class SongLikeRepositoryImplKugouTest {
         delay(50)
         assertFalse(track.queueSongId in repo.likedSongIds.value)
         assertFalse(TrackId.kugou("hash_local") in repo.likedTrackIds.value)
+    }
+
+    @Test
+    fun `切换当前平台后红心状态只含对应平台条目`() = runBlocking {
+        loginKugou()
+        val kugouService = FakeKugouLikeService(userPreferences)
+        val repo = SongLikeRepositoryImpl(
+            apiService = FakeSongLikeApi(),
+            scope = scope,
+            kugouLikeService = kugouService,
+            userPreferences = userPreferences
+        )
+        repo.getLikedSongIds(1L).first()
+        repo.syncKugouLikedTracks().first()
+        val kugouTrack = TrackId.kugou("hash_synced")
+
+        // 酷狗账号：仅酷狗红心
+        assertEquals(setOf(kugouTrack), repo.likedTrackIds.value)
+        assertFalse(101L in repo.likedSongIds.value)
+        assertTrue(repo.likedSongIds.value.isNotEmpty())
+
+        // 网易账号：仅网易红心
+        userPreferences.setCurrentPlatform(MusicPlatform.NETEASE)
+        delay(50)
+        assertEquals(setOf(TrackId.netease(101L)), repo.likedTrackIds.value)
+        assertEquals(setOf(101L), repo.likedSongIds.value)
+
+        // 切回酷狗
+        userPreferences.setCurrentPlatform(MusicPlatform.KUGOU)
+        delay(50)
+        assertEquals(setOf(kugouTrack), repo.likedTrackIds.value)
+        assertFalse(101L in repo.likedSongIds.value)
     }
 }
