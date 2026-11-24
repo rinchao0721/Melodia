@@ -12,6 +12,9 @@ import kotlin.math.absoluteValue
 enum class PlayMode { LIST_LOOP, SINGLE_LOOP, SHUFFLE }
 
 @Serializable
+data class KugouQueueArtist(val id: String, val name: String)
+
+@Serializable
 data class QueueItem(
     val songId: Long,
     val title: String,
@@ -25,7 +28,10 @@ data class QueueItem(
     val external: ExternalTrack? = null,
     // P2 跨平台统一曲目标识与酷狗扩展元数据，旧队列 JSON 缺失时保持 null
     val trackId: TrackId? = null,
-    val kugouMeta: KugouTrackMeta? = null
+    val kugouMeta: KugouTrackMeta? = null,
+    val kugouSingerId: String? = null,
+    // 酷狗全部歌手（含 id），旧队列 JSON 缺失时为空
+    val kugouArtists: List<KugouQueueArtist> = emptyList()
 ) {
     // 统一实体标识解析：显式 trackId -> 本地路径 -> 外部平台 -> 网易云兜底
     val effectiveTrackId: TrackId
@@ -69,7 +75,12 @@ data class QueueItem(
                 localUri = track.localUri,
                 external = track.toLegacyExternalTrackOrNull(),
                 trackId = track.id,
-                kugouMeta = track.kugouMeta
+                kugouMeta = track.kugouMeta,
+                kugouSingerId = track.artists.firstOrNull { it.id?.platform == MusicPlatform.KUGOU }?.id?.rawId,
+                kugouArtists = track.artists.mapNotNull { artist ->
+                    artist.id?.takeIf { it.platform == MusicPlatform.KUGOU }
+                        ?.let { KugouQueueArtist(id = it.rawId, name = artist.name) }
+                }
             )
         }
     }

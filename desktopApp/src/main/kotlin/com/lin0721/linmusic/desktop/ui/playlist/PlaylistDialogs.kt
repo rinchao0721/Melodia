@@ -250,6 +250,7 @@ internal fun AddSongsDialog(
 @Composable
 internal fun ImportToPlaylistDialog(
     state: PlaylistImportState,
+    currentPlatform: MusicPlatform = MusicPlatform.NETEASE,
     onPick: (UserPlaylist) -> Unit,
     onCreate: () -> Unit,
     onDismiss: () -> Unit,
@@ -301,9 +302,7 @@ internal fun ImportToPlaylistDialog(
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f, fill = false)
                                         )
-                                        if (playlist.id.platform == MusicPlatform.KUGOU) {
-                                            PlatformBadge(MusicPlatform.KUGOU, Modifier.padding(start = 6.dp))
-                                        }
+                                        PlatformBadge(playlist.id.platform, Modifier.padding(start = 6.dp))
                                     }
                                     Text("${playlist.trackCount} 首", color = DesktopColors.TextGray, fontSize = 12.sp)
                                 }

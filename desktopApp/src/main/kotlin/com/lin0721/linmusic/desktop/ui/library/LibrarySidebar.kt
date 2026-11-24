@@ -112,6 +112,7 @@ import com.lin0721.linmusic.desktop.ui.local.RenameLocalPlaylistDialog
 import com.lin0721.linmusic.desktop.ui.playlist.EditPlaylistDialog
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.track.LocalCurrentAccountPlatform
 import com.lin0721.linmusic.desktop.ui.track.DangerColor
 import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.feature.library.ui.KUGOU_RECENT_PLAYLIST_ID
@@ -907,7 +908,9 @@ private fun LibraryRow(item: LibraryItem, onClick: () -> Unit) {
 @Composable
 private fun LibraryCompactRow(item: LibraryItem, onClick: () -> Unit) {
     val showKugouBadge = !item.isLocal && !item.isCloud &&
-        item.platform == MusicPlatform.KUGOU && LocalDesktopNavigator.current.isKugouEnabled
+        item.platform == MusicPlatform.KUGOU &&
+        item.platform != LocalCurrentAccountPlatform.current &&
+        LocalDesktopNavigator.current.isKugouEnabled
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(36.dp).clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick).padding(horizontal = 8.dp),
@@ -1010,7 +1013,9 @@ internal fun LibraryItemTooltipCard(item: LibraryItem) {
 @Composable
 internal fun LibrarySubtitle(item: LibraryItem, lineHeight: TextUnit = TextUnit.Unspecified) {
     val showKugouBadge = !item.isLocal && !item.isCloud &&
-        item.platform == MusicPlatform.KUGOU && LocalDesktopNavigator.current.isKugouEnabled
+        item.platform == MusicPlatform.KUGOU &&
+        item.platform != LocalCurrentAccountPlatform.current &&
+        LocalDesktopNavigator.current.isKugouEnabled
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (item.isPinned) {
             Icon(MelodiaIcons.PushPin, "已置顶", tint = DesktopColors.Accent, modifier = Modifier.size(13.dp))

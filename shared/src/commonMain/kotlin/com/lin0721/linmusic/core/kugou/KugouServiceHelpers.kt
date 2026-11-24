@@ -95,6 +95,22 @@ internal fun normalizeKugouCoverUrl(raw: String?): String =
 internal fun normalizeKugouDurationMs(raw: Long): Long =
     if (raw in 1L..9_999L) raw * 1000L else raw
 
+// 歌名为空时回退 filename；"歌手 - 歌名" 形式拆出歌手，已有歌手时只去掉重复的歌手前缀
+internal fun resolveKugouTitleAndSinger(title: String, singer: String, filename: String): Pair<String, String> {
+    val text = title.ifBlank { filename }
+    if (singer.isBlank()) {
+        if (!text.contains(" - ")) return text to ""
+        return text.substringAfter(" - ").trim() to text.substringBefore(" - ").trim()
+    }
+    val prefix = "$singer - "
+    val name = if (text.startsWith(prefix, ignoreCase = true) && text.length > prefix.length) {
+        text.substring(prefix.length).trim()
+    } else {
+        text
+    }
+    return name to singer
+}
+
 internal fun stripKugouEmTags(raw: String): String =
     raw.replace("<em>", "", ignoreCase = true)
         .replace("</em>", "", ignoreCase = true)
@@ -192,7 +208,9 @@ internal fun parseKugouTrackItem(obj: JsonObject): KugouTrackItemDto? {
     val rawName = listOf(
         base?.string("audio_name").orEmpty(),
         obj.string("songname"),
+        obj.string("song_name"),
         obj.string("audio_name"),
+        obj.string("ori_audio_name"),
         obj.string("SongName"),
         obj.string("name"),
         obj.string("filename")
@@ -205,15 +223,11 @@ internal fun parseKugouTrackItem(obj: JsonObject): KugouTrackItemDto? {
         obj.string("SingerName")
     ).firstOrNull { it.isNotBlank() }.orEmpty()
 
-    // 部分接口 name 形如 "歌手 - 歌名" 而 singername 为空
-    val cleanTitle = stripKugouEmTags(rawName)
-    val cleanSinger = stripKugouEmTags(rawSinger)
-    val (resolvedName, resolvedSinger) = if (cleanSinger.isBlank() && cleanTitle.contains(" - ")) {
-        val parts = cleanTitle.split(" - ", limit = 2)
-        parts[1].trim() to parts[0].trim()
-    } else {
-        cleanTitle to cleanSinger
-    }
+    val (resolvedName, resolvedSinger) = resolveKugouTitleAndSinger(
+        title = stripKugouEmTags(rawName),
+        singer = stripKugouEmTags(rawSinger),
+        filename = stripKugouEmTags(obj.string("filename"))
+    )
 
     val singerList = buildList {
         val singersArr = obj["singers"]?.jsonArrayOrNull() ?: obj["authors"]?.jsonArrayOrNull()
@@ -263,7 +277,7 @@ internal fun parseKugouTrackItem(obj: JsonObject): KugouTrackItemDto? {
     val coverUrl = normalizeKugouCoverUrl(
         listOf(
             transParam?.string("union_cover").orEmpty(),
-            obj.firstNonBlank("cover", "pic", "image", "Image", "img", "sizable_cover"),
+            obj.firstNonBlank("cover", "pic", "image", "Image", "img", "sizable_cover", "album_sizable_cover", "album_cover"),
             albumInfo?.firstNonBlank("sizable_cover", "cover").orEmpty()
         ).firstOrNull { it.isNotBlank() }
     )

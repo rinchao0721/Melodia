@@ -23,7 +23,8 @@ data class PlaylistCollectState(
     val songId: Long = -1L,
     val collectItems: List<PlaylistCollectItem> = emptyList(),
     val isLoading: Boolean = false,
-    val trackId: TrackId? = null
+    val trackId: TrackId? = null,
+    val currentPlatform: MusicPlatform = MusicPlatform.NETEASE
 )
 
 // 一键收藏到“已点赞的歌曲”成功事件

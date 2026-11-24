@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.format.formatCompactCount
+import com.lin0721.linmusic.core.platform.ArtistId
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.components.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.components.uiSpring
@@ -69,12 +70,13 @@ fun AboutArtistCard(
     selectedIndex: Int,
     onSelectArtist: (Int) -> Unit,
     onToggleFollow: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    kugou: Boolean = false
 ) {
     val valid = remember(artists) { validAboutArtists(artists) }
     if (valid.isEmpty()) return
     if (valid.size == 1) {
-        ArtistPage(valid.first(), onToggleFollow, modifier)
+        ArtistPage(valid.first(), onToggleFollow, kugou, modifier)
         return
     }
 
@@ -96,7 +98,7 @@ fun AboutArtistCard(
         Box(Modifier.hoverable(hoverSource)) {
             // 桌面端没有横滑手势，翻页只走两侧箭头
             HorizontalPager(state = pagerState, userScrollEnabled = false, modifier = Modifier.fillMaxWidth()) { page ->
-                ArtistPage(valid[page], onToggleFollow)
+                ArtistPage(valid[page], onToggleFollow, kugou)
             }
             ScrollArrow(
                 revealed = hovered && pagerState.currentPage > 0,
@@ -128,7 +130,7 @@ fun AboutArtistCard(
 }
 
 @Composable
-private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, modifier: Modifier = Modifier) {
+private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, kugou: Boolean, modifier: Modifier = Modifier) {
     val navigator = LocalDesktopNavigator.current
     val detail = item.artistDetail ?: return
     val heroUrl = detail.cover.ifEmpty { detail.avatar }
@@ -137,7 +139,10 @@ private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, mod
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface)
             .pointerHoverIcon(PointerIcon.Hand)
-            .clickable { navigator.openArtist(item.artistId, detail.name) }
+            .clickable {
+                if (kugou) navigator.openArtistEntity(ArtistId.kugou(item.artistId.toString()).canonical, detail.name)
+                else navigator.openArtist(item.artistId, detail.name)
+            }
     ) {
         Box(Modifier.fillMaxWidth().height(HeroHeight).background(DesktopColors.CoverPlaceholder)) {
             SubcomposeAsyncImage(

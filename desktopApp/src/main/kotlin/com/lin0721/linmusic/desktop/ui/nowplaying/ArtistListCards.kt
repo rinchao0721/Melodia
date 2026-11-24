@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
+import com.lin0721.linmusic.core.platform.AlbumId
 import com.lin0721.linmusic.desktop.ui.components.Cover
 import com.lin0721.linmusic.desktop.ui.components.LocalUiMotion
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
@@ -49,14 +50,17 @@ private const val SCROLL_MS = 300
 
 // 艺人的更多专辑：横向列表，点击进入专辑
 @Composable
-fun ArtistAlbumsCard(albums: List<ArtistAlbum>, artistName: String?, modifier: Modifier = Modifier) {
+fun ArtistAlbumsCard(albums: List<ArtistAlbum>, artistName: String?, modifier: Modifier = Modifier, kugou: Boolean = false) {
     val navigator = LocalDesktopNavigator.current
     InfoCard(artistAlbumsTitle(artistName), modifier) {
         HoverArrowRow(Modifier.padding(top = 12.dp)) {
             items(albums, key = { it.id }) { album ->
                 Column(
                     Modifier.width(AlbumWidth).clip(RoundedCornerShape(8.dp)).pointerHoverIcon(PointerIcon.Hand)
-                        .clickable { navigator.openAlbum(album.id, album.name) }
+                        .clickable {
+                            if (kugou) navigator.openPlaylistEntity(AlbumId.kugou(album.id.toString()).canonical, album.name, true)
+                            else navigator.openAlbum(album.id, album.name)
+                        }
                         .padding(4.dp)
                 ) {
                     Cover(album.picUrl, AlbumWidth - 8.dp, shape = RoundedCornerShape(8.dp))

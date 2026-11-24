@@ -19,11 +19,16 @@ import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 data class UnifiedUserPlaylist(
     val id: PlaylistId,
@@ -193,13 +198,34 @@ class KugouPlatformLibraryRepository(
             emit(Result.failure(it))
             return@flow
         }
+        val items = collected.take(safeLimit)
+        val semaphore = Semaphore(3)
+        val fallbackCovers: Map<Long, String> = coroutineScope {
+            items.filter { it.coverUrl.isBlank() && it.trackCount > 0 && it.listId > 0L }
+                .map { dto ->
+                    async {
+                        semaphore.withPermit {
+                            val cover = playlistService.getCloudPlaylistTracks(
+                                listId = dto.listId,
+                                type = dto.type,
+                                page = 1,
+                                pageSize = 1
+                            ).getOrNull()?.tracks?.firstOrNull()?.toUnifiedTrack()?.coverUrl.orEmpty()
+                            dto.listId to cover
+                        }
+                    }
+                }
+                .awaitAll()
+                .toMap()
+        }
         emit(
             Result.success(
-                collected.take(safeLimit).map { dto ->
+                items.map { dto ->
+                    val resolvedCover = dto.coverUrl.ifBlank { fallbackCovers[dto.listId].orEmpty() }
                     UnifiedUserPlaylist(
                         id = dto.preferredPlaylistId(),
                         name = dto.name,
-                        coverUrl = dto.coverUrl,
+                        coverUrl = resolvedCover,
                         trackCount = dto.trackCount,
                         ownerId = dto.createUserId.takeIf { it > 0L }?.let { AccountId.kugou(it) } ?: accountId,
                         creator = if (dto.createUsername.isNotBlank() || dto.createUserId > 0L) {

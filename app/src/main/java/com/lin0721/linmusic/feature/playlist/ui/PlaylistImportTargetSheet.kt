@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.ui.components.showsPlatformBadge
+import com.lin0721.linmusic.core.ui.components.PlatformBadge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -163,19 +165,9 @@ fun PlaylistImportTargetSheet(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false)
                                 )
-                                if (item.id.platform == MusicPlatform.KUGOU) {
+                                if (item.id.platform == MusicPlatform.KUGOU && showsPlatformBadge(MusicPlatform.KUGOU)) {
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    val brand = Color(MusicPlatform.KUGOU.brandColorArgb)
-                                    Text(
-                                        text = MusicPlatform.KUGOU.badgeName,
-                                        color = brand,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(brand.copy(alpha = 0.14f))
-                                            .padding(horizontal = 5.dp, vertical = 1.dp)
-                                    )
+                                    PlatformBadge(MusicPlatform.KUGOU)
                                 }
                             }
                         }

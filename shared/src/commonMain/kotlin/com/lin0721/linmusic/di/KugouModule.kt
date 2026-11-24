@@ -15,6 +15,8 @@ import com.lin0721.linmusic.core.kugou.KugouDiscoverService
 import com.lin0721.linmusic.core.kugou.KugouGatewayClient
 import com.lin0721.linmusic.core.kugou.KugouLikeService
 import com.lin0721.linmusic.core.kugou.KugouPlaybackService
+import com.lin0721.linmusic.core.kugou.KugouArtistLink
+import com.lin0721.linmusic.core.kugou.KugouTrackLinkResolver
 import com.lin0721.linmusic.core.kugou.KugouPlaylistService
 import com.lin0721.linmusic.core.kugou.KugouSearchService
 import com.lin0721.linmusic.core.platform.repository.KugouPlatformAlbumRepository
@@ -91,6 +93,17 @@ val kugouModule = module {
     single { KugouSearchService(get(), get()) }
     single { KugouArtistService(get(), get(), get(), get()) }
     single { KugouAlbumService(get()) }
+    single {
+        val playback = get<KugouPlaybackService>()
+        val album = get<KugouAlbumService>()
+        KugouTrackLinkResolver(
+            albumIdOfHash = { hash -> playback.getAudioMetadata(listOf(hash)).getOrNull()?.firstOrNull()?.albumId },
+            authorsOfAlbum = { albumId ->
+                album.getAlbumDetail(albumId).getOrNull()?.authors.orEmpty()
+                    .map { KugouArtistLink(id = it.id, name = it.name) }
+            }
+        )
+    }
     single { KugouCommentService(get(), get(), get(), get()) }
     single { KugouDiscoverService(get(), get(), get(), get()) }
     single { KugouCloudService(get(), get(), get(), get()) }

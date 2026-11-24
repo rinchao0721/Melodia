@@ -106,4 +106,31 @@ class ExternalLyricsResolverTest {
         assertEquals(LyricsSource.QQ, resolved.source)
         assertEquals("QQ逐字", resolved.lines.single().text)
     }
+
+    @Test fun kugouTrackLyricsComeFromPlatformSourceWithQueueMeta() = runTest {
+        val meta = com.lin0721.linmusic.core.platform.KugouTrackMeta(hash = "abc123", albumId = "200")
+        var seenHash: String? = null
+        var seenMeta: com.lin0721.linmusic.core.platform.KugouTrackMeta? = null
+        val resolver = LyricsResolver(
+            repo(mutableListOf(), Result.success(plain)), { null }, { null },
+            isAmllEnabled = { false },
+            isQqEnabled = { false },
+            isNeteaseEnabled = { false },
+            processingDispatcher = StandardTestDispatcher(testScheduler),
+            externalOf = { if (it == songId) track else null },
+            readPlatformLyrics = { trackId, kugouMeta, _ ->
+                seenHash = trackId.rawId
+                seenMeta = kugouMeta
+                listOf(LyricLine(0, 1000, "酷狗官方歌词"))
+            },
+            kugouMetaOf = { if (it == songId) meta else null }
+        )
+
+        val resolved = resolver.lyricsWithSourceFor(songId).toList().last().getOrThrow()
+
+        assertEquals(LyricsSource.KUGOU, resolved.source)
+        assertEquals("酷狗官方歌词", resolved.lines.single().text)
+        assertEquals("abc123", seenHash)
+        assertEquals(meta, seenMeta)
+    }
 }

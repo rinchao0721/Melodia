@@ -87,6 +87,7 @@ import com.lin0721.linmusic.desktop.ui.search.SearchDropdownState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.track.CollectPromptHost
 import com.lin0721.linmusic.desktop.ui.track.LocalAlwaysShowLikedBadge
+import com.lin0721.linmusic.desktop.ui.track.LocalCurrentAccountPlatform
 import com.lin0721.linmusic.desktop.ui.update.UpdateDialog
 import com.lin0721.linmusic.desktop.ui.update.openInBrowser
 import com.lin0721.linmusic.feature.library.ui.LibraryUiState
@@ -241,11 +242,6 @@ fun WindowScope.MelodiaDesktopApp(
     val pluginLayouts by deps.plugins.layouts.collectAsState()
     val alwaysShowLikedBadge by deps.commonSettingsViewModel.alwaysShowLikedBadge.collectAsState()
     val libraryUiState by deps.libraryViewModel.uiState.collectAsState()
-    val likedCoverUrl = (libraryUiState as? LibraryUiState.Success)
-        ?.allItems
-        ?.firstOrNull { it.isLikedSongs }
-        ?.coverUrl
-        .orEmpty()
     val collectState by deps.songActions.collect.state.collectAsState()
     val collectPromptEvents = remember(deps, state) {
         merge(
@@ -258,7 +254,15 @@ fun WindowScope.MelodiaDesktopApp(
         )
     }
     val pluginCards = remember(deps) { PluginCardContext(deps.playerCards, deps.pluginPages, DesktopPluginPageUi) }
+    val currentAccountPlatform by deps.userPreferences.currentPlatform.collectAsState(MusicPlatform.NETEASE)
+    val likedCoverUrl = (libraryUiState as? LibraryUiState.Success)
+        ?.allItems
+        ?.filter { it.isLikedSongs }
+        ?.let { liked -> liked.firstOrNull { it.platform == currentAccountPlatform } ?: liked.firstOrNull() }
+        ?.coverUrl
+        .orEmpty()
     CompositionLocalProvider(
+        LocalCurrentAccountPlatform provides currentAccountPlatform,
         LocalDesktopNavigator provides navigator,
         LocalPlayerLayouts provides pluginLayouts.specs,
         LocalPluginCards provides pluginCards,

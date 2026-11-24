@@ -238,6 +238,7 @@ class KugouPlatformPlaylistRepository(
                     Result.success(
                         baseDetail.copy(
                             id = resolvedId,
+                            coverUrl = baseDetail.coverUrl.ifBlank { unifiedTracks.firstOrNull()?.coverUrl.orEmpty() },
                             listVer = maxOf(detail.listVer, tracksPage.listVer)
                         )
                     )
@@ -262,7 +263,7 @@ class KugouPlatformPlaylistRepository(
             UnifiedPlaylist(
                 id = requestedId,
                 name = meta?.name.orEmpty(),
-                coverUrl = meta?.coverUrl.orEmpty(),
+                coverUrl = meta?.coverUrl.orEmpty().ifBlank { unifiedTracks.firstOrNull()?.coverUrl.orEmpty() },
                 description = meta?.intro?.takeIf { it.isNotBlank() },
                 subscribed = meta?.isCollected ?: false,
                 creator = meta?.let {

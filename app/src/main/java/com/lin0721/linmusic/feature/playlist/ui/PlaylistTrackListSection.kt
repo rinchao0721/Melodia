@@ -72,8 +72,7 @@ fun LazyListScope.playlistTrackItems(
                 artist = track.ar.joinToString(" • ") { it.name },
                 coverUrl = track.al.picUrl,
                 isVip = track.fee == 1,
-                platformTag = platform?.badgeName,
-                platformTagColorArgb = platform?.brandColorArgb,
+                platform = platform,
                 qualitySongId = track.id.takeIf { platform == null && track.id > 0L },
                 maxBrLevel = track.privilege?.maxBrLevel
             )

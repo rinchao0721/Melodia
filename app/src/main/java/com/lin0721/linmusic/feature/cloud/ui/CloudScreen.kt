@@ -519,8 +519,7 @@ private fun KugouCloudContent(
                             title = display.name,
                             artist = display.ar.joinToString(" / ") { ar -> ar.name },
                             coverUrl = display.al.picUrl,
-                            platformTag = MusicPlatform.KUGOU.badgeName,
-                            platformTagColorArgb = MusicPlatform.KUGOU.brandColorArgb
+                            platform = MusicPlatform.KUGOU
                         ),
                         isActive = currentTrackId == display.id.toString(),
                         isPlaying = isPlaying,

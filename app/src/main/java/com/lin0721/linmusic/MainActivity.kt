@@ -3,6 +3,8 @@ package com.lin0721.linmusic
 import com.lin0721.linmusic.feature.settings.ui.PluginConfirmDialog
 import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginCommands
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.LocalCurrentAccountPlatform
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.feature.settings.ui.AndroidPluginPageUi
 import com.lin0721.linmusic.core.plugin.PluginPageHost
@@ -174,6 +176,7 @@ class MainActivity : ComponentActivity() {
             val isPredictiveBackEnabled = predictiveBackEnabled && uiAnimationsEnabled && Build.VERSION.SDK_INT >= 34
             val uiMotion = remember { UiMotion() }
             LaunchedEffect(uiAnimationsEnabled) { uiMotion.enabled = uiAnimationsEnabled }
+            val currentAccountPlatform by userPreferences.currentPlatform.collectAsState(initial = MusicPlatform.NETEASE)
             val pluginLayouts by pluginRepository.layouts.collectAsState()
             val pluginCards = remember { PluginCardContext(playerCardSource, pluginPageHost, AndroidPluginPageUi) }
             LaunchedEffect(Unit) { pluginCommands.notices.messages.collect(ToastManager::showToast) }
@@ -184,6 +187,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             CompositionLocalProvider(
+                LocalCurrentAccountPlatform provides currentAccountPlatform,
                 LocalUiMotion provides uiMotion,
                 LocalPredictiveBackEnabled provides isPredictiveBackEnabled,
                 LocalPlayerLayouts provides pluginLayouts.specs,

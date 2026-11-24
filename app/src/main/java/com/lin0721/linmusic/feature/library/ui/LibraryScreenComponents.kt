@@ -47,6 +47,8 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.PillRadius
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.ui.components.PlatformBadge
 import com.lin0721.linmusic.core.ui.theme.themedShadow
 import com.lin0721.linmusic.core.ui.theme.uiSpring
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -341,21 +343,7 @@ fun LibraryItemRow(
                             .padding(end = MelodiaSpacing.xs)
                     )
                 }
-                if (item.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU) {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 6.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 5.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = "酷狗",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
+                PlatformBadge(item.platform.takeIf { it == MusicPlatform.KUGOU }, Modifier.padding(end = 6.dp))
 
                 Text(
                     text = when (item.type) {
@@ -437,21 +425,7 @@ fun LibraryGridItem(
                         .padding(end = MelodiaSpacing.xxs)
                 )
             }
-            if (item.platform == com.lin0721.linmusic.core.source.MusicPlatform.KUGOU) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                ) {
-                    Text(
-                        text = "酷狗",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 9.sp
-                    )
-                }
-            }
+            PlatformBadge(item.platform.takeIf { it == MusicPlatform.KUGOU }, Modifier.padding(end = 4.dp))
             Text(
                 text = item.subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

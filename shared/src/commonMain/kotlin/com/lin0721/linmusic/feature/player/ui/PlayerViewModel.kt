@@ -9,6 +9,9 @@ import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.StoredAccount
 import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.kugou.KugouArtistService
+import com.lin0721.linmusic.core.kugou.KugouTrackLinkResolver
+import com.lin0721.linmusic.core.kugou.KugouTrackLinks
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.network.NetworkStateProvider
@@ -101,7 +104,9 @@ data class PlayerSongDetailState(
     // 未匹配网易云的本地歌曲，没有评论/百科等在线数据
     val isLocalOnly: Boolean = false,
     // 外部平台歌曲同样没有网易云在线数据，但评论取自 QQ 音乐
-    val isExternal: Boolean = false
+    val isExternal: Boolean = false,
+    // 酷狗曲目的专辑与歌手规范 id，供歌名、歌手跳转
+    val kugouLinks: KugouTrackLinks? = null
 ) {
     val currentArtistItem: ArtistCardItem?
         get() = artists.getOrNull(selectedArtistIndex) ?: artists.firstOrNull()
@@ -134,7 +139,9 @@ class PlayerViewModel(
     private val podcastPlayer: PodcastPlayerController,
     private val qqSongIdResolver: QQSongIdResolver,
     private val platformCommentRouter: PlatformCommentRouter? = null,
-    private val platformDiscoverRouter: PlatformDiscoverRouter? = null
+    private val platformDiscoverRouter: PlatformDiscoverRouter? = null,
+    private val kugouArtistService: KugouArtistService? = null,
+    private val kugouTrackLinkResolver: KugouTrackLinkResolver? = null
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -411,6 +418,12 @@ class PlayerViewModel(
                             ((songId > 0L || isExternalSong(songId)) && songId in songLikeRepository.likedSongIds.value)
                         val isLocalOnly = songId <= 0L
                         clearState(isLiked, isLocalOnly, isExternal = external != null || isKugouTrack)
+                        val kugouEnabled = isKugouTrack && settingsPreferences.kugouPlatformEnabled.first()
+                        // 酷狗曲目先带上队列里已有的专辑、歌手 id，界面据此判断是否可点
+                        if (isKugouTrack) {
+                            val known = kugouTrackLinkResolver?.known(currentItem!!) ?: KugouTrackLinks()
+                            _songDetailState.update { it.copy(kugouLinks = known) }
+                        }
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
@@ -421,7 +434,7 @@ class PlayerViewModel(
                                 launch { loadSongWiki(songId) }
                                 launch { loadChorus(songId) }
                                 launch { commentsController.load("R_SO_4_$songId") }
-                            } else if (isKugouTrack && settingsPreferences.kugouPlatformEnabled.first() && platformCommentRouter != null) {
+                            } else if (kugouEnabled && platformCommentRouter != null) {
                                 launch {
                                     commentsController.loadTarget(
                                         CommentTarget.TrackTarget(
@@ -435,6 +448,7 @@ class PlayerViewModel(
                             } else if (external != null) {
                                 launch { commentsController.load(qqSongThreadId(qqSongIdResolver.resolve(external) ?: 0L)) }
                             }
+                            if (kugouEnabled) launch { loadKugouTrackSidebar(currentItem) }
                         }
                     }
                 }
@@ -621,6 +635,79 @@ class PlayerViewModel(
         }
     }
 
+    // 补全专辑与歌手 id 后再拉艺人卡片与艺人专辑
+    private suspend fun loadKugouTrackSidebar(item: QueueItem) {
+        val links = kugouTrackLinkResolver?.resolve(item) ?: return
+        _songDetailState.update { it.copy(kugouLinks = links) }
+        val service = kugouArtistService ?: return
+        val singerId = links.artists.firstOrNull()?.id ?: return
+        val numericId = singerId.toLongOrNull() ?: 0L
+        val placeholder = ArtistCardItem(
+            artistId = numericId,
+            artistName = item.artist,
+            isLoading = true
+        )
+        _songDetailState.update {
+            it.copy(
+                artists = listOf(placeholder),
+                selectedArtistIndex = 0,
+                isArtistAlbumsLoading = true
+            )
+        }
+        coroutineScope {
+            launch {
+                val dto = service.getArtistDetail(singerId).getOrNull()
+                if (dto != null) {
+                    val detailInfo = ArtistDetailInfo(
+                        id = numericId,
+                        name = dto.name.ifBlank { item.artist },
+                        cover = dto.coverUrl.ifBlank { dto.avatarUrl },
+                        avatar = dto.avatarUrl.ifBlank { dto.coverUrl },
+                        briefDesc = dto.intro,
+                        albumSize = dto.albumCount,
+                        musicSize = dto.songCount
+                    )
+                    _songDetailState.update { state ->
+                        state.copy(
+                            artists = listOf(
+                                ArtistCardItem(
+                                    artistId = numericId,
+                                    artistName = detailInfo.name,
+                                    artistDetail = detailInfo,
+                                    fansCount = dto.fansCount,
+                                    isFollowed = dto.isFollowed,
+                                    isLoading = false
+                                )
+                            )
+                        )
+                    }
+                } else {
+                    _songDetailState.update { state ->
+                        state.copy(artists = state.artists.map { it.copy(isLoading = false) })
+                    }
+                }
+            }
+            launch {
+                val albums = service.getArtistAlbums(singerId, page = 1, pageSize = 10)
+                    .getOrNull()
+                    ?.albums
+                    ?.map { album ->
+                        ArtistAlbum(
+                            id = album.albumId.toLongOrNull() ?: 0L,
+                            name = album.name,
+                            picUrl = album.coverUrl,
+                            publishTime = album.publishTimeMs,
+                            size = album.songCount
+                        )
+                    }
+                    .orEmpty()
+                _songDetailState.update {
+                    it.copy(artistAlbums = albums, isArtistAlbumsLoading = false)
+                }
+            }
+        }
+    }
+
     private suspend fun loadArtistAlbums(artistId: Long) {
         _songDetailState.update { it.copy(isArtistAlbumsLoading = true) }
         artistRepository.getArtistAlbums(artistId).collect { result ->
@@ -718,11 +805,30 @@ class PlayerViewModel(
     fun toggleArtistFollow(targetArtistId: Long? = null) {
         val state = _songDetailState.value
         val artistId = targetArtistId ?: state.currentArtistItem?.artistId ?: return
-        if (artistId <= 0) return
+        val currentItem = playerManager.currentQueueItem.value
+        val isKugou = currentItem?.effectivePlatform == MusicPlatform.KUGOU
+        if (!isKugou && artistId <= 0) return
 
         val targetItem = state.artists.find { it.artistId == artistId } ?: state.currentArtistItem ?: return
         val targetFollow = !targetItem.isFollowed
         viewModelScope.launch {
+            if (isKugou && kugouArtistService != null) {
+                val singerId = currentItem?.kugouSingerId?.takeIf { it.isNotBlank() } ?: artistId.toString()
+                val res = if (targetFollow) {
+                    kugouArtistService.followArtist(singerId)
+                } else {
+                    kugouArtistService.unfollowArtist(singerId)
+                }
+                res.onSuccess {
+                    _songDetailState.update { currState ->
+                        val updated = currState.artists.map { item ->
+                            if (item.artistId == artistId) item.copy(isFollowed = targetFollow) else item
+                        }
+                        currState.copy(artists = updated)
+                    }
+                }
+                return@launch
+            }
             artistRepository.subscribeArtist(artistId, targetFollow).collect { result ->
                 result.onSuccess {
                     _songDetailState.update { currState ->

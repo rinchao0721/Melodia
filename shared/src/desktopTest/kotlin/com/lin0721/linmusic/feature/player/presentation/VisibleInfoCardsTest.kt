@@ -72,4 +72,26 @@ class VisibleInfoCardsTest {
         val state = PlayerSongDetailState(lyrics = lyricLines, songWiki = SongWikiData(), isLocalOnly = true)
         assertEquals(listOf(FullPlayerCard.LYRICS), visibleInfoCards(state, order, all))
     }
+
+    @Test
+    fun `酷狗曲目歌词与艺人数据就绪后展示歌词关于艺人与艺人专辑`() {
+        val order = layout(FullPlayerCard.LYRICS, FullPlayerCard.ABOUT_ARTIST, FullPlayerCard.ARTIST_ALBUMS)
+        val state = PlayerSongDetailState(
+            lyrics = lyricLines,
+            isLocalOnly = true,
+            isExternal = true,
+            artists = listOf(
+                com.lin0721.linmusic.feature.player.ui.ArtistCardItem(
+                    artistId = 11L,
+                    artistName = "周杰伦",
+                    artistDetail = com.lin0721.linmusic.core.model.ArtistDetailInfo(id = 11L, name = "周杰伦", avatar = "https://x/a.jpg", briefDesc = "简介")
+                )
+            ),
+            artistAlbums = listOf(com.lin0721.linmusic.core.model.ArtistAlbum(id = 200L, name = "十一月的萧邦"))
+        )
+        assertEquals(
+            listOf(FullPlayerCard.LYRICS, FullPlayerCard.ABOUT_ARTIST, FullPlayerCard.ARTIST_ALBUMS),
+            visibleInfoCards(state, order, all)
+        )
+    }
 }

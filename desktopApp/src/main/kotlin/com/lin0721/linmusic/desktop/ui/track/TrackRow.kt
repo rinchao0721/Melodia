@@ -166,8 +166,6 @@ fun TrackRow(
     menuContent: (@Composable MenuScope.(dismiss: () -> Unit) -> Unit)? = null,
     // 混排进歌单的外部平台歌曲，歌名后显示来源角标
     sourcePlatform: MusicPlatform? = null,
-    // 是否显示平台来源角标（搜索页与当前标签同平台时隐藏）
-    showPlatformBadge: Boolean = true,
     // 网易云歌曲 id，非空时按开关在歌手前显示最高音质徽标；插件歌曲留空
     qualitySongId: Long? = null,
     // 本地未匹配歌曲的推断音质等级
@@ -294,7 +292,7 @@ fun TrackRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (showPlatformBadge && sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
+                    if (sourcePlatform != null) PlatformBadge(sourcePlatform, Modifier.padding(start = 6.dp))
                 }
                 val qualityBadge = rememberSongQualityBadge(
                     cache = LocalSongQualityCache.current,
@@ -625,15 +623,19 @@ private fun SongQualityBadgeTag(badge: QualityBadge, modifier: Modifier = Modifi
     )
 }
 
-// 多位歌手各自可点，无 id 的歌手只展示名字
+// 当前账号所在平台，同平台内容不显示平台标识
+val LocalCurrentAccountPlatform = compositionLocalOf { MusicPlatform.NETEASE }
+
 @Composable
 fun PlatformBadge(platform: MusicPlatform, modifier: Modifier = Modifier) {
+    if (platform == LocalCurrentAccountPlatform.current) return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.size(6.dp).background(Color(platform.brandColorArgb), CircleShape))
         Text(platform.badgeName, color = DesktopColors.TextGray, fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
     }
 }
 
+// 多位歌手各自可点，无 id 的歌手只展示名字
 @Composable
 fun artistLinks(
     artists: List<Artist>,

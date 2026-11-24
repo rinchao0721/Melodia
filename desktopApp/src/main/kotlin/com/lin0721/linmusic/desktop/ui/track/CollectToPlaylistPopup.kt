@@ -229,14 +229,14 @@ private fun CollectPanel(
                         item(key = "header_joined") { SectionLabel("已加入 · ${joined.size}") }
                         items(joined, key = { it.playlistId }) { item ->
                             val checked = overrides[item.playlistId] ?: item.isContains
-                            CollectRow(item, checked) { overrides[item.playlistId] = !checked }
+                            CollectRow(item, checked, state.currentPlatform) { overrides[item.playlistId] = !checked }
                         }
                     }
                     if (others.isNotEmpty()) {
                         if (joined.isNotEmpty()) item(key = "header_others") { SectionLabel("其他歌单") }
                         items(others, key = { it.playlistId }) { item ->
                             val checked = overrides[item.playlistId] ?: item.isContains
-                            CollectRow(item, checked) { overrides[item.playlistId] = !checked }
+                            CollectRow(item, checked, state.currentPlatform) { overrides[item.playlistId] = !checked }
                         }
                     }
                 }
@@ -371,7 +371,7 @@ private fun EmptyHint(text: String) {
 }
 
 @Composable
-private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: () -> Unit) {
+private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, currentPlatform: MusicPlatform, onToggle: () -> Unit) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
     Row(
@@ -395,9 +395,7 @@ private fun CollectRow(item: PlaylistCollectItem, checked: Boolean, onToggle: ()
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            if (item.platform == MusicPlatform.KUGOU) {
-                PlatformBadge(MusicPlatform.KUGOU)
-            }
+            PlatformBadge(item.platform)
         }
         Icon(
             if (checked) MelodiaIcons.CheckCircleFilled else MelodiaIcons.Unchecked,

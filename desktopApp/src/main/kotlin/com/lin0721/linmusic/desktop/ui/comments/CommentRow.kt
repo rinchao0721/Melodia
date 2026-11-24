@@ -164,7 +164,7 @@ fun CommentRow(
                         )
                     }
                 }
-                LikeButton(comment, interactive && canLike, onLike)
+                LikeButton(comment, interactive && canLike, showIcon = canLike, onLike = onLike)
             }
 
             Text(
@@ -201,7 +201,7 @@ fun CommentRow(
 }
 
 @Composable
-private fun LikeButton(comment: CommentItem, interactive: Boolean, onLike: () -> Unit) {
+private fun LikeButton(comment: CommentItem, interactive: Boolean, showIcon: Boolean, onLike: () -> Unit) {
     val tint = if (comment.liked) DesktopColors.Accent else DesktopColors.TextGray
     Row(
         Modifier.clip(CircleShape)
@@ -211,7 +211,9 @@ private fun LikeButton(comment: CommentItem, interactive: Boolean, onLike: () ->
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(formatLikedCount(comment.likedCount), color = tint.copy(alpha = if (comment.liked) 1f else 0.8f), fontSize = 12.sp)
-        Icon(MelodiaIcons.ThumbUp, if (comment.liked) "取消点赞" else "点赞", tint = tint, modifier = Modifier.size(14.dp))
+        if (showIcon) {
+            Icon(MelodiaIcons.ThumbUp, if (comment.liked) "取消点赞" else "点赞", tint = tint, modifier = Modifier.size(14.dp))
+        }
     }
 }
 

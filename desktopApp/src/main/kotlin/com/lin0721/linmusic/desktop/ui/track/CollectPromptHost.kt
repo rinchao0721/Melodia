@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,7 +52,6 @@ import kotlinx.coroutines.flow.Flow
 private const val COLLECT_PROMPT_DURATION_MS = 4_000L
 private val PromptCoverShape = RoundedCornerShape(4.dp)
 private val PromptCardShape = RoundedCornerShape(10.dp)
-private val LikedCoverGradient = listOf(Color(0xFF450AF5), Color(0xFF8E8EE5))
 
 // 一键收藏成功后在主窗底部展示的提示条：带“已点赞的歌曲”小封面与“更改”按钮，弹窗直接锚定在提示条旁
 @Composable
@@ -162,7 +160,7 @@ private fun LikedSongsMiniCover(coverUrl: String, size: Dp) {
             modifier = Modifier
                 .size(size)
                 .clip(PromptCoverShape)
-                .background(Brush.linearGradient(LikedCoverGradient)),
+                .background(DesktopColors.Accent),
             contentAlignment = Alignment.Center
         ) {
             Icon(

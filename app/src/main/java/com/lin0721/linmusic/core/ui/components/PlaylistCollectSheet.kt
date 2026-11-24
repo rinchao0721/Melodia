@@ -51,7 +51,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -125,7 +124,7 @@ fun PlaylistCollectSheet(
     val allItems = if (stateMatches) collectState.collectItems else emptyList()
     val hasMixedPlatforms = remember(allItems) { allItems.map { it.platform }.distinct().size > 1 }
     val likedItem = allItems.firstOrNull {
-        it.platform == MusicPlatform.NETEASE && (it.isLikedPlaylist || isLikedSongsPlaylist(it.playlistName, it.playlistId, null))
+        it.platform == collectState.currentPlatform && (it.isLikedPlaylist || isLikedSongsPlaylist(it.playlistName, it.playlistId, null))
     } ?: allItems.firstOrNull { it.isLikedPlaylist || isLikedSongsPlaylist(it.playlistName, it.playlistId, null) }
     val playlists = allItems.filter { it.playlistId != likedItem?.playlistId }
     val visiblePlaylists = remember(playlists, query, sortMode) {
@@ -262,17 +261,13 @@ fun PlaylistCollectSheet(
                 }
 
                 if (likedItem != null) {
-                    val likedSubtitle = if (hasMixedPlatforms || likedItem.platform == MusicPlatform.KUGOU) {
-                        "${likedItem.platform.displayName} · ${displayCount(likedItem)} 首歌曲"
-                    } else {
-                        "${displayCount(likedItem)} 首歌曲"
-                    }
                     CollectTargetRow(
                         title = "已点赞的歌曲",
-                        subtitle = likedSubtitle,
+                        subtitle = "${displayCount(likedItem)} 首歌曲",
+                        platform = likedItem.platform,
                         checked = isChecked(likedItem),
                         onToggle = { toggle(likedItem) },
-                        cover = { LikedSongsMiniCover(size = RowCoverSize) }
+                        cover = { LikedSongsMiniCover(size = RowCoverSize, coverUrl = likedItem.coverUrl) }
                     )
                 }
 
@@ -316,14 +311,10 @@ fun PlaylistCollectSheet(
                             contentPadding = PaddingValues(bottom = with(density) { navBottomPx.toDp() } + DoneBarHeight * progress)
                         ) {
                             items(visiblePlaylists, key = { it.playlistId }) { item ->
-                                val subtitle = if (hasMixedPlatforms || item.platform == MusicPlatform.KUGOU) {
-                                    "${item.platform.displayName} · ${displayCount(item)} 首歌曲"
-                                } else {
-                                    "${displayCount(item)} 首歌曲"
-                                }
                                 CollectTargetRow(
                                     title = item.playlistName,
-                                    subtitle = subtitle,
+                                    subtitle = "${displayCount(item)} 首歌曲",
+                                    platform = item.platform,
                                     checked = isChecked(item),
                                     onToggle = { toggle(item) },
                                     cover = {
@@ -503,6 +494,7 @@ private fun SearchAndSortBar(
 private fun CollectTargetRow(
     title: String,
     subtitle: String,
+    platform: MusicPlatform?,
     checked: Boolean,
     onToggle: () -> Unit,
     cover: @Composable () -> Unit
@@ -526,28 +518,51 @@ private fun CollectTargetRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showsPlatformBadge(platform)) {
+                    PlatformBadge(platform)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1
+                )
+            }
         }
         Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
         CollectToggleIcon(collected = checked, size = 26.dp)
     }
 }
 
-private val LikedCoverGradient = listOf(Color(0xFF450AF5), Color(0xFF8E8EE5))
-
-// "已点赞的歌曲"渐变小封面
+// "已点赞的歌曲"小封面：优先使用真实封面，缺失时用主题色加爱心图标
 @Composable
-private fun LikedSongsMiniCover(size: Dp) {
+private fun LikedSongsMiniCover(size: Dp, coverUrl: String = "") {
+    val model = collectCoverModel(coverUrl)
+    if (model != null) {
+        SubcomposeAsyncImage(
+            model = model,
+            contentDescription = "已点赞的歌曲",
+            contentScale = ContentScale.Crop,
+            loading = { LikedSongsFallbackCover(size) },
+            error = { LikedSongsFallbackCover(size) },
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(4.dp))
+        )
+    } else {
+        LikedSongsFallbackCover(size)
+    }
+}
+
+@Composable
+private fun LikedSongsFallbackCover(size: Dp) {
     Box(
         modifier = Modifier
             .size(size)
             .clip(RoundedCornerShape(4.dp))
-            .background(Brush.linearGradient(LikedCoverGradient)),
+            .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center
     ) {
         Icon(MelodiaIcons.FavoriteFilled, null, tint = Color.White, modifier = Modifier.size(size * 0.45f))

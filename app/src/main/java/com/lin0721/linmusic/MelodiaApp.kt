@@ -1223,6 +1223,14 @@ fun MelodiaApp() {
                             isPanelFullscreen = false
                             navigation.openPlaylist(albumId, isAlbum = true)
                         },
+                        onKugouArtistClick = { entityId ->
+                            isPanelFullscreen = false
+                            navigation.openArtistEntity(entityId)
+                        },
+                        onKugouAlbumClick = { entityId ->
+                            isPanelFullscreen = false
+                            navigation.openPlaylistEntity(entityId, isAlbum = true)
+                        },
                         onPlaylistClick = { playlistId ->
                             isPanelFullscreen = false
                             navigation.openPlaylist(playlistId, isAlbum = false)
@@ -1275,6 +1283,18 @@ fun MelodiaApp() {
             onAlbumClick = { albumId ->
                 navigation.navigateFromPlayer(currentTrack?.mediaId) {
                     navigation.openPlaylist(albumId, isAlbum = true)
+                }
+                playerSheet.animateTo(false, 0f)
+            },
+            onKugouArtistClick = { entityId ->
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
+                    navigation.openArtistEntity(entityId)
+                }
+                playerSheet.animateTo(false, 0f)
+            },
+            onKugouAlbumClick = { entityId ->
+                navigation.navigateFromPlayer(currentTrack?.mediaId) {
+                    navigation.openPlaylistEntity(entityId, isAlbum = true)
                 }
                 playerSheet.animateTo(false, 0f)
             },

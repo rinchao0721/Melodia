@@ -1,5 +1,8 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.ui.components.showsPlatformBadge
+import com.lin0721.linmusic.core.ui.components.PlatformBadge
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.plugin.isPluginCollectionId
 import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
@@ -206,19 +209,9 @@ fun PlaylistHeaderItem(
                                 Spacer(Modifier.width(6.dp))
                                 Text(if (isKugou) "酷狗音乐" else "为你打造", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
-                            if (isKugou) {
+                            if (isKugou && showsPlatformBadge(MusicPlatform.KUGOU)) {
                                 Spacer(Modifier.width(6.dp))
-                                val brand = Color(com.lin0721.linmusic.core.source.MusicPlatform.KUGOU.brandColorArgb)
-                                Text(
-                                    text = com.lin0721.linmusic.core.source.MusicPlatform.KUGOU.badgeName,
-                                    color = brand,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(brand.copy(alpha = 0.14f))
-                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                )
+                                PlatformBadge(MusicPlatform.KUGOU)
                             }
                         }
                         val description = playlist.description

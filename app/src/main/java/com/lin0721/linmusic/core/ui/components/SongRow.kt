@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +68,7 @@ import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadRecord
 import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.songquality.rememberSongQualityBadge
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.core.ui.interaction.copyOnLongClick
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -97,9 +97,8 @@ data class SongRowData(
     val coverUrl: String?,
     val isVip: Boolean = false,
     val durationText: String? = null,
-    // 外部平台来源：品牌色圆点加灰字
-    val platformTag: String? = null,
-    val platformTagColorArgb: Long? = null,
+    // 外部平台来源：品牌色圆点加灰字，与当前账号同平台时不显示
+    val platform: MusicPlatform? = null,
     // 长按复制的歌手文本，为空时复制展示的 artist（artist 掺了专辑等附加信息时单独指定）
     val copyArtist: String? = null,
     // 网易云歌曲 id，非空时按开关显示最高音质徽标；外部平台、播客留空
@@ -218,7 +217,7 @@ fun SongRow(
         Spacer(Modifier.width(coverSpacing))
 
         val downloadPreferences: DownloadPreferences = koinInject()
-        val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platformTag.isNullOrBlank() }
+        val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platform == null }
         val downloadBadgeRecord = if (showDownloadBadge) rememberVerifiedDownloadRecord(downloadPreferences, data.id) else null
         val qualityDownloadRecord = when {
             qualitySongId == null -> null
@@ -243,18 +242,9 @@ fun SongRow(
                         .weight(1f, fill = false)
                         .then(if (copyable && enabled) Modifier.copyOnLongClick(data.title, "歌名", onClick) else Modifier)
                 )
-                if (!data.platformTag.isNullOrBlank()) {
+                if (showsPlatformBadge(data.platform)) {
                     Spacer(Modifier.width(6.dp))
-                    data.platformTagColorArgb?.let { argb ->
-                        Spacer(Modifier.size(6.dp).background(Color(argb), CircleShape))
-                        Spacer(Modifier.width(4.dp))
-                    }
-                    Text(
-                        text = data.platformTag,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1
-                    )
+                    PlatformSourceTag(data.platform)
                 } else if (data.isVip) {
                     Spacer(Modifier.width(6.dp))
                     Box(
@@ -274,7 +264,7 @@ fun SongRow(
                 }
             }
             Spacer(Modifier.height(MelodiaSpacing.xxs))
-            val effectiveLocalLevel = if (data.platformTag.isNullOrBlank()) data.localQualityLevel else null
+            val effectiveLocalLevel = if (data.platform == null) data.localQualityLevel else null
             val qualityBadge = rememberSongQualityBadge(
                 cache = koinInject<SongQualityCache>(),
                 songId = qualitySongId,
@@ -525,25 +515,16 @@ fun DraggableSongRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (!data.platformTag.isNullOrBlank()) {
+                if (showsPlatformBadge(data.platform)) {
                     Spacer(Modifier.width(6.dp))
-                    data.platformTagColorArgb?.let { argb ->
-                        Spacer(Modifier.size(6.dp).background(Color(argb), CircleShape))
-                        Spacer(Modifier.width(4.dp))
-                    }
-                    Text(
-                        text = data.platformTag,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1
-                    )
+                    PlatformSourceTag(data.platform)
                 }
             }
             Spacer(Modifier.height(2.dp))
             val downloadPreferences: DownloadPreferences = koinInject()
-            val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platformTag.isNullOrBlank() }
+            val qualitySongId = data.qualitySongId?.takeIf { it > 0 && data.platform == null }
             val qualityDownloadRecord = rememberVerifiedDownloadRecord(downloadPreferences, qualitySongId)
-            val effectiveLocalLevel = if (data.platformTag.isNullOrBlank()) data.localQualityLevel else null
+            val effectiveLocalLevel = if (data.platform == null) data.localQualityLevel else null
             val qualityBadge = rememberSongQualityBadge(
                 cache = koinInject<SongQualityCache>(),
                 songId = qualitySongId,

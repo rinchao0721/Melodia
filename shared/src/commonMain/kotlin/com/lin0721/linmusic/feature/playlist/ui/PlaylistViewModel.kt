@@ -187,6 +187,12 @@ class PlaylistViewModel(
     private val queueFillScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var queueFillJob: Job? = null
 
+    val currentPlatform: StateFlow<MusicPlatform> = userPreferences.currentPlatform.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = MusicPlatform.NETEASE
+    )
+
     // 内部只保存远端基础曲目，跨平台/外部混排歌曲在 uiState 中动态合并展示
     private val _uiState = MutableStateFlow<PlaylistUiState>(PlaylistUiState.Loading)
 

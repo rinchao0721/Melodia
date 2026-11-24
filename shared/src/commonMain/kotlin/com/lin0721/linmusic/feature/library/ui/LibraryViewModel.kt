@@ -139,8 +139,14 @@ class LibraryViewModel(
 
     val isKugouEnabled: StateFlow<Boolean> = (settingsPreferences?.kugouPlatformEnabled ?: flowOf(true)).stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5000),
         initialValue = true
+    )
+
+    val currentPlatform: StateFlow<MusicPlatform> = userPreferences.currentPlatform.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = MusicPlatform.NETEASE
     )
 
     val browsePlatform: StateFlow<MusicPlatform> = combine(

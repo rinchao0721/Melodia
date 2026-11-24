@@ -541,16 +541,13 @@ class KugouDiscoverService(
                 audioInfo?.string("hash_128").orEmpty()
             ).firstOrNull { it.isNotBlank() }?.trim()?.lowercase() ?: return null
 
-            val rawName = obj.firstNonBlank("songname", "audio_name", "name", "SongName", "filename")
+            val rawName = obj.firstNonBlank("songname", "song_name", "audio_name", "ori_audio_name", "name", "SongName", "filename")
             val rawSinger = obj.firstNonBlank("author_name", "singername", "author", "SingerName")
-            val cleanTitle = stripKugouEmTags(rawName)
-            val cleanSinger = stripKugouEmTags(rawSinger)
-            val (resolvedName, resolvedSinger) = if (cleanSinger.isBlank() && cleanTitle.contains(" - ")) {
-                val parts = cleanTitle.split(" - ", limit = 2)
-                parts[1].trim() to parts[0].trim()
-            } else {
-                cleanTitle to cleanSinger
-            }
+            val (resolvedName, resolvedSinger) = resolveKugouTitleAndSinger(
+                title = stripKugouEmTags(rawName),
+                singer = stripKugouEmTags(rawSinger),
+                filename = stripKugouEmTags(obj.string("filename"))
+            )
 
             val singers = buildList {
                 val singersArr = obj["singers"]?.jsonArrayOrNull() ?: obj["authors"]?.jsonArrayOrNull()

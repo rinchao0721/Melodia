@@ -172,8 +172,13 @@ class SongCollectDelegate(
             withExternal(songId, onToast) { prepareExternal(it, onToast) }
             return
         }
-        val profile = userPreferences.userProfile.first()
-        val kugouAccount = if (isKugouActive()) userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() else null
+        val currentPlatform = userPreferences.currentPlatform.first()
+        val profile = if (currentPlatform == MusicPlatform.NETEASE) userPreferences.userProfile.first() else null
+        val kugouAccount = if (currentPlatform == MusicPlatform.KUGOU && isKugouActive()) {
+            userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
+        } else {
+            null
+        }
         if (profile == null && kugouAccount == null) return
 
         val neteasePlaylists = if (profile != null) {
@@ -235,7 +240,8 @@ class SongCollectDelegate(
                 songId = songId,
                 isLoading = false,
                 collectItems = neteaseItems + kugouItems,
-                trackId = trackId
+                trackId = trackId,
+                currentPlatform = currentPlatform
             )
         }
 
@@ -287,8 +293,13 @@ class SongCollectDelegate(
                 return
             }
         }
-        val profile = userPreferences.userProfile.first()
-        val kugouAccount = if (isKugouActive()) userPreferences.activeAccountOf(MusicPlatform.KUGOU).first() else null
+        val currentPlatform = userPreferences.currentPlatform.first()
+        val profile = if (currentPlatform == MusicPlatform.NETEASE) userPreferences.userProfile.first() else null
+        val kugouAccount = if (currentPlatform == MusicPlatform.KUGOU && isKugouActive()) {
+            userPreferences.activeAccountOf(MusicPlatform.KUGOU).first()
+        } else {
+            null
+        }
         if (profile == null && kugouAccount == null) {
             onToast("请先登录账号")
             return
@@ -361,7 +372,8 @@ class SongCollectDelegate(
                 songId = displaySongId,
                 isLoading = false,
                 collectItems = neteaseItems + kugouItems,
-                trackId = track.id
+                trackId = track.id,
+                currentPlatform = currentPlatform
             )
         }
 

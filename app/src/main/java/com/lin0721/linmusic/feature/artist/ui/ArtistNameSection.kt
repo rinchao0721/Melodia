@@ -1,5 +1,7 @@
 package com.lin0721.linmusic.feature.artist.ui
 
+import com.lin0721.linmusic.core.ui.components.PlatformBadgeStyle
+import com.lin0721.linmusic.core.ui.components.PlatformBadge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,19 +78,7 @@ fun ArtistNameSection(artist: ArtistDetailInfo, progress: Float, tintColor: Colo
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    if (isKugou) {
-                        val brand = Color(MusicPlatform.KUGOU.brandColorArgb)
-                        Text(
-                            text = MusicPlatform.KUGOU.badgeName,
-                            color = brand,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(brand.copy(alpha = 0.18f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    if (isKugou) PlatformBadge(MusicPlatform.KUGOU, style = PlatformBadgeStyle.PILL)
                 }
             } else {
                 Spacer(Modifier.height(18.dp))

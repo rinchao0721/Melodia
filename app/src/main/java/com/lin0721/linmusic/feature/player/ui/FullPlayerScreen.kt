@@ -76,6 +76,8 @@ import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
+import com.lin0721.linmusic.core.platform.AlbumId
+import com.lin0721.linmusic.core.platform.ArtistId
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
 import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
@@ -127,6 +129,8 @@ fun FullPlayerScreen(
     isPlayerOpen: Boolean,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onKugouArtistClick: (String) -> Unit = {},
+    onKugouAlbumClick: (String) -> Unit = {},
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
@@ -165,6 +169,8 @@ fun FullPlayerScreen(
             isPlayerOpen = isPlayerOpen,
             onArtistClick = onArtistClick,
             onAlbumClick = onAlbumClick,
+            onKugouArtistClick = onKugouArtistClick,
+            onKugouAlbumClick = onKugouAlbumClick,
             onPlaylistClick = onPlaylistClick,
             onNavigateToProfile = onNavigateToProfile,
             onNavigateToPrivateChat = onNavigateToPrivateChat,
@@ -201,6 +207,8 @@ private fun FullPlayerScreenContent(
     isPlayerOpen: Boolean,
     onArtistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onKugouArtistClick: (String) -> Unit = {},
+    onKugouAlbumClick: (String) -> Unit = {},
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
     onNavigateToPrivateChat: (Long) -> Unit = {},
@@ -315,7 +323,25 @@ private fun FullPlayerScreenContent(
     var showCardEditorSheet by remember { mutableStateOf(false) }
     var artistPickerEntries by remember { mutableStateOf<List<ArtistPickerEntry>>(emptyList()) }
     // 歌手入口统一走这里：单歌手直接跳转，多歌手弹选择面板（头像优先取已加载的歌手卡片资料）
-    val openSongArtist: () -> Unit = {
+    // 酷狗曲目的艺人卡片与艺人专辑携带酷狗 id，转成规范 id 走酷狗页面
+    val cardArtistClick: (Long) -> Unit = { id ->
+        if (songDetailState.kugouLinks != null) onKugouArtistClick(ArtistId.kugou(id.toString()).canonical) else onArtistClick(id)
+    }
+    val cardAlbumClick: (Long) -> Unit = { id ->
+        if (songDetailState.kugouLinks != null) onKugouAlbumClick(AlbumId.kugou(id.toString()).canonical) else onAlbumClick(id)
+    }
+    val openSongArtist: () -> Unit = openSongArtist@{
+        // 酷狗曲目歌手用规范 id 跳转，没有歌手 id 时不响应
+        songDetailState.kugouLinks?.let { links ->
+            when (links.artists.size) {
+                0 -> Unit
+                1 -> onKugouArtistClick(links.artists.first().entityId)
+                else -> artistPickerEntries = links.artists.map { artist ->
+                    ArtistPickerEntry(id = 0L, name = artist.name, entityId = artist.entityId)
+                }
+            }
+            return@openSongArtist
+        }
         val avatars = songDetailState.artists.associate { it.artistId to it.artistDetail?.avatar }
         val artists = songDetail?.ar.orEmpty()
             .filter { it.id > 0L }
@@ -334,7 +360,12 @@ private fun FullPlayerScreenContent(
             else -> artistPickerEntries = artists
         }
     }
-    val openSongAlbum: () -> Unit = {
+    val openSongAlbum: () -> Unit = openSongAlbum@{
+        // 酷狗曲目没有专辑 id 时不响应也不提示
+        songDetailState.kugouLinks?.let { links ->
+            links.albumEntityId?.let(onKugouAlbumClick)
+            return@openSongAlbum
+        }
         val albumId = songDetail?.al?.id ?: 0L
         if (albumId > 0L) {
             onAlbumClick(albumId)
@@ -972,9 +1003,9 @@ private fun FullPlayerScreenContent(
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
-                        onArtistClick = onArtistClick,
+                        onArtistClick = cardArtistClick,
                         onEditCardsClick = { showCardEditorSheet = true },
-                        onAlbumClick = onAlbumClick,
+                        onAlbumClick = cardAlbumClick,
                         onSelectArtist = { index -> viewModel.selectArtist(index) }
                     )
                 }
@@ -1170,8 +1201,8 @@ private fun FullPlayerScreenContent(
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
-                        onArtistClick = onArtistClick,
-                        onAlbumClick = onAlbumClick,
+                        onArtistClick = cardArtistClick,
+                        onAlbumClick = cardAlbumClick,
                         onSelectArtist = { index -> viewModel.selectArtist(index) },
                         onEditCardsClick = { showCardEditorSheet = true }
                     )
@@ -1247,7 +1278,8 @@ private fun FullPlayerScreenContent(
             ArtistPickerSheet(
                 artists = artistPickerEntries,
                 onArtistClick = onArtistClick,
-                onDismiss = { artistPickerEntries = emptyList() }
+                onDismiss = { artistPickerEntries = emptyList() },
+                onArtistEntityClick = onKugouArtistClick
             )
         }
 

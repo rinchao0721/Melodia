@@ -845,7 +845,7 @@ private fun PlaylistHero(
         Column(Modifier.weight(1f).padding(start = HeaderPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(typeLabel, color = DesktopColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (isKugou) PlatformBadge(MusicPlatform.KUGOU, Modifier.padding(start = 8.dp))
+                PlatformBadge(if (isKugou) MusicPlatform.KUGOU else MusicPlatform.NETEASE, Modifier.padding(start = 8.dp))
             }
             Text(
                 playlist.name,

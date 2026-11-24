@@ -326,12 +326,14 @@ fun CommentRowItem(
                         color = if (comment.liked) MelodiaColors.AccentText else MelodiaColors.TextSecondary.copy(alpha = 0.8f),
                         fontSize = 12.sp
                     )
-                    Icon(
-                        imageVector = MelodiaIcons.ThumbUp,
-                        contentDescription = null,
-                        tint = if (comment.liked) MelodiaColors.Accent else MelodiaColors.TextTertiary,
-                        modifier = Modifier.size(14.dp)
-                    )
+                    if (isLikeClickable) {
+                        Icon(
+                            imageVector = MelodiaIcons.ThumbUp,
+                            contentDescription = null,
+                            tint = if (comment.liked) MelodiaColors.Accent else MelodiaColors.TextTertiary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 

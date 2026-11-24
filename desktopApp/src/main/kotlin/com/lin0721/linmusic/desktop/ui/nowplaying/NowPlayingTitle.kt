@@ -50,10 +50,14 @@ internal fun NowPlayingSongTitle(
 ) {
     val navigator = LocalDesktopNavigator.current
     val podcast by playerViewModel.podcastState.collectAsState()
+    val detailState by playerViewModel.songDetailState.collectAsState()
     val scope = rememberCoroutineScope()
     val source = remember { MutableInteractionSource() }
     val hovered by source.collectIsHoveredAsState()
-    val clickable = !podcast.isPodcast
+    // 酷狗曲目只在有专辑 id 时可点，否则不响应也不提示
+    val kugouLinks = detailState.kugouLinks
+    val kugouAlbumEntityId = kugouLinks?.albumEntityId
+    val clickable = !podcast.isPodcast && (kugouLinks == null || kugouAlbumEntityId != null)
     Text(
         track.title,
         color = DesktopColors.TextPrimary,
@@ -65,7 +69,11 @@ internal fun NowPlayingSongTitle(
         modifier = if (clickable) {
             modifier.clip(RoundedCornerShape(4.dp)).pointerHoverIcon(PointerIcon.Hand).hoverable(source)
                 .clickable(interactionSource = source, indication = null) {
-                    scope.launch { openCurrentSongAlbum(track.songId, playerViewModel, navigator) }
+                    if (kugouAlbumEntityId != null) {
+                        navigator.openPlaylistEntity(kugouAlbumEntityId, track.title, true)
+                    } else {
+                        scope.launch { openCurrentSongAlbum(track.songId, playerViewModel, navigator) }
+                    }
                 }
         } else {
             modifier

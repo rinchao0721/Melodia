@@ -58,7 +58,7 @@ fun CommentsPreviewCard(
                 } else {
                     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         comments.forEachIndexed { index, comment ->
-                            CommentRow(comment, interactive = false, contentMaxLines = PREVIEW_MAX_LINES)
+                            CommentRow(comment, interactive = false, canLike = state.canLike, contentMaxLines = PREVIEW_MAX_LINES)
                             if (index < comments.lastIndex) {
                                 HorizontalDivider(color = DesktopColors.Divider, thickness = 0.5.dp)
                             }

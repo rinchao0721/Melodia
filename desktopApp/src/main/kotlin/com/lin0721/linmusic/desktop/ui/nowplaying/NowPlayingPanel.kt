@@ -52,7 +52,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.kugou.KugouArtistLink
 import com.lin0721.linmusic.core.model.Artist
+import com.lin0721.linmusic.core.platform.ArtistId
+import com.lin0721.linmusic.core.platform.toDeterministicLegacyId
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
@@ -182,7 +185,8 @@ fun NowPlayingPanel(
                                 FullPlayerCard.MUSIC_MEMORY -> detailState.songWiki?.musicMemory?.let { MusicMemoryCard(it) }
                                 FullPlayerCard.ARTIST_ALBUMS -> ArtistAlbumsCard(
                                     albums = detailState.artistAlbums,
-                                    artistName = detailState.currentArtistItem?.artistName ?: detailState.artistDetail?.name
+                                    artistName = detailState.currentArtistItem?.artistName ?: detailState.artistDetail?.name,
+                                    kugou = detailState.kugouLinks != null
                                 )
                                 FullPlayerCard.SIMILAR_ARTISTS -> SimilarArtistsCard(detailState.similarArtists)
                                 FullPlayerCard.ABOUT_ARTIST -> AboutArtistCard(
@@ -190,8 +194,11 @@ fun NowPlayingPanel(
                                     selectedIndex = detailState.selectedArtistIndex,
                                     onSelectArtist = playerViewModel::selectArtist,
                                     onToggleFollow = { artistId ->
-                                        if (navigator.isLoggedIn) playerViewModel.toggleArtistFollow(artistId) else navigator.showMessage("请先登录账号")
-                                    }
+                                        val kugouTrack = detailState.kugouLinks != null
+                                        val loggedIn = if (kugouTrack) navigator.isKugouLoggedIn else navigator.isLoggedIn
+                                        if (loggedIn) playerViewModel.toggleArtistFollow(artistId) else navigator.showMessage("请先登录账号")
+                                    },
+                                    kugou = detailState.kugouLinks != null
                                 )
                                 else -> Unit
                             }
@@ -257,6 +264,25 @@ private fun PluginNowPlayingTree(
 internal fun NowPlayingArtists(track: NowPlaying, playerViewModel: PlayerViewModel, fontSize: TextUnit) {
     val navigator = LocalDesktopNavigator.current
     val detailState by playerViewModel.songDetailState.collectAsState()
+    val kugouArtists = detailState.kugouLinks?.artists.orEmpty()
+    if (detailState.kugouLinks != null && kugouArtists.isNotEmpty()) {
+        // 酷狗歌手用规范 id 导航，Artist.id 只作列表内的点击标识
+        val entityIds = remember(kugouArtists) {
+            kugouArtists.associate { it.legacyId() to it.entityId }
+        }
+        Text(
+            artistLinks(
+                artists = kugouArtists.map { Artist(id = it.legacyId(), name = it.name) },
+                onClick = { id, name -> entityIds[id]?.let { navigator.openArtistEntity(it, name) } },
+                clickableIds = entityIds.keys
+            ),
+            color = DesktopColors.TextGray,
+            fontSize = fontSize,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        return
+    }
     val artists = detailState.artists
         .takeIf { detailState.songDetail?.id == track.songId }
         ?.map { Artist(id = it.artistId, name = it.artistName) }
@@ -273,6 +299,8 @@ internal fun NowPlayingArtists(track: NowPlaying, playerViewModel: PlayerViewMod
         )
     }
 }
+
+private fun KugouArtistLink.legacyId(): Long = ArtistId.kugou(id).toDeterministicLegacyId()
 
 @Composable
 private fun PanelHeader(

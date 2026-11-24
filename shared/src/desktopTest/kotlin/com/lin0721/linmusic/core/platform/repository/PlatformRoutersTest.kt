@@ -155,7 +155,7 @@ class PlatformRoutersTest {
                 kugouHttpCalls.incrementAndGet()
                 return when (request.requestUrl?.encodedPath) {
                     "/v7/get_all_list" -> MockResponse().setResponseCode(200).setBody(
-                        """{"status": 1, "data": {"info": [{"listid": 2001, "global_collection_id": "collection_3_889900_2001_0", "name": "酷狗自建", "count": 3, "type": 0}]}}"""
+                        """{"status": 1, "data": {"info": [{"listid": 2001, "global_collection_id": "collection_3_889900_2001_0", "name": "酷狗自建", "count": 3, "type": 0, "pic": "http://imge.kugou.com/self.jpg"}]}}"""
                     )
                     "/v4/follow_list" -> MockResponse().setResponseCode(200).setBody(
                         """{"status": 1, "data": {"list": [{"author_id": "3520", "author_name": "周杰伦"}]}}"""
@@ -192,6 +192,41 @@ class PlatformRoutersTest {
         val blockedRes = router.getUserPlaylists(AccountId.kugou(889900L)).first()
         assertTrue(blockedRes.isFailure)
         assertEquals(beforeBlocked, kugouHttpCalls.get())
+    }
+
+    @Test
+    fun `酷狗歌单无封面时取第一首歌封面，空歌单不补请求`() = runTest {
+        val trackRequests = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                when (request.requestUrl?.encodedPath) {
+                    "/v7/get_all_list" -> MockResponse().setResponseCode(200).setBody(
+                        """{"status": 1, "data": {"info": [
+                            {"listid": 3001, "global_collection_id": "collection_3_889900_3001_0", "name": "我喜欢", "count": 2, "type": 0},
+                            {"listid": 3002, "global_collection_id": "collection_3_889900_3002_0", "name": "空歌单", "count": 0, "type": 0}
+                        ]}}"""
+                    )
+                    "/v4/get_list_all_file_v3" -> {
+                        trackRequests.incrementAndGet()
+                        MockResponse().setResponseCode(200).setBody(
+                            """{"status": 1, "error_code": 0, "data": {"count": 2, "info": [
+                                {"hash": "AABB1122", "name": "周杰伦 - 晴天", "timelen": 269000, "cover": "http://imge.kugou.com/{size}/first.jpg"}
+                            ]}}"""
+                        )
+                    }
+                    else -> MockResponse().setResponseCode(404)
+                }
+        }
+        val playlistSvc = KugouPlaylistService(config, gatewayClient, userPreferences)
+        val artistSvc = KugouArtistService(config, deviceStore, gatewayClient, userPreferences)
+        val playbackSvc = KugouPlaybackService(config, deviceStore, gatewayClient, userPreferences)
+        val kugouRepo = KugouPlatformLibraryRepository(playlistSvc, artistSvc, playbackSvc) { kugouEnabled }
+
+        val list = kugouRepo.getUserPlaylists(AccountId.kugou(889900L)).first().getOrThrow()
+
+        assertEquals("https://imge.kugou.com/400/first.jpg", list.first { it.name == "我喜欢" }.coverUrl)
+        assertEquals("", list.first { it.name == "空歌单" }.coverUrl)
+        assertEquals(1, trackRequests.get())
     }
 
     @Test
