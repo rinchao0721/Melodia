@@ -1,7 +1,8 @@
 package com.lin0721.linmusic.di
 
-import androidx.room.Room
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabase
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabaseFactory
 import com.lin0721.linmusic.core.songquality.SongQualityCache
 import com.lin0721.linmusic.core.songquality.warmIds
 import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
@@ -9,7 +10,6 @@ import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicApiImpl
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicSettings
 import com.lin0721.linmusic.feature.localmusic.data.LocalPlaylistRepository
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalMusicDatabase
 import com.lin0721.linmusic.feature.localmusic.data.lyrics.LocalLyricsReader
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
@@ -24,9 +24,9 @@ import org.koin.dsl.module
 
 val localMusicModule = module {
     single {
-        Room.databaseBuilder(androidContext(), LocalMusicDatabase::class.java, LocalMusicDatabase.NAME)
-            .addMigrations(LocalMusicDatabase.MIGRATION_5_6)
-            .build()
+        LocalMusicDatabase.build(
+            LocalMusicDatabaseFactory(androidContext()).createBuilder()
+        )
     }
     single { get<LocalMusicDatabase>().localTrackDao() }
     single { get<LocalMusicDatabase>().localPlaylistDao() }

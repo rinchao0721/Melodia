@@ -6,7 +6,7 @@ import android.database.Cursor
 import android.os.Build
 import android.provider.MediaStore
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.metadata.mergeWavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.metadata.readWavTags
@@ -127,7 +127,7 @@ class MediaStoreScanner(private val context: Context) {
                         mediaStoreBitrateKbps = mediaStoreBitrateKbps
                     )
                     results += LocalTrackEntity(
-                        uri = uriString,
+                        location = uriString,
                         mediaStoreId = id,
                         songId = null,
                         title = title,

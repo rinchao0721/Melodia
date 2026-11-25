@@ -15,9 +15,9 @@ import androidx.core.content.ContextCompat
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.isDefaultDownloadDirectoryUri
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackDao
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
-import com.lin0721.linmusic.feature.localmusic.data.db.toDomain
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackDao
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
+import com.lin0721.linmusic.feature.localmusic.data.scan.fallbackLocalQualityLevel
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
 import com.lin0721.linmusic.feature.localmusic.data.scan.ImportResult
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
@@ -57,7 +57,29 @@ class LocalLibraryRepository(
 
     private val syncMutex = Mutex()
 
-    private val allTracks: Flow<List<LocalTrack>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+    private val allTracks: Flow<List<LocalTrack>> = dao.observeAll().map { list ->
+        list.map { entity ->
+            val mediaId = entity.mediaStoreId ?: entity.location.hashCode().toLong().let { if (it == 0L) 1L else it }
+            LocalTrack(
+                mediaStoreId = mediaId,
+                songId = entity.songId,
+                title = entity.title,
+                artist = entity.artist,
+                album = entity.album,
+                durationMs = entity.durationMs,
+                sizeBytes = entity.sizeBytes,
+                uri = Uri.parse(entity.location),
+                path = entity.path,
+                dateAddedMs = entity.dateAddedMs,
+                source = LocalTrackSource.entries.firstOrNull { it.name == entity.source } ?: LocalTrackSource.EXTERNAL,
+                albumArtist = entity.albumArtist,
+                year = entity.year,
+                trackNumber = entity.trackNumber,
+                qualityLevel = entity.qualityLevel?.takeIf { it.isNotBlank() }
+                    ?: fallbackLocalQualityLevel(entity.path, entity.location, entity.sizeBytes, entity.durationMs)
+            )
+        }
+    }
 
     // 库内保留全部曲目，过滤只作用在读取侧，改设置无需重新扫描
     val tracks: Flow<List<LocalTrack>> = combine(allTracks, settings.scanFilter) { list, filter ->
@@ -100,7 +122,7 @@ class LocalLibraryRepository(
                 importer.refreshImportedMetadata(it)
             }
             // SAF 的授权不依赖全库权限；全库扫描失败也不能丢失已成功读取的导入标签。
-            val rawScanned = if (hasPermission()) scanner.scan(snapshot.associateBy { it.uri }) else null
+            val rawScanned = if (hasPermission()) scanner.scan(snapshot.associateBy { it.location }) else null
             if (rawScanned == null) {
                 val updates = stableImportUpdates(snapshot, dao.getAll(), refreshedImports)
                 if (updates.isNotEmpty()) dao.upsert(updates)
@@ -111,7 +133,7 @@ class LocalLibraryRepository(
                 .filter { isDefaultDownloadDirectoryUri(it.mediaStoreUri) }
                 .associateBy { it.mediaStoreUri }
             val scanned = rawScanned.map { entity ->
-                val record = downloadRecords[entity.uri] ?: return@map entity
+                val record = downloadRecords[entity.location] ?: return@map entity
                 // 标题/歌手以文件标签为准，下载记录只补空缺，否则用户改完标签会被记录里的旧名盖回
                 entity.copy(
                     songId = record.songId,
@@ -125,11 +147,11 @@ class LocalLibraryRepository(
             val diff = computeLocalLibrarySyncDiff(
                 existing = existing,
                 scanned = scanned,
-                isImportedAlive = { isReadable(Uri.parse(it.uri)) }
+                isImportedAlive = { isReadable(Uri.parse(it.location)) }
             )
-            val scannedUris = scanned.mapTo(HashSet()) { it.uri }
+            val scannedUris = scanned.mapTo(HashSet()) { it.location }
             val importedUpdates = stableImportUpdates(snapshot, existing, refreshedImports)
-                .filter { it.uri !in scannedUris && it.uri !in diff.deleteUris }
+                .filter { it.location !in scannedUris && it.location !in diff.deleteUris }
             dao.applySync(diff.upserts + importedUpdates, diff.deleteUris)
         }
     }
@@ -137,7 +159,7 @@ class LocalLibraryRepository(
     suspend fun importFiles(uris: List<Uri>): ImportResult = withContext(Dispatchers.IO) {
         val distinct = uris.distinct()
         if (distinct.isEmpty()) return@withContext ImportResult(0, 0, 0)
-        val knownUris = dao.getAllUris().toHashSet()
+        val knownUris = dao.getAllLocations().toHashSet()
         val parsed = importer.parseFiles(distinct, knownUris)
         val added = dao.insertIgnoringExisting(parsed).count { it != -1L }
         ImportResult(addedCount = added, skippedCount = distinct.size - added, totalFound = distinct.size)
@@ -149,7 +171,7 @@ class LocalLibraryRepository(
     suspend fun delete(track: LocalTrack): Boolean = withContext(Dispatchers.IO) {
         val uriString = track.uri.toString()
         if (track.source == LocalTrackSource.IMPORTED) {
-            dao.deleteByUris(listOf(uriString))
+            dao.deleteByLocations(listOf(uriString))
             runCatching {
                 context.contentResolver.releasePersistableUriPermission(track.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -160,7 +182,7 @@ class LocalLibraryRepository(
             .onFailure { AppLogger.w(TAG, "删除本地文件失败 uri=$uriString", it) }
             .getOrDefault(false)
         if (deleted) {
-            dao.deleteByUris(listOf(uriString))
+            dao.deleteByLocations(listOf(uriString))
             track.songId?.let { downloadPreferences.removeRecord(it) }
         }
         deleted
@@ -201,7 +223,7 @@ class LocalLibraryRepository(
             dao.insertIgnoringExisting(
                 legacy.map { record ->
                     LocalTrackEntity(
-                        uri = record.uriString,
+                        location = record.uriString,
                         mediaStoreId = null,
                         songId = null,
                         title = record.title,
@@ -229,7 +251,7 @@ class LocalLibraryRepository(
         coverArtCache.invalidate(track.uri)
         if (track.source == LocalTrackSource.IMPORTED) {
             val entity = importer.parseMetadata(track.uri) ?: return@withContext
-            val existing = dao.getByUri(track.uri.toString())
+            val existing = dao.getByLocation(track.uri.toString())
             dao.upsert(listOf(existing?.let { entity.copy(dateAddedMs = it.dateAddedMs) } ?: entity))
             return@withContext
         }

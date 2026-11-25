@@ -67,6 +67,10 @@ import com.lin0721.linmusic.desktop.data.recognition.GraalAfpFingerprintEngine
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadFolderScanner
 import com.lin0721.linmusic.desktop.data.download.DesktopDownloadPreferences
 import com.lin0721.linmusic.desktop.data.download.DesktopSongDownloader
+import com.lin0721.linmusic.core.localmusic.data.DesktopJsonImporter
+import com.lin0721.linmusic.core.localmusic.data.LocalMatchService
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabase
+import com.lin0721.linmusic.core.localmusic.db.LocalMusicDatabaseFactory
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryRepository
 import com.lin0721.linmusic.desktop.data.local.LocalLibraryStore
 import com.lin0721.linmusic.desktop.data.local.LocalMatcher
@@ -310,6 +314,16 @@ val desktopPlatformModule = module {
     single { AmllLyricsClient(get<LyricsCache>()) }
     single { QqLyricsClient() }
     single { QqLyricsSource(get(), get()) }
+    // 本地音乐共享数据库与一次性 JSON 导入
+    single {
+        LocalMusicDatabase.build(
+            LocalMusicDatabaseFactory(DesktopPaths.localLibraryFile.parentFile).createBuilder()
+        )
+    }
+    single { get<LocalMusicDatabase>().localTrackDao() }
+    single { get<LocalMusicDatabase>().localPlaylistDao() }
+    single { DesktopJsonImporter(get(), get()) }
+    single { LocalMatchService(get()) }
     // 启动即加载并后台扫描
     single(createdAtStart = true) {
         LocalLibraryRepository(

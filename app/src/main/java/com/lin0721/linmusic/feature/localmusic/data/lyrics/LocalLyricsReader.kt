@@ -5,7 +5,7 @@ import android.content.Context
 import android.net.Uri
 import com.kyant.taglib.TagLib
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackDao
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
     alias(libs.plugins.baselineprofile)
 }
 
@@ -106,11 +105,6 @@ android {
     }
 }
 
-// Room Gradle 插件在 AGP 9 下会重复注册 copyRoomSchemas，改用 KSP 参数导出 schema
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 // 自定义输出 APK 文件名：Melodia-v{versionName}-{buildType}.apk
 base {
     archivesName.set("Melodia-v${android.defaultConfig.versionName}")
@@ -119,11 +113,6 @@ base {
 baselineProfile {
     automaticGenerationDuringBuild = false
     saveInSrc = true
-}
-
-// Room Gradle 插件在 AGP 9 下会重复注册 copyRoomSchemas，改用 KSP 参数导出 schema
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -164,9 +153,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.documentfile)
     implementation(libs.taglib)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
     implementation(libs.haze)
     implementation(libs.android.image.cropper)
     implementation(libs.zxing.core)

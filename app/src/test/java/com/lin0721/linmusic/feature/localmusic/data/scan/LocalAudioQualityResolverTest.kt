@@ -2,7 +2,7 @@ package com.lin0721.linmusic.feature.localmusic.data.scan
 
 import com.lin0721.linmusic.core.download.ContainerAudioMetrics
 import com.lin0721.linmusic.core.download.parseAlacCsdBitDepth
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -209,7 +209,7 @@ class LocalAudioQualityResolverTest {
     @Test
     fun entityWithNullQualityLevelComputesFallbackSafelyWithoutUriParseCrash() {
         val entity = LocalTrackEntity(
-            uri = "/music/sample.wav",
+            location = "/music/sample.wav",
             mediaStoreId = 1L,
             songId = null,
             title = "Sample",
@@ -223,6 +223,6 @@ class LocalAudioQualityResolverTest {
             source = LocalTrackSource.EXTERNAL.name,
             qualityLevel = null
         )
-        assertEquals("lossless", fallbackLocalQualityLevel(entity.path, entity.uri, entity.sizeBytes, entity.durationMs))
+        assertEquals("lossless", fallbackLocalQualityLevel(entity.path, entity.location, entity.sizeBytes, entity.durationMs))
     }
 }

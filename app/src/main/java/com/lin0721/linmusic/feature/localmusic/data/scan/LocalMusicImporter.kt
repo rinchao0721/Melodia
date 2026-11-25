@@ -7,7 +7,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.data.mergeImportedWavTags
 import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.metadata.canSkipWavRefresh
@@ -169,7 +169,7 @@ class LocalMusicImporter(private val context: Context) {
 
         val now = System.currentTimeMillis()
         return LocalTrackEntity(
-            uri = uri.toString(),
+            location = uri.toString(),
             mediaStoreId = null,
             songId = null,
             title = finalTitle,
@@ -191,7 +191,7 @@ class LocalMusicImporter(private val context: Context) {
     // 已导入文件不会再次经过 MediaStore，升级后同步时补读 WAV 标签与缺失的音质等级
     internal fun refreshImportedMetadata(existing: LocalTrackEntity): LocalTrackEntity? {
         if (existing.source != LocalTrackSource.IMPORTED.name) return null
-        val uri = Uri.parse(existing.uri)
+        val uri = Uri.parse(existing.location)
         var updated = existing
         if (!canSkipWavRefresh(Uri.decode(uri.lastPathSegment))) {
             readWavTags(context, uri)?.let { tags ->

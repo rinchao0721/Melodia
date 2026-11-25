@@ -1,6 +1,6 @@
 package com.lin0721.linmusic.feature.localmusic.data
 
-import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.core.localmusic.db.LocalTrackEntity
 import com.lin0721.linmusic.feature.localmusic.data.metadata.WavMetadata
 import com.lin0721.linmusic.feature.localmusic.data.scan.resolveArtistAndTitle
 import com.lin0721.linmusic.feature.localmusic.data.scan.resolveMediaStoreAlbum
@@ -59,7 +59,7 @@ class LocalLibrarySyncTest {
         source: LocalTrackSource = LocalTrackSource.EXTERNAL,
         modifiedMs: Long = 1L
     ) = LocalTrackEntity(
-        uri = uri,
+        location = uri,
         mediaStoreId = null,
         songId = null,
         title = title,
@@ -104,7 +104,7 @@ class LocalLibrarySyncTest {
     fun `导入条目只在文件不可读时删除`() {
         val alive = entity("alive", source = LocalTrackSource.IMPORTED)
         val dead = entity("dead", source = LocalTrackSource.IMPORTED)
-        val diff = computeLocalLibrarySyncDiff(listOf(alive, dead), emptyList()) { it.uri == "alive" }
+        val diff = computeLocalLibrarySyncDiff(listOf(alive, dead), emptyList()) { it.location == "alive" }
         assertEquals(setOf("dead"), diff.deleteUris)
     }
 
