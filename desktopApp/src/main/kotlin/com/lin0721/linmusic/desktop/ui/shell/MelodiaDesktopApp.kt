@@ -27,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import com.lin0721.linmusic.core.ui.font.FontRepository
+import org.koin.mp.KoinPlatform
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -234,6 +236,11 @@ fun WindowScope.MelodiaDesktopApp(
     )
     val frameHost = session.frameHost
     val liveEntryIds = state.backStack.liveEntryIds
+    LaunchedEffect(navigator) {
+        KoinPlatform.getKoin().get<FontRepository>().fallbackEvents.collect { event ->
+            navigator.showMessage("字体「${event.fontName ?: event.fontId}」加载失败（${event.reason}），已回退")
+        }
+    }
     LaunchedEffect(liveEntryIds) { frameHost.reconcile() }
 
     val isMaximized = windowState.placement == WindowPlacement.Maximized

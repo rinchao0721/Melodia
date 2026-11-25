@@ -47,6 +47,8 @@ import com.lin0721.linmusic.core.lanlink.LanLinkRemoteCoordinator
 import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
 import com.lin0721.linmusic.core.playlistexternal.PlaylistExternalTrackStore
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.ui.font.FontRepository
+import com.lin0721.linmusic.core.ui.font.FontStore
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.SkinStore
@@ -197,8 +199,10 @@ val desktopPlatformModule = module {
     }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS), userPreferences = get()) }
     single<SkinImageCodec> { DesktopSkinImageCodec() }
+    single { FontStore(File(DesktopPaths.dataDir, "fonts")) }
     single { SkinStore(File(DesktopPaths.dataDir, "skins"), get()) }
-    single { SkinRepository(get(), get()) }
+    single { SkinRepository(get(), get(), fontStore = get()) }
+    single { FontRepository(get(), get<SettingsPreferences>().fontSettings, get<SkinRepository>().activeSkin) }
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { PlaylistExternalTrackStore(store(PreferencesStores.PLAYLIST_EXTERNAL)) }
     single { LanLinkPreferences(store(PreferencesStores.LAN_LINK)) }

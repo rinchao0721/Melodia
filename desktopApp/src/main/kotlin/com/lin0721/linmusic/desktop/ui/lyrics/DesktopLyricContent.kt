@@ -61,6 +61,7 @@ import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricPalette
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricShadow
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.player.floatinglyric.LyricResizeHandle
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.components.LocalWindowEffects
 import com.lin0721.linmusic.desktop.ui.components.PlayPauseIcon
@@ -159,6 +160,7 @@ fun WindowScope.DesktopLyricContent(
         Box(Modifier.fillMaxWidth().clip(PillShape).background(Color.Black.copy(alpha = backgroundAlpha))) {
             WindowDragArea(Modifier.fillMaxWidth().onDoubleClick(actions.onToggleLock)) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                    val lyricFont = LocalMelodiaFonts.current.lyrics
                     val primary = frame.primary
                     if (primary != null && primary.words.isNotEmpty()) {
                         KaraokeText(
@@ -180,6 +182,7 @@ fun WindowScope.DesktopLyricContent(
                             fontSize = fontSize,
                             lineHeight = (style.fontSizeSp * LINE_HEIGHT_SCALE).sp,
                             fontWeight = fontWeight,
+                            fontFamily = lyricFont,
                             textAlign = textAlign,
                             style = LocalTextStyle.current.copy(shadow = shadow),
                             modifier = Modifier.fillMaxWidth()
@@ -193,6 +196,7 @@ fun WindowScope.DesktopLyricContent(
                             fontSize = secondarySize.sp,
                             lineHeight = (secondarySize * LINE_HEIGHT_SCALE).sp,
                             fontWeight = FontWeight.Medium,
+                            fontFamily = lyricFont,
                             textAlign = textAlign,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

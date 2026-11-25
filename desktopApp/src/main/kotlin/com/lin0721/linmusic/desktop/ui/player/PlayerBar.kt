@@ -117,6 +117,7 @@ import com.lin0721.linmusic.desktop.ui.nowplaying.NowPlayingArtists
 import com.lin0721.linmusic.desktop.ui.nowplaying.NowPlayingSongTitle
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.numericTextStyle
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.desktop.ui.track.CollectToPlaylistPopup
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
@@ -1051,6 +1052,7 @@ private fun TimeLabel(ms: Long, align: TextAlign) {
         fontSize = 11.sp,
         textAlign = align,
         maxLines = 1,
+        style = numericTextStyle(),
         modifier = Modifier.width(40.dp)
     )
 }

@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 import com.lin0721.linmusic.desktop.ui.components.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.components.HoverReveal
 import com.lin0721.linmusic.desktop.ui.icons.LyricCardIcons
@@ -327,12 +328,14 @@ private fun LyricRow(
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
     ) {
+        val lyricFont = LocalMelodiaFonts.current.lyrics
         Text(
             line.text,
             fontSize = mainSize,
             lineHeight = (mainSize.value * 1.35f).sp,
             color = textColor,
             fontWeight = FontWeight.ExtraBold,
+            fontFamily = lyricFont,
             textDecoration = if (hovered) TextDecoration.Underline else TextDecoration.None,
             onTextLayout = { if (isCurrent) onCurrentLineLayout(it.lineCount) },
             modifier = Modifier.fillMaxWidth()
@@ -342,6 +345,7 @@ private fun LyricRow(
                 translation,
                 fontSize = translationSize,
                 lineHeight = (translationSize.value * 1.35f).sp,
+                fontFamily = lyricFont,
                 color = textColor.copy(alpha = translationAlpha),
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
             )

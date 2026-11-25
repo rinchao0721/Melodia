@@ -108,6 +108,7 @@ import com.lin0721.linmusic.desktop.ui.palette.themedCoverBackground
 import com.lin0721.linmusic.desktop.ui.player.PlayerSlider
 import com.lin0721.linmusic.desktop.ui.shell.WindowDragArea
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.numericTextStyle
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -383,7 +384,7 @@ private fun BarLayout(info: MiniTrackInfo, hovered: Boolean, actions: MiniPlayer
 
 @Composable
 private fun TimeText(ms: Long) {
-    Text(formatDuration(ms), color = SubtleText, fontSize = 11.sp, maxLines = 1)
+    Text(formatDuration(ms), color = SubtleText, fontSize = 11.sp, maxLines = 1, style = numericTextStyle())
 }
 
 @Composable

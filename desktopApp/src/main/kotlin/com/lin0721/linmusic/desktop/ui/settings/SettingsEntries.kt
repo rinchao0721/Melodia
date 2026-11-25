@@ -946,6 +946,22 @@ internal fun settingsEntries(
             }
         )
         add(
+            SettingsEntry(
+                key = "font",
+                category = SettingsCategory.Interface,
+                title = "字体",
+                subtitle = "设置全局、标题、歌词与数字字体，支持导入 .ttf / .otf",
+                keywords = listOf("字体", "外观", "字号", "歌词字体", "数字", "等宽", "导入")
+            ) {
+                val koin = remember { org.koin.mp.KoinPlatform.getKoin() }
+                FontSetting(
+                    fontStore = remember { koin.get() },
+                    fontRepository = remember { koin.get() },
+                    settingsPreferences = remember { koin.get() }
+                )
+            }
+        )
+        add(
             rowEntry(
                 "homeRecentPlay", SettingsCategory.Interface, "首页最近播放",
                 subtitle = "在首页顶部显示最近播放的歌单与专辑",

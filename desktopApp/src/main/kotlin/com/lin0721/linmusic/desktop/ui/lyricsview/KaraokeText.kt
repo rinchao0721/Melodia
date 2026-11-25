@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 
 private const val TAG = "KaraokeText"
 
@@ -85,12 +86,14 @@ fun KaraokeText(
         TextAlign.Center -> Alignment.Center
         else -> Alignment.CenterStart
     }
+    val lyricFont = LocalMelodiaFonts.current.lyrics
     Box(Modifier.fillMaxWidth(), contentAlignment = contentAlignment) {
         Text(
             line.text,
             fontSize = fontSize,
             lineHeight = lineHeight,
             fontWeight = fontWeight,
+            fontFamily = lyricFont,
             color = inactiveColor,
             textAlign = textAlign,
             style = LocalTextStyle.current.copy(shadow = shadow),
@@ -102,6 +105,7 @@ fun KaraokeText(
             fontSize = fontSize,
             lineHeight = lineHeight,
             fontWeight = fontWeight,
+            fontFamily = lyricFont,
             color = activeColor,
             textAlign = textAlign,
             modifier = Modifier.fillMaxWidth()

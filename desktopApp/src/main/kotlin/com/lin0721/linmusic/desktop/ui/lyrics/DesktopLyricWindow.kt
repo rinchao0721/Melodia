@@ -19,6 +19,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+import com.lin0721.linmusic.core.ui.font.ResolvedFonts
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricFrames
 import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
@@ -54,6 +56,7 @@ fun DesktopLyricWindow(
     locked: Boolean,
     initialBounds: DesktopLyricBounds?,
     initialStyle: FloatingLyricStyle,
+    fonts: ResolvedFonts = ResolvedFonts(),
     playerViewModel: PlayerViewModel,
     controller: PlaybackController,
     desktopPreferences: DesktopPreferences,
@@ -148,7 +151,7 @@ fun DesktopLyricWindow(
             )
         }
 
-        CompositionLocalProvider(LocalWindowEffects provides windowEffects) {
+        CompositionLocalProvider(LocalWindowEffects provides windowEffects, LocalMelodiaFonts provides fonts) {
             DesktopLyricContent(
                 frame = frame,
                 style = style,

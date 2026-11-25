@@ -36,6 +36,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.lin0721.linmusic.core.ui.skin.ActiveSkin
 import com.lin0721.linmusic.core.ui.skin.SkinImageCodec
+import com.lin0721.linmusic.core.ui.font.FontRepository
 import com.lin0721.linmusic.core.ui.skin.SkinRepository
 import com.lin0721.linmusic.core.ui.skin.withBackdrop
 import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
@@ -244,6 +245,7 @@ fun main(args: Array<String>) {
     }.getOrDefault(ThemeSettings())
     if (initialThemeSettings.mode == ThemeMode.SYSTEM) SystemDarkTheme.refreshBlocking(windowEffects)
     val skinRepository = koin.get<SkinRepository>()
+    val fontRepository = koin.get<FontRepository>()
     val pluginRepository = koin.get<PluginRepository>()
     val skinImageCodec = koin.get<SkinImageCodec>()
     val initialDark = initialThemeSettings.mode.isDark(SystemDarkTheme.isDark.value)
@@ -300,6 +302,7 @@ fun main(args: Array<String>) {
         val activeSkinFlow = remember { skinRepository.activeSkin.withBackdrop(skinImageCodec) }
         val activeSkin by activeSkinFlow.collectAsState(initial = ActiveSkin(initialSkin, null))
         val skin = activeSkin.skin
+        val resolvedFonts by fontRepository.resolvedFonts.collectAsState()
         val basePalette = rememberDesktopPalette(themeSettings, skin, windowEffects)
         val pluginBackdrops by pluginRepository.backdrops.collectAsState()
         val pluginBackdrop = pluginBackdrops.active
@@ -567,6 +570,7 @@ fun main(args: Array<String>) {
                     uiScale = uiScaleFactor,
                     palette = palette,
                     style = skin?.style ?: MelodiaStyle.Default,
+                    fonts = resolvedFonts,
                     backdrop = backdropHost,
                     skin = skin
                 ) {
@@ -596,6 +600,7 @@ fun main(args: Array<String>) {
                 locked = isLyricLocked,
                 initialBounds = remember { loadLyricBounds() },
                 initialStyle = remember { loadLyricStyle() },
+                fonts = resolvedFonts,
                 playerViewModel = playerViewModel,
                 controller = controller,
                 desktopPreferences = desktopPreferences,
@@ -616,6 +621,7 @@ fun main(args: Array<String>) {
                 uiScale = uiScaleFactor,
                 palette = basePalette,
                 skin = skin,
+                fonts = resolvedFonts,
                 uiMotion = uiMotion,
                 windowEffects = windowEffects,
                 icon = appIcon,

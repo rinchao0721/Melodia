@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui.theme
 
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -11,9 +12,12 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
+import com.lin0721.linmusic.core.ui.font.ResolvedFonts
 import com.lin0721.linmusic.core.ui.skin.CoverGroup
 import com.lin0721.linmusic.core.ui.skin.LocalCoverPolicy
 import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
@@ -27,7 +31,6 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaPalettes
 import com.lin0721.linmusic.core.ui.theme.MelodiaStyle
 import com.lin0721.linmusic.core.ui.theme.SkinBackdropHost
-import com.lin0721.linmusic.core.ui.theme.ThemeFont
 
 // 色值来自当前主题的 MelodiaPalette，语义见 MelodiaPalette；仅能在组合作用域内读取
 object DesktopColors {
@@ -89,10 +92,21 @@ object DesktopDimens {
 }
 
 @Composable
+fun numericTextStyle(base: TextStyle = LocalTextStyle.current): TextStyle {
+    val font = LocalMelodiaFonts.current.numbers
+    return if (font != null) {
+        base.copy(fontFamily = font, fontFeatureSettings = "tnum")
+    } else {
+        base.copy(fontFeatureSettings = "tnum")
+    }
+}
+
+@Composable
 fun MelodiaDesktopTheme(
     uiScale: Float = 1f,
     palette: MelodiaPalette = MelodiaPalettes.dark,
     style: MelodiaStyle = MelodiaStyle.Default,
+    fonts: ResolvedFonts = ResolvedFonts(),
     backdrop: SkinBackdropHost? = null,
     skin: Skin? = null,
     content: @Composable () -> Unit
@@ -103,11 +117,12 @@ fun MelodiaDesktopTheme(
     }
     val colorScheme = remember(palette) { melodiaColorScheme(palette) }
     val baseTypography = MaterialTheme.typography
-    val typography = remember(baseTypography, style.font) { baseTypography.withFont(style.font) }
+    val typography = remember(baseTypography, fonts.global, fonts.title) { baseTypography.withFont(fonts) }
     CompositionLocalProvider(
         LocalDensity provides scaledDensity,
         LocalMelodiaPalette provides palette,
         LocalMelodiaStyle provides style,
+        LocalMelodiaFonts provides fonts,
         LocalSkinBackdrop provides backdrop?.takeIf { palette.backdrop != null },
         LocalCoverPolicy provides skin.coverPolicy(palette.isDark, backdropReady = backdrop != null && palette.backdrop != null),
         LocalImmersiveBasePalette provides remember(skin) { immersiveBasePalette(skin) }
@@ -169,23 +184,25 @@ private fun ColorScheme.withLightContainers(palette: MelodiaPalette): ColorSchem
     error = palette.error
 )
 
-private fun Typography.withFont(font: ThemeFont): Typography {
-    val family = font.fontFamily ?: return this
+private fun Typography.withFont(fonts: ResolvedFonts): Typography {
+    val global = fonts.global
+    val title = fonts.title ?: global
+    if (global == null && title == null) return this
     return Typography(
-        displayLarge = displayLarge.copy(fontFamily = family),
-        displayMedium = displayMedium.copy(fontFamily = family),
-        displaySmall = displaySmall.copy(fontFamily = family),
-        headlineLarge = headlineLarge.copy(fontFamily = family),
-        headlineMedium = headlineMedium.copy(fontFamily = family),
-        headlineSmall = headlineSmall.copy(fontFamily = family),
-        titleLarge = titleLarge.copy(fontFamily = family),
-        titleMedium = titleMedium.copy(fontFamily = family),
-        titleSmall = titleSmall.copy(fontFamily = family),
-        bodyLarge = bodyLarge.copy(fontFamily = family),
-        bodyMedium = bodyMedium.copy(fontFamily = family),
-        bodySmall = bodySmall.copy(fontFamily = family),
-        labelLarge = labelLarge.copy(fontFamily = family),
-        labelMedium = labelMedium.copy(fontFamily = family),
-        labelSmall = labelSmall.copy(fontFamily = family)
+        displayLarge = title?.let { displayLarge.copy(fontFamily = it) } ?: displayLarge,
+        displayMedium = title?.let { displayMedium.copy(fontFamily = it) } ?: displayMedium,
+        displaySmall = title?.let { displaySmall.copy(fontFamily = it) } ?: displaySmall,
+        headlineLarge = title?.let { headlineLarge.copy(fontFamily = it) } ?: headlineLarge,
+        headlineMedium = title?.let { headlineMedium.copy(fontFamily = it) } ?: headlineMedium,
+        headlineSmall = title?.let { headlineSmall.copy(fontFamily = it) } ?: headlineSmall,
+        titleLarge = title?.let { titleLarge.copy(fontFamily = it) } ?: titleLarge,
+        titleMedium = title?.let { titleMedium.copy(fontFamily = it) } ?: titleMedium,
+        titleSmall = title?.let { titleSmall.copy(fontFamily = it) } ?: titleSmall,
+        bodyLarge = global?.let { bodyLarge.copy(fontFamily = it) } ?: bodyLarge,
+        bodyMedium = global?.let { bodyMedium.copy(fontFamily = it) } ?: bodyMedium,
+        bodySmall = global?.let { bodySmall.copy(fontFamily = it) } ?: bodySmall,
+        labelLarge = global?.let { labelLarge.copy(fontFamily = it) } ?: labelLarge,
+        labelMedium = global?.let { labelMedium.copy(fontFamily = it) } ?: labelMedium,
+        labelSmall = global?.let { labelSmall.copy(fontFamily = it) } ?: labelSmall
     )
 }

@@ -75,6 +75,7 @@ import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.ui.font.LocalMelodiaFonts
 import com.lin0721.linmusic.core.plugin.HostAction
 import com.lin0721.linmusic.core.plugin.LYRICS_SETTINGS
 import com.lin0721.linmusic.core.plugin.LayoutAction
@@ -553,6 +554,7 @@ private fun LyricsRow(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
         horizontalAlignment = alignment.horizontal
     ) {
+        val lyricFont = LocalMelodiaFonts.current.lyrics
         if (active && line.words.isNotEmpty()) {
             KaraokeText(
                 line = line,
@@ -572,6 +574,7 @@ private fun LyricsRow(
                 fontSize = fontSize,
                 lineHeight = fontSize * 1.3f,
                 fontWeight = FontWeight.ExtraBold,
+                fontFamily = lyricFont,
                 textAlign = alignment.textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -582,6 +585,7 @@ private fun LyricsRow(
                 color = color.copy(alpha = color.alpha * 0.8f),
                 fontSize = settings.secondaryFontSize,
                 lineHeight = settings.secondaryFontSize * 1.35f,
+                fontFamily = lyricFont,
                 textAlign = alignment.textAlign,
                 modifier = Modifier.fillMaxWidth().padding(top = settings.secondarySpacing.dp)
             )
@@ -607,6 +611,7 @@ private fun BackgroundVocal(
     val activeColor = LocalImmersiveColors.current.content.copy(alpha = 0.82f)
     val fontSize = settings.backgroundFontSize
     Column(Modifier.fillMaxWidth(0.9f).padding(top = 8.dp), horizontalAlignment = alignment.horizontal) {
+        val lyricFont = LocalMelodiaFonts.current.lyrics
         if (active && line.words.isNotEmpty()) {
             KaraokeText(
                 line = line,
@@ -627,6 +632,7 @@ private fun BackgroundVocal(
                 fontSize = fontSize,
                 lineHeight = fontSize * 1.4f,
                 fontWeight = FontWeight.Bold,
+                fontFamily = lyricFont,
                 textAlign = alignment.textAlign,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -639,6 +645,7 @@ private fun BackgroundVocal(
                 text = it,
                 color = tint,
                 fontSize = secondarySize,
+                fontFamily = lyricFont,
                 textAlign = alignment.textAlign,
                 modifier = Modifier.fillMaxWidth().padding(top = spacing)
             )

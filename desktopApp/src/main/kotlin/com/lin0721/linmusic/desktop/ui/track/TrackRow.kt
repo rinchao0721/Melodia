@@ -96,6 +96,7 @@ import com.lin0721.linmusic.desktop.ui.components.detectLongPressReorder
 import com.lin0721.linmusic.desktop.ui.shell.DesktopAppState
 import com.lin0721.linmusic.desktop.ui.shell.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.numericTextStyle
 import com.lin0721.linmusic.desktop.ui.components.songLink
 import com.lin0721.linmusic.core.ui.icons.MelodiaIcons
 import com.lin0721.linmusic.core.ui.icons.AddCircle
@@ -396,6 +397,7 @@ fun TrackRow(
                 color = DesktopColors.TextGray,
                 fontSize = 13.sp,
                 textAlign = TextAlign.End,
+                style = numericTextStyle(),
                 modifier = Modifier.width(48.dp)
             )
             if (!hasMenu) trailingAction?.invoke()
