@@ -77,4 +77,22 @@ class KugouTrackParsingTest {
         assertEquals("发如雪", item.name)
         assertEquals("https://imge.kugou.com/stdmusic/400/c.jpg", item.coverUrl)
     }
+
+    @Test
+    fun `云盘上传歌曲的歌名去掉音频扩展名`() {
+        parseBoth("""{"hash":"ABC","songname":"magnolia.mp3","author_name":"keshi"}""").forEach {
+            assertEquals("magnolia", it.name)
+        }
+        parseBoth("""{"hash":"ABC","songname":"","author_name":"","filename":"keshi - magnolia.FLAC"}""").forEach {
+            assertEquals("magnolia", it.name)
+            assertEquals(listOf("keshi"), it.artists.map { artist -> artist.name })
+        }
+    }
+
+    @Test
+    fun `歌名中非音频后缀的点号保留`() {
+        parseBoth("""{"hash":"ABC","songname":"Vol.2","author_name":"keshi"}""").forEach {
+            assertEquals("Vol.2", it.name)
+        }
+    }
 }

@@ -97,7 +97,7 @@ internal fun normalizeKugouDurationMs(raw: Long): Long =
 
 // 歌名为空时回退 filename；"歌手 - 歌名" 形式拆出歌手，已有歌手时只去掉重复的歌手前缀
 internal fun resolveKugouTitleAndSinger(title: String, singer: String, filename: String): Pair<String, String> {
-    val text = title.ifBlank { filename }
+    val text = stripKugouAudioExtension(title.ifBlank { filename })
     if (singer.isBlank()) {
         if (!text.contains(" - ")) return text to ""
         return text.substringAfter(" - ").trim() to text.substringBefore(" - ").trim()
@@ -109,6 +109,18 @@ internal fun resolveKugouTitleAndSinger(title: String, singer: String, filename:
         text
     }
     return name to singer
+}
+
+private val KUGOU_AUDIO_EXTENSIONS = setOf(
+    "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "ape", "wma", "wv", "aif", "aiff", "dsf", "dff"
+)
+
+// 云盘上传的歌曲歌名直接取文件名，带着扩展名下发
+internal fun stripKugouAudioExtension(raw: String): String {
+    val text = raw.trim()
+    val dot = text.lastIndexOf('.')
+    if (dot <= 0) return text
+    return if (text.substring(dot + 1).lowercase() in KUGOU_AUDIO_EXTENSIONS) text.substring(0, dot).trim() else text
 }
 
 internal fun stripKugouEmTags(raw: String): String =

@@ -227,7 +227,7 @@ class KugouCloudService(
             val hash = obj.firstNonBlank("hash", "filehash", "file_hash", "Hash").lowercase()
             if (hash.isBlank()) return@mapNotNull null
             val kvId = obj.firstPositiveLong("kv_id", "kvid", "fileid", "file_id", "id")
-            val rawName = stripKugouEmTags(obj.firstNonBlank("name", "filename", "file_name", "songname", "audio_name"))
+            val rawName = stripKugouAudioExtension(stripKugouEmTags(obj.firstNonBlank("name", "filename", "file_name", "songname", "audio_name")))
             val rawSinger = stripKugouEmTags(obj.firstNonBlank("author_name", "singername", "singer", "artist"))
             val (songName, singerName) = if (rawSinger.isBlank() && rawName.contains(" - ")) {
                 val parts = rawName.split(" - ", limit = 2)
